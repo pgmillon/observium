@@ -1,0 +1,1090 @@
+--
+--
+-- ACMEPACKET-ENVMON-MIB: Acme Packet Environmental Monitor MIB file
+--
+-- February 2004
+--
+-- Copyright (c) by Acme Packet, Inc.
+----------------------------------------------------------------------
+ACMEPACKET-ENVMON-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+        MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE,
+        Gauge32, Integer32
+                FROM SNMPv2-SMI
+        TEXTUAL-CONVENTION, DisplayString, TruthValue
+                FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP, NOTIFICATION-GROUP
+                FROM SNMPv2-CONF
+        acmepacketMgmt
+                FROM ACMEPACKET-SMI
+        ApHardwareModuleFamily, ApRedundancyState, ApPhyPortType,
+	ApPresence
+                FROM ACMEPACKET-TC;
+
+apEnvMonModule MODULE-IDENTITY
+        LAST-UPDATED    "201207160000Z"
+        ORGANIZATION    "Acme Packet, Inc"
+        CONTACT-INFO   
+			  "       Customer Service
+                        Postal: Acme Packet, Inc
+                                100 Crosby Drive
+                                Bedford, MA 01730
+                                US
+                        Tel:    1-781-328-4400
+                        E-mail: support@acmepacket.com"
+              
+        DESCRIPTION
+                "The MIB module to describe the status of the Environmental
+                Monitor on the devices."
+        REVISION "201207160000Z" 
+        DESCRIPTION
+                "Updated contact information."
+        ::= {acmepacketMgmt 3}
+
+ApEnvMonState ::= TEXTUAL-CONVENTION
+        STATUS          current
+        DESCRIPTION
+               "Represents the state of a device being monitored.
+                 Valid values are:
+                
+                initial (1):    the environment is at initial state.
+
+                normal (2) :    the environment is good, such as low
+                                temperature.
+
+                minor  (3) :    the environment is not good, such as:
+                                fan speed is more than minor alarm threshold,
+				but less than major alarm threshold.
+
+                major  (4) :    the environment is bad, such as:
+                                fan speed is more than major alarm threshold, 
+				but less than critical alarm threshold.
+
+                critical(5):    the environment is very bad, such as
+                                Fan speed is more than critical threshold.
+
+                shutdown(6):    the environment is the worst, the system
+                                should be shutdown immediately.
+
+                notPresent(7):  the environmental monitor is not present,
+                                such as temperature sensors do not exist.
+
+                notFunctioning(8): the environmental monitor does not
+                                   function properly, such as
+                                   1. I2C fail
+                                   2. a temperature sensor generates a abnormal
+                                      data like 1000 C.
+		unknown(9) :    can not get the information due to
+				internal error.
+                "
+        SYNTAX INTEGER {
+			initial(1),
+                        normal(2),
+                        minor(3),
+                        major(4),
+                        critical(5),
+                        shutdown(6),
+                        notPresent(7),
+                        notFunctioning(8),
+			unknown(9)
+                        }
+
+apEnvMonObjects OBJECT IDENTIFIER ::= {apEnvMonModule 1}
+ 
+apEnvMonI2CState OBJECT-TYPE
+        SYNTAX          ApEnvMonState
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                "the state of environment monitor located in the chassis."
+        ::= {apEnvMonObjects 1}
+
+
+-- Voltage table
+apEnvMonVoltageObjects OBJECT IDENTIFIER ::= { apEnvMonObjects 2 }
+
+apEnvMonVoltageStatusTable OBJECT-TYPE
+        SYNTAX     SEQUENCE OF ApEnvMonVoltageStatusEntry
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+                "The table of voltage status maintained by the environmental
+                monitor."
+        ::= { apEnvMonVoltageObjects 1 }
+
+apEnvMonVoltageStatusEntry OBJECT-TYPE
+        SYNTAX     ApEnvMonVoltageStatusEntry
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+                "An entry in the voltage status table, representing the status
+                of the associated testpoint maintained by the environmental
+                monitor."
+        INDEX      { apEnvMonVoltageStatusIndex }
+        ::= { apEnvMonVoltageStatusTable 1 }
+
+ApEnvMonVoltageStatusEntry ::=
+        SEQUENCE {
+                apEnvMonVoltageStatusIndex       Integer32 (1..2147483647),
+                apEnvMonVoltageStatusType        INTEGER,
+                apEnvMonVoltageStatusDescr       DisplayString,
+                apEnvMonVoltageStatusValue       Integer32,
+                apEnvMonVoltageState             ApEnvMonState,
+                apEnvMonVoltageSlotID            INTEGER,
+                apEnvMonVoltageSlotType          ApHardwareModuleFamily
+        }
+
+apEnvMonVoltageStatusIndex OBJECT-TYPE
+        SYNTAX     Integer32 (1..2147483647)
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+                "Unique index for the testpoint being instrumented.
+                This index is for SNMP purposes only, and has no
+                intrinsic meaning."
+        ::= { apEnvMonVoltageStatusEntry 1 }
+
+apEnvMonVoltageStatusType OBJECT-TYPE
+        SYNTAX     INTEGER {
+	                unknown(0),
+
+                        v2p5 (1),
+                        v3p3 (2),
+                        v5   (3),
+                        cpu  (4),
+
+			v1(5),
+			v1p1(6),
+			v1p15(7),
+			v1p2(8),
+			v1p212(9),
+			v1p25(10),
+			v1p3(11),
+			v1p5(12),
+			v1p8(13),
+
+			v2p6(14),
+                        v3p3aux(15)
+                   }
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+                "The entity part type from which the voltage value is from
+		v2p5- 2.5V sensor: L3 cache core voltage; micro-processor and 
+		co-processoor I/O voltage; FPGA memories I/O voltage.
+		v3p3 - 3.3V sensor: general TTL supply rail; control logic;
+		micro-processor;  micro-processor and co-processor; SDRAM
+		v5   - 5V sensor: Fans; micro-processor core voltage regulator.
+		CPU  - CPU voltage micro-processor core voltage."
+        ::= { apEnvMonVoltageStatusEntry 2 }
+
+apEnvMonVoltageStatusDescr OBJECT-TYPE
+        SYNTAX     DisplayString (SIZE (0..64))
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+                "Textual description of the voltage being instrumented.
+                This description is a short textual label, suitable as a
+                human-sensible identification for the rest of the
+                information in the entry."
+        ::= { apEnvMonVoltageStatusEntry 3 }
+
+apEnvMonVoltageStatusValue OBJECT-TYPE
+        SYNTAX     Integer32
+        UNITS      "millivolts"
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+                "The current measurement of voltage if avaiable.
+		The value is expressed as the 
+		integer in millivolts unit."
+        ::= { apEnvMonVoltageStatusEntry 4 }
+
+
+apEnvMonVoltageState OBJECT-TYPE
+        SYNTAX     ApEnvMonState
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+                "The current state of the testpoint being instrumented."
+        ::= { apEnvMonVoltageStatusEntry 5 }
+
+
+apEnvMonVoltageSlotID OBJECT-TYPE
+        SYNTAX     INTEGER
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+                "The slot this voltage is found on."
+        ::= { apEnvMonVoltageStatusEntry 6 }
+
+
+apEnvMonVoltageSlotType OBJECT-TYPE
+        SYNTAX     ApHardwareModuleFamily
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+                "The type of module found in this slot."
+        ::= { apEnvMonVoltageStatusEntry 7 }
+
+
+-- Temperature Table
+apEnvMonTemperatureObjects OBJECT IDENTIFIER ::= { apEnvMonObjects 3 }
+
+apEnvMonTemperatureStatusTable OBJECT-TYPE
+        SYNTAX     SEQUENCE OF ApEnvMonTemperatureStatusEntry
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+                "The table of ambient temperature status maintained by the
+                environmental monitor."
+        ::= { apEnvMonTemperatureObjects 1 }
+
+apEnvMonTemperatureStatusEntry OBJECT-TYPE
+        SYNTAX     ApEnvMonTemperatureStatusEntry
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+                "An entry in the ambient temperature status table, representing
+                the status of the associated testpoint maintained by the
+                environmental monitor."
+        INDEX      { apEnvMonTemperatureStatusIndex }
+        ::= { apEnvMonTemperatureStatusTable 1 }
+
+ApEnvMonTemperatureStatusEntry ::=
+        SEQUENCE {
+                apEnvMonTemperatureStatusIndex       Integer32 (1..2147483647),
+                apEnvMonTemperatureStatusType        INTEGER,
+                apEnvMonTemperatureStatusDescr       DisplayString,
+                apEnvMonTemperatureStatusValue       Integer32,                
+                apEnvMonTemperatureState             ApEnvMonState,
+                apEnvMonTemperatureSlotID            INTEGER,
+                apEnvMonTemperatureSlotType          ApHardwareModuleFamily
+        }
+
+
+apEnvMonTemperatureStatusIndex OBJECT-TYPE
+        SYNTAX     Integer32 (1..2147483647)
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+                "Unique index for the testpoint being instrumented.
+                This index is for SNMP purposes only, and has no
+                intrinsic meaning."
+        ::= { apEnvMonTemperatureStatusEntry 1 }
+
+
+apEnvMonTemperatureStatusType OBJECT-TYPE
+        SYNTAX     INTEGER {
+                        ds1624sMain(1),
+			ds1624sCPU(2),
+			lm84(3),
+			lm75(4),
+			lm75Main(5),
+			lm75Cpu(6),
+			lm75Phy(7)
+                   }
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+                "The entity part type from which the temperature value is from"
+        ::= { apEnvMonTemperatureStatusEntry 2 }
+
+apEnvMonTemperatureStatusDescr OBJECT-TYPE
+        SYNTAX     DisplayString (SIZE (0..64))
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+                "Textual description of the temperature being instrumented.
+                This description is a short textual label, suitable as a
+                human-sensible identification for the rest of the
+                information in the entry."
+        ::= { apEnvMonTemperatureStatusEntry 3 }
+
+apEnvMonTemperatureStatusValue OBJECT-TYPE
+        SYNTAX     Integer32
+        UNITS      "degrees Celsius"
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+                "The current measurement of the testpoint being instrumented."
+        ::= { apEnvMonTemperatureStatusEntry 4 }
+
+apEnvMonTemperatureState OBJECT-TYPE
+        SYNTAX     ApEnvMonState
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+                "The current state of the testpoint being instrumented."
+        ::= { apEnvMonTemperatureStatusEntry 5 }
+
+apEnvMonTemperatureSlotID OBJECT-TYPE
+        SYNTAX     INTEGER
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+                "The slot this temperature is found on."
+        ::= { apEnvMonTemperatureStatusEntry 6 }
+
+
+apEnvMonTemperatureSlotType OBJECT-TYPE
+        SYNTAX     ApHardwareModuleFamily
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+                "The type of module found in this slot."
+        ::= { apEnvMonTemperatureStatusEntry 7 }
+
+
+ -- Fan table
+apEnvMonFanObjects OBJECT IDENTIFIER ::= { apEnvMonObjects 4 }
+
+apEnvMonFanStatusTable OBJECT-TYPE
+        SYNTAX     SEQUENCE OF ApEnvMonFanStatusEntry
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+                "The table of fan status maintained by the environmental
+                monitor."
+        ::= { apEnvMonFanObjects 1 }
+
+apEnvMonFanStatusEntry OBJECT-TYPE
+        SYNTAX     ApEnvMonFanStatusEntry
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+                "An entry in the fan status table, representing the status of
+                the associated fan maintained by the environmental monitor."
+        INDEX   { apEnvMonFanStatusIndex }
+        ::= { apEnvMonFanStatusTable 1 }
+
+ApEnvMonFanStatusEntry ::=
+        SEQUENCE {
+                apEnvMonFanStatusIndex       Integer32 (1..2147483647),
+		apEnvMonFanStatusType        INTEGER,
+                apEnvMonFanStatusDescr       DisplayString,
+                apEnvMonFanStatusValue       Gauge32,
+                apEnvMonFanState             ApEnvMonState,
+                apEnvMonFanSlotID            INTEGER
+        }
+
+apEnvMonFanStatusIndex OBJECT-TYPE
+        SYNTAX     Integer32 (1..2147483647)
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+                "Unique index for the fan being instrumented.
+                This index is for SNMP purposes only."
+        ::= { apEnvMonFanStatusEntry 1 }
+
+apEnvMonFanStatusType OBJECT-TYPE
+        SYNTAX     INTEGER {
+                        left   (0),
+                        middle (1),
+                        right  (2),
+			slot   (3)
+                   }
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+                "The entity part type from which the fan value is from.
+		The left and right at the base when one faces the front
+		of the SD.
+
+		Next-generation products contain replaceable fans contained
+		in chassis slots."
+        ::= { apEnvMonFanStatusEntry 2 }
+
+apEnvMonFanStatusDescr OBJECT-TYPE
+        SYNTAX     DisplayString (SIZE (0..64))
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+                "Textual description of the fan being instrumented.
+                This description is a short textual label, suitable as a
+                human-sensible identification for the rest of the
+                information in the entry."
+        ::= { apEnvMonFanStatusEntry 3 }
+
+apEnvMonFanStatusValue OBJECT-TYPE
+        SYNTAX     Gauge32
+        UNITS      "%"
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+                "The current percentage measurement of the fan speed."
+        ::= { apEnvMonFanStatusEntry 4 }
+
+apEnvMonFanState OBJECT-TYPE
+        SYNTAX     ApEnvMonState
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+                "The current state of the fan being instrumented."
+        ::= { apEnvMonFanStatusEntry 5 }
+
+apEnvMonFanSlotID OBJECT-TYPE
+        SYNTAX     INTEGER
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+                "The slot this van is found in.  zero is returned if
+		this fan is not of apEnvMonFanStatusType slot(3)."
+        ::= { apEnvMonFanStatusEntry 6 }
+
+
+-- Power supply table
+-- Now no power info can be got, except the power is presented or not
+apEnvMonPowerSupplyObjects OBJECT IDENTIFIER ::= { apEnvMonObjects 5 }
+
+apEnvMonPowerSupplyStatusTable OBJECT-TYPE
+        SYNTAX     SEQUENCE OF ApEnvMonPowerSupplyStatusEntry
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+                "The table of power supply status maintained by the
+                environmental monitor card."
+        ::= { apEnvMonPowerSupplyObjects 1  }
+
+apEnvMonPowerSupplyStatusEntry OBJECT-TYPE
+        SYNTAX     ApEnvMonPowerSupplyStatusEntry
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+                "An entry in the power supply status table, representing the
+                status of the associated power supply maintained by the
+                environmental monitor card."
+        INDEX   { apEnvMonPowerSupplyStatusIndex }
+        ::= { apEnvMonPowerSupplyStatusTable 1  }
+
+ApEnvMonPowerSupplyStatusEntry ::=
+        SEQUENCE {
+                apEnvMonPowerSupplyStatusIndex    Integer32 (1..2147483647),
+		apEnvMonPowerSupplyStatusType     INTEGER,
+                apEnvMonPowerSupplyStatusDescr    DisplayString,
+                apEnvMonPowerSupplyState          ApEnvMonState
+        }
+
+apEnvMonPowerSupplyStatusIndex OBJECT-TYPE
+        SYNTAX     Integer32 (1..2147483647)
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+                "Unique index for the power supply being instrumented.
+                This index is for SNMP purposes only."
+        ::= { apEnvMonPowerSupplyStatusEntry 1 }
+
+apEnvMonPowerSupplyStatusType OBJECT-TYPE
+        SYNTAX     INTEGER {
+                        left  (0),
+                        right (1),
+			slot  (3)   -- slot enum is 3 to make all slot
+				    -- enums align
+                   }
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+                "The entity part type from which the power status is from. 
+		0=left:power supply A, 1=right:power supply B.
+		3=slot: power supply is contained in the slot corresponding
+		to apEnvMonPowerSowerSupplyStatusIndex"
+        ::= { apEnvMonPowerSupplyStatusEntry 2 }
+
+apEnvMonPowerSupplyStatusDescr OBJECT-TYPE
+        SYNTAX     DisplayString (SIZE (0..64))
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+                "Textual description of the power supply being instrumented.
+                This description is a short textual label, suitable as a
+                human-sensible identification for the rest of the
+                information in the entry."
+        ::= { apEnvMonPowerSupplyStatusEntry 3 }
+
+apEnvMonPowerSupplyState OBJECT-TYPE
+        SYNTAX     ApEnvMonState
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+                "The current state of the power supply being instrumented:
+                     normal or notPresent"
+        ::= { apEnvMonPowerSupplyStatusEntry 4 }
+
+
+-- Phy table 
+apEnvMonPhyCardObjects OBJECT IDENTIFIER ::= { apEnvMonObjects 6 }
+
+apEnvMonPhyCardStatusTable OBJECT-TYPE
+        SYNTAX     SEQUENCE OF ApEnvMonPhyCardStatusEntry
+        MAX-ACCESS not-accessible
+        STATUS     deprecated
+        DESCRIPTION
+               "THIS TABLE IS BEING DEPRECATED IN FAVOR OF THE
+		MORE GENERIC apEnvMonCardTable.
+
+		Please Note:  in the generic card table, a phy card
+		is referred to as an 'niu' (network interfacing unit).
+
+                The table of phy card status maintained by the
+                environmental monitor."
+        ::= { apEnvMonPhyCardObjects 1 }
+
+apEnvMonPhyCardStatusEntry OBJECT-TYPE
+        SYNTAX     ApEnvMonPhyCardStatusEntry
+        MAX-ACCESS not-accessible
+        STATUS     deprecated
+        DESCRIPTION
+	       "An entry in the phy status table, representing the
+                status of the associated phy maintained by the
+                environmental monitor."
+        INDEX   { apEnvMonPhyCardStatusIndex }
+        ::= { apEnvMonPhyCardStatusTable 1  }
+
+ApEnvMonPhyCardStatusEntry ::=
+        SEQUENCE {
+                apEnvMonPhyCardStatusIndex    Integer32 (1..2147483647),
+	 	apEnvMonPhyCardStatusType     INTEGER,
+                apEnvMonPhyCardStatusDescr    DisplayString,
+                apEnvMonPhyCardState          ApEnvMonState
+        }
+
+apEnvMonPhyCardStatusIndex OBJECT-TYPE
+        SYNTAX     Integer32 (1..2147483647)
+        MAX-ACCESS not-accessible
+        STATUS     deprecated
+        DESCRIPTION
+                "Unique index for the phy being instrumented.
+                This index is for SNMP purposes only."
+        ::= { apEnvMonPhyCardStatusEntry 1 }
+
+apEnvMonPhyCardStatusType OBJECT-TYPE
+        SYNTAX     INTEGER {
+                        left  (0),
+                        right (1),
+			slot  (3)   -- slot enum is 3 to make
+			            -- all slot enums align
+			}
+        MAX-ACCESS read-only
+        STATUS     deprecated
+        DESCRIPTION
+                "The entity part type from which the phy card is from. 
+                0=left:card A, 1=right:card B, 3=only card.
+		3=slot: phyCard is contained in the slot corresponding
+		to apEnvMonPhyCardStatusIndex"
+        ::= { apEnvMonPhyCardStatusEntry 2 }
+
+apEnvMonPhyCardStatusDescr OBJECT-TYPE
+        SYNTAX     DisplayString (SIZE (0..32))
+        MAX-ACCESS read-only
+        STATUS     deprecated
+        DESCRIPTION
+                "Textual description of the phy being instrumented.
+                This description is a short textual label, suitable as a
+                human-sensible identification for the rest of the
+                information in the entry."
+        ::= { apEnvMonPhyCardStatusEntry 3 }
+
+apEnvMonPhyCardState OBJECT-TYPE
+        SYNTAX     ApEnvMonState
+        MAX-ACCESS read-only
+        STATUS     deprecated
+        DESCRIPTION
+                "The current state of the phy being instrumented:
+		     normal or notPresent"
+        ::= { apEnvMonPhyCardStatusEntry 4 }
+
+
+apEnvMonCardObjects OBJECT IDENTIFIER ::= { apEnvMonObjects 7 }
+
+---------------------------------------
+-- Card Table
+---------------------------------------
+apEnvMonCardTable	OBJECT-TYPE
+	SYNTAX      SEQUENCE OF ApEnvMonCardEntry
+	MAX-ACCESS  not-accessible
+	STATUS      current
+	DESCRIPTION  
+		"List of Cards in the chassis"
+	::= { apEnvMonCardObjects 1 } 
+
+apEnvMonCardEntry	OBJECT-TYPE
+	SYNTAX      ApEnvMonCardEntry
+	MAX-ACCESS  not-accessible
+	STATUS      current
+	DESCRIPTION  
+		"A single card in the chassis"
+	INDEX	{ apEnvMonCardSlot }
+	::= { apEnvMonCardTable 1 } 
+
+ApEnvMonCardEntry	::=
+	SEQUENCE {
+		apEnvMonCardSlot		INTEGER,
+		apEnvMonCardType		ApHardwareModuleFamily,
+		apEnvMonCardDescr		DisplayString,
+		apEnvMonCardHealthScore		INTEGER,
+		apEnvMonCardState		ApEnvMonState,
+		apEnvMonCardRedundancy		ApRedundancyState
+	}
+
+
+apEnvMonCardSlot	OBJECT-TYPE
+	SYNTAX      INTEGER
+	MAX-ACCESS  read-only
+	STATUS      current
+	DESCRIPTION  
+		"Slot number of this card.  Please note that the
+		 slot number is zero-based, i.e. they are numbered 0-n."
+	::= { apEnvMonCardEntry 1 } 
+
+apEnvMonCardType	OBJECT-TYPE
+	SYNTAX      ApHardwareModuleFamily
+	MAX-ACCESS  read-only
+	STATUS      current
+	DESCRIPTION  
+		"The card type"
+	::= { apEnvMonCardEntry 2 } 
+
+apEnvMonCardDescr	OBJECT-TYPE
+	SYNTAX      DisplayString
+	MAX-ACCESS  read-only
+	STATUS      current
+	DESCRIPTION  
+		"A text description of this card"
+	::= { apEnvMonCardEntry 3 } 
+
+apEnvMonCardHealthScore	OBJECT-TYPE
+	SYNTAX      INTEGER
+	MAX-ACCESS  read-only
+	STATUS      current
+	DESCRIPTION  
+		"The health score of this card"
+	::= { apEnvMonCardEntry 4 } 
+
+apEnvMonCardState	OBJECT-TYPE
+	SYNTAX      ApEnvMonState
+	MAX-ACCESS  read-only
+	STATUS      current
+	DESCRIPTION  
+		"the current state of this card"
+	::= { apEnvMonCardEntry 5 } 
+
+apEnvMonCardRedundancy         OBJECT-TYPE
+        SYNTAX      ApRedundancyState
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+               "Redundancy state of the card"
+        ::= { apEnvMonCardEntry 6 }
+
+
+---------------------------------------
+-- CPU Core Table
+---------------------------------------
+apEnvMonCpuCoreTable	OBJECT-TYPE
+	SYNTAX      SEQUENCE OF ApEnvMonCpuCoreEntry
+	MAX-ACCESS  not-accessible
+	STATUS      current
+	DESCRIPTION  
+		"List of cores per CPU in the chassis"
+	::= { apEnvMonCardObjects 2 } 
+
+apEnvMonCpuCoreEntry	OBJECT-TYPE
+	SYNTAX      ApEnvMonCpuCoreEntry
+	MAX-ACCESS  not-accessible
+	STATUS      current
+	DESCRIPTION  
+		"A single CPU core in the chassis"
+	INDEX	{ apEnvMonCardSlot,
+		  apEnvMonCpuCoreIndex
+	        }
+	::= { apEnvMonCpuCoreTable 1 } 
+
+ApEnvMonCpuCoreEntry	::=
+	SEQUENCE {
+		apEnvMonCpuCoreIndex	INTEGER,
+		apEnvMonCpuCoreDescr	DisplayString,
+		apEnvMonCpuCoreUsage    Gauge32,
+		apEnvMonCpuCoreState	INTEGER,
+		apEnvMonCpuCoreRamDescr	DisplayString,
+		apEnvMonCpuCoreRamUsage Gauge32
+	}
+
+apEnvMonCpuCoreIndex	OBJECT-TYPE
+	SYNTAX      INTEGER
+	MAX-ACCESS  read-only
+	STATUS      current
+	DESCRIPTION  
+		"the core index on the CPU"
+	::= { apEnvMonCpuCoreEntry 1 } 
+
+apEnvMonCpuCoreDescr	OBJECT-TYPE
+	SYNTAX      DisplayString
+	MAX-ACCESS  read-only
+	STATUS      current
+	DESCRIPTION  
+		"the cpu core descriptor"
+	::= { apEnvMonCpuCoreEntry 2 } 
+
+apEnvMonCpuCoreUsage OBJECT-TYPE
+        SYNTAX     Gauge32
+        UNITS      "%"
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+                "The current percentage of use for the CPU core."
+        ::= { apEnvMonCpuCoreEntry 3 }
+
+apEnvMonCpuCoreState OBJECT-TYPE
+        SYNTAX     INTEGER {
+	              unknown(0),
+		      present(1),                
+		      booting(2),
+		      registered(3),
+		      readywait(4),
+		      ready(5),
+		      bootTimeout(6),
+		      registerTimeout(7),
+		      manifestTimeout(8),
+		      readyTimeout(9),
+			  healthWait(101),
+			  healthRcvd(102),
+			  becomingActive(201),
+			  becomingStandby(202),
+			  becomingOOS(203),
+			  active(204),
+			  standby(205),
+			  oos(206),
+			  activeTimeout(207),
+			  standbyTimeout(208),
+			  oosTimeout(209),
+			  resetting(401),
+			  reset(402),
+			  resetTimeout(403),
+			  shuttingDown(404),
+			  shutOff(405),
+			  shutdownTimeout(406)
+		   }
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+                "The state of this CPU core."
+        ::= { apEnvMonCpuCoreEntry 4 }
+
+
+apEnvMonCpuCoreRamDescr	OBJECT-TYPE
+	SYNTAX      DisplayString
+	MAX-ACCESS  read-only
+	STATUS      current
+	DESCRIPTION  
+		"The cpu core RAM descriptor"
+	::= { apEnvMonCpuCoreEntry 5 } 
+
+apEnvMonCpuCoreRamUsage OBJECT-TYPE
+        SYNTAX     Gauge32
+        UNITS      "%"
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+                "The current percentage of use for the CPU core RAM."
+        ::= { apEnvMonCpuCoreEntry 6 }
+
+apEnvMonMIBNotificationEnables OBJECT IDENTIFIER ::= { apEnvMonModule 2 }
+
+apEnvMonEnableStatChangeNotif OBJECT-TYPE
+        SYNTAX      TruthValue
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+               "This variable indicates whether the system
+                produces any of the traps generated by this mib.
+                A false value will prevent them from being generated by
+                this system."
+--        DEFVAL { false }
+        ::= { apEnvMonMIBNotificationEnables 1 }
+
+
+
+-- Notification MIBs
+apEnvMonNotificationObjects OBJECT IDENTIFIER ::= { apEnvMonModule 3 }
+
+apEnvMonTrapInstance                 OBJECT-TYPE
+        SYNTAX                  OBJECT IDENTIFIER
+        MAX-ACCESS              accessible-for-notify
+        STATUS                  current
+        DESCRIPTION
+        "The object ID of the item which value is exceeds its monitoring
+        threshold. If the item is within a table, this OID is the instance 
+	of this item's index within its table.
+	For exmple, 
+
+	1. if the state of 2.5v voltage changes, the item is apEnvMonVoltageState.
+	the trap instance OID is apEnvMonVoltageState.1, 
+	where the ending 1 is the instance index of 2.5v entry. 
+	The numeric form is 1.3.6.1.4.1.9148.3.3.1.2.1.1.5.1
+
+	2. if the state of mainboard temperature changes, the trap instance
+	OID is apEnvMonTemperatureState.x, where x is the index
+	which makes apEnvMonTemperatureStatusType.x = lm75Main(5).
+
+	3. if the state of left fan changes, the trap instance OID is 
+	apEnvMonFanState.y, where y is the index which 
+	makes apEnvMonFanStatusType.y = left (0).
+
+	If the item is scalar, the OID is the instance OID of this item,
+	For example,
+
+	If the I2C state changes, the OID is apEnvMonI2CState.0
+	"
+        ::= { apEnvMonNotificationObjects 1 }
+
+apEnvMonTrapPreviousState       OBJECT-TYPE
+        SYNTAX                  ApEnvMonState
+        MAX-ACCESS              accessible-for-notify
+        STATUS                  current
+        DESCRIPTION
+        "The previous state of the object."
+        ::= { apEnvMonNotificationObjects 2 }
+
+apEnvMonTrapCurrentState        OBJECT-TYPE
+        SYNTAX                  ApEnvMonState
+        MAX-ACCESS              accessible-for-notify
+        STATUS                  current
+        DESCRIPTION
+        "The current state of the object which causes the trap to occur."
+        ::= { apEnvMonNotificationObjects 3 }
+
+apEnvMonTrapSlotID        OBJECT-TYPE
+        SYNTAX    	  INTEGER
+        MAX-ACCESS              accessible-for-notify
+        STATUS                  current
+        DESCRIPTION
+        "The slotID which causes the trap to occur."
+        ::= { apEnvMonNotificationObjects 4 }
+
+apEnvMonTrapSlotType        OBJECT-TYPE
+        SYNTAX    	ApHardwareModuleFamily
+        MAX-ACCESS              accessible-for-notify
+        STATUS                  current
+        DESCRIPTION
+        "The slot type which causes the trap to occur."
+        ::= { apEnvMonNotificationObjects 5 }
+
+apEnvMonTrapPortType        OBJECT-TYPE
+        SYNTAX    		ApPhyPortType
+        MAX-ACCESS              accessible-for-notify
+        STATUS                  current
+        DESCRIPTION
+        "The port type which causes the trap to occur."
+        ::= { apEnvMonNotificationObjects 6 }
+
+apEnvMonTrapPresence        OBJECT-TYPE
+        SYNTAX    		ApPresence
+        MAX-ACCESS              accessible-for-notify
+        STATUS                  current
+        DESCRIPTION
+        "The state which causes the trap to occur."
+        ::= { apEnvMonNotificationObjects 7 }
+
+apEnvMonTrapPortID        OBJECT-TYPE
+        SYNTAX    		Integer32
+        MAX-ACCESS              accessible-for-notify
+        STATUS                  current
+        DESCRIPTION
+        "The ID of the port which causes the trap to occur."
+        ::= { apEnvMonNotificationObjects 8 }
+
+
+-- the following two OBJECT IDENTIFIERS are used to define SNMPv2 Notifications
+-- that are backward compatible with SNMPv1 Traps.
+apEnvMonMIBNotificationPrefix OBJECT IDENTIFIER ::= { apEnvMonModule 4 }
+apEnvMonMIBNotifications OBJECT IDENTIFIER ::= { apEnvMonMIBNotificationPrefix 0 }
+
+apEnvMonI2CFailNotification NOTIFICATION-TYPE
+        -- no OBJECTS
+        STATUS  current
+        DESCRIPTION
+                "A notification of I2C state turns from normal(1) to
+                     notFunctioning(7)"
+        ::= { apEnvMonMIBNotifications 1 }
+
+
+apEnvMonStatusChangeNotification NOTIFICATION-TYPE
+        OBJECTS {
+		apEnvMonTrapInstance,
+                apEnvMonTrapPreviousState,
+                apEnvMonTrapCurrentState
+                }
+        STATUS  current
+        DESCRIPTION
+                "A apEnvStatusChangeNotification is sent if any entry of
+                above table change in the state of a device being monitored"
+        ::= { apEnvMonMIBNotifications 2 }
+
+
+apEnvMonTempChangeNotification NOTIFICATION-TYPE
+        OBJECTS {
+		apEnvMonTrapSlotID,
+		apEnvMonTrapSlotType,
+                apEnvMonTrapPreviousState,
+                apEnvMonTrapCurrentState
+                }
+        STATUS  current
+        DESCRIPTION
+                "A notification is sent if any of the units cross a
+		temperature threshold"
+        ::= { apEnvMonMIBNotifications 3 }
+
+apEnvMonVoltageChangeNotification NOTIFICATION-TYPE
+        OBJECTS {
+		apEnvMonTrapSlotID,
+		apEnvMonTrapSlotType,
+                apEnvMonTrapPreviousState,
+                apEnvMonTrapCurrentState
+                }
+        STATUS  current
+        DESCRIPTION
+                "A notification is sent if any of the units cross a
+		voltage threshold"
+        ::= { apEnvMonMIBNotifications 4 }
+
+apEnvMonPortChangeNotification		NOTIFICATION-TYPE
+	OBJECTS		{ apEnvMonTrapPortType,
+			  apEnvMonTrapPresence,
+			  apEnvMonTrapSlotID,
+			  apEnvMonTrapPortID
+			}
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will be generated if a physical port is
+		inserted/present or removed/not present. "
+	::= { apEnvMonMIBNotifications 5 }
+
+-- conformance information
+
+apEnvMonMIBConformance OBJECT IDENTIFIER ::= { apEnvMonModule 5 }
+apEnvMonMIBCompliances OBJECT IDENTIFIER ::= { apEnvMonMIBConformance 1 }
+apEnvMonMIBGroups      OBJECT IDENTIFIER ::= { apEnvMonMIBConformance 2 }
+
+
+-- compliance statements
+
+-- units of conformance
+apEnvMonGroup OBJECT-GROUP
+        OBJECTS {
+                apEnvMonI2CState,
+
+                apEnvMonVoltageStatusType,
+                apEnvMonVoltageStatusDescr,
+                apEnvMonVoltageStatusValue,
+                apEnvMonVoltageState,
+
+                apEnvMonTemperatureStatusType,
+                apEnvMonTemperatureStatusDescr,
+                apEnvMonTemperatureStatusValue,
+                apEnvMonTemperatureState,
+
+		apEnvMonFanStatusType,
+                apEnvMonFanStatusDescr,
+                apEnvMonFanStatusValue,
+                apEnvMonFanState,
+
+		apEnvMonPowerSupplyStatusType,
+                apEnvMonPowerSupplyStatusDescr,
+                apEnvMonPowerSupplyState,
+
+		apEnvMonPhyCardStatusType,
+                apEnvMonPhyCardStatusDescr,
+                apEnvMonPhyCardState,
+
+                apEnvMonEnableStatChangeNotif
+        }
+        STATUS  current
+        DESCRIPTION
+                "A collection of objects providing environmental
+                 monitoring capability to an Acme Packet chassis."
+        ::= { apEnvMonMIBGroups 1 }
+
+apEnvMonNotifyGroup NOTIFICATION-GROUP
+        NOTIFICATIONS {
+                 apEnvMonStatusChangeNotification,
+                 apEnvMonI2CFailNotification
+        }
+        STATUS   current
+        DESCRIPTION
+                 "A collection of notifications providing the status
+                  change for environmental monitoring."
+        ::= { apEnvMonMIBGroups 3 }
+
+apEnvMonExtGroup OBJECT-GROUP
+        OBJECTS {
+	        apEnvMonVoltageSlotID,
+                apEnvMonVoltageSlotType,
+
+		apEnvMonTemperatureSlotID,
+                apEnvMonTemperatureSlotType,
+
+		apEnvMonFanSlotID		
+		}
+        STATUS  current
+        DESCRIPTION
+                "Additional objects providing environmental
+                 monitoring capability to an Acme Packet chassis."
+        ::= { apEnvMonMIBGroups 4 }
+                                                          
+
+apEnvMonCardGroup OBJECT-GROUP
+        OBJECTS {
+	         apEnvMonCardSlot,
+		 apEnvMonCardType,
+		 apEnvMonCardDescr,
+		 apEnvMonCardHealthScore,
+		 apEnvMonCardState,
+		 apEnvMonCardRedundancy,
+
+		 apEnvMonCpuCoreIndex,
+		 apEnvMonCpuCoreDescr,
+		 apEnvMonCpuCoreUsage,
+		 apEnvMonCpuCoreState,
+		 apEnvMonCpuCoreRamDescr,
+		 apEnvMonCpuCoreRamUsage
+		}
+        STATUS  current
+        DESCRIPTION
+                "A collection of objects providing environmental
+                 monitoring capability to card-based Acme Packet products."
+        ::= { apEnvMonMIBGroups 5 }
+
+apEnvMonExtNotifyGroup NOTIFICATION-GROUP
+        NOTIFICATIONS {
+		 apEnvMonTempChangeNotification,
+		 apEnvMonVoltageChangeNotification
+        }
+        STATUS   current
+        DESCRIPTION
+                 "Additional collection of notifications providing the status
+                  change for environmental monitoring."
+        ::= { apEnvMonMIBGroups 6 }
+
+
+apEnvMonPortNotifyGroup NOTIFICATION-GROUP
+        NOTIFICATIONS {
+		 apEnvMonPortChangeNotification
+        }
+        STATUS   current
+        DESCRIPTION
+                 "Notifications to indicate physical port changes."
+        ::= { apEnvMonMIBGroups 7 }
+
+apEnvMonTempNotifyGroup NOTIFICATION-GROUP
+        NOTIFICATIONS {
+		 apEnvMonTempChangeNotification
+       }
+        STATUS   current
+        DESCRIPTION
+                 "Additional collection of notifications providing the status
+                  change for environmental monitoring."
+        ::= { apEnvMonMIBGroups 8 }
+
+
+END

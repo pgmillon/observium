@@ -1,0 +1,2 @@
+ALTER TABLE  `alert_tests` ADD UNIQUE (`alert_name`);
+CREATE TABLE IF NOT EXISTS `users_ckeys` (  `user_ckey_id` int(11) NOT NULL AUTO_INCREMENT,  `user_encpass` varchar(64) COLLATE utf8_unicode_ci NOT NULL,  `expire` int(11) NOT NULL,  `user_id` int(11) NOT NULL,  `user_ip` varchar(32) COLLATE utf8_unicode_ci NOT NULL,  `user_ckey` varchar(32) COLLATE utf8_unicode_ci NOT NULL,  PRIMARY KEY (`user_ckey_id`)) ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci ;

@@ -1,0 +1,5039 @@
+------------------------------------------------------------------------------
+-- ACMEPACKET-SMGM-MIB.txt:  Acme Packet system management MIB file
+--
+-- February 2003
+--
+-- Copyright (c) by Acme Packet, Inc.
+-- All rights reserved.
+--------------------------------------------------------------------------------
+-- This MIB provides a means to gather system management information generated 
+-- by Acme Packet Session Router and Session Director
+-- 
+
+APSYSMGMT-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+	MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE,
+	TimeTicks, Integer32, Unsigned32, Counter32, IpAddress
+					FROM SNMPv2-SMI
+        InetAddress, InetAddressType, InetAddressPrefixLength, InetVersion, InetZoneIndex 
+                                        FROM INET-ADDRESS-MIB
+	TEXTUAL-CONVENTION		FROM SNMPv2-TC
+	DisplayString			FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP, NOTIFICATION-GROUP
+					FROM SNMPv2-CONF
+	acmepacketMgmt			FROM ACMEPACKET-SMI
+	apLicenseDatabaseRegCap         FROM APLICENSE-MIB
+        ApHardwareModuleFamily, ApRedundancyState
+                                        FROM ACMEPACKET-TC
+    InterfaceIndex, ifIndex             FROM IF-MIB;
+     
+apSystemManagementModule	MODULE-IDENTITY
+	       LAST-UPDATED     "201207130000Z"
+   	       ORGANIZATION     "Acme Packet, Inc"
+	       CONTACT-INFO
+			  "       Customer Service
+                        Postal: Acme Packet, Inc
+                                100 Crosby Drive
+                                Bedford, MA 01730
+                                US
+                        Tel:    1-781-328-4400
+                        E-mail: support@acmepacket.com"
+	       DESCRIPTION
+			" The system management MIB for Acme Packet,			
+			now includes statistical data for session agents."
+	       REVISION     "201202061200Z"
+	       DESCRIPTION
+			" Cleaned up Module-Identity statement"
+	       REVISION     "200707111200Z"
+	       DESCRIPTION
+			" Added RFactor, media supervision timer and h248 
+			control association traps"
+	        REVISION     "200501041200Z"
+	       DESCRIPTION
+			" The system management MIB for Acme Packet"
+	       REVISION     "200301061200Z"
+	       DESCRIPTION
+			" Obsoleted two incorrect statistcs fields,
+			abSigRealmStatsAverageLatency and 
+			apSigRealmStatsMaxLatency"
+                REVISION     "201207130000Z"
+                DESCRIPTION  "Updated contact info"
+	       	::= { acmepacketMgmt 2 }
+
+
+apSysMgmtMIBObjects  OBJECT IDENTIFIER  ::= { apSystemManagementModule 1 }
+
+apSysMgmtNotificationObjects OBJECT IDENTIFIER ::= { apSystemManagementModule 2 }	 
+
+
+-- Textual Conventions
+SysMgmtPercentage ::= TEXTUAL-CONVENTION
+--	DISPLAY_HINT "d"
+	STATUS		 current
+	DESCRIPTION
+		"This value is percentage. For example, if the value from 
+		GETs is 15, which means 15%, or 0.15."
+	SYNTAX         Integer32 (0..100)
+
+ApSessionAgentStatusOptions ::= TEXTUAL-CONVENTION
+	STATUS	current
+	DESCRIPTION
+	       	"Possibilities for the status of Session-Agent"
+	SYNTAX	INTEGER {
+			disabled(0),
+			outOfService(1),
+			standby(2),
+			inService(3),
+			constraintsViolation(4),
+                        inServiceTimedOut(5),
+			oosprovisionedresponse(6)
+			}
+
+ApSessionAgentType ::= TEXTUAL-CONVENTION
+	STATUS	current
+	DESCRIPTION
+		"Possible types of the Session-Agent"
+	SYNTAX	INTEGER {
+			sip(1),
+			h323(2)
+			}
+
+ApNetMgmtCtrlType ::= TEXTUAL-CONVENTION
+	STATUS	current
+	DESCRIPTION
+		"Possible types of the Network Management Control"
+	SYNTAX	INTEGER {
+			gap-rate(1),
+			gap-percent(2),
+			priority(3)
+			}
+
+ApSipInterfaceStatusOptions ::= TEXTUAL-CONVENTION
+    STATUS	current
+	DESCRIPTION
+		"Possibilities for the status of Sip-Interface"
+	SYNTAX	INTEGER {
+			inService(3),
+			constraintsViolation(4)
+			}
+
+ApSigRealmStatusOptions ::= TEXTUAL-CONVENTION
+    STATUS	current
+	DESCRIPTION
+		"Possibilities for the status of Realm"
+	SYNTAX	INTEGER {
+			inService(3),
+			constraintsViolation(4),
+			callLoadReduction(7)
+			}
+
+ApNetMgmtCtrlState ::= TEXTUAL-CONVENTION
+        STATUS  current
+        DESCRIPTION
+                "state of the Network Management Control"
+        SYNTAX  INTEGER {
+                        disabled(0),
+                        enabled(1)
+                        }
+
+-- Acme Packet System Management Global Group
+
+apSysMgmtMIBGeneralObjects OBJECT IDENTIFIER ::= {apSysMgmtMIBObjects 1}
+
+apSysCPUUtil		OBJECT-TYPE
+      	SYNTAX          SysMgmtPercentage 
+      	MAX-ACCESS      read-only
+      	STATUS	  	current
+	DESCRIPTION
+            	"The percentage of total CPU utilization measured in 1 second."
+	::= { apSysMgmtMIBGeneralObjects 1 }
+
+apSysMemoryUtil		OBJECT-TYPE
+	SYNTAX         	SysMgmtPercentage 
+      	MAX-ACCESS  	read-only
+      	STATUS         	current
+      	DESCRIPTION
+		"The percentage of Memory utilization"
+	::= { apSysMgmtMIBGeneralObjects 2 }
+
+apSysHealthScore	OBJECT-TYPE
+      	SYNTAX         	SysMgmtPercentage 
+      	MAX-ACCESS     	read-only
+      	STATUS		current
+      	DESCRIPTION
+      		"System health percentage. 100, which understands
+		as 100%, is healthiest."
+	::= { apSysMgmtMIBGeneralObjects 3 }
+
+apSysRedundancy		OBJECT-TYPE
+     	SYNTAX         	ApRedundancyState
+      	MAX-ACCESS  	read-only
+     	STATUS          current
+      	DESCRIPTION
+	    	"In redundancy set, one SD is active, one is standby. 
+		This object reflects the current status of running redundancy engine.
+		It cannot be used to tell whether redundancy is configured."
+	::= { apSysMgmtMIBGeneralObjects 4 }
+
+apSysGlobalConSess	OBJECT-TYPE
+	SYNTAX         	Integer32
+      	UNITS  		"sessions"
+      	MAX-ACCESS    	read-only
+      	STATUS            current
+      	DESCRIPTION
+        	"The total instant number of Global Concurrent Sessions 
+		at the moment."
+	::= { apSysMgmtMIBGeneralObjects 5 }
+
+apSysGlobalCPS		OBJECT-TYPE
+	SYNTAX          Integer32
+      	UNITS	  	"calls"
+      	MAX-ACCESS     	read-only
+      	STATUS            current
+      	DESCRIPTION
+	      "The number of global call per second. This is an instant value."
+	::= { apSysMgmtMIBGeneralObjects 6 }
+
+apSysNATCapacity	OBJECT-TYPE
+      SYNTAX           	SysMgmtPercentage 
+      MAX-ACCESS    	read-only
+      STATUS            current
+      DESCRIPTION
+            "The percentage of NAT table (in CAM) utilization."
+	::= { apSysMgmtMIBGeneralObjects 7 }
+
+apSysARPCapacity	OBJECT-TYPE
+	SYNTAX	    	SysMgmtPercentage 
+	MAX-ACCESS   	read-only
+	STATUS          current
+	DESCRIPTION
+	      "The percentage of ARP table (in CAM) utilization."
+	::= { apSysMgmtMIBGeneralObjects 8 }
+
+apSysState  OBJECT-TYPE
+	SYNTAX          INTEGER {
+			online(0),             -- system is online
+			becomingoffline(1),    -- system is going offline
+			offline(2)             -- system is offline
+			}
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION
+		"The current system state.  Online denotes regular call
+		processing, while offline implies no call processing
+		but other administrative functions are available."
+	::= { apSysMgmtMIBGeneralObjects 9 }
+
+apSysLicenseCapacity	OBJECT-TYPE
+	SYNTAX	    	SysMgmtPercentage 
+	MAX-ACCESS   	read-only
+	STATUS          current
+	DESCRIPTION
+		"The percentage of licensed sessions currently in progress."
+	::= { apSysMgmtMIBGeneralObjects 10 }
+
+apSysSipStatsActiveLocalContacts    OBJECT-TYPE
+        SYNTAX          Unsigned32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                "Number of current cached registered contacts in the SD."
+        ::= { apSysMgmtMIBGeneralObjects 11 }
+
+apSysMgcpGWEndpoints    OBJECT-TYPE
+        SYNTAX          Unsigned32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                "Number of current registered GW endpoints in the SD."
+        ::= { apSysMgmtMIBGeneralObjects 12 }
+
+apSysH323Registration    OBJECT-TYPE
+        SYNTAX          Unsigned32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                "Number of H323 registrations in the SD."
+        ::= { apSysMgmtMIBGeneralObjects 13 }
+
+apSysRegCacheLimit OBJECT-TYPE
+	SYNTAX         	Integer32
+	UNITS  		"contacts"
+	MAX-ACCESS    	read-only
+	STATUS          current
+	DESCRIPTION
+		"The maximum number of contacts allowed to be accepted into the
+		registration cache.  A value of 0 indicates no limit."
+	::= { apSysMgmtMIBGeneralObjects 14 }
+
+    
+apSysShortSessionThreshold	OBJECT-TYPE
+        SYNTAX          Unsigned32
+      	UNITS	  	"sessions"
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                "The threshold for which a trap will be emitted when the amount
+		of short sessions exceeds this value."
+        ::= { apSysMgmtMIBGeneralObjects 15 }
+
+apSysApplicationCPULoadRate    OBJECT-TYPE
+        SYNTAX          SysMgmtPercentage
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                "The average load rate of the service applications taken over a period, upto 10 seconds."
+        ::= { apSysMgmtMIBGeneralObjects 16 }
+
+apSysRegistrationCapacity	OBJECT-TYPE
+	SYNTAX	    	SysMgmtPercentage 
+	MAX-ACCESS   	read-only
+	STATUS          obsolete 
+	DESCRIPTION
+		"The percentage of licensed registrations currently in use."
+	::= { apSysMgmtMIBGeneralObjects 17 }
+
+apSysRejectedMessages    OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                "Number of messages rejected by the SD due to matching criteria."
+        ::= { apSysMgmtMIBGeneralObjects 18 }
+
+apSysSipEndptDemTrustToUntrust OBJECT-TYPE
+        SYNTAX       Unsigned32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+            "The global counter for SIP endpoint demotion from
+             trusted to untrusted."
+        ::= {apSysMgmtMIBGeneralObjects 19}
+
+apSysSipEndptDemUntrustToDeny OBJECT-TYPE
+        SYNTAX       Unsigned32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+            "The global counter for SIP endpoint demotion from
+             untrusted to deny."
+        ::= {apSysMgmtMIBGeneralObjects 20}
+
+apSysMgcpEndptDemTrustToUntrust OBJECT-TYPE
+        SYNTAX       Unsigned32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+            "The global counter for MGCP endpoint demotion from
+             trusted to untrusted."
+        ::= {apSysMgmtMIBGeneralObjects 21}
+
+apSysMgcpEndptDemUntrustToDeny OBJECT-TYPE
+        SYNTAX       Unsigned32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+            "The global counter for MGCP endpoint demotion from
+             untrusted to deny."
+        ::= {apSysMgmtMIBGeneralObjects 22}
+
+apSysStorageSpaceTable         OBJECT-TYPE
+        SYNTAX          SEQUENCE OF ApSysStorageSpaceEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+                "A table to hold the total space and available space
+                per volume arranged into rows, and indexed by the
+                volume name. These are all read only."
+        ::=  { apSysMgmtMIBGeneralObjects 23 }
+
+apSysSipStatsActiveDatabaseContacts OBJECT-TYPE
+        SYNTAX          Unsigned32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                "Number of current cached database-type contacts in the SD."
+        ::= { apSysMgmtMIBGeneralObjects 24 }
+
+
+apSysSipTotalCallsRejected	OBJECT-TYPE
+	SYNTAX	    	Unsigned32 
+	MAX-ACCESS   	read-only
+	STATUS          current
+	DESCRIPTION
+		"The total number of SIP calls rejected."
+	::= { apSysMgmtMIBGeneralObjects 25 }
+
+apSysCurrentEndptsDenied	OBJECT-TYPE
+	SYNTAX	    	Unsigned32 
+	MAX-ACCESS   	read-only
+	STATUS          current
+	DESCRIPTION
+		"The total number of endpoints currently denied."
+	::= { apSysMgmtMIBGeneralObjects 26 }
+
+apSysSipStatsActiveSubscriptions	OBJECT-TYPE
+        SYNTAX          Unsigned32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                "Number of active subscriptions in the SD."
+        ::= { apSysMgmtMIBGeneralObjects 27 }
+
+apSysSipStatsPerMaxSubscriptions	OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                "Lifetime PerMax subscriptions count."
+        ::= { apSysMgmtMIBGeneralObjects 28 }
+
+apSysSipStatsMaximumActiveSubscriptions OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                "Count of lifetime maximum active subscriptions."
+        ::= { apSysMgmtMIBGeneralObjects 29 }
+
+apSysSipStatsTotalSubscriptions	OBJECT-TYPE
+	SYNTAX 			Counter32
+	MAX-ACCESS		read-only
+	STATUS			current
+	DESCRIPTION
+	    	"Count of lifetime total subscriptions for the SD."
+	::= { apSysMgmtMIBGeneralObjects 30 }
+
+apSysMgmtH248MgcName OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION	
+                "Name of H248 Core side MGC."
+        ::= { apSysMgmtMIBGeneralObjects 31 }
+
+apSysMgmtH248Realm OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                "Realm of H248 Core side MGC."
+        ::= { apSysMgmtMIBGeneralObjects 32 }
+
+apSysMgmtH248PortMapUsage OBJECT-TYPE
+        SYNTAX          Unsigned32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                "Port map usage on this core side MGC."
+        ::= { apSysMgmtMIBGeneralObjects 33 }
+
+apSysXCodeCapacity OBJECT-TYPE
+        SYNTAX          SysMgmtPercentage
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                "The percentage of transcoding utilization"
+        ::= { apSysMgmtMIBGeneralObjects 34 }
+        
+apSysXCodeAMRCapacity OBJECT-TYPE
+        SYNTAX          SysMgmtPercentage
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                "The percentage of licensed AMR transcoding utilization"
+        ::= { apSysMgmtMIBGeneralObjects 35 }
+
+apSysXCodeAMRWBCapacity OBJECT-TYPE
+        SYNTAX          SysMgmtPercentage
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                "The percentage of licensed AMR-WB transcoding utilization"
+        ::= { apSysMgmtMIBGeneralObjects 36 }
+
+apSysETCCoreUtilTable         OBJECT-TYPE
+        SYNTAX          SEQUENCE OF ApSysETCCoreUtilEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+                "A table to hold the total space and available space
+                per volume arranged into rows, and indexed by the
+                volume name. These are all read only."
+        ::=  { apSysMgmtMIBGeneralObjects 37 }
+
+apSysETCCoreUtilEntry         	OBJECT-TYPE
+        SYNTAX                	ApSysETCCoreUtilEntry
+        MAX-ACCESS      	not-accessible
+        STATUS          	current
+        DESCRIPTION
+                "A table entry designed to hold storage space data,
+                on a single volume"
+        INDEX { apSysETCIndex, apSysETCCoreIndex }
+        ::= { apSysETCCoreUtilTable 1 }
+
+ApSysETCCoreUtilEntry ::= SEQUENCE {
+        apSysETCIndex           Integer32,
+        apSysETCCoreIndex       Integer32,
+        apSysETCCoreCPUUtil     SysMgmtPercentage 
+}
+
+apSysETCIndex                  	OBJECT-TYPE
+        SYNTAX                  Integer32 (0..2147483647)
+        MAX-ACCESS              not-accessible
+        STATUS                  current
+        DESCRIPTION
+                "A monotonically increasing integer for the sole
+                purpose of indexing ETC."
+        ::= {apSysETCCoreUtilEntry 1 }
+
+apSysETCCoreIndex               OBJECT-TYPE
+        SYNTAX                  Integer32 (0..2147483647)
+        MAX-ACCESS              not-accessible
+        STATUS                  current
+        DESCRIPTION
+                "A monotonically increasing integer for the sole
+                purpose of indexing ETC CPU Core"
+        ::= {apSysETCCoreUtilEntry 2 }
+
+apSysETCCoreCPUUtil		OBJECT-TYPE
+               SYNTAX          	SysMgmtPercentage 
+               MAX-ACCESS      	accessible-for-notify
+               STATUS                current
+               DESCRIPTION
+               "The percentage of CPU utilization."
+        ::= {apSysETCCoreUtilEntry 3 }
+
+apSysETCMemoryPoolUtilTable         OBJECT-TYPE
+        SYNTAX          SEQUENCE OF ApSysETCMemoryPoolUtilEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+                "A table to hold the total space and available space
+                per volume arranged into rows, and indexed by the
+                volume name. These are all read only."
+        ::=  { apSysMgmtMIBGeneralObjects 38 }
+
+apSysETCMemoryPoolUtilEntry		OBJECT-TYPE
+        SYNTAX          	 	ApSysETCMemoryPoolUtilEntry
+        MAX-ACCESS      		not-accessible
+        STATUS          		current
+        DESCRIPTION
+                "A table entry designed to hold storage space data,
+                on a single volume"
+        INDEX { apSysETCIndex, apSysETCMemoryPoolIndex }
+        ::= { apSysETCMemoryPoolUtilTable 1 }
+
+ApSysETCMemoryPoolUtilEntry ::= SEQUENCE {
+        apSysETCMemoryPoolIndex		Integer32,
+        apSysETCMemoryPoolMemUtil       SysMgmtPercentage 
+}
+
+apSysETCMemoryPoolIndex        OBJECT-TYPE
+        SYNTAX                 Integer32 (0..2147483647)
+        MAX-ACCESS             not-accessible
+        STATUS                 current
+        DESCRIPTION
+                "A monotonically increasing integer for the sole
+                purpose of indexing ETC MemoryPool"
+        ::= {apSysETCMemoryPoolUtilEntry 1 }
+
+apSysETCMemoryPoolMemUtil      OBJECT-TYPE
+               SYNTAX          SysMgmtPercentage 
+               MAX-ACCESS      accessible-for-notify
+               STATUS          current
+               DESCRIPTION
+                              "The percentage of Memory utilization"
+        ::= {apSysETCMemoryPoolUtilEntry 2 }
+
+apSysStorageSpaceEntry         OBJECT-TYPE
+        SYNTAX          ApSysStorageSpaceEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+                "A table entry designed to hold storage space data,
+                on a single volume"
+        INDEX { apSysVolumeIndex }
+        ::= { apSysStorageSpaceTable 1 }
+
+ApSysStorageSpaceEntry ::= SEQUENCE {
+        apSysVolumeIndex                                Integer32,
+        apSysVolumeName                                 DisplayString,
+        apSysVolumeTotalSpace                           Unsigned32,
+        apSysVolumeAvailSpace                           Unsigned32
+}
+
+apSysVolumeIndex                OBJECT-TYPE
+        SYNTAX                  Integer32 (0..2147483647)
+        MAX-ACCESS              read-only
+        STATUS                  current
+        DESCRIPTION
+                "A monotonically increasing integer for the sole
+                purpose of indexing volumes"
+        ::= {apSysStorageSpaceEntry 1}
+
+apSysVolumeName                 OBJECT-TYPE
+        SYNTAX                  DisplayString (SIZE (0..255))
+        MAX-ACCESS              read-only
+        STATUS                  current
+        DESCRIPTION
+                "The name of the volume"
+        ::= {apSysStorageSpaceEntry 2}
+
+apSysVolumeTotalSpace           OBJECT-TYPE
+        SYNTAX                  Unsigned32
+        MAX-ACCESS              read-only
+        STATUS                  current
+        DESCRIPTION
+                "The total size of the volume, in MB"
+        ::= {apSysStorageSpaceEntry 3}
+
+apSysVolumeAvailSpace           OBJECT-TYPE
+        SYNTAX                  Unsigned32
+        MAX-ACCESS              read-only
+        STATUS                  current
+        DESCRIPTION
+                "The total space available on the volume, in KB"
+        ::= {apSysStorageSpaceEntry 4}
+
+-- Session Agent Statistical Data
+
+apSysMgmtMIBSessionObjects OBJECT IDENTIFIER ::= {apSysMgmtMIBObjects 2 }
+
+-- Combined Session Agent Table
+
+apCombinedSessionAgentStatsTable	OBJECT-TYPE
+	SYNTAX		SEQUENCE OF ApCombinedSessionAgentStatsEntry
+	MAX-ACCESS	not-accessible
+	STATUS		obsolete
+	DESCRIPTION
+		"A table to hold statistics information on H323 and sip
+		session agents arranged into rows, indexed by unique integers.
+		These are all read only."
+	::=  { apSysMgmtMIBSessionObjects 1 }
+
+apCombinedSessionAgentStatsEntry	OBJECT-TYPE
+	SYNTAX		ApCombinedSessionAgentStatsEntry
+	MAX-ACCESS	not-accessible
+	STATUS		obsolete
+	DESCRIPTION
+		"A table entry designed to hold statistics, on a single
+		session agent"
+	INDEX { apCombinedStatsSessionAgentIndex }
+	::= { apCombinedSessionAgentStatsTable 1 }
+
+ApCombinedSessionAgentStatsEntry ::= SEQUENCE {
+	apCombinedStatsSessionAgentIndex		Integer32,
+	apCombinedStatsSessionAgentHostname		DisplayString,
+	apCombinedStatsSessionAgentType			ApSessionAgentType,
+	apCombinedStatsCurrentActiveSessionsInbound	Unsigned32,
+	apCombinedStatsCurrentSessionRateInbound	Unsigned32,
+	apCombinedStatsCurrentActiveSessionsOutbound	Unsigned32,
+	apCombinedStatsCurrentSessionRateOutbound	Unsigned32,
+	apCombinedStatsTotalSessionsInbound		Counter32,
+	apCombinedStatsTotalSessionsNotAdmittedInbound	Counter32,
+	apCombinedStatsPeriodHighInbound		Unsigned32,
+	apCombinedStatsAverageRateInbound		Unsigned32,
+	apCombinedStatsTotalSessionsOutbound		Counter32,
+	apCombinedStatsTotalSessionsNotAdmittedOutbound	Counter32,
+	apCombinedStatsPeriodHighOutbound		Unsigned32,
+	apCombinedStatsAverageRateOutbound		Unsigned32,
+	apCombinedStatsMaxBurstRate			Unsigned32,
+	apCombinedStatsPeriodSeizures			Counter32,
+	apCombinedStatsPeriodAnswers			Counter32,
+	apCombinedStatsPeriodASR			Unsigned32,
+	apCombinedStatsAverageLatency			Unsigned32,
+	apCombinedStatsMaxLatency			Unsigned32,
+	apCombinedStatsSessionAgentStatus		ApSessionAgentStatusOptions
+}
+
+apCombinedStatsSessionAgentIndex	OBJECT-TYPE
+        SYNTAX			Integer32 (0..2147483647)
+        MAX-ACCESS		read-only
+        STATUS			obsolete
+        DESCRIPTION
+		"A monotonically increasing integer for the sole
+		purpose of indexing session agents.  When it reaches the
+		maximum value the agent wraps the value back to 1."
+	::= { apCombinedSessionAgentStatsEntry 1 }
+
+apCombinedStatsSessionAgentHostname	OBJECT-TYPE
+	SYNTAX 			DisplayString (SIZE (0..255))
+	MAX-ACCESS		read-only
+	STATUS			obsolete
+	DESCRIPTION
+		"The hostname of the session agent the following statistics
+		are being calculated for"
+	::= {apCombinedSessionAgentStatsEntry 2}
+
+apCombinedStatsSessionAgentType	OBJECT-TYPE
+	SYNTAX		ApSessionAgentType
+	MAX-ACCESS 	read-only
+	STATUS		obsolete
+	DESCRIPTION
+		"The type of the specified Session-Agent, can be either
+		sip or h323"
+	::= {apCombinedSessionAgentStatsEntry 3}
+
+apCombinedStatsCurrentActiveSessionsInbound	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		obsolete
+	DESCRIPTION
+		"Number of current active inbound sessions"
+	::= {apCombinedSessionAgentStatsEntry 4}
+
+apCombinedStatsCurrentSessionRateInbound	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		obsolete
+	DESCRIPTION
+		"Current Inbound Session rate in CPS"
+	::= {apCombinedSessionAgentStatsEntry 5}
+
+apCombinedStatsCurrentActiveSessionsOutbound	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		obsolete
+	DESCRIPTION
+		"Number of current active outbound sessions"
+	::= {apCombinedSessionAgentStatsEntry 6}
+
+apCombinedStatsCurrentSessionRateOutbound		OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		obsolete
+	DESCRIPTION
+		"Current outbound session rate in CPS"
+	::= {apCombinedSessionAgentStatsEntry 7}
+
+apCombinedStatsTotalSessionsInbound	OBJECT-TYPE
+	SYNTAX		Counter32
+	MAX-ACCESS 	read-only
+	STATUS		obsolete
+	DESCRIPTION
+		"Total Number of inbound sessions"
+	::= {apCombinedSessionAgentStatsEntry 8}
+
+apCombinedStatsTotalSessionsNotAdmittedInbound	OBJECT-TYPE
+	SYNTAX		Counter32
+	MAX-ACCESS 	read-only
+	STATUS		obsolete
+	DESCRIPTION
+		"Total number of inbound sessions rejected due to 
+		insufficient bandwidth"
+	::= {apCombinedSessionAgentStatsEntry 9}
+
+apCombinedStatsPeriodHighInbound	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		obsolete
+	DESCRIPTION
+		"Highest number of concurrent inbound sessions during 
+		the period"
+	::= {apCombinedSessionAgentStatsEntry 10}
+	
+apCombinedStatsAverageRateInbound	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		obsolete
+	DESCRIPTION
+		"Average rate of inbound sessions during the period in CPS"
+	::= {apCombinedSessionAgentStatsEntry 11}
+
+apCombinedStatsTotalSessionsOutbound	OBJECT-TYPE
+	SYNTAX		Counter32
+	MAX-ACCESS 	read-only
+	STATUS		obsolete
+	DESCRIPTION
+		"Total Number of outbound sessions"
+	::= {apCombinedSessionAgentStatsEntry 12}
+
+apCombinedStatsTotalSessionsNotAdmittedOutbound	OBJECT-TYPE
+	SYNTAX		Counter32
+	MAX-ACCESS 	read-only
+	STATUS		obsolete
+	DESCRIPTION
+		"Total number of outbound sessions rejected due to 
+		insufficient bandwidth"
+	::= {apCombinedSessionAgentStatsEntry 13}
+
+apCombinedStatsPeriodHighOutbound	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		obsolete
+	DESCRIPTION
+		"Highest number of concurrent outbound sessions during the
+		period"
+	::= {apCombinedSessionAgentStatsEntry 14}
+
+apCombinedStatsAverageRateOutbound	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		obsolete
+	DESCRIPTION
+		"Average rate of outbound sessions during the period in CPS"
+	::= {apCombinedSessionAgentStatsEntry 15}
+
+apCombinedStatsMaxBurstRate		OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		obsolete
+	DESCRIPTION
+		"Maximum burst rate of traffic measured during the 
+		period (combined inbound and outbound)"
+	::= {apCombinedSessionAgentStatsEntry 16}
+
+apCombinedStatsPeriodSeizures		OBJECT-TYPE
+	SYNTAX		Counter32
+	MAX-ACCESS 	read-only
+	STATUS		obsolete
+	DESCRIPTION
+		"Total number of seizures during the period"
+	::= {apCombinedSessionAgentStatsEntry 17}
+
+apCombinedStatsPeriodAnswers		OBJECT-TYPE
+	SYNTAX		Counter32
+	MAX-ACCESS 	read-only
+	STATUS		obsolete
+	DESCRIPTION
+		"Total number of answered sessions during the period"
+	::= {apCombinedSessionAgentStatsEntry 18}
+
+apCombinedStatsPeriodASR		OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		obsolete
+	DESCRIPTION
+		"The answer-to-seizure ratio, expressed as a percentage.
+		For example, a value of 90 would represent 90%, or .90"
+	::= {apCombinedSessionAgentStatsEntry 19}
+
+apCombinedStatsAverageLatency		OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		obsolete
+	DESCRIPTION
+		"Average observed one-way signalling latency during the period
+                in milliseconds"
+	::= {apCombinedSessionAgentStatsEntry 20}
+
+apCombinedStatsMaxLatency		OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		obsolete
+	DESCRIPTION
+		"Maximum observed one-way signalling latency during the period
+                in milliseconds"
+	::= {apCombinedSessionAgentStatsEntry 21}
+
+apCombinedStatsSessionAgentStatus	OBJECT-TYPE
+	SYNTAX		ApSessionAgentStatusOptions
+	MAX-ACCESS 	read-only
+	STATUS		obsolete
+	DESCRIPTION
+		"The current status of the specified session agent, which 
+		is expressed as INS, OOSnonresp, OOSconstraintsviolation, 
+		BecomingOOS, or ForcedOOS"
+	::= {apCombinedSessionAgentStatsEntry 22}
+
+-- SIP version of the table
+
+apSipSessionAgentStatsTable	OBJECT-TYPE
+	SYNTAX		SEQUENCE OF ApSipSessionAgentStatsEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"A table to hold statistics information on SIP session 
+		agents arranged into rows, indexed by unique integers.
+		These are all read only."
+	::=  { apSysMgmtMIBSessionObjects 2 }
+
+apSipSessionAgentStatsEntry	OBJECT-TYPE
+	SYNTAX		ApSipSessionAgentStatsEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"A table entry designed to hold statistics, on a single
+		session agent"
+	INDEX { apSipSAStatsSessionAgentIndex }
+	::= { apSipSessionAgentStatsTable 1 }
+
+ApSipSessionAgentStatsEntry ::= SEQUENCE {
+	apSipSAStatsSessionAgentIndex			Integer32,
+	apSipSAStatsSessionAgentHostname		DisplayString,
+	apSipSAStatsSessionAgentType			ApSessionAgentType,
+	apSipSAStatsCurrentActiveSessionsInbound	Unsigned32,
+	apSipSAStatsCurrentSessionRateInbound		Unsigned32,
+	apSipSAStatsCurrentActiveSessionsOutbound	Unsigned32,
+	apSipSAStatsCurrentSessionRateOutbound		Unsigned32,
+	apSipSAStatsTotalSessionsInbound		Counter32,
+	apSipSAStatsTotalSessionsNotAdmittedInbound	Counter32,
+	apSipSAStatsPeriodHighInbound			Unsigned32,
+	apSipSAStatsAverageRateInbound			Unsigned32,
+	apSipSAStatsTotalSessionsOutbound		Counter32,
+	apSipSAStatsTotalSessionsNotAdmittedOutbound	Counter32,
+	apSipSAStatsPeriodHighOutbound			Unsigned32,
+	apSipSAStatsAverageRateOutbound			Unsigned32,
+	apSipSAStatsMaxBurstRate			Unsigned32,
+	apSipSAStatsPeriodSeizures			Counter32,
+	apSipSAStatsPeriodAnswers			Counter32,
+	apSipSAStatsPeriodASR				Unsigned32,
+	apSipSAStatsAverageLatency			Unsigned32,
+	apSipSAStatsMaxLatency				Unsigned32,
+	apSipSAStatsSessionAgentStatus			ApSessionAgentStatusOptions
+}
+
+apSipSAStatsSessionAgentIndex	OBJECT-TYPE
+        SYNTAX			Integer32 (0..2147483647)
+        MAX-ACCESS		read-only
+        STATUS			current
+        DESCRIPTION
+		"A monotonically increasing integer for the sole
+		purpose of indexing session agents.  When it reaches the
+		maximum value the agent wraps the value back to 1."
+	::= {apSipSessionAgentStatsEntry 1}
+
+apSipSAStatsSessionAgentHostname	OBJECT-TYPE
+	SYNTAX 			DisplayString (SIZE (0..255))
+	MAX-ACCESS		read-only
+	STATUS			current
+	DESCRIPTION
+		"The hostname of the session agent the following statistics
+		are being calculated for"
+	::= {apSipSessionAgentStatsEntry 2}
+
+apSipSAStatsSessionAgentType	OBJECT-TYPE
+	SYNTAX		ApSessionAgentType
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"The type of the specified Session-Agent, can be either
+		sip or h323"
+	::= {apSipSessionAgentStatsEntry 3}
+
+apSipSAStatsCurrentActiveSessionsInbound	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Number of current active inbound sessions"
+	::= {apSipSessionAgentStatsEntry 4}
+
+apSipSAStatsCurrentSessionRateInbound	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Current Inbound Session rate in CPS"
+	::= {apSipSessionAgentStatsEntry 5}
+
+apSipSAStatsCurrentActiveSessionsOutbound	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Number of current active outbound sessions"
+	::= {apSipSessionAgentStatsEntry 6}
+
+apSipSAStatsCurrentSessionRateOutbound		OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Current outbound session rate in CPS"
+	::= {apSipSessionAgentStatsEntry 7}
+
+apSipSAStatsTotalSessionsInbound	OBJECT-TYPE
+	SYNTAX		Counter32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Total Number of inbound sessions"
+	::= {apSipSessionAgentStatsEntry 8}
+
+apSipSAStatsTotalSessionsNotAdmittedInbound	OBJECT-TYPE
+	SYNTAX		Counter32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Total number of inbound sessions rejected due to 
+		insufficient bandwidth"
+	::= {apSipSessionAgentStatsEntry 9}
+
+apSipSAStatsPeriodHighInbound	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Highest number of concurrent inbound sessions during 
+		the period"
+	::= {apSipSessionAgentStatsEntry 10}
+
+apSipSAStatsAverageRateInbound	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Average rate of inbound sessions during the period in CPS"
+	::= {apSipSessionAgentStatsEntry 11}
+
+apSipSAStatsTotalSessionsOutbound	OBJECT-TYPE
+	SYNTAX		Counter32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Total Number of outbound sessions"
+	::= {apSipSessionAgentStatsEntry 12}
+
+apSipSAStatsTotalSessionsNotAdmittedOutbound	OBJECT-TYPE
+	SYNTAX		Counter32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Total number of outbound sessions rejected due to 
+		insufficient bandwidth"
+	::= {apSipSessionAgentStatsEntry 13}
+
+apSipSAStatsPeriodHighOutbound	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Highest number of concurrent outbound sessions during the
+		period"
+	::= {apSipSessionAgentStatsEntry 14}
+
+apSipSAStatsAverageRateOutbound	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Average rate of outbound sessions during the period in CPS"
+	::= {apSipSessionAgentStatsEntry 15}
+
+apSipSAStatsMaxBurstRate		OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Maximum burst rate of traffic measured during the 
+		period (combined inbound and outbound)"
+	::= {apSipSessionAgentStatsEntry 16}
+
+apSipSAStatsPeriodSeizures		OBJECT-TYPE
+	SYNTAX		Counter32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Total number of seizures during the period"
+	::= {apSipSessionAgentStatsEntry 17}
+
+apSipSAStatsPeriodAnswers		OBJECT-TYPE
+	SYNTAX		Counter32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Total number of answered sessions during the period"
+	::= {apSipSessionAgentStatsEntry 18}
+
+apSipSAStatsPeriodASR		OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"The answer-to-seizure ratio, expressed as a percentage.
+		For example, a value of 90 would represent 90%, or .90"
+	::= {apSipSessionAgentStatsEntry 19}
+
+apSipSAStatsAverageLatency		OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Average observed one-way signalling latency during the period
+                in milliseconds"
+	::= {apSipSessionAgentStatsEntry 20}
+
+apSipSAStatsMaxLatency		OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Maximum observed one-way signalling latency during the period
+                in milliseconds"
+	::= {apSipSessionAgentStatsEntry 21}
+
+apSipSAStatsSessionAgentStatus	OBJECT-TYPE
+	SYNTAX		ApSessionAgentStatusOptions
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"The current status of the specified session agent, which 
+		is expressed as INS, OOSnonresp, OOSconstraintsviolation, 
+		BecomingOOS, or ForcedOOS"
+	::= {apSipSessionAgentStatsEntry 22}
+
+
+-- H323 version of the table
+
+apH323SessionAgentStatsTable	OBJECT-TYPE
+	SYNTAX		SEQUENCE OF ApH323SessionAgentStatsEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"A table to hold statistics information on H323 session 
+		agents arranged into rows, indexed by unique integers.
+		These are all read only."
+	::=  { apSysMgmtMIBSessionObjects 3 }
+
+apH323SessionAgentStatsEntry	OBJECT-TYPE
+	SYNTAX		ApH323SessionAgentStatsEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"A table entry designed to hold statistics, on a single
+		session agent"
+	INDEX { apH323SAStatsSessionAgentIndex }
+	::= { apH323SessionAgentStatsTable 1 }
+
+ApH323SessionAgentStatsEntry ::= SEQUENCE {
+	apH323SAStatsSessionAgentIndex			Integer32,
+	apH323SAStatsSessionAgentHostname		DisplayString,
+	apH323SAStatsSessionAgentType			ApSessionAgentType,
+	apH323SAStatsCurrentActiveSessionsInbound	Unsigned32,
+	apH323SAStatsCurrentSessionRateInbound		Unsigned32,
+	apH323SAStatsCurrentActiveSessionsOutbound	Unsigned32,
+	apH323SAStatsCurrentSessionRateOutbound		Unsigned32,
+	apH323SAStatsTotalSessionsInbound		Counter32,
+	apH323SAStatsTotalSessionsNotAdmittedInbound	Counter32,
+	apH323SAStatsPeriodHighInbound			Unsigned32,
+	apH323SAStatsAverageRateInbound			Unsigned32,
+	apH323SAStatsTotalSessionsOutbound		Counter32,
+	apH323SAStatsTotalSessionsNotAdmittedOutbound	Counter32,
+	apH323SAStatsPeriodHighOutbound			Unsigned32,
+	apH323SAStatsAverageRateOutbound		Unsigned32,
+	apH323SAStatsMaxBurstRate			Unsigned32,
+	apH323SAStatsPeriodSeizures			Counter32,
+	apH323SAStatsPeriodAnswers			Counter32,
+	apH323SAStatsPeriodASR				Unsigned32,
+	apH323SAStatsAverageLatency			Unsigned32,
+	apH323SAStatsMaxLatency				Unsigned32,
+	apH323SAStatsSessionAgentStatus			ApSessionAgentStatusOptions
+}
+
+apH323SAStatsSessionAgentIndex	OBJECT-TYPE
+        SYNTAX			Integer32 (0..2147483647)
+        MAX-ACCESS		read-only
+        STATUS			current
+        DESCRIPTION
+		"A monotonically increasing integer for the sole
+		purpose of indexing session agents.  When it reaches the
+		maximum value the agent wraps the value back to 1."
+	::= {apH323SessionAgentStatsEntry 1}
+
+apH323SAStatsSessionAgentHostname	OBJECT-TYPE
+	SYNTAX 			DisplayString (SIZE (0..255))
+	MAX-ACCESS		read-only
+	STATUS			current
+	DESCRIPTION
+		"The hostname of the session agent the following statistics
+		are being calculated for"
+	::= {apH323SessionAgentStatsEntry 2}
+
+apH323SAStatsSessionAgentType	OBJECT-TYPE
+	SYNTAX		ApSessionAgentType
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"The type of the specified Session-Agent, can be either
+		sip or h323"
+	::= {apH323SessionAgentStatsEntry 3}
+
+apH323SAStatsCurrentActiveSessionsInbound	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Number of current active inbound sessions"
+	::= {apH323SessionAgentStatsEntry 4}
+
+apH323SAStatsCurrentSessionRateInbound	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Current Inbound Session rate in CPS"
+	::= {apH323SessionAgentStatsEntry 5}
+
+apH323SAStatsCurrentActiveSessionsOutbound	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Number of current active outbound sessions"
+	::= {apH323SessionAgentStatsEntry 6}
+
+apH323SAStatsCurrentSessionRateOutbound		OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Current outbound session rate in CPS"
+	::= {apH323SessionAgentStatsEntry 7}
+
+apH323SAStatsTotalSessionsInbound	OBJECT-TYPE
+	SYNTAX		Counter32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Total Number of inbound sessions"
+	::= {apH323SessionAgentStatsEntry 8}
+
+apH323SAStatsTotalSessionsNotAdmittedInbound	OBJECT-TYPE
+	SYNTAX		Counter32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Total number of inbound sessions rejected due to 
+		insufficient bandwidth"
+	::= {apH323SessionAgentStatsEntry 9}
+
+apH323SAStatsPeriodHighInbound	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Highest number of concurrent inbound sessions during 
+		the period"
+	::= {apH323SessionAgentStatsEntry 10}
+
+apH323SAStatsAverageRateInbound	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Average rate of inbound sessions during the period in CPS"
+	::= {apH323SessionAgentStatsEntry 11}
+
+apH323SAStatsTotalSessionsOutbound	OBJECT-TYPE
+	SYNTAX		Counter32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Total Number of outbound sessions"
+	::= {apH323SessionAgentStatsEntry 12}
+
+apH323SAStatsTotalSessionsNotAdmittedOutbound	OBJECT-TYPE
+	SYNTAX		Counter32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Total number of outbound sessions rejected due to 
+		insufficient bandwidth"
+	::= {apH323SessionAgentStatsEntry 13}
+
+apH323SAStatsPeriodHighOutbound	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Highest number of concurrent outbound sessions during the
+		period"
+	::= {apH323SessionAgentStatsEntry 14}
+
+apH323SAStatsAverageRateOutbound	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Average rate of outbound sessions during the period in CPS"
+	::= {apH323SessionAgentStatsEntry 15}
+
+apH323SAStatsMaxBurstRate		OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Maximum burst rate of traffic measured during the 
+		period (combined inbound and outbound)"
+	::= {apH323SessionAgentStatsEntry 16}
+
+apH323SAStatsPeriodSeizures		OBJECT-TYPE
+	SYNTAX		Counter32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Total number of seizures during the period"
+	::= {apH323SessionAgentStatsEntry 17}
+
+apH323SAStatsPeriodAnswers		OBJECT-TYPE
+	SYNTAX		Counter32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Total number of answered sessions during the period"
+	::= {apH323SessionAgentStatsEntry 18}
+
+apH323SAStatsPeriodASR		OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"The answer-to-seizure ratio, expressed as a percentage.
+		For example, a value of 90 would represent 90%, or .90"
+	::= {apH323SessionAgentStatsEntry 19}
+
+apH323SAStatsAverageLatency		OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Average observed one-way signalling latency during the period
+                in milliseconds"
+	::= {apH323SessionAgentStatsEntry 20}
+
+apH323SAStatsMaxLatency		OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Maximum observed one-way signalling latency during the period
+                in milliseconds"
+	::= {apH323SessionAgentStatsEntry 21}
+
+apH323SAStatsSessionAgentStatus	OBJECT-TYPE
+	SYNTAX		ApSessionAgentStatusOptions
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"The current status of the specified session agent, which 
+		is expressed as INS, OOSnonresp, OOSconstraintsviolation, 
+		BecomingOOS, or ForcedOOS"
+	::= {apH323SessionAgentStatsEntry 22}
+
+-- realm version of the table
+
+apSigRealmStatsTable	OBJECT-TYPE
+	SYNTAX		SEQUENCE OF ApSigRealmStatsEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"A table to hold statistics information on realms
+		arranged into rows, indexed by unique integers.
+		These are all read only."
+	::=  { apSysMgmtMIBSessionObjects 4 }
+
+apSigRealmStatsEntry	OBJECT-TYPE
+	SYNTAX		ApSigRealmStatsEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"A table entry designed to hold statistics, on a single
+		realm"
+	INDEX { apSigRealmStatsRealmIndex }
+	::= { apSigRealmStatsTable 1 }
+
+ApSigRealmStatsEntry ::= SEQUENCE {
+	apSigRealmStatsRealmIndex			Integer32,
+	apSigRealmStatsRealmName			DisplayString,
+	apSigRealmStatsCurrentActiveSessionsInbound	Unsigned32,
+	apSigRealmStatsCurrentSessionRateInbound	Unsigned32,
+	apSigRealmStatsCurrentActiveSessionsOutbound	Unsigned32,
+	apSigRealmStatsCurrentSessionRateOutbound	Unsigned32,
+	apSigRealmStatsTotalSessionsInbound		Counter32,
+	apSigRealmStatsTotalSessionsNotAdmittedInbound	Counter32,
+	apSigRealmStatsPeriodHighInbound		Unsigned32,
+	apSigRealmStatsAverageRateInbound		Unsigned32,
+	apSigRealmStatsTotalSessionsOutbound		Counter32,
+	apSigRealmStatsTotalSessionsNotAdmittedOutbound	Counter32,
+	apSigRealmStatsPeriodHighOutbound		Unsigned32,
+	apSigRealmStatsAverageRateOutbound		Unsigned32,
+	apSigRealmStatsMaxBurstRate			Unsigned32,
+	apSigRealmStatsPeriodSeizures			Counter32,
+	apSigRealmStatsPeriodAnswers			Counter32,
+	apSigRealmStatsPeriodASR			Unsigned32,
+	apSigRealmStatsAverageLatency			Unsigned32,
+	apSigRealmStatsMaxLatency			Unsigned32,
+	apSigRealmStatsMinutesLeft              	Unsigned32,
+	apSigRealmStatsMinutesReject            	Unsigned32,
+	apSigRealmStatsShortSessions            	Counter32,
+	apSigRealmStatsAverageQoSRFactor            	Unsigned32,
+	apSigRealmStatsMaximumQoSRFactor            	Unsigned32,
+	apSigRealmStatsCurrentMajorRFactorExceeded    	Unsigned32,
+	apSigRealmStatsTotalMajorRFactorExceeded    	Counter32,
+	apSigRealmStatsCurrentCriticalRFactorExceeded   Unsigned32,
+	apSigRealmStatsTotalCriticalRFactorExceeded    	Counter32,
+	apSigRealmStatsRealmStatus			ApSigRealmStatusOptions,
+        apSigRealmStatsActiveLocalContacts              Unsigned32,
+	apSigRealmStatsActiveSubscriptions		Unsigned32,
+	apSigRealmStatsPerMaxSubscriptions		Counter32,
+	apSigRealmStatsMaximumActiveSubscriptions	Counter32,
+	apSigRealmStatsTotalSubscriptions		Counter32
+}
+
+apSigRealmStatsRealmIndex	OBJECT-TYPE
+        SYNTAX			Integer32 (0..2147483647)
+        MAX-ACCESS		read-only
+        STATUS			current
+        DESCRIPTION
+		"A monotonically increasing integer for the sole
+		purpose of indexing realms.  When it reaches the
+		maximum value the agent wraps the value back to 1."
+	::= {apSigRealmStatsEntry 1}
+
+apSigRealmStatsRealmName	OBJECT-TYPE
+	SYNTAX 			DisplayString (SIZE (0..255))
+	MAX-ACCESS		read-only
+	STATUS			current
+	DESCRIPTION
+		"The name of the realm the following statistics
+		are being calculated for"
+	::= {apSigRealmStatsEntry 2}
+
+apSigRealmStatsCurrentActiveSessionsInbound	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Number of current active inbound sessions"
+	::= {apSigRealmStatsEntry 3}
+
+apSigRealmStatsCurrentSessionRateInbound	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Current Inbound Session rate in CPS"
+	::= {apSigRealmStatsEntry 4}
+
+apSigRealmStatsCurrentActiveSessionsOutbound	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Number of current active outbound sessions"
+	::= {apSigRealmStatsEntry 5}
+
+apSigRealmStatsCurrentSessionRateOutbound		OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Current outbound session rate in CPS"
+	::= {apSigRealmStatsEntry 6}
+
+apSigRealmStatsTotalSessionsInbound	OBJECT-TYPE
+	SYNTAX		Counter32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Total Number of inbound sessions"
+	::= {apSigRealmStatsEntry 7}
+
+apSigRealmStatsTotalSessionsNotAdmittedInbound	OBJECT-TYPE
+	SYNTAX		Counter32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Total number of inbound sessions rejected due to 
+		insufficient bandwidth"
+	::= {apSigRealmStatsEntry 8}
+
+apSigRealmStatsPeriodHighInbound	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Highest number of concurrent inbound sessions during 
+		the period"
+	::= {apSigRealmStatsEntry 9}
+
+apSigRealmStatsAverageRateInbound	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Average rate of inbound sessions during the period in CPS"
+	::= {apSigRealmStatsEntry 10}
+
+apSigRealmStatsTotalSessionsOutbound	OBJECT-TYPE
+	SYNTAX		Counter32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Total Number of outbound sessions"
+	::= {apSigRealmStatsEntry 11}
+
+apSigRealmStatsTotalSessionsNotAdmittedOutbound	OBJECT-TYPE
+	SYNTAX		Counter32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Total number of outbound sessions rejected due to 
+		insufficient bandwidth"
+	::= {apSigRealmStatsEntry 12}
+
+apSigRealmStatsPeriodHighOutbound	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Highest number of concurrent outbound sessions during the
+		period"
+	::= {apSigRealmStatsEntry 13}
+
+apSigRealmStatsAverageRateOutbound	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Average rate of outbound sessions during the period in CPS"
+	::= {apSigRealmStatsEntry 14}
+
+apSigRealmStatsMaxBurstRate		OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Maximum burst rate of traffic measured during the 
+		period (combined inbound and outbound)"
+	::= {apSigRealmStatsEntry 15}
+
+apSigRealmStatsPeriodSeizures		OBJECT-TYPE
+	SYNTAX		Counter32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Total number of seizures during the period"
+	::= {apSigRealmStatsEntry 16}
+
+apSigRealmStatsPeriodAnswers		OBJECT-TYPE
+	SYNTAX		Counter32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Total number of answered sessions during the period"
+	::= {apSigRealmStatsEntry 17}
+
+apSigRealmStatsPeriodASR		OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"The answer-to-seizure ratio, expressed as a percentage.
+		For example, a value of 90 would represent 90%, or .90"
+	::= {apSigRealmStatsEntry 18}
+
+apSigRealmStatsAverageLatency		OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	not-accessible
+	STATUS		obsolete
+	DESCRIPTION
+		"Average observed one-way signalling latency during the period
+                in milliseconds"
+	::= {apSigRealmStatsEntry 19}
+
+apSigRealmStatsMaxLatency		OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	not-accessible
+	STATUS		obsolete
+	DESCRIPTION
+		"Maximum observed one-way signalling latency during the period
+                in milliseconds"
+	::= {apSigRealmStatsEntry 20}
+
+apSigRealmStatsMinutesLeft      OBJECT-TYPE
+	SYNTAX      Unsigned32
+	MAX-ACCESS  read-only
+	STATUS      current
+	DESCRIPTION
+		"The number of monthly-minutes left in the pool per calendar
+		month for a given realm"
+	::= {apSigRealmStatsEntry 21}
+
+apSigRealmStatsMinutesReject       OBJECT-TYPE
+	SYNTAX      Unsigned32
+	MAX-ACCESS  read-only
+	STATUS      current
+	DESCRIPTION
+		"Peg counts of number of rejected calls due to
+		 monthly-minutes constraints exceeded"
+	::= {apSigRealmStatsEntry 22}
+
+apSigRealmStatsShortSessions	OBJECT-TYPE
+	SYNTAX      Counter32
+	MAX-ACCESS  read-only
+	STATUS      current
+	DESCRIPTION
+		"The lifetime number of sessions whose duration was less than
+		the configured short session duration."
+	::= {apSigRealmStatsEntry 23}
+
+apSigRealmStatsAverageQoSRFactor       OBJECT-TYPE
+	SYNTAX      Unsigned32
+	MAX-ACCESS  read-only
+	STATUS      current
+	DESCRIPTION
+		"Average QoS RFactor observed during the period"
+	::= {apSigRealmStatsEntry 24}
+
+apSigRealmStatsMaximumQoSRFactor       OBJECT-TYPE
+	SYNTAX      Unsigned32
+	MAX-ACCESS  read-only
+	STATUS      current
+	DESCRIPTION
+		"Average QoS RFactor observed during the period"
+	::= {apSigRealmStatsEntry 25}
+
+apSigRealmStatsCurrentMajorRFactorExceeded       OBJECT-TYPE
+	SYNTAX      Unsigned32
+	MAX-ACCESS  read-only
+	STATUS      current
+	DESCRIPTION
+		"Peg counts of number of times the Major Rfactor 
+		 threshold was exceeded during the period"
+	::= {apSigRealmStatsEntry 26}
+
+apSigRealmStatsTotalMajorRFactorExceeded       OBJECT-TYPE
+	SYNTAX      Counter32
+	MAX-ACCESS  read-only
+	STATUS      current
+	DESCRIPTION
+		"Peg counts of number of times the Major Rfactor 
+		 threshold was exceeded during the lifetime"
+	::= {apSigRealmStatsEntry 27}
+
+apSigRealmStatsCurrentCriticalRFactorExceeded       OBJECT-TYPE
+	SYNTAX      Unsigned32
+	MAX-ACCESS  read-only
+	STATUS      current
+	DESCRIPTION
+		"Peg counts of number of times the Critical Rfactor 
+		 threshold was exceeded during the period"
+	::= {apSigRealmStatsEntry 28}
+
+apSigRealmStatsTotalCriticalRFactorExceeded       OBJECT-TYPE
+	SYNTAX      Counter32
+	MAX-ACCESS  read-only
+	STATUS      current
+	DESCRIPTION
+		"Peg counts of number of times the Critical Rfactor 
+		 threshold was exceeded during the lifetime"
+	::= {apSigRealmStatsEntry 29}
+
+apSigRealmStatsRealmStatus	OBJECT-TYPE
+	SYNTAX		ApSigRealmStatusOptions
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"The current status of the specified realm, which 
+		is expressed as INS,constraintsviolation, 
+		or callLoadReduction"
+	::= {apSigRealmStatsEntry 30}
+
+apSigRealmStatsActiveLocalContacts       OBJECT-TYPE
+	SYNTAX      Unsigned32
+	MAX-ACCESS  read-only
+	STATUS      current
+	DESCRIPTION
+		"Number of current cached registered contacts, for a given realm, in the SD."
+	::= {apSigRealmStatsEntry 31}
+
+apSigRealmStatsActiveSubscriptions	OBJECT-TYPE
+	SYNTAX 			Unsigned32
+	MAX-ACCESS		read-only
+	STATUS			current
+	DESCRIPTION
+	    	"Number of active subscriptions for the given realm."
+	::= { apSigRealmStatsEntry 32 }
+
+apSigRealmStatsPerMaxSubscriptions	OBJECT-TYPE
+	SYNTAX 			Counter32
+	MAX-ACCESS		read-only
+	STATUS			current
+	DESCRIPTION
+	    	"Lifetime PerMax subscriptions count for the given realm."
+	::= { apSigRealmStatsEntry 33 }
+
+apSigRealmStatsMaximumActiveSubscriptions	OBJECT-TYPE
+	SYNTAX 			Counter32
+	MAX-ACCESS		read-only
+	STATUS			current
+	DESCRIPTION
+	    	"Count of lifetime maximum active subscriptions for the given realm."
+	::= { apSigRealmStatsEntry 34 }
+
+apSigRealmStatsTotalSubscriptions	OBJECT-TYPE
+	SYNTAX 			Counter32
+	MAX-ACCESS		read-only
+	STATUS			current
+	DESCRIPTION
+	    	"Count of lifetime total subscriptions for the SD."
+	::= { apSigRealmStatsEntry 35 }
+
+
+-- Network Management Controls Statistical Data
+
+apSysMgmtMIBNetMgmtCtrlObjects OBJECT IDENTIFIER ::= {apSysMgmtMIBObjects 3 }
+
+apNetMgmtCtrlStatsTable	OBJECT-TYPE
+	SYNTAX		SEQUENCE OF ApNetMgmtCtrlStatsEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"A table to hold statistics information on network
+		management controls arranged into rows, indexed by
+		unique names of the control rules. These are all read only."
+	::=  { apSysMgmtMIBNetMgmtCtrlObjects 1 }
+
+apNetMgmtCtrlStatsEntry	OBJECT-TYPE
+	SYNTAX		ApNetMgmtCtrlStatsEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"A table entry designed to hold statistics, on a single
+		network management control"
+	INDEX { IMPLIED apNetMgmtCtrlStatsName }
+	::= { apNetMgmtCtrlStatsTable 1 }
+
+ApNetMgmtCtrlStatsEntry ::= SEQUENCE {
+	apNetMgmtCtrlStatsName			DisplayString,
+	apNetMgmtCtrlStatsType			ApNetMgmtCtrlType,
+	apNetMgmtCtrlStatsIncomingTotal		Unsigned32,
+	apNetMgmtCtrlStatsRejectedTotal		Unsigned32,
+	apNetMgmtCtrlStatsDivertedTotal		Unsigned32,
+	apNetMgmtCtrlStatsIncomingCurrent	Unsigned32,
+	apNetMgmtCtrlStatsRejectedCurrent	Unsigned32,
+	apNetMgmtCtrlStatsDivertedCurrent	Unsigned32,
+	apNetMgmtCtrlStatsIncomingPeriodMax	Unsigned32,
+	apNetMgmtCtrlStatsRejectedPeriodMax	Unsigned32,
+	apNetMgmtCtrlStatsDivertedPeriodMax	Unsigned32,
+        apNetMgmtCtrlStatsState             	ApNetMgmtCtrlState
+}
+
+apNetMgmtCtrlStatsName	OBJECT-TYPE
+	SYNTAX 			DisplayString (SIZE (1..255))
+	MAX-ACCESS		read-only
+	STATUS			current
+	DESCRIPTION
+		"The name of the network management control the
+		following statistics are being calculated for"
+	::= {apNetMgmtCtrlStatsEntry 1}
+
+apNetMgmtCtrlStatsType	OBJECT-TYPE
+	SYNTAX		ApNetMgmtCtrlType
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"The type of the specified network management
+		control, which can be gap-rate,	gap-percent or
+		priority"
+	::= {apNetMgmtCtrlStatsEntry 2}
+
+apNetMgmtCtrlStatsIncomingTotal	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Total number of incoming calls that have
+		matched a destination identifier of the
+		specified network management control"
+	::= {apNetMgmtCtrlStatsEntry 3}
+
+apNetMgmtCtrlStatsRejectedTotal	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Total number of incoming calls that have
+		been rejected by the specified network
+		management control"
+	::= {apNetMgmtCtrlStatsEntry 4}
+
+apNetMgmtCtrlStatsDivertedTotal	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Total number of incoming calls that have
+		been diverted by the specified network
+		management control"
+	::= {apNetMgmtCtrlStatsEntry 5}
+
+apNetMgmtCtrlStatsIncomingCurrent	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Number of incoming calls during the current
+		period that have matched a destination identifier
+		of the specified network management control"
+	::= {apNetMgmtCtrlStatsEntry 6}
+
+apNetMgmtCtrlStatsRejectedCurrent	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Number of incoming calls during the current
+		period that have been rejected by the specified
+		network management control"
+	::= {apNetMgmtCtrlStatsEntry 7}
+
+apNetMgmtCtrlStatsDivertedCurrent	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Number of incoming calls during the current
+		period that have been diverted by the specified
+		network management control"
+	::= {apNetMgmtCtrlStatsEntry 8}
+
+apNetMgmtCtrlStatsIncomingPeriodMax	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Maximum number of incoming calls during a period
+		that have matched a destination	identifier of the
+		specified network management control"
+	::= {apNetMgmtCtrlStatsEntry 9}
+
+apNetMgmtCtrlStatsRejectedPeriodMax	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Maximum number of incoming calls during a period
+		that have been rejected by the specified network
+		management control"
+	::= {apNetMgmtCtrlStatsEntry 10}
+
+apNetMgmtCtrlStatsDivertedPeriodMax	OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS 	read-only
+	STATUS		current
+	DESCRIPTION
+		"Maximum number of incoming calls during a period
+		that have been diverted by the specified network
+		management control"
+	::= {apNetMgmtCtrlStatsEntry 11}
+
+apNetMgmtCtrlStatsState OBJECT-TYPE
+        SYNTAX          ApNetMgmtCtrlState
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                "The state of the specified network management
+                control, which can be disabled or enabled"
+        ::= {apNetMgmtCtrlStatsEntry 12}
+
+
+-- ENUM Server Table
+
+apSysMgmtMIBENUMServerStatusObjects OBJECT IDENTIFIER
+                          ::= { apSysMgmtMIBObjects 4 }
+
+apENUMServerStatusTable	OBJECT-TYPE
+	SYNTAX		SEQUENCE OF ApENUMServerStatusEntry
+	MAX-ACCESS	not-accessible
+	STATUS		obsolete
+	DESCRIPTION
+	    "This table is being replaced by apAppsEnumStatusTable
+	    defined in ap-apps.mib.
+	    
+	    A read-only table to hold the status of configured ENUM servers,
+	    indexed by the name of the enum server and server IP."
+	::= { apSysMgmtMIBENUMServerStatusObjects 1 }
+
+apENUMServerStatusEntry	OBJECT-TYPE
+	SYNTAX		ApENUMServerStatusEntry
+	MAX-ACCESS	not-accessible
+	STATUS		obsolete
+	DESCRIPTION
+	    "An entry designed to hold the status of a single ENUM server"
+	INDEX {	apENUMConfigName,
+		apENUMServerIpAddress }
+	::= { apENUMServerStatusTable 1 }
+
+ApENUMServerStatusEntry ::= SEQUENCE {
+	apENUMConfigName		DisplayString,
+	apENUMServerIpAddress		IpAddress,
+	apENUMServerStatus		INTEGER
+	}
+
+apENUMConfigName 	OBJECT-TYPE
+	SYNTAX		DisplayString
+	MAX-ACCESS	read-only
+	STATUS		obsolete
+	DESCRIPTION
+	    "The name of the enum-config element that contains this 
+	    ENUM server."
+	::= { apENUMServerStatusEntry 1 }
+
+apENUMServerIpAddress 	OBJECT-TYPE
+	SYNTAX		IpAddress
+	MAX-ACCESS	read-only
+	STATUS		obsolete
+	DESCRIPTION
+	    "The IP address of this ENUM server."
+	::= { apENUMServerStatusEntry 2 }
+
+apENUMServerStatus	OBJECT-TYPE
+	SYNTAX		INTEGER {
+				inservice(0),
+				lowerpriority(1),
+				oosunreachable(2)
+				}
+	MAX-ACCESS	read-only
+	STATUS		obsolete
+	DESCRIPTION
+	    "The status of this ENUM server."
+	::= { apENUMServerStatusEntry 3 }
+-- NS/EP Statistical Data
+
+apSysMgmtMIBNSEPStatsObjects OBJECT IDENTIFIER ::= {apSysMgmtMIBObjects 5 }
+
+apNSEPStatsCurrentActiveSessionsInbound OBJECT-TYPE
+        SYNTAX          Unsigned32
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION
+	    "Number of current active inbound NS/EP sessions"
+	::= {apSysMgmtMIBNSEPStatsObjects 1}
+
+apNSEPStatsTotalSessionsInbound OBJECT-TYPE
+	SYNTAX          Counter32
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION 
+	    "Total Number of inbound NS/EP sessions during the period"
+	::= {apSysMgmtMIBNSEPStatsObjects 2}
+
+apNSEPStatsPeriodHighInbound    OBJECT-TYPE
+	SYNTAX          Unsigned32
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION
+	    "Highest number of concurrent inbound NS/EP sessions during 
+	    the period"
+	::= {apSysMgmtMIBNSEPStatsObjects 3}
+
+apNSEPStatsPeriod       OBJECT-TYPE
+	SYNTAX          Unsigned32
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION
+	    "The period for which the stats are collected in secs"
+	::= {apSysMgmtMIBNSEPStatsObjects 4}
+
+apNSEPStatsRPHTable     OBJECT-TYPE
+	SYNTAX          SEQUENCE OF ApNSEPStatsRPHEntry
+	MAX-ACCESS      not-accessible
+	STATUS          current 
+	DESCRIPTION
+	    "A table to hold statistics information on NS/EP 
+	    sessions arranged into rows, indexed by
+	    unique RPH values (namespace.rpriority) 
+	    These are all read only."
+	::=  {apSysMgmtMIBNSEPStatsObjects 5}
+
+apNSEPStatsRPHEntry     OBJECT-TYPE
+	SYNTAX          ApNSEPStatsRPHEntry
+	MAX-ACCESS      not-accessible
+	STATUS          current
+	DESCRIPTION
+	    "A table entry designed to hold statistics, on a single
+	    RPH value"
+	INDEX { IMPLIED apNSEPStatsRPHValue }
+	::= { apNSEPStatsRPHTable 1 }
+
+ApNSEPStatsRPHEntry ::= SEQUENCE { 
+	apNSEPStatsRPHValue                             DisplayString,
+	apNSEPStatsRPHCurrentActiveSessionsInbound      Unsigned32,
+	apNSEPStatsRPHTotalSessionsInbound              Unsigned32,
+	apNSEPStatsRPHPeriodHighInbound                 Unsigned32,
+	apNSEPStatsRPHTotalSessionsNotAdmittedInbound   Unsigned32,
+	apNSEPStatsRPHCurrentActiveSessionsOutbound     Unsigned32,
+	apNSEPStatsRPHTotalSessionsOutbound             Unsigned32,
+	apNSEPStatsRPHPeriodHighOutbound                Unsigned32,
+	apNSEPStatsRPHTotalSessionsNotAdmittedOutbound  Unsigned32	
+	}
+
+apNSEPStatsRPHValue     OBJECT-TYPE
+	SYNTAX                  DisplayString (SIZE (1..255))
+	MAX-ACCESS              read-only
+	STATUS                  current
+	DESCRIPTION
+	    "The RPH Value the following statistics are being 
+	    calculated for"
+	::= {apNSEPStatsRPHEntry 1}
+
+apNSEPStatsRPHCurrentActiveSessionsInbound      OBJECT-TYPE
+	SYNTAX          Unsigned32
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION
+	    "Number of current active inbound NS/EP sessions"
+	::= {apNSEPStatsRPHEntry 2}
+
+apNSEPStatsRPHTotalSessionsInbound      OBJECT-TYPE 
+	SYNTAX          Unsigned32
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION
+	    "Total Number of inbound NS/EP sessions"
+	::= {apNSEPStatsRPHEntry 3}
+
+apNSEPStatsRPHPeriodHighInbound OBJECT-TYPE
+	SYNTAX          Unsigned32
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION
+	    "Highest number of concurrent inbound NS/EP sessions during 
+	    the period"
+	::= {apNSEPStatsRPHEntry 4}
+
+apNSEPStatsRPHTotalSessionsNotAdmittedInbound   OBJECT-TYPE
+	SYNTAX          Unsigned32
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION
+	    "Total number of inbound NS/EP sessions rejected"
+	::= {apNSEPStatsRPHEntry 5}
+
+apNSEPStatsRPHCurrentActiveSessionsOutbound     OBJECT-TYPE
+	SYNTAX          Unsigned32
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION
+	    "Number of current active outbound NS/EP sessions"
+	::= {apNSEPStatsRPHEntry 6}
+
+apNSEPStatsRPHTotalSessionsOutbound     OBJECT-TYPE
+	SYNTAX          Unsigned32
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION
+	    "Total Number of outbound NS/EP sessions"
+	::= {apNSEPStatsRPHEntry 7}
+
+apNSEPStatsRPHPeriodHighOutbound        OBJECT-TYPE
+	SYNTAX          Unsigned32
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION
+	    "Highest number of concurrent outbound NS/EP sessions during 
+	    the period"
+	::= {apNSEPStatsRPHEntry 8}
+
+apNSEPStatsRPHTotalSessionsNotAdmittedOutbound  OBJECT-TYPE
+	SYNTAX          Unsigned32
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION
+	    "Total number of outbound NS/EP sessions rejected"
+	::= {apNSEPStatsRPHEntry 9}
+
+-- LDAP Server Table
+
+apSysMgmtMIBLDAPServerStatusObjects OBJECT IDENTIFIER
+				::= { apSysMgmtMIBObjects 6 }
+
+apLDAPServerStatusTable	OBJECT-TYPE
+	SYNTAX		SEQUENCE OF ApLDAPServerStatusEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+	    "A read-only table to hold the status of configured LDAP servers,
+	    indexed by server IP."
+	::= { apSysMgmtMIBLDAPServerStatusObjects 1 }
+
+apLDAPServerStatusEntry	OBJECT-TYPE
+	SYNTAX		ApLDAPServerStatusEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+	    "An entry designed to hold the status of a single LDAP server"
+	INDEX {	apLDAPConfigName,
+		apLDAPServerIpAddress }
+	::= { apLDAPServerStatusTable 1 }
+
+ApLDAPServerStatusEntry ::= SEQUENCE {
+	apLDAPConfigName		DisplayString,
+	apLDAPServerIpAddress		IpAddress,
+	apLDAPServerStatus		INTEGER
+	}
+
+apLDAPConfigName 	OBJECT-TYPE
+	SYNTAX		DisplayString
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+	    "The name of the ldap-config element that contains this 
+	    LDAP server."
+	::= { apLDAPServerStatusEntry 1 }
+
+apLDAPServerIpAddress 	OBJECT-TYPE
+	SYNTAX		IpAddress
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+	    "The IP address of this LDAP server."
+	::= { apLDAPServerStatusEntry 2 }
+
+apLDAPServerStatus	OBJECT-TYPE
+	SYNTAX		INTEGER {
+				unknown(0),
+				inservice(1),
+				sessionlost(2),
+				servertimeout(3)
+				}
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+	    "The status of this LDAP server."
+	::= { apLDAPServerStatusEntry 3 }
+
+-- alarm synchronization
+apSysMgmtSystemTrapObjects OBJECT IDENTIFIER ::= { apSysMgmtMIBObjects 7 }
+
+
+apSysMgmtTrapTable        OBJECT-TYPE
+        SYNTAX          SEQUENCE OF ApSysMgmtTrapTableEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+                "A table to hold the traps reported by the
+                 Session Border Controller.
+                 Traps arranged into rows, indexed by system time, 
+                 and trap table instance index.
+                These are all read only."
+        ::=  { apSysMgmtSystemTrapObjects 1 }
+
+apSysMgmtTrapTableEntry        OBJECT-TYPE
+        SYNTAX          ApSysMgmtTrapTableEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+                "A table entry designed to hold traps, on a
+                 Session Border Controller."
+        INDEX {  apTrapTableSystemTime, 
+                 apTrapTableInstanceIndex }
+        ::= { apSysMgmtTrapTable 1 }
+
+ApSysMgmtTrapTableEntry ::= SEQUENCE {
+        apTrapTableSystemTime          Unsigned32,
+        apTrapTableInstanceIndex       Unsigned32,
+        apTrapTableNumVariables        Unsigned32,
+        apTrapTableSysUptime           TimeTicks,
+        apTrapTableTrapId              OBJECT IDENTIFIER
+}
+
+apTrapTableSystemTime        OBJECT-TYPE
+        SYNTAX                  Unsigned32 
+        MAX-ACCESS              not-accessible
+        STATUS                  current
+        DESCRIPTION
+                "The system time of the session border controller."
+        ::= { apSysMgmtTrapTableEntry 1 }
+
+apTrapTableInstanceIndex     OBJECT-TYPE
+        SYNTAX                  Unsigned32
+        MAX-ACCESS              not-accessible 
+        STATUS                  current
+        DESCRIPTION
+                "The instance index of the trapID incremented with a resolution of a second."
+        ::= {apSysMgmtTrapTableEntry 2}
+
+apTrapTableNumVariables      OBJECT-TYPE
+        SYNTAX                  Unsigned32
+        MAX-ACCESS              read-only
+        STATUS                  current
+        DESCRIPTION
+                "The number of information encoded in the trap."
+        ::= { apSysMgmtTrapTableEntry 3 }
+
+apTrapTableSysUptime    OBJECT-TYPE
+        SYNTAX                  TimeTicks
+        MAX-ACCESS              read-only
+        STATUS                  current
+        DESCRIPTION
+                "The snmp sysUptime when the trap was generated."
+        ::= {apSysMgmtTrapTableEntry 4 }
+
+apTrapTableTrapId     OBJECT-TYPE
+        SYNTAX                  OBJECT IDENTIFIER
+        MAX-ACCESS              read-only
+        STATUS                  current
+        DESCRIPTION
+                "The trapID associated with the fault condition."
+        ::= {apSysMgmtTrapTableEntry 5 }
+
+-- PHY utilization table
+
+apSysMgmtInterfaceObjects OBJECT IDENTIFIER ::= { apSysMgmtMIBObjects 8 }
+
+apSysMgmtPhyUtilTable        OBJECT-TYPE
+        SYNTAX          SEQUENCE OF ApSysMgmtPhyUtilTableEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+                "A Table that contains RX and TX utilization
+                information on media ports."
+        ::=  { apSysMgmtInterfaceObjects 1 }
+
+apSysMgmtPhyUtilTableEntry        OBJECT-TYPE
+        SYNTAX          ApSysMgmtPhyUtilTableEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+                "A table entry that contains RX and TX utilization
+                information on media ports."
+        INDEX { ifIndex }
+        ::= { apSysMgmtPhyUtilTable 1 }
+
+ApSysMgmtPhyUtilTableEntry ::= SEQUENCE {
+        apPhyUtilTableRXUtil              SysMgmtPercentage,
+        apPhyUtilTableTXUtil              SysMgmtPercentage
+}
+
+
+apPhyUtilTableRXUtil            OBJECT-TYPE
+        SYNTAX                  SysMgmtPercentage
+        MAX-ACCESS              read-only
+        STATUS                  current
+        DESCRIPTION
+                "The RX Network utilization of the physical port
+                measured over a 1 second period."
+        ::= { apSysMgmtPhyUtilTableEntry 1 }
+
+apPhyUtilTableTXUtil            OBJECT-TYPE
+        SYNTAX                  SysMgmtPercentage
+        MAX-ACCESS              read-only
+        STATUS                  current
+        DESCRIPTION
+                "The TX Network utilization of the physical port
+                measured over a 1 second period."
+        ::= { apSysMgmtPhyUtilTableEntry 2 }
+
+-- system trap information table 
+
+apSysMgmtTrapInformationTable        OBJECT-TYPE
+        SYNTAX          SEQUENCE OF ApSysMgmtTrapInformationTableEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+                "A table to hold the trap information reported by the
+                 Session Border Controller.
+                 Information arranged into rows, indexed by system time,
+                 trap table instance index and trap information data index.
+                These are all read only."
+        ::=  { apSysMgmtSystemTrapObjects 2 }
+
+apSysMgmtTrapInformationTableEntry        OBJECT-TYPE
+        SYNTAX          ApSysMgmtTrapInformationTableEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+                "A table entry designed to hold trap information, 
+                 reported by a Session Border Controller."
+        INDEX {  apTrapTableSystemTime,
+                 apTrapTableInstanceIndex,
+                 apTrapInformationTableDataIndex }
+        ::= { apSysMgmtTrapInformationTable 1 }
+
+ApSysMgmtTrapInformationTableEntry ::= SEQUENCE {
+        apTrapInformationTableDataIndex       Unsigned32,
+        apTrapInformationTableDataType        INTEGER,
+        apTrapInformationTableDataLength      Unsigned32,
+        apTrapInformationTableDataOctets      OCTET STRING
+}
+
+apTrapInformationTableDataIndex        OBJECT-TYPE
+        SYNTAX                  Unsigned32
+        MAX-ACCESS              not-accessible 
+        STATUS                  current
+        DESCRIPTION
+                "The index of the information encoded in the trap."
+        ::= { apSysMgmtTrapInformationTableEntry 1 }
+
+apTrapInformationTableDataType        OBJECT-TYPE
+        SYNTAX                   INTEGER {
+                                   snmpTypeUnknown(0),
+                                   snmpTypeInteger(2),
+                                   snmpTypeOctetString(4),
+                                   snmpTypeObjectIdentifier(6),
+                                   snmpTypeObjectIpAddress(64),
+                                   snmpTypeInteger64(70)
+                                } 
+        MAX-ACCESS              read-only
+        STATUS                  current
+        DESCRIPTION
+               " snmp type enumerated encoded in the trap.
+                 snmpTypeInteger is the size of integer.
+                 snmpTypeObjectIpAddress is an octet string of length 4."
+        ::= { apSysMgmtTrapInformationTableEntry 2 }
+
+apTrapInformationTableDataLength        OBJECT-TYPE
+        SYNTAX                  Unsigned32
+        MAX-ACCESS              read-only
+        STATUS                  current
+        DESCRIPTION
+               "The octet length of the information encoded in the trap."
+        ::= { apSysMgmtTrapInformationTableEntry 3 }
+
+apTrapInformationTableDataOctets        OBJECT-TYPE
+        SYNTAX       OCTET STRING (SIZE (1..255)) 
+        MAX-ACCESS              read-only
+        STATUS                  current
+        DESCRIPTION
+               "The information represented in octets:
+                snmpTypeInteger, snmpTypeObjectCounter32, 
+                snmpTypeObjectGauge, snmpTypeObjectOpaque and snmpTypeUnsignedInteger32 are 4 octets long.
+                snmpTypeCounter64 is 8 octets long.
+                snmpTypeObjectIpAddress, snmpTypeObjectNSAPAddress, are 4 octets long.
+                Note - Data is aligned in network order."
+        ::= { apSysMgmtTrapInformationTableEntry 4 }
+
+-- Notification MIBs
+-- Notification of apSysMgmtMIBGeneralObjects 
+apSysMgmtTrapType		OBJECT-TYPE
+	SYNTAX			OBJECT IDENTIFIER
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"The object ID of the item which value is exceeds its monitoring
+	threshold"
+	::= { apSysMgmtNotificationObjects 1 }
+
+apSysMgmtTrapValue		OBJECT-TYPE
+	SYNTAX          	Integer32
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"The value of the object which causes the trap to occur."
+	::= { apSysMgmtNotificationObjects 2 }
+
+
+apSysMgmtSlotID	OBJECT-TYPE
+	SYNTAX          	Integer32
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"The slot the trap occurs on."
+	::= { apSysMgmtNotificationObjects 3 }
+
+apSysMgmtSlotType	OBJECT-TYPE
+	SYNTAX          	ApHardwareModuleFamily
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"The slot type the trap occurs on."
+	::= { apSysMgmtNotificationObjects 4 }
+
+apSysMgmtRedundancyState	OBJECT-TYPE
+	SYNTAX          	INTEGER {
+	                           active(1),
+				   standby(2),
+				   unassigned(3),
+				   recovery(4),
+				   outOfService(5)
+	                        }
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"The new redundancy state for the generating entity."
+	::= { apSysMgmtNotificationObjects 5 }
+
+apSysMgmtSingleUnitRedundancyState	OBJECT-TYPE
+	SYNTAX     ApRedundancyState
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"The new redundancy state for the generating entity."
+	::= { apSysMgmtNotificationObjects 6 }
+
+apSysMgmtSipInterfaceActiveLocalContacts OBJECT-TYPE
+        SYNTAX                  Unsigned32
+        MAX-ACCESS              accessible-for-notify
+        STATUS                  obsolete
+        DESCRIPTION
+        "Number of current cached registered contacts per Sip Interface."
+        ::= { apSysMgmtNotificationObjects 7 }
+
+apSysMgmtSipInterfaceRegCacheLimit OBJECT-TYPE
+        SYNTAX                  Unsigned32
+        MAX-ACCESS              accessible-for-notify
+        STATUS                  current
+        DESCRIPTION
+                "The maximum number of contacts allowed to be accepted into the
+                registration cache per Sip Interface.  A value of 0 indicates no limit."
+        ::= { apSysMgmtNotificationObjects 8 }
+
+-- Notifications
+apSystemManagementNotificationPrefix OBJECT IDENTIFIER 
+			::= { apSystemManagementModule 3 }
+apSystemManagementNotifications OBJECT IDENTIFIER 
+			::= { apSystemManagementNotificationPrefix 0 }
+
+
+apSysMgmtGroupTrap		NOTIFICATION-TYPE
+	OBJECTS		{ apSysMgmtTrapType, apSysMgmtTrapValue }
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will generated if value of the monitoring object
+	      exceeds a certain threshold. "
+	::= { apSystemManagementNotifications 1 }
+
+apSysMgmtGroupClearTrap		NOTIFICATION-TYPE
+	OBJECTS		{ apSysMgmtTrapType }
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will generated if value of the monitoring object
+	      returns to within a certain threshold.  This signifies that
+	      an alarm caused by that monitoring object has been cleared. "
+	::= { apSystemManagementNotifications 2 }
+
+apSysMgmtSingleUnitRedundancyTrap NOTIFICATION-TYPE
+	OBJECTS		{ apSysMgmtSlotID,
+	                  apSysMgmtSlotType,
+			  apSysMgmtSingleUnitRedundancyState
+			}
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will generated a slot's status changes.
+	      The varbinds contain the new information for the generating
+	      slot."
+	::= { apSystemManagementNotifications 3 }
+
+apSysMgmtMonitorObjects OBJECT IDENTIFIER ::= { apSystemManagementModule 5 } 
+
+-- Monitor MIBs
+apSysMgmtPowerLocation		OBJECT-TYPE
+	SYNTAX          	INTEGER {
+					left(0),
+					right(1)
+				}
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"0=left:power supply A, 1=right:power supply B."
+	::= { apSysMgmtMonitorObjects 1 }
+
+apSysMgmtPowerPresence		OBJECT-TYPE
+	SYNTAX          	INTEGER {
+					down(0),
+					up(1)
+				}
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"0=power supply down/not present, 1=power supply up/present."
+	::= { apSysMgmtMonitorObjects 2 }
+
+apSysMgmtTempValue		OBJECT-TYPE
+	SYNTAX     	     	Unsigned32
+	UNITS			"degrees celsius"
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"the value is the temperature of the system in degrees celsius."
+	::= { apSysMgmtMonitorObjects 3 }
+
+apSysMgmtFanLocation		OBJECT-TYPE
+	SYNTAX     	     	INTEGER {
+					left(0),
+					middle(1),
+					right(2)
+				}
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"0=left fan unit, 1=middle fan unit, 2=right fan unit."
+	::= { apSysMgmtMonitorObjects 4 }
+
+apSysMgmtFanSpeed		OBJECT-TYPE
+	SYNTAX     	     	Integer32
+	UNITS                   "%"
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"the value is the percentage of fan speed of given fan location."
+	::= { apSysMgmtMonitorObjects 5 }
+
+apSysMgmtTaskSuspend		OBJECT-TYPE
+	SYNTAX     	     	DisplayString (SIZE (1..255))
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"The text string of the critical task that has entered the suspended
+	 state.  If the text of the message exceeds 255 bytes, the message
+	 will be truncated to 255 bytes. "
+	::= { apSysMgmtMonitorObjects 6 }
+
+apSysMgmtRedRole        	OBJECT-TYPE
+	SYNTAX     	     	INTEGER {
+					primary(0),
+					secondary(1)
+				}
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"0=primary unit in a redundant pair,
+	 1=secondary unit in a redundant pair."
+	::= { apSysMgmtMonitorObjects 7 }
+
+apSysMgmtRedTransState		OBJECT-TYPE
+	SYNTAX     	     	INTEGER {
+					out-of-service(0),
+					active(1),
+					standby(2),
+					no-peer(3)
+				}
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"the state that the system, give by location, is transitioning too."
+	::= { apSysMgmtMonitorObjects 8 }
+
+apSysMgmtMediaPorts		OBJECT-TYPE
+	SYNTAX     	     	SysMgmtPercentage
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"The value is the failure rate percentage at which the system
+	 cannot allocate media ports."
+	::= { apSysMgmtMonitorObjects 9 }
+
+apSysMgmtMediaBandwidth		OBJECT-TYPE
+	SYNTAX     	     	SysMgmtPercentage
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"The value is the failure rate percentage at which the system
+	 cannot allocate media bandwidth."
+	::= { apSysMgmtMonitorObjects 10 }
+
+apSysMgmtGatewayUnreachable	OBJECT-TYPE
+	SYNTAX     	     	DisplayString (SIZE (1..255))
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"The value is the gateway that is or was unreachable from the system.
+	 The string will formated as such <xx.xx.xx.xx>:<y>:<zz> where
+	 xx.xx.xx.xx is the IPv4 address, y is the slot and zz is the
+	 subport ID. If the text of the message exceeds 255 bytes, the message
+	 will be truncated to 255 bytes."
+	::= { apSysMgmtMonitorObjects 11 }
+
+apSysMgmtRadiusDown		OBJECT-TYPE
+	SYNTAX     	     	INTEGER {
+					all-servers-down(0),
+					some-servers-down(1)
+				}
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"the value identifies if all the radius connections are down or if
+	 just some of the radius connects have become unreachable."
+	::= { apSysMgmtMonitorObjects 12 }
+
+apSysMgmtH323InitFail		OBJECT-TYPE
+	SYNTAX     	     	DisplayString (SIZE (1..255))
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"The text string is the H.323 stack-name that has failed to initilize.
+	 If the text of the message exceeds 255 bytes, the message
+	 will be truncated to 255 bytes. "
+	::= { apSysMgmtMonitorObjects 13 }
+
+apSysMgmtCfgSaveFail		OBJECT-TYPE
+	SYNTAX     	     	DisplayString (SIZE (1..255))
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"The text string is the reason phrase why the save config has failed
+	 to execute properly on the system.
+	 If the text of the message exceeds 255 bytes, the message
+	 will be truncated to 255 bytes. "
+	::= { apSysMgmtMonitorObjects 14 }
+
+apSysMgmtHardwareError		OBJECT-TYPE
+	SYNTAX     	     	DisplayString (SIZE (1..255))
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"The text string is the type of hardware error
+	that has occurred.
+	 If the text of the message exceeds 255 bytes, the message
+	 will be truncated to 255 bytes. "
+	::= { apSysMgmtMonitorObjects 15 }
+
+apSysMgmtSAHostname		OBJECT-TYPE
+	SYNTAX     	     	DisplayString (SIZE (1..255))
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"The hostname of the Session Agent that is changing status"
+	::= { apSysMgmtMonitorObjects 16 }
+
+apSysMgmtSAIP			OBJECT-TYPE
+	SYNTAX     	     	DisplayString (SIZE (1..255))
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"The ip address of the Session Agent that is changing status"
+	::= { apSysMgmtMonitorObjects 17 }
+
+apSysMgmtSAStatus		OBJECT-TYPE
+	SYNTAX     	     	INTEGER {
+					inservice(0),
+					outofservice(1)
+				}
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"The status that the Session Agent is changing into"
+	::= { apSysMgmtMonitorObjects 18 }
+
+apSysMgmtSAStatusReason		OBJECT-TYPE
+	SYNTAX     	     	INTEGER {    
+					administrative(0),
+					oosbyproxyerror(1),
+					standby(2),
+					inservice(3),
+					constraintsexceeded(4),
+					unresponsive(5),
+					oosprovisionedresponse(6)
+				}
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"The reason for the status change of the Session Agent"
+	::= { apSysMgmtMonitorObjects 19 }
+
+apSysMgmtAuthFailLevel          OBJECT-TYPE
+	SYNTAX                  INTEGER {	
+		login(0),
+		user(1),
+		priv(2),
+		shell(3)			
+			}
+	MAX-ACCESS              accessible-for-notify
+	STATUS                  current
+	DESCRIPTION
+	"The state a user was trying to switch to or from when failing to
+	authenticate."
+	::= { apSysMgmtMonitorObjects 20 }
+
+apSysMgmtAuthFailProto          OBJECT-TYPE
+	SYNTAX                  INTEGER {	
+		console(0),
+		telnet(1),
+		ftp(2),
+		ssh(3),
+		sftp(4)			
+			}
+	MAX-ACCESS              accessible-for-notify
+	STATUS                  current
+	DESCRIPTION
+	"The protocol a user was using when failing to authenticate"
+	::= { apSysMgmtMonitorObjects 21 }
+
+apSysMgmtAuthFailOrigin         OBJECT-TYPE
+	SYNTAX     	     	DisplayString (SIZE (1..255))
+	MAX-ACCESS              accessible-for-notify
+	STATUS                  current
+	DESCRIPTION
+	"The origin of a user who failed to authenticate.
+       	The string will formated as such <xx.xx.xx.xx>:<yyyy> where
+	 xx.xx.xx.xx is the IPv4 address, and yyyy is the port."
+	::= { apSysMgmtMonitorObjects 22 }
+
+apSysMgmtSystemState            OBJECT-TYPE
+        SYNTAX                  INTEGER {
+                online(0),
+                becoming-offline(1),
+                offline(2)
+                        }
+        MAX-ACCESS              accessible-for-notify
+        STATUS                  current
+        DESCRIPTION
+        "The current value of the system-state"
+        ::= { apSysMgmtMonitorObjects 23 }
+
+apSysMgmtTaskDelete		OBJECT-TYPE
+	SYNTAX     	     	DisplayString (SIZE (1..255))
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"The text string of the task that has been deleted from the system.
+	 If the text of the message exceeds 255 bytes, the message
+	 will be truncated to 255 bytes. "
+	::= { apSysMgmtMonitorObjects 24 }
+
+apSysMgmtAlgdCPULoad		OBJECT-TYPE
+	SYNTAX     	     	SysMgmtPercentage
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"The value is the CPU utilization percentage of application tasks."
+	::= { apSysMgmtMonitorObjects 25 }
+
+apSysMgmtSipInterfaceRealmName		OBJECT-TYPE
+	SYNTAX     	     	DisplayString (SIZE (1..255))
+	MAX-ACCESS		accessible-for-notify 
+	STATUS	   		current
+	DESCRIPTION
+		    "The realm of the Sip Interface that is changing status"
+	::= { apSysMgmtMonitorObjects 26 }
+
+apSysMgmtSipInterfaceIP			OBJECT-TYPE
+	SYNTAX     	     	DisplayString (SIZE (1..255))
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"The ip address of the Sip Interface that is changing status"
+	::= { apSysMgmtMonitorObjects 27 }
+
+
+apSysMgmtSipInterfaceStatus		OBJECT-TYPE
+	SYNTAX     	     	INTEGER {
+					inservice(0),
+					outofservice(1)
+				}
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"The status that the Sip Interface is changing into"
+	::= { apSysMgmtMonitorObjects 28 }
+
+apSysMgmtSipInterfaceStatusReason		OBJECT-TYPE
+	SYNTAX     	     	INTEGER {    
+					administrative(0),
+					oosbyproxyerror(1),
+					standby(2),
+					inservice(3),
+					constraintsexceeded(4),
+					unresponsive(5)
+				}
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"The reason for the status change of the Sip Interface"
+	::= { apSysMgmtMonitorObjects 29 }
+
+apSysMgmtCollectPushServerUnreachable	OBJECT-TYPE
+	SYNTAX     	     	DisplayString (SIZE (1..255))
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"The value is the push server that is or was unreachable from the 
+	 system collector. "
+	::= { apSysMgmtMonitorObjects 30 }
+
+apSysMgmtNTPServer	OBJECT-TYPE
+	SYNTAX     	     	DisplayString (SIZE (1..255))
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"The value is the server that is or was unreachable from the 
+	 NTP. "
+	::= { apSysMgmtMonitorObjects 31 }
+
+apSysMgmtBorderGatewayId	OBJECT-TYPE
+	SYNTAX     	     	DisplayString (SIZE (1..255))
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"The identifier of a Border Gateway."
+	::= { apSysMgmtMonitorObjects 32 }
+
+apSysMgmtRFactor		OBJECT-TYPE
+	SYNTAX			DisplayString (SIZE (1..255))
+	MAX-ACCESS		accessible-for-notify
+	STATUS			current
+	DESCRIPTION
+	"The R-factor value of the call that has exceeded a
+	configured threshold."
+	::= { apSysMgmtMonitorObjects 33 }
+
+apSysMgmtCallId			OBJECT-TYPE
+	SYNTAX     	     	DisplayString (SIZE (1..255))
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"A call correlation identifier."
+	::= { apSysMgmtMonitorObjects 34 }
+
+apSysMgmtSurrogateRegHost	OBJECT-TYPE
+ 	SYNTAX     	     	DisplayString (SIZE (1..255))
+ 	MAX-ACCESS		accessible-for-notify
+ 	STATUS	   		current
+ 	DESCRIPTION
+ 	"The registrar host name for a surrogate registration"
+ 	::= { apSysMgmtMonitorObjects 35 }
+  
+apSysMgmtSurrogateRegAor	OBJECT-TYPE
+ 	SYNTAX     	     	DisplayString (SIZE (1..255))
+ 	MAX-ACCESS		accessible-for-notify
+ 	STATUS	   		current
+ 	DESCRIPTION
+ 	"The address of record used in a surrogate registration"
+	::= { apSysMgmtMonitorObjects 36 }
+
+apSysMgmtRealmID OBJECT-TYPE
+	SYNTAX			DisplayString (SIZE (1..255))
+	MAX-ACCESS		accessible-for-notify
+	STATUS			current
+	DESCRIPTION
+		"The Realm ID."
+	::= { apSysMgmtMonitorObjects 37 }
+
+apSysMgmtCollectorPushNodeName              OBJECT-TYPE
+        SYNTAX                  DisplayString (SIZE (1..255))
+        MAX-ACCESS              accessible-for-notify
+        STATUS                  current
+        DESCRIPTION
+        "The node name from which the collector file was transferred successfully."
+        ::= { apSysMgmtMonitorObjects 38 }
+
+apSysMgmtCollectorPushUniqueFileName              OBJECT-TYPE
+        SYNTAX                  DisplayString (SIZE (1..255))
+        MAX-ACCESS              accessible-for-notify
+        STATUS                  current
+        DESCRIPTION
+        "The unique collector fileID that was transferred successfully."
+        ::= { apSysMgmtMonitorObjects 39 }
+
+apSysMgmtCollectorPushReceiverAddress              OBJECT-TYPE
+        SYNTAX                  DisplayString (SIZE (1..255))
+        MAX-ACCESS              accessible-for-notify
+        STATUS                  current
+        DESCRIPTION
+        "The address of the push-receiver to where the collector file was transferred successfully."
+        ::= { apSysMgmtMonitorObjects 40 }
+
+apSysMgmtRealmName				OBJECT-TYPE
+	SYNTAX     	     	DisplayString (SIZE (1..255))
+	MAX-ACCESS		accessible-for-notify 
+	STATUS	   		current
+	DESCRIPTION
+		    "The realm whose session constraint status is changing"
+	::= { apSysMgmtMonitorObjects 41 }
+
+apSysMgmtRealmStatusReason		OBJECT-TYPE
+	SYNTAX     	     	INTEGER {    
+					administrative(0),
+					oosbyproxyerror(1),
+					standby(2),
+					inservice(3),
+					constraintsexceeded(4),
+					unresponsive(5),
+					oosprovisionedresponse(6),
+					callloadreduction(7)
+				}
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"The reason for the status change of the Realm Status"
+	::= { apSysMgmtMonitorObjects 42 }
+
+apSysMgmtGatewaySynchronized     OBJECT-TYPE
+        SYNTAX                  DisplayString (SIZE (1..255))
+        MAX-ACCESS              accessible-for-notify
+        STATUS                  current
+        DESCRIPTION
+        "The value is the default gateway that is synchronized in the ARP table of the system.
+         The string will formated as such <xx.xx.xx.xx> where
+         xx.xx.xx.xx is the IPv4 address."
+        ::= { apSysMgmtMonitorObjects 43 }
+
+apSysCallRecordingServerName	OBJECT-TYPE
+	SYNTAX     	     	DisplayString (SIZE (1..255))
+	MAX-ACCESS		accessible-for-notify 
+	STATUS	   		current
+	DESCRIPTION
+		    "Call Recording Server name"
+	::= { apSysMgmtMonitorObjects 44 }
+
+apSysCallRecordingServerState		OBJECT-TYPE
+	SYNTAX     	     	INTEGER {    
+					unknown(0),
+					not-monitoring(1),
+					primary-active(2),
+					secondary-active(3),
+					no-active(4)
+				}
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+		"The current state of the Call Recording Server"
+	::= { apSysMgmtMonitorObjects 45 }
+
+apSysCDRPushReceiverAddressType           OBJECT-TYPE
+        SYNTAX                  InetAddressType
+        MAX-ACCESS              accessible-for-notify
+        STATUS                  current
+        DESCRIPTION
+                "The address type of the receiver."
+        ::= { apSysMgmtMonitorObjects 46 }
+
+
+apSysCDRPushReceiverAddress        OBJECT-TYPE
+        SYNTAX                  InetAddress 
+        MAX-ACCESS              accessible-for-notify
+        STATUS                  current
+        DESCRIPTION
+                "The address of the push receiver."
+        ::= { apSysMgmtMonitorObjects 47 }
+
+apSysCDRPushReceiverFailureReasonCode        OBJECT-TYPE
+        SYNTAX                  INTEGER {
+                                unknown(0),
+                                file-access-error(1),
+                                connection-error(2),
+                                authentication-error(3)
+        } 
+        MAX-ACCESS              accessible-for-notify
+        STATUS                  current
+        DESCRIPTION
+                "The reason code for the failure."
+        ::= { apSysMgmtMonitorObjects 48 }
+
+apSysAdminAuditLogFullReason      OBJECT-TYPE
+        SYNTAX               INTEGER {
+		     	     file-size(0),
+			     percentage-full(1),
+			     file-transfer-time(2),
+			     maxspaceused-deletingfile(3)
+	}
+	MAX-ACCESS           accessible-for-notify
+        STATUS               current
+	DESCRIPTION
+                "The reason code for Audit log full."
+	::= { apSysMgmtMonitorObjects 49 }
+
+apSysAdminWriteErrorCode     OBJECT-TYPE
+        SYNTAX               INTEGER {
+	                     unknown(0),
+			     not-open(1),
+			     io-error(2),
+                             comress-error(3),
+                             encrypt-error(4),
+                             no-space(5)
+	}
+	MAX-ACCESS           accessible-for-notify
+	STATUS               current
+	DESCRIPTION
+	        "The reason code for write failure"
+	::= { apSysMgmtMonitorObjects 50 }
+
+apSysAdminFileName           OBJECT-TYPE 
+        SYNTAX               DisplayString (SIZE (1..255))
+        MAX-ACCESS           accessible-for-notify
+	STATUS               current
+	DESCRIPTION
+	        "file name"
+	::= { apSysMgmtMonitorObjects 51 }
+
+apSysAddressType             OBJECT-TYPE
+        SYNTAX               InetAddressType
+        MAX-ACCESS           accessible-for-notify
+        STATUS               current
+        DESCRIPTION
+                "The address type."
+        ::= { apSysMgmtMonitorObjects 52 }
+
+apSysAddress                 OBJECT-TYPE
+        SYNTAX               InetAddress
+        MAX-ACCESS           accessible-for-notify
+        STATUS               current
+        DESCRIPTION
+               "address"
+	::= { apSysMgmtMonitorObjects 53 }
+
+apSysReasonCode              OBJECT-TYPE
+        SYNTAX               INTEGER {
+	                     unknown(0),
+			     login-error(1),
+			     file-transfer-error(2)
+	}
+        MAX-ACCESS              accessible-for-notify
+	STATUS                  current
+	DESCRIPTION
+	       "The reason code for the failure."
+	::= { apSysMgmtMonitorObjects 54 }
+
+apSysMgmtPhyUtilCurrent OBJECT-TYPE
+       SYNTAX                Unsigned32
+       MAX-ACCESS            accessible-for-notify
+       STATUS                current
+       DESCRIPTION
+              "The current measured percentage value of
+              RX/TX utilization, whichever is higher." 
+       ::= { apSysMgmtMonitorObjects 55 }
+
+apSysMgmtPhyUtilMinorThreshold OBJECT-TYPE
+       SYNTAX                Unsigned32
+       MAX-ACCESS            accessible-for-notify
+       STATUS                current
+       DESCRIPTION
+              "The current configured minor threshold value."
+       ::= { apSysMgmtMonitorObjects 56 }
+
+apSysMgmtPhyUtilMajorThreshold OBJECT-TYPE
+       SYNTAX                Unsigned32
+       MAX-ACCESS            accessible-for-notify
+       STATUS                current
+       DESCRIPTION
+              "The current configured major threshold value." 
+       ::= { apSysMgmtMonitorObjects 57 }
+
+apSysMgmtPhyUtilCriticalThreshold OBJECT-TYPE
+       SYNTAX                Unsigned32
+       MAX-ACCESS            accessible-for-notify
+       STATUS                current
+       DESCRIPTION
+              "The current configured critical threshold value" 
+       ::= { apSysMgmtMonitorObjects 58 }
+
+apSysMgmtPhyRejectOverUtil OBJECT-TYPE
+       SYNTAX                Unsigned32
+       MAX-ACCESS            accessible-for-notify
+       STATUS                current
+       DESCRIPTION
+              "Whether or not the overloadProtection feature
+              is enabled and active."
+       ::= { apSysMgmtMonitorObjects 59 }
+			
+apSysMgmtSpaceAvailCurrent OBJECT-TYPE
+       SYNTAX                Unsigned32
+       MAX-ACCESS            accessible-for-notify
+       STATUS                current
+       DESCRIPTION
+              "The current measured percentage value of
+              space available."
+       ::= { apSysMgmtMonitorObjects 60 }
+
+apSysMgmtSpaceAvailMinorThreshold OBJECT-TYPE
+       SYNTAX                Unsigned32
+       MAX-ACCESS            accessible-for-notify
+       STATUS                current
+       DESCRIPTION
+              "The current configured minor threshold value."
+       ::= { apSysMgmtMonitorObjects 61 }
+
+apSysMgmtSpaceAvailMajorThreshold OBJECT-TYPE
+       SYNTAX                Unsigned32
+       MAX-ACCESS            accessible-for-notify
+       STATUS                current
+       DESCRIPTION
+              "The current configured major threshold value."
+       ::= { apSysMgmtMonitorObjects 62 }
+
+apSysMgmtSpaceAvailCriticalThreshold OBJECT-TYPE
+       SYNTAX                Unsigned32
+       MAX-ACCESS            accessible-for-notify
+       STATUS                current
+       DESCRIPTION
+              "The current configured critical threshold value"
+       ::= { apSysMgmtMonitorObjects 63 }
+
+apSysMgmtPartitionPath       OBJECT-TYPE
+        SYNTAX               DisplayString (SIZE (1..255))
+        MAX-ACCESS           accessible-for-notify
+        STATUS               current
+        DESCRIPTION
+                "partition path"
+        ::= { apSysMgmtMonitorObjects 64 }
+
+apSysMgmtTcaOid OBJECT-TYPE
+      SYNTAX		OBJECT IDENTIFIER
+      MAX-ACCESS            accessible-for-notify
+      STATUS                current
+      DESCRIPTION
+	    "The Object ID for the Threshold Crossing Alert counter
+	     that is changing alert level"
+      ::= { apSysMgmtMonitorObjects 65 }
+      
+apSysMgmtTcaCurrent OBJECT-TYPE
+      SYNTAX                Unsigned32
+      MAX-ACCESS            accessible-for-notify
+      STATUS                current
+      DESCRIPTION
+	    "The current configured TCA minor threshold value."
+      ::= { apSysMgmtMonitorObjects 66 }
+
+apSysMgmtTcaMinorThreshold OBJECT-TYPE
+      SYNTAX                Unsigned32
+      MAX-ACCESS            accessible-for-notify
+      STATUS                current
+      DESCRIPTION
+	    "The current configured TCA minor threshold value."
+      ::= { apSysMgmtMonitorObjects 67 }
+      
+apSysMgmtTcaMajorThreshold OBJECT-TYPE
+      SYNTAX                Unsigned32
+      MAX-ACCESS            accessible-for-notify
+      STATUS                current
+      DESCRIPTION
+	    "The current configured TCA major threshold value."
+      ::= { apSysMgmtMonitorObjects 68 }
+      
+apSysMgmtTcaCriticalThreshold OBJECT-TYPE
+      SYNTAX                Unsigned32
+      MAX-ACCESS            accessible-for-notify
+      STATUS                current
+      DESCRIPTION
+	    "The current configured TCA critical threshold value."
+      ::= { apSysMgmtMonitorObjects 69 }
+
+apSysEPSName OBJECT-TYPE
+        SYNTAX                  DisplayString (SIZE (1..255)) 
+        MAX-ACCESS              accessible-for-notify
+        STATUS                  current
+        DESCRIPTION
+                "The name of the external policy server."
+        ::= { apSysMgmtMonitorObjects 70 }
+
+apSysEPSFqdn OBJECT-TYPE
+        SYNTAX                  DisplayString (SIZE (1..255)) 
+        MAX-ACCESS              accessible-for-notify
+        STATUS                  current
+        DESCRIPTION
+                "The FQDN of the external policy server."
+        ::= { apSysMgmtMonitorObjects 71 }
+
+apSysEPSAddress OBJECT-TYPE
+        SYNTAX                  DisplayString (SIZE (1..255)) 
+        MAX-ACCESS              accessible-for-notify
+        STATUS                  current
+        DESCRIPTION
+                "The ip address and port of the external policy server."
+        ::= { apSysMgmtMonitorObjects 72 }
+
+apSysEPSRealm	OBJECT-TYPE
+		SYNTAX               DisplayString (SIZE (1..255))
+        MAX-ACCESS           accessible-for-notify
+		STATUS                  current
+        DESCRIPTION
+                "Realm associated with the policy server."
+        ::= { apSysMgmtMonitorObjects 73 }
+
+apSysEPSOperationType OBJECT-TYPE
+		SYNTAX               DisplayString (SIZE (1..255))
+        MAX-ACCESS           accessible-for-notify
+		STATUS                  current
+        DESCRIPTION
+                "Operation mode (RACF/CLF) of the policy server."
+        ::= { apSysMgmtMonitorObjects 74 }
+
+apSysMgmtDatabaseContactMinorThreshold OBJECT-TYPE
+       SYNTAX                Unsigned32
+       MAX-ACCESS            accessible-for-notify
+       STATUS                current
+       DESCRIPTION
+              "The current configured minor threshold value."
+       ::= { apSysMgmtMonitorObjects 75 }
+
+apSysMgmtDatabaseContactMajorThreshold OBJECT-TYPE
+       SYNTAX                Unsigned32
+       MAX-ACCESS            accessible-for-notify
+       STATUS                current
+       DESCRIPTION
+              "The current configured major threshold value."
+       ::= { apSysMgmtMonitorObjects 76 }
+
+apSysMgmtDatabaseContactCriticalThreshold OBJECT-TYPE
+       SYNTAX                Unsigned32
+       MAX-ACCESS            accessible-for-notify
+       STATUS                current
+       DESCRIPTION
+              "The current configured critical threshold value"
+       ::= { apSysMgmtMonitorObjects 77 }
+
+apSysMgmtTacacsDown		OBJECT-TYPE
+	SYNTAX     	     	INTEGER {
+					all-servers-down(0),
+					some-servers-down(1)
+				}
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"the value identifies if all the tacacs connections are down or if
+	 just some of the tacacs connects have become unreachable."
+	::= { apSysMgmtMonitorObjects 78 }
+
+apSysMgmtOCSRDown		OBJECT-TYPE
+	SYNTAX     	     	INTEGER {
+					all-servers-down(0),
+					some-servers-down(1)
+				}
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION
+	"the value identifies if all the OCSR connections are down or if
+	 just some of the OCSR connections are unreachable."
+	::= { apSysMgmtMonitorObjects 79 }
+
+-- Monitors      
+apSystemManagementMonitorPrefix OBJECT IDENTIFIER 
+			::= { apSystemManagementModule 6 }
+apSystemManagementMonitors OBJECT IDENTIFIER 
+			::= { apSystemManagementMonitorPrefix 0 }
+
+apSysMgmtPowerTrap		NOTIFICATION-TYPE
+	OBJECTS		{ apSysMgmtPowerLocation, apSysMgmtPowerPresence }
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will be generated if a power supply is powered down,
+	      powered up, inserted/present or removed/not present. "
+	::= { apSystemManagementMonitors 1 }
+
+apSysMgmtTempTrap		NOTIFICATION-TYPE
+	OBJECTS		{ apSysMgmtTempValue }
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will be generated if the temperature falls below
+		the monitoring thershold. "
+	::= { apSystemManagementMonitors 2 }
+
+apSysMgmtFanTrap		NOTIFICATION-TYPE
+	OBJECTS		{ apSysMgmtFanLocation, apSysMgmtFanSpeed }
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will be generated if a fan unit speed falls
+		below the monitoring threshold. "
+	::= { apSystemManagementMonitors 3 }
+
+apSysMgmtTaskSuspendTrap	NOTIFICATION-TYPE
+	OBJECTS		{ apSysMgmtTaskSuspend }
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will be generated if a critical task running
+		 on the system enters a suspened state."
+	::= { apSystemManagementMonitors 4 }
+
+apSysMgmtRedundancyTrap	NOTIFICATION-TYPE
+	OBJECTS		{ apSysMgmtRedRole, apSysMgmtRedTransState }
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will be generated if a state change occurs on either
+		 the primary or secondary system in a redundant(HA) pair."
+	::= { apSystemManagementMonitors 5 }
+
+apSysMgmtMediaPortsTrap	NOTIFICATION-TYPE
+	OBJECTS		{ apSysMgmtMediaPorts }
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will be generated if port allocation fails at
+		a percentage rate higher or equal to the system's default
+		threshold rate."
+	::= { apSystemManagementMonitors 6 }
+
+apSysMgmtMediaBandwidthTrap	NOTIFICATION-TYPE
+	OBJECTS		{ apSysMgmtMediaBandwidth }
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will be generated if bandwidth allocation fails at
+		a percentage rage higher or equal to the system's default
+		threshold rate."
+	::= { apSystemManagementMonitors 7 }
+
+apSysMgmtMediaOutOfMemory	NOTIFICATION-TYPE
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will be generated if media procees cannot allocate
+		memory."
+	::= { apSystemManagementMonitors 8 }
+
+apSysMgmtMediaUnknownRealm	NOTIFICATION-TYPE
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will be generated if media proccess cannot find
+		associated realm for flow."
+	::= { apSystemManagementMonitors 9 }
+
+apSysMgmtGatewayUnreachableTrap	NOTIFICATION-TYPE
+	OBJECTS   	{ apSysMgmtGatewayUnreachable }
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will be generated if gateway specified becomes
+		unreachable by the system."
+	::= { apSystemManagementMonitors 10 }
+
+apSysMgmtRadiusDownTrap	NOTIFICATION-TYPE
+	OBJECTS   	{ apSysMgmtRadiusDown }
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will be generated if all or some configured
+		radius accounting servers haved timed out from a
+		RADIUS Server."
+	::= { apSystemManagementMonitors 11 }
+
+apSysMgmtH323InitFailTrap	NOTIFICATION-TYPE
+	OBJECTS   	{ apSysMgmtH323InitFail }
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will be generated if H.323 stack has failed to
+		initialize properly and has been terminated."
+	::= { apSystemManagementMonitors 12 }
+
+apSysMgmtCfgSaveFailTrap	NOTIFICATION-TYPE
+	OBJECTS   	{ apSysMgmtCfgSaveFail }
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will be generated if an error occurs while the
+		system is trying to save the configuration to memory."
+	::= { apSystemManagementMonitors 13 }
+
+apSysMgmtHardwareErrorTrap	NOTIFICATION-TYPE
+	OBJECTS   	{ apSysMgmtHardwareError }
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will be generated if an error condition is
+                detected in the Switch or CAM subsystems."
+	::= { apSystemManagementMonitors 14 }
+
+apSysMgmtSAStatusChangeTrap	NOTIFICATION-TYPE
+	OBJECTS   	{ apSysMgmtSAHostname, apSysMgmtSAIP, apSysMgmtSAStatus, apSysMgmtSAStatusReason }
+	STATUS	   	current
+	DESCRIPTION
+	      "Generated when a session agent changes status."
+	::= { apSystemManagementMonitors 15 }
+
+apSysMgmtAuthenticationFailedTrap       NOTIFICATION-TYPE
+	OBJECTS {apSysMgmtAuthFailLevel, apSysMgmtAuthFailProto, apSysMgmtAuthFailOrigin }
+	STATUS          current
+	DESCRIPTION
+	      " The trap will be generated if a user fails authentication
+	        on the console or over telnet, ftp, ssh, or sftp."
+	::= { apSystemManagementMonitors 16 }
+
+apSysMgmtSystemStateTrap                NOTIFICATION-TYPE
+        OBJECTS {apSysMgmtSystemState}
+        STATUS          current
+        DESCRIPTION
+            " The trap will be generated when the SD is instructed
+              to change system-state or the transition from
+              becoming_offline to offline occurs."
+        ::= { apSystemManagementMonitors 17 }
+
+apSysMgmtMediaPortsClearTrap	NOTIFICATION-TYPE
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will be generated if the port allocation failure
+	        rate drops below the system's default acceptable threshold."
+	::= { apSystemManagementMonitors 18 }
+
+apSysMgmtMediaBandwidthClearTrap	NOTIFICATION-TYPE
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will be generated if bandwidth allocation failure
+	        rate drops below the system's default acceptable failure 
+		threshold."
+	::= { apSystemManagementMonitors 19 }
+
+apSysMgmtMediaOutOfMemoryClear	NOTIFICATION-TYPE
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will be generated if the media out-of-memory alarm
+	        is manually cleared, there is no automatic trigger to clear
+		that particular alarm."
+	::= { apSystemManagementMonitors 20 }
+
+apSysMgmtGatewayUnreachableClearTrap	NOTIFICATION-TYPE
+	OBJECTS   	{ apSysMgmtGatewayUnreachable }
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will be generated if gateway specified again becomes
+		reachable after being previously unreachable."
+	::= { apSystemManagementMonitors 21 }
+
+apSysMgmtRadiusDownClearTrap	NOTIFICATION-TYPE
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will be generated when all configured radius
+	        accounting servers have resumed communication after any or
+		all have previously timed out."
+	::= { apSystemManagementMonitors 22 }
+
+apSysMgmtTaskDeleteTrap	NOTIFICATION-TYPE
+	OBJECTS		{ apSysMgmtTaskDelete }
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will be generated if a task running
+		 on the system is deleted."
+       ::= { apSystemManagementMonitors 23 }
+
+apSysMgmtAlgdCPULoadTrap	NOTIFICATION-TYPE
+	OBJECTS		{ apSysMgmtAlgdCPULoad }
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will be generated if the CPU utilization percentage of
+		 application tasks has exceeded the threshold algd-load-limit."
+	::= { apSystemManagementMonitors 24 }
+
+apSysMgmtAlgdCPULoadClearTrap	NOTIFICATION-TYPE
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will be generated when the CPU utilization percentage
+		 of application tasks has fallen below the threshold
+		 algd-load-limit."
+	::= { apSystemManagementMonitors 25 }
+
+apSysMgmtInterfaceStatusChangeTrap	NOTIFICATION-TYPE
+	OBJECTS   	{ apSysMgmtSipInterfaceRealmName, 
+			    apSysMgmtSipInterfaceIP, 
+			    apSysMgmtSipInterfaceStatus, 
+			    apSysMgmtSipInterfaceStatusReason } 
+	STATUS	   	current
+	DESCRIPTION
+		" The trap will be generated when there is a change
+		in the status of the sip interface." 
+	::= { apSystemManagementMonitors 26 }
+
+apSysMgmtENUMStatusChangeTrap		NOTIFICATION-TYPE
+	OBJECTS   	{ apENUMConfigName, 
+			    apENUMServerIpAddress,
+			    apENUMServerStatus }
+	STATUS	   	obsolete
+	DESCRIPTION
+	" The trap will be generated if the reachability status of an ENUM 
+	server changes.
+
+	The trap is being replaced by apAppsENUMStatusChangeTrap."
+	::= { apSystemManagementMonitors 27 }
+
+apSysMgmtPushServerUnreachableTrap NOTIFICATION-TYPE
+	OBJECTS   	{ apSysMgmtCollectPushServerUnreachable } 
+	STATUS	   	current
+        DESCRIPTION
+	      " The trap will be generated if server specified becomes
+	        unreachable by the system collector."
+       ::= { apSystemManagementMonitors 28 }
+
+apSysMgmtPushServerUnreachableClearTrap NOTIFICATION-TYPE
+	OBJECTS   	{ apSysMgmtCollectPushServerUnreachable }
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will be generated if server specified becomes
+	        unreachable by the system collector."
+       ::= { apSystemManagementMonitors 29 }
+
+apSysMgmtNTPServerUnreachableTrap NOTIFICATION-TYPE
+	OBJECTS   	{ apSysMgmtNTPServer }
+	STATUS	   	current
+       DESCRIPTION
+	      " The trap will be generated if server specified becomes
+	        unreachable by the NTP process."
+       ::= { apSystemManagementMonitors 30 }
+ 
+apSysMgmtNTPServerUnreachableClearTrap NOTIFICATION-TYPE
+	OBJECTS   	{ apSysMgmtNTPServer } 
+	STATUS	   	current
+       DESCRIPTION
+	      " The trap will be generated if server specified was 
+	        unreachable by the NTP process and now is reachable."
+      ::= { apSystemManagementMonitors 31 }
+
+apSysMgmtNTPServiceDownTrap NOTIFICATION-TYPE 
+	STATUS	   	current
+        DESCRIPTION
+	      " The trap will be generated if all servers specified are 
+	        unreachable by the NTP process."
+       ::= { apSystemManagementMonitors 32 }
+
+apSysMgmtNTPServiceDownClearTrap NOTIFICATION-TYPE 
+	STATUS	   	current
+        DESCRIPTION
+	      " The trap will be generated if all servers specified are 
+	        unreachable by the NTP process."
+       ::= { apSystemManagementMonitors 33 }
+
+apSysMgmtMediaSupervisionTimerExpTrap	NOTIFICATION-TYPE
+	OBJECTS		{ apSysMgmtCallId }
+	STATUS		current
+	DESCRIPTION
+		" The trap will be generated when a media supervision timer
+		has expired.  This behavior is disabled by default but may
+		be enabled by changing the 'media-supervision-traps'
+		parameter of the 'media-manager' configuration element.  The
+		included object is the call identifier for the call which had
+		the timer expire."
+	::= { apSystemManagementMonitors 34 }
+
+apSysMgmntH248AssociationLostTrap	NOTIFICATION-TYPE
+	OBJECTS		{ apSysMgmtBorderGatewayId }
+	STATUS		current
+	DESCRIPTION
+		" This trap will be generated when an H248 control
+		association between a border gateway and session controller
+		is lost.  The included object is the border gateway
+		identifier."
+	::= { apSystemManagementMonitors 35 }
+
+apSysMgmntH248AssociationLostClearTrap	NOTIFICATION-TYPE
+	OBJECTS		{ apSysMgmtBorderGatewayId }
+	STATUS		current
+	DESCRIPTION
+		" This trap will be generated when an H248 control
+		association between a border gateway and session controller
+		has been restored.  The included object is the border
+		gateway identifier."
+	::= { apSystemManagementMonitors 36 }
+
+apSysMgmtRFactorBelowThresholdTrap	NOTIFICATION-TYPE
+	OBJECTS		{ apSysMgmtRFactor,
+			    apSysMgmtCallId }
+	STATUS		current
+	DESCRIPTION
+		" This trap will be generated when a call using the
+		vq-qos statistics gathering function determines that
+		the R-factor has gone below a configured threshold.
+		The included objects are the current RFactor value
+		and a call identifier."
+	::= { apSystemManagementMonitors 37 }
+
+apSysMgmtRFactorBelowThresholdClearTrap	NOTIFICATION-TYPE
+	OBJECTS		{ apSysMgmtCallId }
+	STATUS		current
+	DESCRIPTION
+		" This trap will be generated when a call using the
+		vq-qos statistics gathering function determines that
+		the R-factor has recovered after having gone below a 
+		configurable threshold.  The included object is a call
+		identifier"
+	::= { apSystemManagementMonitors 38 }
+
+apSysMgmtSurrogateRegFailed NOTIFICATION-TYPE
+	OBJECTS   	{ apSysMgmtSurrogateRegHost,
+			  apSysMgmtSurrogateRegAor }
+        STATUS	   	current
+        DESCRIPTION
+	      " The trap will be generated if a surrogate registration
+	        failed after the maximum configured attempts."
+       ::= { apSystemManagementMonitors 39 }
+
+apSysMgmtRealmMinutesExceedTrap     NOTIFICATION-TYPE
+	OBJECTS		{ apSysMgmtRealmID }
+	STATUS		current
+	DESCRIPTION
+        " The trap will be generated if monthly minutes exceed for a realm."
+	::= { apSystemManagementMonitors 40 }
+
+apSysMgmtRealmMinutesExceedClearTrap        NOTIFICATION-TYPE
+	OBJECTS		{ apSysMgmtRealmID }
+	STATUS		current
+	DESCRIPTION
+        " The trap will be generated if monthly minutes reset."
+	::= { apSystemManagementMonitors 41 }
+
+apSysMgmtLDAPStatusChangeTrap		NOTIFICATION-TYPE
+	OBJECTS   	{ apLDAPConfigName,
+			  apLDAPServerIpAddress,
+			  apLDAPServerStatus }
+	STATUS	   	current
+	DESCRIPTION
+		" The trap will be generated if the reachability status of an 
+		LDAP server changes."
+	::= { apSystemManagementMonitors 42 }
+
+apSysMgmtNTPClockSkewTrap NOTIFICATION-TYPE
+	STATUS	   	current
+       DESCRIPTION
+	      " The trap will be generated if NTP has to adjust the clock by
+	        more than 1000 seconds."
+       ::= { apSystemManagementMonitors 43 }
+
+apSysMgmtCollectorPushSuccessTrap NOTIFICATION-TYPE
+      OBJECTS         { apSysMgmtCollectorPushNodeName,
+                        apSysMgmtCollectorPushUniqueFileName,
+                        apSysMgmtCollectorPushReceiverAddress
+                      }
+      STATUS          current
+      DESCRIPTION
+            " The trap will be generated when the collector completes a push
+            operation successfully."
+      ::= { apSystemManagementMonitors 44 }
+
+apSysMgmtRealmStatusChangeTrap	NOTIFICATION-TYPE
+	OBJECTS   	{ apSysMgmtRealmName, 
+			    apSysMgmtRealmStatusReason } 
+	STATUS	   	current
+	DESCRIPTION
+		" The trap will be generated when there is a change
+		in the status of the realm constraints." 
+	::= { apSystemManagementMonitors 45 }
+
+apSysMgmtRegCacheThresholdTrap NOTIFICATION-TYPE
+      OBJECTS         { apSysSipStatsActiveLocalContacts,
+			apSysRegCacheLimit
+		      }
+      STATUS          current
+      DESCRIPTION
+	    "The trap will be generated when the number of contacts stored 
+	    in the registration cache exceeds the configured threshold."
+      ::= { apSystemManagementMonitors 46 }
+
+apSysMgmtRegCacheThresholdClearTrap NOTIFICATION-TYPE
+      OBJECTS         { apSysSipStatsActiveLocalContacts,
+			apSysRegCacheLimit
+		      }
+      STATUS          current
+      DESCRIPTION
+	    "The trap will be generated when the number of contacts stored 
+	    in the registration cache falls below the configured threshold."
+      ::= { apSystemManagementMonitors 47 }
+
+apSysMgmtShortSessionExceedTrap	NOTIFICATION-TYPE
+	OBJECTS   	{ apSysMgmtRealmID }
+	STATUS	   	current
+	DESCRIPTION
+		"The trap will be generated when the amount of short sessions
+		in a realm exceeds the short session threshold within the
+		short session window."
+	::= { apSystemManagementMonitors 48 }
+        
+apSysMgmtGatewaySynchronizedTrap NOTIFICATION-TYPE
+        OBJECTS         { apSysMgmtGatewaySynchronized }
+        STATUS          current
+        DESCRIPTION
+                "The trap will be generated when the default gateway is synchronized in the ARP table."
+        ::= { apSystemManagementMonitors 49 }
+
+apSysMgmtCallRecordingStateChangeTrap   NOTIFICATION-TYPE
+        OBJECTS         { apSysCallRecordingServerName,
+                          apSysCallRecordingServerState
+        }
+        STATUS          current
+        DESCRIPTION
+                "The trap will be generated when a call recording server
+                changes state."
+        ::= { apSystemManagementMonitors 50 }
+
+apSysMgmtRealmIcmpFailureTrap     NOTIFICATION-TYPE
+	OBJECTS		{ apSysMgmtRealmID }
+	STATUS		current
+	DESCRIPTION
+        " The trap will be generated when ICMP heartbeat failure."
+	::= { apSystemManagementMonitors 51 }
+
+apSysMgmtRealmIcmpFailureClearTrap        NOTIFICATION-TYPE
+	OBJECTS		{ apSysMgmtRealmID }
+	STATUS		current
+	DESCRIPTION
+        " The trap will be generated ICMP heartbeat failure cleared."
+	::= { apSystemManagementMonitors 52 }
+
+apSysMgmtCDRPushReceiverFailureTrap      NOTIFICATION-TYPE
+        OBJECTS         { apSysCDRPushReceiverAddressType,
+                          apSysCDRPushReceiverAddress,
+                          apSysCDRPushReceiverFailureReasonCode
+        }
+        STATUS          current
+        DESCRIPTION
+        " The trap will be generated when an enabled cdr push receiver fails."
+        ::= { apSystemManagementMonitors 53 }
+
+apSysMgmtCDRPushReceiverFailureClearTrap      NOTIFICATION-TYPE
+        OBJECTS         { apSysCDRPushReceiverAddressType,
+                          apSysCDRPushReceiverAddress }
+        STATUS          current
+        DESCRIPTION
+        " The trap will be generated when an enabled cdr push receiver resumes normal operation after a failure."
+        ::= { apSystemManagementMonitors 54 }
+
+apSysMgmtCDRPushAllReceiversFailureTrap      NOTIFICATION-TYPE
+        STATUS          current
+        DESCRIPTION
+        " The trap will be generated when all enabled cdr push receivers fail."
+        ::= { apSystemManagementMonitors 55 }
+
+apSysMgmtCDRPushAllReceiversFailureClearTrap      NOTIFICATION-TYPE
+        STATUS          current
+        DESCRIPTION
+        " The trap will be generated when one or more enabled cdr push receivers return to normal operation,
+          after failures were encountered on all receivers."
+        ::= { apSystemManagementMonitors 56 }
+        
+apSysMgmtRejectedMesagesThresholdExeededTrap        NOTIFICATION-TYPE
+        OBJECTS         { apSysRejectedMessages }
+        STATUS          current
+        DESCRIPTION
+        " The trap will be generated when the number of rejected messages exceed the configured threshold within the configured window."
+        ::= { apSystemManagementMonitors 57 }
+
+apSysMgmtAdminAuditLogFullTrap      NOTIFICATION-TYPE
+	OBJECTS         { apSysAdminAuditLogFullReason,
+	                  apSysAdminFileName } 
+        STATUS          current
+	DESCRIPTION
+	" The trap will be generated when one of the audit log full threshold [time interval/file-size/percentage-full] is satisfied."
+	::= { apSystemManagementMonitors 58 }
+
+apSysMgmtAdminAuditLogFullClearTrap      NOTIFICATION-TYPE
+        STATUS          current
+        DESCRIPTION
+	" The trap will be generated when free audit log storage space becomes available."
+	::= { apSystemManagementMonitors 59 }
+
+apSysMgmtAdminAuditPushFailTrap     NOTIFICATION-TYPE
+        OBJECTS         { apSysAddressType,
+	                  apSysAddress,
+			  apSysReasonCode
+	}
+        STATUS          current
+	DESCRIPTION
+	" The trap will be generated when audit file transfer fails."
+	::= { apSystemManagementMonitors 60 }
+
+apSysMgmtAdminAuditPushFailClearTrap    NOTIFICATION-TYPE
+        OBJECTS         { apSysAddressType,
+	                  apSysAddress }
+        STATUS          current
+	DESCRIPTION
+	" The trap will be generated when audit file is successfully transferred."
+	::= { apSystemManagementMonitors 61 }
+
+apSysMgmtAdminWriteFailTrap      NOTIFICATION-TYPE
+	OBJECTS         { apSysAdminWriteErrorCode,
+	                  apSysAdminFileName }
+        STATUS          current
+	DESCRIPTION
+	" The trap will be generated when a write to file fails."
+	::= { apSystemManagementMonitors 62 }
+
+apSysMgmtAdminWriteFailClearTrap      NOTIFICATION-TYPE
+        STATUS          current
+	DESCRIPTION
+	" The trap will be generated when a write to file succeeds."
+	::= { apSystemManagementMonitors 63 }
+
+apSysMgmtAdminAuthLockoutTrap     NOTIFICATION-TYPE
+        OBJECTS         { apSysMgmtAuthFailProto }
+        STATUS          current
+	DESCRIPTION
+	" The trap will be generated on system lockout after multiple auth failures."
+	::= { apSystemManagementMonitors 64 }
+
+apSysMgmtLPLookupExceededTrap      NOTIFICATION-TYPE
+        STATUS          current
+	DESCRIPTION
+	" The trap will be generated the first time the Additional
+	Local Policy Lookups limit is reached  in the recent window
+	period.  This trap will only occur once during a window
+	period."
+	::= { apSystemManagementMonitors 65 } 
+
+apSysMgmtPhyUtilThresholdTrap      NOTIFICATION-TYPE
+        OBJECTS         { ifIndex,        
+                          apSysMgmtPhyUtilCurrent,
+                          apSysMgmtPhyUtilMinorThreshold,
+                          apSysMgmtPhyUtilMajorThreshold,
+                          apSysMgmtPhyUtilCriticalThreshold,
+                          apSysMgmtPhyRejectOverUtil
+                        }
+        STATUS          current
+        DESCRIPTION
+        " The trap will be generated when the media-port's utilization
+        crosses a configured threshold. This trap will indicate if the
+        OverloadProtection feature is turned active."
+        ::= { apSystemManagementMonitors 66 }
+
+apSysMgmtPhyUtilThresholdClearTrap NOTIFICATION-TYPE
+        OBJECTS        { ifIndex,
+                         apSysMgmtPhyUtilCurrent,
+                         apSysMgmtPhyUtilMinorThreshold,
+                         apSysMgmtPhyUtilMajorThreshold,
+                         apSysMgmtPhyUtilCriticalThreshold,
+                         apSysMgmtPhyRejectOverUtil
+                       }
+        STATUS         current
+        DESCRIPTION    
+        " The trap will be generated once a media-ports' utilization falls
+        below the lowest configured threshold."
+        ::= { apSystemManagementMonitors 67 }
+
+apSysMgmtSpaceAvailThresholdTrap NOTIFICATION-TYPE
+        OBJECTS        { apSysMgmtSpaceAvailCurrent,
+                         apSysMgmtSpaceAvailMinorThreshold,
+                         apSysMgmtSpaceAvailMajorThreshold,
+                         apSysMgmtSpaceAvailCriticalThreshold,
+                         apSysMgmtPartitionPath
+                       }
+        STATUS         current
+        DESCRIPTION
+        " The trap will be generated when the space available on a partition
+        crosses a configured space threshold."
+        ::= { apSystemManagementMonitors 68 }
+
+apSysMgmtSpaceAvailThresholdClearTrap NOTIFICATION-TYPE
+        OBJECTS        { apSysMgmtSpaceAvailCurrent,
+                         apSysMgmtSpaceAvailMinorThreshold,
+                         apSysMgmtSpaceAvailMajorThreshold,
+                         apSysMgmtSpaceAvailCriticalThreshold,
+                         apSysMgmtPartitionPath
+                       }
+        STATUS         current
+        DESCRIPTION
+        " The trap will be generated when the space available on a partition
+        falls below the lowest configured space threshold."
+        ::= { apSystemManagementMonitors 69 }
+
+apSysMgmtCdrFileDeleteTrap NOTIFICATION-TYPE
+        OBJECTS        { apSysAdminFileName }
+        STATUS         current
+        DESCRIPTION
+        " The trap will be generated when a CDR file is deleted due to lack
+        of space on the partition or the drive exceeds the number of files
+        specified in account-config."
+        ::= { apSystemManagementMonitors 70 }
+
+apSysMgmtSataAccessErrorTrap NOTIFICATION-TYPE
+        STATUS         current
+        DESCRIPTION
+        " The trap will be generated when there is fatal access error on
+          the SATA hard drive."
+        ::= { apSystemManagementMonitors 71 }
+
+apSysMgmtTcaTrap NOTIFICATION-TYPE
+      OBJECTS		{
+			      apSysMgmtTcaOid,
+			      apSysMgmtTcaCurrent,
+			      apSysMgmtTcaMinorThreshold,
+			      apSysMgmtTcaMajorThreshold,
+			      apSysMgmtTcaCriticalThreshold
+			}
+      STATUS          current
+      DESCRIPTION
+      " The trap will be generated when a Threshold Crossing Alert counter
+        crosses a configured TCA threshold"
+      ::= { apSystemManagementMonitors 72 }
+
+apSysMgmtTcaClearTrap NOTIFICATION-TYPE
+      OBJECTS		{
+			      apSysMgmtTcaOid,
+			      apSysMgmtTcaCurrent,
+			      apSysMgmtTcaMinorThreshold,
+			      apSysMgmtTcaMajorThreshold,
+			      apSysMgmtTcaCriticalThreshold
+			}
+      STATUS          current
+      DESCRIPTION
+      " The trap will be generated when a Threshold Crossing Alert counter
+         has fallen below the lowest configured TCA reset-threshold value"
+      ::= { apSystemManagementMonitors 73 }
+
+apSysMgmtExtPolicyServerConnDownTrap      NOTIFICATION-TYPE
+        OBJECTS         {   apSysEPSName,
+                            apSysEPSFqdn,
+                            apSysEPSAddress,
+                            apSysEPSRealm,
+                            apSysEPSOperationType
+        				}
+        STATUS          current
+        DESCRIPTION
+        " The trap will be generated when a connection to an external-policy-server is lost."
+        ::= { apSystemManagementMonitors 74}
+
+apSysMgmtExtPolicyServerConnEstTrap      NOTIFICATION-TYPE
+        OBJECTS         {   apSysEPSName,
+                            apSysEPSFqdn,
+                            apSysEPSAddress,
+                            apSysEPSRealm,
+                            apSysEPSOperationType
+        				}
+        STATUS          current
+        DESCRIPTION
+        " The trap will be generated when a connection to an external-policy-server is established."
+        ::= { apSystemManagementMonitors 75}
+
+apSysMgmtDatabaseRegCacheCapTrap NOTIFICATION-TYPE
+      OBJECTS         { apSysSipStatsActiveDatabaseContacts,
+                        apSysMgmtDatabaseContactMinorThreshold,
+                        apSysMgmtDatabaseContactMajorThreshold,
+                        apSysMgmtDatabaseContactCriticalThreshold,
+			apLicenseDatabaseRegCap
+                      }
+      STATUS          current
+      DESCRIPTION
+            "The trap will be generated when the number of database-type 
+            contacts stored in the registration cache exceeds the licensed
+            threshold."
+      ::= { apSystemManagementMonitors 76 }
+
+apSysMgmtDatabaseRegCacheCapClearTrap NOTIFICATION-TYPE
+      OBJECTS         { apSysSipStatsActiveDatabaseContacts,
+                        apSysMgmtDatabaseContactMinorThreshold,
+                        apSysMgmtDatabaseContactMajorThreshold,
+                        apSysMgmtDatabaseContactCriticalThreshold,
+			apLicenseDatabaseRegCap
+                      }
+      STATUS          current
+      DESCRIPTION
+            "The trap will be generated when the number of database-type 
+            contacts stored in the registration cache falls below the
+            licensed threshold."
+      ::= { apSystemManagementMonitors 77 }
+
+apSysMgmtTacacsDownTrap	NOTIFICATION-TYPE
+	OBJECTS   	{ apSysMgmtTacacsDown }
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will be generated when all or some configured
+		TACACS servers become unreachable."
+	::= { apSystemManagementMonitors 78 }
+
+apSysMgmtTacacsDownClearTrap	NOTIFICATION-TYPE
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will be generated when all configured TACACS
+	        servers become reachable again."
+	::= { apSystemManagementMonitors 79 }
+
+apSysMgmtOCSRDownTrap	NOTIFICATION-TYPE
+	OBJECTS   	{ apSysMgmtOCSRDown }
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will be generated if all or some configured
+		OCSR servers haved timed out from a OCSR Server."
+	::= { apSystemManagementMonitors 80 }
+
+apSysMgmtOCSRDownClearTrap	NOTIFICATION-TYPE
+	STATUS	   	current
+	DESCRIPTION
+	      " The trap will be generated when all configured OCSR
+	        accounting servers have resumed communication after any or
+		all have previously timed out."
+	::= { apSystemManagementMonitors 81 }
+
+apSysMgmtSipInterfaceRegCacheThresholdTrap NOTIFICATION-TYPE
+      OBJECTS         { apSysMgmtSipInterfaceRealmName,
+                        apSigRealmStatsActiveLocalContacts,
+                        apSysMgmtSipInterfaceRegCacheLimit
+                      }
+      STATUS          current
+      DESCRIPTION
+            "The trap will be generated when the number of contacts stored
+            in the registration cache exceeds the configured threshold for the sip interface."
+      ::= { apSystemManagementMonitors 82 }
+
+apSysMgmtSipInterfaceRegCacheThresholdClearTrap NOTIFICATION-TYPE
+      OBJECTS         { apSysMgmtSipInterfaceRealmName,
+                        apSigRealmStatsActiveLocalContacts,
+                        apSysMgmtSipInterfaceRegCacheLimit
+                      }
+      STATUS          current
+      DESCRIPTION
+            "The trap will be generated when the number of contacts stored
+            in the registration cache falls below the configured threshold for the sip interface."
+      ::= { apSystemManagementMonitors 83 }
+
+apSysMgmtH248PortMapUsageTrap NOTIFICATION-TYPE
+     OBJECTS         { apSysMgmtH248MgcName,
+                       apSysMgmtH248Realm,
+		       apSysMgmtH248PortMapUsage
+		     }
+     STATUS          current
+     DESCRIPTION
+             "The trap will be geenerated when the port map usage on H.248 core side
+	      Exceeds 90%"
+     ::= { apSystemManagementMonitors 84 }
+
+apSysMgmtH248PortMapUsageClearTrap       NOTIFICATION-TYPE
+        OBJECTS         { apSysMgmtH248MgcName, 
+                          apSysMgmtH248Realm
+                        }
+        STATUS          current
+        DESCRIPTION
+            " The trap will be generated when the port map usage on H.248 core side
+              Goes down below 90%.."
+        ::= { apSystemManagementMonitors 85 }
+
+-- DOS trap
+apSysMgmtDOSObjects OBJECT IDENTIFIER ::= { apSystemManagementModule 7 } 
+
+apSysMgmtDOSNotificationObjects OBJECT IDENTIFIER ::= { apSysMgmtDOSObjects 1}
+
+apSysMgmtDOSIpAddress OBJECT-TYPE
+	SYNTAX     	     	IpAddress
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		deprecated
+	DESCRIPTION             
+	"The blocked IP address."
+	::= {  apSysMgmtDOSNotificationObjects 1 }
+
+apSysMgmtDOSRealmID OBJECT-TYPE
+	SYNTAX     	     	DisplayString (SIZE (1..255))
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION             
+	"The blocked Realm ID."
+	::= { apSysMgmtDOSNotificationObjects 2 }
+
+apSysMgmtDOSFromUri OBJECT-TYPE
+	SYNTAX     	     	DisplayString (SIZE (1..255))
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION             
+	"The FROM header of the message that caused the block (if available)."
+	::= { apSysMgmtDOSNotificationObjects 3 }
+
+apSysMgmtDOSInetAddressType OBJECT-TYPE
+	SYNTAX     	     	InetAddressType
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION             
+	"The blocked IP address family."
+	::= {  apSysMgmtDOSNotificationObjects 4 }
+
+apSysMgmtDOSInetAddress OBJECT-TYPE
+	SYNTAX     	     	InetAddress
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION             
+	"The blocked IP address."
+	::= {  apSysMgmtDOSNotificationObjects 5 }
+
+apSysMgmtDOSReason OBJECT-TYPE
+	SYNTAX     	     	DisplayString (SIZE (1..255))
+	MAX-ACCESS		accessible-for-notify
+	STATUS	   		current
+	DESCRIPTION             
+	"The reason for demotion."
+	::= {  apSysMgmtDOSNotificationObjects 6 }
+
+
+apSysMgmtDOSNotificationPrefix OBJECT IDENTIFIER
+                             ::= { apSystemManagementModule 8 }
+apSysMgmtDOSNotifications OBJECT IDENTIFIER
+                             ::= { apSysMgmtDOSNotificationPrefix 0 }
+
+apSysMgmtDOSTrap	NOTIFICATION-TYPE
+	OBJECTS		{ apSysMgmtDOSIpAddress,  apSysMgmtDOSRealmID }
+	STATUS	   	obsolete
+	DESCRIPTION
+	      " The trap will generated if IP address and realm ID is denied of service."
+	::= { apSysMgmtDOSNotifications 1 }
+
+apSysMgmtExpDOSTrap	NOTIFICATION-TYPE
+	OBJECTS		{ apSysMgmtDOSIpAddress,  apSysMgmtDOSRealmID ,
+			  apSysMgmtDOSFromUri }
+	STATUS	   	deprecated
+	DESCRIPTION
+	      "This trap is generated when an IP is placed on a deny list due
+	      to denial-of-service attempts, and provides the ip address that
+	      has been demoted, the realm-id of that IP, and (if available) 
+	      the URI portion of the SIP From header of the message that
+	      caused the demotion."
+	::= { apSysMgmtDOSNotifications 2 }
+
+apSysMgmtInetAddrDOSTrap	NOTIFICATION-TYPE
+	OBJECTS		{ apSysMgmtDOSInetAddressType, 
+			  apSysMgmtDOSInetAddress,  
+			  apSysMgmtDOSRealmID,
+			  apSysMgmtDOSFromUri }
+	STATUS	   	current
+	DESCRIPTION
+	      "This trap is generated when an IP is placed on a deny list due
+	      to denial-of-service attempts, and provides the ip address that
+	      has been demoted, the realm-id of that IP, and (if available) 
+	      the URI portion of the SIP From header of the message that
+	      caused the demotion."
+	::= { apSysMgmtDOSNotifications 3 }
+
+apSysMgmtInetAddrWithReasonDOSTrap	NOTIFICATION-TYPE
+	OBJECTS		{ apSysMgmtDOSInetAddressType, 
+			  apSysMgmtDOSInetAddress,  
+			  apSysMgmtDOSRealmID,
+			  apSysMgmtDOSFromUri,
+			  apSysMgmtDOSReason }
+	STATUS	   	current
+	DESCRIPTION
+	      "This trap is generated when an IP is placed on a deny list due
+	      to denial-of-service attempts, and provides the ip address that
+	      has been demoted, the realm-id of that IP, (if available) 
+	      the URI portion of the SIP From header of the message that
+	      caused the demotion and the reason for demotion."
+	::= { apSysMgmtDOSNotifications 4 }
+
+apSysMgmtInetAddrTrustedToUntrustedDOSTrap	NOTIFICATION-TYPE
+	OBJECTS		{ apSysMgmtDOSInetAddressType, 
+			  apSysMgmtDOSInetAddress,  
+			  apSysMgmtDOSRealmID,
+			  apSysMgmtDOSFromUri,
+                          apSysMgmtDOSReason }
+	STATUS	   	current
+	DESCRIPTION
+	      "This trap is generated when an IP is placed on a untrusted list from trusted list
+	      , and provides the ip address that
+	      has been demoted, the realm-id of that IP, (if available) 
+	      the URI portion of the SIP From header of the message that caused the demotion."
+	::= { apSysMgmtDOSNotifications 5 }
+
+
+-- SipRejection trap
+apSysMgmtSipRejectionObjects OBJECT IDENTIFIER 
+    ::= { apSystemManagementModule 9 } 
+
+apSysMgmtSipRejectionNotificationObjects OBJECT IDENTIFIER
+    ::= { apSysMgmtSipRejectionObjects 1}
+
+apSysMgmtSipRejFromUriUser OBJECT-TYPE
+	SYNTAX			DisplayString (SIZE (0..255))
+	MAX-ACCESS		accessible-for-notify
+	STATUS			current
+	DESCRIPTION
+	    "The user portion of the FROM URI of the rejected SIP request"
+	::= { apSysMgmtSipRejectionNotificationObjects 1 }
+
+apSysMgmtSipRejToUriUser OBJECT-TYPE
+	SYNTAX			DisplayString (SIZE (0..255))
+	MAX-ACCESS		accessible-for-notify
+	STATUS			current
+	DESCRIPTION
+	    "The user portion of the TO URI of the rejected SIP request"
+	::= { apSysMgmtSipRejectionNotificationObjects 2 }
+
+apSysMgmtSipRejRequestUri OBJECT-TYPE
+	SYNTAX			DisplayString (SIZE (0..255))
+	MAX-ACCESS		accessible-for-notify
+	STATUS			current
+	DESCRIPTION
+	    "The Request URI of the rejected SIP request"
+	::= { apSysMgmtSipRejectionNotificationObjects 3 }
+
+apSysMgmtSipRejContactUri OBJECT-TYPE
+	SYNTAX			DisplayString (SIZE (0..255))
+	MAX-ACCESS		accessible-for-notify
+	STATUS			current
+	DESCRIPTION
+	    "the contact uri of the rejected sip request"
+	::= { apSysMgmtSipRejectionNotificationObjects 4 }
+
+apSysMgmtSipRejIpAddress OBJECT-TYPE
+	SYNTAX			IpAddress
+	MAX-ACCESS		accessible-for-notify
+	STATUS			current
+	DESCRIPTION
+	    "The remote IP address of the rejected SIP request"
+	::= { apSysMgmtSipRejectionNotificationObjects 5 }
+
+apSysMgmtSipRejMsgType		OBJECT-TYPE
+     	SYNTAX			INTEGER {
+				    registration(0),
+				    call(1)
+				}
+	MAX-ACCESS		accessible-for-notify
+	STATUS			current
+	DESCRIPTION
+	    "The type of SIP Request."
+	::= { apSysMgmtSipRejectionNotificationObjects 6 }
+
+apSysMgmtSipRejMethod		OBJECT-TYPE
+	SYNTAX			INTEGER
+	MAX-ACCESS		accessible-for-notify
+	STATUS			current
+	DESCRIPTION
+	    "The method of the SIP rejection message."
+	::= { apSysMgmtSipRejectionNotificationObjects 7 }
+
+apSysMgmtSipRejReason OBJECT-TYPE
+	SYNTAX			DisplayString (SIZE (1..255))
+	MAX-ACCESS		accessible-for-notify
+	STATUS			current
+	DESCRIPTION
+	    "The REASON string of the SIP rejection message."
+	::= { apSysMgmtSipRejectionNotificationObjects 8 }
+
+apSysMgmtSipRejectionNotificationPrefix OBJECT IDENTIFIER
+    ::= { apSystemManagementModule 10 }
+
+apSysMgmtSipRejectionNotifications OBJECT IDENTIFIER
+    ::= { apSysMgmtSipRejectionNotificationPrefix 0 }
+
+apSysMgmtSipRejectionTrap	NOTIFICATION-TYPE
+	OBJECTS			{ apSysMgmtSipRejFromUriUser,
+				  apSysMgmtSipRejToUriUser,
+				  apSysMgmtSipRejRequestUri,
+				  apSysMgmtSipRejContactUri,
+				  apSysMgmtSipRejIpAddress,
+				  apSysMgmtSipRejMsgType,
+				  apSysMgmtSipRejMethod,
+				  apSysMgmtSipRejReason }
+	STATUS			current
+	DESCRIPTION
+	      "This trap is sent when either a SIP Invite or 
+	      Registration request fails."
+	::= { apSysMgmtSipRejectionNotifications 1 }
+
+
+
+-- conformance information
+
+apSystemManagementConformance	OBJECT IDENTIFIER 
+			::= { apSystemManagementModule 4 }
+apSystemManagementCompliances	OBJECT IDENTIFIER 
+			::= { apSystemManagementConformance 1 }
+apSystemManagementGroups	OBJECT IDENTIFIER 
+			::= { apSystemManagementConformance 2 }
+apSystemManagementNotificationsGroups 	OBJECT IDENTIFIER 
+			::= { apSystemManagementConformance 3 }
+apSystemManagementMonitorGroups OBJECT IDENTIFIER 
+			::= { apSystemManagementConformance 4 }
+
+-- compliance statements
+
+-- units of conformance
+
+
+----------------------------------------------------
+--
+-- apSystemManagementGroups
+--
+----------------------------------------------------
+
+apSysMgmtGeneralGroup OBJECT-GROUP
+      OBJECTS {
+		apSysCPUUtil,
+		apSysMemoryUtil,
+		apSysHealthScore,
+		apSysRedundancy,
+		apSysGlobalConSess,
+		apSysGlobalCPS,
+		apSysNATCapacity,
+		apSysARPCapacity,
+		apSysState,
+		apSysLicenseCapacity,
+		apSysCurrentEndptsDenied,
+                apSysXCodeCapacity,
+                apSysXCodeAMRCapacity,
+                apSysXCodeAMRWBCapacity
+	         }
+      STATUS		current
+      DESCRIPTION
+		"A collection of objects providing the system manager MIB 
+		capability."
+      ::= {  apSystemManagementGroups 1 }
+
+apSysMgmtCombinedGroup OBJECT-GROUP
+    OBJECTS {
+              	apCombinedStatsSessionAgentIndex,
+		apCombinedStatsSessionAgentHostname,
+		apCombinedStatsSessionAgentType,
+		apCombinedStatsCurrentActiveSessionsInbound,
+		apCombinedStatsCurrentSessionRateInbound,
+		apCombinedStatsCurrentActiveSessionsOutbound,
+		apCombinedStatsCurrentSessionRateOutbound,
+		apCombinedStatsTotalSessionsInbound,
+		apCombinedStatsTotalSessionsNotAdmittedInbound,
+		apCombinedStatsPeriodHighInbound,
+		apCombinedStatsAverageRateInbound,
+		apCombinedStatsTotalSessionsOutbound,
+		apCombinedStatsTotalSessionsNotAdmittedOutbound,
+		apCombinedStatsPeriodHighOutbound,
+		apCombinedStatsAverageRateOutbound,
+		apCombinedStatsMaxBurstRate,
+		apCombinedStatsPeriodSeizures,
+		apCombinedStatsPeriodAnswers,
+		apCombinedStatsPeriodASR,
+		apCombinedStatsAverageLatency,
+		apCombinedStatsMaxLatency,
+		apCombinedStatsSessionAgentStatus
+	     }
+      STATUS		current
+      DESCRIPTION
+		"A collection of statistics for session H323 and SIP sessions."
+      ::= {  apSystemManagementGroups 2 }
+
+
+apSysMgmtSipGroup OBJECT-GROUP
+    OBJECTS {
+               	apSipSAStatsSessionAgentIndex,
+		apSipSAStatsSessionAgentHostname,
+		apSipSAStatsSessionAgentType,
+		apSipSAStatsCurrentActiveSessionsInbound,
+		apSipSAStatsCurrentSessionRateInbound,
+		apSipSAStatsCurrentActiveSessionsOutbound,
+		apSipSAStatsCurrentSessionRateOutbound,
+		apSipSAStatsTotalSessionsInbound,
+		apSipSAStatsTotalSessionsNotAdmittedInbound,
+		apSipSAStatsPeriodHighInbound,
+		apSipSAStatsAverageRateInbound,
+		apSipSAStatsTotalSessionsOutbound,
+		apSipSAStatsTotalSessionsNotAdmittedOutbound,
+		apSipSAStatsPeriodHighOutbound,
+		apSipSAStatsAverageRateOutbound,
+		apSipSAStatsMaxBurstRate,
+		apSipSAStatsPeriodSeizures,
+		apSipSAStatsPeriodAnswers,
+		apSipSAStatsPeriodASR,
+		apSipSAStatsAverageLatency,
+		apSipSAStatsMaxLatency,
+		apSipSAStatsSessionAgentStatus
+	     }
+      STATUS		current
+      DESCRIPTION
+		"A collection of statistics for SIP sessions."
+      ::= {  apSystemManagementGroups 3 }
+
+apSysMgmtH323Group OBJECT-GROUP
+    OBJECTS {
+               	apH323SAStatsSessionAgentIndex,
+		apH323SAStatsSessionAgentHostname,
+		apH323SAStatsSessionAgentType,
+		apH323SAStatsCurrentActiveSessionsInbound,
+		apH323SAStatsCurrentSessionRateInbound,
+		apH323SAStatsCurrentActiveSessionsOutbound,
+		apH323SAStatsCurrentSessionRateOutbound,
+		apH323SAStatsTotalSessionsInbound,
+		apH323SAStatsTotalSessionsNotAdmittedInbound,
+		apH323SAStatsPeriodHighInbound,
+		apH323SAStatsAverageRateInbound,
+		apH323SAStatsTotalSessionsOutbound,
+		apH323SAStatsTotalSessionsNotAdmittedOutbound,
+		apH323SAStatsPeriodHighOutbound,
+		apH323SAStatsAverageRateOutbound,
+		apH323SAStatsMaxBurstRate,
+		apH323SAStatsPeriodSeizures,
+		apH323SAStatsPeriodAnswers,
+		apH323SAStatsPeriodASR,
+		apH323SAStatsAverageLatency,
+		apH323SAStatsMaxLatency,
+		apH323SAStatsSessionAgentStatus
+	     }
+      STATUS		current
+      DESCRIPTION
+		"A collection of statistics for H323 sessions."
+      ::= {  apSystemManagementGroups 4 }
+
+
+apSysMgmtSigRealmGroup OBJECT-GROUP
+    OBJECTS {               
+		apSigRealmStatsRealmIndex,
+		apSigRealmStatsRealmName,
+		apSigRealmStatsCurrentActiveSessionsInbound,
+		apSigRealmStatsCurrentSessionRateInbound,
+		apSigRealmStatsCurrentActiveSessionsOutbound,
+		apSigRealmStatsCurrentSessionRateOutbound,
+		apSigRealmStatsTotalSessionsInbound,
+		apSigRealmStatsTotalSessionsNotAdmittedInbound,
+		apSigRealmStatsPeriodHighInbound,
+		apSigRealmStatsAverageRateInbound,
+		apSigRealmStatsTotalSessionsOutbound,
+		apSigRealmStatsTotalSessionsNotAdmittedOutbound,
+		apSigRealmStatsPeriodHighOutbound,
+		apSigRealmStatsAverageRateOutbound,
+		apSigRealmStatsMaxBurstRate,
+		apSigRealmStatsPeriodSeizures,
+		apSigRealmStatsPeriodAnswers,
+		apSigRealmStatsPeriodASR
+	     }
+      STATUS		current
+      DESCRIPTION
+		"A collection of statistics for realms."
+      ::= {  apSystemManagementGroups 5 }
+
+
+apSysMgmtCtrlStatsGroup OBJECT-GROUP
+	OBJECTS {
+		apNetMgmtCtrlStatsName,
+		apNetMgmtCtrlStatsType,
+		apNetMgmtCtrlStatsIncomingTotal,
+		apNetMgmtCtrlStatsRejectedTotal,
+		apNetMgmtCtrlStatsDivertedTotal,
+		apNetMgmtCtrlStatsIncomingCurrent,
+		apNetMgmtCtrlStatsRejectedCurrent,
+		apNetMgmtCtrlStatsDivertedCurrent,
+		apNetMgmtCtrlStatsIncomingPeriodMax,
+		apNetMgmtCtrlStatsRejectedPeriodMax,
+		apNetMgmtCtrlStatsDivertedPeriodMax
+		}
+ 	STATUS		current
+	DESCRIPTION
+		"A collection of stats reflecting network management
+		controls."
+	::= {  apSystemManagementGroups 6 }
+
+apSysMgmtENUMServerStatusGroup  OBJECT-GROUP
+	OBJECTS {
+		apENUMConfigName,
+		apENUMServerIpAddress,
+		apENUMServerStatus
+		}
+ 	STATUS		obsolete
+	DESCRIPTION
+		"Report the status of configured ENUM servers."
+	::= {  apSystemManagementGroups 7 }
+
+apSysMgmtNSEPStatsGroup  OBJECT-GROUP
+	OBJECTS {
+		apNSEPStatsCurrentActiveSessionsInbound,
+		apNSEPStatsTotalSessionsInbound,
+		apNSEPStatsPeriodHighInbound,
+		apNSEPStatsPeriod,
+		apNSEPStatsRPHValue,
+		apNSEPStatsRPHCurrentActiveSessionsInbound,
+		apNSEPStatsRPHTotalSessionsInbound,
+		apNSEPStatsRPHPeriodHighInbound,
+		apNSEPStatsRPHTotalSessionsNotAdmittedInbound,
+		apNSEPStatsRPHCurrentActiveSessionsOutbound,
+		apNSEPStatsRPHTotalSessionsOutbound,
+		apNSEPStatsRPHPeriodHighOutbound,
+		apNSEPStatsRPHTotalSessionsNotAdmittedOutbound
+		}
+ 	STATUS		current
+	DESCRIPTION
+		"Objects to monitor NS/EP sessions."
+	::= {  apSystemManagementGroups 8 }
+
+
+apSysMgmtExtSigRealmStatsGroup  OBJECT-GROUP
+	OBJECTS {
+		apSigRealmStatsMinutesLeft,
+		apSigRealmStatsMinutesReject
+		}
+ 	STATUS		current
+	DESCRIPTION
+		"Objects added to the realm table for extended stat
+		reporting."
+	::= {  apSystemManagementGroups 9 }
+
+apSysMgmtLDAPServerStatusGroup  OBJECT-GROUP
+	OBJECTS {
+		apLDAPConfigName,
+		apLDAPServerIpAddress,
+		apLDAPServerStatus
+		}
+ 	STATUS		current
+	DESCRIPTION
+		"Objects to monitor NS/EP sessions."
+	::= {  apSystemManagementGroups 10 }
+
+apSysMgmtRegistrationGroup  OBJECT-GROUP
+	OBJECTS {
+		apSysSipStatsActiveLocalContacts,
+		apSysMgcpGWEndpoints,
+		apSysH323Registration
+		}
+ 	STATUS		current
+	DESCRIPTION
+		"Objects to monitor registration."
+	::= {  apSystemManagementGroups 11 }
+
+apSysMgmtRegCacheLimitGroup  OBJECT-GROUP
+	OBJECTS {
+		apSysRegCacheLimit
+		}
+ 	STATUS		current
+	DESCRIPTION
+		"Objects for monitoring registration cache usage."
+	::= {  apSystemManagementGroups 12 }
+
+apSysMgmtShortSessionGroup  OBJECT-GROUP
+	OBJECTS {
+		apSysShortSessionThreshold,
+		apSigRealmStatsShortSessions
+	}
+ 	STATUS		current
+	DESCRIPTION
+		"Objects to monitor short duration sessions."
+	::= {  apSystemManagementGroups 13 }
+
+apSysMgmtTrapTableObjectGroup OBJECT-GROUP
+    OBJECTS {
+              apTrapTableNumVariables,
+              apTrapTableSysUptime,
+              apTrapInformationTableDataType,
+              apTrapInformationTableDataLength,
+              apTrapInformationTableDataOctets
+            }
+      STATUS            current
+      DESCRIPTION
+                "Attributes of the trap table in the Session Border Controller."
+      ::= {  apSystemManagementGroups 14 }
+
+apSysMgmtRealmStatsQoSGroup  OBJECT-GROUP
+	OBJECTS {
+	    apSigRealmStatsAverageQoSRFactor,
+	    apSigRealmStatsMaximumQoSRFactor,
+	    apSigRealmStatsCurrentMajorRFactorExceeded,
+	    apSigRealmStatsTotalMajorRFactorExceeded,
+	    apSigRealmStatsCurrentCriticalRFactorExceeded,
+	    apSigRealmStatsTotalCriticalRFactorExceeded,
+	    apSigRealmStatsRealmStatus
+	}
+ 	STATUS		current
+	DESCRIPTION
+		"Objects to monitor QoS statistics for a realm."
+	::= {  apSystemManagementGroups 15 }
+
+apSysMgmtApplicationCPUUsageGroup OBJECT-GROUP
+    OBJECTS {
+              apSysApplicationCPULoadRate
+            }
+      STATUS            current
+      DESCRIPTION
+                "Objects to monitor application CPU usage."
+      ::= {  apSystemManagementGroups 16 }
+
+apSysMgmtRegistrationCapacityGroup  OBJECT-GROUP
+	OBJECTS {
+	    apSysRegistrationCapacity
+	}
+ 	STATUS	 	obsolete	
+	DESCRIPTION
+		"Objects to monitor registration use against licensed capacity."
+	::= {  apSystemManagementGroups 17 }
+
+     
+apSysMgmtRejectedMessagesGroup  OBJECT-GROUP
+        OBJECTS {
+            apSysRejectedMessages
+        }
+        STATUS          current
+        DESCRIPTION
+                "Objects to track the number of messages rejected by the SD."
+        ::= {  apSystemManagementGroups 18 }
+
+apSysMgmtEndPtDemotionObjectGroup OBJECT-GROUP
+    OBJECTS {
+              apSysSipEndptDemTrustToUntrust,
+	      apSysSipEndptDemUntrustToDeny,
+	      apSysMgcpEndptDemTrustToUntrust,
+	      apSysMgcpEndptDemUntrustToDeny
+	    }
+    STATUS              current
+    DESCRIPTION
+               "Attributes for counting global endpoint demotions."
+    ::=   {  apSystemManagementGroups 19 }
+
+apSysMgmtCallRecordingGroup  OBJECT-GROUP
+	OBJECTS {
+		apSysCallRecordingServerName,
+		apSysCallRecordingServerState
+	}
+ 	STATUS		current
+	DESCRIPTION
+		"Objects to monitor Call Recording Servers."
+	::= {  apSystemManagementGroups 20 }
+
+apSysMgmtPhyUtilGroup OBJECT-GROUP
+        OBJECTS {
+                apPhyUtilTableRXUtil,
+                apPhyUtilTableTXUtil
+        }
+        STATUS          current
+        DESCRIPTION
+                "Objects to monitor PHY utilization."
+        ::= { apSystemManagementGroups 21 }
+
+apSysMgmtStorageSpaceGroup OBJECT-GROUP
+        OBJECTS {
+                apSysVolumeIndex,
+                apSysVolumeName,
+                apSysVolumeTotalSpace,
+                apSysVolumeAvailSpace
+        }
+        STATUS          current
+        DESCRIPTION
+                "Objects to monitor storage space."
+        ::= { apSystemManagementGroups 22 }
+
+
+apSysMgmtCtrlStatsGroup2 OBJECT-GROUP
+        OBJECTS {
+		apNetMgmtCtrlStatsState
+                }
+        STATUS          current
+        DESCRIPTION
+                "A collection of stats reflecting network management
+                controls."
+        ::= { apSystemManagementGroups 23 }
+
+apSysMgmtDatabaseRegGroup OBJECT-GROUP
+        OBJECTS {
+		apSysSipStatsActiveDatabaseContacts,
+		apSysMgmtDatabaseContactMinorThreshold,
+		apSysMgmtDatabaseContactMajorThreshold,
+		apSysMgmtDatabaseContactCriticalThreshold
+                }
+        STATUS          current
+        DESCRIPTION
+                "Objects to monitor database registration functionality."
+        ::= { apSystemManagementGroups 24 }
+
+apSysMgmtCallsRejectedGroup OBJECT-GROUP
+         OBJECTS {
+	         apSysSipTotalCallsRejected
+		 }
+         STATUS          current
+         DESCRIPTION
+                "Number of SIP Calls rejected."
+         ::= { apSystemManagementGroups 25 }
+
+apSysMgmtRealmRegCacheSummaryGroup OBJECT-GROUP
+         OBJECTS {
+                 apSigRealmStatsActiveLocalContacts
+                 }
+         STATUS          current
+         DESCRIPTION
+                "Display the number of active local contacts for a given realm."
+         ::= { apSystemManagementGroups 26 }
+
+apSysMgmtSubscriptionSummaryGroup OBJECT-GROUP
+         OBJECTS {
+		 apSigRealmStatsActiveSubscriptions,
+		 apSigRealmStatsPerMaxSubscriptions,
+		 apSigRealmStatsMaximumActiveSubscriptions,
+		 apSigRealmStatsTotalSubscriptions,
+		 apSysSipStatsActiveSubscriptions,
+		 apSysSipStatsPerMaxSubscriptions,
+		 apSysSipStatsMaximumActiveSubscriptions,
+		 apSysSipStatsTotalSubscriptions
+                 }
+         STATUS          current
+         DESCRIPTION
+                "Display Subscription counts on a per-realm or system-wide basis."
+         ::= { apSystemManagementGroups 27 }
+
+apSysMgmtETCUtilGroup OBJECT-GROUP
+         OBJECTS {
+		 apSysETCCoreCPUUtil,
+		 apSysETCMemoryPoolMemUtil
+                 }
+         STATUS          current
+         DESCRIPTION
+                "Objects group including CPU utilization and memory pool utilization in a ETC card."
+         ::= { apSystemManagementGroups 28 }
+
+----------------------------------------------------
+--
+-- apSystemManagementNotificationsGroups
+--
+----------------------------------------------------
+
+apSysMgmtNotificationsGroup NOTIFICATION-GROUP
+     NOTIFICATIONS {
+                apSysMgmtGroupTrap,
+                apSysMgmtGroupClearTrap,
+		apSysMgmtPowerTrap,
+		apSysMgmtTempTrap,
+		apSysMgmtFanTrap,
+		apSysMgmtTaskSuspendTrap,
+		apSysMgmtRedundancyTrap,
+		apSysMgmtMediaPortsTrap,
+		apSysMgmtMediaBandwidthTrap,
+		apSysMgmtMediaOutOfMemory,
+		apSysMgmtMediaUnknownRealm,
+		apSysMgmtGatewayUnreachableTrap,
+		apSysMgmtRadiusDownTrap,
+		apSysMgmtCfgSaveFailTrap,
+		apSysMgmtHardwareErrorTrap,
+		apSysMgmtSAStatusChangeTrap,
+		apSysMgmtAuthenticationFailedTrap,
+		apSysMgmtSystemStateTrap,
+		apSysMgmtMediaPortsClearTrap,
+		apSysMgmtMediaBandwidthClearTrap,
+		apSysMgmtMediaOutOfMemoryClear,
+		apSysMgmtGatewayUnreachableClearTrap,
+		apSysMgmtRadiusDownClearTrap,
+		apSysMgmtTaskDeleteTrap,
+                apSysMgmtCdrFileDeleteTrap,
+                apSysMgmtSataAccessErrorTrap,
+		apSysMgmtTcaTrap,
+		apSysMgmtTcaClearTrap,
+		apSysMgmtTacacsDownTrap,
+		apSysMgmtTacacsDownClearTrap,
+		apSysMgmtOCSRDownTrap,
+		apSysMgmtOCSRDownClearTrap
+	     }
+      STATUS		current
+      DESCRIPTION
+		"A collection of traps generated by the smgmt mib."
+      ::= {  apSystemManagementNotificationsGroups 1 }
+
+
+apSysMgmtH323NotificationsGroup NOTIFICATION-GROUP
+      NOTIFICATIONS {
+		apSysMgmtH323InitFailTrap
+              }
+      STATUS		current
+      DESCRIPTION
+		"A collection of traps generated by the h323."
+      ::= {  apSystemManagementNotificationsGroups 2 }
+
+
+apSysMgmtNotificationsGroup2 NOTIFICATION-GROUP
+      NOTIFICATIONS {
+			apSysMgmtSingleUnitRedundancyTrap
+		    }
+      		STATUS		current
+      		DESCRIPTION
+		"A collection of traps to extend reporting capabilities."
+      ::= {  apSystemManagementNotificationsGroups 3 }
+
+
+apSysMgmtNotificationsGroup3 NOTIFICATION-GROUP
+      NOTIFICATIONS {
+			apSysMgmtAlgdCPULoadTrap,
+			apSysMgmtAlgdCPULoadClearTrap,
+			apSysMgmtInterfaceStatusChangeTrap,
+			apSysMgmtENUMStatusChangeTrap,
+			apSysMgmtRealmStatusChangeTrap
+		    }
+      		STATUS		current
+      		DESCRIPTION
+		"A collection of traps to extend reporting capabilities."
+      ::= {  apSystemManagementNotificationsGroups 4 }
+
+apSysMgmtHDRNotificationsGroup NOTIFICATION-GROUP
+      NOTIFICATIONS {
+			apSysMgmtPushServerUnreachableTrap,
+			apSysMgmtPushServerUnreachableClearTrap
+	              }
+      		STATUS		current
+      		DESCRIPTION
+		"A collection of traps to extend reporting capabilities."
+      ::= {  apSystemManagementNotificationsGroups 5 }
+
+
+apSysMgmtObsoleteNotificationsGroup NOTIFICATION-GROUP
+      NOTIFICATIONS {
+			apSysMgmtDOSTrap
+	              }
+      		STATUS		current
+      		DESCRIPTION
+		"A collection of traps to extend reporting capabilities."
+      ::= {  apSystemManagementNotificationsGroups 6 }
+
+
+apSysMgmtRegNotificationsGroup NOTIFICATION-GROUP
+      NOTIFICATIONS {
+			apSysMgmtSurrogateRegFailed
+	              }
+      		STATUS		current
+      		DESCRIPTION
+		"A collection of traps to extend reporting capabilities."
+      ::= {  apSystemManagementNotificationsGroups 7 }
+
+
+apSysMgmtNTPNotificationsGroup NOTIFICATION-GROUP
+      NOTIFICATIONS {
+			apSysMgmtNTPServerUnreachableTrap,
+			apSysMgmtNTPServerUnreachableClearTrap,
+			apSysMgmtNTPServiceDownTrap,
+			apSysMgmtNTPServiceDownClearTrap
+		    }
+      		STATUS		current
+      		DESCRIPTION
+		"A collection of traps to extend reporting capabilities."
+      ::= {  apSystemManagementNotificationsGroups 8 }
+
+apSysMgmtMediaNotificationsGroup NOTIFICATION-GROUP
+      NOTIFICATIONS {
+			apSysMgmtMediaSupervisionTimerExpTrap
+		    }
+      		STATUS		current
+      		DESCRIPTION
+		"A collection of traps to extend reporting capabilities."
+      ::= {  apSystemManagementNotificationsGroups 9 }
+
+
+apSysMgmtH248NotificationsGroup NOTIFICATION-GROUP
+      NOTIFICATIONS {
+			apSysMgmntH248AssociationLostTrap,
+			apSysMgmntH248AssociationLostClearTrap
+		    }
+      		STATUS		current
+      		DESCRIPTION
+		"A collection of traps to extend reporting capabilities."
+      ::= {  apSystemManagementNotificationsGroups 10 }
+
+apSysMgmtRFactorNotificationsGroup NOTIFICATION-GROUP
+      NOTIFICATIONS {
+			apSysMgmtRFactorBelowThresholdTrap,
+			apSysMgmtRFactorBelowThresholdClearTrap
+		    }
+      		STATUS		current
+      		DESCRIPTION
+		"A collection of traps to extend reporting capabilities."
+      ::= {  apSystemManagementNotificationsGroups 11 }
+
+
+apSysMgmtRealmExceedNotificationsGroup NOTIFICATION-GROUP
+      NOTIFICATIONS {
+			apSysMgmtRealmMinutesExceedTrap,
+			apSysMgmtRealmMinutesExceedClearTrap
+	              }
+      		STATUS		current
+      		DESCRIPTION
+		"A collection of traps to extend reporting capabilities."
+      ::= {  apSystemManagementNotificationsGroups 12 }
+
+
+
+apSysMgmtDOSNotificationsGroup NOTIFICATION-GROUP
+      NOTIFICATIONS {
+			apSysMgmtExpDOSTrap
+	              }
+      		STATUS		current
+      		DESCRIPTION
+		"A collection of traps to extend reporting capabilities."
+      ::= {  apSystemManagementNotificationsGroups 13 }
+
+apSysMgmtClockSkewNotificationsGroup NOTIFICATION-GROUP
+      NOTIFICATIONS {
+			apSysMgmtNTPClockSkewTrap
+	              }
+      		STATUS		current
+      		DESCRIPTION
+		"A collection of traps to extend reporting capabilities."
+      ::= {  apSystemManagementNotificationsGroups 14 }
+
+apSysMgmtLDAPServerStatusNotificationsGroup  NOTIFICATION-GROUP
+	NOTIFICATIONS {
+		   	apSysMgmtLDAPStatusChangeTrap
+		      }
+ 	STATUS		current
+	DESCRIPTION
+		"Objects to monitor NS/EP sessions."
+	::= { apSystemManagementNotificationsGroups  15 }
+
+
+apSysMgmtSipRejectNotificationsGroup  NOTIFICATION-GROUP
+	NOTIFICATIONS {
+		   	apSysMgmtSipRejectionTrap
+		      }
+ 	STATUS		current
+	DESCRIPTION
+		"Objects to monitor NS/EP sessions."
+	::= { apSystemManagementNotificationsGroups  16 }
+
+apSysMgmtCollectorPushSuccessNotificationsGroup  NOTIFICATION-GROUP
+        NOTIFICATIONS {
+                        apSysMgmtCollectorPushSuccessTrap
+                      }
+        STATUS          current
+        DESCRIPTION
+                "Objects to monitor a successful HDR push operation."
+        ::= { apSystemManagementNotificationsGroups  17 }
+
+apSysMgmtRegCacheLimitNotificationsGroup  NOTIFICATION-GROUP
+        NOTIFICATIONS {
+                        apSysMgmtRegCacheThresholdTrap,
+			apSysMgmtRegCacheThresholdClearTrap
+                      }
+        STATUS          current
+        DESCRIPTION
+                "Objects for monitoring registration cache usage."
+        ::= { apSystemManagementNotificationsGroups  18 }
+    
+apSysMgmtShortSessionNotificationsGroup  NOTIFICATION-GROUP
+        NOTIFICATIONS {
+                        apSysMgmtShortSessionExceedTrap
+                      }
+        STATUS          current
+        DESCRIPTION
+                "Objects to monitor short duration sessions."
+        ::= { apSystemManagementNotificationsGroups  19 }
+
+apSysMgmtMonitorNetworkGatewaySynchronizedNotificationsGroup  NOTIFICATION-GROUP
+        NOTIFICATIONS {
+                        apSysMgmtGatewaySynchronizedTrap
+                      }
+        STATUS          current
+        DESCRIPTION
+                "Objects to monitor synchronized gateway trap."
+        ::= { apSystemManagementNotificationsGroups 20 }
+
+apSysMgmtCallRecordingNotificationsGroup  NOTIFICATION-GROUP
+        NOTIFICATIONS {
+                        apSysMgmtCallRecordingStateChangeTrap
+                      }
+        STATUS          current
+        DESCRIPTION
+                "Objects to monitor Call Recording Servers."
+        ::= { apSystemManagementNotificationsGroups  21 }
+
+apSysMgmtSipExtNotificationsGroup  NOTIFICATION-GROUP
+        NOTIFICATIONS {
+                        apSysMgmtInterfaceStatusChangeTrap
+                      }
+        STATUS          current
+        DESCRIPTION
+                "Extended notifications sent by sip interface."
+        ::= { apSystemManagementNotificationsGroups  22 }
+    
+apSysMgmtIcmpFailureNotificationsGroup  NOTIFICATION-GROUP
+        NOTIFICATIONS {	
+	apSysMgmtRealmIcmpFailureTrap,
+	apSysMgmtRealmIcmpFailureClearTrap 
+                      }
+        STATUS          current
+        DESCRIPTION
+                "Objects to monitor Icmp Failure."
+        ::= { apSystemManagementNotificationsGroups  23 }
+
+apSysMgmtCDRPushReceiverNotificationsGroup  NOTIFICATION-GROUP
+        NOTIFICATIONS {
+        apSysMgmtCDRPushReceiverFailureTrap,
+        apSysMgmtCDRPushReceiverFailureClearTrap,
+        apSysMgmtCDRPushAllReceiversFailureTrap,
+        apSysMgmtCDRPushAllReceiversFailureClearTrap
+                      }
+        STATUS          current
+        DESCRIPTION
+                "Objects to monitor cdr push receiver failures."
+        ::= { apSystemManagementNotificationsGroups  24 }
+
+apSysMgmtInetAddrDOSNotificationsGroup NOTIFICATION-GROUP
+      NOTIFICATIONS {
+			apSysMgmtInetAddrDOSTrap
+	              }
+      		STATUS		current
+      		DESCRIPTION
+		"A collection of traps to extend reporting capabilities. This
+		includes capability to report both IPv4 and IPv6 addresses"
+      ::= {  apSystemManagementNotificationsGroups 25 }
+      
+apSysMgmtRejectedMessagesNotificationsGroup NOTIFICATION-GROUP
+      NOTIFICATIONS {
+                        apSysMgmtRejectedMesagesThresholdExeededTrap
+                      }
+                STATUS          current
+                DESCRIPTION
+                "Traps used for notificaton of rejected messages"
+      ::= {  apSystemManagementNotificationsGroups 26 }
+
+apSysMgmtInetAddrWithReasonDOSNotificationsGroup NOTIFICATION-GROUP
+      NOTIFICATIONS {
+			apSysMgmtInetAddrWithReasonDOSTrap
+	              }
+      		STATUS		current
+      		DESCRIPTION
+		"A collection of traps to extend reporting capabilities. This
+		includes capability to report both IPv4 and IPv6 addresses"
+      ::= {  apSystemManagementNotificationsGroups 27 }
+
+apSysMgmtAdminGroup NOTIFICATION-GROUP
+      NOTIFICATIONS {
+      apSysMgmtAdminAuthLockoutTrap,
+      apSysMgmtAdminAuditLogFullTrap,
+      apSysMgmtAdminAuditLogFullClearTrap,
+      apSysMgmtAdminAuditPushFailTrap,
+      apSysMgmtAdminAuditPushFailClearTrap,
+      apSysMgmtAdminWriteFailTrap,
+      apSysMgmtAdminWriteFailClearTrap
+                    }
+      STATUS          current
+      DESCRIPTION
+              "Traps to monitor admin security related events"
+      ::= { apSystemManagementNotificationsGroups  28 }
+
+apSysMgmtLPGroup NOTIFICATION-GROUP
+      NOTIFICATIONS {
+      apSysMgmtLPLookupExceededTrap
+                    }
+      STATUS          current
+      DESCRIPTION
+              "Traps to monitor Local Policy routing "
+      ::= { apSystemManagementNotificationsGroups  29 }
+
+apSysMgmtPhyUtilNotificationsGroup NOTIFICATION-GROUP
+      NOTIFICATIONS {
+      apSysMgmtPhyUtilThresholdTrap,
+      apSysMgmtPhyUtilThresholdClearTrap
+      }
+      STATUS          current
+      DESCRIPTION
+              "Traps to monitor PHY utilization."
+      ::= { apSystemManagementNotificationsGroups  30 }
+
+apSysMgmtStorageSpaceNotificationsGroup NOTIFICATION-GROUP
+      NOTIFICATIONS {
+      apSysMgmtSpaceAvailThresholdTrap,
+      apSysMgmtSpaceAvailThresholdClearTrap
+      }
+      STATUS          current
+      DESCRIPTION
+              "Traps to monitor storage space available."
+      ::= { apSystemManagementNotificationsGroups  31 }
+      
+apSysMgmtTcaGroup NOTIFICATION-GROUP
+      NOTIFICATIONS {
+	    apSysMgmtTcaClearTrap,
+	    apSysMgmtTcaTrap
+      }
+      STATUS          current
+      DESCRIPTION
+	    "Traps to monitor Threshold Crossing Alerts."
+      ::= { apSystemManagementNotificationsGroups  32 }
+
+apSysMgmtDatabaseRegNotificationsGroup NOTIFICATION-GROUP
+      NOTIFICATIONS {
+	    apSysMgmtDatabaseRegCacheCapTrap,
+	    apSysMgmtDatabaseRegCacheCapClearTrap
+      }
+      STATUS          current
+      DESCRIPTION
+	    "Traps to monitor database registration threshold crossing."
+      ::= { apSystemManagementNotificationsGroups 33 }
+
+apSysMgmtTacacsNotificationsGroup NOTIFICATION-GROUP
+      NOTIFICATIONS {
+	    apSysMgmtTacacsDownTrap,
+	    apSysMgmtTacacsDownClearTrap
+      }
+      STATUS          current
+      DESCRIPTION
+	    "Traps to monitor TACACS+ server connections."
+      ::= { apSystemManagementNotificationsGroups 34 }
+
+apSysMgmtOCSRNotificationsGroup NOTIFICATION-GROUP
+      NOTIFICATIONS {
+	    apSysMgmtOCSRDownTrap,
+	    apSysMgmtOCSRDownClearTrap
+      }
+      STATUS          current
+      DESCRIPTION
+	    "Traps to monitor OCSR connections."
+      ::= { apSystemManagementNotificationsGroups 35 }
+
+apSysMgmtSipInterfaceRegCacheLimitNotificationsGroup  NOTIFICATION-GROUP
+        NOTIFICATIONS {
+                        apSysMgmtSipInterfaceRegCacheThresholdTrap,
+                        apSysMgmtSipInterfaceRegCacheThresholdClearTrap
+                      }
+        STATUS          current
+        DESCRIPTION
+                "Objects for monitoring registration cache usage for sip interface."
+        ::= { apSystemManagementNotificationsGroups  36 }
+
+apSysMgmtH248PortMapUsageNotificationsGroup NOTIFICATION-GROUP
+      NOTIFICATIONS {
+            apSysMgmtH248PortMapUsageTrap,
+	    apSysMgmtH248PortMapUsageClearTrap
+      }
+      STATUS       current
+      DESCRIPTION
+            "Traps to monitor H248 Port map usage."
+      ::= { apSystemManagementNotificationsGroups 37 }
+
+apSysMgmtInetAddrDOSTrustedtoUntrustedNotificationsGroup NOTIFICATION-GROUP
+      NOTIFICATIONS {
+                   apSysMgmtInetAddrTrustedToUntrustedDOSTrap
+	              }
+      		STATUS		current
+      		DESCRIPTION
+		"A collection of traps to extend reporting capabilities. This
+		includes capability to report both IPv4 and IPv6 addresses"
+      ::= {  apSystemManagementNotificationsGroups 38 }
+END

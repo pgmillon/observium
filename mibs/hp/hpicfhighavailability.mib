@@ -1,0 +1,421 @@
+HpicfHighAvailability-MIB DEFINITIONS ::= BEGIN
+
+   IMPORTS
+      OBJECT-TYPE, MODULE-IDENTITY, TimeTicks, Counter32, Unsigned32,Integer32
+         FROM SNMPv2-SMI
+      OBJECT-GROUP, MODULE-COMPLIANCE
+         FROM SNMPv2-CONF
+      entPhysicalIndex,PhysicalIndex
+	FROM ENTITY-MIB
+      EntityStandbyStatus
+        FROM ENTITY-STATE-MIB
+      hpicfCommon
+         FROM HP-ICF-OID;   
+
+   hpicfHighAvailability MODULE-IDENTITY
+      LAST-UPDATED "200910180000Z"  -- October 18, 2009
+      ORGANIZATION "HP Networking"
+      CONTACT-INFO "Hewlett-Packard Company
+                    8000 Foothills Blvd.
+                    Roseville, CA 95747"
+      DESCRIPTION  "Management information for configuring Redundant 
+                    Management module on Hewlett-Packard network devices."
+      
+      REVISION     "200910180000Z"  -- October 18, 2009
+      DESCRIPTION  "Added hpicfHAFailOverLogTable and 
+                    hpicfHAMgmtModuleTable."
+
+      REVISION     "200909060000Z"  -- September 6, 2009
+      DESCRIPTION  "Added hpicfHAContinuousFwdingTime and Removed 
+                    hpicfHARedundancyWarmStandby scalar mib and
+                    added it as enum to hpicfHARedundancyManagementModuleMode."
+
+      REVISION      "200908210000Z"  -- August 21,2009
+      DESCRIPTION  "Added hpicfHARedundancyWarmStandby scalar mib."
+
+      REVISION     "200609050000Z"  -- September 5, 2006
+      DESCRIPTION  "Initial version of the MIB module."
+
+      ::= { hpicfCommon 11 }  
+           
+      
+-- **********************************************************************
+-- The HP ICF High Availability MIB groups
+-- **********************************************************************
+   
+   hpicfHAConfigObjects   OBJECT IDENTIFIER ::= { hpicfHighAvailability 1}       
+   hpicfHAStatusObjects   OBJECT IDENTIFIER ::= { hpicfHighAvailability 2}
+   hpicfHAConformance     OBJECT IDENTIFIER ::= { hpicfHighAvailability 3}
+
+           
+--The HP ICF High Availability configuration group      
+      
+   hpicfHARedundancyManagementModuleMode OBJECT-TYPE
+      SYNTAX      INTEGER {
+                     enable  (1),
+                     disable (2),
+                     warmStandby (3)
+                   }
+      MAX-ACCESS  read-write
+      STATUS      current
+      DESCRIPTION "Specify to enable/disable this feature. Enabling
+                   allows for management module redundancy when there are
+                   two management modules in the switch and does a hitless
+                   failover. Disabling prevents redundancy except due to  
+                   fatal hardware errors on one management module.
+                   warmStandby option does a non-hitless failover."
+      ::= { hpicfHAConfigObjects 1 }
+
+    hpicfHAContinuousFwdingTime OBJECT-TYPE
+      SYNTAX      Unsigned32 --(0..2147483647) 
+      UNITS       "seconds"
+      MAX-ACCESS  read-write
+      STATUS      current
+      DESCRIPTION "This is a configurable timer. After the failover, on the new AMM, 
+                   the route and neighbor table entries are marked as stale in the FIB. 
+                   As routing protocols begin to re-add routes, this stale flag 
+                   will be reset. When this timer expires, all route and neighbor
+                   table entries still marked stale [not yet re-added] will be
+                   removed. A value of 0 means that no layer 3 hitless behavior is desired, 
+                   and in this configuration, upon failover all FIB entries are 
+                   flushed and corresponding hardware entries are removed. 
+                   A default value of 5 minutes is chosen with the assumption
+                   that the routing protocols can finish re-adding the routes to 
+                   the equivalent state within this time."
+      DEFVAL { 300 }
+      ::= { hpicfHAConfigObjects 2 }
+   
+-- The HP ICF High Availability status group       
+    
+   hpicfHAMgmtRedundancyFailureReason OBJECT-TYPE
+      SYNTAX       INTEGER {
+                        noRedundantModule    (1),
+                        noFailure            (2),
+                        unknownReason        (3),
+                        mismatchOS           (4),
+                        failedSelftest       (5),
+                        communicationFailure (6),
+                        redundancyDisable    (7)
+                      }
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION "Specifies the reason a redundant management module failed to
+                   become a standby module."
+      ::= { hpicfHAStatusObjects 1 }
+
+   hpicfHAMgmtFailovers OBJECT-TYPE
+      SYNTAX      Counter32
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION "Specifies the number of management module failovers since
+                   last chassis boot."
+                      
+      ::= { hpicfHAStatusObjects 2 }
+
+   hpicfHALastFailoverTime OBJECT-TYPE
+      SYNTAX      TimeTicks
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION "Specifies the time (in hundredths of a second) of the 
+                   last management module failover."
+      ::= {hpicfHAStatusObjects 3 }  
+      
+  hpicfHAFailOverLogTable OBJECT-TYPE
+       SYNTAX       SEQUENCE OF HpicfHAFailOverLogEntry
+       MAX-ACCESS   not-accessible
+       STATUS       current
+       DESCRIPTION
+          "This table contains  High Availability(HA)
+           failover log specific information."
+       ::= { hpicfHAStatusObjects 4}
+
+  hpicfHAFailOverLogEntry OBJECT-TYPE
+       SYNTAX       HpicfHAFailOverLogEntry
+       MAX-ACCESS   not-accessible
+       STATUS       current
+       DESCRIPTION
+                 "Failover log information maintained
+                  for HA."
+       INDEX { hpicfHAFailOverIndex
+                }
+       ::= { hpicfHAFailOverLogTable 1 }
+
+  HpicfHAFailOverLogEntry ::=
+       SEQUENCE {
+          hpicfHAFailOverIndex  Integer32,
+          hpicfHAFailOverMgmtModule PhysicalIndex,
+          hpicfHAFailOverState  INTEGER,
+          hpicfHAFailOverTime   Integer32,
+          hpicfHAFailOverReason INTEGER
+         }
+
+ hpicfHAFailOverIndex OBJECT-TYPE
+      SYNTAX         Integer32 (1..65535)
+      MAX-ACCESS     not-accessible
+      STATUS         current
+      DESCRIPTION    
+         "This object uniquely identifies the 
+          entries in the failover log table.
+          This table contains maximum of recent 10 entries."
+    ::= { hpicfHAFailOverLogEntry 1 }
+
+  hpicfHAFailOverMgmtModule OBJECT-TYPE
+       SYNTAX       PhysicalIndex              
+       MAX-ACCESS   read-only
+       STATUS       current
+       DESCRIPTION
+           "This object displays the management
+            module information.It is similar to 
+            entPhysicalIndex."
+       ::= { hpicfHAFailOverLogEntry 2 }
+
+hpicfHAFailOverState OBJECT-TYPE
+       SYNTAX         INTEGER {
+                       unknown (1),
+                       active  (2),
+                       standby (3)
+                       }
+       MAX-ACCESS   read-only
+       STATUS       current
+       DESCRIPTION
+           "This object indicates the failover
+            state.
+           'unknown' indicates the state of the management
+            module is undefined and this resource is unable to
+            report standby state.
+           'active' indicates the state of the management 
+            module as active module and it means the
+            resource is providing service.
+           'standby' indicates that the management 
+            module is not providing service, but it 
+            will be immediately able to take over the role of
+            the resource to be backed up, without the need for
+            initialization activity, and will contain the same
+            information as the resource to be backed up."
+       ::= { hpicfHAFailOverLogEntry 3 }
+
+hpicfHAFailOverTime OBJECT-TYPE
+       SYNTAX         Integer32
+       MAX-ACCESS     read-only
+       STATUS         current
+       DESCRIPTION
+           "This object indicates the failover
+            time in seconds since 1/1/1990 0:0:0."
+       ::= { hpicfHAFailOverLogEntry 4 }
+
+hpicfHAFailOverReason OBJECT-TYPE
+       SYNTAX         INTEGER {
+                       invalid (0),
+                       switchoverReq (1),
+                       buttonReq (2),
+                       crashReq(3),
+                       activeReset(4),
+                       altReset (5)
+                       }
+       MAX-ACCESS   read-only
+       STATUS       current
+       DESCRIPTION
+           "This object  define the reason
+            for failover.
+            'switchoverReq' indicates failover as a 
+            result of switchover command issued by the
+            user.
+            'buttonReq' indicates failover as a result 
+             of manual boot done by the user via reboot
+             button.
+            'crashReq' indicates failover as a result 
+             of crash that happened to the active module.
+            'activeReset' indicates failover as a result 
+             of reset command issued by the user at 
+             active module.
+            'altReset' indicates failover as a result 
+             of reset command issued by the user at 
+             the alternate module. "
+       ::= { hpicfHAFailOverLogEntry 5 }
+
+hpicfHAMgmtModuleTable OBJECT-TYPE
+       SYNTAX       SEQUENCE OF HpicfHAMgmtModuleEntry
+       MAX-ACCESS   not-accessible
+       STATUS       current
+       DESCRIPTION
+          "This table contains High Availability
+           (HA) management module specific information."
+       ::= { hpicfHAStatusObjects 5}
+
+  hpicfHAMgmtModuleEntry OBJECT-TYPE
+       SYNTAX   HpicfHAMgmtModuleEntry
+       MAX-ACCESS   not-accessible
+       STATUS   current
+       DESCRIPTION
+          "Management module information maintained
+             for HA."
+       INDEX { entPhysicalIndex 
+                 }
+       ::= { hpicfHAMgmtModuleTable 1 }
+
+  HpicfHAMgmtModuleEntry ::=
+       SEQUENCE {
+          hpicfHAMgmtModuleState           EntityStandbyStatus,
+          hpicfHAMgmtModuleCardUpSince     Integer32,
+          hpicfHAMgmtModuleStateSince      Integer32,
+          hpicfHAMgmtModuleRedundancyState INTEGER
+         }
+
+hpicfHAMgmtModuleState OBJECT-TYPE
+       SYNTAX       EntityStandbyStatus  
+       MAX-ACCESS   read-only
+       STATUS       current
+       DESCRIPTION
+           "This object displays the state of the 
+            the management module.This object is 
+             similar to entStateStandby object."
+       ::= { hpicfHAMgmtModuleEntry 1 }
+
+hpicfHAMgmtModuleCardUpSince OBJECT-TYPE
+       SYNTAX         Integer32
+       MAX-ACCESS     read-only
+       STATUS         current
+       DESCRIPTION
+           "This object displays the card
+            uptime in seconds since
+            this module state. "
+       ::= { hpicfHAMgmtModuleEntry 2 }
+hpicfHAMgmtModuleStateSince OBJECT-TYPE
+       SYNTAX         Integer32
+       MAX-ACCESS     read-only
+       STATUS         current
+       DESCRIPTION
+           "This object displays time in
+            seconds from which the current
+            state is valid."
+       ::= { hpicfHAMgmtModuleEntry 3}
+
+hpicfHAMgmtModuleRedundancyState OBJECT-TYPE
+       SYNTAX         INTEGER {
+                           unavailable   (1),
+                           active        (2),
+                           disabled      (3),
+                           syncing        (4),
+                           warmStandby    (5),
+                           hitless        (6)  
+                           }
+       MAX-ACCESS   read-only
+       STATUS       current
+       DESCRIPTION
+           "This object describes the  management
+            module's redundancy state.
+            'unavailable' indicates the redundancy module
+            is not available due to error or absence of 
+            the module.
+            'active' indicates the redundancy module is 
+            currently active and is providing service. 
+            'disabled' indicates the redundancy module is 
+            disabled.
+            'syncing' indicates the redundancy module is
+            in syncing state and after successful syncing 
+            it will enter active state else it will report 
+            error.
+            'warmStandby' indicates the redundancy module is 
+            in warmstandby mode and  is not providing service,
+            but it will be immediately able to take over the role 
+            of the resource to be backed up, without the need for 
+            initialization activity, and will contain the same 
+            information as the resource to be backed up but the 
+            Layer2 information will not be synced.
+            'hitless'indicates the redundancy module is 
+            in hitless mode and is not providing service,
+            but it will be immediately able to take over the
+            role of the resource to be backed up, without the
+            need for initialization activity, and will contain
+            the same information as the resource to be backed up."
+       ::= { hpicfHAMgmtModuleEntry 4 }
+
+      
+    
+                                         
+-- ***********************************************************
+-- 
+--        hpicfHighAvailability  M I B   C O N F O R M A N C E 
+-- 
+-- *********************************************************** 
+--
+   hpicfHACompliances    OBJECT IDENTIFIER   ::= { hpicfHAConformance 1 }  
+   hpicfHAGroups         OBJECT IDENTIFIER   ::= { hpicfHAConformance 2 } 
+   
+-- compliance statements
+   hpicfHACompliance MODULE-COMPLIANCE
+      STATUS      current
+      DESCRIPTION
+                  "The compliance statement for SNMP entities which implement
+                   the hpicfHighAvailability MIB."
+      MODULE  -- this module
+      MANDATORY-GROUPS { 
+                           hpicfHAConfigGroup, 
+                           hpicfHAStatusGroup 
+                        }
+      ::= { hpicfHACompliances 1 }
+
+   hpicfHACompliance1 MODULE-COMPLIANCE
+      STATUS      current
+      DESCRIPTION
+                  "The compliance statement for SNMP entities which implement
+                   the hpicfHighAvailability MIB."
+      MODULE  -- this module
+      MANDATORY-GROUPS { 
+                           hpicfHAFailOverGroup ,
+                           hpicfHAMgmtModuleGroup 
+                        }
+      ::= { hpicfHACompliances 2 }
+   
+     
+-- MIB groupings
+   hpicfHAConfigGroup OBJECT-GROUP
+      OBJECTS     { 
+                    hpicfHARedundancyManagementModuleMode,
+                    hpicfHAContinuousFwdingTime
+                  }
+      STATUS      current
+      DESCRIPTION
+                  "The collection of objects which are used to configure the
+                   Redundancy Management Module."
+      ::= { hpicfHAGroups 1 }
+
+   hpicfHAStatusGroup OBJECT-GROUP
+      OBJECTS     {
+                    hpicfHAMgmtRedundancyFailureReason,
+                    hpicfHAMgmtFailovers,
+                    hpicfHALastFailoverTime
+                  }
+      STATUS      current
+      DESCRIPTION
+                  "The collection of objects which are used to represent 
+                   Management Module statistics information."
+    ::= { hpicfHAGroups 2 }
+   
+ hpicfHAFailOverGroup OBJECT-GROUP
+      OBJECTS     {
+                    hpicfHAFailOverMgmtModule   ,
+                    hpicfHAFailOverState  ,
+                    hpicfHAFailOverTime   ,
+                    hpicfHAFailOverReason 
+                  }
+      STATUS      current
+      DESCRIPTION
+                  "The collection of objects which are used to represent 
+                   failover log statistics information."
+    ::= { hpicfHAGroups 3 } 
+ hpicfHAMgmtModuleGroup OBJECT-GROUP
+      OBJECTS     {
+                    hpicfHAMgmtModuleState  ,
+                    hpicfHAMgmtModuleCardUpSince  ,
+                    hpicfHAMgmtModuleStateSince   ,
+                    hpicfHAMgmtModuleRedundancyState
+                  }
+      STATUS      current
+      DESCRIPTION
+                  "The collection of objects which are used to represent 
+                   management module specific information."
+    ::= { hpicfHAGroups 4 } 
+   
+
+END

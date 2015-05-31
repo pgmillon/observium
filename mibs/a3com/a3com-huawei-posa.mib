@@ -1,0 +1,1513 @@
+-- =================================================================
+-- Copyright (c) 2004-2010 Hangzhou H3C Tech. Co., Ltd. All rights reserved.
+--
+-- Description: This MIB is to provide the definition of the POSA
+--              (Point Of Sale Access) system.
+-- Reference:
+-- Version: V1.3
+-- History:
+-- V1.0 2008-03-12 Initial version, created by Lei Hao, Yang Xu
+-- V1.1 2008-09-22 updated by yangxu
+--      Modify the limitation(SIZE (4..7)) of h3cPosaMapDestCode
+--      Modify the default value of h3cPosaFcmAnswerTimeout
+--      Modify the limitation(0..65535) of h3cPosaAppHostPort
+--      Modify the limitation(0..65535) of h3cPosaTerminalListenPort
+--      Add new node h3cPosaTerminalTransAppID in h3cPosaTerminalTable
+--      Rename h3cPosaAppDiscardedPkts to h3cPosaAppInDiscardedPkts
+--      Add new node h3cPosaAppOutDiscardedPkts in h3cPosaAppStatTable
+--      Rename h3cPosaTerminalDiscardedPkts to h3cPosaTerminalInDiscardedPkts
+--      Add new node h3cPosaTerminalOutDiscardedPkts in h3cPosaTerminalStatTable
+--      Modify the description of object h3cPosaAppHostPort,
+--      h3cPosaFcmStatTimeoutCnts, h3cPosaFcmStatConnectFailCnts,
+--      h3cPosaAppRecvPkts, h3cPosaAppSendPkts, h3cPosaAppErrPkts,
+--      h3cPosaAppDistributeErrCnts, h3cPosaAppInDiscardedPkts,
+--      h3cPosaTerminalRecvPkts, h3cPosaTerminalSendPkts,
+--      h3cPosaTerminalErrPkts, h3cPosaTerminalMapErrCnts,
+--      h3cPosaTerminalInDiscardedPkts.
+-- V1.2 2010-04-08 updated by Cai Zibin, Tong Wei
+--      Add h3cPosaFcmConfTable
+--      Add h3cPosaTcpTermStatTable
+--      Add h3cPosaBatchTerminalTable
+--      Add h3cPosaCallerStatTable
+--      Add new node h3cPosaTerminalHangUp, h3cPosaFcmLinkNegoFailed,
+--      h3cPosaFcmPhyNegoFailed in h3cPosaTrapPrex
+--      Add new node h3cPosaSrvStateChangeTrapEnable,
+--      h3cPosaAppStateChangeTrapEnable, h3cPosaTerminalHangUpTrapEnable,
+--      h3cPosaFcmLnkNegoFailTrapEnable, h3cPosaFcmPhyNegoFailTrapEnable,
+--      in h3cPosaControl
+--      h3cPosaAppName, h3cPosaCallerIDTransEnable, h3cPosaTpduChangeStrategy
+--      in h3cPosaAppTable
+--      h3cPosaTerminalName and h3cPosaTerminalCfgIfIndex in h3cPosaTerminalTable
+--      h3cPosaMapSrcCode in h3cPosaMapTable
+-- V1.3 2011-09-01 updated by he changfu,du pengfei
+--      Add new node h3cPosaBackupAppID,h3cPosaQuietTimeOut
+--      in h3cPosaAppTable
+--      Add a new value for H3cPeerState.
+--      2011-12-12 updated by lei hao,yang xu
+--      Add new node, h3cPosaFcmStatTransCnts, h3cPosaFcmStatTransSuccessCnts
+--      and h3cPosaFcmStatTransCntsClear in h3cPosaFcmStatTable
+--      2012-2-28 updated by zhangxianyi 
+--      Add new node h3cPosaAppHello, h3cPosaAppHelloInterval
+--      h3cPosaAppRouterPort
+--      in h3cPosaAppTable
+-- =================================================================
+A3COM-HUAWEI-POSA-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    h3cCommon
+        FROM A3COM-HUAWEI-OID-MIB
+    Integer32, Counter32, OBJECT-TYPE, MODULE-IDENTITY, NOTIFICATION-TYPE,
+    Counter64, Gauge32
+        FROM SNMPv2-SMI
+    RowStatus, TruthValue, TEXTUAL-CONVENTION
+        FROM SNMPv2-TC
+    InetAddress, InetAddressType
+        FROM INET-ADDRESS-MIB
+    ifIndex, ifDescr
+        FROM IF-MIB;
+
+h3cPosa MODULE-IDENTITY
+    LAST-UPDATED "201004090000Z"
+    ORGANIZATION
+        "H3C Technologies Co., Ltd."
+    CONTACT-INFO
+        "PLAT Team Hangzhou H3C Technologies Co.,Ltd.
+        Shang-Di Information Industry Base,
+        Hai-Dian District Beijing P.R. China
+        http://www.h3c.com
+        Zip:100085"
+    DESCRIPTION
+        "This MIB is to provide the definition of the POSA
+        (Point Of Sale Access) system."
+    REVISION "200803120933Z"
+    DESCRIPTION
+        "The initial revision of this MIB module."
+    ::= { h3cCommon 92 }
+
+
+-- definition of textual conventions
+
+H3cAppServiceType ::= TEXTUAL-CONVENTION
+    STATUS       current
+    DESCRIPTION
+        "The service type of a POS application.  It means the way
+        in which the router connects with the application server.
+        At present, it supports two service types, tcp(1) and flow(2).
+        If the router connects with the server through SEARIAL/ASYNC
+        interface, the service type is flow(1).  If through TCP/IP,
+        the service type is tcp(1)."
+    SYNTAX INTEGER
+        {
+        tcp(1),
+        flow(2)
+        }
+
+H3cAppMode ::= TEXTUAL-CONVENTION
+    STATUS       current
+    DESCRIPTION
+        "The work mode of a POS application.  It has two value normal(1)
+        and temporary(2).  This attribute is valid only when the service type
+        is tcp(1).  If it works in temporary(2) mode, the TCP connection
+        between router and application server is established
+        when a POS trade begins and disconnected when a POS trade finishes.
+        In normal(1) mode, the TCP connection is established
+        when POS function is enabled and exists all along."
+    SYNTAX INTEGER
+        {
+        normal(1),
+        temporary(2)
+        }
+
+H3cPeerState ::= TEXTUAL-CONVENTION
+    STATUS       current
+    DESCRIPTION
+        "The current running state of the peer (application server or POS terminal)
+        of the router.
+        notset(1)     The peer is not configured correctly.
+        down(2)       The interface connecting with the peer is down.
+        up(3)         The interface connecting with the peer is up.
+        kept(4)       The connection between router and the peer is
+                      not established.
+        linking(5)    The connection between router and the peer is
+                      establishing.
+        linked(6)     The connection between router and the peer is
+                      established.
+        multilink(7)  There are multiple connections between router and the peer.
+        blocked(8)    The connection between router and the peer is
+                      unreachable.
+
+        The status of down(2) and up(3) appear only when the router and the peer
+        are connected with interface.
+        The status about TCP connections appear when the router and the peer are
+        connected with TCP/IP.
+        "
+    SYNTAX INTEGER
+        {
+        notset(1),
+        down(2),
+        up(3),
+        kept(4),
+        linking(5),
+        linked(6),
+        multilink(7),
+        blocked(8)
+        }
+
+H3cTerminalAccessType ::= TEXTUAL-CONVENTION
+    STATUS       current
+    DESCRIPTION
+        "The access type of a POS terminal.  Now it supports 3 types.
+        fcm(1)  The POS terminal connects with router through FCM interface.
+        flow(2) The POS terminal connects with router through SERIAL, ASYNC,
+                AM (Analog Modem) or AUX interface.
+        tcp(3)  The POS terminal connects with router through TCP/IP protocol.
+                The default access type is fcm(2)."
+    SYNTAX INTEGER
+        {
+        fcm(1),
+        flow(2),
+        tcp(3)
+        }
+
+H3cTpduChangeStrategy ::= TEXTUAL-CONVENTION
+    STATUS       current
+    DESCRIPTION
+        "The strategy to modify the address of the packet from terminals before
+        delivering it to application server.  Now it supports 2 types.
+        ChangeTpduSrc(1)  Replace the source address of the packet with POSID.
+        ChangeTpduDest(2) Replace the destination address of the packet with
+                          POSID."
+    SYNTAX INTEGER
+        {
+        changeTpduSrc(1),
+        changeTpduDest(2)
+        }
+
+--
+-- nodes defined
+--
+
+h3cPosaControl OBJECT IDENTIFIER ::= { h3cPosa 1 }
+
+h3cPosaServerEnable OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        disabled(1),
+        enabled(2)
+        }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "This attribute controls the starting or stoppage of POS access function.
+        The defalut value is disabled(1)."
+    DEFVAL { disabled }
+    ::= { h3cPosaControl 1 }
+
+h3cPosaFcmAnswerTimeout OBJECT-TYPE
+    SYNTAX Integer32 (500..2000)
+    UNITS "milliseconds"
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The maximum answer time of a POS connection through a FCM (Fast
+        Connection Modem) interface.
+        The answer time is the interval from the POS terminal sending request
+        to the Router giving its reply, in units of milliseconds."
+    DEFVAL { 2000 }
+    ::= { h3cPosaControl 2 }
+
+h3cPosaFcmTradeTimeout OBJECT-TYPE
+    SYNTAX Integer32 (30000..12000000)
+    UNITS "milliseconds"
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The maximum time of a POS trade through a FCM interface,
+        in units of milliseconds."
+    DEFVAL { 12000000 }
+    ::= { h3cPosaControl 3 }
+
+h3cPosaFcmIdleTimeout OBJECT-TYPE
+    SYNTAX Integer32 (1..12000)
+    UNITS "seconds"
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The maximum idle time of a POS connection through the FCM interface,
+        in units of seconds."
+    DEFVAL { 60 }
+    ::= { h3cPosaControl 4 }
+
+h3cPosaSrvStateChangeTrapEnable OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "This attribute controls whether the h3cPosaServerStatusChange trap will
+        be sent or not."
+    DEFVAL { true }
+    ::= { h3cPosaControl 5 }
+
+h3cPosaAppStateChangeTrapEnable OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "This attribute controls whether the h3cPosaAppStateChange trap will
+        be sent or not."
+    DEFVAL { true }
+    ::= { h3cPosaControl 6 }
+
+h3cPosaTerminalHangUpTrapEnable OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "This attribute controls whether the h3cPosaTerminalHangUp trap will
+        be sent or not."
+    DEFVAL { true }
+    ::= { h3cPosaControl 7 }
+
+h3cPosaFcmLnkNegoFailTrapEnable OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "This attribute controls whether the h3cPosaFcmLinkNegoFailed trap will
+        be sent or not."
+    DEFVAL { true }
+    ::= { h3cPosaControl 8 }
+
+h3cPosaFcmPhyNegoFailTrapEnable OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "This attribute controls whether the h3cPosaFcmPhyNegoFailed trap will
+        be sent or not."
+    DEFVAL { true }
+    ::= { h3cPosaControl 9 }
+
+h3cPosaTables OBJECT IDENTIFIER ::= { h3cPosa 2 }
+
+--
+-- definition of h3cPosaAppTable
+--
+
+h3cPosaAppTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF H3cPosaAppEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table shows the configuration information and
+        running status of POS application."
+    ::= { h3cPosaTables 1 }
+
+h3cPosaAppEntry OBJECT-TYPE
+    SYNTAX H3cPosaAppEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table shows the configuration information and
+        running status of POS application."
+    INDEX { h3cPosaAppID }
+    ::= { h3cPosaAppTable 1 }
+
+H3cPosaAppEntry ::=
+    SEQUENCE {
+        h3cPosaAppID
+            Integer32,
+        h3cPosaAppServiceType
+            H3cAppServiceType,
+        h3cPosaAppIfIndex
+            Integer32,
+        h3cPosaAppMode
+            H3cAppMode,
+        h3cPosaAppHostIPType
+            InetAddressType,
+        h3cPosaAppHostIP
+            InetAddress,
+        h3cPosaAppHostPort
+            Integer32,
+        h3cPosaAppRouterIPType
+            InetAddressType,
+        h3cPosaAppRouterIP
+            InetAddress,
+        h3cPosaAppKeepAliveInterval
+            Integer32,
+        h3cPosaAppKeepAliveCount
+            Integer32,
+        h3cPosaAppConnectTimeout
+            Integer32,
+        h3cPosaAppState
+            H3cPeerState,
+        h3cPosaAppRowStatus
+            RowStatus,
+        h3cPosaAppName
+            OCTET STRING,
+        h3cPosaCallerIDTransEnable
+            TruthValue,
+        h3cPosaTpduChangeStrategy
+            H3cTpduChangeStrategy,
+        h3cPosaBackupAppID
+            Integer32,
+        h3cPosaQuietTimeOut
+            Integer32,
+        h3cPosaAppHello
+            TruthValue,
+        h3cPosaAppHelloInterval
+            Integer32, 
+        h3cPosaAppRouterPort
+            Integer32
+     }
+
+h3cPosaAppID OBJECT-TYPE
+    SYNTAX Integer32 (1..31)
+    MAX-ACCESS accessible-for-notify
+    STATUS current
+    DESCRIPTION
+        "The identification of a POS application.  It ranges from 1 to 31."
+    ::= { h3cPosaAppEntry 1 }
+
+h3cPosaAppServiceType OBJECT-TYPE
+    SYNTAX H3cAppServiceType
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The service type of a POS application.  It means the way
+        in which the router connects with the application server."
+    DEFVAL { tcp }
+    ::= { h3cPosaAppEntry 2 }
+
+h3cPosaAppIfIndex OBJECT-TYPE
+    SYNTAX Integer32
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "This attribute is the ifindex through which the router connecting with
+        the application server, if the service type of POS application is flow(2).
+        It is invalid if the service type is tcp(1).
+        At preasent, it supports 5 types of interface: FCM, SERIAL, ASYNC,
+        AM (Analog Modem) and AUX."
+    REFERENCE
+        "ifindex"
+    ::= { h3cPosaAppEntry 3 }
+
+h3cPosaAppMode OBJECT-TYPE
+    SYNTAX H3cAppMode
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The work mode of a POS application."
+    DEFVAL { normal }
+    ::= { h3cPosaAppEntry 4 }
+
+h3cPosaAppHostIPType OBJECT-TYPE
+    SYNTAX InetAddressType
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The IP address type of the application server.  And now it must be IPV4.
+        It is invalid if the service type is flow(2)."
+    ::= { h3cPosaAppEntry 5 }
+
+h3cPosaAppHostIP OBJECT-TYPE
+    SYNTAX InetAddress
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The IP address of the application server.  And now it only supports IPV4.
+        It is invalid if the service type is flow(2)."
+    ::= { h3cPosaAppEntry 6 }
+
+h3cPosaAppHostPort OBJECT-TYPE
+    SYNTAX Integer32 (0..65535)
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The listening port of the application server.  If the information of
+        the application server is not specified, this object will return the
+        value 0.
+        It is invalid if the service type is flow(2)."
+    ::= { h3cPosaAppEntry 7 }
+
+h3cPosaAppRouterIPType OBJECT-TYPE
+    SYNTAX InetAddressType
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The source IP address type of the access router.  Now it must be ipv4.
+        It is invalid if the service type is flow(2)."
+    ::= { h3cPosaAppEntry 8 }
+
+h3cPosaAppRouterIP OBJECT-TYPE
+    SYNTAX InetAddress
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The source IP address of access router used in connecting with
+        application server.  Now it only supports ipv4.
+        It is invalid if the service type is flow(2)."
+    ::= { h3cPosaAppEntry 9 }
+
+h3cPosaAppKeepAliveInterval OBJECT-TYPE
+    SYNTAX Integer32 (1..7200)
+    UNITS "seconds"
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The TCP keep alive interval of the connection between the router and
+        the application server.  In unit of seconds.
+        The default value is 2 seconds.
+        It is valid only when the service type is tcp(1)."
+    DEFVAL { 2 }
+    ::= { h3cPosaAppEntry 10 }
+
+h3cPosaAppKeepAliveCount OBJECT-TYPE
+    SYNTAX Integer32 (2..100)
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The maximum number of sending TCP keep alive packets.
+        It is valid only when the service type is tcp(1)."
+    DEFVAL { 3 }
+    ::= { h3cPosaAppEntry 11 }
+
+h3cPosaAppConnectTimeout OBJECT-TYPE
+    SYNTAX Integer32 (1..20)
+    UNITS "seconds"
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The maximum interval that the router waits for the reply from
+        application server after sending the request for establishing a TCP
+        connection.  It is invalid if the service type is flow(2)."
+    DEFVAL { 20 }
+    ::= { h3cPosaAppEntry 12 }
+
+h3cPosaAppState OBJECT-TYPE
+    SYNTAX H3cPeerState
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The current running state of application server."
+    ::= { h3cPosaAppEntry 13 }
+
+h3cPosaAppRowStatus OBJECT-TYPE
+    SYNTAX RowStatus
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Operation status."
+    ::= { h3cPosaAppEntry 14 }
+
+h3cPosaAppName OBJECT-TYPE
+    SYNTAX OCTET STRING (SIZE (0..32))
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The description of a POS application."
+    ::= { h3cPosaAppEntry 15 }
+
+h3cPosaCallerIDTransEnable OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Enable or disable the caller-id transmission function."
+    DEFVAL { false }
+    ::= { h3cPosaAppEntry 16 }
+
+h3cPosaTpduChangeStrategy OBJECT-TYPE
+    SYNTAX H3cTpduChangeStrategy
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Set the strategy to modify the address of the packet from terminals
+        before delivering it to application server."
+    DEFVAL { changeTpduSrc }
+    ::= { h3cPosaAppEntry 17 }
+
+h3cPosaBackupAppID OBJECT-TYPE
+    SYNTAX Integer32 (0..31)
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Specify the backup application ID, 0 indicates not using backup application.
+        It is invalid if the service type is flow(2)."
+    ::= { h3cPosaAppEntry 18 }
+
+h3cPosaQuietTimeOut OBJECT-TYPE
+    SYNTAX Integer32 (10..600)
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Specify the wait time for re-activating application server.
+        It is invalid if the service type is flow(2)."
+    ::= { h3cPosaAppEntry 19 }
+
+h3cPosaAppHello OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Specify the switch of hello packet for the application server."
+    DEFVAL { false }
+    ::= { h3cPosaAppEntry 20 }
+
+h3cPosaAppHelloInterval OBJECT-TYPE
+    SYNTAX Integer32 (1..600)
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Specify the interval time in minute(s) of hello packet."
+    DEFVAL { 1 }
+    ::= { h3cPosaAppEntry 21 }
+
+h3cPosaAppRouterPort OBJECT-TYPE
+    SYNTAX Integer32 (0..4999)
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The source port of access router used in connecting with
+        application server.  0 indicates not to specify the source port.
+        It is valid only if the service type is tcp(1) and mode is normal(1)."
+    ::= { h3cPosaAppEntry 22 }
+
+--
+-- definition of h3cPosaTerminalTable
+--
+
+h3cPosaTerminalTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF H3cPosaTerminalEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table shows the configuration information and
+        running status of POS terminal."
+    ::= { h3cPosaTables 2 }
+
+h3cPosaTerminalEntry OBJECT-TYPE
+    SYNTAX H3cPosaTerminalEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table shows the configuration information and
+        running status of POS terminal."
+    INDEX { h3cPosaTerminalID }
+    ::= { h3cPosaTerminalTable 1 }
+
+H3cPosaTerminalEntry ::=
+    SEQUENCE {
+        h3cPosaTerminalID
+            Integer32,
+        h3cPosaTerminalAccessType
+            H3cTerminalAccessType,
+        h3cPosaTerminalIfIndex
+            Integer32,
+        h3cPosaTerminalTransAppID
+            Integer32,
+        h3cPosaTerminalListenPort
+            Integer32,
+        h3cPosaTerminalState
+            H3cPeerState,
+        h3cPosaTerminalRowStatus
+            RowStatus,
+        h3cPosaTerminalName
+            OCTET STRING,
+        h3cPosaTerminalCfgIfIndex
+            Integer32
+     }
+
+h3cPosaTerminalID OBJECT-TYPE
+    SYNTAX Integer32 (1..255)
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "The identification of a POS terminal."
+    ::= { h3cPosaTerminalEntry 1 }
+
+h3cPosaTerminalAccessType OBJECT-TYPE
+    SYNTAX H3cTerminalAccessType
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The access type of a POS terminal."
+    DEFVAL { fcm }
+    ::= { h3cPosaTerminalEntry 2 }
+
+h3cPosaTerminalIfIndex OBJECT-TYPE
+    SYNTAX Integer32
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The ifindex of the interface through which connects the POS terminal
+        and the router.  It is invalid if the access type is TCP."
+    REFERENCE
+        "ifindex"
+    ::= { h3cPosaTerminalEntry 3 }
+
+h3cPosaTerminalTransAppID OBJECT-TYPE
+    SYNTAX Integer32 (0..31)
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The identification of the application server to which all the packets
+        from this POS terminal will be sent.
+        If this object is set to 0, the destination application server to which
+        a packet from this POS terminal will be sent is determined by its TPDU
+        (Transport Protocol Data Unit) destination address.
+        It is invalid if the access type is TCP."
+    DEFVAL { 0 }
+    ::= { h3cPosaTerminalEntry 4 }
+
+h3cPosaTerminalListenPort OBJECT-TYPE
+    SYNTAX Integer32 (0..65535)
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The listening port accepting the connection from POS terminals.
+        It is valid only when the access type is TCP."
+    ::= { h3cPosaTerminalEntry 5 }
+
+h3cPosaTerminalState OBJECT-TYPE
+    SYNTAX H3cPeerState
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The current running status of a POS terminal."
+    ::= { h3cPosaTerminalEntry 6 }
+
+h3cPosaTerminalRowStatus OBJECT-TYPE
+    SYNTAX RowStatus
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Operation status."
+    ::= { h3cPosaTerminalEntry 7 }
+
+h3cPosaTerminalName OBJECT-TYPE
+    SYNTAX OCTET STRING (SIZE (0..32))
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The description of a POS terminal."
+    ::= { h3cPosaTerminalEntry 8 }
+
+h3cPosaTerminalCfgIfIndex OBJECT-TYPE
+    SYNTAX Integer32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The ifindex of the interface on which the terminal configuration is.
+        If it is a physical interface, its value is equal to that of
+        h3cPosaTerminalIfIndex."
+    REFERENCE
+        "ifindex"
+    ::= { h3cPosaTerminalEntry 9 }
+
+--
+-- definition of h3cPosaMapTable
+--
+
+h3cPosaMapTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF H3cPosaMapEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table describe the application-mapping information."
+    ::= { h3cPosaTables 3 }
+
+h3cPosaMapEntry OBJECT-TYPE
+    SYNTAX H3cPosaMapEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table describe the application-mapping information."
+    INDEX { h3cPosaMapSrcCode, h3cPosaMapDestCode }
+    ::= { h3cPosaMapTable 1 }
+
+H3cPosaMapEntry ::=
+    SEQUENCE {
+        h3cPosaMapDestCode
+            OCTET STRING,
+        h3cPosaMapAppID
+            Integer32,
+        h3cPosaMapRowStatus
+            RowStatus,
+        h3cPosaMapSrcCode
+            OCTET STRING
+     }
+
+h3cPosaMapDestCode OBJECT-TYPE
+    SYNTAX OCTET STRING (SIZE (4..7))
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "The destination code of the mapping item.  Generally, the destination
+        code is a 4-character-string.  If the destination address in POS packet
+        matches the code, the packet will be deliveried to the corresponding
+        application server.  If any code can not be matched, the packet will be
+        deliveried to the default server.  A special destination code, 'default',
+        is for default mapping item."
+    ::= { h3cPosaMapEntry 1 }
+
+h3cPosaMapAppID OBJECT-TYPE
+    SYNTAX Integer32 (1..31)
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The identifier of POS application.  It is the index of h3cPosaAppTable."
+    ::= { h3cPosaMapEntry 2 }
+
+h3cPosaMapRowStatus OBJECT-TYPE
+    SYNTAX RowStatus
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Operation status."
+    ::= { h3cPosaMapEntry 3 }
+
+h3cPosaMapSrcCode OBJECT-TYPE
+    SYNTAX OCTET STRING (SIZE (4..7))
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "The source code of the mapping item.  Generally, the source code is a
+        4-character-string.  If the source address in POS packet matches the
+        code, the packet will be deliveried to the corresponding application
+        server.  If any code can not be matched, the packet will be deliveried
+        to the default server.  A special source code, 'default', is for
+        default mapping item."
+    ::= { h3cPosaMapEntry 4 }
+
+--
+-- definition of h3cPosaFcmStatTable
+--
+
+h3cPosaFcmStatTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF H3cPosaFcmStatEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table shows the statistics information of FCM interface."
+    ::= { h3cPosaTables 4 }
+
+h3cPosaFcmStatEntry OBJECT-TYPE
+    SYNTAX H3cPosaFcmStatEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table shows the statistics information of FCM interface."
+    INDEX { h3cPosaFcmStatIfIndex }
+    ::= { h3cPosaFcmStatTable 1 }
+
+H3cPosaFcmStatEntry ::=
+    SEQUENCE {
+        h3cPosaFcmStatIfIndex
+            Integer32,
+        h3cPosaFcmStatTimeoutCnts
+            Counter32,
+        h3cPosaFcmStatConnectFailCnts
+            Counter32,
+        h3cPosaFcmStatTransCnts
+            Gauge32,
+        h3cPosaFcmStatTransSuccessCnts
+            Gauge32,
+        h3cPosaFcmStatTransCntsClear
+            TruthValue
+     }
+
+h3cPosaFcmStatIfIndex OBJECT-TYPE
+    SYNTAX Integer32 (0..2147483647)
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "The index of FCM interface."
+    ::= { h3cPosaFcmStatEntry 1 }
+
+h3cPosaFcmStatTimeoutCnts OBJECT-TYPE
+    SYNTAX Counter32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of disconnections because of trade timeouts."
+    ::= { h3cPosaFcmStatEntry 2 }
+
+h3cPosaFcmStatConnectFailCnts OBJECT-TYPE
+    SYNTAX Counter32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of connection failures because of unsuccessful negotiations."
+    ::= { h3cPosaFcmStatEntry 3 }
+h3cPosaFcmStatTransCnts OBJECT-TYPE
+    SYNTAX Gauge32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of all transactions made through the interface."
+    ::= { h3cPosaFcmStatEntry 4 }
+
+h3cPosaFcmStatTransSuccessCnts OBJECT-TYPE
+    SYNTAX Gauge32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of successful transactions made through the interface."
+    ::= { h3cPosaFcmStatEntry 5 }
+
+h3cPosaFcmStatTransCntsClear OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "Clear the number of successful transactions and all transactions."
+    DEFVAL { false }
+    ::= { h3cPosaFcmStatEntry 6 }
+
+--
+-- definition of h3cPosaAppStatTable
+--
+
+h3cPosaAppStatTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF H3cPosaAppStatEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table shows the statistics information of application."
+    ::= { h3cPosaTables 5 }
+
+h3cPosaAppStatEntry OBJECT-TYPE
+    SYNTAX H3cPosaAppStatEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table shows the statistics information of application."
+    INDEX { h3cPosaAppID }
+    ::= { h3cPosaAppStatTable 1 }
+
+H3cPosaAppStatEntry ::=
+    SEQUENCE {
+        h3cPosaAppRecvPkts
+            Counter32,
+        h3cPosaAppSendPkts
+            Counter32,
+        h3cPosaAppErrPkts
+            Counter32,
+        h3cPosaAppDistributeErrCnts
+            Counter32,
+        h3cPosaAppInDiscardedPkts
+            Counter32,
+        h3cPosaAppOutDiscardedPkts
+            Counter32
+     }
+
+h3cPosaAppRecvPkts OBJECT-TYPE
+    SYNTAX Counter32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of packets recieved from the application server."
+    ::= { h3cPosaAppStatEntry 1 }
+
+h3cPosaAppSendPkts OBJECT-TYPE
+    SYNTAX Counter32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of packets sent to the application server."
+    ::= { h3cPosaAppStatEntry 2 }
+
+h3cPosaAppErrPkts OBJECT-TYPE
+    SYNTAX Counter32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of inbound packets that contained errors."
+    ::= { h3cPosaAppStatEntry 3 }
+
+h3cPosaAppDistributeErrCnts OBJECT-TYPE
+    SYNTAX Counter32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of packets that are discarded when no corresponding POS
+        terminal can be found."
+    ::= { h3cPosaAppStatEntry 4 }
+
+h3cPosaAppInDiscardedPkts OBJECT-TYPE
+    SYNTAX Counter32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of inbound packets that are discarded when the incoming
+        buffer is full."
+    ::= { h3cPosaAppStatEntry 5 }
+
+h3cPosaAppOutDiscardedPkts OBJECT-TYPE
+    SYNTAX Counter32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of outbound packets that are discarded because of link
+        errors between the router and the application server."
+    ::= { h3cPosaAppStatEntry 6 }
+
+--
+-- definition of h3cPosaTerminalStatTable
+--
+
+h3cPosaTerminalStatTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF H3cPosaTerminalStatEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table shows the statistics information of application."
+    ::= { h3cPosaTables 6 }
+
+h3cPosaTerminalStatEntry OBJECT-TYPE
+    SYNTAX H3cPosaTerminalStatEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table shows the statistics information of application."
+    INDEX { h3cPosaTerminalID }
+    ::= { h3cPosaTerminalStatTable 1 }
+
+H3cPosaTerminalStatEntry ::=
+    SEQUENCE {
+        h3cPosaTerminalRecvPkts
+            Counter32,
+        h3cPosaTerminalSendPkts
+            Counter32,
+        h3cPosaTerminalErrPkts
+            Counter32,
+        h3cPosaTerminalMapErrCnts
+            Counter32,
+        h3cPosaTerminalInDiscardedPkts
+            Counter32,
+        h3cPosaTerminalOutDiscardedPkts
+            Counter32
+     }
+
+h3cPosaTerminalRecvPkts OBJECT-TYPE
+    SYNTAX Counter32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of packets recieved from the POS terminal."
+    ::= { h3cPosaTerminalStatEntry 1 }
+
+h3cPosaTerminalSendPkts OBJECT-TYPE
+    SYNTAX Counter32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of packets sent to the POS terminal."
+    ::= { h3cPosaTerminalStatEntry 2 }
+
+h3cPosaTerminalErrPkts OBJECT-TYPE
+    SYNTAX Counter32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of inbound packets that contained errors."
+    ::= { h3cPosaTerminalStatEntry 3 }
+
+h3cPosaTerminalMapErrCnts OBJECT-TYPE
+    SYNTAX Counter32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of packets that are discarded because of mapping errors."
+    ::= { h3cPosaTerminalStatEntry 4 }
+
+h3cPosaTerminalInDiscardedPkts OBJECT-TYPE
+    SYNTAX Counter32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of inbound packets that are discarded when the incoming
+        buffer is full."
+    ::= { h3cPosaTerminalStatEntry 5 }
+
+h3cPosaTerminalOutDiscardedPkts OBJECT-TYPE
+    SYNTAX Counter32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of outbound packets that are discarded because of link
+        errors between the router and the POS terminal."
+    ::= { h3cPosaTerminalStatEntry 6 }
+
+--
+-- definition of h3cPosaBatchTerminalTable
+--
+
+h3cPosaBatchTerminalTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF H3cPosaBatchTerminalEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "The table of the configuration information relevant to
+        a batch of POS terminals."
+    ::= { h3cPosaTables 7 }
+
+h3cPosaBatchTerminalEntry OBJECT-TYPE
+    SYNTAX H3cPosaBatchTerminalEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "The configuration information relevant to a batch of
+        POS terminals."
+    INDEX { ifIndex }
+    ::= { h3cPosaBatchTerminalTable 1 }
+
+H3cPosaBatchTerminalEntry ::=
+    SEQUENCE {
+        h3cPosaBatchTerminalFirstID
+            Integer32,
+        h3cPosaBatchTerminalRowStatus
+            RowStatus
+     }
+
+h3cPosaBatchTerminalFirstID OBJECT-TYPE
+    SYNTAX Integer32 (1..255)
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The first ID of the batch of POS terminals."
+    ::= { h3cPosaBatchTerminalEntry 1 }
+
+h3cPosaBatchTerminalRowStatus OBJECT-TYPE
+    SYNTAX RowStatus
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Operation status."
+    ::= { h3cPosaBatchTerminalEntry 2 }
+
+--
+-- definition of h3cPosaTcpTermStatTable
+--
+
+h3cPosaTcpTermStatTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF H3cPosaTcpTermStatEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table shows the statistics information of terminal whose
+        access type is tcp."
+    ::= { h3cPosaTables 8 }
+
+h3cPosaTcpTermStatEntry OBJECT-TYPE
+    SYNTAX H3cPosaTcpTermStatEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table shows the statistics information of terminal whose
+        access type is tcp."
+    INDEX { h3cPosaTcpTermStatIndex }
+    ::= { h3cPosaTcpTermStatTable 1 }
+
+H3cPosaTcpTermStatEntry ::=
+    SEQUENCE {
+        h3cPosaTcpTermStatIndex
+            Integer32,
+        h3cPosaTcpTermStatIPType
+            InetAddressType,
+        h3cPosaTcpTermStatIP
+            InetAddress,
+        h3cPosaTcpTermStatIPMask
+            InetAddress,
+        h3cPosaTcpTermRecvPkts
+            Counter64,
+        h3cPosaTcpTermSendPkts
+            Counter64,
+        h3cPosaTcpTermErrPkts
+            Counter64,
+        h3cPosaTcpTermMapErrCnts
+            Counter64,
+        h3cPosaTcpTermInDiscardedPkts
+            Counter64,
+        h3cPosaTcpTermOutDiscardedPkts
+            Counter64,
+        h3cPosaTcpTermStatRowStatus
+            RowStatus
+     }
+
+h3cPosaTcpTermStatIndex OBJECT-TYPE
+    SYNTAX Integer32 (1..64)
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "The index of entity."
+    ::= { h3cPosaTcpTermStatEntry 1 }
+
+h3cPosaTcpTermStatIPType OBJECT-TYPE
+    SYNTAX InetAddressType
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The type of Internet address.  And now it must be ipv4."
+    ::= { h3cPosaTcpTermStatEntry 2 }
+
+h3cPosaTcpTermStatIP OBJECT-TYPE
+    SYNTAX InetAddress
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The IP address or the subnet of the statistics terminal(s).
+        When the vlaue is a subnet, the statistics of all the
+        terminals in the subnet will be added up.  And now it only
+        supports ipv4."
+    ::= { h3cPosaTcpTermStatEntry 3 }
+
+h3cPosaTcpTermStatIPMask OBJECT-TYPE
+    SYNTAX InetAddress
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The mask associated with the IP address or the subnet.  And
+        now it only supports ipv4."
+    ::= { h3cPosaTcpTermStatEntry 4 }
+
+h3cPosaTcpTermRecvPkts OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of packets recieved from the POS terminal(s)."
+    ::= { h3cPosaTcpTermStatEntry 5 }
+
+h3cPosaTcpTermSendPkts OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of packets sent to the POS terminal(s)."
+    ::= { h3cPosaTcpTermStatEntry 6 }
+
+h3cPosaTcpTermErrPkts OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of inbound packets that contained errors."
+    ::= { h3cPosaTcpTermStatEntry 7 }
+
+h3cPosaTcpTermMapErrCnts OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of packets that are discarded because of mapping errors."
+    ::= { h3cPosaTcpTermStatEntry 8 }
+
+h3cPosaTcpTermInDiscardedPkts OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of inbound packets that are discarded when the incoming
+        buffer is full."
+    ::= { h3cPosaTcpTermStatEntry 9 }
+
+h3cPosaTcpTermOutDiscardedPkts OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of outbound packets that are discarded because of link
+        errors between the router and the POS terminal(s)."
+    ::= { h3cPosaTcpTermStatEntry 10 }
+
+h3cPosaTcpTermStatRowStatus OBJECT-TYPE
+    SYNTAX RowStatus
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Operation status."
+    ::= { h3cPosaTcpTermStatEntry 11 }
+
+h3cPosaFcmConfTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF H3cPosaFcmConfEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "This table shows the configuration information of FCM (Fast Connection
+        Modem) interfaces."
+    ::= { h3cPosaTables 9 }
+
+h3cPosaFcmConfEntry OBJECT-TYPE
+    SYNTAX         H3cPosaFcmConfEntry
+    MAX-ACCESS     not-accessible
+    STATUS         current
+    DESCRIPTION
+        "This entry shows the configuration information of FCM (Fast Connection
+        Modem) interfaces."
+    INDEX { ifIndex }
+    ::= { h3cPosaFcmConfTable 1 }
+
+H3cPosaFcmConfEntry ::= SEQUENCE  {
+        h3cPosaFcmNegoHookOff         Integer32,
+        h3cPosaFcmNegoSilence         Integer32,
+        h3cPosaFcmNegoScrmbBinary1    Integer32,
+        h3cPosaFcmNegoUnscrmbBinary1  Integer32,
+        h3cPosaFcmThresholdRlsdOff    Integer32,
+        h3cPosaFcmThresholdRlsdOn     Integer32,
+        h3cPosaFcmThresholdTxPower    Integer32,
+        h3cPosaFcmThresholdAnswerTone Integer32
+        }
+
+h3cPosaFcmNegoHookOff     OBJECT-TYPE
+    SYNTAX   Integer32 (100..6000)
+    UNITS       "milliseconds"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "Delay time for hookoff."
+    DEFVAL { 500 }
+    ::= { h3cPosaFcmConfEntry 1 }
+
+h3cPosaFcmNegoSilence     OBJECT-TYPE
+    SYNTAX   Integer32 (0..3000)
+    UNITS       "milliseconds"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "Silence time for modem negotiation."
+    DEFVAL { 0 }
+    ::= { h3cPosaFcmConfEntry 2 }
+
+h3cPosaFcmNegoScrmbBinary1 OBJECT-TYPE
+    SYNTAX   Integer32 (100..1500)
+    UNITS       "milliseconds"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "Scramble-binary1 time for modem negotiation."
+    DEFVAL { 250 }
+    ::= { h3cPosaFcmConfEntry 3 }
+
+h3cPosaFcmNegoUnscrmbBinary1 OBJECT-TYPE
+    SYNTAX   Integer32 (300..1500)
+    UNITS       "milliseconds"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "Unscramble-binary1 time for modem negotiation."
+    DEFVAL { 400 }
+    ::= { h3cPosaFcmConfEntry 4 }
+
+h3cPosaFcmThresholdRlsdOff  OBJECT-TYPE
+    SYNTAX   Integer32 (0..75)
+    UNITS       "-dBm"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "RLSD (Received Line Signal Detect) off threshold for modem."
+    DEFVAL { 48 }
+    ::= { h3cPosaFcmConfEntry 5 }
+
+h3cPosaFcmThresholdRlsdOn  OBJECT-TYPE
+    SYNTAX   Integer32 (0..75)
+    UNITS       "-dBm"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "RLSD (Received Line Signal Detect) on threshold for modem."
+    DEFVAL { 43 }
+    ::= { h3cPosaFcmConfEntry 6 }
+
+h3cPosaFcmThresholdTxPower OBJECT-TYPE
+    SYNTAX   Integer32 (1..42)
+    UNITS       "-dBm"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "TX power for modem."
+    DEFVAL { 10 }
+    ::= { h3cPosaFcmConfEntry 7 }
+
+h3cPosaFcmThresholdAnswerTone OBJECT-TYPE
+    SYNTAX   Integer32 (1..42)
+    UNITS       "-dBm"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "Answer tone level for modem."
+    DEFVAL { 9 }
+    ::= { h3cPosaFcmConfEntry 8 }
+
+h3cPosaCallerStatTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF H3cPosaCallerStatEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "This table shows the statistics information of terminal according the
+        caller-ID."
+    ::= { h3cPosaTables 10 }
+
+h3cPosaCallerStatEntry OBJECT-TYPE
+    SYNTAX         H3cPosaCallerStatEntry
+    MAX-ACCESS     not-accessible
+    STATUS         current
+    DESCRIPTION
+        "This table shows the statistics information of terminal according the
+        caller-ID."
+    INDEX { h3cPosaCallerStatCallerID }
+    ::= { h3cPosaCallerStatTable 1 }
+
+H3cPosaCallerStatEntry ::= SEQUENCE  {
+        h3cPosaCallerStatCallerID
+            OCTET STRING,
+        h3cPosaCallerRecvPkts
+            Counter64,
+        h3cPosaCallerSendPkts
+            Counter64,
+        h3cPosaCallerErrPkts
+            Counter64,
+        h3cPosaCallerMapErrCnts
+            Counter64,
+        h3cPosaCallerInDiscardedPkts
+            Counter64,
+        h3cPosaCallerOutDiscardedPkts
+            Counter64,
+        h3cPosaCallerStatRowStatus
+            RowStatus
+        }
+
+h3cPosaCallerStatCallerID OBJECT-TYPE
+    SYNTAX OCTET STRING (SIZE (0..64))
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "The caller number."
+    ::= { h3cPosaCallerStatEntry 1 }
+
+h3cPosaCallerRecvPkts OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of packets recieved from the POS terminal(s)."
+    ::= { h3cPosaCallerStatEntry 2 }
+
+h3cPosaCallerSendPkts OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of packets sent to the POS terminal(s)."
+    ::= { h3cPosaCallerStatEntry 3 }
+
+h3cPosaCallerErrPkts OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of inbound packets that contained errors."
+    ::= { h3cPosaCallerStatEntry 4 }
+
+h3cPosaCallerMapErrCnts OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of packets that are discarded because of mapping errors."
+    ::= { h3cPosaCallerStatEntry 5 }
+
+h3cPosaCallerInDiscardedPkts OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of inbound packets that are discarded when the incoming
+        buffer is full."
+    ::= { h3cPosaCallerStatEntry 6 }
+
+h3cPosaCallerOutDiscardedPkts OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of outbound packets that are discarded because of link
+        errors between the router and the POS terminal(s)."
+    ::= { h3cPosaCallerStatEntry 7 }
+
+h3cPosaCallerStatRowStatus OBJECT-TYPE
+    SYNTAX RowStatus
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Operation status."
+    ::= { h3cPosaCallerStatEntry 8 }
+
+--
+-- traps defined
+--
+
+h3cPosaTrap OBJECT IDENTIFIER ::= { h3cPosa 3 }
+
+h3cPosaTrapPrex OBJECT IDENTIFIER ::= { h3cPosaTrap 0 }
+
+h3cPosaServerStatusChange NOTIFICATION-TYPE
+    OBJECTS { h3cPosaServerEnable }
+    STATUS current
+    DESCRIPTION
+        "This trap is generated when the POS function is started or stopped."
+    ::= { h3cPosaTrapPrex 1 }
+
+h3cPosaAppStateChange NOTIFICATION-TYPE
+    OBJECTS { h3cPosaAppID, h3cPosaAppStateChangeObject }
+    STATUS current
+    DESCRIPTION
+        "This trap is generated whenever the availability of application server
+        changes."
+    ::= { h3cPosaTrapPrex 2 }
+
+h3cPosaTerminalHangUp NOTIFICATION-TYPE
+    OBJECTS { ifIndex, ifDescr }
+    STATUS current
+    DESCRIPTION
+        "This trap is generated whenever the POS connection through a FCM (Fast
+        Connection Modem) interface is hanged up by POS terminal."
+    ::= { h3cPosaTrapPrex 3 }
+
+h3cPosaFcmLinkNegoFailed NOTIFICATION-TYPE
+    OBJECTS { ifIndex, ifDescr }
+    STATUS current
+    DESCRIPTION
+        "This trap is generated whenever the link layer negotiation is failed
+        between the POS terminal and router through a FCM (Fast Connection
+        Modem) interface."
+    ::= { h3cPosaTrapPrex 4 }
+
+h3cPosaFcmPhyNegoFailed NOTIFICATION-TYPE
+    OBJECTS { ifIndex, ifDescr }
+    STATUS current
+    DESCRIPTION
+        "This trap is generated whenever the physical layer negotiation is failed
+        between the POS terminal and router through a FCM (Fast Connection
+        Modem) interface."
+    ::= { h3cPosaTrapPrex 5 }
+
+h3cPosaTrapObjects OBJECT IDENTIFIER ::= { h3cPosaTrap 1 }
+
+h3cPosaAppStateChangeObject OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        available(1),
+        unavailable(2)
+        }
+    MAX-ACCESS accessible-for-notify
+    STATUS current
+    DESCRIPTION
+        "This is a dummy MIB object referenced by the h3cPosaAppStateChange trap.
+        This object shows the availability changing of corresponding application
+        server."
+    ::= { h3cPosaTrapObjects 1 }
+
+END

@@ -1,0 +1,12 @@
+ALTER TABLE  `alert_assoc` CHANGE  `device_attributes`  `device_attribs` TEXT CHARACTER SET utf8 COLLATE utf8_unicode_ci NULL DEFAULT NULL;
+ALTER TABLE  `alert_assoc` CHANGE  `attributes`  `entity_attribs` TEXT CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL ;
+UPDATE `eventlog` SET `type`='port' WHERE  `type`='interface';
+ALTER TABLE  `ports_perms` ADD  `entity_type` VARCHAR( 32 ) NOT NULL AFTER  `user_id` ;
+ALTER TABLE  `ports_perms` CHANGE  `port_id`  `entity_id` INT( 11 ) NOT NULL ;
+UPDATE `ports_perms` SET `entity_type` = 'port' WHERE 1;
+RENAME TABLE  `ports_perms` TO  `entity_permissions` ;
+INSERT `entity_permissions` (user_id,entity_id,entity_type) SELECT `bill_perms`.`user_id`,`bill_perms`.`bill_id`,'bill' AS `entity_type` FROM `bill_perms`;
+INSERT `entity_permissions` (user_id,entity_id,entity_type) SELECT `devices_perms`.`user_id`,`devices_perms`.`device_id`, 'device' AS `entity_type` FROM `devices_perms`;
+DROP TABLE `bill_perms`;
+DROP TABLE `devices_perms`;
+CREATE TABLE IF NOT EXISTS `alert_log` (  `event_id` int(11) NOT NULL AUTO_INCREMENT,`alert_test_id` int(11) DEFAULT NULL,  `device_id` int(11) NOT NULL DEFAULT '0',  `timestamp` datetime DEFAULT NULL,  `message` text COLLATE utf8_unicode_ci,  `entity_type` varchar(64) COLLATE utf8_unicode_ci DEFAULT NULL,  `entity_id` int(11) NOT NULL,  `log_type` varchar(16) COLLATE utf8_unicode_ci DEFAULT NULL,  PRIMARY KEY (`event_id`),  KEY `type` (`entity_type`),  KEY `device_id` (`device_id`),  KEY `timestamp` (`timestamp`),  KEY `entity` (`entity_type`,`entity_id`)) ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;

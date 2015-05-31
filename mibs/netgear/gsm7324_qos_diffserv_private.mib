@@ -1,0 +1,2094 @@
+-- DiffServ MIB overview:
+-- DiffServ Private MIB falls under QOS MIB node of the private subtree.
+-- Various MIB groups defined within this MIB are:
+
+-- a) General Status Group -> All objects within this group are scalar and are not part of a 
+--    conceptual MIB table. The objects of this group define the current and maximum sizes of 
+--    conceptual DiffServ MIB tables like, DiffServ Class Table, DiffServ Class Rule Table, 
+--    DiffServ Policy Table,DiffServ Policy-Class Instance Table, DiffServ Policy Attribute 
+--    Table, DiffServ Service Table. Also, one object of this group named GenStatusAdminMode, is 
+--    used to enable or disable DiffServ on the switch. 
+
+-- b) Class Group -> This MIB group represents classifiers, which are used to differentiate 
+--    among types of traffic. There are two conceptual MIB tables within the class group :
+
+--    1) Class Table - The Class Table entry contains a name and type, plus a referenced ACL
+--       number if the class type is 'acl'.    
+
+--    2) Class Rule Table - Each Class Rule Table entry in the private MIB represents a single 
+--       match criterion that belongs to a class definition.  Depending on the class type, 
+--       multiple criteria are evaluated as either an all-inclusive or sequential-ordered 
+--       relationship to determine if a packet belongs to the class.  The 
+--       classRuleMatchEntryType object indicates specifically which of the match items is 
+--       described by this entry.
+
+-- c) Policy Group -> DiffServ Policy group is used to define:
+--    traffic conditioning actions - policing and marking applied to traffic classes, and
+--    service provisioning actions - specifying bandwidth, shaping and queue depth management 
+--    requirements of service levels like Expedite Forwarding, Assured Forwarding etc. There 
+--    are five conceptual MIB tables within the policy group:
+
+--    1) Policy Table - The Policy Table entry contains policy-name, policy-type and next free 
+--       per-policy policyInstIndex for the Policy-Class Instance table. The policy-type defines
+--       whether policy is applied inbound or outbound to an interface. 
+
+--    2) Policy-Class Instance Table - An entry in this table is used to connect an  policy with 
+--       an already created DiffServ class. It contains a class index, which identifies the 
+--       classifier definition used by the policy to establish an instance of that class (to 
+--       which policy attributes can be attached). It also contains the next free per-policy 
+--       policyAttrIndex for the policy attribute table.    
+
+--    3) Policy Attribute Table - Each Policy Table Attribute entry attaches various policy 
+--       attributes to a policy-class instance. There is an object named 
+--       policyAttrStmtEntryType, that specifies which policy attributes are meaningful for a 
+--       particular policy-class instance.
+
+--    4) Policy-Class Inbound Performance Table - Contains performance counters for each 
+--       policy-class instance assigned to an interface in the inbound direction.  This table 
+--       contains offered and discarded counters.  These rows are automatically created/deleted 
+--       when a policy is attached to/removed from a service interface in an inbound direction.
+
+--    5) Policy-Class Outbound Performance Table - Contains performance counters for each 
+--       policy-class instance assigned to an interface in the outbound direction.  This table 
+--       contains discarded, tail dropped, random dropped, shape delayed and sent counters.  
+--       Note that the random dropped and shape delayed counters are only active when their 
+--       respective policy attributes are defined for the policy-class instance, otherwise they 
+--       always read as 0.  These rows are automatically created/deleted when a policy is 
+--       attached to/removed from a service interface in an outbound direction.
+
+-- d) Service Group -> DiffServ Service group associates a policy with an interface in a 
+--    specific direction.  There are two conceptual MIB tables within the service group:
+
+--    1) Service Table - Contains rows for each interface (ifIndex) that has a policy index 
+--       attached to it in a specific direction (ifDirection).
+
+--    2) Service Performance Table - Augments the Service Table to provide performance 
+--       counters for each row.  This table contains offered, discarded and sent counters that 
+--       are aggregated for the attached policy as a whole based on the individual 
+--       policy-class instance counts.
+
+-- General Notes:
+
+--    1) All objects of this MIB are prefixed with 'agentDiffServ' followed by the name of the 
+--       object with the first letter in uppercase.
+
+--    2) All counter tables like Policy-Class Inbound Performance Table, Policy-Class Outbound 
+--        Performance Table and Service Performance Table contain both 32-bit and 64-bit (high- 
+--        capacity) counters.
+
+
+GSM7324-QOS-DIFFSERV-PRIVATE-MIB DEFINITIONS ::= BEGIN
+
+-- Copyright 2003 LVL7 Systems, Inc.  All rights reserved.
+
+-- This SNMP Management Information Specification
+-- embodies LVL7 System's confidential and proprietary
+-- intellectual property.  LVL7 Systems retains all title
+-- and ownership in the Specification including any revisions.
+
+-- This Specification is supplied "AS IS", LVL7 Systems
+-- makes no warranty, either expressed or implied,
+-- as to the use, operation, condition, or performance of the
+-- Specification.
+    
+    IMPORTS
+      MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE, 
+      IpAddress, Integer32, Unsigned32                  FROM SNMPv2-SMI
+      InetPortNumber                                    FROM INET-ADDRESS-MIB
+      TEXTUAL-CONVENTION, RowStatus, RowPointer, 
+      MacAddress, StorageType, TruthValue               FROM SNMPv2-TC
+      gsm7324QOS                                        FROM GSM7324-QOS-MIB
+      TimeTicks                                         FROM RFC1155-SMI
+      DisplayString, PhysAddress                        FROM RFC1213-MIB
+      IANAifType                                        FROM IANAifType-MIB
+      ifIndex, InterfaceIndex                           FROM IF-MIB;
+
+    gsm7324QOSDiffServPrivate MODULE-IDENTITY
+    LAST-UPDATED "200305061200Z" -- 6 May 2003 12:00:00 GMT
+    ORGANIZATION "Netgear"
+
+    CONTACT-INFO
+        ""
+    DESCRIPTION
+        ""
+-- revision history
+    REVISION
+        "200305061200Z" -- 6 May 2003 12:00:00 GMT
+
+    DESCRIPTION
+        "Initial revision."
+    ::= { gsm7324QOS 4 }
+
+    QosBurstSize ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT "d"
+    STATUS   current
+    DESCRIPTION
+       "The number of kilobytes (Kbytes) in a packet that may be sent in a
+       traffic stream without regard for other traffic streams."
+    SYNTAX   Unsigned32 (1..128)
+
+    IntfDirection ::= TEXTUAL-CONVENTION
+    STATUS current
+    DESCRIPTION
+       "IntfDirection specifies a direction of data travel on an
+       interface. 'inbound' traffic is operated on during reception from
+       the interface, while 'outbound' traffic is operated on prior to
+       transmission on the interface."
+    
+    SYNTAX  INTEGER {
+             in(1),     -- ingress interface
+             out(2)     -- egress interface
+            }
+
+
+--**************************************************************************************
+--    agentDiffServGenStatusGroup
+--**************************************************************************************
+
+    agentDiffServGenStatusGroup        OBJECT IDENTIFIER ::= { gsm7324QOSDiffServPrivate 1 }
+                                    
+    agentDiffServGenStatusAdminMode OBJECT-TYPE
+	SYNTAX       INTEGER {
+                      enable(1),
+                      disable(2)
+                     }
+        MAX-ACCESS   read-write
+        STATUS       current
+	DESCRIPTION
+         " DiffServ Admin Mode"
+	DEFVAL    { disable }
+        ::= { agentDiffServGenStatusGroup 1 }
+	
+    agentDiffServGenStatusClassTableSize OBJECT-TYPE
+	SYNTAX       Unsigned32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+        " Current size of the Class Table"
+        ::= { agentDiffServGenStatusGroup 2 }
+     
+    agentDiffServGenStatusClassTableMax OBJECT-TYPE
+        SYNTAX       Unsigned32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+        " Max size of the Class Table"
+        ::= { agentDiffServGenStatusGroup 3 }
+     
+    agentDiffServGenStatusClassRuleTableSize OBJECT-TYPE
+        SYNTAX       Unsigned32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+        " Current size of Class Rule Table"
+        ::= { agentDiffServGenStatusGroup 4 }
+     
+    agentDiffServGenStatusClassRuleTableMax OBJECT-TYPE
+        SYNTAX       Unsigned32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+        " Max size of the Class Rule Table."
+        ::= { agentDiffServGenStatusGroup 5 }
+     
+    agentDiffServGenStatusPolicyTableSize OBJECT-TYPE
+        SYNTAX       Unsigned32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+        " Current Size of the Policy Table."
+        ::= { agentDiffServGenStatusGroup 6 }
+     
+    agentDiffServGenStatusPolicyTableMax OBJECT-TYPE
+        SYNTAX       Unsigned32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+        " Max size of the Policy Table"
+        ::= { agentDiffServGenStatusGroup 7 }
+
+    agentDiffServGenStatusPolicyInstTableSize OBJECT-TYPE
+        SYNTAX       Unsigned32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+        " Current size of the Policy-Class Instance Table"
+        ::= { agentDiffServGenStatusGroup 8 }
+     
+    agentDiffServGenStatusPolicyInstTableMax OBJECT-TYPE
+        SYNTAX       Unsigned32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+        " Max size of the Policy-Class Instance Table"
+        ::= { agentDiffServGenStatusGroup 9 } 
+     
+    agentDiffServGenStatusPolicyAttrTableSize OBJECT-TYPE
+        SYNTAX       Unsigned32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+        " Current size of the Policy Attribute Table"
+        ::= { agentDiffServGenStatusGroup 10 }
+     
+    agentDiffServGenStatusPolicyAttrTableMax OBJECT-TYPE
+        SYNTAX       Unsigned32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+        " Max size of the Policy Attribute Table"
+        ::= { agentDiffServGenStatusGroup 11 } 
+     
+    agentDiffServGenStatusServiceTableSize OBJECT-TYPE
+        SYNTAX       Unsigned32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+        " Current size of the Service Table"
+        ::= { agentDiffServGenStatusGroup 12 }
+     
+    agentDiffServGenStatusServiceTableMax OBJECT-TYPE
+        SYNTAX       Unsigned32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+        " Max size of the Service Table"
+        ::= { agentDiffServGenStatusGroup 13 } 
+           
+--**********************************************************************************
+-- agentDiffServClassGroup
+--
+--**********************************************************************************
+    
+
+    agentDiffServClassGroup        OBJECT IDENTIFIER ::= { gsm7324QOSDiffServPrivate 2 }
+    
+    --*********************** classTable ***********************
+        
+    agentDiffServClassIndexNextFree OBJECT-TYPE
+	 SYNTAX       Unsigned32
+	 MAX-ACCESS   read-only
+	 STATUS       current
+	 DESCRIPTION
+		     "This object contains an unused value for classIndex, or a
+		      zero to indicate that none exists."
+    ::= { agentDiffServClassGroup 1 }
+
+    agentDiffServClassTable OBJECT-TYPE
+         SYNTAX      SEQUENCE OF AgentDiffServClassEntry
+         MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION 
+                     "A table of the DiffServ class entries"
+         ::= { agentDiffServClassGroup 2 }
+
+    agentDiffServClassEntry OBJECT-TYPE
+         SYNTAX      AgentDiffServClassEntry
+         MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION 
+                     "Represents entry for a DiffServ traffic class"
+         INDEX       { agentDiffServClassIndex }
+         ::= { agentDiffServClassTable 1 }
+         
+    AgentDiffServClassEntry ::= SEQUENCE {
+          agentDiffServClassIndex
+              Unsigned32,
+          agentDiffServClassName
+              DisplayString,
+          agentDiffServClassType
+              INTEGER,
+          agentDiffServClassAclNum
+              Unsigned32,
+          agentDiffServClassRuleIndexNextFree
+              Unsigned32,
+          agentDiffServClassStorageType
+              StorageType,                 
+          agentDiffServClassRowStatus
+              RowStatus
+          }
+    
+    agentDiffServClassIndex OBJECT-TYPE
+         SYNTAX      Unsigned32
+         MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION
+                     "The identifier for DiffServ Class entry "
+         ::= { agentDiffServClassEntry 1 }
+    
+    agentDiffServClassName OBJECT-TYPE
+         SYNTAX      DisplayString (SIZE(1..31))
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Name of the DiffServ traffic class"
+         ::= { agentDiffServClassEntry 2 }
+    
+    agentDiffServClassType OBJECT-TYPE
+         SYNTAX      INTEGER {
+                      all(1),
+		      any(2),
+		      acl(3)
+                     }
+
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "The class type indicates how the individual class match 
+		      criteria are evaluated.  For type all, all of the 
+		      individual match conditions must be true for a packet to
+		      be considered a member of the class.  For types any and 
+		      acl, only one of the match criteria must be true for a 
+		      packet to belong to the class; multiple matching criteria
+		      are evaluated in a sequential order, with the highest 
+		      precedence awarded to the first criterion defined for the
+		      class.  An acl class type copies its set of match criteria
+		      from the current rule definition of the specified 
+		      ACL number."
+         ::= { agentDiffServClassEntry 3 }
+    
+    agentDiffServClassAclNum OBJECT-TYPE
+         SYNTAX      Unsigned32 
+	 MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "The access list number used to define the match conditions for the 
+                      DiffServ class.
+		      This attribute is only valid if the value of agentDiffServClassType
+		      is set to acl(3).  Match conditions are copied from the ACL definition
+		      at the time the class is created and do not reflect subsequent
+		      changes to the ACL definition."
+         ::= { agentDiffServClassEntry 4 }
+
+    agentDiffServClassRuleIndexNextFree OBJECT-TYPE
+	 SYNTAX       Unsigned32
+	 MAX-ACCESS   read-only
+	 STATUS       current
+	 DESCRIPTION
+		     "This object contains an unused value for classRuleIndex, or a
+		      zero to indicate that none exists.  This index is maintained
+		      on a per-class basis."
+	 ::= { agentDiffServClassEntry 5 }
+
+    agentDiffServClassStorageType OBJECT-TYPE
+         SYNTAX      StorageType
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Storage-type for this conceptual row"
+         DEFVAL { nonVolatile }		     
+         ::= { agentDiffServClassEntry 6 }
+	 
+    agentDiffServClassRowStatus OBJECT-TYPE
+         SYNTAX      RowStatus
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "The status of this conceptual row."
+         ::= { agentDiffServClassEntry 7 }
+	 
+    --*********************** agentDiffServClassRuleTable ***********************     
+    
+    agentDiffServClassRuleTable OBJECT-TYPE
+         SYNTAX      SEQUENCE OF AgentDiffServClassRuleEntry
+         MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION 
+                     "A table of the DiffServ Class Rule entries"
+         ::= { agentDiffServClassGroup 3 }
+
+    agentDiffServClassRuleEntry OBJECT-TYPE
+         SYNTAX      AgentDiffServClassRuleEntry
+         MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION 
+                     "Represents entry for a set of class-match rules"
+         INDEX       { agentDiffServClassIndex,agentDiffServClassRuleIndex }
+         ::= { agentDiffServClassRuleTable 1 }
+         
+    AgentDiffServClassRuleEntry ::= SEQUENCE {
+          agentDiffServClassRuleIndex
+              Unsigned32,
+          agentDiffServClassRuleMatchEntryType
+              INTEGER,
+	  agentDiffServClassRuleMatchCos
+	      Unsigned32,    
+          agentDiffServClassRuleMatchDstIpAddr
+              IpAddress,
+	  agentDiffServClassRuleMatchDstIpMask
+              IpAddress,
+	  agentDiffServClassRuleMatchDstL4PortStart
+	      InetPortNumber,
+          agentDiffServClassRuleMatchDstL4PortEnd
+	      InetPortNumber,
+	  agentDiffServClassRuleMatchDstMacAddr
+	      MacAddress,
+	  agentDiffServClassRuleMatchDstMacMask
+              MacAddress,
+          agentDiffServClassRuleMatchEvery
+              TruthValue,
+	  agentDiffServClassRuleMatchIpDscp
+              Unsigned32,
+	  agentDiffServClassRuleMatchIpPrecedence
+              Unsigned32,
+	  agentDiffServClassRuleMatchIpTosBits
+	      OCTET STRING,
+	  agentDiffServClassRuleMatchIpTosMask
+	      OCTET STRING,
+	  agentDiffServClassRuleMatchProtocolNum
+	      Unsigned32,
+	  agentDiffServClassRuleMatchRefClassIndex
+	      Unsigned32,
+          agentDiffServClassRuleMatchSrcIpAddr
+              IpAddress,
+	  agentDiffServClassRuleMatchSrcIpMask
+              IpAddress,
+	  agentDiffServClassRuleMatchSrcL4PortStart
+	      InetPortNumber,
+          agentDiffServClassRuleMatchSrcL4PortEnd
+	      InetPortNumber,
+	  agentDiffServClassRuleMatchSrcMacAddr
+              MacAddress,
+	  agentDiffServClassRuleMatchSrcMacMask
+              MacAddress,
+	  agentDiffServClassRuleMatchVlanId
+              Unsigned32,
+	  agentDiffServClassRuleMatchExcludeFlag
+              TruthValue,
+          agentDiffServClassRuleStorageType
+              StorageType,                 
+          agentDiffServClassRuleRowStatus
+              RowStatus
+          }
+	  
+    agentDiffServClassRuleIndex OBJECT-TYPE
+         SYNTAX      Unsigned32
+         MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION
+                     "The identifier for DiffServ Class Rule Table entry within a class"
+         ::= { agentDiffServClassRuleEntry 1 }
+    
+    agentDiffServClassRuleMatchEntryType OBJECT-TYPE
+         SYNTAX      INTEGER {
+	              cos(1),
+                      dstip(2),
+		      dstl4port(3),
+		      dstmac(4),
+		      every(5),
+		      ipdscp(6),
+		      ipprecedence(7),
+		      iptos(8),
+		      protocol(9),
+		      refclass(10),
+		      srcip(11),
+		      srcl4port(12),
+		      srcmac(13),
+		      vlan(14)
+                     }
+		     
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Class Rule match entry type, it determines which one of the individual 
+                      match conditions is defined for the present class rule. This object must
+                      be created before any other match object in this row."
+         ::= { agentDiffServClassRuleEntry 2 }
+	 
+
+     agentDiffServClassRuleMatchCos OBJECT-TYPE
+         SYNTAX      Unsigned32 (0..7)
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Three-bit 802.1p priority field in the Ethernet frame used as
+		      a class-match parameter - only valid if the 
+                      agentDiffServClassRuleMatchEntryType is set to cos(1)."
+         ::= { agentDiffServClassRuleEntry 3 }
+	 	 
+    agentDiffServClassRuleMatchDstIpAddr OBJECT-TYPE
+         SYNTAX      IpAddress
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Destination IP address match value for the class - only valid if the 
+		      agentDiffServClassRuleMatchEntryType is set to dstip(2)."
+         ::= { agentDiffServClassRuleEntry 4 }
+	 
+    agentDiffServClassRuleMatchDstIpMask OBJECT-TYPE
+         SYNTAX      IpAddress
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Destination IP address mask match value for the class - only valid if the 
+		      agentDiffServClassRuleMatchEntryType is set to dstip(2). This mask value
+		      identifies the portion of agentDiffServClassRuleMatchDstIpAddr that is 
+                      compared against a packet. A non-contiguous mask value is permitted."
+         ::= { agentDiffServClassRuleEntry 5 }
+	 
+    agentDiffServClassRuleMatchDstL4PortStart OBJECT-TYPE
+         SYNTAX      InetPortNumber
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Destination layer 4 port range start match value for the class - only 
+                      valid if the agentDiffServClassRuleMatchEntryType is set to dstl4port(3)."
+         ::= { agentDiffServClassRuleEntry 6 }
+	 
+    agentDiffServClassRuleMatchDstL4PortEnd OBJECT-TYPE
+         SYNTAX      InetPortNumber
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Destination layer 4 port range end match value for the class - only valid
+                      if the agentDiffServClassRuleMatchEntryType is set to dstl4port(3)."
+         ::= { agentDiffServClassRuleEntry 7 }
+
+    agentDiffServClassRuleMatchDstMacAddr OBJECT-TYPE
+         SYNTAX      MacAddress
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Destination MAC address match value for the class - only valid if the 
+		      agentDiffServClassRuleMatchEntryType is set to dstmac(4)."
+         ::= { agentDiffServClassRuleEntry 8 }
+	 
+    agentDiffServClassRuleMatchDstMacMask OBJECT-TYPE
+         SYNTAX      MacAddress
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Destination MAC address mask match value for the class - only valid if the 
+		      agentDiffServClassRuleMatchEntryType is set to dstmac(4). This mask value
+		      identifies the portion of agentDiffServClassRuleMatchDstMacAddr that is 
+                      compared against a packet. A non-contiguous mask value is permitted."
+         ::= { agentDiffServClassRuleEntry 9 }
+	 
+    agentDiffServClassRuleMatchEvery OBJECT-TYPE
+         SYNTAX      TruthValue
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Flag to indicate that the class rule is defined to match on every packet, 
+                      regardless of content. - only valid if the 
+                      agentDiffServClassRuleMatchEntryType is set to every(5)."
+         ::= { agentDiffServClassRuleEntry 10 }
+
+    agentDiffServClassRuleMatchIpDscp OBJECT-TYPE
+         SYNTAX      Unsigned32 (0..63)
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "IP DiffServ Code Point (DSCP) match value for the class - only valid if 
+                      the agentDiffServClassRuleMatchEntryType is set to ipdscp(6).  The DSCP 
+		      is defined as the high-order six bits of the Service Type octet in the 
+                      IPv4 header."
+         ::= { agentDiffServClassRuleEntry 11 }
+
+    agentDiffServClassRuleMatchIpPrecedence OBJECT-TYPE
+         SYNTAX      Unsigned32 (0..7)
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "IP Precedence match value for the class - only valid if the 
+		      agentDiffServClassRuleMatchEntryType is set to ipprecedence(7).
+		      The Precedence bits are defined as the high-order three bits of
+		      the Service Type octed in the IPv4 header." 
+         ::= { agentDiffServClassRuleEntry 12 }
+	 
+    agentDiffServClassRuleMatchIpTosBits OBJECT-TYPE
+         SYNTAX      OCTET STRING (SIZE(1))
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "IP TOS bits match value for the class - only valid if the 
+		      agentDiffServClassRuleMatchEntryType is set to iptos(8).
+		      The TOS bits are defined as all eight bits of the Service 
+		      Type octet in the IPv4 header."
+         ::= { agentDiffServClassRuleEntry 13 }
+	 
+    agentDiffServClassRuleMatchIpTosMask OBJECT-TYPE
+         SYNTAX      OCTET STRING (SIZE(1))
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "IP TOS bits mask match value for the class - only valid if the 
+		      agentDiffServClassRuleMatchEntryType is set to iptos(8). This mask value
+		      identifies the portion of agentDiffServClassRuleMatchIpTosBits that 
+		      is compared against a packet. A non-contiguous mask value is permitted." 
+         ::= { agentDiffServClassRuleEntry 14 }
+	     
+    agentDiffServClassRuleMatchProtocolNum OBJECT-TYPE
+         SYNTAX      Unsigned32 (0..255)
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Protocol number match value for the class - only valid if the 
+		      agentDiffServClassRuleMatchEntryType is set to protocol(9)."
+         ::= { agentDiffServClassRuleEntry 15 }
+	 
+    agentDiffServClassRuleMatchRefClassIndex OBJECT-TYPE
+         SYNTAX      Unsigned32
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Index of the corresponding referenced class - only valid if the 
+		      agentDiffServClassRuleMatchEntryType is set to refclass(10).
+		      The set of match conditions defined for the reference class 
+		      are directly inherited by the current class.
+		      
+		      Restrictions: 1) The class types of both, current class and
+		      the reference class must be identical (i.e., any vs. any,
+		      or all vs. all).
+		      2) Self-referencing of class-name is not allowed.
+		      3) Any attempt to delete the reference class while still 
+		         referenced by any class shall fail.  
+	              4) The combined match criteria of classname and reference class
+		         name must be an allowed combination based on the class type.
+			 Any subsequent changes to the reference class name match 
+			 criteria must maintain this validity, or the change attempt
+			 shall fail."
+			 
+         ::= { agentDiffServClassRuleEntry 16 }
+	
+    agentDiffServClassRuleMatchSrcIpAddr OBJECT-TYPE
+         SYNTAX      IpAddress
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Source IP address match value for the class - only valid if the 
+		      agentDiffServClassRuleMatchEntryType is set to srcip(11)."
+         ::= { agentDiffServClassRuleEntry 17 }
+	 
+    agentDiffServClassRuleMatchSrcIpMask OBJECT-TYPE
+         SYNTAX      IpAddress
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Source IP address mask match value for the class - only valid if the 
+		      agentDiffServClassRuleMatchEntryType is set to srcip(11). This mask value
+		      identifies the portion of agentDiffServClassRuleMatchSrcIpAddr that 
+		      is compared against a packet. A non-contiguous mask value is permitted."
+         ::= { agentDiffServClassRuleEntry 18 }
+	 
+    agentDiffServClassRuleMatchSrcL4PortStart OBJECT-TYPE
+         SYNTAX      InetPortNumber
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Source layer 4 port range start match value for the class - only valid if 
+                      the agentDiffServClassRuleMatchEntryType is set to srcl4port(12)."
+         ::= { agentDiffServClassRuleEntry 19 }
+	 
+    agentDiffServClassRuleMatchSrcL4PortEnd OBJECT-TYPE
+         SYNTAX      InetPortNumber
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Source layer 4 port range end match value for the class - only valid if 
+                      the agentDiffServClassRuleMatchEntryType is set to srcl4port(12)."
+         ::= { agentDiffServClassRuleEntry 20 }
+
+    agentDiffServClassRuleMatchSrcMacAddr OBJECT-TYPE
+         SYNTAX      MacAddress
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Source MAC address match value for the class - only valid if the 
+		      agentDiffServClassRuleMatchEntryType is set to srcmac(13)."
+         ::= { agentDiffServClassRuleEntry 21 }
+	 
+    agentDiffServClassRuleMatchSrcMacMask OBJECT-TYPE
+         SYNTAX      MacAddress
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Source MAC address mask match value for the class - only valid if the 
+		      agentDiffServClassRuleMatchEntryType is set to srcmac(13). This mask value
+		      identifies the portion of agentDiffServClassRuleMatchSrcMacAddr that 
+		      is compared against a packet. A non-contiguous mask value is permitted." 
+         ::= { agentDiffServClassRuleEntry 22 }
+ 
+    agentDiffServClassRuleMatchVlanId OBJECT-TYPE
+         SYNTAX      Unsigned32 (1..4094)
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "VLAN ID match value for the class - only valid if the 
+		      agentDiffServClassRuleMatchEntryType is set to vlan(14)."
+         ::= { agentDiffServClassRuleEntry 23 }
+	 
+    agentDiffServClassRuleMatchExcludeFlag OBJECT-TYPE
+         SYNTAX      TruthValue
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Class Rule exclude flag - when set to true(1), the match condition 
+                      identified by agentDiffServClassRuleMatchEntryType is negated. This means
+                      that for a given field, every value is considered to be a match EXCEPT for 
+                      the value specified in the class rule.  This flag must be false(2) for an 
+                      agendDiffServClassRuleMatchEntryType of refClass(10).
+		      This object must be set after the agentDiffServClassRuleMatchEntryType 
+                      object, but before any other match object in this row"
+         ::= { agentDiffServClassRuleEntry 24 }
+
+    agentDiffServClassRuleStorageType OBJECT-TYPE
+         SYNTAX      StorageType
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Storage-type for this conceptual row"
+         DEFVAL { nonVolatile }		     
+         ::= { agentDiffServClassRuleEntry 25 }
+	 
+    agentDiffServClassRuleRowStatus OBJECT-TYPE
+         SYNTAX      RowStatus
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "The status of this conceptual row."
+
+         ::= { agentDiffServClassRuleEntry 26 } 
+
+    --**********************************************************************************
+    -- agentDiffServPolicyGroup
+    --
+    --**********************************************************************************
+    
+
+    agentDiffServPolicyGroup        OBJECT IDENTIFIER ::= { gsm7324QOSDiffServPrivate 3 }
+    
+    --*********************** agentDiffServPolicyTable ************************     
+    
+    agentDiffServPolicyIndexNextFree OBJECT-TYPE
+	 SYNTAX       Unsigned32
+	 MAX-ACCESS   read-only
+	 STATUS       current
+	 DESCRIPTION
+		     "This object contains an unused value for agentDiffServPolicyIndex, or a
+		      zero to indicate that none exists."
+    ::= { agentDiffServPolicyGroup 1 }
+
+    agentDiffServPolicyTable OBJECT-TYPE
+         SYNTAX      SEQUENCE OF AgentDiffServPolicyEntry
+         MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION 
+                     "A table of the DiffServ policy entries."
+         ::= { agentDiffServPolicyGroup 2 }
+
+    agentDiffServPolicyEntry OBJECT-TYPE
+         SYNTAX      AgentDiffServPolicyEntry
+         MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION 
+                     "Represents entry for a DiffServ policy."
+         INDEX       { agentDiffServPolicyIndex }
+         ::= { agentDiffServPolicyTable 1 }
+         
+    AgentDiffServPolicyEntry ::= SEQUENCE {
+          agentDiffServPolicyIndex
+              Unsigned32,
+          agentDiffServPolicyName
+              DisplayString,
+	  agentDiffServPolicyType
+	      IntfDirection,
+          agentDiffServPolicyInstIndexNextFree
+              Unsigned32,
+          agentDiffServPolicyStorageType
+              StorageType,                 
+          agentDiffServPolicyRowStatus
+              RowStatus
+          }
+
+        
+    agentDiffServPolicyIndex OBJECT-TYPE
+         SYNTAX      Unsigned32
+         MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION
+                     "The identifier for DiffServ Policy table entry."
+         ::= { agentDiffServPolicyEntry 1 }
+    
+    agentDiffServPolicyName OBJECT-TYPE
+         SYNTAX      DisplayString (SIZE(1..31))
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Name of the policy"
+         ::= { agentDiffServPolicyEntry 2 }
+	 
+    agentDiffServPolicyType OBJECT-TYPE
+         SYNTAX      IntfDirection
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     " The policy type dictates whether inbound or outbound policy
+                       attribute statements are used in the policy definition."
+         ::= { agentDiffServPolicyEntry 3 }
+    
+    agentDiffServPolicyInstIndexNextFree OBJECT-TYPE
+	 SYNTAX       Unsigned32
+	 MAX-ACCESS   read-only
+	 STATUS       current
+	 DESCRIPTION
+		     "This object contains an unused value for agentDiffServPolicyInstIndex, or 
+                      a zero to indicate that none exists. This index is maintained on a 
+                      per-policy basis."
+	 ::= { agentDiffServPolicyEntry 4 }
+
+    agentDiffServPolicyStorageType OBJECT-TYPE
+         SYNTAX      StorageType
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Storage-type for this conceptual row"
+         DEFVAL { nonVolatile }		     
+         ::= { agentDiffServPolicyEntry 5 }
+	 
+    agentDiffServPolicyRowStatus OBJECT-TYPE
+         SYNTAX      RowStatus
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "The status of this conceptual row."
+
+         ::= { agentDiffServPolicyEntry 6 }
+
+    --*********************** agentDiffServPolicyInstTable ************************     	 
+    
+    agentDiffServPolicyInstTable OBJECT-TYPE
+         SYNTAX      SEQUENCE OF AgentDiffServPolicyInstEntry
+         MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION 
+                     "A table of the policy-class instance entries."
+         ::= { agentDiffServPolicyGroup 3 }
+
+    agentDiffServPolicyInstEntry OBJECT-TYPE
+         SYNTAX      AgentDiffServPolicyInstEntry
+         MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION 
+                     "Represents entry for a policy-class instance."
+         INDEX       { agentDiffServPolicyIndex,agentDiffServPolicyInstIndex }
+         ::= { agentDiffServPolicyInstTable 1 }
+         
+    AgentDiffServPolicyInstEntry ::= SEQUENCE {
+          agentDiffServPolicyInstIndex
+              Unsigned32,
+          agentDiffServPolicyInstClassIndex
+	      Unsigned32,
+          agentDiffServPolicyInstAttrIndexNextFree
+              Unsigned32,
+          agentDiffServPolicyInstStorageType
+              StorageType,                 
+          agentDiffServPolicyInstRowStatus
+              RowStatus
+          }
+
+        
+    agentDiffServPolicyInstIndex OBJECT-TYPE
+         SYNTAX      Unsigned32 
+         MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION
+                     "The identifier for policy-class Instance table entry within a policy."
+         ::= { agentDiffServPolicyInstEntry 1 }
+    
+    agentDiffServPolicyInstClassIndex OBJECT-TYPE
+         SYNTAX      Unsigned32 
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Index of the DiffServ Class Table row, whose class definition is used
+		      as the policy class instance. The class index identifies the classifier 
+		      definition used by the policy to establish an instance of that class 
+		      (to which policy attributes can be attached).  This is what connects a 
+                      class (instance) to a policy."
+         ::= { agentDiffServPolicyInstEntry 2 }
+    
+    agentDiffServPolicyInstAttrIndexNextFree OBJECT-TYPE
+	 SYNTAX       Unsigned32
+	 MAX-ACCESS   read-only
+	 STATUS       current
+	 DESCRIPTION
+		     "This object contains an unused value for agentDiffServPolicyAttrIndex, or 
+                      a zero to indicate that none exists. This index is maintained on a 
+                      per-policy-class-instance basis."
+	 ::= { agentDiffServPolicyInstEntry 3 }
+
+    agentDiffServPolicyInstStorageType OBJECT-TYPE
+         SYNTAX      StorageType
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Storage-type for this conceptual row."
+         DEFVAL { nonVolatile }		     
+         ::= { agentDiffServPolicyInstEntry 4 }
+	 
+    agentDiffServPolicyInstRowStatus OBJECT-TYPE
+         SYNTAX      RowStatus
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "The status of this conceptual row."
+         ::= { agentDiffServPolicyInstEntry 5 }
+                                                    
+        
+    --*********************** agentDiffServPolicyAttrTable ************************       
+    
+    agentDiffServPolicyAttrTable OBJECT-TYPE
+         SYNTAX      SEQUENCE OF AgentDiffServPolicyAttrEntry
+         MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION 
+                     "A table of policy attribute entries"
+         ::= { agentDiffServPolicyGroup 4 }
+
+    agentDiffServPolicyAttrEntry OBJECT-TYPE
+         SYNTAX      AgentDiffServPolicyAttrEntry
+         MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION 
+                     "Represents entry for policy attributes"
+         INDEX       { agentDiffServPolicyIndex, agentDiffServPolicyInstIndex,
+                       agentDiffServPolicyAttrIndex }
+         ::= { agentDiffServPolicyAttrTable 1 }
+         
+    AgentDiffServPolicyAttrEntry ::= SEQUENCE {
+          agentDiffServPolicyAttrIndex
+              Unsigned32,
+	  agentDiffServPolicyAttrStmtEntryType
+              INTEGER, 
+	  agentDiffServPolicyAttrStmtBandwidthCrate
+              Unsigned32,
+	  agentDiffServPolicyAttrStmtBandwidthCrateUnits
+              INTEGER,
+	  agentDiffServPolicyAttrStmtExpediteCrate
+              Unsigned32,
+	  agentDiffServPolicyAttrStmtExpediteCrateUnits
+              INTEGER,       
+	  agentDiffServPolicyAttrStmtExpediteCburst
+              QosBurstSize,
+	  agentDiffServPolicyAttrStmtMarkCosVal
+	      Unsigned32,
+          agentDiffServPolicyAttrStmtMarkIpDscpVal
+              Unsigned32,
+          agentDiffServPolicyAttrStmtMarkIpPrecedenceVal
+              Unsigned32,
+	  agentDiffServPolicyAttrStmtPoliceConformAct
+              INTEGER,
+	  agentDiffServPolicyAttrStmtPoliceConformVal
+              Unsigned32,    
+	  agentDiffServPolicyAttrStmtPoliceExceedAct
+              INTEGER,
+	  agentDiffServPolicyAttrStmtPoliceExceedVal
+              Unsigned32,
+	  agentDiffServPolicyAttrStmtPoliceNonconformAct
+              INTEGER,
+	  agentDiffServPolicyAttrStmtPoliceNonconformVal
+              Unsigned32,
+	  agentDiffServPolicyAttrStmtPoliceSimpleCrate
+              Unsigned32,
+          agentDiffServPolicyAttrStmtPoliceSimpleCburst
+              QosBurstSize,
+	  agentDiffServPolicyAttrStmtPoliceSinglerateCrate
+              Unsigned32,
+          agentDiffServPolicyAttrStmtPoliceSinglerateCburst
+              QosBurstSize,
+	  agentDiffServPolicyAttrStmtPoliceSinglerateEburst
+              QosBurstSize,
+	  agentDiffServPolicyAttrStmtPoliceTworateCrate
+              Unsigned32,
+          agentDiffServPolicyAttrStmtPoliceTworateCburst
+              QosBurstSize,
+	  agentDiffServPolicyAttrStmtPoliceTworatePrate
+              Unsigned32,
+          agentDiffServPolicyAttrStmtPoliceTworatePburst
+              QosBurstSize,
+          agentDiffServPolicyAttrStmtRandomdropMinThresh
+              Unsigned32,
+	  agentDiffServPolicyAttrStmtRandomdropMaxThresh
+              Unsigned32,
+	  agentDiffServPolicyAttrStmtRandomdropMaxDropProb
+              Unsigned32,
+	  agentDiffServPolicyAttrStmtRandomdropSamplingRate
+              Unsigned32,
+	  agentDiffServPolicyAttrStmtRandomdropDecayExponent
+              Unsigned32,
+	  agentDiffServPolicyAttrStmtShapeAverageCrate
+	      Unsigned32,
+          agentDiffServPolicyAttrStmtShapePeakCrate
+	      Unsigned32,
+          agentDiffServPolicyAttrStmtShapePeakPrate    
+	      Unsigned32,
+	  agentDiffServPolicyAttrStorageType
+              StorageType,                 
+          agentDiffServPolicyAttrRowStatus
+              RowStatus
+          }
+
+    agentDiffServPolicyAttrIndex OBJECT-TYPE
+         SYNTAX      Unsigned32
+         MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION
+                     "The identifier for policy-attribute entry "
+         ::= { agentDiffServPolicyAttrEntry 1 }
+
+    
+    agentDiffServPolicyAttrStmtEntryType OBJECT-TYPE
+         SYNTAX      INTEGER {
+                      bandwidth(1),
+                      expedite(2),
+		      markCosVal(3),
+		      markIpDscpVal(4),
+		      markIpPrecedenceVal(5),
+		      policeSimple(6),
+		      policeSinglerate(7),
+		      policeTworate(8),
+		      randomdrop(9),
+		      shapeAverage(10),
+		      shapePeak(11)
+		      }
+
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Policy attribute statement entry type -- this entry type is 
+		      essential to determine which of the individual object(s) 
+		      is defined for this policy attribute statement. This object must be 
+                      created before any other policy attribute statement object in the row.
+
+                      The markIpDscpVal(4), markIpPrecedenceVal(5), policeSimple(6), 
+                      policeSinglerate(7) and policeTworate(8) values are only allowed for an 
+                      agentDiffServPolicyType of in(1). The remaining values are only allowed 
+                      for an agentDiffServPolicyType of out(2)."
+         ::= { agentDiffServPolicyAttrEntry 2 }
+    
+    agentDiffServPolicyAttrStmtBandwidthCrate OBJECT-TYPE
+         SYNTAX      Unsigned32
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Bandwidth committed rate attribute statement value -- identifies 
+		      the minimum amount of bandwidth to be reserved for the specified 
+		      class instance within the policy. This attribute is only valid if 
+		      the value of agentDiffServPolicyAttrStmtEntryType is set to bandwidth(1)."
+         ::= { agentDiffServPolicyAttrEntry 3 }
+    
+    agentDiffServPolicyAttrStmtBandwidthCrateUnits OBJECT-TYPE
+         SYNTAX      INTEGER {
+	              kbps(1),
+		      percentage(2)
+		     }
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Bandwidth committed rate units attribute statement value -- this value 
+		      determines the interpretation of the 
+                      agentDiffServPolicyAttrStmtBandwidthCrate object as either 
+                      kilobits-per-second or as a percentage of interface link speed. This 
+                      attribute is only valid if the value of 
+                      agentDiffServPolicyAttrStmtEntryType is set to bandwidth(1)."
+         ::= { agentDiffServPolicyAttrEntry 4 }
+	 
+    agentDiffServPolicyAttrStmtExpediteCrate OBJECT-TYPE
+         SYNTAX      Unsigned32
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Expedited (bandwidth) committed rate attribute statement value -- it 
+                      identifies the maximum guaranteed amount of bandwidth to be reserved for 
+                      the specified class instance within the policy. This attribute is only 
+                      valid if the value of agentDiffServPolicyAttrStmtEntryType is set to 
+                      expedite(2). "
+         ::= { agentDiffServPolicyAttrEntry 5 }
+    
+    agentDiffServPolicyAttrStmtExpediteCrateUnits OBJECT-TYPE
+         SYNTAX      INTEGER {
+	              kbps(1),
+		      percentage(2)
+		     } 
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                    "Expedited (bandwidth) committed rate units attribute statement value 
+		     -- determines the interpretation of the 
+                     agentDiffServPolicyAttrStmtExpediteCrate object as either 
+                     kilobits-per-second or as a percentage of interface link speed. This 
+                     attribute is only valid if the value of 
+                     agentDiffServPolicyAttrStmtEntryType is set to expedite(2)."
+         ::= { agentDiffServPolicyAttrEntry 6 }
+	 
+    agentDiffServPolicyAttrStmtExpediteCburst OBJECT-TYPE
+         SYNTAX      QosBurstSize
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                    "Expedited (bandwidth) committed burst size attribute statement value, 
+		    specified in Kbytes. This attribute is only valid if the value of 
+		    agentDiffServPolicyAttrStmtEntryType is set to expedite(2)."
+         DEFVAL { 4 }
+         ::= { agentDiffServPolicyAttrEntry 7 }
+
+    agentDiffServPolicyAttrStmtMarkCosVal OBJECT-TYPE
+         SYNTAX      Unsigned32 (0..7)
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Three-bit 802.1p priority(CoS) value as part of the outbound policy for a 
+                      class instance.  This attribute is only valid if the value of 
+                      agentDiffServPolicyAttrStmtEntryType is set to markCosVal(3)."
+         ::= { agentDiffServPolicyAttrEntry 8 }
+	 
+    agentDiffServPolicyAttrStmtMarkIpDscpVal OBJECT-TYPE
+         SYNTAX      Unsigned32 (0..63)
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Specified IP DSCP value to mark in all inbound packets belonging to the 
+                      class-instance.  This attribute is only valid if the value of 
+                      agentDiffServPolicyAttrStmtEntryType is set to markIpDscpVal(4)."
+         ::= { agentDiffServPolicyAttrEntry 9 }
+    
+    agentDiffServPolicyAttrStmtMarkIpPrecedenceVal OBJECT-TYPE
+         SYNTAX      Unsigned32 (0..7)
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Specified IP Precedence value to mark in all inbound packets belonging to 
+                      the class-instance.  This attribute is only valid if the value of 
+                      agentDiffServPolicyAttrStmtEntryType is set to markIpPrecedenceVal(5)."
+         ::= { agentDiffServPolicyAttrEntry 10 }
+    
+    agentDiffServPolicyAttrStmtPoliceConformAct OBJECT-TYPE
+         SYNTAX      INTEGER {
+                      drop(1),
+                      markdscp(2),
+                      markprec(3),
+		      send(4)
+		      }
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Policing conform action attribute statement value -- determines 
+		      the action taken on conforming traffic for the policing style
+		      (simple,singlerate,tworate) currently configured for the specified 
+		      class instance within the policy. The default conform action is send(3).
+		      This attribute is only valid if the value of 
+                      agentDiffServPolicyAttrStmtEntryType is policeSimple(6), 
+                      policeSinglerate(7), or policeTworate(8)."
+         DEFVAL { send }
+         ::= { agentDiffServPolicyAttrEntry 11 }
+	 
+    agentDiffServPolicyAttrStmtPoliceConformVal OBJECT-TYPE
+         SYNTAX      Unsigned32 (0..63)
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Policing conform DSCP or IP Precedence value attribute statement value -- 
+                      used to mark the DSCP or IP Precedence field of conforming packets when 
+                      the conform action is markdscp(2) or markprec(3), respectively. This 
+                      attribute is only valid if the value of 
+                      agentDiffServPolicyAttrStmtEntryType is policeSimple(6), 
+                      policeSinglerate(7), or policeTworate(8)."
+         ::= { agentDiffServPolicyAttrEntry 12 }
+
+    agentDiffServPolicyAttrStmtPoliceExceedAct OBJECT-TYPE
+         SYNTAX      INTEGER {
+                      drop(1),
+                      markdscp(2),
+                      markprec(3),
+		      send(4)
+		      }
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Policing exceed action attribute statement value -- determines 
+		      the action taken on excess traffic for the policing style (singlerate, 
+                      tworate) currently configured for the specified class instance within the 
+                      policy.  The default exceed action is drop(1). This attribute is only 
+                      valid if the value of agentDiffServPolicyAttrStmtEntryType is 
+                      policeSinglerate(7) or policeTworate(8)."
+         DEFVAL { drop }
+         ::= { agentDiffServPolicyAttrEntry 13 }
+	 
+    agentDiffServPolicyAttrStmtPoliceExceedVal OBJECT-TYPE
+         SYNTAX      Unsigned32 (0..63)
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Policing exceed DSCP or IP Precedence value attribute statement value -- 
+                      used to mark the DSCP or IP Precedence field of excess packets when the 
+                      exceed action is markdscp(2) or markprec(3), respectively. This attribute 
+                      is only valid if the value of agentDiffServPolicyAttrStmtEntryType is 
+                      policeSinglerate(7) or policeTworate(8)."
+         ::= { agentDiffServPolicyAttrEntry 14 }
+         
+    agentDiffServPolicyAttrStmtPoliceNonconformAct OBJECT-TYPE
+         SYNTAX      INTEGER {
+                      drop(1),
+                      markdscp(2),
+                      markprec(3),
+		      send(4)
+		      }
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Policing non-conform action attribute statement value -- determines the 
+                      action taken on nonconforming traffic for the policing style (simple, 
+                      singlerate,tworate) currently configured for the specified class instance 
+		      within the policy. The default non-conform action is drop(1). This 
+                      attribute is only valid if the value of 
+                      agentDiffServPolicyAttrStmtEntryType is policeSimple(6), 
+                      policeSinglerate(7), or policeTworate(8)."
+         DEFVAL { drop }
+         ::= { agentDiffServPolicyAttrEntry 15 }
+	 
+    agentDiffServPolicyAttrStmtPoliceNonconformVal OBJECT-TYPE
+         SYNTAX      Unsigned32 (0..63)
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Policing non-conform DSCP or IP Precedence value attribute statement value
+                      -- used to mark the DSCP or IP Precedence field of nonconforming packets 
+                      when the nonconform action is markdscp(2) or markprec(3), respectively. 
+                      This attribute is only valid if the value of 
+                      agentDiffServPolicyAttrStmtEntryType is policeSimple(6), 
+                      policeSinglerate(7), or policeTworate(8)."
+         ::= { agentDiffServPolicyAttrEntry 16 }
+	 
+    agentDiffServPolicyAttrStmtPoliceSimpleCrate OBJECT-TYPE
+         SYNTAX      Unsigned32
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Simple policing committed rate attribute statement value, specified in 
+                      kbps.  This attribute is only valid if the value of 
+                      agentDiffServPolicyAttrStmtEntryType is set to policeSimple(6)."
+         ::= { agentDiffServPolicyAttrEntry 17 }
+
+    agentDiffServPolicyAttrStmtPoliceSimpleCburst OBJECT-TYPE
+         SYNTAX      QosBurstSize
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Simple policing committed burst size attribute statement value, specified 
+                      in Kbytes.  This attribute is only valid if the value of 
+                      agentDiffServPolicyAttrStmtEntryType is set to policeSimple(6)."
+         ::= { agentDiffServPolicyAttrEntry 18 }
+
+    agentDiffServPolicyAttrStmtPoliceSinglerateCrate OBJECT-TYPE
+         SYNTAX      Unsigned32
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Single-rate policing committed rate attribute statement value, specified 
+                      in kbps.  This attribute is only valid if the value of 
+                      agentDiffServPolicyAttrStmtEntryType is set to policeSinglerate(7)."
+         ::= { agentDiffServPolicyAttrEntry 19 }
+
+    agentDiffServPolicyAttrStmtPoliceSinglerateCburst OBJECT-TYPE
+         SYNTAX      QosBurstSize
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Single-rate policing committed burst size attribute statement value, 
+                      specified in Kbytes.  This attribute is only valid if the value of 
+                      agentDiffServPolicyAttrStmtEntryType is set to policeSinglerate(7)."
+         ::= { agentDiffServPolicyAttrEntry 20 }
+	 
+    agentDiffServPolicyAttrStmtPoliceSinglerateEburst OBJECT-TYPE
+         SYNTAX      QosBurstSize
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Single-rate policing excess burst size attribute statement value, 
+                      specified in Kbytes.  This attribute is only valid if the value of 
+                      agentDiffServPolicyAttrStmtEntryType is set to policeSinglerate(7)."
+         ::= { agentDiffServPolicyAttrEntry 21 }
+	 
+    agentDiffServPolicyAttrStmtPoliceTworateCrate OBJECT-TYPE
+         SYNTAX      Unsigned32
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Two-rate policing committed rate attribute statement value, specified in 
+                      kbps.  This attribute is only valid if the value of 
+                      agentDiffServPolicyAttrStmtEntryType is set to policeTworate(8)."
+         ::= { agentDiffServPolicyAttrEntry 22 }
+
+    agentDiffServPolicyAttrStmtPoliceTworateCburst OBJECT-TYPE
+         SYNTAX      QosBurstSize
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Two-rate policing committed burst size attribute statement value, 
+                      specified in Kbytes.  This attribute is only valid if the value of 
+                      agentDiffServPolicyAttrStmtEntryType is set to policeTworate(8)."
+         ::= { agentDiffServPolicyAttrEntry 23 }
+	 
+    agentDiffServPolicyAttrStmtPoliceTworatePrate OBJECT-TYPE
+         SYNTAX      Unsigned32
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Two-rate policing peak rate attribute statement value, specified in kbps.
+		      This attribute is only valid if the value of 
+                      agentDiffServPolicyAttrStmtEntryType is set to policeTworate(8)."
+         ::= { agentDiffServPolicyAttrEntry 24 }
+
+    agentDiffServPolicyAttrStmtPoliceTworatePburst OBJECT-TYPE
+         SYNTAX      QosBurstSize
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Two-rate policing peak burst size attribute statement value, specified in 
+                      Kbytes.  This attribute is only valid if the value of 
+                      agentDiffServPolicyAttrStmtEntryType is set to policeTworate(8)."
+         ::= { agentDiffServPolicyAttrEntry 25 }
+	 
+    agentDiffServPolicyAttrStmtRandomdropMinThresh OBJECT-TYPE
+         SYNTAX      Unsigned32 (1..250000)
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Random drop minimum threshold attribute statement value --  the average 
+                      queue depth minimum threshold in bytes used by the WRED algorithm.  This 
+                      attribute is only valid if the value of 
+                      agentDiffServPolicyAttrStmtEntryType is set to randomdrop(9)."
+         ::= { agentDiffServPolicyAttrEntry 26 }
+	 
+    agentDiffServPolicyAttrStmtRandomdropMaxThresh OBJECT-TYPE
+         SYNTAX      Unsigned32 (1..500000)
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Random drop maximum threshold attribute statement value -- the average 
+                      queue depth maximum threshold in bytes used by the WRED algorithm.  This 
+                      attribute is only valid if the value of 
+                      agentDiffServPolicyAttrStmtEntryType is set to randomdrop(9)."
+         ::= { agentDiffServPolicyAttrEntry 27 }
+
+    agentDiffServPolicyAttrStmtRandomdropMaxDropProb OBJECT-TYPE
+         SYNTAX      Unsigned32	(0..100)
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Random drop maximum drop probability attribute statement value -- the 
+                      packet drop probability when the queue depth average reaches its maximum 
+                      threshold. It is expressed as a percentage, and is an integer from 0 to 
+                      100.  This attribute is only valid if the value of 
+                      agentDiffServPolicyAttrStmtEntryType is set to randomdrop(9)."
+         ::= { agentDiffServPolicyAttrEntry 28 }
+
+    agentDiffServPolicyAttrStmtRandomdropSamplingRate OBJECT-TYPE
+         SYNTAX      Unsigned32 (0..1000000)
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Random drop sampling rate attribute statement value -- the period at which 
+                      the queue depth is sampled for computing an average, expressed in 
+                      microseconds. This value is an integer from 0 to 1000000, with a default 
+                      value of 0 (meaning per packet sampling). This attribute is only valid if 
+                      the value of agentDiffServPolicyAttrStmtEntryType is set to randomdrop(9)."
+         DEFVAL { 0 }
+         ::= { agentDiffServPolicyAttrEntry 29 }
+
+    agentDiffServPolicyAttrStmtRandomdropDecayExponent OBJECT-TYPE
+         SYNTAX      Unsigned32 (0..16)
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Random drop decay exponent attribute statement value -- determines how
+		      quickly the average queue length calculation decays over time, with a 
+		      higher number causing a slower decay. This value is an integer from 0 to
+		      16, with a default of 9. This attribute is only valid if the value of
+		      agentDiffServPolicyAttrStmtEntryType is set to randomdrop(9)."
+         DEFVAL { 9 }
+         ::= { agentDiffServPolicyAttrEntry 30 }
+	 
+    agentDiffServPolicyAttrStmtShapeAverageCrate OBJECT-TYPE
+         SYNTAX      Unsigned32
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Average-rate shaping committed rate attribute statement value, specified 
+                      in kbps -- used to establish average rate traffic shaping for the 
+                      specified class , which limits transmissions for the class to the 
+                      committed information rate, with any excess traffic delayed via queueing. 
+                      This attribute is only valid if the value of 
+                      agentDiffServPolicyAttrStmtEntryType is set to shapeAverage(10)."
+         ::= { agentDiffServPolicyAttrEntry 31 }
+
+    agentDiffServPolicyAttrStmtShapePeakCrate OBJECT-TYPE
+         SYNTAX      Unsigned32
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Peak-rate shaping committed rate attribute statement value, specified in 
+                      kbps -- used to establish peak rate traffic shaping for the specified 
+                      class , which allows transmissions for the class to exceed the committed 
+                      information rate by sending excess traffic with the understanding that it 
+                      could be dropped by a downstream network element. This attribute is only 
+                      valid if the value of agentDiffServPolicyAttrStmtEntryType is set to 
+                      shapePeak(11)."
+         ::= { agentDiffServPolicyAttrEntry 32 }
+	 
+    agentDiffServPolicyAttrStmtShapePeakPrate OBJECT-TYPE
+         SYNTAX      Unsigned32
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Peak-rate shaping peak rate attribute statement value, specified in kbps
+		      -- used to establish peak rate traffic shaping for the specified class, 
+                      which allows transmissions for the class to exceed the committed 
+                      information rate by sending excess traffic with the understanding that it 
+                      could be dropped by a downstream network element. This attribute is only 
+                      valid if the value of agentDiffServPolicyAttrStmtEntryType is set to 
+                      shapePeak(11)."
+         ::= { agentDiffServPolicyAttrEntry 33 }
+
+    agentDiffServPolicyAttrStorageType OBJECT-TYPE
+         SYNTAX      StorageType
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Storage-type for this conceptual row."
+         DEFVAL { nonVolatile }		     
+         ::= { agentDiffServPolicyAttrEntry 34 }
+	 
+    agentDiffServPolicyAttrRowStatus OBJECT-TYPE
+         SYNTAX      RowStatus
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "The status of this conceptual row."
+         ::= { agentDiffServPolicyAttrEntry 35 }
+	 
+
+
+    --*********************** agentDiffServPolicyPerfInTable ************************       
+    
+    agentDiffServPolicyPerfInTable OBJECT-TYPE
+         SYNTAX      SEQUENCE OF AgentDiffServPolicyPerfInEntry
+         MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION 
+                     "A table of inbound policy-class performance entries"
+         ::= { agentDiffServPolicyGroup 5 }
+
+    agentDiffServPolicyPerfInEntry OBJECT-TYPE
+         SYNTAX      AgentDiffServPolicyPerfInEntry
+         MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION 
+                     "Represents entry for the performance attributes of the associated inbound 
+		      policy-class instance"
+		     
+         INDEX       { agentDiffServPolicyIndex,agentDiffServPolicyInstIndex,ifIndex }
+         ::= { agentDiffServPolicyPerfInTable 1 }
+         
+    AgentDiffServPolicyPerfInEntry ::= SEQUENCE {
+          agentDiffServPolicyPerfInOfferedOctets
+              Counter32,
+	  agentDiffServPolicyPerfInOfferedPackets
+              Counter32, 
+	  agentDiffServPolicyPerfInDiscardedOctets
+              Counter32,   
+	  agentDiffServPolicyPerfInDiscardedPackets
+              Counter32,
+          agentDiffServPolicyPerfInHCOfferedOctets
+              Counter64,
+	  agentDiffServPolicyPerfInHCOfferedPackets
+              Counter64,
+	  agentDiffServPolicyPerfInHCDiscardedOctets
+              Counter64,
+	  agentDiffServPolicyPerfInHCDiscardedPackets
+              Counter64,
+	  agentDiffServPolicyPerfInStorageType
+              StorageType,                 
+          agentDiffServPolicyPerfInRowStatus
+              RowStatus
+          }
+
+    agentDiffServPolicyPerfInOfferedOctets OBJECT-TYPE
+         SYNTAX      Counter32
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Offered octets count for the inbound policy-class instance performance 
+                     entry."
+         ::= { agentDiffServPolicyPerfInEntry 1 }
+	 
+    agentDiffServPolicyPerfInOfferedPackets OBJECT-TYPE
+         SYNTAX      Counter32
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Offered packets count for the inbound policy-class instance performance 
+                     entry."
+         ::= { agentDiffServPolicyPerfInEntry 2 }
+	 
+    agentDiffServPolicyPerfInDiscardedOctets OBJECT-TYPE
+         SYNTAX      Counter32
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Discarded octets count for the inbound policy-class instance performance 
+                     entry."
+         ::= { agentDiffServPolicyPerfInEntry 3 }
+	 
+    agentDiffServPolicyPerfInDiscardedPackets OBJECT-TYPE
+         SYNTAX      Counter32
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Discarded packets count for the inbound policy-class instance performance 
+                     entry."
+         ::= { agentDiffServPolicyPerfInEntry 4 }
+         	 
+    agentDiffServPolicyPerfInHCOfferedOctets OBJECT-TYPE
+         SYNTAX      Counter64
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Offered octets high capacity count for the inbound policy-class instance 
+                     performance entry."
+         ::= { agentDiffServPolicyPerfInEntry 5 }
+	 
+    agentDiffServPolicyPerfInHCOfferedPackets OBJECT-TYPE
+         SYNTAX      Counter64
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Offered packets high capacity count for the inbound policy-class instance 
+                     performance entry."
+         ::= { agentDiffServPolicyPerfInEntry 6 }
+	 
+    agentDiffServPolicyPerfInHCDiscardedOctets OBJECT-TYPE
+         SYNTAX      Counter64
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Discarded octets high capacity count for the inbound policy-class instance 
+                     performance entry."
+         ::= { agentDiffServPolicyPerfInEntry 7 }
+	 
+    agentDiffServPolicyPerfInHCDiscardedPackets OBJECT-TYPE
+         SYNTAX      Counter64
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Discarded packets high capacity count for the inbound policy-class 
+                     instance performance entry."
+         ::= { agentDiffServPolicyPerfInEntry 8 }
+	 
+    agentDiffServPolicyPerfInStorageType OBJECT-TYPE
+         SYNTAX      StorageType
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Storage-type for this conceptual row."
+         DEFVAL { nonVolatile }		     
+         ::= { agentDiffServPolicyPerfInEntry 9 }
+	 
+    agentDiffServPolicyPerfInRowStatus OBJECT-TYPE
+         SYNTAX      RowStatus
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "The status of this conceptual row."
+         ::= { agentDiffServPolicyPerfInEntry 10 }
+
+
+
+
+    --*********************** agentDiffServPolicyPerfOutTable ************************       
+    
+    agentDiffServPolicyPerfOutTable OBJECT-TYPE
+         SYNTAX      SEQUENCE OF AgentDiffServPolicyPerfOutEntry
+         MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION 
+                     "A table of outbound policy-class performance entries"
+         ::= { agentDiffServPolicyGroup 6 }
+
+    agentDiffServPolicyPerfOutEntry OBJECT-TYPE
+         SYNTAX      AgentDiffServPolicyPerfOutEntry
+         MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION 
+                     "Represents entry for the performance attributes of the associated outbound 
+		      policy-class instance"
+		     
+         INDEX       { agentDiffServPolicyIndex,agentDiffServPolicyInstIndex,ifIndex }
+         ::= { agentDiffServPolicyPerfOutTable 1 }
+         
+    AgentDiffServPolicyPerfOutEntry ::= SEQUENCE {
+	  agentDiffServPolicyPerfOutTailDroppedOctets
+              Counter32,   
+	  agentDiffServPolicyPerfOutTailDroppedPackets
+              Counter32,
+	  agentDiffServPolicyPerfOutRandomDroppedOctets
+              Counter32,   
+	  agentDiffServPolicyPerfOutRandomDroppedPackets
+              Counter32,
+	  agentDiffServPolicyPerfOutShapeDelayedOctets
+              Counter32,   
+	  agentDiffServPolicyPerfOutShapeDelayedPackets
+              Counter32,
+	  agentDiffServPolicyPerfOutSentOctets
+              Counter32,   
+	  agentDiffServPolicyPerfOutSentPackets
+              Counter32,
+	  agentDiffServPolicyPerfOutHCTailDroppedOctets
+              Counter64,
+	  agentDiffServPolicyPerfOutHCTailDroppedPackets
+              Counter64,
+	  agentDiffServPolicyPerfOutHCRandomDroppedOctets
+              Counter64,
+          agentDiffServPolicyPerfOutHCRandomDroppedPackets
+              Counter64,
+	  agentDiffServPolicyPerfOutHCShapeDelayedOctets
+              Counter64,
+	  agentDiffServPolicyPerfOutHCShapeDelayedPackets
+              Counter64,
+          agentDiffServPolicyPerfOutHCSentOctets
+              Counter64,
+	  agentDiffServPolicyPerfOutHCSentPackets
+              Counter64,
+	  agentDiffServPolicyPerfOutStorageType
+              StorageType,                 
+          agentDiffServPolicyPerfOutRowStatus
+              RowStatus
+          }
+
+    agentDiffServPolicyPerfOutTailDroppedOctets OBJECT-TYPE
+         SYNTAX      Counter32
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Tail-dropped octets count for the outbound policy-class instance 
+                     performance entry."
+         ::= { agentDiffServPolicyPerfOutEntry 1 }
+	 
+    agentDiffServPolicyPerfOutTailDroppedPackets OBJECT-TYPE
+         SYNTAX      Counter32
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Tail-dropped packets count for the outbound policy-class instance 
+                     performance entry."
+         ::= { agentDiffServPolicyPerfOutEntry 2 }
+	 
+    agentDiffServPolicyPerfOutRandomDroppedOctets OBJECT-TYPE
+         SYNTAX      Counter32
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Random-dropped octets count for the outbound policy-class instance 
+                     performance entry."
+         ::= { agentDiffServPolicyPerfOutEntry 3 }
+	 
+    agentDiffServPolicyPerfOutRandomDroppedPackets OBJECT-TYPE
+         SYNTAX      Counter32
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Random-dropped packets count for the outbound policy-class instance 
+                     performance entry."
+         ::= { agentDiffServPolicyPerfOutEntry 4 }
+	 
+    agentDiffServPolicyPerfOutShapeDelayedOctets OBJECT-TYPE
+         SYNTAX      Counter32
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Shape-delayed octets count for the outbound policy-class instance 
+                     performance entry."
+         ::= { agentDiffServPolicyPerfOutEntry 5 }
+	 
+    agentDiffServPolicyPerfOutShapeDelayedPackets OBJECT-TYPE
+         SYNTAX      Counter32
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Shape-delayed packets count for the outbound policy-class instance 
+                     performance entry."
+         ::= { agentDiffServPolicyPerfOutEntry 6 }
+	 
+      agentDiffServPolicyPerfOutSentOctets OBJECT-TYPE
+         SYNTAX      Counter32
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Sent octets count for the outbound policy-class instance performance 
+                     entry."
+         ::= { agentDiffServPolicyPerfOutEntry 7 }
+	 
+    agentDiffServPolicyPerfOutSentPackets OBJECT-TYPE
+         SYNTAX      Counter32
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Sent packets count for the outbound policy-class instance performance 
+                     entry."
+         ::= { agentDiffServPolicyPerfOutEntry 8 }
+	 
+    agentDiffServPolicyPerfOutHCTailDroppedOctets OBJECT-TYPE
+         SYNTAX      Counter64
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Tail-dropped octets high capacity count for the outbound policy-class 
+                     instance performance entry."
+         ::= { agentDiffServPolicyPerfOutEntry 9 }
+	 
+    agentDiffServPolicyPerfOutHCTailDroppedPackets OBJECT-TYPE
+         SYNTAX      Counter64
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Tail-dropped packets high capacity count for the outbound policy-class 
+                     instance performance entry."
+         ::= { agentDiffServPolicyPerfOutEntry 10 }
+
+    agentDiffServPolicyPerfOutHCRandomDroppedOctets OBJECT-TYPE
+         SYNTAX      Counter64
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Random-dropped octets high capacity count for the outbound policy-class 
+                     instance performance entry."
+         ::= { agentDiffServPolicyPerfOutEntry 11 }
+	 
+    agentDiffServPolicyPerfOutHCRandomDroppedPackets OBJECT-TYPE
+         SYNTAX      Counter64
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Random-dropped packets high capacity count for the outbound policy-class 
+                     instance performance entry."
+         ::= { agentDiffServPolicyPerfOutEntry 12 }
+	 
+    agentDiffServPolicyPerfOutHCShapeDelayedOctets OBJECT-TYPE
+         SYNTAX      Counter64
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Shape-delayed octets high capacity count for the outbound policy-class 
+                     instance performance entry."
+         ::= { agentDiffServPolicyPerfOutEntry 13 }
+	 
+    agentDiffServPolicyPerfOutHCShapeDelayedPackets OBJECT-TYPE
+         SYNTAX      Counter64
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Shape-delayed packets high capacity count for the outbound policy-class 
+                     instance performance entry."
+         ::= { agentDiffServPolicyPerfOutEntry 14 }
+	 
+    agentDiffServPolicyPerfOutHCSentOctets OBJECT-TYPE
+         SYNTAX      Counter64
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Sent octets high capacity count for the outbound policy-class instance 
+                     performance entry."
+         ::= { agentDiffServPolicyPerfOutEntry 15 }
+	 
+    agentDiffServPolicyPerfOutHCSentPackets OBJECT-TYPE
+         SYNTAX      Counter64
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Sent packets high capacity count for the outbound policy-class instance 
+                     performance entry."
+         ::= { agentDiffServPolicyPerfOutEntry 16 }
+	 
+    agentDiffServPolicyPerfOutStorageType OBJECT-TYPE
+         SYNTAX      StorageType
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Storage-type for this conceptual row."
+         DEFVAL { nonVolatile }		     
+         ::= { agentDiffServPolicyPerfOutEntry 17 }
+	 
+    agentDiffServPolicyPerfOutRowStatus OBJECT-TYPE
+         SYNTAX      RowStatus
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "The status of this conceptual row."
+         ::= { agentDiffServPolicyPerfOutEntry 18 }
+
+	      	 
+    --**********************************************************************************
+    -- agentDiffServService Group
+    --
+    --**********************************************************************************
+
+	 --*********************** agentDiffServServiceTable ************************
+        
+
+    agentDiffServServiceGroup        OBJECT IDENTIFIER ::= { gsm7324QOSDiffServPrivate 4 }
+    
+    agentDiffServServiceTable OBJECT-TYPE
+         SYNTAX      SEQUENCE OF AgentDiffServServiceEntry
+         MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION 
+                     "A table of the service entries."
+         ::= { agentDiffServServiceGroup 1 }
+
+    agentDiffServServiceEntry OBJECT-TYPE
+         SYNTAX      AgentDiffServServiceEntry
+         MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION 
+                     "Represents entry for policy assigned to an interface in a particular 
+                     direction."
+         INDEX       { agentDiffServServiceIfIndex,agentDiffServServiceIfDirection }
+         ::= { agentDiffServServiceTable 1 }
+         
+    AgentDiffServServiceEntry ::= SEQUENCE {
+          agentDiffServServiceIfIndex
+              InterfaceIndex,
+          agentDiffServServiceIfDirection
+              IntfDirection,
+          agentDiffServServicePolicyIndex
+              Unsigned32,
+          agentDiffServServiceIfOperStatus
+              INTEGER,
+          agentDiffServServiceStorageType
+              StorageType,                 
+          agentDiffServServiceRowStatus
+              RowStatus
+          }
+
+        
+    agentDiffServServiceIfIndex OBJECT-TYPE
+         SYNTAX      InterfaceIndex
+         MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION
+                     "External interface number of the interface to which policy is assigned."
+         ::= { agentDiffServServiceEntry 1 }
+    
+    agentDiffServServiceIfDirection OBJECT-TYPE
+         SYNTAX      IntfDirection
+	 MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION
+                     "Interface direction to which the policy is assigned."
+         ::= { agentDiffServServiceEntry 2 }
+    
+    agentDiffServServicePolicyIndex OBJECT-TYPE
+	 SYNTAX       Unsigned32
+	 MAX-ACCESS   read-create
+	 STATUS       current
+	 DESCRIPTION
+		     "Index of the Policy Table row whose policy definition is attached to the 
+                      interface in the specified direction."
+	 ::= { agentDiffServServiceEntry 3 }
+
+    agentDiffServServiceIfOperStatus OBJECT-TYPE
+         SYNTAX      INTEGER {
+                      up(1),    -- ready for DiffServ operation
+		      down(2)
+                     }
+
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "The current operational state of the DiffServ service   
+		      interface.  If agentDiffServGenStatusAdminMode is 
+		      disable(2) then agentDiffServServiceIfOperStatus should 
+		      be down(2).  If agentDiffServServiceGenStatusAdminMode  
+		      is changed to enable(1) then agentDiffServServiceIfOperStatus
+		      should change to up(1) if the service interface is ready 
+		      to send and receive DiffServ traffic; it should remain
+		      in the down(2) state if the underlying interface hardware
+		      is not in a link up condition, if the policy definition 
+		      represented by agentDiffServServicePolicyIndex is incompatible
+		      with the interface (e.g., requires more bandwidth than the
+		      current capacity of the interface), or if the policy definition
+		      is considered to be incomplete (e.g., one or more composite
+		      rows is not in the active(1) state)."
+         ::= { agentDiffServServiceEntry 4 }
+             
+    agentDiffServServiceStorageType OBJECT-TYPE
+         SYNTAX      StorageType
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "Storage-type for this conceptual row"
+         DEFVAL { nonVolatile }		     
+         ::= { agentDiffServServiceEntry 5 }
+	 
+    agentDiffServServiceRowStatus OBJECT-TYPE
+         SYNTAX      RowStatus
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "The status of this conceptual row."
+         ::= { agentDiffServServiceEntry 6 }
+	 
+	 
+	 --*********************** agentDiffServServicePerfTable ************************
+ 
+
+    agentDiffServServicePerfTable OBJECT-TYPE
+         SYNTAX      SEQUENCE OF AgentDiffServServicePerfEntry
+         MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION 
+                     "A table of service performance entries."
+         ::= { agentDiffServServiceGroup 2 }
+
+    agentDiffServServicePerfEntry OBJECT-TYPE
+         SYNTAX      AgentDiffServServicePerfEntry
+         MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION 
+                     "Represents a service performance entry."
+		     
+         AUGMENTS { agentDiffServServiceEntry }
+         ::= { agentDiffServServicePerfTable 1 }
+         
+    AgentDiffServServicePerfEntry ::= SEQUENCE {
+          agentDiffServServicePerfOfferedOctets
+              Counter32,
+	  agentDiffServServicePerfOfferedPackets
+              Counter32, 
+	  agentDiffServServicePerfDiscardedOctets
+              Counter32,   
+	  agentDiffServServicePerfDiscardedPackets
+              Counter32,
+          agentDiffServServicePerfSentOctets
+              Counter32,
+	  agentDiffServServicePerfSentPackets
+              Counter32,
+	  agentDiffServServicePerfHCOfferedOctets
+              Counter64,
+	  agentDiffServServicePerfHCOfferedPackets
+              Counter64,
+	  agentDiffServServicePerfHCDiscardedOctets
+              Counter64,
+	  agentDiffServServicePerfHCDiscardedPackets
+              Counter64,
+	  agentDiffServServicePerfHCSentOctets
+              Counter64,
+	  agentDiffServServicePerfHCSentPackets
+              Counter64
+          }
+
+        
+    agentDiffServServicePerfOfferedOctets OBJECT-TYPE
+         SYNTAX      Counter32
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Offered octets count for the specified service interface and direction"
+         ::= { agentDiffServServicePerfEntry 1 }
+	 
+    agentDiffServServicePerfOfferedPackets OBJECT-TYPE
+         SYNTAX      Counter32
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Offered packets count for specified service interface and direction"
+         ::= { agentDiffServServicePerfEntry 2 }
+	 
+    agentDiffServServicePerfDiscardedOctets OBJECT-TYPE
+         SYNTAX      Counter32
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Discarded octets count for the specified service interface and direction"
+         ::= { agentDiffServServicePerfEntry 3 }
+	 
+    agentDiffServServicePerfDiscardedPackets OBJECT-TYPE
+         SYNTAX      Counter32
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Discarded packets count for the specified service interface and direction"
+         ::= { agentDiffServServicePerfEntry 4 }
+	 
+    agentDiffServServicePerfSentOctets OBJECT-TYPE
+         SYNTAX      Counter32
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Sent octets count for the specified service interface and direction"
+         ::= { agentDiffServServicePerfEntry 5 }
+	 
+    agentDiffServServicePerfSentPackets OBJECT-TYPE
+         SYNTAX      Counter32
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Sent packets count for the specified service interface and direction"
+         ::= { agentDiffServServicePerfEntry 6 }
+	 
+    agentDiffServServicePerfHCOfferedOctets OBJECT-TYPE
+         SYNTAX      Counter64
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Offered octets high capacity count for the specified service interface 
+                     and direction"
+         ::= { agentDiffServServicePerfEntry 7 }
+	 
+    agentDiffServServicePerfHCOfferedPackets OBJECT-TYPE
+         SYNTAX      Counter64
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Offered packets high capacity count for the specified service interface 
+                     and direction"
+         ::= { agentDiffServServicePerfEntry 8 }
+	 
+    agentDiffServServicePerfHCDiscardedOctets OBJECT-TYPE
+         SYNTAX      Counter64
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Discarded octets high capacity count for the specified service interface 
+                     and direction"
+         ::= { agentDiffServServicePerfEntry 9 }
+	 
+    agentDiffServServicePerfHCDiscardedPackets OBJECT-TYPE
+         SYNTAX      Counter64
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Discarded packets high capacity count for the specified service interface 
+                     and direction"
+         ::= { agentDiffServServicePerfEntry 10 }
+	 
+    agentDiffServServicePerfHCSentOctets OBJECT-TYPE
+         SYNTAX      Counter64
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Sent octets high capacity count for the specified service interface and 
+                     direction"
+         ::= { agentDiffServServicePerfEntry 11 }
+	 
+    agentDiffServServicePerfHCSentPackets OBJECT-TYPE
+         SYNTAX      Counter64
+         MAX-ACCESS  read-only
+         STATUS      current
+         DESCRIPTION
+                     "Sent packets high capacity count for the specified service interface and 
+                     direction"
+         ::= { agentDiffServServicePerfEntry 12 }
+	 
+END

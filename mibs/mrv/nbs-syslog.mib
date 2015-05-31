@@ -1,0 +1,231 @@
+-- ====================================================================
+--  vim: expandtab
+--  vim: ts=8
+--  vim: sw=8
+--  vim: nojoinspaces
+-- ====================================================================
+--  Version     : $Revision: $
+--  Date        : $Date: $
+-- ====================================================================
+
+NBS-SYSLOG-SERVER-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+        OBJECT-TYPE, OBJECT-IDENTITY, MODULE-IDENTITY, Unsigned32, IpAddress
+            FROM SNMPv2-SMI
+        nbs
+            FROM NBS-CMMC-MIB                    
+        TEXTUAL-CONVENTION
+            FROM SNMPv2-TC
+        ;
+
+nbsSyslogServerMib MODULE-IDENTITY
+        LAST-UPDATED  "200902040000Z"
+        ORGANIZATION  "NBS"
+        CONTACT-INFO
+          "For technical support, please contact your service channel"
+
+        DESCRIPTION
+          "MIB for representing NBS remote syslog servers"
+
+        ::= { nbs 206 }
+        
+-- *******************************************************************
+-- Textual Conventions
+-- *******************************************************************      
+          
+InetAddressType ::= TEXTUAL-CONVENTION
+        STATUS      current
+        DESCRIPTION
+          "A value that represents a type of Internet address.
+
+           unknown(0)  An unknown address type.  This value MUST
+                       be used if the value of the corresponding
+                       InetAddress object is a zero-length string.
+                       It may also be used to indicate an IP address
+                       that is not in one of the formats defined
+                       below.
+
+           ipv4(1)     An IPv4 address as defined by the
+                       InetAddressIPv4 textual convention.
+
+           ipv6(2)     An IPv6 address as defined by the
+                       InetAddressIPv6 textual convention.
+
+           ipv4z(3)    A non-global IPv4 address including a zone
+                       index as defined by the InetAddressIPv4z
+                       textual convention.
+
+           ipv6z(4)    A non-global IPv6 address including a zone
+                       index as defined by the InetAddressIPv6z
+                       textual convention.
+
+           dns(16)     A DNS domain name as defined by the
+                       InetAddressDNS textual convention.
+
+           Each definition of a concrete InetAddressType value must be
+           accompanied by a definition of a textual convention for use
+           with that InetAddressType.
+
+           To support future extensions, the InetAddressType textual
+           convention SHOULD NOT be sub-typed in object type definitions.
+           It MAY be sub-typed in compliance statements in order to
+           require only a subset of these address types for a compliant
+           implementation.
+
+           Implementations must ensure that InetAddressType objects
+           and any dependent objects (e.g., InetAddress objects) are
+           consistent.  An inconsistentValue error must be generated
+           if an attempt to change an InetAddressType object would,
+           for example, lead to an undefined InetAddress value.  In
+
+           particular, InetAddressType/InetAddress pairs must be
+           changed together if the address type changes (e.g., from
+           ipv6(2) to ipv4(1))."
+           SYNTAX      INTEGER {
+                       unknown(0),
+                       ipv4(1),
+                       ipv6(2),
+                       ipv4z(3),
+                       ipv6z(4),
+                       dns(16)
+           }         
+
+-- *******************************************************************
+-- NBS-SYSLOG-SERVER-MIB local defines
+-- *******************************************************************
+  
+nbsSyslogServerGrp OBJECT-IDENTITY
+        STATUS      current
+        DESCRIPTION "Meta MIB"
+        ::= { nbsSyslogServerMib 1 }
+
+-- *******************************************************************
+-- the  nbsSyslogServerTable
+-- ******************************************************************* 
+
+nbsSyslogServerTableSize  OBJECT-TYPE
+        SYNTAX      INTEGER
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+          "The number of entries in nbsSyslogServerTable table."
+
+        ::= { nbsSyslogServerGrp 1 }        
+
+nbsSyslogServerTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF NbsSyslogServerEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+                "Syslog messages will be sent to
+                 every active server in the table."
+        ::= { nbsSyslogServerGrp 2 }
+
+nbsSyslogServerEntry OBJECT-TYPE
+        SYNTAX      NbsSyslogServerEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+          "A remote syslog server."
+
+        INDEX { nbsSyslogServerIndex }
+        ::= { nbsSyslogServerTable 1 }
+
+NbsSyslogServerEntry ::= SEQUENCE {
+          nbsSyslogServerIndex       INTEGER,
+          nbsSyslogServerStatus      INTEGER,
+          nbsSyslogServerAddressType InetAddressType,
+          nbsSyslogServerAddress     IpAddress,
+          nbsSyslogServerPort        Unsigned32,
+          nbsSyslogServerLevel       INTEGER
+        }
+
+nbsSyslogServerIndex OBJECT-TYPE
+        SYNTAX      INTEGER (1..5)
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+          "The index of the entry/row in the syslog table."
+
+        ::= { nbsSyslogServerEntry 1 }
+
+nbsSyslogServerStatus OBJECT-TYPE
+        SYNTAX      INTEGER {
+                    invalid(1),
+                    active (2)
+        }
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+          "This object is used to get/set the validity of the information
+           contained by nbsSyslogServerEntry row.
+
+           Setting this object to the value invalid(1) has the effect of
+           deleting the corresponding nbsSyslogServerTable entry.
+           Deleting an entry has the effect of initializing it to default
+           values : IpAddr = 0.0.0.0, Port = 0 etc.
+
+           Setting this object to the value active(2) entry has the effect of
+           creating a new row in the nbsSyslogServerTable object, if an
+           entry with the same nbsSyslogServerIpAddr does not exist. If
+           such an entry exists, then a 'badValue' error will be returned.
+
+           The GET operations will receive a value of active(2) for existing
+           entries. An invalid(1) value indicates an entry that was deleted by
+           a previous SET operation."
+
+        DEFVAL { invalid }
+        ::= { nbsSyslogServerEntry 2 }
+        
+nbsSyslogServerAddressType OBJECT-TYPE
+        SYNTAX      InetAddressType
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+                "The address type of nbsSyslogServerAddress.
+                 Currently only ipv4 is supported."
+        
+        DEFVAL { ipv4 }         
+        ::= { nbsSyslogServerEntry 3 }        
+
+nbsSyslogServerAddress OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+          "IP address of a remote server that should be sent syslog messages."
+
+        ::= { nbsSyslogServerEntry 4 }
+
+nbsSyslogServerPort OBJECT-TYPE
+        SYNTAX      Unsigned32 (0..65535)
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+          "UDP port of the remote syslog server.
+           The default port is 514."
+        
+        DEFVAL { 514 }
+        ::= { nbsSyslogServerEntry 5 }
+
+nbsSyslogServerLevel OBJECT-TYPE
+        SYNTAX      INTEGER {
+                      disabled (1),
+                      emerg    (2),
+                      alert    (3),
+                      crit     (4),
+                      error    (5),
+                      warning  (6),
+                      notice   (7),
+                      info     (8),
+                      debug    (9)
+        }
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+          "Indicates the level of messages that are sent to this syslog server."
+
+        DEFVAL { warning }
+        ::= { nbsSyslogServerEntry 6 }      
+END

@@ -1,0 +1,2 @@
+ALTER TABLE  `users` ADD  `user_options` TEXT CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL;
+ALTER TABLE  `users` CHANGE  `username`  `username` CHAR( 30 ) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL ,CHANGE  `realname`  `realname` VARCHAR( 64 ) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL ,CHANGE  `email`  `email` VARCHAR( 64 ) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL ,CHANGE  `descr`  `descr` CHAR( 30 ) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL;

@@ -1,0 +1,1 @@
+ALTER TABLE `devices` ADD `snmpEngineID` VARCHAR(36) NULL DEFAULT NULL AFTER `bgpLocalAs`;

@@ -1,0 +1,508 @@
+-- =================================================================
+-- Copyright (c) 2004-2010 Hangzhou H3C Tech. Co., Ltd. All rights reserved.
+--
+-- Description: Description Of Portal
+-- Reference:
+-- Version: V1.3
+-- History:
+--   V1.0 2008-12-30, Created by d04528
+--   V1.1 2009-4-30, Modified by h02978
+--        Added node hh3cPortalServerPort
+--        Added table hh3cPortalIfInfoTable, including the following nodes,
+--            hh3cPortalAuthReqNumber
+--            hh3cPortalAuthSuccNumber
+--            hh3cPortalAuthFailNumber
+--        Added trap node hh3cPortalServerGet
+--   V1.2 2010-5-31, Modified by y07111
+--        Added table hh3cPortalIfServerTable, including the following nodes,
+--            hh3cPortalIfServerIndex
+--            hh3cPortalIfServerUrl
+--            hh3cPortalIfServerRowStatus
+--        Added hh3cPortalNasId
+--   V1.3 2010-11-8, Modified by y07111
+--        Added table hh3cPortalStatistic,including the following nodes,
+--        hh3cPortalStatAuthReq
+--        hh3cPortalStatAckLogout
+--        hh3cPortalStatNotifyLogout
+--        hh3cPortalStatChallengeTimeout
+--        hh3cPortalStatChallengeBusy
+--        hh3cPortalStatChallengeFail
+--        hh3cPortalStatAuthTimeout
+--        hh3cPortalStatAuthFail
+--        hh3cPortalStatPwdError
+--        hh3cPortalStatAuthBusy
+--        hh3cPortalStatAuthDisordered
+--        hh3cPortalStatAuthUnknownError
+-- =================================================================
+HH3C-PORTAL-MIB DEFINITIONS ::= BEGIN
+IMPORTS
+    hh3cCommon
+        FROM HH3C-OID-MIB
+    OBJECT-TYPE, NOTIFICATION-TYPE, MODULE-IDENTITY, Integer32, Counter64
+        FROM SNMPv2-SMI
+    RowStatus
+        FROM SNMPv2-TC
+    ifIndex
+        FROM RFC1213-MIB;
+
+hh3cPortal MODULE-IDENTITY
+    LAST-UPDATED "201011080000Z"            -- November 8th, 2010 at 00:00 GMT
+    ORGANIZATION
+        "Hangzhou H3C Tech. Co., Ltd."
+    CONTACT-INFO
+        "Platform Team Hangzhou H3C Tech. Co., Ltd.
+        Hai-Dian District Beijing P.R. China
+        http://www.h3c.com
+        Zip:100085
+        "
+    DESCRIPTION
+        "The MIB module is used for managing portal."
+    ::= { hh3cCommon 99 }
+
+
+hh3cPortalConfig OBJECT IDENTIFIER ::= { hh3cPortal 1 }
+
+--
+-- PORTAL MAX USER NUMBER
+--
+
+hh3cPortalMaxUserNumber OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Specify the maximum number of online users,
+        the value to be set should meet the following two conditions:
+        1. Less than or equal to hh3cPortalUserNumberUpperLimit.
+        2. Greater than or equal to one.
+
+        The default value is equal to hh3cPortalUserNumberUpperLimit."
+    ::= { hh3cPortalConfig 1 }
+
+--
+-- PORTAL CURRENT USER NUMBER
+--
+
+hh3cPortalCurrentUserNumber OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The current number of users connecting to the portal."
+    ::= { hh3cPortalConfig 2 }
+
+--
+-- PORTAL STATUS
+--
+
+hh3cPortalStatus OBJECT-TYPE
+    SYNTAX      INTEGER
+    {
+         enabled(1),
+         disabled(2)
+    }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "It indicates the portal status.
+         enabled:
+            Portal is enabled on one or more interfaces.
+         disabled:
+            Portal is not enabled on any interface."
+    ::= { hh3cPortalConfig 3 }
+
+--
+-- PORTAL USER NUMBER_UPPER_LIMIT
+--
+
+hh3cPortalUserNumberUpperLimit OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The upper limit of hh3cPortalMaxUserNumber."
+    ::= { hh3cPortalConfig 4 }
+
+--
+-- PORTAL NAS-ID Config
+--
+hh3cPortalNasId OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The nas id of this device."
+    ::= { hh3cPortalConfig 5 }
+
+--
+-- PORTAL TABLES
+--
+
+hh3cPortalTables OBJECT IDENTIFIER ::= { hh3cPortal 2 }
+
+
+--
+-- PORTAL server table
+--
+hh3cPortalServerTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Hh3cPortalServerEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "This table defines the name and URL of portal server.
+        It can not be created and destroyed by MIB."
+    ::= { hh3cPortalTables 1 }
+
+hh3cPortalServerEntry OBJECT-TYPE
+    SYNTAX      Hh3cPortalServerEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "There is a row in this table for each name and URL of portal server.
+        It is indexed using the object hh3cPortalServerName."
+    INDEX
+        {
+            hh3cPortalServerName
+        }
+    ::= { hh3cPortalServerTable 1 }
+
+
+Hh3cPortalServerEntry ::= SEQUENCE
+    {
+        hh3cPortalServerName               OCTET STRING,
+        hh3cPortalServerUrl                OCTET STRING,
+        hh3cPortalServerPort               Integer32
+    }
+
+hh3cPortalServerName OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE (1..32))
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "It is the index of the table of hh3cPortalServerTable, it shows
+        the name of the portal server."
+    ::= { hh3cPortalServerEntry 1 }
+
+hh3cPortalServerUrl OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE (1..127))
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "It shows the uniform resource locator to the portal server.
+        Users which have not logon to portal will be redirected to the
+        portal server according to hh3cPortalServerUrl.
+
+        The value is consisted of protocol, IP address and relative path.
+        For example: HTTP://10.1.1.1/portal
+
+        It is not configurable when the portal server has been enabled."
+    ::= { hh3cPortalServerEntry 2 }
+
+hh3cPortalServerPort OBJECT-TYPE
+    SYNTAX      Integer32 (1..65534)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "It shows the UDP port of the portal server.
+
+        The port will be used when client sends packets to portal server.
+        Default value is 50100.
+
+        It is not configurable when the portal server has been enabled."
+    ::= { hh3cPortalServerEntry 3 }
+
+--
+-- PORTAL If Info Table
+--
+hh3cPortalIfInfoTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Hh3cPortalIfInfoEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "This table describes the portal information on some interface."
+    ::= { hh3cPortalTables 2 }
+
+hh3cPortalIfInfoEntry OBJECT-TYPE
+    SYNTAX      Hh3cPortalIfInfoEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "There is a row in this table for a interface on which
+        portal has been enabled.
+        It is indexed using the object ifIndex."
+    INDEX
+        {
+            ifIndex
+        }
+    ::= { hh3cPortalIfInfoTable 1 }
+
+
+Hh3cPortalIfInfoEntry ::= SEQUENCE
+    {
+        hh3cPortalAuthReqNumber            Integer32,
+        hh3cPortalAuthSuccNumber           Integer32,
+        hh3cPortalAuthFailNumber           Integer32
+    }
+
+hh3cPortalAuthReqNumber OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "It shows the number of authentication request messages
+        which are sent by portal module to AAA module."
+    ::= { hh3cPortalIfInfoEntry 1 }
+
+
+hh3cPortalAuthSuccNumber OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "It shows the number of authentication success response messages
+        which are sent by AAA module to portal module."
+    ::= { hh3cPortalIfInfoEntry 2 }
+
+hh3cPortalAuthFailNumber OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "It shows the number of authentication failure response messages
+        which are sent by AAA module to portal module."
+    ::= { hh3cPortalIfInfoEntry 3 }
+
+--
+-- PORTAL If Config Table
+--
+hh3cPortalIfServerTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Hh3cPortalIfServerEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "This table describes the portal information on some interface."
+    ::= { hh3cPortalTables 3 }
+
+hh3cPortalIfServerEntry OBJECT-TYPE
+    SYNTAX      Hh3cPortalIfServerEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "There is a row in this table for a interface on which
+        portal has been enabled.
+        It is indexed using the object ifIndex."
+    INDEX
+        {
+            hh3cPortalIfServerIndex
+        }
+    ::= { hh3cPortalIfServerTable 1 }
+
+Hh3cPortalIfServerEntry ::= SEQUENCE
+    {
+        hh3cPortalIfServerIndex                   Integer32,
+        hh3cPortalIfServerUrl                     OCTET STRING,
+        hh3cPortalIfServerRowStatus               RowStatus
+    }
+
+hh3cPortalIfServerIndex  OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "It is the index of the table of hh3cIfPtServerTable, it shows
+        the index of the portal server."
+    ::={ hh3cPortalIfServerEntry 1 }
+
+hh3cPortalIfServerUrl OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "It shows the uniform resource locator to the portal server.
+        Users which have not logon to portal will be redirected to the
+        portal server according to hh3cPortalServerIfUrl.
+        The value is consisted of protocol, IP address and relative path.
+        For example: HTTP://10.1.1.1/portal
+        It is not configurable when the portal server has been enabled."
+    ::= { hh3cPortalIfServerEntry 2 }
+
+hh3cPortalIfServerRowStatus OBJECT-TYPE
+    SYNTAX   RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "This object is responsible for managing the creation, deletion and
+        modification of rows, which support active status and CreateAndGo,
+        Destroy operation.  To create a new row, portal server must be specified.
+        To destroy an existent row, the portal server MUST NOT be referred by
+        interface."
+    ::= { hh3cPortalIfServerEntry 3 }
+
+--
+-- Define the portal Traps.
+--
+
+hh3cPortalTraps OBJECT IDENTIFIER ::= { hh3cPortal 3 }
+
+hh3cPortalTrapPrefix OBJECT IDENTIFIER ::= { hh3cPortalTraps 0 }
+
+hh3cPortalServerLost NOTIFICATION-TYPE
+    OBJECTS
+        {
+            hh3cPortalServerName
+        }
+    STATUS      current
+    DESCRIPTION
+        "This trap is generated when the device finds that the portal server
+        is unreachable, the portal server's name is hh3cPortalServerName,
+        and the portal server has been enabled."
+    ::= { hh3cPortalTrapPrefix 1 }
+
+hh3cPortalServerGet NOTIFICATION-TYPE
+    OBJECTS
+        {
+            hh3cPortalServerName
+        }
+    STATUS      current
+    DESCRIPTION
+        "This trap is generated when the device finds that the state of portal
+        server changes from unreachable state to reachable,
+        the portal server's name is hh3cPortalServerName,
+        and the portal server has been enabled."
+    ::= { hh3cPortalTrapPrefix 2 }
+
+-- PORTAL STATISTIC
+
+hh3cPortalStatistic OBJECT IDENTIFIER ::= { hh3cPortal 4 }
+
+-- PORTAL AUTH REQ STATISTIC
+
+hh3cPortalStatAuthReq OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "It shows the total number of portal authentication requests from the
+        portal server."
+    ::= { hh3cPortalStatistic 1 }
+
+-- PORTAL ACK LOGOUT STATISTIC
+
+hh3cPortalStatAckLogout OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "It shows the number of logout requests from the portal server."
+    ::= { hh3cPortalStatistic 2 }
+
+-- PORTAL NOTIFY LOGOUT STATISTIC
+
+hh3cPortalStatNotifyLogout OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "It shows the number of logout requests from the access device."
+    ::= { hh3cPortalStatistic 3 }
+
+-- PORTAL CHALLENGE TIMEOUT STATISTIC
+
+hh3cPortalStatChallengeTimeout OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "It shows the number of challenge from the portal server without
+        response."
+    ::= { hh3cPortalStatistic 4 }
+
+-- PORTAL CHALLENGE BUSY STATISTIC
+
+hh3cPortalStatChallengeBusy OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "It shows the number of device-busy responses for challenges from
+        the portal server."
+    ::= { hh3cPortalStatistic 5 }
+
+-- PORTAL CHALLENGE FAIL STATISTIC
+
+hh3cPortalStatChallengeFail OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "It shows the number of challenges from the portal server with
+        failure response."
+    ::= { hh3cPortalStatistic 6 }
+
+-- PORTAL authenticate TIMEOUT STATISTIC
+
+hh3cPortalStatAuthTimeout OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "It shows the number of authentication requests from the portal
+        server without responses."
+    ::= { hh3cPortalStatistic 7 }
+
+-- PORTAL authenticate FAIL STATISTIC
+
+hh3cPortalStatAuthFail OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "It shows the number of authentication requests from the portal
+        server with failure responses."
+    ::= { hh3cPortalStatistic 8 }
+
+-- PORTAL PASSWORD ERROR STATISTIC
+
+hh3cPortalStatPwdError OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "It shows the number of password errors."
+    ::= { hh3cPortalStatistic 9 }
+
+-- PORTAL authenticate BUSY STATISTIC
+
+hh3cPortalStatAuthBusy OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "It shows the number of device-busy responses to authentication
+        requests from the portal server."
+    ::= { hh3cPortalStatistic 10 }
+
+-- PORTAL authenticate DISORDER STATISTIC
+
+hh3cPortalStatAuthDisordered OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "It shows the number of disordered authentication packets from
+        the portal server."
+    ::= { hh3cPortalStatistic 11 }
+
+-- PORTAL authenticate UNKNOWN ERROR STATISTIC
+
+hh3cPortalStatAuthUnknownError OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "It shows the number of unknown errors."
+    ::= { hh3cPortalStatistic 12 }
+
+END
+
+

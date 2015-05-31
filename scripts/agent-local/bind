@@ -1,0 +1,173 @@
+#!/bin/bash
+
+STATS_FILE=/var/cache/bind/named.stats
+
+# Remove old stats file
+rm -f $STATS_FILE
+
+# Generate new stats
+/usr/sbin/rndc stats
+
+# Delay until the stats file is written
+i=0
+while [ ! -f $STATS_FILE ]; do
+	# We don't wait forever
+	if [ $i -ge 10 ]; then
+		exit 1
+	fi
+	i=$[ $i + 1 ]
+	
+	# Wait a little
+	sleep 0.2
+done
+
+# Save view specific stuff
+declare -A VIEWS
+VIEWS[global]=""
+
+# Read the stats file and parse it
+MODE="unknown"
+while read LINE; do
+	if [[ "$LINE" =~ ^-- ]]; then
+		# Statistics, skip this line
+		continue
+	elif [[ "$LINE" =~ ^\+\+ ]]; then
+		# This is a section start, switch mode
+		if [ "$LINE" == "++ Incoming Requests ++" ]; then
+			MODE="req-in"
+		elif [ "$LINE" == "++ Incoming Queries ++" ]; then
+			MODE="query-in"
+		elif [ "$LINE" == "++ Outgoing Queries ++" ]; then
+			MODE="query-out"
+			VIEW="default"
+		elif [ "$LINE" == "++ Name Server Statistics ++" ]; then
+			MODE="ns-stats"
+		elif [ "$LINE" == "++ Zone Maintenance Statistics ++" ]; then
+			MODE="zone-maint"
+		elif [ "$LINE" == "++ Resolver Statistics ++" ]; then
+			MODE="resolver"
+			VIEW="default"
+		elif [ "$LINE" == "++ Cache DB RRsets ++" ]; then
+			MODE="cache"
+			VIEW="default"
+		elif [ "$LINE" == "++ Per Zone Query Statistics ++" ]; then
+			MODE="zone"
+			VIEW="default"
+			ZONE="unknown"
+		else
+			MODE="unknown"
+		fi
+		
+		continue
+	fi
+	
+	# Parse based on current mode
+	if [ "$MODE" == "req-in" ]; then
+		# Line format is: <count> <opcode>
+		read REQ_COUNT REQ_OPCODE <<< $( echo $LINE )
+		VIEWS[global]+="req-in,$REQ_OPCODE:$REQ_COUNT"$'\n'
+	elif [ "$MODE" == "query-in" ]; then
+		# Line format is: <count> <rrtype>
+		read QUERY_COUNT QUERY_RRTYPE <<< $( echo $LINE )
+		VIEWS[global]+="query-in,$QUERY_RRTYPE:$QUERY_COUNT"$'\n'
+	elif [ "$MODE" == "query-out" ]; then
+		# Is this a section?
+		if [[ "$LINE" =~ ^\[ ]]; then
+			# Is this a view start?
+			NEW_VIEW=$( echo "$LINE" | sed -n 's/^\[View: \(.*\)\]$/\1/p' )
+			if [ -n "$NEW_VIEW" ]; then
+				VIEW="$NEW_VIEW"
+			fi
+			
+			continue
+		fi
+		
+		# Ignore the _bind view
+		if [ "$VIEW" == "_bind" ]; then
+			continue
+		fi
+
+		# Line format is: <count> <rrtype>
+		read QUERY_COUNT QUERY_RRTYPE <<< $( echo $LINE )
+		VIEWS[$VIEW]+="query-out,$QUERY_RRTYPE:$QUERY_COUNT"$'\n'
+	elif [ "$MODE" == "ns-stats" ]; then
+		# Line format is: <count> <action>
+		read COUNT ACTION <<< $( echo $LINE )
+		VIEWS[global]+="ns-stats,$ACTION:$COUNT"$'\n'
+	elif [ "$MODE" == "zone-maint" ]; then
+		# Line format is: <count> <action>
+		read COUNT ACTION <<< $( echo $LINE )
+		VIEWS[global]+="zone-maint,$ACTION:$COUNT"$'\n'
+	elif [ "$MODE" == "resolver" ]; then
+		# Is this a section?
+		if [[ "$LINE" =~ ^\[ ]]; then
+			# Is this a view start?
+			NEW_VIEW=$( echo "$LINE" | sed -n 's/^\[View: \(.*\)\]$/\1/p' )
+			if [ -n "$NEW_VIEW" ]; then
+				VIEW="$NEW_VIEW"
+			fi
+
+			continue
+		fi
+		
+		# Ignore the _bind view
+		if [ "$VIEW" == "_bind" ]; then
+			continue
+		fi
+
+		# Line format is: <count> <action>
+		read COUNT ACTION <<< $( echo $LINE )
+		VIEWS[$VIEW]+="resolver,$ACTION:$COUNT"$'\n'
+	elif [ "$MODE" == "cache" ]; then
+		# Is this a section?
+		if [[ "$LINE" =~ ^\[ ]]; then
+			# Is this a view start?
+			NEW_VIEW=$( echo "$LINE" | sed -n 's/^\[View: \(.*\)\]$/\1/p' )
+			if [ -n "$NEW_VIEW" ]; then
+				VIEW="$NEW_VIEW"
+			fi
+
+			continue
+		fi
+		
+		# Ignore the _bind view
+		if [ "$VIEW" == "_bind" ]; then
+			continue
+		fi
+
+		# Line format is: <count> <action>
+		read COUNT ACTION <<< $( echo $LINE )
+		VIEWS[$VIEW]+="cache,$ACTION:$COUNT"$'\n'
+	elif [ "$MODE" == "zone" ]; then
+		# Is this a section?
+		if [[ "$LINE" =~ ^\[ ]]; then
+			# Does this line define a view?
+			NEW_VIEW=$( echo "$LINE" | sed -n 's/^.* (view: \(.*\))\]$/\1/p' )
+			if [ -n "$NEW_VIEW" ]; then
+				VIEW="$NEW_VIEW"
+			fi
+
+			# Is this a zone start?
+			NEW_ZONE=$( echo "$LINE" | sed -n 's/^\[\([^] ]*\).*/\1/p' )
+			if [ -n "$NEW_ZONE" ]; then
+				ZONE="$NEW_ZONE"
+			fi
+			
+			continue
+		fi
+		
+		# Ignore the _bind view
+		if [ "$VIEW" == "_bind" ]; then
+			continue
+		fi
+
+		# Line format is: <count> <action>
+		read COUNT ACTION <<< $( echo $LINE )
+		VIEWS[$VIEW]+="$ZONE,$ACTION:$COUNT"$'\n'
+	fi
+done < $STATS_FILE
+
+for VIEW in "${!VIEWS[@]}"; do
+	echo "<<<app-bind-$VIEW>>>"
+	echo -n "${VIEWS[$VIEW]}"
+done

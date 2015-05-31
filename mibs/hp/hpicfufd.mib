@@ -1,0 +1,313 @@
+HP-ICF-UFD-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    OBJECT-TYPE, MODULE-IDENTITY, Integer32, NOTIFICATION-TYPE
+        FROM SNMPv2-SMI
+    MODULE-COMPLIANCE, OBJECT-GROUP, NOTIFICATION-GROUP
+        FROM SNMPv2-CONF
+    TEXTUAL-CONVENTION, RowStatus
+        FROM SNMPv2-TC 
+    hpSwitch
+        FROM HP-ICF-OID;
+
+
+hpicfUfdMIB MODULE-IDENTITY
+    LAST-UPDATED "201105120000Z"   -- May 12, 2011
+    ORGANIZATION "HP Networking"
+    CONTACT-INFO "Hewlett Packard Company
+                  8000 Foothills Blvd.
+                  Roseville, CA 95747"
+    DESCRIPTION  "The MIB module describes the objects to configure
+                  Uplink Failure Detection feature"
+
+    REVISION     "201105120000Z"   -- May 12, 2011
+    DESCRIPTION  "Added hpicfUfdLinksToMonitorType and
+                  hpicfUfdLinksToTransitionType for LACP
+                  key support."
+
+    REVISION     "201002061539Z"   -- Feb 06, 2010
+    DESCRIPTION  "Initial Revision"
+
+    ::= { hpSwitch 74 }
+
+-- *********************************************************************
+-- hpicfUfdMIB - the main groups
+-- *********************************************************************
+
+   hpicfUfdNotifications       OBJECT IDENTIFIER
+                         ::= { hpicfUfdMIB 0 }
+
+   hpicfUfdConfigObjects       OBJECT IDENTIFIER
+                         ::= { hpicfUfdMIB 1 }
+
+   hpicfUfdConformance         OBJECT IDENTIFIER
+                         ::= { hpicfUfdMIB 3 }
+
+-- *********************************************************************
+-- UFD Textual conventions
+-- *********************************************************************
+
+    HpUfdTrackEntityType ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION "Used to indicate the type of entity being tracked."
+    SYNTAX      INTEGER {
+                    ufd(1)
+                }
+
+    HpUfdTrackLinksSubtype ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION "The type of links to monitor or links to disable."
+    SYNTAX      INTEGER {
+                      none(0),
+                      portMap(1),
+                      lacpKey(2)
+                }
+
+-- *********************************************************************
+-- UFD Scalars
+-- *********************************************************************
+hpicfUfdScalars OBJECT IDENTIFIER ::= { hpicfUfdConfigObjects 1 }
+
+    hpicfUfdAdminStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    enable(1),
+                    disable(2)
+                }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "Global administrative status of UFD.
+                 UFD is globally disabled by default."
+    DEFVAL      { disable }
+    ::= { hpicfUfdScalars 1 }
+
+hpicfUfdNotifyTrackId OBJECT-TYPE
+    SYNTAX      Integer32 (1..4096)
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION "The track ID corresponding to track data in the Trap."
+       ::= { hpicfUfdScalars 2}
+
+-- ********************************************************************
+-- UFD Configuration MIB Objects 
+-- ********************************************************************
+hpicfUfdTrackEntities OBJECT IDENTIFIER ::= { hpicfUfdConfigObjects 2 }
+
+    hpicfUfdTrackTable OBJECT-TYPE
+        SYNTAX      SEQUENCE OF HpicfUfdTrackEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION "A Table of UFD track entities. This table is meant
+                     for configuration."
+        ::= { hpicfUfdTrackEntities 1 }
+
+    hpicfUfdTrackEntry OBJECT-TYPE
+        SYNTAX      HpicfUfdTrackEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION "An entry in the table containing information about the
+                     entity being tracked."
+        INDEX       { hpicfUfdTrackId }
+        ::= { hpicfUfdTrackTable 1 }
+    
+
+    HpicfUfdTrackEntry ::= SEQUENCE
+        {
+            hpicfUfdTrackId                 Integer32,
+            hpicfUfdTrackEntityType         HpUfdTrackEntityType,
+            hpicfUfdLinksToMonitor          OCTET STRING,
+            hpicfUfdLinksToTransition       OCTET STRING,
+            hpicfUfdLinksToMonitorState     INTEGER,
+            hpicfUfdLinksToTransitionState  INTEGER,
+            hpicfUfdTrackEntityState        INTEGER,
+            hpicfUfdTrackEntityRowStatus    RowStatus,
+            hpicfUfdLinksToMonitorType      HpUfdTrackLinksSubtype,
+            hpicfUfdLinksToTransitionType   HpUfdTrackLinksSubtype
+        }  
+
+    hpicfUfdTrackId OBJECT-TYPE
+       SYNTAX      Integer32 (1..4096)
+       MAX-ACCESS  not-accessible
+       STATUS      current
+       DESCRIPTION "A value that uniquely identifies a row in the track entity
+                   table"
+       ::= {hpicfUfdTrackEntry 1}
+
+    hpicfUfdTrackEntityType OBJECT-TYPE
+       SYNTAX      HpUfdTrackEntityType
+       MAX-ACCESS  read-write
+       STATUS      current
+       DESCRIPTION "The type of the entity being tracked by UFD."
+       ::= {hpicfUfdTrackEntry 2}
+       
+
+    hpicfUfdLinksToMonitor OBJECT-TYPE
+       SYNTAX      OCTET STRING (SIZE(1..1024))
+       MAX-ACCESS  read-write
+       STATUS      current
+       DESCRIPTION "This is a list of ports configured as links-to-monitor
+                    for this track entity."
+       ::= { hpicfUfdTrackEntry 3 }
+
+   hpicfUfdLinksToTransition OBJECT-TYPE
+       SYNTAX      OCTET STRING (SIZE(1..1024))
+       MAX-ACCESS  read-write
+       STATUS      current
+       DESCRIPTION "This is a list of ports configured as links-to-transition
+                    for this track entity. This object will represent the ports
+                    in links-to-disable list if the entity type is ufd."
+       ::= { hpicfUfdTrackEntry 4 }
+
+   hpicfUfdLinksToMonitorState OBJECT-TYPE
+       SYNTAX      INTEGER
+                   {
+                      up(1),
+                      down(2)
+                   }
+       MAX-ACCESS  read-only
+       STATUS      current
+       DESCRIPTION "This object specifies the current state of the
+                    links-to-monitor.
+                    up : At least one port/trunk configured as part of
+                    links-to-monitor is linked up.
+                    down: All ports/trunks configured as part of
+                    links-to-monitor have lost link."
+       ::= { hpicfUfdTrackEntry 5 }
+
+   hpicfUfdLinksToTransitionState OBJECT-TYPE
+       SYNTAX      INTEGER
+                   {
+                      up(1),
+                      autoDisabled(2)
+                   }
+       MAX-ACCESS  read-only
+       STATUS      current
+       DESCRIPTION "This object specifies the current state of the
+                    links-to-transition.
+                    up: UFD has not taken any action on the ports/trunks.
+                    autoDisabled : UFD has auto-disabled the ports/trunks."
+       ::= { hpicfUfdTrackEntry 6 }
+   
+
+   hpicfUfdTrackEntityState OBJECT-TYPE
+      SYNTAX      INTEGER
+                  {
+                     none(0),
+                     ok(1),
+                     failed(2)
+                  }
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION "State of the tracked entity."
+      ::= { hpicfUfdTrackEntry 7}
+
+   hpicfUfdTrackEntityRowStatus OBJECT-TYPE
+      SYNTAX      RowStatus
+      MAX-ACCESS  read-create
+      STATUS      current
+      DESCRIPTION "Row status of the tracked entity."
+      ::= { hpicfUfdTrackEntry 8}
+
+   hpicfUfdLinksToMonitorType OBJECT-TYPE
+       SYNTAX      HpUfdTrackLinksSubtype
+       MAX-ACCESS  read-write
+       STATUS      current
+       DESCRIPTION "This object specifies the type of hpicfUfdLinksToMonitor
+                    object."
+       ::= { hpicfUfdTrackEntry 9 }
+
+   hpicfUfdLinksToTransitionType OBJECT-TYPE
+       SYNTAX      HpUfdTrackLinksSubtype
+       MAX-ACCESS  read-write
+       STATUS      current
+       DESCRIPTION "This object specifies the type of hpicfUfdLinksToTransition
+                    object."
+       ::= { hpicfUfdTrackEntry 10 }
+
+-- ****************************************************************************
+-- UFD Notifications
+-- ****************************************************************************
+
+hpicfUfdNotificationPrefix OBJECT IDENTIFIER ::= { hpicfUfdNotifications 0 }
+
+hpicfUfdLtDAutoDisabled NOTIFICATION-TYPE
+    OBJECTS     { hpicfUfdNotifyTrackId,  hpicfUfdLinksToTransition}
+    STATUS      current
+    DESCRIPTION "This notification is generated when ports in LtD for this
+                 track entity are auto-disabled as a result of LtMs loosing link 
+                 to partner."
+    ::= { hpicfUfdNotificationPrefix 3 }
+
+hpicfUfdLtDAutoEnabled NOTIFICATION-TYPE
+    OBJECTS     {hpicfUfdNotifyTrackId,  hpicfUfdLinksToTransition}
+    STATUS      current
+    DESCRIPTION "This notification is generated when ports in LtD for this
+                 track entity are auto-enabled as a result of LtMs regaining
+                 link to thries partners."
+    ::= { hpicfUfdNotificationPrefix 4 }
+
+--
+-- ****************************************************************************
+--
+--                   UFD MIB CONFORMANCE
+--
+-- ****************************************************************************
+--
+
+hpicfUfdCompliances    OBJECT IDENTIFIER ::= { hpicfUfdConformance 1 }
+hpicfUfdGroups         OBJECT IDENTIFIER ::= { hpicfUfdConformance 2 }
+
+-- compliance statements
+
+hpicfUfdCompliance MODULE-COMPLIANCE
+    STATUS current
+    DESCRIPTION
+           "The compliance statement for SNMP entities which implement
+            the UFD MIB"
+    MODULE -- this module
+    MANDATORY-GROUPS {
+                         hpicfUfdBaseGroup,
+                         hpicfUfdConfigGroup,
+                         hpicfUfdNotificationGroup
+                      }
+    ::= { hpicfUfdCompliances 1}
+    
+-- Mib groupings
+
+   hpicfUfdBaseGroup OBJECT-GROUP
+   OBJECTS {
+               hpicfUfdAdminStatus,
+               hpicfUfdNotifyTrackId
+           }
+   STATUS  current
+   DESCRIPTION "The collection of objects for UFD base group. This group is
+                mandatory."
+   ::= {hpicfUfdGroups 1}
+
+   hpicfUfdConfigGroup OBJECT-GROUP
+   OBJECTS {
+               hpicfUfdTrackEntityType,
+               hpicfUfdLinksToMonitor,
+               hpicfUfdLinksToTransition,
+               hpicfUfdLinksToMonitorState,
+               hpicfUfdLinksToTransitionState,
+               hpicfUfdTrackEntityState,
+               hpicfUfdTrackEntityRowStatus,
+               hpicfUfdLinksToMonitorType,
+               hpicfUfdLinksToTransitionType
+           }
+   STATUS  current
+   DESCRIPTION "The collection of objects for UFD track entity. This group is
+                mandatory."
+   ::= {hpicfUfdGroups 2}
+
+   hpicfUfdNotificationGroup NOTIFICATION-GROUP
+   NOTIFICATIONS
+             {
+                hpicfUfdLtDAutoDisabled,
+                hpicfUfdLtDAutoEnabled
+             }
+   STATUS current
+   DESCRIPTION "The collection of objects for UFD notifications."
+   ::= {hpicfUfdGroups 3}
+
+END

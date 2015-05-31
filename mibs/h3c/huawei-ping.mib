@@ -1,0 +1,944 @@
+-- =================================================================
+-- Copyright (C) 2003 by HUAWEI TECHNOLOGIES. All rights reserved.
+--
+-- Description: Huawei PING extend MIB File(extended from DISMAN-PING-MIB RFC2925) 
+-- Reference:   
+-- Version: V1.3
+-- History:
+-- V1.0  Lv zhenfeng, 2003.08, Initial Version
+-- V1.1 2004-10-12 updated by gaolong
+--      Import OBJECT-IDENTITY, Integer32, Counter32, Gauge32.
+-- V1.2 Add new column objects 
+--      hwpingResultsMaxDelaySD
+--      hwpingResultsMaxDelayDS 
+--      hwpingResultsLostPacketRatio
+--      under hwpingResultsTable table by zhaoyujin, 20041101
+--	Add new column objects 
+--      hwPingJitterStatsAvePositivesSD  
+--   	hwPingJitterStatsAveNegativesSD 
+--      hwPingJitterStatsAvePositivesDS    
+--   	hwPingJitterStatsAveNegativesDS    
+--      hwPingJitterStatsPktLossUnknown  
+--	under hwPingJitterStatsTable table by zhaoyujin, 20041101
+--      revise words errors
+-- V1.3 2004-12-25 updated by zhaoyujin and weixinzhe
+--      Objects description updated
+-- =================================================================
+HUAWEI-DISMAN-PING-MIB DEFINITIONS ::= BEGIN
+
+        IMPORTS
+            MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE, Unsigned32, mib-2, 
+            OBJECT-IDENTITY, Integer32, Counter32, Gauge32
+                FROM SNMPv2-SMI
+            TEXTUAL-CONVENTION, DateAndTime,DisplayString,TimeStamp,RowStatus
+                FROM SNMPv2-TC
+            huaweiMgmt,huaweiDatacomm
+		FROM HUAWEI-3COM-OID-MIB
+            pingCtlEntry,pingCtlOwnerIndex,pingCtlTestName
+            	FROM DISMAN-PING-MIB;	
+
+    hwDismanPing MODULE-IDENTITY
+        LAST-UPDATED "200308130000Z"
+        ORGANIZATION "Huawei Technologies Co., Ltd."
+            CONTACT-INFO 
+                " R&D BeiJing, Huawei Technologies Co., Ltd.
+                Huawei Bld.,NO.3 Xinxi Rd., 
+                Shang-Di Information Industry Base,
+                    Hai-Dian District Beijing P.R. China
+                Zip:100085 
+                Http://www.huawei.com                                       
+                E-mail:support@huawei.com "
+            DESCRIPTION 
+                "The private mib file includes the test information of the device.
+                It is supplementary for rfc2925.txt"
+        ::= { huaweiDatacomm 28 }
+                       
+    hwPingObjects OBJECT IDENTIFIER ::= { hwDismanPing 1 }
+
+ -- Textual Conventions
+
+InetAddress ::= TEXTUAL-CONVENTION
+     STATUS       current
+     DESCRIPTION
+         "Denotes a generic Internet address.
+
+          An InetAddress value is always interpreted within the
+          context of an InetAddressType value. The InetAddressType
+          object which defines the context must be registered
+          immediately before the object which uses the InetAddress
+          textual convention. In other words, the object identifiers
+          for the InetAddressType object and the InetAddress object
+          MUST have the same length and the last sub-identifier of
+          the InetAddressType object MUST be 1 less than the last
+          sub-identifier of the InetAddress object.
+
+          When this textual convention is used as the syntax of an
+          index object, there may be issues with the limit of 128
+          sub-identifiers specified in SMIv2, STD 58. In this case,
+          the OBJECT-TYPE declaration MUST include a 'SIZE' clause
+          to limit the number of potential instance sub-identifiers."
+     SYNTAX      OCTET STRING (SIZE (0..255))
+
+
+ -- The registration node (point) for huawei ping implementation types
+
+ hwPingImplementationTypeDomains  OBJECT IDENTIFIER ::= { hwDismanPing 2 }
+     
+ hwpingUdpEcho OBJECT-IDENTITY
+    STATUS      current
+    DESCRIPTION
+        "Indicates that an implementation is using the UDP based echo server. 
+        Notes: The hwpingCtlTargetPort and hwpingCtlSourcePort need to be set."
+    ::= { hwPingImplementationTypeDomains 1 }
+
+ hwpingTcpconnect OBJECT-IDENTITY
+    STATUS      current
+    DESCRIPTION
+        "Indicates that an implementation is attempting to
+        connect to a TCP port in order to calculate a round
+        trip time.
+        Notes: The hwpingCtlTargetPort and hwpingCtlSourcePort need to be set."
+    ::= { hwPingImplementationTypeDomains 2 }
+
+ hwpingjitter OBJECT-IDENTITY
+    STATUS      current
+    DESCRIPTION
+        "Indicates that an implementation is using udp for packet transfers. 
+        'jitter' will cause the PING application to perform delay variance analysis."
+    ::= { hwPingImplementationTypeDomains 3 }
+
+ hwpingHttp OBJECT-IDENTITY
+    STATUS      current
+    DESCRIPTION
+        "Indicates that an implementation is using udp for name resolution, 
+	 tcp connect and tcp data transfer mechanisms for HTTP data download 
+	 from a particular HTTP Server.
+	 it cause the PING application to perform a download of the object specified in the URL"
+    ::= { hwPingImplementationTypeDomains 4 }
+
+
+ hwpingdlsw OBJECT-IDENTITY
+    STATUS      current
+    DESCRIPTION
+        "Indicates that an implementation is using tcp for sending keepalives. 
+ 	 'dlsw' will cause the PING application to perform a keepalive operation 
+ 	 to measure the response time of a DLSw peer."
+    ::= { hwPingImplementationTypeDomains 5 }
+
+ hwpingdhcp OBJECT-IDENTITY
+    STATUS      current
+    DESCRIPTION
+        "Indicates that an implementation is using udp for sending dhcp requests. 
+     	'dhcp' will cause the PING application
+       to perform an IP Address lease request/teardown operation."
+    ::= { hwPingImplementationTypeDomains 6 }
+
+ hwpingftp OBJECT-IDENTITY
+    STATUS      current
+    DESCRIPTION
+        "Indicates that an implementation is using tcp for connect & data transfer. "
+    ::= { hwPingImplementationTypeDomains 7 }
+
+
+-- MIB contains three groups      
+
+hwPingMIBVersion OBJECT-TYPE
+  SYNTAX      DisplayString
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+       "Version string of this MIB.
+       The format will be: 'Version.Release.Patch: Description'
+       An instance likes: '1.0.0: Initial Ping MIB'
+       "
+  ::= { hwPingObjects 1 }    
+                                                                           
+ hwPingCtlTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HWPingCtlEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Defines the ping Control Extend Table for providing, via SNMP,
+        the capability of performing ping operations at
+        a remote host.  "
+   ::= { hwPingObjects 2 }
+
+ hwPingCtlEntry OBJECT-TYPE
+    SYNTAX      HWPingCtlEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Defines an entry in the hwpingCtlTable. The operation of this 
+        table is same as that of pingResultsTable."
+    AUGMENTS    { pingCtlEntry }
+    ::= { hwPingCtlTable 1 }    
+    
+ HWPingCtlEntry ::=
+    SEQUENCE {
+  	hwpingCtlTargetPort               Integer32,
+  	hwpingCtlSourcePort               Integer32,
+  	hwpingCtlTTL                      Integer32, 	
+  	hwpingCtlJitterAdminInterval      Integer32,
+  	hwpingCtlJitterAdminNumPackets    Integer32,
+  	hwpingCtlHttpOperationType        INTEGER,
+  	hwpingCtlHttpOperationString      DisplayString,
+  	hwpingCtlFtpOperationType         INTEGER,
+  	hwpingCtlFtpUsername              DisplayString,
+  	hwpingCtlFtpPassword              DisplayString,
+  	hwpingCtlFtpOperationString       DisplayString,
+  	hwpingCtlVPNInstance              DisplayString
+      }
+        
+hwpingCtlTargetPort          OBJECT-TYPE
+  SYNTAX      Integer32 (0..65536)
+  MAX-ACCESS  read-create
+  STATUS      current
+  DESCRIPTION
+       "The destination port that may be used by udpEcho, 
+       tcpConnect and jitter probes."
+  DEFVAL      { 0 }
+  ::= { hwPingCtlEntry 1 }
+  
+hwpingCtlSourcePort          OBJECT-TYPE     
+  SYNTAX      Integer32 (0..65536)
+  MAX-ACCESS  read-create
+  STATUS      current
+  DESCRIPTION
+       "The source port that may be used by all tests except 
+       for dns and dlsw.
+       If no source port is specified, system will create
+       a random port as source port."
+  DEFVAL      { 0 }
+  ::= { hwPingCtlEntry 2 }        
+        
+hwpingCtlTTL OBJECT-TYPE
+  SYNTAX      Integer32
+  MAX-ACCESS  read-create
+  STATUS      current
+  DESCRIPTION
+       "Specifies the value to store in the TTL Field in the IP packet used to
+        encapsulate the ping probe."
+  DEFVAL      { 20 }
+  ::= { hwPingCtlEntry 3 }
+
+hwpingCtlJitterAdminInterval OBJECT-TYPE
+  SYNTAX      Integer32 (0..60000)
+  UNITS       "milliseconds"
+  MAX-ACCESS  read-create
+  STATUS      current
+  DESCRIPTION                                    
+       "Time value in milliseconds that is an interval between two continuous
+       probes in jitter test.
+       
+       This object is only used by Jitter test. "
+  DEFVAL      { 20 }
+  ::= { hwPingCtlEntry 4 }
+
+hwpingCtlJitterAdminNumPackets OBJECT-TYPE
+  SYNTAX      Integer32
+  MAX-ACCESS  read-create
+  STATUS      current
+  DESCRIPTION
+       "Packet number that specifys how many packets will be sent in
+       one jitter test.                         
+       
+       This object is only used by Jitter test. "
+  DEFVAL      { 10 }
+  ::= { hwPingCtlEntry 5 }  
+
+ hwpingCtlHttpOperationType OBJECT-TYPE
+  SYNTAX      INTEGER{
+              get(1),
+              post(2)
+              }
+  MAX-ACCESS  read-create
+  STATUS      current
+  DESCRIPTION
+       "Http operation type: get or post."
+  DEFVAL      { get }
+  ::= { hwPingCtlEntry 6 }  
+  
+ hwpingCtlHttpOperationString OBJECT-TYPE
+  SYNTAX      DisplayString(SIZE(0..255))
+  MAX-ACCESS  read-create
+  STATUS      current
+  DESCRIPTION
+       "Http operation string. For example, if you choose get operation type, 
+       the string will be url, home page and http version."
+  DEFVAL      { "" }
+  ::= { hwPingCtlEntry 7 }
+
+hwpingCtlFtpOperationType OBJECT-TYPE
+  SYNTAX      INTEGER{
+              get(1),
+              put(2)
+              }
+  MAX-ACCESS  read-create
+  STATUS      current
+  DESCRIPTION
+       "Ftp operation type."
+  DEFVAL      { get }
+  ::= { hwPingCtlEntry 8 }  
+  
+hwpingCtlFtpUsername OBJECT-TYPE
+  SYNTAX      DisplayString(SIZE(0..32))
+  MAX-ACCESS  read-create
+  STATUS      current
+  DESCRIPTION
+       "Ftp username"
+  DEFVAL      { "" }
+  ::= { hwPingCtlEntry 9 }
+
+hwpingCtlFtpPassword OBJECT-TYPE
+  SYNTAX      DisplayString(SIZE(0..32))
+  MAX-ACCESS  read-create
+  STATUS      current
+  DESCRIPTION
+       "Ftp password."
+  DEFVAL      { "" }
+  ::= { hwPingCtlEntry 10 }  
+
+hwpingCtlFtpOperationString OBJECT-TYPE
+  SYNTAX      DisplayString(SIZE(0..255))
+  MAX-ACCESS  read-create
+  STATUS      current
+  DESCRIPTION
+       "Ftp operation string. If the ftp operation type is get, 
+       the string will be file name that you will get from ftp server."
+  DEFVAL      { "" }
+  ::= { hwPingCtlEntry 11 }
+
+hwpingCtlVPNInstance OBJECT-TYPE
+  SYNTAX      DisplayString(SIZE(0..255))
+  MAX-ACCESS  read-create
+  STATUS      current
+  DESCRIPTION
+       "VPN name by which system finds route in the specified VPN 
+       to send hwping probe packets."       
+  DEFVAL      { "" }
+  ::= { hwPingCtlEntry 12 }
+  
+
+-- HUAWEI Ping Results Table
+
+ hwpingResultsTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HWPingResultsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Defines the Ping Results Extend Table for providing
+        the capability of performing ping operations at
+        a remote host.  The results of these operations are
+        stored in the hwpingResultsTable . The operation of this 
+        table is same as that of pingResultsTable."
+   ::= { hwPingObjects 3 }
+
+ hwpingResultsEntry OBJECT-TYPE
+    SYNTAX      HWPingResultsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The operation of this table is same as that of pingResultsTable."
+    INDEX {
+             pingCtlOwnerIndex,
+             pingCtlTestName
+          }
+    ::= { hwpingResultsTable 1 }
+
+ HWPingResultsEntry ::=
+    SEQUENCE {
+  		hwpingResultsRttNumDisconnects   Unsigned32,
+  		hwpingResultsRttTimeouts         Unsigned32,
+  		hwpingResultsRttBusies           Unsigned32,
+  		hwpingResultsRttNoConnections    Unsigned32,
+  		hwpingResultsRttDrops            Unsigned32,
+  		hwpingResultsRttSequenceErrors   Unsigned32,
+  		hwpingResultsRttStatsErrors	 Unsigned32,
+  		hwpingResultsMaxDelaySD          Unsigned32,
+  		hwpingResultsMaxDelayDS          Unsigned32,
+  		hwpingResultsLostPacketRatio     Unsigned32
+	}
+
+hwpingResultsRttNumDisconnects OBJECT-TYPE
+  SYNTAX      Unsigned32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION  
+       "The number of times that a HWPING probe failed. Because 
+        the destination became disconnected. 
+       
+       For connectionless protocol pingCtlTypes, this number should be 
+       zero. " 
+  ::= { hwpingResultsEntry 1 }
+
+
+hwpingResultsRttTimeouts OBJECT-TYPE
+  SYNTAX      Unsigned32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION                                  
+      "The number of times that a HWPING probe failed because the 
+       probe timed out. "
+  ::= { hwpingResultsEntry 2 }
+
+
+hwpingResultsRttBusies OBJECT-TYPE
+  SYNTAX      Unsigned32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+       "The number of times that a HWPING probe failed because all 
+       hwping tasks have been running. 
+       
+       If a new probe fails to start, the value of this object 
+       is incremented. The next test will not start until next 
+       Frequency. " 
+  ::= { hwpingResultsEntry 3 }
+
+
+hwpingResultsRttNoConnections OBJECT-TYPE
+  SYNTAX      Unsigned32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+       "The number of times that a HWPING probe failed because the 
+       probe destination is unavailable. 
+       
+       For connectionless protocol pingCtlTypes, this number should be 
+       zero. " 
+  ::= { hwpingResultsEntry 4 }
+
+
+hwpingResultsRttDrops OBJECT-TYPE
+  SYNTAX      Unsigned32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+       "The number of times that a PING operation failed to initiated 
+       for unavailibility of necessary internal resources."
+  ::= { hwpingResultsEntry 5 }
+
+
+hwpingResultsRttSequenceErrors OBJECT-TYPE
+  SYNTAX      Unsigned32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+      "The number of times that a HWPING probe failed because the 
+       probe receives unavailable response. 
+
+       For example: received a duplicate packet or received a 
+       corrupted packet, but it has not been detected. "
+  ::= { hwpingResultsEntry 6 }
+
+hwpingResultsRttStatsErrors OBJECT-TYPE
+  SYNTAX      Unsigned32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+       "The number of some other errors"
+  ::= { hwpingResultsEntry 7 }
+
+hwpingResultsMaxDelaySD OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "milliseconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        " The maximal delay from source device to destination device. 
+        Currently this value is only used for JITTER test, and this 
+        value must be 0 in other type test. In JITTER test, if 
+        destination system time is not valid, the SD delay may be set 0."
+    ::= { hwpingResultsEntry 8 }
+
+hwpingResultsMaxDelayDS OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "milliseconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        " The maximal delay from destination device to source device. 
+        Currently this value is only used for JITTER test, and this 
+        value is 0 in other type test. In JITTER test, if destination
+        system time is not valid, the DS delay may be set 0."
+    ::= { hwpingResultsEntry 9 }
+    
+hwpingResultsLostPacketRatio OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "milliseconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of this object reflects the drop rate of HWPing test.
+         For example, this value is 30 that means source device only 
+         had received 70% packets of total sent packets."
+    ::= { hwpingResultsEntry 10 }
+
+-- =================================================================
+--    HUAWEI Jitter Statistics Table
+-- =================================================================
+    
+
+hwPingJitterStatsTable OBJECT-TYPE
+  SYNTAX SEQUENCE OF HWPingJitterStatsEntry
+  MAX-ACCESS  not-accessible
+  STATUS      current
+  DESCRIPTION
+       "Statistics table for latest Jitter activity."
+  ::= { hwPingObjects 4 }
+
+hwPingJitterStatsEntry OBJECT-TYPE
+  SYNTAX      HWPingJitterStatsEntry
+  MAX-ACCESS  not-accessible
+  STATUS      current
+  DESCRIPTION
+       "An entry contains the statistics for the latest Jitter activity. 
+        This entry is created only if the pingCtlType is hwpingjitter. "
+       
+  INDEX { 
+          pingCtlOwnerIndex,
+          pingCtlTestName	  
+        }
+  ::= { hwPingJitterStatsTable 1 }
+
+HWPingJitterStatsEntry  ::= SEQUENCE
+{
+    hwPingJitterStatsNumOfRTT                Counter32,
+    hwPingJitterStatsMinOfPositivesSD        Gauge32,
+    hwPingJitterStatsMaxOfPositivesSD        Gauge32,
+    hwPingJitterStatsNumOfPositivesSD        Gauge32,
+    hwPingJitterStatsSumOfPositivesSD        Gauge32,
+    hwPingJitterStatsSum2PositivesSD         Gauge32,
+    hwPingJitterStatsMinOfNegativesSD        Gauge32,
+    hwPingJitterStatsMaxOfNegativesSD        Gauge32,
+    hwPingJitterStatsNumOfNegativesSD        Gauge32,
+    hwPingJitterStatsSumOfNegativesSD        Gauge32,
+    hwPingJitterStatsSum2NegativesSD         Gauge32,
+    hwPingJitterStatsMinOfPositivesDS        Gauge32,
+    hwPingJitterStatsMaxOfPositivesDS        Gauge32,
+    hwPingJitterStatsNumOfPositivesDS        Gauge32,
+    hwPingJitterStatsSumOfPositivesDS        Gauge32,
+    hwPingJitterStatsSum2PositivesDS         Gauge32,
+    hwPingJitterStatsMinOfNegativesDS        Gauge32,
+    hwPingJitterStatsMaxOfNegativesDS        Gauge32,
+    hwPingJitterStatsNumOfNegativesDS        Gauge32,
+    hwPingJitterStatsSumOfNegativesDS        Gauge32,
+    hwPingJitterStatsSum2NegativesDS         Gauge32,
+    hwPingJitterStatsPacketLossSD            Gauge32,
+    hwPingJitterStatsPacketLossDS            Gauge32,
+    hwPingJitterStatsAvePositivesSD          Gauge32,
+    hwPingJitterStatsAveNegativesSD          Gauge32,
+    hwPingJitterStatsAvePositivesDS          Gauge32,
+    hwPingJitterStatsAveNegativesDS          Gauge32,
+    hwPingJitterStatsPktLossUnknown          Gauge32
+}
+
+hwPingJitterStatsNumOfRTT OBJECT-TYPE
+  SYNTAX      Counter32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+       "The number of recieved destination device responses with which
+        Jitter test can reach round-trip time."
+  ::= { hwPingJitterStatsEntry 1 }
+
+
+hwPingJitterStatsMinOfPositivesSD OBJECT-TYPE
+  SYNTAX      Gauge32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+       "The value of time that records the minimal positive jitter value from 
+       source to destination in the jitter test."
+  ::= { hwPingJitterStatsEntry 2 }
+
+hwPingJitterStatsMaxOfPositivesSD OBJECT-TYPE
+  SYNTAX      Gauge32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION    
+       "The value of time that records the maximal positive jitter value from 
+       source to destination in the jitter test."
+  ::= { hwPingJitterStatsEntry 3 }
+
+hwPingJitterStatsNumOfPositivesSD OBJECT-TYPE
+  SYNTAX      Gauge32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+       "The number that records positive jitter times from source to 
+        destination in the jitter test.
+       The total number of the value of all positive jitters in packets
+       sent from source to destination."
+  ::= { hwPingJitterStatsEntry 4 }
+
+hwPingJitterStatsSumOfPositivesSD OBJECT-TYPE
+  SYNTAX      Gauge32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION  
+       "The value of time that records the sum of positive jitter values from 
+       source to destination in the jitter test."
+  ::= { hwPingJitterStatsEntry 5 }
+
+hwPingJitterStatsSum2PositivesSD OBJECT-TYPE
+  SYNTAX      Gauge32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION    
+       "The value of time that records the sum of square of positive jitter values from 
+       source to destination in the jitter test." 
+  ::= { hwPingJitterStatsEntry 6 }
+
+hwPingJitterStatsMinOfNegativesSD OBJECT-TYPE
+  SYNTAX      Gauge32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION  
+        "The value of time that records the minimal absolute values of negative jitter value from 
+       source to destination in the jitter test."
+  ::= { hwPingJitterStatsEntry 7 }
+
+hwPingJitterStatsMaxOfNegativesSD OBJECT-TYPE
+  SYNTAX      Gauge32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+        "The value of time that records the maximal absolute values of negative jitter value from 
+       source to destination in the jitter test."
+  ::= { hwPingJitterStatsEntry 8 }
+
+hwPingJitterStatsNumOfNegativesSD OBJECT-TYPE
+  SYNTAX      Gauge32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION       
+        "The number that records negative jitter times from source to 
+        destination in the jitter test.               
+        The total number of all negative jitter values in packets
+       sent from source to destination."
+  ::= { hwPingJitterStatsEntry 9 }
+
+hwPingJitterStatsSumOfNegativesSD OBJECT-TYPE
+  SYNTAX      Gauge32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION    
+        "The value of time that records the sum of negative jitter values from 
+       source to destination in the jitter test.
+         The total number of the value of all negative jitters in packets
+       sent from source to destination."
+  ::= { hwPingJitterStatsEntry 10 }
+
+hwPingJitterStatsSum2NegativesSD OBJECT-TYPE
+  SYNTAX      Gauge32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+       "The value of time that records the sum of square of negative jitter values from 
+       source to destination in the jitter test." 
+  ::= { hwPingJitterStatsEntry 11 }
+
+hwPingJitterStatsMinOfPositivesDS OBJECT-TYPE
+  SYNTAX      Gauge32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+       "The value of time that records the minimal positive jitter value from 
+       destination to source in the jitter test."
+  ::= { hwPingJitterStatsEntry 12 }
+
+hwPingJitterStatsMaxOfPositivesDS OBJECT-TYPE
+  SYNTAX      Gauge32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+      "The value of time that records the maximal positive jitter value from 
+       destination to source in the jitter test."
+  ::= { hwPingJitterStatsEntry 13 }
+
+hwPingJitterStatsNumOfPositivesDS OBJECT-TYPE
+  SYNTAX      Gauge32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+        "The number that records positive jitter times from destination to 
+        source in the jitter test."
+  ::= { hwPingJitterStatsEntry 14 }
+
+hwPingJitterStatsSumOfPositivesDS OBJECT-TYPE
+  SYNTAX      Gauge32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+       "The value of time that records the sum of positive jitter values from 
+       destination to source in the jitter test."
+  ::= { hwPingJitterStatsEntry 15 }
+
+hwPingJitterStatsSum2PositivesDS OBJECT-TYPE
+  SYNTAX      Gauge32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+      "The value of time that records the sum of square of positive jitter values from 
+       destination to source in the jitter test." 
+  ::= { hwPingJitterStatsEntry 16 }
+
+hwPingJitterStatsMinOfNegativesDS OBJECT-TYPE
+  SYNTAX      Gauge32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+       "The value of time that records the minimal absolute values of negative jitter value from 
+       destination to source in the jitter test."
+  ::= { hwPingJitterStatsEntry 17 }
+
+hwPingJitterStatsMaxOfNegativesDS OBJECT-TYPE
+  SYNTAX      Gauge32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+       "The value of time that records the maximal absolute values of negative jitter value from 
+       destination to source in the jitter test."
+  ::= { hwPingJitterStatsEntry 18 }
+
+hwPingJitterStatsNumOfNegativesDS OBJECT-TYPE
+  SYNTAX      Gauge32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+       "The number that records negative jitter times from destination to source in the jitter test."
+  ::= { hwPingJitterStatsEntry 19 }
+
+hwPingJitterStatsSumOfNegativesDS OBJECT-TYPE
+  SYNTAX      Gauge32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+       "The value of time that records the sum of negative jitter values from 
+       destination to source in the jitter test."
+  ::= { hwPingJitterStatsEntry 20 }
+
+hwPingJitterStatsSum2NegativesDS OBJECT-TYPE
+  SYNTAX      Gauge32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+       "The value of time that records the sum of square of negative jitter values from 
+       destination to source in the jitter test."
+  ::= { hwPingJitterStatsEntry 21 }
+
+hwPingJitterStatsPacketLossSD OBJECT-TYPE
+  SYNTAX      Gauge32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+       "The lost packets number sent from source to destination."
+  ::= { hwPingJitterStatsEntry 22 }
+
+hwPingJitterStatsPacketLossDS OBJECT-TYPE
+  SYNTAX      Gauge32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+       "The lost packets number sent from destination to source."
+  ::= { hwPingJitterStatsEntry 23 }
+
+hwPingJitterStatsAvePositivesSD OBJECT-TYPE
+  SYNTAX      Gauge32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+       "The value of time that records the average positive jitter value 
+       from source to destination."
+  ::= { hwPingJitterStatsEntry 24 }
+
+hwPingJitterStatsAveNegativesSD OBJECT-TYPE
+  SYNTAX      Gauge32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+       "The value of time that records the average negative jitter value 
+       from source to destination."
+  ::= { hwPingJitterStatsEntry 25 }
+  
+hwPingJitterStatsAvePositivesDS OBJECT-TYPE
+  SYNTAX      Gauge32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+       "The value of time that records the average positive jitter value 
+       from destination to source."
+  ::= { hwPingJitterStatsEntry 26 }
+  
+hwPingJitterStatsAveNegativesDS OBJECT-TYPE
+  SYNTAX      Gauge32
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+       "The value of time that records the average negative jitter value 
+       from destination to source."
+  ::= { hwPingJitterStatsEntry 27 }
+
+hwPingJitterStatsPktLossUnknown OBJECT-TYPE
+    SYNTAX      Gauge32
+    UNITS       "milliseconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+         " The number of packets which is lost with unknown reason."
+    ::= { hwPingJitterStatsEntry 28 }
+  
+
+hwPingAgentEnable OBJECT-TYPE
+  SYNTAX      INTEGER{
+              enable(1),
+              disable(2) 
+              }
+  MAX-ACCESS  read-write
+  STATUS      current
+  DESCRIPTION
+       "Enable Huawei PING agent function"
+  DEFVAL { disable }     
+  ::= { hwPingObjects 5 }   
+      
+-- =================================================================
+--    HUAWEI tcp server configuration information Statistics Table
+-- =================================================================
+    
+
+hwPingTcpServerTable OBJECT-TYPE
+  SYNTAX SEQUENCE OF HWPingTcpServerEntry
+  MAX-ACCESS  not-accessible
+  STATUS      current
+  DESCRIPTION
+       "A table which contains the status of hwping tcp server 
+       configuration information."
+  ::= { hwPingObjects 6 }
+
+hwPingTcpServerEntry OBJECT-TYPE
+  SYNTAX      HWPingTcpServerEntry
+  MAX-ACCESS  not-accessible
+  STATUS      current
+  DESCRIPTION
+       "A table which contains the status of hwping tcp server 
+       configuration information.
+       
+       This entry includes not only the tcp server ip address 
+       but also the tcp server port."
+       
+  INDEX { 
+          hwPingTcpServerIpAddress,
+          hwPingTcpServerPort
+        }
+  ::= { hwPingTcpServerTable 1 }
+
+HWPingTcpServerEntry  ::= SEQUENCE
+{
+    hwPingTcpServerIpAddress                InetAddress,
+    hwPingTcpServerPort                     Integer32,
+    hwpingTcpServerRowStatus                RowStatus
+}
+
+hwPingTcpServerIpAddress          OBJECT-TYPE     
+  SYNTAX      InetAddress
+  MAX-ACCESS  not-accessible
+  STATUS      current
+  DESCRIPTION
+       "Tcp server's ip address."
+  DEFVAL { ''H }
+  ::= { hwPingTcpServerEntry 1 }        
+  
+hwPingTcpServerPort          OBJECT-TYPE     
+  SYNTAX      Integer32 (0..65536)
+  MAX-ACCESS  not-accessible
+  STATUS      current
+  DESCRIPTION
+       "Tcp server's port number."
+  DEFVAL      { 0 }
+  ::= { hwPingTcpServerEntry 2 }   
+  
+ hwpingTcpServerRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "hwPingTcpServerIpAddress and hwPingTcpServerPort 
+        must be set during a creation operation."
+        
+    REFERENCE
+        "RFC 2579"
+    ::= { hwPingTcpServerEntry 3 }   
+
+hwPingUdpServerTable OBJECT-TYPE
+  SYNTAX SEQUENCE OF HWPingUdpServerEntry
+  MAX-ACCESS  not-accessible
+  STATUS      current
+  DESCRIPTION
+       "Status of hwping udp server configuration information."
+  ::= { hwPingObjects 7 }
+
+hwPingUdpServerEntry OBJECT-TYPE
+  SYNTAX      HWPingUdpServerEntry
+  MAX-ACCESS  not-accessible
+  STATUS      current
+  DESCRIPTION
+       "This entry includes not only the udp server ip address 
+       but also the udp server udp port."
+       
+  INDEX { 
+          hwPingUdpServerIpAddress,
+          hwPingUdpServerPort	  
+        }
+  ::= { hwPingUdpServerTable 1 }
+
+HWPingUdpServerEntry  ::= SEQUENCE
+{
+    hwPingUdpServerIpAddress                InetAddress,
+    hwPingUdpServerPort                     Integer32,
+    hwpingUdpServerRowStatus                RowStatus
+}
+
+hwPingUdpServerIpAddress          OBJECT-TYPE     
+  SYNTAX      InetAddress
+  MAX-ACCESS  not-accessible
+  STATUS      current
+  DESCRIPTION
+       "Udp server's ip address."
+  DEFVAL { ''H }
+  ::= { hwPingUdpServerEntry 1 }        
+  
+hwPingUdpServerPort          OBJECT-TYPE     
+  SYNTAX      Integer32 (0..65536)
+  MAX-ACCESS  not-accessible
+  STATUS      current
+  DESCRIPTION
+       "Udp server's port number."
+  DEFVAL      { 0 }
+  ::= { hwPingUdpServerEntry 2 }  
+  
+ hwpingUdpServerRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "hwPingUdpServerIpAddress and hwPingUdpServerPort 
+        must be set during a creation operation."
+        
+    REFERENCE
+        "RFC 2579"
+    ::= { hwPingUdpServerEntry 3 }   
+
+hwPingServerEnable OBJECT-TYPE
+  SYNTAX      INTEGER{
+              enable(1),
+              disable(2) 
+              }
+  MAX-ACCESS  read-write
+  STATUS      current
+  DESCRIPTION
+       "Enable Huawei PING server function"
+  DEFVAL { disable }     
+  ::= { hwPingObjects 8 }   
+
+END

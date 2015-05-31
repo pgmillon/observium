@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS `cef_prefix` (  `cef_pfx_id` int(11) NOT NULL AUTO_INCREMENT, `device_id` int(11) NOT NULL,  `entPhysicalIndex` int(11) NOT NULL,  `afi` varchar(4) COLLATE utf8_unicode_ci NOT NULL,  `cef_pfx` int(11) NOT NULL,  PRIMARY KEY (`cef_pfx_id`)) ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci ;

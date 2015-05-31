@@ -1,0 +1,2 @@
+ALTER TABLE  `devices` ADD  `location_lat` VARCHAR( 16 ) NULL DEFAULT NULL AFTER  `location` ,ADD  `location_lon` VARCHAR( 16 ) NULL DEFAULT NULL AFTER  `location_lat` ,ADD  `location_city` VARCHAR( 32 ) NULL DEFAULT NULL AFTER  `location_lon` ,ADD  `location_state` VARCHAR( 32 ) NULL DEFAULT NULL AFTER  `location_city` ,ADD  `location_country` VARCHAR( 32 ) NULL DEFAULT NULL AFTER  `location_state`;
+ALTER TABLE  `devices` ADD  `location_county` VARCHAR( 32 ) NULL DEFAULT NULL AFTER  `location_city`;

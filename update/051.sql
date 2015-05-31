@@ -1,0 +1,2 @@
+ALTER TABLE `ipv4_mac` ADD `mac_id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY FIRST;
+ALTER TABLE `ipv4_mac` CHANGE `mac_address` `mac_address` CHAR(12) NOT NULL;

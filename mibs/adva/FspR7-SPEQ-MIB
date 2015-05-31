@@ -1,0 +1,843 @@
+FspR7-SPEQ-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    DisplayString,
+    TestAndIncr,
+    TimeStamp,
+    RowStatus,
+    DateAndTime,
+    TruthValue,
+    TEXTUAL-CONVENTION
+                                        FROM  SNMPv2-TC
+    MODULE-COMPLIANCE,
+    NOTIFICATION-GROUP,
+    OBJECT-GROUP
+                                        FROM  SNMPv2-CONF
+    Counter32,
+    MODULE-IDENTITY,
+    NOTIFICATION-TYPE,
+    OBJECT-TYPE,
+    OBJECT-IDENTITY,
+    TimeTicks,
+    mib-2,
+    snmpModules,
+    enterprises,
+    Unsigned32,
+    Integer32,
+    IpAddress
+                                        FROM  SNMPv2-SMI
+    SnmpAdminString
+                                        FROM  SNMP-FRAMEWORK-MIB
+    fspR7,
+    EntityClass,
+    EntityIndex,
+    TrapAlarmSeverity,
+    ServiceImpairment,
+    neEventLogTimeStamp,
+    neEventLogIdentityTranslation
+                                        FROM  ADVA-MIB
+    FspR7AdminState,
+    FspR7AdminStateCaps,
+    FspR7EntitySecondaryStates,
+    FspR7Integer32Caps,
+    FspR7OperState
+                                        FROM  FspR7-MIB;
+    
+
+speqMIB MODULE-IDENTITY
+
+    LAST-UPDATED "201008310000Z"
+
+    ORGANIZATION "ADVA AG Optical Networking"
+
+    CONTACT-INFO "
+            ADVA AG Optical Networking
+            Justus-von-Liebig-Str. 7
+            12489 Berlin, Germany
+
+            Support Europe:
+            Phone:  +49 89 89 0665 848
+            Fax:    +49 89 89 0665 22848
+            e-mail: support@advaoptical.com
+
+            Support USA:
+            Phone:  +1 201 995 0080
+            Fax:    +1 201 995 0081
+            e-mail: support-usa@advaoptical.com
+
+            Support Asia:
+            Phone:  +81 3 5408 5891
+            Fax:    +81 3 5408 5899
+            e-mail: support-asia@advaoptical.com
+          "
+
+    DESCRIPTION   "The Auto SPAN Equalization MIB."
+
+    REVISION      "201010290000Z"
+    DESCRIPTION   "FSP3000 F7 Release 10.2.1 MIB."
+
+    REVISION      "201008310000Z"
+    DESCRIPTION   "FSP3000 F7 Release 10.1.1 MIB."
+    ::= { fspR7 4 }
+
+
+speqEntityMIB
+    OBJECT IDENTIFIER ::= { speqMIB 10 }
+
+speqConfigurationMIB
+    OBJECT IDENTIFIER ::= { speqMIB 12 }
+
+speqStatusMIB
+    OBJECT IDENTIFIER ::= { speqMIB 13 }
+
+speqAlarms
+    OBJECT IDENTIFIER ::= { speqMIB 14 }
+
+speqTraps
+    OBJECT IDENTIFIER ::= { speqAlarms 1 }
+
+speqTrapsPrefix
+    OBJECT IDENTIFIER ::= { speqTraps 0 }
+
+speqConditions
+    OBJECT IDENTIFIER ::= { speqAlarms 2 }
+
+FspR7SpeqConfig ::= TEXTUAL-CONVENTION
+  STATUS        current
+  DESCRIPTION
+         "Auto Span Equalization Configuration" 
+  SYNTAX        INTEGER                {
+                  undefined(0),
+                  none(1),
+                  disable(2),
+                  enableGainAdopt(3),  --SPEQ is enabled with the EDFA’s Gain adoption capability. SPEQ is adopting the current EDFA's GAIN for its gain calculation.
+                  enableNoGainAdopt(4)  --SPEQ is enabled, it will use the SPEQ calculated Gain to set EDFA's GAIN
+                }
+
+FspR7SpeqDisableEnable ::= TEXTUAL-CONVENTION
+  STATUS        current
+  DESCRIPTION
+         "SPEQ Dynamic Compensation for span optical power variations." 
+  SYNTAX        INTEGER                {
+                  undefined(0),
+                  enable(1),
+                  disable(2)
+                }
+
+FspR7SpeqFarEndConfig ::= TEXTUAL-CONVENTION
+  STATUS        current
+  DESCRIPTION
+         "Indicating Far-End Auto Span Equalization Configuration." 
+  SYNTAX        INTEGER                {
+                  undefined(0),
+                  unknown(1),
+                  enable(2),
+                  disable(3)
+                }
+
+FspR7SpeqOperate ::= TEXTUAL-CONVENTION
+  STATUS        current
+  DESCRIPTION
+         "When Per-Channel Power (PPC) changes without an SPEQ trigger condition; users could use this command to invoke SPEQ Gain recalculation/setting on the associated EDFA. (SPEQ Gain recalculation shall inherit the current value of the GainCal.) This user operated action could be service effecting. Therefore, users must be warned when operating this command; only upon user acceptance, software shall proceed with the new Gain recalculation and setting." 
+  SYNTAX        INTEGER                {
+                  undefined(0),
+                  rls(1),
+                  opr(2)
+                }
+
+FspR7SpeqOperateCaps ::= TEXTUAL-CONVENTION
+  STATUS        current
+  DESCRIPTION
+         "When Per-Channel Power (PPC) changes without an SPEQ trigger condition; users could use this command to invoke SPEQ Gain recalculation/setting on the associated EDFA. (SPEQ Gain recalculation shall inherit the current value of the GainCal.) This user operated action could be service effecting. Therefore, users must be warned when operating this command; only upon user acceptance, software shall proceed with the new Gain recalculation and setting." 
+  SYNTAX        BITS
+                {
+                  capUndefined(0),
+                  capRls(1),
+                  capOpr(2)
+                }
+
+FspR7SpeqQualify ::= TEXTUAL-CONVENTION
+  STATUS        current
+  DESCRIPTION
+         "Determines if the qualified EDFA has been configured as Per-Amp, Booster-Amp, Line-Amp. Qualification process requires valid fiber-map." 
+  SYNTAX        INTEGER                {
+                  undefined(0),
+                  preAmp(1),  --"PREAMP" means the EDFA has been qualified as "PREAMP"; therefore, Auto Span Equalization entity relevant to Pre-Amp shall be auto created.
+                  boosterAmp(2),  --"BOOSTERAMP" means the EDFA has been qualified as Booster-Amp; therefore, Auto Span Equalization entity relevant to Booster-Amp shall be auto created.
+                  lineAmp(3)  --"LINEAMP" means the EDFA has been qualified as Line-Amp; therefore, Auto Span Equalization entity relevant to Line-Amp shall be auto created. 
+                }
+
+FspR7SpeqOptLineService ::= TEXTUAL-CONVENTION
+  STATUS        current
+  DESCRIPTION
+         "This parameter provides optical channel service types that are being transported to/from an optical line. See related generic group or YP for the specific usage and/or explanation." 
+  SYNTAX        INTEGER                {
+                  undefined(0),
+                  addDrop(1),  --An Optical Line that only transports add/drop optical channel services. 
+                  passThrough(2),  --An Optical Line that only transports pass-through optical channel services.
+                  hybrid(3)  --An Optical Lines that transports both add/drop and pass-through optical channel services.
+                }
+
+FspR7SpeqPpcLimit ::= TEXTUAL-CONVENTION
+  STATUS        current
+  DESCRIPTION
+         "Per-channel optical power limit value for supporting the maximum channel operation of a given optical link. PPC-LIMIT for an optical link with the 40 or the 80 max channel operations would be 4dBm or 1dBm respectively. 
+         Example: assuming a user has installed an EFDA with Output Power of 20 interfacing an optical link with the max channel operation/capacity of 40. Therefore, PPC-LIMIT (the optimum power per-channel setting) for this link is 4dBm (PT=10log(n)+PPC; where PT=Total Output Power of the EDFA=20dB, n=max channel operation=40, PPC=PPC-LIMIT).
+         
+        " 
+  SYNTAX        INTEGER                {
+                  undefined(0),
+                  four(1),
+                  one(2),
+                  seven(3)
+                }
+
+FspR7SpeqStatus ::= TEXTUAL-CONVENTION
+  STATUS        current
+  DESCRIPTION
+         "Auto Span Equalization Status" 
+  SYNTAX        INTEGER                {
+                  undefined(0),
+                  none(1),
+                  inProgress(2),
+                  lockedOut(3)
+                }
+
+FspR7SpeqStandingConditionTypes ::= TEXTUAL-CONVENTION
+  STATUS        current
+  DESCRIPTION
+         "" 
+  SYNTAX        INTEGER
+                {
+                  undefined(0),
+                  oosDisabledSpeq(120000),
+                  oosMaintenanceSpeq(120002),
+                  messageLossSpeq(120004),
+                  oscFiberMissingSpeq(120005),
+                  optLowSpeq(120006),
+                  ppcOutOfRangeSpeq(120007),
+                  gainTooHighSpeq(120008),
+                  gainTooLowSpeq(120009),
+                  gainAdoptFailedSpeq(120010)
+                }
+
+speqEntityTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF SpeqEntityEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION   "Table for SPEQ existing addresses. Entities in this table are either
+         provisioned or not. Containers are always present in the table as long as their
+         supporting entity is provisioned."
+    ::=  { speqEntityMIB 1 }
+
+speqEntityEntry OBJECT-TYPE
+    SYNTAX      SpeqEntityEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION   "Entry for SPEQ existing addresses."
+    INDEX       {
+                  speqEntityIndex
+                }
+    ::=  { speqEntityTable 1 }
+
+SpeqEntityEntry ::=  SEQUENCE
+  { speqEntityIndex EntityIndex,
+    speqEntityContainedIn EntityIndex,
+    speqEntityClassInstanceNumber Integer32,
+    speqEntityIndexAid SnmpAdminString }
+
+speqEntityIndex OBJECT-TYPE
+    SYNTAX      EntityIndex
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION   "Existing adress index"
+    ::=  { speqEntityEntry 1 }
+
+speqEntityContainedIn OBJECT-TYPE
+    SYNTAX      EntityIndex
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Contained in" 
+    ::=  { speqEntityEntry 2 }
+
+speqEntityClassInstanceNumber OBJECT-TYPE
+    SYNTAX      Integer32 (1..2000 | -2147483648)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The class instance number of this entity within the module(card)" 
+    ::=  { speqEntityEntry 3 }
+
+speqEntityIndexAid OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Name" 
+    ::=  { speqEntityEntry 4 }
+
+speqContainsTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF SpeqContainsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION   "Table for all existing addresses. Gives the index of the subtending
+         entity in the containment."
+    ::=  { speqEntityMIB 2 }
+
+speqContainsEntry OBJECT-TYPE
+    SYNTAX      SpeqContainsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION   ""
+    INDEX       {
+                  speqEntityIndex,
+                  speqContainsIndex
+                }
+    ::=  { speqContainsTable 1 }
+
+SpeqContainsEntry ::=  SEQUENCE
+  { speqContainsIndex EntityIndex }
+
+speqContainsIndex OBJECT-TYPE
+    SYNTAX      EntityIndex
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "" 
+    ::=  { speqContainsEntry 1 }
+
+speqConfiguration OBJECT-TYPE
+    SYNTAX      FspR7SpeqConfig
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqConfigurationMIB 1 }
+
+speqDynamicComp OBJECT-TYPE
+    SYNTAX      FspR7SpeqDisableEnable
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqConfigurationMIB 2 }
+
+speqConfigTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF SpeqConfigEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqConfigurationMIB 10 }
+
+speqConfigEntry OBJECT-TYPE
+    SYNTAX      SpeqConfigEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION   ""
+    INDEX       {
+                  speqEntityIndex
+                }
+    ::=  { speqConfigTable 1 }
+
+SpeqConfigEntry ::=  SEQUENCE
+  { speqConfigAdmin FspR7AdminState,
+    speqConfigOpticalSetpoint Integer32,
+    speqConfigPerChannelPower Integer32,
+    speqConfigGainCal Integer32,
+    speqConfigOperate FspR7SpeqOperate }
+
+speqConfigAdmin OBJECT-TYPE
+    SYNTAX      FspR7AdminState
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqConfigEntry 1 }
+
+speqConfigOpticalSetpoint OBJECT-TYPE
+    SYNTAX      Integer32 (-250..50 | -2147483648) 
+    UNITS       "0.1 dBm"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqConfigEntry 2 }
+
+speqConfigPerChannelPower OBJECT-TYPE
+    SYNTAX      Integer32 (-20..80 | -2147483648) 
+    UNITS       "0.1 dBm"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqConfigEntry 3 }
+
+speqConfigGainCal OBJECT-TYPE
+    SYNTAX      Integer32 (-50..50 | -2147483648) 
+    UNITS       "0.1 dBm"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqConfigEntry 4 }
+
+speqConfigOperate OBJECT-TYPE
+    SYNTAX      FspR7SpeqOperate
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqConfigEntry 5 }
+
+speqConfigCapTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF SpeqConfigCapEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqConfigurationMIB 11 }
+
+speqConfigCapEntry OBJECT-TYPE
+    SYNTAX      SpeqConfigCapEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION   ""
+    INDEX       {
+                  speqEntityIndex
+                }
+    ::=  { speqConfigCapTable 1 }
+
+SpeqConfigCapEntry ::=  SEQUENCE
+  { speqConfigCapAdmin FspR7AdminStateCaps,
+    speqConfigCapOpticalSetpoint FspR7Integer32Caps,
+    speqConfigCapPerChannelPower FspR7Integer32Caps,
+    speqConfigCapGainCal FspR7Integer32Caps }
+
+speqConfigCapAdmin OBJECT-TYPE
+    SYNTAX      FspR7AdminStateCaps
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqConfigCapEntry 1 }
+
+speqConfigCapOpticalSetpoint OBJECT-TYPE
+    SYNTAX      FspR7Integer32Caps
+    UNITS       "0.1 dBm"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqConfigCapEntry 2 }
+
+speqConfigCapPerChannelPower OBJECT-TYPE
+    SYNTAX      FspR7Integer32Caps
+    UNITS       "0.1 dBm"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqConfigCapEntry 3 }
+
+speqConfigCapGainCal OBJECT-TYPE
+    SYNTAX      FspR7Integer32Caps
+    UNITS       "0.1 dBm"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqConfigCapEntry 4 }
+
+speqStatusTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF SpeqStatusEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqStatusMIB 10 }
+
+speqStatusEntry OBJECT-TYPE
+    SYNTAX      SpeqStatusEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION   ""
+    INDEX       {
+                  speqEntityIndex
+                }
+    ::=  { speqStatusTable 1 }
+
+SpeqStatusEntry ::=  SEQUENCE
+  { speqStatusOper FspR7OperState,
+    speqStatusSecondaryStates FspR7EntitySecondaryStates,
+    speqStatusQualify FspR7SpeqQualify,
+    speqStatusOpticalLineAid EntityIndex,
+    speqStatusOscAid EntityIndex,
+    speqStatusOpticalLineServiceType FspR7SpeqOptLineService,
+    speqStatusPerChannelPowerLimit FspR7SpeqPpcLimit,
+    speqStatusCalculatedGain Unsigned32,
+    speqStatusStatus FspR7SpeqStatus,
+    speqStatusFarEndConfig FspR7SpeqFarEndConfig,
+    speqStatusFarEndStatus FspR7SpeqStatus,
+    speqStatusFarEndPpc Integer32,
+    speqStatusFarEndOpt Integer32,
+    speqStatusFarEndOpr Integer32,
+    speqStatusNearEndOpt Integer32,
+    speqStatusNearEndOpr Integer32 }
+
+speqStatusOper OBJECT-TYPE
+    SYNTAX      FspR7OperState
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqStatusEntry 1 }
+
+speqStatusSecondaryStates OBJECT-TYPE
+    SYNTAX      FspR7EntitySecondaryStates
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqStatusEntry 2 }
+
+speqStatusQualify OBJECT-TYPE
+    SYNTAX      FspR7SpeqQualify
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqStatusEntry 3 }
+
+speqStatusOpticalLineAid OBJECT-TYPE
+    SYNTAX      EntityIndex
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqStatusEntry 4 }
+
+speqStatusOscAid OBJECT-TYPE
+    SYNTAX      EntityIndex
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqStatusEntry 5 }
+
+speqStatusOpticalLineServiceType OBJECT-TYPE
+    SYNTAX      FspR7SpeqOptLineService
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqStatusEntry 6 }
+
+speqStatusPerChannelPowerLimit OBJECT-TYPE
+    SYNTAX      FspR7SpeqPpcLimit
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqStatusEntry 7 }
+
+speqStatusCalculatedGain OBJECT-TYPE
+    SYNTAX      Unsigned32 
+    UNITS       "0.1 dB"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqStatusEntry 8 }
+
+speqStatusStatus OBJECT-TYPE
+    SYNTAX      FspR7SpeqStatus
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqStatusEntry 9 }
+
+speqStatusFarEndConfig OBJECT-TYPE
+    SYNTAX      FspR7SpeqFarEndConfig
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqStatusEntry 10 }
+
+speqStatusFarEndStatus OBJECT-TYPE
+    SYNTAX      FspR7SpeqStatus
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqStatusEntry 11 }
+
+speqStatusFarEndPpc OBJECT-TYPE
+    SYNTAX      Integer32 
+    UNITS       "0.1 dBm"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqStatusEntry 12 }
+
+speqStatusFarEndOpt OBJECT-TYPE
+    SYNTAX      Integer32 
+    UNITS       "0.1 dBm"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqStatusEntry 13 }
+
+speqStatusFarEndOpr OBJECT-TYPE
+    SYNTAX      Integer32 
+    UNITS       "0.1 dBm"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqStatusEntry 14 }
+
+speqStatusNearEndOpt OBJECT-TYPE
+    SYNTAX      Integer32 
+    UNITS       "0.1 dBm"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqStatusEntry 15 }
+
+speqStatusNearEndOpr OBJECT-TYPE
+    SYNTAX      Integer32 
+    UNITS       "0.1 dBm"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqStatusEntry 16 }
+
+
+alarmOosDisabledSpeq NOTIFICATION-TYPE 
+    OBJECTS     { speqCurrentConditionSeverity,speqCurrentConditionAffect,neEventLogTimeStamp,neEventLogIdentityTranslation } 
+    STATUS      current
+    DESCRIPTION   "Non-Specific Disablement of Management Access"
+    ::=  { speqTrapsPrefix 120000 }
+
+
+alarmOosMaintenanceSpeq NOTIFICATION-TYPE 
+    OBJECTS     { speqCurrentConditionSeverity,speqCurrentConditionAffect,neEventLogTimeStamp,neEventLogIdentityTranslation } 
+    STATUS      current
+    DESCRIPTION   "Alarms are logged but not notified, service affecting changes and operations are permitted"
+    ::=  { speqTrapsPrefix 120002 }
+
+
+alarmMessageLossSpeq NOTIFICATION-TYPE 
+    OBJECTS     { speqCurrentConditionSeverity,speqCurrentConditionAffect,neEventLogTimeStamp,neEventLogIdentityTranslation } 
+    STATUS      current
+    DESCRIPTION   "SPEQ Message Loss"
+    ::=  { speqTrapsPrefix 120004 }
+
+
+alarmOscFiberMissingSpeq NOTIFICATION-TYPE 
+    OBJECTS     { speqCurrentConditionSeverity,speqCurrentConditionAffect,neEventLogTimeStamp,neEventLogIdentityTranslation } 
+    STATUS      current
+    DESCRIPTION   "SPEQ not functioning, OSC Fiber(s) missing"
+    ::=  { speqTrapsPrefix 120005 }
+
+
+alarmOptLowSpeq NOTIFICATION-TYPE 
+    OBJECTS     { speqCurrentConditionSeverity,speqCurrentConditionAffect,neEventLogTimeStamp,neEventLogIdentityTranslation } 
+    STATUS      current
+    DESCRIPTION   "Alarm is raised at SPEQ Booster-amp, when the OPT is less than the provisioned PPC by 2dBm."
+    ::=  { speqTrapsPrefix 120006 }
+
+
+alarmPpcOutOfRangeSpeq NOTIFICATION-TYPE 
+    OBJECTS     { speqCurrentConditionSeverity,speqCurrentConditionAffect,neEventLogTimeStamp,neEventLogIdentityTranslation } 
+    STATUS      current
+    DESCRIPTION   "Adopted PPC exceeded the PPC range"
+    ::=  { speqTrapsPrefix 120007 }
+
+
+alarmGainTooHighSpeq NOTIFICATION-TYPE 
+    OBJECTS     { speqCurrentConditionSeverity,speqCurrentConditionAffect,neEventLogTimeStamp,neEventLogIdentityTranslation } 
+    STATUS      current
+    DESCRIPTION   "Auto Span Equalization Gain Out-of-Range, High - SPEQ calculated gain value is greater than the gain setting range of an EDFA type."
+    ::=  { speqTrapsPrefix 120008 }
+
+
+alarmGainTooLowSpeq NOTIFICATION-TYPE 
+    OBJECTS     { speqCurrentConditionSeverity,speqCurrentConditionAffect,neEventLogTimeStamp,neEventLogIdentityTranslation } 
+    STATUS      current
+    DESCRIPTION   "Auto Span Equalization Gain Out-of-Range, Low - SPEQ calculated gain value is lower than the gain setting range of an EDFA type."
+    ::=  { speqTrapsPrefix 120009 }
+
+
+alarmGainAdoptFailedSpeq NOTIFICATION-TYPE 
+    OBJECTS     { speqCurrentConditionSeverity,speqCurrentConditionAffect,neEventLogTimeStamp,neEventLogIdentityTranslation } 
+    STATUS      current
+    DESCRIPTION   "Alarm is raised when SPEQ Gain Adoption process fails."
+    ::=  { speqTrapsPrefix 120010 }
+
+
+
+speqCreation NOTIFICATION-TYPE 
+    OBJECTS     { speqEntityIndex,
+                  neEventLogTimeStamp,
+                  neEventLogIdentityTranslation
+                } 
+    STATUS      current
+    DESCRIPTION   "This trap is sent every time an entity is created. No containers
+         or other sub-entities in the chassis are reported created by this trap,
+         the NMS must read these data."
+    ::=  { speqTrapsPrefix 124001 }
+
+speqDeletion NOTIFICATION-TYPE 
+    OBJECTS     { speqEntityIndex,
+                  neEventLogTimeStamp,
+                  neEventLogIdentityTranslation
+                } 
+    STATUS      current
+    DESCRIPTION   "This trap is sent every time an entity is deleted. The
+         sub-entities (containers, modules, etc.) are not reported deleted.
+        "
+    ::=  { speqTrapsPrefix 124002 }
+
+speqStateChange NOTIFICATION-TYPE 
+    OBJECTS     { neEventLogTimeStamp,
+                  neEventLogIdentityTranslation
+                } 
+    STATUS      current
+    DESCRIPTION   "This trap is sent when an entity state is changed."
+    ::=  { speqTrapsPrefix 124003 }
+
+speqObjectChange NOTIFICATION-TYPE 
+    OBJECTS     { speqEntityIndex,
+                  neEventLogTimeStamp,
+                  neEventLogIdentityTranslation
+                } 
+    STATUS      current
+    DESCRIPTION   "This trap is sent when some object is changed."
+    ::=  { speqTrapsPrefix 124004 }
+
+transientGainAutoAdjustSpeq NOTIFICATION-TYPE 
+    OBJECTS     { speqEntityIndex,neEventLogTimeStamp,neEventLogIdentityTranslation } 
+    STATUS      current
+    DESCRIPTION   "Span Equalization Gain auto adjustment is triggered by monitoring LOS clear condition."
+    ::=  { speqTrapsPrefix 126000 }
+
+
+transientGainNoAdjustSpeq NOTIFICATION-TYPE 
+    OBJECTS     { speqEntityIndex,neEventLogTimeStamp,neEventLogIdentityTranslation } 
+    STATUS      current
+    DESCRIPTION   "Span Equalization Gain Not Adjusted."
+    ::=  { speqTrapsPrefix 126001 }
+
+
+transientGainAdjustFailedSpeq NOTIFICATION-TYPE 
+    OBJECTS     { speqEntityIndex,neEventLogTimeStamp,neEventLogIdentityTranslation } 
+    STATUS      current
+    DESCRIPTION   "Span Equalization Gain Adjustment Failed."
+    ::=  { speqTrapsPrefix 126002 }
+
+
+transientWaitSpeq NOTIFICATION-TYPE 
+    OBJECTS     { speqEntityIndex,neEventLogTimeStamp,neEventLogIdentityTranslation } 
+    STATUS      current
+    DESCRIPTION   "Auto Span Equalization is in progress; SPEQ-Server is busy, user must wait then request Span Equalization."
+    ::=  { speqTrapsPrefix 126003 }
+
+
+transientDenySpeq NOTIFICATION-TYPE 
+    OBJECTS     { speqEntityIndex,neEventLogTimeStamp,neEventLogIdentityTranslation } 
+    STATUS      current
+    DESCRIPTION   "Span Equalization request denied; operation could not be performed by the SPEQ-Server"
+    ::=  { speqTrapsPrefix 126004 }
+
+
+transientPpcAdoptSpeq NOTIFICATION-TYPE 
+    OBJECTS     { speqEntityIndex,neEventLogTimeStamp,neEventLogIdentityTranslation } 
+    STATUS      current
+    DESCRIPTION   "PPC is auto calculated based on the adopted Gain for Brown-Field installations."
+    ::=  { speqTrapsPrefix 126005 }
+
+
+transientPpcLimitExceededSpeq NOTIFICATION-TYPE 
+    OBJECTS     { speqEntityIndex,neEventLogTimeStamp,neEventLogIdentityTranslation } 
+    STATUS      current
+    DESCRIPTION   "Provisioned per-channel power level exceeded the allowable limit"
+    ::=  { speqTrapsPrefix 126006 }
+
+
+transientGainDynamicAdjustSpeq NOTIFICATION-TYPE 
+    OBJECTS     { speqEntityIndex,neEventLogTimeStamp,neEventLogIdentityTranslation } 
+    STATUS      current
+    DESCRIPTION   "Span Equalization Gain auto adjustment is triggered by dynamic optical power drift at Rx of the associated EDFA."
+    ::=  { speqTrapsPrefix 126007 }
+
+
+speqConditionSeverityTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF SpeqConditionSeverityEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION   "This table contains a severity value for each defined standing condition reported by an entity in the NE."
+    ::=  { speqConditions 1 }
+
+speqConditionSeverityEntry OBJECT-TYPE
+    SYNTAX      SpeqConditionSeverityEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION   "Each entry in the table represents the severity assigned to a condition.'"
+    INDEX       {
+                  speqEntityIndex,
+                  speqConditionSeverityType
+                }
+    ::=  { speqConditionSeverityTable 1 }
+
+SpeqConditionSeverityEntry ::=  SEQUENCE
+  { speqConditionSeverityType FspR7SpeqStandingConditionTypes,
+    speqConditionSeverityValue TrapAlarmSeverity }
+
+speqConditionSeverityType OBJECT-TYPE
+    SYNTAX      FspR7SpeqStandingConditionTypes
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION   "This object identifies the type of alarm."
+    ::=  { speqConditionSeverityEntry 1 }
+
+speqConditionSeverityValue OBJECT-TYPE
+    SYNTAX      TrapAlarmSeverity
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION   "This object identifies the severity assigned to this alarm."
+    ::=  { speqConditionSeverityEntry 2 }
+
+speqCurrentConditionTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF SpeqCurrentConditionEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION   ""
+    ::=  { speqConditions 2 }
+
+speqCurrentConditionEntry OBJECT-TYPE
+    SYNTAX      SpeqCurrentConditionEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION   ""
+    INDEX       {
+                  speqEntityIndex,
+                  speqCurrentConditionType
+                }
+    ::=  { speqCurrentConditionTable 1 }
+
+SpeqCurrentConditionEntry ::=  SEQUENCE
+  { speqCurrentConditionType FspR7SpeqStandingConditionTypes,
+    speqCurrentConditionSeverity TrapAlarmSeverity,
+    speqCurrentConditionAffect ServiceImpairment,
+    speqCurrentConditionTimeStamp DateAndTime }
+
+speqCurrentConditionType OBJECT-TYPE
+    SYNTAX      FspR7SpeqStandingConditionTypes
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION   "List of all interface conditions"
+    ::=  { speqCurrentConditionEntry 1 }
+
+speqCurrentConditionSeverity OBJECT-TYPE
+    SYNTAX      TrapAlarmSeverity
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION   "This object identifies the current severity of alarm."
+    ::=  { speqCurrentConditionEntry 2 }
+
+speqCurrentConditionAffect OBJECT-TYPE
+    SYNTAX      ServiceImpairment
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION   "This object indicates the service impairment affect of the alarm."
+    ::=  { speqCurrentConditionEntry 3 }
+
+speqCurrentConditionTimeStamp OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION   "Timestamp"
+    ::=  { speqCurrentConditionEntry 4 }
+
+
+END
+

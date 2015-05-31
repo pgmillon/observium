@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS `applications-state` (  `application_id` int(11) NOT NULL,  `app_last_polled` int(11) NOT NULL,  `app_status` tinyint(1) NOT NULL,  `app_state` varchar(1024) COLLATE utf8_unicode_ci NOT NULL,  UNIQUE KEY `application_id` (`application_id`)) ENGINE=MEMORY DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;

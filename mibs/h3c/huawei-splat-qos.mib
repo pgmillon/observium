@@ -1,0 +1,3987 @@
+-- ------------------------------------------------------------------
+-- Descripton: Huawei-3com draft for Lan Switch Qos MIB
+--
+-- History V2.3
+--     V1.0 2002-11-18 created by qizhenglin
+--     V1.1 2004-05-09 add and modify hwPortWredTable by tangshun
+--     V1.2 2004-08-05 modify hwQueueScheduleMode(add hq_wrr(9)) by qizhenglin
+--     v1.3 2004-08-12 add hwFlowtempVlanId,hwFlowtempCos to hwFlowtempTable
+--     v1.4 2004-09-17 change value range of hwRateLimitTargetRateKbps from 200..100000
+--          to 64..1000000 by zhuangyu
+--     v1.5 2004-10-12 updated by gaolong
+--          Import Counter64.
+--          Remove some adjacent hyphens
+--          Rewrite value of hwQueueScheduleMode and hwRateLimitConformActionType.
+--          Change all underscore('_') characters to hyphen characters('-') because
+--          underscore character is not allowed in MIB module.
+--     v1.51 2004-10-27 changed by zhuangyu
+--          1 Add an enumeration in hwRateLimitConformActionType
+--          2 Add hwRateLimitConformCos and hwRateLimitConformDscp in hwRateLimitTable
+--          3 Import IpAddress
+--     v1.52 2004-12-13 updated by jinyi
+--          Fix syntax bugs and adjust format of the whole file.
+--     v1.53 2004-12-13 updated by zhuangyu
+--          Modify description of hwRateLimitExceedDscp,hwRateLimitConformDscp and hwPriorityDscp.
+--     v1.6 2004-12-1 changed by yangjianjun
+--          Add  hwMirroringGroupTable
+--               hwMirroringGroupMirrorTable
+--               hwMirroringGroupMonitorTable
+--               hwMirroringGroupReflectorTable
+--               hwMirroringGroupRprobeVlanTable
+--     v1.7 2005-4-6 changed by fanghailin
+--          Add hwRedirectToSlotNo hwRedirectRemarkedDSCP hwRedirectRemarkedPri hwRedirectRemarkedTos
+--          hwRedirectToNextHop3 hwRedirectTargetVlan hwRedirectMode
+--          in hwRedirectTable Notice:All the nodes are used only for L3plus funtion and speciality.
+--     v1.8 2005-5-18 updated by zhangyinxi
+--          Add  hwRedirectToNestedVlanID and hwRedirectToModifiedVlanID
+--     v1.9 2005-6-27
+--          1. Add hwMirroringGroupMirrorMacTable, hwMirroringGroupMirrorVlanTable,
+--             hwPortTrustTable, hwRemarkVlanIDTable, hwCosToDscpMapTable, hwDscpToLocalPreMapTable,
+--             hwDscpToDropPreMapTable, hwDscpToCosMapTable, hwDscpToDscpMapTable,
+--             hwRateLimitMeterStatByteCount, hwRateLimitMeterStatByteXCount,
+--             hwRateLimitMeterStatState by liyan and wangyingxia
+--          2. Modify the range of hwRateLimitTargetRateKbps by liyan and wangyingxia
+--          3. Add hwMirrorToGroup in hwMirrorTable by yubin
+--     v2.0 2005-10-25 updated by houli
+--          1. Remove value range of hwLineRateValue
+--          2. Remove value range of hwRateLimitTargetRateMbps
+--     V2.1 2005-11-07 update by wangyingxia
+--          1. Add HwMirrorOrMonitorType and hwMirroringGroupMonitorType
+--          2. Modify the description of hwMirroringGroupMonitorIfIndex
+--          3. Change the value range of hwRedirectTargetVlan by lihaijun
+--     V2.2 2005-12-19 update by wangyingxia
+--          1. Add hwMirroringGroupMirrorInTypeList, hwMirroringGroupMirrorOutTypeList
+--             by wangyingxia
+--          2. change the description of hwMirroringGroupMirrorInboundIfIndexList  
+--             add hwMirroringGroupMirrorOutboundIfIndexList by wangyingxia
+--     v2.3 2006-01-16 updated by houli
+--          1. Remove value range of hwTrafficShapeMaxRate
+--          2. Remove value range of hwTrafficShapeBurstSize
+-- ------------------------------------------------------------------
+-- ------------------------------------------------------------------
+--
+-- Import and definition
+--
+-- ------------------------------------------------------------------
+HUAWEI-LswQos-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+
+    Integer32, MODULE-IDENTITY,OBJECT-TYPE,Counter32, Counter64,IpAddress
+        FROM SNMPv2-SMI
+    TruthValue, MacAddress, RowStatus, TEXTUAL-CONVENTION
+        FROM SNMPv2-TC
+    lswCommon
+        FROM HUAWEI-3COM-OID-MIB;
+
+
+---------- Following is for Node£ºhwLswQosMib --------
+  hwLswQosAclMib MODULE-IDENTITY
+    LAST-UPDATED "200211190000Z"
+    ORGANIZATION "HUAWEI LANSWITCH"
+    CONTACT-INFO
+    "huawei beiyan"
+    DESCRIPTION
+      "Module node for qos and acl."
+    REVISION "200211190000Z"
+    DESCRIPTION
+      "Table of qos and acl."
+    ::= { lswCommon  16 }
+
+  HwMirrorOrMonitorType ::= TEXTUAL-CONVENTION
+    STATUS current
+    DESCRIPTION
+    "
+     Specify the mirror source or destination type.
+     port(1):
+        the mirror source or destination is port.
+     board(2):
+        the mirror source or destination is board.
+    "
+    SYNTAX INTEGER
+    {
+       port(1),
+       board(2)
+    }
+
+---------- Following is for Node£ºhwLswQosMibObject --------
+  hwLswQosMibObject OBJECT IDENTIFIER ::= {  hwLswQosAclMib 2  }
+
+  hwPriorityTrustMode OBJECT-TYPE
+    SYNTAX      INTEGER
+            {
+                default(0),
+                dscp(1),
+                ipprecedence(2),
+                cos(3),
+                localprecedence(4)
+            }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "Priority type of inbound queue."
+    DEFVAL      { 0}
+    ::= { hwLswQosMibObject 1 }
+
+  hwPortMonitorBothIfIndex OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "The ifIndex of in/out monitor port."
+    DEFVAL      { 0}
+    ::= { hwLswQosMibObject 2 }
+
+
+ --TABLE: hwQueueTable
+
+  hwQueueTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwQueueEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Queue table which contains queue entry."
+    ::= { hwLswQosMibObject 3 }
+
+  hwQueueEntry OBJECT-TYPE
+    SYNTAX      HwQueueEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "The configuration information of queue."
+    INDEX {
+              hwQueueIfIndex
+          }
+    ::= { hwQueueTable 1 }
+
+  HwQueueEntry ::=
+    SEQUENCE
+    {
+      hwQueueIfIndex    INTEGER,
+      hwQueueScheduleMode    INTEGER,
+      hwQueueWeight1    INTEGER,
+      hwQueueWeight2    INTEGER,
+      hwQueueWeight3    INTEGER,
+      hwQueueWeight4    INTEGER,
+      hwQueueMaxDelay    INTEGER,
+      hwQueueWeight5    INTEGER,
+      hwQueueWeight6    INTEGER,
+      hwQueueWeight7    INTEGER,
+      hwQueueWeight8    INTEGER
+    }
+
+
+  hwQueueIfIndex OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "ifIndex of port."
+    ::= { hwQueueEntry 1 }
+
+  hwQueueScheduleMode OBJECT-TYPE
+    SYNTAX      INTEGER{
+                        sp(1),
+                        wrr(2),
+                        wrr-max-delay(3),
+                        sc-0(4),
+                        sc-1(5),
+                        sc-2(6),
+                        rr(7),
+                        wfq(8),
+                        hq-wrr(9)
+                       }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "The mode of the queue schedule."
+    DEFVAL      { sp }
+    ::= { hwQueueEntry 2 }
+
+  hwQueueWeight1 OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "If queue mode is wfq, then hwQueueWeight1 represent the bandwidth of queue 1.
+      If queue mode is wrr, then hwQueueWeight1 represent the weight of queue 1."
+    ::= { hwQueueEntry 3 }
+
+  hwQueueWeight2 OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "If queue mode is wfq, then hwQueueWeight2 represent the bandwidth of queue 2.
+      If queue mode is wrr, then hwQueueWeight2 represent the weight of queue 2."
+    ::= { hwQueueEntry 4 }
+
+  hwQueueWeight3 OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "If queue mode is wfq, then hwQueueWeight3 represent the bandwidth of queue 3.
+      If queue mode is wrr, then hwQueueWeight3 represent the weight of queue 3."
+    ::= { hwQueueEntry 5 }
+
+  hwQueueWeight4 OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "If queue mode is wfq, then hwQueueWeight4 represent the bandwidth of queue 4.
+      If queue mode is wrr, then hwQueueWeight4 represent the weight of queue 4."
+    ::= { hwQueueEntry 6 }
+
+  hwQueueMaxDelay OBJECT-TYPE
+    SYNTAX      INTEGER(0..255)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      " "
+    ::= { hwQueueEntry 7 }
+
+  hwQueueWeight5 OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "If queue mode is wfq, then hwQueueWeight5 represent the bandwidth of queue 5.
+      If queue mode is wrr, then hwQueueWeight5 represent the weight of queue 5."
+    ::= { hwQueueEntry 8 }
+
+  hwQueueWeight6 OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "If queue mode is wfq, then hwQueueWeight6 represent the bandwidth of queue 6.
+      If queue mode is wrr, then hwQueueWeight6 represent the weight of queue 6."
+    ::= { hwQueueEntry 9 }
+
+  hwQueueWeight7 OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "If queue mode is wfq, then hwQueueWeight7 represent the bandwidth of queue 7.
+      If queue mode is wrr, then hwQueueWeight7 represent the weight of queue 7."
+    ::= { hwQueueEntry 10 }
+
+  hwQueueWeight8 OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "If queue mode is wfq, then hwQueueWeight8 represent the bandwidth of queue 8.
+      If queue mode is wrr, then hwQueueWeight8 represent the weight of queue 8."
+    ::= { hwQueueEntry 11 }
+
+
+  -- TABLE: hwRateLimitTable ------
+  hwRateLimitTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwRateLimitEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Rate limit table which contains limit entry. "
+    ::= { hwLswQosMibObject 4 }
+
+  hwRateLimitEntry OBJECT-TYPE
+    SYNTAX      HwRateLimitEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "The configuration information of the rate-limited port."
+    INDEX {
+              hwRateLimitAclIndex,
+              hwRateLimitIfIndex,
+              hwRateLimitVlanID,
+              hwRateLimitDirection
+          }
+    ::= { hwRateLimitTable 1 }
+
+  HwRateLimitEntry ::=
+    SEQUENCE
+    {
+      hwRateLimitAclIndex    INTEGER,
+      hwRateLimitIfIndex    INTEGER,
+      hwRateLimitVlanID    INTEGER,
+      hwRateLimitDirection    INTEGER,
+      hwRateLimitUserAclNum    INTEGER,
+      hwRateLimitUserAclRule    INTEGER,
+      hwRateLimitIpAclNum    INTEGER,
+      hwRateLimitIpAclRule    INTEGER,
+      hwRateLimitLinkAclNum    INTEGER,
+      hwRateLimitLinkAclRule    INTEGER,
+      hwRateLimitTargetRateMbps    INTEGER,
+      hwRateLimitTargetRateKbps    INTEGER,
+      hwRateLimitPeakRate    INTEGER,
+      hwRateLimitCIR    INTEGER,
+      hwRateLimitCBS    INTEGER,
+      hwRateLimitEBS    INTEGER,
+      hwRateLimitPIR    INTEGER,
+      hwRateLimitConformLocalPre    INTEGER,
+      hwRateLimitConformActionType    INTEGER,
+      hwRateLimitExceedActionType    INTEGER,
+      hwRateLimitExceedDscp    INTEGER,
+      hwRateLimitRuntime    TruthValue,
+      hwRateLimitRowStatus    RowStatus,
+      hwRateLimitExceedCos INTEGER,
+      hwRateLimitConformCos INTEGER,
+      hwRateLimitConformDscp INTEGER,
+      hwRateLimitMeterStatByteCount Counter64,
+      hwRateLimitMeterStatByteXCount Counter64,
+      hwRateLimitMeterStatState INTEGER
+    }
+
+  hwRateLimitAclIndex OBJECT-TYPE
+    SYNTAX      INTEGER(0..2999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Index of acl rule."
+    ::= { hwRateLimitEntry 1 }
+
+  hwRateLimitIfIndex OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "ifIndex of the rate-limited port."
+    ::= { hwRateLimitEntry 2 }
+
+  hwRateLimitVlanID OBJECT-TYPE
+    SYNTAX      INTEGER(0..4094)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Vlan ID."
+    ::= { hwRateLimitEntry 3 }
+
+  hwRateLimitDirection OBJECT-TYPE
+    SYNTAX      INTEGER{invalid(0), input(1), output(2)}
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Direction of the rate-limited port."
+    ::= { hwRateLimitEntry 4 }
+
+  hwRateLimitUserAclNum OBJECT-TYPE
+    SYNTAX      INTEGER(0|5000..5999|10000..12999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The number of user acl."
+    ::= { hwRateLimitEntry 5 }
+
+  hwRateLimitUserAclRule OBJECT-TYPE
+    SYNTAX      INTEGER(0..65535)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The number of user acl-rule."
+    ::= { hwRateLimitEntry 6 }
+
+  hwRateLimitIpAclNum OBJECT-TYPE
+    SYNTAX      INTEGER(0|2000..3999|10000..12999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The number of Ip acl."
+    ::= { hwRateLimitEntry 7 }
+
+  hwRateLimitIpAclRule OBJECT-TYPE
+    SYNTAX      INTEGER(0..65535)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The number of Ip acl-rule."
+    ::= { hwRateLimitEntry 8 }
+
+  hwRateLimitLinkAclNum OBJECT-TYPE
+    SYNTAX      INTEGER(0|4000..4999|10000..12999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The number of link acl."
+    ::= { hwRateLimitEntry 9 }
+
+  hwRateLimitLinkAclRule OBJECT-TYPE
+    SYNTAX      INTEGER(0..65535)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The number of link acl-rule."
+    ::= { hwRateLimitEntry 10 }
+
+  hwRateLimitTargetRateMbps OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Target rate: Mbps."
+    ::= { hwRateLimitEntry 11 }
+
+  hwRateLimitTargetRateKbps OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Target rate: Kbps."
+    ::= { hwRateLimitEntry 12 }
+
+  hwRateLimitPeakRate OBJECT-TYPE
+    SYNTAX      INTEGER(0|64..8388608)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Peak rate of the rate-limited port."
+    ::= { hwRateLimitEntry 13 }
+
+  hwRateLimitCIR OBJECT-TYPE
+    SYNTAX      INTEGER(0..34120000)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "CIR of the rate-limited port."
+    ::= { hwRateLimitEntry 14 }
+
+  hwRateLimitCBS OBJECT-TYPE
+    SYNTAX      INTEGER(0..1048575)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Burst traffic of the rate-limited port."
+    ::= { hwRateLimitEntry 15 }
+
+  hwRateLimitEBS OBJECT-TYPE
+    SYNTAX      INTEGER(0..268435455)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Excess burst traffic of the rate-limited port."
+    ::= { hwRateLimitEntry 16 }
+
+  hwRateLimitPIR OBJECT-TYPE
+    SYNTAX      INTEGER(0..34120000)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "PIR of the rate-limited port."
+    ::= { hwRateLimitEntry 17 }
+
+  hwRateLimitConformLocalPre OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Conform local pre."
+    DEFVAL      { 1 }
+    ::= { hwRateLimitEntry 18 }
+
+  hwRateLimitConformActionType OBJECT-TYPE
+    SYNTAX      INTEGER{
+                       invalid(0),
+                       remark-cos(1),
+                       remark-drop-priority(2),
+                       remark-cos-drop-priority(3),
+                       remark-policed-service(4),
+                       remark-dscp(5)
+                       }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Conform action type."
+    DEFVAL      { 1 }
+    ::= { hwRateLimitEntry 19 }
+
+  hwRateLimitExceedActionType OBJECT-TYPE
+    SYNTAX      INTEGER{invalid(0), forward(1), drop(2), remarkdscp(3), exceed-cos(4)}
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Exceed action type."
+    DEFVAL      { 1 }
+    ::= { hwRateLimitEntry 20 }
+
+  hwRateLimitExceedDscp OBJECT-TYPE
+    SYNTAX      INTEGER(0..63|255)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Exceed DSCP.
+      <0-63>  Value of DSCP
+      af11    Specify Assured Forwarding 11 service(10)
+      af12    Specify Assured Forwarding 12 service(12)
+      af13    Specify Assured Forwarding 13 service(14)
+      af21    Specify Assured Forwarding 21 service(18)
+      af22    Specify Assured Forwarding 22 service(20)
+      af23    Specify Assured Forwarding 23 service(22)
+      af31    Specify Assured Forwarding 31 service(26)
+      af32    Specify Assured Forwarding 32 service(28)
+      af33    Specify Assured Forwarding 33 service(30)
+      af41    Specify Assured Forwarding 41 service(34)
+      af42    Specify Assured Forwarding 42 service(36)
+      af43    Specify Assured Forwarding 43 service(38)
+      be      Specify Best Effort service(0)
+      cs1     Specify Class Selector 1 service(8)
+      cs2     Specify Class Selector 2 service(16)
+      cs3     Specify Class Selector 3 service(24)
+      cs4     Specify Class Selector 4 service(32)
+      cs5     Specify Class Selector 5 service(40)
+      cs6     Specify Class Selector 6 service(48)
+      cs7     Specify Class Selector 7 service(56)
+      ef      Specify Expedited Forwarding service(46)"
+    DEFVAL      { 255 }
+    ::= { hwRateLimitEntry 21 }
+
+  hwRateLimitRuntime OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Runtime."
+    ::= { hwRateLimitEntry 22 }
+
+  hwRateLimitRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "RowStatus, now support three status: createAndGo, active, destroy."
+    ::= { hwRateLimitEntry 23 }
+
+  hwRateLimitExceedCos OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Exceeding COS of rate-limited port."
+    DEFVAL      { 255 }
+    ::= { hwRateLimitEntry 24 }
+
+  hwRateLimitConformCos OBJECT-TYPE
+    SYNTAX      INTEGER(0..7|255)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "If the user choose remark-cos value of the hwRateLimitConformActionType,
+      This object can be used to set the conform COS value.  There are a few
+      enumerations as follows:
+      background          Specify background priority(1)
+      best-effort         Specify best-effort priority(0)
+      controlled-load     Specify controlled-load priority(4)
+      excellent-effort    Specify excellent-effort priority(3)
+      network-management  Specify network-management priority(7)
+      spare               Specify spare priority(2)
+      video               Specify video priority(5)
+      voice               Specify voice priority(6)"
+    DEFVAL      { 255 }
+    ::= { hwRateLimitEntry 25 }
+
+  hwRateLimitConformDscp OBJECT-TYPE
+    SYNTAX      INTEGER(0..63|255)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "If the user choose remark-dscp value of the hwRateLimitConformActionType,
+      This object can be used to set the conform dscp value.  There are a few
+      enumerations as follows:
+      <0-63>  Value of DSCP
+      af11    Specify Assured Forwarding 11 service(10)
+      af12    Specify Assured Forwarding 12 service(12)
+      af13    Specify Assured Forwarding 13 service(14)
+      af21    Specify Assured Forwarding 21 service(18)
+      af22    Specify Assured Forwarding 22 service(20)
+      af23    Specify Assured Forwarding 23 service(22)
+      af31    Specify Assured Forwarding 31 service(26)
+      af32    Specify Assured Forwarding 32 service(28)
+      af33    Specify Assured Forwarding 33 service(30)
+      af41    Specify Assured Forwarding 41 service(34)
+      af42    Specify Assured Forwarding 42 service(36)
+      af43    Specify Assured Forwarding 43 service(38)
+      be      Specify Best Effort service(0)
+      cs1     Specify Class Selector 1 service(8)
+      cs2     Specify Class Selector 2 service(16)
+      cs3     Specify Class Selector 3 service(24)
+      cs4     Specify Class Selector 4 service(32)
+      cs5     Specify Class Selector 5 service(40)
+      cs6     Specify Class Selector 6 service(48)
+      cs7     Specify Class Selector 7 service(56)
+      ef      Specify Expedited Forwarding service(46)"
+    DEFVAL      { 255 }
+    ::= { hwRateLimitEntry 26 }
+
+  hwRateLimitMeterStatByteCount  OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+               "The counter of conform byte."
+    ::= { hwRateLimitEntry 27 }
+
+  hwRateLimitMeterStatByteXCount  OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+               "The counter of exceed byte."
+    ::= { hwRateLimitEntry 28 }
+
+  hwRateLimitMeterStatState  OBJECT-TYPE
+    SYNTAX      INTEGER
+                       {
+                       set(1), --enable meter statistic
+                       unDo(2), --undo meter statistic
+                       reset(3), --reset meter statistic
+                       running(4), --status of meter statistic running
+                       notRunning(5) --status of meter statistic not running
+                       }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+               "The status of meter statistic."
+    ::= { hwRateLimitEntry 29 }
+
+  -- TABLE: hwPriorityTable ------
+  hwPriorityTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwPriorityEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "The priority table which contains priority entry."
+    ::= { hwLswQosMibObject 5 }
+
+  hwPriorityEntry OBJECT-TYPE
+    SYNTAX      HwPriorityEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "The configuration information of priority."
+    INDEX {
+              hwPriorityAclIndex,
+              hwPriorityIfIndex,
+              hwPriorityVlanID,
+              hwPriorityDirection
+          }
+    ::= { hwPriorityTable 1 }
+
+  HwPriorityEntry ::=
+    SEQUENCE
+    {
+      hwPriorityAclIndex    INTEGER,
+      hwPriorityIfIndex    INTEGER,
+      hwPriorityVlanID    INTEGER,
+      hwPriorityDirection    INTEGER,
+      hwPriorityUserAclNum    INTEGER,
+      hwPriorityUserAclRule    INTEGER,
+      hwPriorityIpAclNum    INTEGER,
+      hwPriorityIpAclRule    INTEGER,
+      hwPriorityLinkAclNum    INTEGER,
+      hwPriorityLinkAclRule    INTEGER,
+      hwPriorityDscp    INTEGER,
+      hwPriorityIpPre    INTEGER,
+      hwPriorityIpPreFromCos    TruthValue,
+      hwPriorityCos    INTEGER,
+      hwPriorityCosFromIpPre    TruthValue,
+      hwPriorityLocalPre    INTEGER,
+      hwPriorityPolicedServiceType    INTEGER,
+      hwPriorityPolicedServiceDscp    INTEGER,
+      hwPriorityPolicedServiceExp    INTEGER,
+      hwPriorityPolicedServiceCos    INTEGER,
+      hwPriorityPolicedServiceLoaclPre    INTEGER,
+      hwPriorityPolicedServiceDropPriority    INTEGER,
+      hwPriorityRuntime    TruthValue,
+      hwPriorityRowStatus    RowStatus
+    }
+
+  hwPriorityAclIndex OBJECT-TYPE
+    SYNTAX      INTEGER(0..2999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Index of acl rule."
+    ::= { hwPriorityEntry 1 }
+
+  hwPriorityIfIndex OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "ifIndex of the port."
+    ::= { hwPriorityEntry 2 }
+
+  hwPriorityVlanID OBJECT-TYPE
+    SYNTAX      INTEGER(0..4094)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Vlan ID."
+    ::= { hwPriorityEntry 3 }
+
+  hwPriorityDirection OBJECT-TYPE
+    SYNTAX      INTEGER{invalid(0), input(1), output(2)}
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Direction of data stream."
+    ::= { hwPriorityEntry 4 }
+
+  hwPriorityUserAclNum OBJECT-TYPE
+    SYNTAX      INTEGER(0|5000..5999|10000..12999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The number of user acl."
+    ::= { hwPriorityEntry 5 }
+
+  hwPriorityUserAclRule OBJECT-TYPE
+    SYNTAX      INTEGER(0..65535)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The subitem of the user acl."
+    ::= { hwPriorityEntry 6 }
+
+  hwPriorityIpAclNum OBJECT-TYPE
+    SYNTAX      INTEGER(0|2000..3999|10000..12999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The number of Ip acl."
+    ::= { hwPriorityEntry 7 }
+
+  hwPriorityIpAclRule OBJECT-TYPE
+    SYNTAX      INTEGER(0..65535)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The subitem of the IP acl."
+    ::= { hwPriorityEntry 8 }
+
+  hwPriorityLinkAclNum OBJECT-TYPE
+    SYNTAX      INTEGER(0|4000..4999|10000..12999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The number of Link acl."
+    ::= { hwPriorityEntry 9 }
+
+  hwPriorityLinkAclRule OBJECT-TYPE
+    SYNTAX      INTEGER(0..65535)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The subitem of the link acl."
+    ::= { hwPriorityEntry 10 }
+
+  hwPriorityDscp OBJECT-TYPE
+    SYNTAX      INTEGER(0..63|255)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Set DSCP Value.
+      <0-63>  Value of DSCP
+      af11    Specify Assured Forwarding 11 service(10)
+      af12    Specify Assured Forwarding 12 service(12)
+      af13    Specify Assured Forwarding 13 service(14)
+      af21    Specify Assured Forwarding 21 service(18)
+      af22    Specify Assured Forwarding 22 service(20)
+      af23    Specify Assured Forwarding 23 service(22)
+      af31    Specify Assured Forwarding 31 service(26)
+      af32    Specify Assured Forwarding 32 service(28)
+      af33    Specify Assured Forwarding 33 service(30)
+      af41    Specify Assured Forwarding 41 service(34)
+      af42    Specify Assured Forwarding 42 service(36)
+      af43    Specify Assured Forwarding 43 service(38)
+      be      Specify Best Effort service(0)
+      cs1     Specify Class Selector 1 service(8)
+      cs2     Specify Class Selector 2 service(16)
+      cs3     Specify Class Selector 3 service(24)
+      cs4     Specify Class Selector 4 service(32)
+      cs5     Specify Class Selector 5 service(40)
+      cs6     Specify Class Selector 6 service(48)
+      cs7     Specify Class Selector 7 service(56)
+      ef      Specify Expedited Forwarding service(46)"
+    DEFVAL      { 255 }
+    ::= { hwPriorityEntry 11 }
+
+  hwPriorityIpPre OBJECT-TYPE
+    SYNTAX      INTEGER(0..7|255)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Set Ip precedence."
+    DEFVAL      { 255 }
+    ::= { hwPriorityEntry 12 }
+
+  hwPriorityIpPreFromCos OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Set Ip precedence according to vlan priority."
+    DEFVAL      { 2 }
+    ::= { hwPriorityEntry 13 }
+
+  hwPriorityCos OBJECT-TYPE
+    SYNTAX      INTEGER(0..7|255)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Set vlan priority."
+    DEFVAL      { 255 }
+    ::= { hwPriorityEntry 14 }
+
+  hwPriorityCosFromIpPre OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Set vlan priority according to IP precedence."
+    DEFVAL      { 2 }
+    ::= { hwPriorityEntry 15 }
+
+  hwPriorityLocalPre OBJECT-TYPE
+    SYNTAX      INTEGER(0..7|255)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Set local precedence."
+    DEFVAL      { 255 }
+    ::= { hwPriorityEntry 16 }
+
+  hwPriorityPolicedServiceType OBJECT-TYPE
+    SYNTAX      INTEGER{invalid(0), auto(1), trust-dscp(2), new-dscp(3), untrusted(4)}
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The service type of proliced Priority."
+    ::= { hwPriorityEntry 17 }
+
+  hwPriorityPolicedServiceDscp OBJECT-TYPE
+    SYNTAX      INTEGER(0..63|255)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The service Dscp of proliced Priority."
+    DEFVAL      { 255 }
+    ::= { hwPriorityEntry 18 }
+
+  hwPriorityPolicedServiceExp OBJECT-TYPE
+    SYNTAX      INTEGER(0..7|255)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The service Exp of proliced Priority."
+    DEFVAL      { 255 }
+    ::= { hwPriorityEntry 19 }
+
+  hwPriorityPolicedServiceCos OBJECT-TYPE
+    SYNTAX      INTEGER(0..7|255)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The service COS of proliced Priority."
+    DEFVAL      { 255 }
+    ::= { hwPriorityEntry 20 }
+
+  hwPriorityPolicedServiceLoaclPre OBJECT-TYPE
+    SYNTAX      INTEGER(0..7|255)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The service local pre of proliced Priority."
+    DEFVAL      { 255 }
+    ::= { hwPriorityEntry 21 }
+
+  hwPriorityPolicedServiceDropPriority OBJECT-TYPE
+    SYNTAX      INTEGER(0..2|255)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The service drop priority of proliced Priority."
+    DEFVAL      { 255 }
+    ::= { hwPriorityEntry 22 }
+
+  hwPriorityRuntime OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Is run or not."
+    ::= { hwPriorityEntry 23 }
+
+  hwPriorityRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "RowStatus, now support three status: createAndGo, active, destroy."
+    ::= { hwPriorityEntry 24 }
+
+  -- TABLE: hwRedirectTable ------
+  hwRedirectTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwRedirectEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Redirect table which contains rediect entry."
+    ::= { hwLswQosMibObject 6 }
+
+  hwRedirectEntry OBJECT-TYPE
+    SYNTAX      HwRedirectEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Configuration information of redirection."
+    INDEX {
+              hwRedirectAclIndex,
+              hwRedirectIfIndex,
+              hwRedirectVlanID,
+              hwRedirectDirection
+          }
+    ::= { hwRedirectTable 1 }
+
+  HwRedirectEntry ::=
+    SEQUENCE
+    {
+      hwRedirectAclIndex    INTEGER,
+      hwRedirectIfIndex    INTEGER,
+      hwRedirectVlanID    INTEGER,
+      hwRedirectDirection    INTEGER,
+      hwRedirectUserAclNum    INTEGER,
+      hwRedirectUserAclRule    INTEGER,
+      hwRedirectIpAclNum    INTEGER,
+      hwRedirectIpAclRule    INTEGER,
+      hwRedirectLinkAclNum    INTEGER,
+      hwRedirectLinkAclRule    INTEGER,
+      hwRedirectToCpu    TruthValue,
+      hwRedirectToIfIndex    INTEGER,
+      hwRedirectToNextHop1    IpAddress,
+      hwRedirectToNextHop2    IpAddress,
+      hwRedirectRuntime    TruthValue,
+      hwRedirectRowStatus    RowStatus,
+      hwRedirectToSlotNo INTEGER,
+      hwRedirectRemarkedDSCP    INTEGER,
+      hwRedirectRemarkedPri  INTEGER,
+      hwRedirectRemarkedTos  INTEGER,
+      hwRedirectToNextHop3  IpAddress,
+      hwRedirectTargetVlanID INTEGER,
+      hwRedirectMode INTEGER,
+      hwRedirectToNestedVlanID Integer32,
+      hwRedirectToModifiedVlanID Integer32
+    }
+
+  hwRedirectAclIndex OBJECT-TYPE
+    SYNTAX      INTEGER(0..2999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Index of acl rule."
+    ::= { hwRedirectEntry 1 }
+
+  hwRedirectIfIndex OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "ifIndex of port."
+    ::= { hwRedirectEntry 2 }
+
+  hwRedirectVlanID OBJECT-TYPE
+    SYNTAX      INTEGER(0..4094)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Vlan ID."
+    ::= { hwRedirectEntry 3 }
+
+  hwRedirectDirection OBJECT-TYPE
+    SYNTAX      INTEGER{invalid(0), input(1), output(2)}
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Direction of data stream."
+    ::= { hwRedirectEntry 4 }
+
+  hwRedirectUserAclNum OBJECT-TYPE
+    SYNTAX      INTEGER(0|5000..5999|10000..12999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The number of the user acl."
+    ::= { hwRedirectEntry 5 }
+
+  hwRedirectUserAclRule OBJECT-TYPE
+    SYNTAX      INTEGER(0..65535)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The subitem of the user acl."
+    ::= { hwRedirectEntry 6 }
+
+  hwRedirectIpAclNum OBJECT-TYPE
+    SYNTAX      INTEGER(0|2000..3999|10000..12999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The num of the IP acl."
+    ::= { hwRedirectEntry 7 }
+
+  hwRedirectIpAclRule OBJECT-TYPE
+    SYNTAX      INTEGER(0..65535)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The subitem of the IP acl."
+    ::= { hwRedirectEntry 8 }
+
+  hwRedirectLinkAclNum OBJECT-TYPE
+    SYNTAX      INTEGER(0|4000..4999|10000..12999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The num of the link acl."
+    ::= { hwRedirectEntry 9 }
+
+  hwRedirectLinkAclRule OBJECT-TYPE
+    SYNTAX      INTEGER(0..65535)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The subitem of the link acl."
+    ::= { hwRedirectEntry 10 }
+
+  hwRedirectToCpu OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Redirect to cpu."
+    DEFVAL      { 2 }
+    ::= { hwRedirectEntry 11 }
+
+  hwRedirectToIfIndex OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The ifIndex of port to be redirect to."
+    ::= { hwRedirectEntry 12 }
+
+  hwRedirectToNextHop1 OBJECT-TYPE
+    SYNTAX      IpAddress
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+          " "
+    ::= { hwRedirectEntry 13 }
+
+  hwRedirectToNextHop2 OBJECT-TYPE
+    SYNTAX      IpAddress
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+          " "
+    ::= { hwRedirectEntry 14 }
+
+  hwRedirectRuntime OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Is run or not."
+    ::= { hwRedirectEntry 15 }
+
+  hwRedirectRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+          "RowStatus, now support three status: createAndGo, active, destroy."
+    ::= { hwRedirectEntry 16 }
+
+  hwRedirectToSlotNo OBJECT-TYPE
+    SYNTAX      INTEGER(1..16)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The slot number to process redirection. Default value is 15.
+      When L3plus function is not supported, the default value would be set.
+      For L3plus redirection function, it is necessary."
+    ::= { hwRedirectEntry 17 }
+
+  hwRedirectRemarkedDSCP OBJECT-TYPE
+    SYNTAX      INTEGER(0..63|255)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "DSCP of Policy-Based Routing. When L3plus function is not supported,
+      the default value would be set.
+      For L3plus redirection function, it is optional."
+    DEFVAL      { 255 }
+    ::= { hwRedirectEntry 18 }
+
+  hwRedirectRemarkedPri OBJECT-TYPE
+    SYNTAX      INTEGER(0..7|255)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The priority of the redirect packet. When L3plus function is not supported,
+      the default value would be set.
+      For L3plus redirection function, it is optional."
+    DEFVAL      { 255 }
+    ::= { hwRedirectEntry 19 }
+
+  hwRedirectRemarkedTos OBJECT-TYPE
+    SYNTAX      INTEGER(0..15|255)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The TOS of the redirect packet.
+      When L3plus function is not supported, the default value would be set.
+      For L3plus redirection function, it is optional."
+    DEFVAL      { 255 }
+    ::= { hwRedirectEntry 20 }
+
+  hwRedirectToNextHop3 OBJECT-TYPE
+    SYNTAX      IpAddress
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The third IP address for PBR. Default value is 0xffffffff.
+      When L3plus function is not supported, the default value would be set.
+      The data stream can be redirected to three nexthops at most or one
+      VLAN interface, one nexthop should be set at least if data packets
+      are not redirected to VLAN interface for L3plus redirection function."
+    ::= { hwRedirectEntry 21 }
+
+  hwRedirectTargetVlanID OBJECT-TYPE
+    SYNTAX      INTEGER(0..4094)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The destination vlan ID for PBR. Default value is 0.
+      When L3plus function is not supported, the default value would be set.
+      For L3plus redirection function, it is necessary when no nexthop is set. "
+    ::= { hwRedirectEntry 22 }
+
+  hwRedirectMode OBJECT-TYPE
+    SYNTAX      INTEGER{
+                                strict-priority(1),
+                                load-balance(2)
+                       }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The node denotes the strategy adopted by the PBR.
+      If strict-priority is configured, the most preferential IP address
+      is use as redirected nexthop.
+      If the mode is load-balance, any of the three IP addresses will be
+      the nexthop and the traffic distributes in the three direction.
+      Default value is strict-priority.
+      When L3plus function is not supported, the default value would be set.
+      It is optional. "
+    DEFVAL      { strict-priority }
+    ::= { hwRedirectEntry 23 }
+
+  hwRedirectToNestedVlanID OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The nested vlan ID inserted before the original vlan tag. Default value is 0.
+      When the function is not supported, the default value would be set.
+      It is optional."
+    DEFVAL      { 0 }
+    ::= { hwRedirectEntry 24 }
+
+  hwRedirectToModifiedVlanID OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The new vlan ID replaced the old one. Default value is 0.
+      When the function is not supported, the default value would be set.
+      It is optional."
+    DEFVAL      { 0 }
+    ::= { hwRedirectEntry 25 }
+
+  -- TABLE: hwStatisticTable ------
+  hwStatisticTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwStatisticEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Statistic table which contains statistic entry."
+    ::= { hwLswQosMibObject 7 }
+
+  hwStatisticEntry OBJECT-TYPE
+    SYNTAX      HwStatisticEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Configuration about statistic information."
+    INDEX {
+              hwStatisticAclIndex,
+              hwStatisticIfIndex,
+              hwStatisticVlanID,
+              hwStatisticDirection
+          }
+    ::= { hwStatisticTable 1 }
+
+  HwStatisticEntry ::=
+    SEQUENCE
+    {
+      hwStatisticAclIndex    INTEGER,
+      hwStatisticIfIndex    INTEGER,
+      hwStatisticVlanID    INTEGER,
+      hwStatisticDirection    INTEGER,
+      hwStatisticUserAclNum    INTEGER,
+      hwStatisticUserAclRule    INTEGER,
+      hwStatisticIpAclNum    INTEGER,
+      hwStatisticIpAclRule    INTEGER,
+      hwStatisticLinkAclNum    INTEGER,
+      hwStatisticLinkAclRule    INTEGER,
+      hwStatisticRuntime    TruthValue,
+      hwStatisticPacketCount    Counter64,
+      hwStatisticByteCount    Counter64,
+      hwStatisticCountClear    INTEGER,
+      hwStatisticRowStatus    RowStatus,
+      hwStatisticPacketXCount Counter64,
+      hwStatisticByteXCount Counter64
+    }
+
+  hwStatisticAclIndex OBJECT-TYPE
+    SYNTAX      INTEGER(0..2999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Index of acl rule."
+    ::= { hwStatisticEntry 1 }
+
+  hwStatisticIfIndex OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "ifIndex of port."
+    ::= { hwStatisticEntry 2 }
+
+  hwStatisticVlanID OBJECT-TYPE
+    SYNTAX      INTEGER(0..4094)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Vlan ID."
+    ::= { hwStatisticEntry 3 }
+
+  hwStatisticDirection OBJECT-TYPE
+    SYNTAX      INTEGER{invalid(0), input(1), output(2)}
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Direction of data stream."
+    ::= { hwStatisticEntry 4 }
+
+  hwStatisticUserAclNum OBJECT-TYPE
+    SYNTAX      INTEGER(0|5000..5999|10000..12999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The number of the user acl."
+    ::= { hwStatisticEntry 5 }
+
+  hwStatisticUserAclRule OBJECT-TYPE
+    SYNTAX      INTEGER(0..65535)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The subitem of the user acl."
+    ::= { hwStatisticEntry 6 }
+
+  hwStatisticIpAclNum OBJECT-TYPE
+    SYNTAX      INTEGER(0|2000..3999|10000..12999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The number of the IP acl."
+    ::= { hwStatisticEntry 7 }
+
+  hwStatisticIpAclRule OBJECT-TYPE
+    SYNTAX      INTEGER(0..65535)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The subitem of the IP acl."
+    ::= { hwStatisticEntry 8 }
+
+  hwStatisticLinkAclNum OBJECT-TYPE
+    SYNTAX      INTEGER(0|4000..4999|10000..12999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The number of the link acl."
+    ::= { hwStatisticEntry 9 }
+
+  hwStatisticLinkAclRule OBJECT-TYPE
+    SYNTAX      INTEGER(0..65535)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The subitem of the link acl."
+    ::= { hwStatisticEntry 10 }
+
+  hwStatisticRuntime OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Is run or not."
+    ::= { hwStatisticEntry 11 }
+
+  hwStatisticPacketCount OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "The counter of the packets which is matched."
+    ::= { hwStatisticEntry 12 }
+
+  hwStatisticByteCount OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "The counter of the byte which is matched."
+    ::= { hwStatisticEntry 13 }
+
+  hwStatisticCountClear OBJECT-TYPE
+    SYNTAX      INTEGER{cleared(1),nouse(2)}
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "Clear the counter of the packets."
+    ::= { hwStatisticEntry 14 }
+
+  hwStatisticRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "RowStatus, now support three status: createAndGo, active, destroy."
+    ::= { hwStatisticEntry 15 }
+
+  hwStatisticPacketXCount OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "The counter of the outprofile packets."
+    ::= { hwStatisticEntry 16 }
+
+  hwStatisticByteXCount OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "The counter of the outprofile bytes."
+    ::= { hwStatisticEntry 17 }
+
+  -- TABLE: hwMirrorTable ------
+  hwMirrorTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwMirrorEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Mirror table which contains mirror entry."
+    ::= { hwLswQosMibObject 8 }
+
+  hwMirrorEntry OBJECT-TYPE
+    SYNTAX      HwMirrorEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Configuration information to be mirrored."
+    INDEX {
+              hwMirrorAclIndex,
+              hwMirrorIfIndex,
+              hwMirrorVlanID,
+              hwMirrorDirection
+          }
+    ::= { hwMirrorTable 1 }
+
+  HwMirrorEntry ::=
+    SEQUENCE
+    {
+      hwMirrorAclIndex    INTEGER,
+      hwMirrorIfIndex    INTEGER,
+      hwMirrorVlanID    INTEGER,
+      hwMirrorDirection    INTEGER,
+      hwMirrorUserAclNum    INTEGER,
+      hwMirrorUserAclRule    INTEGER,
+      hwMirrorIpAclNum    INTEGER,
+      hwMirrorIpAclRule    INTEGER,
+      hwMirrorLinkAclNum    INTEGER,
+      hwMirrorLinkAclRule    INTEGER,
+      hwMirrorToIfIndex    INTEGER,
+      hwMirrorToCpu    TruthValue,
+      hwMirrorRuntime    TruthValue,
+      hwMirrorRowStatus    RowStatus,
+      hwMirrorToGroup       Integer32
+
+    }
+
+  hwMirrorAclIndex OBJECT-TYPE
+    SYNTAX      INTEGER(0..2999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Index of acl rule."
+    ::= { hwMirrorEntry 1 }
+
+  hwMirrorIfIndex OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "ifIndex of port."
+    ::= { hwMirrorEntry 2 }
+
+  hwMirrorVlanID OBJECT-TYPE
+    SYNTAX      INTEGER(0..4094)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Vlan ID."
+    ::= { hwMirrorEntry 3 }
+
+  hwMirrorDirection OBJECT-TYPE
+    SYNTAX      INTEGER{invalid(0), input(1), output(2)}
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Direction of data stream."
+    ::= { hwMirrorEntry 4 }
+
+  hwMirrorUserAclNum OBJECT-TYPE
+    SYNTAX      INTEGER(0|5000..5999|10000..12999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The number of the user acl."
+    ::= { hwMirrorEntry 5 }
+
+  hwMirrorUserAclRule OBJECT-TYPE
+    SYNTAX      INTEGER(0..65535)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The subitem of the user acl."
+    ::= { hwMirrorEntry 6 }
+
+  hwMirrorIpAclNum OBJECT-TYPE
+    SYNTAX      INTEGER(0|2000..3999|10000..12999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The subitem of the user acl."
+    ::= { hwMirrorEntry 7 }
+
+  hwMirrorIpAclRule OBJECT-TYPE
+    SYNTAX      INTEGER(0..65535)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The subitem of the IP acl."
+    ::= { hwMirrorEntry 8 }
+
+  hwMirrorLinkAclNum OBJECT-TYPE
+    SYNTAX      INTEGER(0|4000..4999|10000..12999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The number of the link acl."
+    ::= { hwMirrorEntry 9 }
+
+  hwMirrorLinkAclRule OBJECT-TYPE
+    SYNTAX      INTEGER(0..65535)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The subitem of the link acl."
+    ::= { hwMirrorEntry 10 }
+
+  hwMirrorToIfIndex OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The ifIndex of port that to be mirrored to."
+    ::= { hwMirrorEntry 11 }
+
+  hwMirrorToCpu OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Mirror to cpu."
+    ::= { hwMirrorEntry 12 }
+
+  hwMirrorRuntime OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Is run or not."
+    ::= { hwMirrorEntry 13 }
+
+  hwMirrorRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+          "RowStatus, now support three status: createAndGo, active, destroy. "
+    ::= { hwMirrorEntry 14 }
+
+  hwMirrorToGroup OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The destination of stream-based mirroring is the mirroring group."
+    ::= { hwMirrorEntry 15 }
+
+
+  -- TABLE: hwPortMirrorTable ------
+  hwPortMirrorTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwPortMirrorEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Port Mirror."
+    ::= { hwLswQosMibObject 9 }
+
+  hwPortMirrorEntry OBJECT-TYPE
+    SYNTAX      HwPortMirrorEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Configuration information of port mirroring."
+    INDEX {
+              hwPortMirrorIfIndex
+          }
+    ::= { hwPortMirrorTable 1 }
+
+  HwPortMirrorEntry ::=
+    SEQUENCE
+    {
+      hwPortMirrorIfIndex    INTEGER,
+      hwPortMirrorDirection    INTEGER,
+      hwPortMirrorRowStatus    RowStatus
+    }
+
+  hwPortMirrorIfIndex OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The ifIndex of mirror port."
+    ::= { hwPortMirrorEntry 1 }
+
+  hwPortMirrorDirection OBJECT-TYPE
+    SYNTAX      INTEGER{in(1),out(2),both(3)}
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The direction of mirror port."
+    ::= { hwPortMirrorEntry 2 }
+
+  hwPortMirrorRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+          "RowStatus, now support three status: createAndGo, active, destroy."
+    ::= { hwPortMirrorEntry 3 }
+
+  -- TABLE: hwLineRateTable ------
+  hwLineRateTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwLineRateEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Line Rate."
+    ::= { hwLswQosMibObject 10 }
+
+  hwLineRateEntry OBJECT-TYPE
+    SYNTAX      HwLineRateEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Configuration information of line-rate port."
+    INDEX {
+              hwLineRateIfIndex,
+              hwLineRateDirection
+          }
+    ::= { hwLineRateTable 1 }
+
+  HwLineRateEntry ::=
+    SEQUENCE
+    {
+      hwLineRateIfIndex    INTEGER,
+      hwLineRateDirection    INTEGER,
+      hwLineRateValue    INTEGER,
+      hwLineRateRowStatus    RowStatus
+    }
+
+  hwLineRateIfIndex OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The ifIndex of port of line rate."
+    ::= { hwLineRateEntry 1 }
+
+  hwLineRateDirection OBJECT-TYPE
+    SYNTAX      INTEGER{in(1),out(2)}
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The direction of line rate."
+    ::= { hwLineRateEntry 2 }
+
+  hwLineRateValue OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The value of the line-rate."
+    ::= { hwLineRateEntry 3 }
+
+  hwLineRateRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+          "RowStatus, now support three status: createAndGo, active, destroy."
+    ::= { hwLineRateEntry 4 }
+
+  -- TABLE: hwBandwidthTable ------
+  hwBandwidthTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwBandwidthEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Bandwidth."
+    ::= { hwLswQosMibObject 11 }
+
+  hwBandwidthEntry OBJECT-TYPE
+    SYNTAX      HwBandwidthEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Configuration information of bandwidth of port."
+    INDEX {
+              hwBandwidthAclIndex,
+              hwBandwidthIfIndex,
+              hwBandwidthVlanID,
+              hwBandwidthDirection
+          }
+    ::= { hwBandwidthTable 1 }
+
+  HwBandwidthEntry ::=
+    SEQUENCE
+    {
+      hwBandwidthAclIndex    INTEGER,
+      hwBandwidthIfIndex    INTEGER,
+      hwBandwidthVlanID    INTEGER,
+      hwBandwidthDirection    INTEGER,
+      hwBandwidthIpAclNum    INTEGER,
+      hwBandwidthIpAclRule    INTEGER,
+      hwBandwidthLinkAclNum    INTEGER,
+      hwBandwidthLinkAclRule    INTEGER,
+      hwBandwidthMinGuaranteedWidth    INTEGER,
+      hwBandwidthMaxGuaranteedWidth    INTEGER,
+      hwBandwidthWeight    INTEGER,
+      hwBandwidthRuntime    TruthValue,
+      hwBandwidthRowStatus    RowStatus
+    }
+
+  hwBandwidthAclIndex OBJECT-TYPE
+    SYNTAX      INTEGER(0..2999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Index of acl rule."
+    ::= { hwBandwidthEntry 1 }
+
+  hwBandwidthIfIndex OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "ifIndex of port."
+    ::= { hwBandwidthEntry 2 }
+
+  hwBandwidthVlanID OBJECT-TYPE
+    SYNTAX      INTEGER(0..4094)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Vlan ID."
+    ::= { hwBandwidthEntry 3 }
+
+  hwBandwidthDirection OBJECT-TYPE
+    SYNTAX      INTEGER{invalid(0), output(2)}
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Direction of data stream."
+    ::= { hwBandwidthEntry 4 }
+
+  hwBandwidthIpAclNum OBJECT-TYPE
+    SYNTAX      INTEGER(0|2000..3999|10000..12999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The number of Ip acl."
+    ::= { hwBandwidthEntry 5 }
+
+  hwBandwidthIpAclRule OBJECT-TYPE
+    SYNTAX      INTEGER(0..65535)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The subitem of ip acl."
+    ::= { hwBandwidthEntry 6 }
+
+  hwBandwidthLinkAclNum OBJECT-TYPE
+    SYNTAX      INTEGER(0|4000..4999|10000..12999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The number of link acl."
+    ::= { hwBandwidthEntry 7 }
+
+  hwBandwidthLinkAclRule OBJECT-TYPE
+    SYNTAX      INTEGER(0..65535)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The subitem of link acl."
+    ::= { hwBandwidthEntry 8 }
+
+  hwBandwidthMinGuaranteedWidth OBJECT-TYPE
+    SYNTAX      INTEGER(1..8388608)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "The min width which is guaranteed."
+    ::= { hwBandwidthEntry 9 }
+
+  hwBandwidthMaxGuaranteedWidth OBJECT-TYPE
+    SYNTAX      INTEGER(1..8388608)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "The max width which is guaranteed."
+    ::= { hwBandwidthEntry 10 }
+
+  hwBandwidthWeight OBJECT-TYPE
+    SYNTAX      INTEGER(0..100)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "Weight of bandwidth."
+    ::= { hwBandwidthEntry 11 }
+
+  hwBandwidthRuntime OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Is run or not."
+    ::= { hwBandwidthEntry 12 }
+
+  hwBandwidthRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+          "RowStatus, now support three status: createAndGo, active, destroy."
+    ::= { hwBandwidthEntry 13 }
+
+-- TABLE: hwRedTable ------
+  hwRedTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwRedEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Red table which contains RED entry."
+    ::= { hwLswQosMibObject 12 }
+
+  hwRedEntry OBJECT-TYPE
+    SYNTAX      HwRedEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Configuration information of RED."
+    INDEX {
+              hwRedAclIndex,
+              hwRedIfIndex,
+              hwRedVlanID,
+              hwRedDirection
+          }
+    ::= { hwRedTable 1 }
+
+  HwRedEntry ::=
+    SEQUENCE
+    {
+      hwRedAclIndex    INTEGER,
+      hwRedIfIndex    INTEGER,
+      hwRedVlanID    INTEGER,
+      hwRedDirection    INTEGER,
+      hwRedIpAclNum    INTEGER,
+      hwRedIpAclRule    INTEGER,
+      hwRedLinkAclNum    INTEGER,
+      hwRedLinkAclRule    INTEGER,
+      hwRedStartQueueLen    INTEGER,
+      hwRedStopQueueLen    INTEGER,
+      hwRedProbability    INTEGER,
+      hwRedRuntime    TruthValue,
+      hwRedRowStatus    RowStatus
+    }
+
+  hwRedAclIndex OBJECT-TYPE
+    SYNTAX      INTEGER(0..2999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Index of acl rule."
+    ::= { hwRedEntry 1 }
+
+  hwRedIfIndex OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "ifIndex of port."
+    ::= { hwRedEntry 2 }
+
+  hwRedVlanID OBJECT-TYPE
+    SYNTAX      INTEGER(0..4094)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Vlan ID."
+    ::= { hwRedEntry 3 }
+
+  hwRedDirection OBJECT-TYPE
+    SYNTAX      INTEGER{invalid(0), output(2)}
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Direction of data stream."
+    ::= { hwRedEntry 4 }
+
+  hwRedIpAclNum OBJECT-TYPE
+    SYNTAX      INTEGER(0|2000..3999|10000..12999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The num of Ip acl."
+    ::= { hwRedEntry 5 }
+
+  hwRedIpAclRule OBJECT-TYPE
+    SYNTAX      INTEGER(0..65535)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The subitem of Ip acl."
+    ::= { hwRedEntry 6 }
+
+  hwRedLinkAclNum OBJECT-TYPE
+    SYNTAX      INTEGER(0|4000..4999|10000..12999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The number of link acl."
+    ::= { hwRedEntry 7 }
+
+  hwRedLinkAclRule OBJECT-TYPE
+    SYNTAX      INTEGER(0..65535)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The subitem of link acl."
+    ::= { hwRedEntry 8 }
+
+  hwRedStartQueueLen OBJECT-TYPE
+    SYNTAX      INTEGER(0..262128)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "The length of Starting queue."
+    ::= { hwRedEntry 9 }
+
+  hwRedStopQueueLen OBJECT-TYPE
+    SYNTAX      INTEGER(0..262128)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "The length of stopping queue."
+    ::= { hwRedEntry 10 }
+
+  hwRedProbability OBJECT-TYPE
+    SYNTAX      INTEGER(0..100)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "Probability."
+    ::= { hwRedEntry 11 }
+
+  hwRedRuntime OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Is run or not."
+    ::= { hwRedEntry 12 }
+
+  hwRedRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "RowStatus, now support three status: createAndGo, active, destroy."
+    ::= { hwRedEntry 13 }
+
+  -- TABLE: hwMirrorGroupTable ------
+  hwMirrorGroupTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwMirrorGroupEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Mirror Group."
+    ::= { hwLswQosMibObject 13 }
+
+  hwMirrorGroupEntry OBJECT-TYPE
+    SYNTAX      HwMirrorGroupEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Configuration information of mirroring group."
+    INDEX {
+              hwMirrorGroupID
+          }
+    ::= { hwMirrorGroupTable 1 }
+
+  HwMirrorGroupEntry ::=
+    SEQUENCE
+    {
+      hwMirrorGroupID    INTEGER,
+      hwMirrorGroupDirection    INTEGER,
+      hwMirrorGroupMirrorIfIndexList    OCTET STRING,
+      hwMirrorGroupMonitorIfIndex    INTEGER,
+      hwMirrorGroupRowStatus    RowStatus
+    }
+
+  hwMirrorGroupID OBJECT-TYPE
+    SYNTAX      INTEGER(1..20)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Group ID of mirroring group."
+    ::= { hwMirrorGroupEntry 1 }
+
+  hwMirrorGroupDirection OBJECT-TYPE
+    SYNTAX      INTEGER{input(1),output(2)}
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "Direction of data stream which would be mirrored."
+    ::= { hwMirrorGroupEntry 2 }
+
+  hwMirrorGroupMirrorIfIndexList OBJECT-TYPE
+    SYNTAX      OCTET STRING(SIZE (1..257))
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "ifIndex list of source port."
+    ::= { hwMirrorGroupEntry 3 }
+
+  hwMirrorGroupMonitorIfIndex OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "ifIndex of destination port."
+    ::= { hwMirrorGroupEntry 4 }
+
+  hwMirrorGroupRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+          "RowStatus, now support three status: createAndGo, active, destroy."
+    ::= { hwMirrorGroupEntry 5 }
+
+  -- TABLE: hwFlowtempTable ------
+  hwFlowtempTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwFlowtempEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Flow-template table which contains flow-template entry."
+    ::= { hwLswQosMibObject 14 }
+
+  hwFlowtempEntry OBJECT-TYPE
+    SYNTAX      HwFlowtempEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Configuration information of flow-template."
+    INDEX {
+              hwFlowtempIndex
+          }
+    ::= { hwFlowtempTable 1 }
+
+  HwFlowtempEntry ::=
+    SEQUENCE
+    {
+      hwFlowtempIndex    INTEGER,
+      hwFlowtempIpProtocol    TruthValue,
+      hwFlowtempTcpFlag    TruthValue,
+      hwFlowtempSPort    TruthValue,
+      hwFlowtempDPort    TruthValue,
+      hwFlowtempIcmpType    TruthValue,
+      hwFlowtempIcmpCode    TruthValue,
+      hwFlowtempFragment    TruthValue,
+      hwFlowtempDscp    TruthValue,
+      hwFlowtempIpPre    TruthValue,
+      hwFlowtempTos    TruthValue,
+      hwFlowtempSIp          TruthValue,
+      hwFlowtempSIpMask    IpAddress,
+      hwFlowtempDIp          TruthValue,
+      hwFlowtempDIpMask    IpAddress,
+      hwFlowtempEthProtocol    TruthValue,
+      hwFlowtempSMac          TruthValue,
+      hwFlowtempSMacMask    MacAddress,
+      hwFlowtempDMac          TruthValue,
+      hwFlowtempDMacMask    MacAddress,
+      hwFlowtempVpn    TruthValue,
+      hwFlowtempRowStatus    RowStatus,
+      hwFlowtempVlanId    TruthValue,
+      hwFlowtempCos    TruthValue
+    }
+
+  hwFlowtempIndex OBJECT-TYPE
+    SYNTAX      INTEGER{default(1), user-defined(2)}
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Index of flow template."
+    ::= { hwFlowtempEntry 1 }
+
+  hwFlowtempIpProtocol OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "protocol-type of IP packet."
+    ::= { hwFlowtempEntry 2 }
+
+  hwFlowtempTcpFlag OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The flag of Tcp paceket. "
+    ::= { hwFlowtempEntry 3 }
+
+  hwFlowtempSPort OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The port of source."
+    ::= { hwFlowtempEntry 4 }
+
+  hwFlowtempDPort OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The port of destination."
+    ::= { hwFlowtempEntry 5 }
+
+  hwFlowtempIcmpType OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The type of Icmp."
+    ::= { hwFlowtempEntry 6 }
+
+  hwFlowtempIcmpCode OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The code of Icmp."
+    ::= { hwFlowtempEntry 7 }
+
+  hwFlowtempFragment OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The flag of Fragment. "
+    ::= { hwFlowtempEntry 8 }
+
+  hwFlowtempDscp OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Dscp of IP packet."
+    ::= { hwFlowtempEntry 9 }
+
+  hwFlowtempIpPre OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The Precedence of Ip packet. "
+    ::= { hwFlowtempEntry 10 }
+
+  hwFlowtempTos OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Tos of IP packet."
+    ::= { hwFlowtempEntry 11 }
+
+  hwFlowtempSIp OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The Ip of source."
+    ::= { hwFlowtempEntry 12 }
+
+  hwFlowtempSIpMask OBJECT-TYPE
+    SYNTAX      IpAddress
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The mask of source-Ip."
+    ::= { hwFlowtempEntry 13 }
+
+  hwFlowtempDIp OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The Ip of destination."
+    ::= { hwFlowtempEntry 14 }
+
+  hwFlowtempDIpMask OBJECT-TYPE
+    SYNTAX      IpAddress
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The mask of destination-Ip."
+    ::= { hwFlowtempEntry 15 }
+
+  hwFlowtempEthProtocol OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Protocol type of Ethernet."
+    ::= { hwFlowtempEntry 16 }
+
+  hwFlowtempSMac OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The Mac of source."
+    ::= { hwFlowtempEntry 17 }
+
+  hwFlowtempSMacMask OBJECT-TYPE
+    SYNTAX      MacAddress
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The mask of source-Mac."
+    ::= { hwFlowtempEntry 18 }
+
+  hwFlowtempDMac OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The mac of destination."
+    ::= { hwFlowtempEntry 19 }
+
+  hwFlowtempDMacMask OBJECT-TYPE
+    SYNTAX      MacAddress
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The mask of destination-Mac."
+    ::= { hwFlowtempEntry 20 }
+
+  hwFlowtempVpn OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Vpn"
+    ::= { hwFlowtempEntry 21 }
+
+  hwFlowtempRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "RowStatus, now support three status: createAndGo, active, destroy."
+    ::= { hwFlowtempEntry 22 }
+
+  hwFlowtempVlanId OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Source VLAN ID."
+    ::= { hwFlowtempEntry 23 }
+
+  hwFlowtempCos OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "802.1P priority."
+    ::= { hwFlowtempEntry 24 }
+
+  -- TABLE: hwFlowtempEnableTable ------
+  hwFlowtempEnableTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwFlowtempEnableEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "The table of flow-template."
+    ::= { hwLswQosMibObject 15 }
+
+  hwFlowtempEnableEntry OBJECT-TYPE
+    SYNTAX      HwFlowtempEnableEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Enable entry of flow-template."
+    INDEX {
+              hwFlowtempEnableIfIndex,
+              hwFlowtempEnableVlanID
+          }
+    ::= { hwFlowtempEnableTable 1 }
+
+  HwFlowtempEnableEntry ::=
+    SEQUENCE
+    {
+      hwFlowtempEnableIfIndex    INTEGER,
+      hwFlowtempEnableVlanID    INTEGER,
+      hwFlowtempEnableFlowtempIndex  INTEGER
+    }
+
+  hwFlowtempEnableIfIndex OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "ifIndex of port."
+    ::= { hwFlowtempEnableEntry 1 }
+
+  hwFlowtempEnableVlanID OBJECT-TYPE
+    SYNTAX      INTEGER(0..4094)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Vlan ID."
+    ::= { hwFlowtempEnableEntry 2 }
+
+  hwFlowtempEnableFlowtempIndex OBJECT-TYPE
+    SYNTAX      INTEGER{default(1), user-defined(2)}
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "The index of Flowtemp table."
+    ::= { hwFlowtempEnableEntry 3 }
+
+  -- TABLE: hwTrafficShapeTable ------
+  hwTrafficShapeTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwTrafficShapeEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "The traffic-shape table which contains traffic-shape entry."
+    ::= { hwLswQosMibObject 16 }
+
+  hwTrafficShapeEntry OBJECT-TYPE
+    SYNTAX      HwTrafficShapeEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Configuration information of traffic-shape."
+    INDEX {
+              hwTrafficShapeIfIndex,
+              hwTrafficShapeQueueId
+          }
+    ::= { hwTrafficShapeTable 1 }
+
+  HwTrafficShapeEntry ::=
+    SEQUENCE
+    {
+      hwTrafficShapeIfIndex    INTEGER,
+      hwTrafficShapeQueueId    INTEGER,
+      hwTrafficShapeMaxRate    INTEGER,
+      hwTrafficShapeBurstSize    INTEGER,
+      hwTrafficShapeBufferLimit    INTEGER,
+      hwTrafficShapeRowStatus    RowStatus
+    }
+
+  hwTrafficShapeIfIndex OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "IfIdex of port."
+    ::= { hwTrafficShapeEntry 1 }
+
+  hwTrafficShapeQueueId OBJECT-TYPE
+    SYNTAX      INTEGER(0..7|255)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "ID of queue which would be shaped."
+    ::= { hwTrafficShapeEntry 2 }
+
+  hwTrafficShapeMaxRate OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The max rate."
+    ::= { hwTrafficShapeEntry 3 }
+
+  hwTrafficShapeBurstSize OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The size of burst."
+    ::= { hwTrafficShapeEntry 4 }
+
+  hwTrafficShapeBufferLimit OBJECT-TYPE
+    SYNTAX      INTEGER(0|16..8000)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "The limit of buffer."
+    ::= { hwTrafficShapeEntry 5 }
+
+  hwTrafficShapeRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "RowStatus, now support three status: createAndGo, active, destroy."
+    ::= { hwTrafficShapeEntry 6 }
+
+  -- TABLE: hwPortQueueTable ------
+  hwPortQueueTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwPortQueueEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "The port-queue table which contains port-queue entry."
+    ::= { hwLswQosMibObject 17 }
+
+  hwPortQueueEntry OBJECT-TYPE
+    SYNTAX      HwPortQueueEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Configuration information of port-queue."
+    INDEX {
+              hwPortQueueIfIndex,
+              hwPortQueueQueueID
+          }
+    ::= { hwPortQueueTable 1 }
+
+  HwPortQueueEntry ::=
+    SEQUENCE
+    {
+      hwPortQueueIfIndex    INTEGER,
+      hwPortQueueQueueID    INTEGER,
+      hwPortQueueWrrPriority    INTEGER,
+      hwPortQueueWeight    INTEGER
+    }
+
+  hwPortQueueIfIndex OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "ifIndex of port."
+    ::= { hwPortQueueEntry 1 }
+
+  hwPortQueueQueueID OBJECT-TYPE
+    SYNTAX      INTEGER(0..7)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "ID of port-queue."
+    ::= { hwPortQueueEntry 2 }
+
+  hwPortQueueWrrPriority OBJECT-TYPE
+    SYNTAX      INTEGER{sp(1),wrr-high-priority(2),wrr-low-priority(3)}
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "The priority of Wrr."
+    ::= { hwPortQueueEntry 3 }
+
+  hwPortQueueWeight OBJECT-TYPE
+    SYNTAX      INTEGER(0|1..255)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "The weight of this queue."
+    ::= { hwPortQueueEntry 4 }
+
+  -- TABLE: hwDropModeTable ------
+  hwDropModeTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwDropModeEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "The drop-mode table which contains drop-mode entry."
+    ::= { hwLswQosMibObject 18 }
+
+  hwDropModeEntry OBJECT-TYPE
+    SYNTAX      HwDropModeEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Configuration information of the drop-mode."
+    INDEX {
+              hwDropModeIfIndex
+          }
+    ::= { hwDropModeTable 1 }
+
+  HwDropModeEntry ::=
+    SEQUENCE
+    {
+      hwDropModeIfIndex    INTEGER,
+      hwDropModeMode    INTEGER,
+      hwDropModeWredIndex    INTEGER
+    }
+
+  hwDropModeIfIndex OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "ifIndex of port."
+    ::= { hwDropModeEntry 1 }
+
+  hwDropModeMode OBJECT-TYPE
+    SYNTAX      INTEGER{random-detect(1),tail-drop(2)}
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "Mode."
+    DEFVAL      { 2 }
+    ::= { hwDropModeEntry 2 }
+
+  hwDropModeWredIndex OBJECT-TYPE
+    SYNTAX      INTEGER(0..3)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "The index of Wred table."
+    ::= { hwDropModeEntry 3 }
+
+  -- TABLE: hwWredTable ------
+  hwWredTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwWredEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "The Wred table which contains wred Entry."
+    ::= { hwLswQosMibObject 19 }
+
+  hwWredEntry OBJECT-TYPE
+    SYNTAX      HwWredEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Configuration information of Wred."
+    INDEX {
+              hwWredIndex,
+              hwWredQueueId
+          }
+    ::= { hwWredTable 1 }
+
+  HwWredEntry ::=
+    SEQUENCE
+    {
+      hwWredIndex    INTEGER,
+      hwWredQueueId    INTEGER,
+      hwWredGreenMinThreshold    INTEGER,
+      hwWredGreenMaxThreshold    INTEGER,
+      hwWredGreenMaxProb    INTEGER,
+      hwWredYellowMinThreshold    INTEGER,
+      hwWredYellowMaxThreshold    INTEGER,
+      hwWredYellowMaxProb    INTEGER,
+      hwWredRedMinThreshold    INTEGER,
+      hwWredRedMaxThreshold    INTEGER,
+      hwWredRedMaxProb    INTEGER,
+      hwWredExponent    INTEGER
+    }
+
+  hwWredIndex OBJECT-TYPE
+    SYNTAX      INTEGER(0..3)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Index of wred."
+    ::= { hwWredEntry 1 }
+
+  hwWredQueueId OBJECT-TYPE
+    SYNTAX      INTEGER(0..7)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Queue ID."
+    ::= { hwWredEntry 2 }
+
+  hwWredGreenMinThreshold OBJECT-TYPE
+    SYNTAX      INTEGER(0..65535)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "The min threshold of Green."
+    ::= { hwWredEntry 3 }
+
+  hwWredGreenMaxThreshold OBJECT-TYPE
+    SYNTAX      INTEGER(0..65535)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "The max threshold of Greem."
+    ::= { hwWredEntry 4 }
+
+  hwWredGreenMaxProb OBJECT-TYPE
+    SYNTAX      INTEGER(1..15)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "The max prob of Green."
+    ::= { hwWredEntry 5 }
+
+  hwWredYellowMinThreshold OBJECT-TYPE
+    SYNTAX      INTEGER(0..65535)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "The min threshold of Yellow."
+    ::= { hwWredEntry 6 }
+
+  hwWredYellowMaxThreshold OBJECT-TYPE
+    SYNTAX      INTEGER(0..65535)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "The max threshold of Yellow."
+    ::= { hwWredEntry 7 }
+
+  hwWredYellowMaxProb OBJECT-TYPE
+    SYNTAX      INTEGER(1..15)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "The Prob threshold of Yellow."
+    ::= { hwWredEntry 8 }
+
+  hwWredRedMinThreshold OBJECT-TYPE
+    SYNTAX      INTEGER(0..65535)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "The min threshold of Red."
+    ::= { hwWredEntry 9 }
+
+  hwWredRedMaxThreshold OBJECT-TYPE
+    SYNTAX      INTEGER(0..65535)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "The max threshold of Red."
+    ::= { hwWredEntry 10 }
+
+  hwWredRedMaxProb OBJECT-TYPE
+    SYNTAX      INTEGER(1..15)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "The max prob of Red."
+    ::= { hwWredEntry 11 }
+
+  hwWredExponent OBJECT-TYPE
+    SYNTAX      INTEGER(1..15)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "Exponent."
+    DEFVAL      { 9 }
+    ::= { hwWredEntry 12 }
+
+  -- TABLE: hwCosToLocalPrecedenceMapTable ------
+  hwCosToLocalPrecedenceMapTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwCosToLocalPrecedenceMapEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Table of map of the COS to local-precedence."
+    ::= { hwLswQosMibObject 20 }
+
+  hwCosToLocalPrecedenceMapEntry OBJECT-TYPE
+    SYNTAX      HwCosToLocalPrecedenceMapEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Configuration information of map of the COS to local precedence."
+    INDEX {
+              hwCosToLocalPrecedenceMapCosIndex
+          }
+    ::= { hwCosToLocalPrecedenceMapTable 1 }
+
+  HwCosToLocalPrecedenceMapEntry ::=
+    SEQUENCE
+    {
+      hwCosToLocalPrecedenceMapCosIndex    INTEGER,
+      hwCosToLocalPrecedenceMapLocalPrecedenceValue       INTEGER
+    }
+
+  hwCosToLocalPrecedenceMapCosIndex OBJECT-TYPE
+    SYNTAX      INTEGER(0..7)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Index of the map."
+    ::= { hwCosToLocalPrecedenceMapEntry 1 }
+
+  hwCosToLocalPrecedenceMapLocalPrecedenceValue OBJECT-TYPE
+    SYNTAX      INTEGER(0..7)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "Value of local precedence."
+    ::= { hwCosToLocalPrecedenceMapEntry 2 }
+
+  -- TABLE: hwCosToDropPrecedenceMapTable ------
+  hwCosToDropPrecedenceMapTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwCosToDropPrecedenceMapEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "The table of map of COS to drop-precedence."
+    ::= { hwLswQosMibObject 21 }
+
+  hwCosToDropPrecedenceMapEntry OBJECT-TYPE
+    SYNTAX      HwCosToDropPrecedenceMapEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Configuration information of the map of the COS to drop-precedence."
+    INDEX {
+              hwCosToDropPrecedenceMapCosIndex
+          }
+    ::= { hwCosToDropPrecedenceMapTable 1 }
+
+  HwCosToDropPrecedenceMapEntry ::=
+    SEQUENCE
+    {
+      hwCosToDropPrecedenceMapCosIndex    INTEGER,
+      hwCosToDropPrecedenceMapDropPrecedenceValue       INTEGER
+    }
+
+  hwCosToDropPrecedenceMapCosIndex OBJECT-TYPE
+    SYNTAX      INTEGER(0..7)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Index of the map."
+    ::= { hwCosToDropPrecedenceMapEntry 1 }
+
+  hwCosToDropPrecedenceMapDropPrecedenceValue OBJECT-TYPE
+    SYNTAX      INTEGER(0..2)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "Value of drop-precedence."
+    ::= { hwCosToDropPrecedenceMapEntry 2 }
+
+  -- TABLE: hwDscpMapTable ------
+  hwDscpMapTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwDscpMapEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Table of dscp map."
+    ::= { hwLswQosMibObject 22 }
+
+  hwDscpMapEntry OBJECT-TYPE
+    SYNTAX      HwDscpMapEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Configuration information of Dscp map."
+    INDEX {
+              hwDscpMapConformLevel,
+              hwDscpMapDscpIndex
+          }
+    ::= { hwDscpMapTable 1 }
+
+  HwDscpMapEntry ::=
+    SEQUENCE
+    {
+      hwDscpMapConformLevel    INTEGER,
+      hwDscpMapDscpIndex    INTEGER,
+      hwDscpMapDscpValue    INTEGER,
+      hwDscpMapExpValue    INTEGER,
+      hwDscpMapCosValue    INTEGER,
+      hwDscpMapLocalPrecedence    INTEGER,
+      hwDscpMapDropPrecedence    INTEGER
+    }
+
+  hwDscpMapConformLevel OBJECT-TYPE
+    SYNTAX      INTEGER(0..2)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Conformable level of Dscp-map."
+    ::= { hwDscpMapEntry 1 }
+
+  hwDscpMapDscpIndex OBJECT-TYPE
+    SYNTAX      INTEGER(0..63)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Index of dscp."
+    ::= { hwDscpMapEntry 2 }
+
+  hwDscpMapDscpValue OBJECT-TYPE
+    SYNTAX      INTEGER(0..63)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "Value of Dscp."
+    ::= { hwDscpMapEntry 3 }
+
+  hwDscpMapExpValue OBJECT-TYPE
+    SYNTAX      INTEGER(0..7)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "Exp value."
+    ::= { hwDscpMapEntry 4 }
+
+  hwDscpMapCosValue OBJECT-TYPE
+    SYNTAX      INTEGER(0..7)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "COS value."
+    ::= { hwDscpMapEntry 5 }
+
+  hwDscpMapLocalPrecedence OBJECT-TYPE
+    SYNTAX      INTEGER(0..7)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "The precedence of local."
+    ::= { hwDscpMapEntry 6 }
+
+  hwDscpMapDropPrecedence OBJECT-TYPE
+    SYNTAX      INTEGER(0..2)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "The precedence of Drop."
+    ::= { hwDscpMapEntry 7 }
+
+  -- TABLE: hwExpMapTable ------
+  hwExpMapTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwExpMapEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "The table of Exp-map"
+    ::= { hwLswQosMibObject 23 }
+
+  hwExpMapEntry OBJECT-TYPE
+    SYNTAX      HwExpMapEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Configuration information of Exp-map."
+    INDEX {
+              hwExpMapConformLevel,
+              hwExpMapExpIndex
+          }
+    ::= { hwExpMapTable 1 }
+
+  HwExpMapEntry ::=
+    SEQUENCE
+    {
+      hwExpMapConformLevel    INTEGER,
+      hwExpMapExpIndex     INTEGER,
+      hwExpMapDscpValue    INTEGER,
+      hwExpMapExpValue    INTEGER,
+      hwExpMapCosValue    INTEGER,
+      hwExpMapLocalPrecedence    INTEGER,
+      hwExpMapDropPrecedence    INTEGER
+    }
+
+  hwExpMapConformLevel OBJECT-TYPE
+    SYNTAX      INTEGER(0..2)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Conformable level of Exp-map."
+    ::= { hwExpMapEntry 1 }
+
+  hwExpMapExpIndex OBJECT-TYPE
+    SYNTAX      INTEGER(0..7)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Index of Exp."
+    ::= { hwExpMapEntry 2 }
+
+  hwExpMapDscpValue OBJECT-TYPE
+    SYNTAX      INTEGER(0..63)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "Dscp value."
+    ::= { hwExpMapEntry 3 }
+
+  hwExpMapExpValue OBJECT-TYPE
+    SYNTAX      INTEGER(0..7)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "Exp value."
+    ::= { hwExpMapEntry 4 }
+
+  hwExpMapCosValue OBJECT-TYPE
+    SYNTAX      INTEGER(0..7)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "COS Value."
+    ::= { hwExpMapEntry 5 }
+
+  hwExpMapLocalPrecedence OBJECT-TYPE
+    SYNTAX      INTEGER(0..7)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "The precedence of local."
+    ::= { hwExpMapEntry 6 }
+
+  hwExpMapDropPrecedence OBJECT-TYPE
+    SYNTAX      INTEGER(0..2)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "The precedence of Drop."
+    ::= { hwExpMapEntry 7 }
+
+  -- TABLE: hwLocalPrecedenceMapTable ------
+  hwLocalPrecedenceMapTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwLocalPrecedenceMapEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "The table of local-precedence map."
+    ::= { hwLswQosMibObject 24 }
+
+  hwLocalPrecedenceMapEntry OBJECT-TYPE
+    SYNTAX      HwLocalPrecedenceMapEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Configuraion information of local-precedence map."
+    INDEX {
+              hwLocalPrecedenceMapConformLevel,
+              hwLocalPrecedenceMapLocalPrecedenceIndex
+          }
+    ::= { hwLocalPrecedenceMapTable 1 }
+
+  HwLocalPrecedenceMapEntry ::=
+    SEQUENCE
+    {
+      hwLocalPrecedenceMapConformLevel    INTEGER,
+      hwLocalPrecedenceMapLocalPrecedenceIndex    INTEGER,
+      hwLocalPrecedenceMapCosValue       INTEGER
+    }
+
+  hwLocalPrecedenceMapConformLevel OBJECT-TYPE
+    SYNTAX      INTEGER(0..2)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Conformable level of local-precedence map."
+    ::= { hwLocalPrecedenceMapEntry 1 }
+
+  hwLocalPrecedenceMapLocalPrecedenceIndex OBJECT-TYPE
+    SYNTAX      INTEGER(0..7)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "Index of local-precedence."
+    ::= { hwLocalPrecedenceMapEntry 2 }
+
+  hwLocalPrecedenceMapCosValue OBJECT-TYPE
+    SYNTAX      INTEGER(0..7)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "COS value."
+    ::= { hwLocalPrecedenceMapEntry 3 }
+--
+--
+--
+  -- TABLE: hwPortWredTable ---------
+  hwPortWredTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HwPortWredEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+      "The table of PortWred."
+    ::= { hwLswQosMibObject 25 }
+
+
+  hwPortWredEntry OBJECT-TYPE
+    SYNTAX HwPortWredEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+      "Configuration information of port Wred."
+    INDEX {
+              hwPortWredIfIndex,
+              hwPortWredQueueID
+          }
+    ::= { hwPortWredTable 1 }
+
+
+    HwPortWredEntry ::=
+    SEQUENCE
+    {
+        hwPortWredIfIndex INTEGER,
+        hwPortWredQueueID INTEGER,
+        hwPortWredQueueStartLength INTEGER,
+        hwPortWredQueueProbability INTEGER
+    }
+
+  hwPortWredIfIndex OBJECT-TYPE
+    SYNTAX INTEGER
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "ifIndex of port."
+    ::= { hwPortWredEntry 1 }
+
+
+  hwPortWredQueueID OBJECT-TYPE
+    SYNTAX  INTEGER(0..7)
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+      "ID of port-Wred queue."
+    ::= { hwPortWredEntry 2 }
+
+
+  hwPortWredQueueStartLength OBJECT-TYPE
+    SYNTAX  INTEGER(0..2047)
+    MAX-ACCESS  read-write
+    STATUS current
+    DESCRIPTION
+      "Queue length."
+    ::= { hwPortWredEntry 3 }
+
+
+  hwPortWredQueueProbability OBJECT-TYPE
+    SYNTAX  INTEGER(0..100)
+    MAX-ACCESS  read-write
+    STATUS current
+    DESCRIPTION
+      "Probability."
+    ::= { hwPortWredEntry 4 }
+
+-- TABLE: hwMirroringGroupTable ---------
+  hwMirroringGroupTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwMirroringGroupEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "The table of MirrorGroup."
+    ::= { hwLswQosMibObject 26 }
+
+  hwMirroringGroupEntry OBJECT-TYPE
+    SYNTAX      HwMirroringGroupEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Configuration information of MirrorGroup."
+    INDEX  {
+    	       hwMirroringGroupID
+    	   }
+    ::= { hwMirroringGroupTable 1 }
+
+  HwMirroringGroupEntry ::=
+    SEQUENCE
+    {
+      hwMirroringGroupID    INTEGER,
+      hwMirroringGroupType    INTEGER,
+      hwMirroringGroupStatus    INTEGER,
+      hwMirroringGroupRowStatus    RowStatus
+    }
+
+   hwMirroringGroupID  OBJECT-TYPE
+    SYNTAX      INTEGER(1..20)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "GroupID."
+    ::= { hwMirroringGroupEntry 1 }
+
+    hwMirroringGroupType  OBJECT-TYPE
+    SYNTAX      INTEGER{local(1),remote-source(2),remote-destination(3)}
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "GroupType."
+    ::= { hwMirroringGroupEntry 2 }
+
+    hwMirroringGroupStatus  OBJECT-TYPE
+    SYNTAX      INTEGER{active(1),inactive(2)}
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "MirroringGroup status."
+    ::= { hwMirroringGroupEntry 3 }
+
+    hwMirroringGroupRowStatus  OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "RowStatus, Now support three status: createAndGo, active, destroy."
+    ::= { hwMirroringGroupEntry 4 }
+
+  -- TABLE: hwMirroringGroupMirrorTable ---------
+  hwMirroringGroupMirrorTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwMirroringGroupMirrorEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "MirroringGroup mirroring-port information."
+    ::= { hwLswQosMibObject 27 }
+
+  hwMirroringGroupMirrorEntry OBJECT-TYPE
+    SYNTAX      HwMirroringGroupMirrorEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "MirroringGroup mirroring-port information."
+    INDEX {
+              hwMirroringGroupID
+          }
+    ::= { hwMirroringGroupMirrorTable 1 }
+
+  HwMirroringGroupMirrorEntry ::=
+    SEQUENCE
+    {
+      hwMirroringGroupMirrorInboundIfIndexList    OCTET STRING,
+      hwMirroringGroupMirrorOutboundIfIndexList    OCTET STRING,
+      hwMirroringGroupMirrorRowStatus    RowStatus,
+      hwMirroringGroupMirrorInTypeList         OCTET STRING,
+      hwMirroringGroupMirrorOutTypeList         OCTET STRING
+    }
+
+    hwMirroringGroupMirrorInboundIfIndexList  OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Inbound-Mirror ifIndex(for port) and slot number(for board) list.
+
+      Example A describes the relation between values of
+      hwMirroringGroupMirrorInboundIfIndexList and hwMirroringGroupMirrorInTypeList.
+
+      Example A:
+      hwMirroringGroupMirrorInboundIfIndexList: '00000002 0C000022 00000007'
+      hwMirroringGroupMirrorInTypeList:         '00000002 00000001 00000002'
+
+      Every four octets represent an integer value.
+      The first four octets of them should be same. Here the value '00000002'
+      indicates there are two inbound mirror sources.
+      The following every four octets of hwMirroringGroupMirrorInboundIfIndexList
+      indicate an ifIndex or a slot number of mirror source. For '0C000022' and
+      '00000007' in the value of hwMirroringGroupMirrorInboundIfIndexList above,
+      the corresponding value of hwMirroringGroupMirrorInTypeList is '00000001'
+      and '00000002'(00000001 means the mirror source is port, 00000002 means the 
+      mirror source is board, the meaning reference the object HwMirrorOrMonitorType), 
+      then '0C000022' indicates an ifIndex value 201326626(decimal), and '00000007' 
+      indicates a slot with number 7(decimal).
+
+      Values with different types(port/board) should be set in separate set operations.
+      If one value with port type and one value with board type are set with same
+      hwMirroringGroupID separately, the result of get operation for that entry
+      will be like the example A above.
+      
+      If hwMirroringGroupMirrorInTypeList is not supported, the first four octets
+      of hwMirroringGroupMirrorInboundIfIndexList also indicates the number of mirror
+      source, but the following octets are values for ifIndex(port type).
+
+      hwMirroringGroupMirrorOutboundIfIndexList and hwMirroringGroupMirrorOutTypeList
+      are a pair and have the same relations like hwMirroringGroupMirrorInboundIfIndexList
+      and hwMirroringGroupMirrorInTypeList pair.
+      "
+    ::= { hwMirroringGroupMirrorEntry 1 }
+
+    hwMirroringGroupMirrorOutboundIfIndexList  OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Outbound-Mirror ifIndex and slot number list.
+      Please refer to the description of hwMirroringGroupMirrorInboundIfIndexList."
+    ::= { hwMirroringGroupMirrorEntry 2 }
+
+    hwMirroringGroupMirrorRowStatus  OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "RowStatus, now support three status: createAndGo, active, destroy."
+    ::= { hwMirroringGroupMirrorEntry 3 }
+    
+    hwMirroringGroupMirrorInTypeList  OBJECT-TYPE
+    SYNTAX      OCTET STRING 
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Inbound-Mirror type list.
+      Please refer to the description of hwMirroringGroupMirrorInboundIfIndexList."
+      
+    ::= { hwMirroringGroupMirrorEntry 4 }
+    
+    hwMirroringGroupMirrorOutTypeList  OBJECT-TYPE
+    SYNTAX      OCTET STRING    
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Outbound-Mirror type list.
+      Please refer to the description of hwMirroringGroupMirrorInboundIfIndexList."
+    ::= { hwMirroringGroupMirrorEntry 5 }
+
+  -- TABLE: hwMirroringGroupMonitorTable ---------
+  hwMirroringGroupMonitorTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwMirroringGroupMonitorEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "MirroringGroup monitor-port information."
+    ::= { hwLswQosMibObject 28 }
+
+  hwMirroringGroupMonitorEntry OBJECT-TYPE
+    SYNTAX      HwMirroringGroupMonitorEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "MirroringGroup monitor-port information."
+    INDEX {
+              hwMirroringGroupID
+          }
+    ::= { hwMirroringGroupMonitorTable 1 }
+
+  HwMirroringGroupMonitorEntry ::=
+    SEQUENCE
+    {
+      hwMirroringGroupMonitorIfIndex    INTEGER,
+      hwMirroringGroupMonitorRowStatus    RowStatus,
+      hwMirroringGroupMonitorType HwMirrorOrMonitorType
+    }
+
+    hwMirroringGroupMonitorIfIndex  OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "If the monitor destination is port, the value means the ifIndex of this port.
+      If the monitor destination is board, the value means the slot number of the
+      board. Whether the value means ifIndex or slot number references the object
+      hwMirroringGroupMonitorType."
+    ::= { hwMirroringGroupMonitorEntry 1 }
+
+    hwMirroringGroupMonitorRowStatus  OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "RowStatus, now support three status: createAndGo, active, destroy."
+    ::= { hwMirroringGroupMonitorEntry 2 }
+
+    hwMirroringGroupMonitorType  OBJECT-TYPE
+    SYNTAX      HwMirrorOrMonitorType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Specify whether the monitor destination is port or board. If this object is
+      not supported, then the value of hwMirroringGroupMonitorIfIndex means ifIndex."
+    ::= { hwMirroringGroupMonitorEntry 3 }
+
+  -- TABLE: hwMirroringGroupReflectorTable ---------
+  hwMirroringGroupReflectorTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwMirroringGroupReflectorEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "MirroringGroup reflector-port information."
+    ::= { hwLswQosMibObject 29 }
+
+  hwMirroringGroupReflectorEntry OBJECT-TYPE
+    SYNTAX      HwMirroringGroupReflectorEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "MirroringGroup reflector-port information."
+    INDEX {
+              hwMirroringGroupID
+          }
+    ::= { hwMirroringGroupReflectorTable 1 }
+
+  HwMirroringGroupReflectorEntry ::=
+    SEQUENCE
+    {
+      hwMirroringGroupReflectorIfIndex    INTEGER,
+      hwMirroringGroupReflectorRowStatus    RowStatus
+    }
+
+  hwMirroringGroupReflectorIfIndex   OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Only valid for remote-source MirroringGroup."
+    ::= { hwMirroringGroupReflectorEntry 1 }
+
+  hwMirroringGroupReflectorRowStatus  OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "RowStatus, now support three status: createAndGo, active, destroy."
+    ::= { hwMirroringGroupReflectorEntry 2 }
+
+  -- TABLE: hwMirroringGroupRprobeVlanTable ---------
+  hwMirroringGroupRprobeVlanTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwMirroringGroupRprobeVlanEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "MirroringGroup rprobe-vlan information."
+    ::= { hwLswQosMibObject 30 }
+
+  hwMirroringGroupRprobeVlanEntry OBJECT-TYPE
+    SYNTAX      HwMirroringGroupRprobeVlanEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "MirroringGroup rprobe-vlan information."
+    INDEX {
+              hwMirroringGroupID
+          }
+    ::= { hwMirroringGroupRprobeVlanTable 1 }
+
+  HwMirroringGroupRprobeVlanEntry ::=
+    SEQUENCE
+    {
+      hwMirroringGroupRprobeVlanID    INTEGER,
+      hwMirroringGroupRprobeVlanRowStatus    RowStatus
+    }
+
+  hwMirroringGroupRprobeVlanID   OBJECT-TYPE
+    SYNTAX      INTEGER (0..4094)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "Remote-Probe vlanID.
+      0 is invalid value.
+      Only valid for remote-source and remote-destination MirroringGroup."
+    ::= { hwMirroringGroupRprobeVlanEntry 1 }
+
+  hwMirroringGroupRprobeVlanRowStatus  OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "RowStatus, now support three status: createAndGo, active, destroy."
+    ::= { hwMirroringGroupRprobeVlanEntry 2 }
+
+  hwMirroringGroupMirrorMacTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwMirroringGroupMirrorMacEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "MirroringGroup MAC information."
+    ::= { hwLswQosMibObject 31 }
+
+  hwMirroringGroupMirrorMacEntry OBJECT-TYPE
+    SYNTAX      HwMirroringGroupMirrorMacEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "MirroringGroup MAC information."
+    INDEX {
+           hwMirroringGroupID,
+           hwMirroringGroupMirrorMacSeq
+          }
+    ::= { hwMirroringGroupMirrorMacTable 1 }
+
+  HwMirroringGroupMirrorMacEntry ::=
+    SEQUENCE
+    {
+       hwMirroringGroupMirrorMacSeq  Integer32,
+       hwMirroringGroupMirrorMac  MacAddress,
+       hwMirrorMacVlanID   Integer32,
+       hwMirroringGroupMirroMacStatus RowStatus
+    }
+
+  hwMirroringGroupMirrorMacSeq   OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+          "The sequence MAC number of the same group."
+    ::= { hwMirroringGroupMirrorMacEntry 1 }
+
+  hwMirroringGroupMirrorMac   OBJECT-TYPE
+    SYNTAX      MacAddress
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+          "The MAC address of the MirroringGroup."
+    ::= { hwMirroringGroupMirrorMacEntry 2 }
+
+  hwMirrorMacVlanID   OBJECT-TYPE
+    SYNTAX      Integer32(0..4094)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+          "The vlan ID of MAC address ."
+    ::= { hwMirroringGroupMirrorMacEntry 3}
+
+  hwMirroringGroupMirroMacStatus   OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+          "The status of this conceptual row."
+    ::= { hwMirroringGroupMirrorMacEntry 4 }
+
+  hwMirroringGroupMirrorVlanTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwMirroringGroupMirrorVlanEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+          "MirroringGroup Vlan Information."
+    ::= { hwLswQosMibObject 32 }
+
+  hwMirroringGroupMirrorVlanEntry OBJECT-TYPE
+    SYNTAX      HwMirroringGroupMirrorVlanEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+          "MirroringGroup Vlan Information."
+    INDEX {
+           hwMirroringGroupID,
+           hwMirroringGroupMirrorVlanSeq
+           }
+    ::= { hwMirroringGroupMirrorVlanTable 1 }
+
+  HwMirroringGroupMirrorVlanEntry ::=
+    SEQUENCE
+    {
+       hwMirroringGroupMirrorVlanSeq Integer32,
+       hwMirroringGroupMirrorVlanID Integer32,
+       hwMirroringGroupMirrorVlanDirection INTEGER,
+       hwMirroringGroupMirroVlanStatus RowStatus
+    }
+
+  hwMirroringGroupMirrorVlanSeq   OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+          "The sequence vlan number of the same group."
+    ::= { hwMirroringGroupMirrorVlanEntry  1 }
+
+  hwMirroringGroupMirrorVlanID   OBJECT-TYPE
+    SYNTAX      Integer32(0..4094)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+          "The vlan ID of MirroringGroup."
+    ::= { hwMirroringGroupMirrorVlanEntry  2 }
+
+  hwMirroringGroupMirrorVlanDirection   OBJECT-TYPE
+    SYNTAX      INTEGER
+    {
+       inbound(1),
+       outbound(2),
+       both(3)
+    }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+          "The vlan direction of MirroringGroup."
+    ::= { hwMirroringGroupMirrorVlanEntry  3 }
+
+  hwMirroringGroupMirroVlanStatus   OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+          "The status of this conceptual row."
+    ::= { hwMirroringGroupMirrorVlanEntry  4 }
+
+  hwPortTrustTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwPortTrustEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+          "Port trust information."
+    ::= { hwLswQosMibObject 33 }
+
+  hwPortTrustEntry OBJECT-TYPE
+    SYNTAX      HwPortTrustEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+          "Port trust information."
+    INDEX  {
+             hwPortTrustIfIndex
+           }
+     ::= { hwPortTrustTable 1 }
+
+  HwPortTrustEntry ::=
+    SEQUENCE
+    {
+       hwPortTrustIfIndex Integer32,
+       hwPortTrustTrustType INTEGER,
+       hwPortTrustOvercastType INTEGER,
+       hwPortTrustReset INTEGER
+    }
+
+  hwPortTrustIfIndex   OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+          "ifIndex of the port which port trust is configured."
+    ::= { hwPortTrustEntry  1 }
+
+  hwPortTrustTrustType   OBJECT-TYPE
+    SYNTAX      INTEGER
+    {
+        port(1),  -- port untrust
+        cos(2),   -- port trust cos
+        dscp(3)   -- port trust dscp
+    }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+          "Trust type of port trust."
+    DEFVAL      { port }
+    ::= { hwPortTrustEntry  2 }
+
+  hwPortTrustOvercastType   OBJECT-TYPE
+    SYNTAX      INTEGER
+    {
+        noOvercast(1),
+        overcastDSCP(2),
+        overcastCOS(3)
+    }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+          "Overcast type of port trust."
+    DEFVAL      { noOvercast }
+    ::= { hwPortTrustEntry  3 }
+
+    hwPortTrustReset   OBJECT-TYPE
+    SYNTAX      INTEGER
+    {
+       reset(1)
+    }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+          "This object is used to reset port trust to default value.
+          Read operation is meaningless."
+    ::= { hwPortTrustEntry  4 }
+
+  hwRemarkVlanIDTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwRemarkVlanIDEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+          "Remark vlan ID information."
+    ::= { hwLswQosMibObject 34 }
+
+  hwRemarkVlanIDEntry OBJECT-TYPE
+    SYNTAX      HwRemarkVlanIDEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+          "Remark vlan ID information."
+    INDEX {
+              hwRemarkVlanIDAclIndex,
+              hwRemarkVlanIDIfIndex,
+              hwRemarkVlanIDVlanID,
+              hwRemarkVlanIDDirection
+          }
+    ::= { hwRemarkVlanIDTable 1 }
+
+    HwRemarkVlanIDEntry ::=
+    SEQUENCE
+    {
+       hwRemarkVlanIDAclIndex         Integer32,
+       hwRemarkVlanIDIfIndex          Integer32,
+       hwRemarkVlanIDVlanID           Integer32,
+       hwRemarkVlanIDDirection        INTEGER,
+       hwRemarkVlanIDUserAclNum       Integer32,
+       hwRemarkVlanIDUserAclRule      Integer32,
+       hwRemarkVlanIDIpAclNum         Integer32,
+       hwRemarkVlanIDIpAclRule        Integer32,
+       hwRemarkVlanIDLinkAclNum       Integer32,
+       hwRemarkVlanIDLinkAclRule      Integer32,
+       hwRemarkVlanIDRemarkVlanID     Integer32,
+       hwRemarkVlanIDPacketType       INTEGER,
+       hwRemarkVlanIDRowStatus        RowStatus
+    }
+
+  hwRemarkVlanIDAclIndex   OBJECT-TYPE
+    SYNTAX      Integer32(0..2999)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+          "Action identifier, acl index."
+    ::= { hwRemarkVlanIDEntry  1 }
+
+  hwRemarkVlanIDIfIndex   OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+          "Action identifier, ifIndex."
+    ::= { hwRemarkVlanIDEntry  2 }
+
+  hwRemarkVlanIDVlanID   OBJECT-TYPE
+    SYNTAX      Integer32(0..4094)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+          "Action identifier, vlan ID."
+    ::= { hwRemarkVlanIDEntry  3 }
+
+  hwRemarkVlanIDDirection   OBJECT-TYPE
+    SYNTAX      INTEGER
+    {
+       invalid(0),
+       input(1),
+       output(2)
+    }
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+          "Action identifier, direction of data stream."
+    ::= { hwRemarkVlanIDEntry  4 }
+
+  hwRemarkVlanIDUserAclNum   OBJECT-TYPE
+    SYNTAX      Integer32(0|5000..5999|10000..12999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+          "The number of the user acl."
+    ::= { hwRemarkVlanIDEntry  5 }
+
+  hwRemarkVlanIDUserAclRule   OBJECT-TYPE
+    SYNTAX      Integer32(0..65535)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+          "The subitem of the user acl."
+    ::= { hwRemarkVlanIDEntry  6 }
+
+  hwRemarkVlanIDIpAclNum   OBJECT-TYPE
+    SYNTAX      Integer32(0|2000..3999|10000..12999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+          "The num of the IP acl."
+    ::= { hwRemarkVlanIDEntry  7 }
+
+  hwRemarkVlanIDIpAclRule   OBJECT-TYPE
+    SYNTAX      Integer32(0..65535)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+          "The subitem of the IP acl."
+    ::= { hwRemarkVlanIDEntry  8 }
+
+  hwRemarkVlanIDLinkAclNum   OBJECT-TYPE
+    SYNTAX      Integer32(0|4000..4999|10000..12999)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+          "The num of the link acl."
+    ::= { hwRemarkVlanIDEntry  9 }
+
+  hwRemarkVlanIDLinkAclRule   OBJECT-TYPE
+    SYNTAX      Integer32(0..65535)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+          "The subitem of the link acl."
+    ::= { hwRemarkVlanIDEntry  10 }
+
+  hwRemarkVlanIDRemarkVlanID   OBJECT-TYPE
+    SYNTAX      Integer32(0..4094)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+          "Remark vlan ID."
+    ::= { hwRemarkVlanIDEntry 11 }
+
+  hwRemarkVlanIDPacketType   OBJECT-TYPE
+    SYNTAX      INTEGER
+    {
+        all(1),
+        tagged(2),
+        untagged(3)
+    }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+          "Packet type of the remarked vlan ID."
+    ::= { hwRemarkVlanIDEntry 12 }
+
+  hwRemarkVlanIDRowStatus   OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+          "The status of this conceptual row. "
+    ::= { hwRemarkVlanIDEntry 13 }
+
+  hwCosToDscpMapTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwCosToDscpMapEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+          "COS to DSCP map information."
+    ::= { hwLswQosMibObject 35 }
+
+  hwCosToDscpMapEntry OBJECT-TYPE
+    SYNTAX      HwCosToDscpMapEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+          "COS to DSCP map information."
+    INDEX {
+             hwCosToDscpMapCosIndex
+          }
+    ::= { hwCosToDscpMapTable 1 }
+
+  HwCosToDscpMapEntry ::=
+    SEQUENCE
+    {
+      hwCosToDscpMapCosIndex     Integer32,
+      hwCosToDscpMapDscpValue    Integer32,
+      hwCosToDscpMapReSet        INTEGER
+    }
+
+  hwCosToDscpMapCosIndex   OBJECT-TYPE
+    SYNTAX    Integer32(0..7)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+          "COS index of COS to DSCP map."
+    ::= { hwCosToDscpMapEntry 1 }
+
+  hwCosToDscpMapDscpValue   OBJECT-TYPE
+    SYNTAX      Integer32(0..63)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+          "DSCP value of COS to DSCP map."
+    ::= { hwCosToDscpMapEntry 2 }
+
+  hwCosToDscpMapReSet   OBJECT-TYPE
+    SYNTAX    INTEGER
+    {
+        reset(1)
+    }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+          "This object is used to reset COS to DSCP map to default value.
+          Read operation is meaningless."
+    ::= { hwCosToDscpMapEntry 3 }
+
+  hwDscpToLocalPreMapTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwDscpToLocalPreMapEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+          "DSCP to Local-precedence map information."
+    ::= { hwLswQosMibObject 36 }
+
+  hwDscpToLocalPreMapEntry OBJECT-TYPE
+    SYNTAX      HwDscpToLocalPreMapEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+          "DSCP to Local-precedence map information."
+    INDEX {
+             hwDscpToLocalPreMapDscpIndex
+          }
+    ::= { hwDscpToLocalPreMapTable 1 }
+
+  HwDscpToLocalPreMapEntry ::=
+    SEQUENCE
+    {
+      hwDscpToLocalPreMapDscpIndex     Integer32,
+      hwDscpToLocalPreMapLocalPreVal   Integer32,
+      hwDscpToLocalPreMapReset         INTEGER
+    }
+
+  hwDscpToLocalPreMapDscpIndex   OBJECT-TYPE
+    SYNTAX      Integer32(0..63)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+          "DSCP Index of DSCP to Local-precedence map."
+    ::= { hwDscpToLocalPreMapEntry 1 }
+
+  hwDscpToLocalPreMapLocalPreVal   OBJECT-TYPE
+    SYNTAX      Integer32(0..7)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+          "Local-precedence value of DSCP to Local-precedence map."
+    ::= { hwDscpToLocalPreMapEntry 2 }
+
+  hwDscpToLocalPreMapReset   OBJECT-TYPE
+    SYNTAX      INTEGER
+    {
+       reset(1)
+    }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+          "This object is used to reset DSCP to Local-precedence map to default value.
+           Read operation is meaningless."
+    ::= { hwDscpToLocalPreMapEntry 3 }
+
+  hwDscpToDropPreMapTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwDscpToDropPreMapEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+          "DSCP to Drop-precedence map information."
+    ::= { hwLswQosMibObject 37 }
+
+  hwDscpToDropPreMapEntry OBJECT-TYPE
+    SYNTAX      HwDscpToDropPreMapEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+          "DSCP to Drop-precedence map information."
+    INDEX {
+             hwDscpToDropPreMapDscpIndex
+          }
+    ::= { hwDscpToDropPreMapTable 1 }
+
+  HwDscpToDropPreMapEntry ::=
+    SEQUENCE
+    {
+      hwDscpToDropPreMapDscpIndex    Integer32,
+      hwDscpToDropPreMapDropPreVal   Integer32,
+      hwDscpToDropPreMapReset        INTEGER
+    }
+
+  hwDscpToDropPreMapDscpIndex   OBJECT-TYPE
+    SYNTAX      Integer32(0..63)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+          "DSCP Index of DSCP to Drop-precedence map."
+    ::= { hwDscpToDropPreMapEntry 1 }
+
+  hwDscpToDropPreMapDropPreVal   OBJECT-TYPE
+    SYNTAX      Integer32(0..2)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+          "Drop-precedence value of DSCP to Drop-precedence map."
+    ::= { hwDscpToDropPreMapEntry 2 }
+
+  hwDscpToDropPreMapReset   OBJECT-TYPE
+    SYNTAX      INTEGER
+    {
+       reset(1)
+    }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+          "This object is used to reset DSCP to Drop-precedence map to default value.
+          Read operation is meaningless."
+    ::= { hwDscpToDropPreMapEntry 3 }
+
+  hwDscpToCosMapTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwDscpToCosMapEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+          "DSCP to COS map information."
+    ::= { hwLswQosMibObject 38 }
+
+  hwDscpToCosMapEntry OBJECT-TYPE
+    SYNTAX      HwDscpToCosMapEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+          "DSCP to COS map information."
+    INDEX {
+             hwDscpToCosMapDscpIndex
+          }
+    ::= { hwDscpToCosMapTable 1 }
+
+  HwDscpToCosMapEntry ::=
+    SEQUENCE
+    {
+      hwDscpToCosMapDscpIndex   Integer32,
+      hwDscpToCosMapCosValue    Integer32,
+      hwDscpToCosMapReset       INTEGER
+    }
+
+  hwDscpToCosMapDscpIndex   OBJECT-TYPE
+    SYNTAX      Integer32(0..63)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+          "DSCP index of DSCP to COS map."
+    ::= { hwDscpToCosMapEntry 1 }
+
+  hwDscpToCosMapCosValue   OBJECT-TYPE
+    SYNTAX      Integer32(0..7)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+          "COS value of DSCP to COS map."
+    ::= { hwDscpToCosMapEntry 2 }
+
+  hwDscpToCosMapReset   OBJECT-TYPE
+    SYNTAX      INTEGER
+    {
+       reset(1)
+    }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+          "This object is used to reset DSCP to COS map to default value.
+          Read operation is meaningless."
+    ::= { hwDscpToCosMapEntry 3 }
+
+  hwDscpToDscpMapTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HwDscpToDscpMapEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+          "DSCP to DSCP map information."
+    ::= { hwLswQosMibObject 39 }
+
+    hwDscpToDscpMapEntry OBJECT-TYPE
+    SYNTAX      HwDscpToDscpMapEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+          "DSCP to DSCP map information."
+    INDEX {
+             hwDscpToDscpMapDscpIndex
+          }
+    ::= { hwDscpToDscpMapTable 1 }
+
+  HwDscpToDscpMapEntry ::=
+    SEQUENCE
+    {
+      hwDscpToDscpMapDscpIndex  Integer32,
+      hwDscpToDscpMapDscpValue  Integer32,
+      hwDscpToDscpMapReset    INTEGER
+    }
+
+  hwDscpToDscpMapDscpIndex   OBJECT-TYPE
+    SYNTAX      Integer32(0..63)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+          "DSCP index of DSCP to DSCP map."
+    ::= { hwDscpToDscpMapEntry 1 }
+
+  hwDscpToDscpMapDscpValue   OBJECT-TYPE
+    SYNTAX      Integer32(0..63)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+          "DSCP value of DSCP to DSCP map."
+    ::= { hwDscpToDscpMapEntry 2 }
+
+  hwDscpToDscpMapReset    OBJECT-TYPE
+    SYNTAX      INTEGER
+    {
+       reset(1)
+    }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+          "This object is used to reset DSCP to DSCP map to default value.
+          Read operation is meaningless."
+    ::= { hwDscpToDscpMapEntry 3 }
+
+END

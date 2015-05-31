@@ -1,0 +1,7 @@
+DROP TABLE IF EXISTS `groups`;
+CREATE TABLE IF NOT EXISTS `groups` (  `group_id` int(11) NOT NULL AUTO_INCREMENT,  `entity_type` varchar(16) COLLATE utf8_unicode_ci NOT NULL,  `group_name` varchar(32) COLLATE utf8_unicode_ci NOT NULL,  `group_descr` varchar(128) COLLATE utf8_unicode_ci NOT NULL,  `group_menu` tinyint(1) NOT NULL DEFAULT '0',  `group_ignore` tinyint(4) NOT NULL,  `group_ignore_until` int(1) NOT NULL DEFAULT '0',  PRIMARY KEY (`group_id`),  UNIQUE KEY `group_name` (`group_name`)) ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci ;
+DROP TABLE IF EXISTS `groups_assoc`;
+CREATE TABLE IF NOT EXISTS `groups_assoc` (  `group_assoc_id` int(11) NOT NULL AUTO_INCREMENT,  `group_id` int(11) NOT NULL,  `entity_type` varchar(64) CHARACTER SET utf8 NOT NULL,  `device_attribs` text COLLATE utf8_unicode_ci,  `entity_attribs` text CHARACTER SET utf8,  PRIMARY KEY (`group_assoc_id`)) ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci ;
+DROP TABLE IF EXISTS `group_table`;
+CREATE TABLE IF NOT EXISTS `group_table` (  `group_table_id` int(11) NOT NULL AUTO_INCREMENT,  `group_id` int(11) NOT NULL,  `device_id` int(11) NOT NULL,  `entity_type` varchar(32) COLLATE utf8_unicode_ci NOT NULL,  `entity_id` int(11) NOT NULL,  `group_assocs` varchar(64) COLLATE utf8_unicode_ci NOT NULL,  PRIMARY KEY (`group_table_id`),  UNIQUE KEY `alert_id_2` (`group_id`,`entity_type`,`entity_id`),  KEY `device_id` (`device_id`)) ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci ;
+

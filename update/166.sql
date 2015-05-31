@@ -1,0 +1,1 @@
+ALTER TABLE  `bills` ADD  `bill_contact` VARCHAR( 128 ) NULL DEFAULT NULL AFTER  `bill_custid` , ADD  `bill_threshold` INT NULL DEFAULT NULL AFTER  `bill_contact` , ADD  `bill_notify` BOOLEAN NOT NULL DEFAULT FALSE AFTER  `bill_threshold` ;

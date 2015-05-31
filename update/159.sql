@@ -1,0 +1,1 @@
+ALTER TABLE  `alert_log` CHANGE  `log_type`  `log_type` ENUM(  'ALERT_NOTIFY',  'FAIL',  'FAIL_DELAYED',  'FAIL_SUPPRESSED',  'OK',  'RECOVER_NOTIFY' ) CHARACTER SET utf8 COLLATE utf8_unicode_ci NULL DEFAULT NULL ;

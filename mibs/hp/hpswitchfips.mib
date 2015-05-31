@@ -1,0 +1,479 @@
+HP-SWITCH-FIPS-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+          OBJECT-TYPE, MODULE-IDENTITY,Counter64,Integer32
+             FROM SNMPv2-SMI
+          MacAddress, RowStatus
+             FROM SNMPv2-TC
+          MODULE-COMPLIANCE, OBJECT-GROUP
+             FROM SNMPv2-CONF
+          InterfaceIndex
+             FROM IF-MIB
+          hpSwitch
+             FROM HP-ICF-OID;
+
+     hpSwitchFipSnoopingMib MODULE-IDENTITY
+         LAST-UPDATED "201006031539Z"  -- June 3rd, 2010
+         ORGANIZATION "HP ProCurve Networking"
+         CONTACT-INFO "Hewlett Packard Company
+                       8000 Foothills Blvd.
+                       Roseville, CA 95747"
+         DESCRIPTION  "This MIB module describes objects for management
+                       of FIP (FCoE Initialization Protocol) snooping in
+                       the HP Integrated Communication Facility product 
+                       line." 
+         REVISION     "201006031539Z"  -- June 3rd, 2010
+         DESCRIPTION  "Initial version, added objects for FIP snooping."
+         ::= {hpSwitch 78}
+   
+-- This MIB module will be a child of hpSwitch
+
+-- Some Abbreviations
+-- Enode  - End node or server. Enodes have N_ports.
+-- CNA    - Converged Network Adapter. Combo NIC for FC and Ethernet.
+-- FPMA   - Fabric Provided MAC Address.
+-- SPMA   - Server Provided MAC Address.
+-- NPIV   - N_Port ID virtualization.
+-- FCF    - Fibre Channel Forwarder.
+-- FC-MAP - Fibre Channel MAP. (Fabric Wide)
+
+-- ***************************************************************************
+-- Main Groups
+-- ***************************************************************************
+
+   hpSwitchFipsConfigObjects     OBJECT IDENTIFIER
+                                ::= { hpSwitchFipSnoopingMib 1}
+   hpSwitchFipsStatistics        OBJECT IDENTIFIER
+                                ::= { hpSwitchFipSnoopingMib 2}
+   hpSwitchFipsConformance       OBJECT IDENTIFIER
+                                ::= {hpSwitchFipSnoopingMib 3 }
+
+-- **************************************************************************
+-- FIP Snooping Scalars
+-- **************************************************************************
+
+hpSwitchFipsScalars    OBJECT IDENTIFIER ::= 
+                                 { hpSwitchFipsConfigObjects 1}
+
+hpSwitchFipsAdminStatus OBJECT-TYPE
+    SYNTAX          INTEGER  {
+                       enable(1),
+                       disable(2)
+                    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION     "This object is used to enable or disable FIP Snooping
+                     on an ethernet bridge."
+    ::= { hpSwitchFipsScalars 1}
+
+-- ***************************************************************************
+-- FIP Snooping config Tables
+-- ***************************************************************************
+
+hpSwitchFipsTables    OBJECT IDENTIFIER
+                       ::= {  hpSwitchFipsConfigObjects 2}
+
+-- FC-MAP configuration
+hpSwitchFipsFcMapTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF HpSwitchFipsFcMapEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "This table is used to configure the list of FC-MAP values.
+                     These FC-MAPS will be used to program ACLs that ensure
+                     no MAC Address used for non-FCoE traffic shall have the
+                     prefix(first 3 bytes) equal to any of the FC-MAP
+                     value."
+    ::= { hpSwitchFipsTables 1}
+
+hpSwitchFipsFcMapEntry OBJECT-TYPE
+    SYNTAX          HpSwitchFipsFcMapEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "An entry in the table specifying the FC-MAP."
+    INDEX           {hpSwitchFipsFcMapIndex}
+    ::= { hpSwitchFipsFcMapTable 1}
+
+HpSwitchFipsFcMapEntry ::= SEQUENCE
+{
+   hpSwitchFipsFcMapIndex   INTEGER,
+   hpSwitchFipsFcMap        OCTET STRING
+}
+
+hpSwitchFipsFcMapIndex OBJECT-TYPE
+    SYNTAX          Integer32 (1..64)
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "The index of the Fiber Channel MAC Address prefix table."
+    ::= {hpSwitchFipsFcMapEntry 1}
+
+hpSwitchFipsFcMap OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE (3))
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION     "This object configures the FC MAP value associated
+                     with the FIP snooping bridge"
+    ::= {hpSwitchFipsFcMapEntry 2 }
+
+--- FCF MAC configuration
+
+hpSwitchFipsFcfMacAddressTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF HpSwitchFipsFcfMacAddressEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "This table is used to configure the list of FCF MAC
+                     addresses to which ENodes will perform FIP FLOGI and
+                     FIP NPIV FDISC operations. This table will be indexed
+                     by the VLAN ID. Appropriate ACL entries will be programmed
+                     to allow FCoE traffic to these MACs."
+    ::= { hpSwitchFipsTables 2}
+
+
+hpSwitchFipsFcfMacAddressEntry OBJECT-TYPE
+    SYNTAX          HpSwitchFipsFcfMacAddressEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "An entry in the table specifying the FCF MAC connected to
+                     the Virtual Fabric (VF) interface."
+    INDEX           {hpSwitchFipsVirtualFabricInterfaceIndex,
+    hpSwitchFipsFcfMacAddress}
+    ::= { hpSwitchFipsFcfMacAddressTable 1}
+
+HpSwitchFipsFcfMacAddressEntry ::= SEQUENCE
+{
+   hpSwitchFipsVirtualFabricInterfaceIndex InterfaceIndex,
+   hpSwitchFipsFcfMacAddress               MacAddress,
+   hpSwitchFipsFcoeVlanId                  Integer32,
+   hpSwitchFipsFcfFcMap                    OCTET STRING,
+   hpSwitchFipsFcfEnodeLoginCount          Integer32,
+   hpSwitchFipsFcfNameId                   OCTET STRING, 
+   hpSwitchFipsFabricName                  OCTET STRING,
+   hpSwitchFipsFcfMacTableRowStatus        RowStatus
+   
+}
+
+hpSwitchFipsVirtualFabricInterfaceIndex OBJECT-TYPE
+    SYNTAX          InterfaceIndex
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "Interface index of the VF port connected to FCF"
+    ::= {hpSwitchFipsFcfMacAddressEntry 1}
+
+hpSwitchFipsFcfMacAddress OBJECT-TYPE
+    SYNTAX          MacAddress
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "This object configures the MAC address of the Fibre Channel
+                     Forwarder(FCF) attached to the VF port accepting Fabric
+                     logins. This MAC Address will be used as the DA MAC by
+                     Enodes requesting FLOGI or NPIV FDISC.Configuring this MAC
+                     address will result in some ACL rules to be programmed in
+                     the hardware."
+    ::= {hpSwitchFipsFcfMacAddressEntry 2}
+
+hpSwitchFipsFcoeVlanId OBJECT-TYPE
+    SYNTAX          Integer32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The FCoE VLAN ID advertised by FCF"
+    ::= {hpSwitchFipsFcfMacAddressEntry 3}
+
+hpSwitchFipsFcfFcMap OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE (3))
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The Fiber Channel MAC address prefix used by the FCF to
+                     assign fabric provided MAC addresses(FPMA)."
+    ::= {hpSwitchFipsFcfMacAddressEntry 4}
+
+hpSwitchFipsFcfEnodeLoginCount OBJECT-TYPE
+    SYNTAX          Integer32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "This objects represents the number of Enodes that have
+                     logged into this FCF."
+    ::= {hpSwitchFipsFcfMacAddressEntry 5}
+
+hpSwitchFipsFcfNameId OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE(8))
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The World Wide Node Name of the fabric port as advertised by
+                     the FCF."
+    ::= {hpSwitchFipsFcfMacAddressEntry 6}
+
+hpSwitchFipsFabricName OBJECT-TYPE
+   SYNTAX          OCTET STRING (SIZE(8))
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION     "The Fabric name identifier of Fabric as advertised by FCF."
+   ::= {hpSwitchFipsFcfMacAddressEntry 7}
+
+hpSwitchFipsFcfMacTableRowStatus OBJECT-TYPE
+    SYNTAX          RowStatus
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION     "Row Status of the FCF MAC Address table."
+    ::= {hpSwitchFipsFcfMacAddressEntry 8}
+
+-- Show FIP sessions
+
+hpSwitchFipsSessionTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF HpSwitchFipsSessionEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "This table stores the currently active FLOGI or NPIV FDISC
+                     sessions. This table is meant for reporting only."
+    ::= { hpSwitchFipsTables 3}
+
+hpSwitchFipsSessionEntry OBJECT-TYPE
+    SYNTAX          HpSwitchFipsSessionEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "An entry in the table specifying the details pertaing to a
+                     session."
+    INDEX           {hpSwitchFipsSessEnodeInterfaceIndex,
+                     hpSwitchFipsSessEnodeFPMAMacAddress}
+    ::= { hpSwitchFipsSessionTable 1 }
+    
+
+HpSwitchFipsSessionEntry ::= SEQUENCE
+{
+    hpSwitchFipsSessEnodeInterfaceIndex InterfaceIndex,
+    hpSwitchFipsSessEnodeFPMAMacAddress MacAddress,
+    hpSwitchFipsSessEnodeMacAddress     MacAddress,
+    hpSwitchFipsSessEnodeNportId        OCTET STRING,
+    hpSwitchFipsSessEnodeNportIdType    INTEGER,
+    hpSwitchFipsSessFcfMacAddress       MacAddress,
+    hpSwitchFipsSessFcMap               OCTET STRING,
+    hpSwitchFipsSessVlanId              Integer32,
+    hpSwitchFipsSessFcfNameId           OCTET STRING
+}
+
+hpSwitchFipsSessEnodeInterfaceIndex OBJECT-TYPE
+    SYNTAX          InterfaceIndex
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "The object specifies the interface index connected to the
+                     Enode initiator."
+    ::= { hpSwitchFipsSessionEntry 1}
+
+hpSwitchFipsSessEnodeFPMAMacAddress OBJECT-TYPE
+    SYNTAX          MacAddress
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "The Fabric provided MAC Address of the Enode. This MAC is
+                     assigned by FCF as a result of succcessful FLOGI or NPIV 
+                     FDISC and is used as the SA MAC for FCoE traffic originating 
+                     from Enode."
+    ::= { hpSwitchFipsSessionEntry 2}
+
+hpSwitchFipsSessEnodeMacAddress OBJECT-TYPE
+    SYNTAX          MacAddress
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "This object represents the server provided MAC address of
+                     the Enode. This MAC is used as the SA MAC in FIP frames
+                     originating from Enode."
+    ::= { hpSwitchFipsSessionEntry 3}
+
+hpSwitchFipsSessEnodeNportId OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE (3))
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "This object represents the N_Port ID of the Enode. It is
+                     assigned by the FCF after a successful FLOGI or NPIV
+                     FDISC. It is equivalent to FC ID in native Fibre channel.
+                     This ID is used in the S_ID or D_ID fields of the
+                     encapsulated Fibre Channel Frames."
+    ::= { hpSwitchFipsSessionEntry 4}
+
+hpSwitchFipsSessEnodeNportIdType OBJECT-TYPE
+    SYNTAX          INTEGER
+                    {
+                       flogi(1),
+                       npivfdisc(2)
+                    }
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "This object represents the method by which N_Port obtained
+                     the FC ID from FCF."
+    ::= { hpSwitchFipsSessionEntry 5}
+
+hpSwitchFipsSessFcfMacAddress OBJECT-TYPE
+    SYNTAX          MacAddress
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "This object represents the MAC Address of the Fibre
+                     Channel Forwarder to which the session is established."
+    ::= { hpSwitchFipsSessionEntry 6}
+                     
+hpSwitchFipsSessFcMap OBJECT-TYPE
+    SYNTAX          OCTET STRING(SIZE (3))
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "This object represents the FC MAP."
+    ::= { hpSwitchFipsSessionEntry 7}
+
+hpSwitchFipsSessVlanId OBJECT-TYPE
+    SYNTAX          Integer32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The VLAN ID on which FCoE traffic is being pumped."
+    ::= { hpSwitchFipsSessionEntry 8}
+
+hpSwitchFipsSessFcfNameId OBJECT-TYPE
+    SYNTAX          OCTET STRING(SIZE (8))
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The Name Identifier advertised by the FCF with which this
+                     session is established."
+    ::= { hpSwitchFipsSessionEntry 9}
+
+
+-- FIP snooping statistics
+
+-- Global statistics.
+
+hpSwitchFipsGlobalStats     OBJECT IDENTIFIER
+                          ::= { hpSwitchFipsStatistics 1}
+
+
+hpSwitchFipsFipDropPkts    OBJECT-TYPE
+    SYNTAX         Counter64
+    MAX-ACCESS     read-only
+    STATUS         current
+    DESCRIPTION    "Global counter to indicate the number of FIP frames
+                    dropped."
+    ::= { hpSwitchFipsGlobalStats 1}
+
+
+hpSwitchFipsFcoeDropPkts   OBJECT-TYPE
+    SYNTAX         Counter64
+    MAX-ACCESS     read-only
+    STATUS         current
+    DESCRIPTION    "Global counter to indicate the number of FCoE frames
+                    dropped."
+    ::= {hpSwitchFipsGlobalStats 2}
+
+-- Per FIP session statistics
+hpSwitchFipsSessStats     OBJECT IDENTIFIER
+                        ::= { hpSwitchFipsStatistics 2}
+
+hpSwitchFipsSessStatsTable    OBJECT-TYPE
+    SYNTAX         SEQUENCE OF HpSwitchFipsSessStatsEntry
+    MAX-ACCESS     not-accessible
+    STATUS         current
+    DESCRIPTION    "A table for per session FIPs statistics."
+    ::= {hpSwitchFipsSessStats 1}
+
+hpSwitchFipsSessStatsEntry    OBJECT-TYPE
+    SYNTAX         HpSwitchFipsSessStatsEntry
+    MAX-ACCESS     not-accessible
+    STATUS         current
+    DESCRIPTION    "An Entry in the session statistics table."
+    INDEX          {hpSwitchFipsStatsSessEnodeIfIndex,
+                    hpSwitchFipsStatsSessFPMAMacAddress}
+    ::= { hpSwitchFipsSessStatsTable 1}
+
+
+HpSwitchFipsSessStatsEntry ::= SEQUENCE
+{
+   hpSwitchFipsStatsSessEnodeIfIndex   InterfaceIndex,
+   hpSwitchFipsStatsSessFPMAMacAddress MacAddress,
+   hpSwitchFipsStatsSessFcfMacAddress  MacAddress,
+   hpSwitchFipsStatsSessFcoePermitPkts Counter64
+}
+
+hpSwitchFipsStatsSessEnodeIfIndex OBJECT-TYPE
+    SYNTAX         InterfaceIndex
+    MAX-ACCESS     not-accessible
+    STATUS         current
+    DESCRIPTION    "Interface index of the Enode."
+    ::= { hpSwitchFipsSessStatsEntry 1}
+
+hpSwitchFipsStatsSessFPMAMacAddress OBJECT-TYPE
+    SYNTAX         MacAddress
+    MAX-ACCESS     not-accessible
+    STATUS         current
+    DESCRIPTION    "FPMA Mac address being used for this session."
+    ::= { hpSwitchFipsSessStatsEntry 2}
+
+hpSwitchFipsStatsSessFcfMacAddress  OBJECT-TYPE
+    SYNTAX         MacAddress
+    MAX-ACCESS     read-only
+    STATUS         current
+    DESCRIPTION    "FCF Mac address being used for this session."
+    ::= { hpSwitchFipsSessStatsEntry 3}
+
+hpSwitchFipsStatsSessFcoePermitPkts OBJECT-TYPE
+    SYNTAX         Counter64
+    MAX-ACCESS     read-only
+    STATUS         current
+    DESCRIPTION    "Counter indicating the number of FCoE frames 
+                    permitted for this session."
+    ::= { hpSwitchFipsSessStatsEntry 4}
+
+
+-- FIP Snooping MIB conformance
+
+hpSwitchFipsCompliances    OBJECT IDENTIFIER ::= { hpSwitchFipsConformance 1 }
+hpSwitchFipsGroups         OBJECT IDENTIFIER ::= { hpSwitchFipsConformance 2 }
+
+hpSwitchFipsCompliance  MODULE-COMPLIANCE
+    STATUS current
+    DESCRIPTION
+              "The compliance statement for SNMP entities which implement
+               the FIP Snooping MIB."
+    MODULE -- This module
+    MANDATORY-GROUPS {
+                       hpSwitchFipsConfigGroup,
+                       hpSwitchFipsSessionGroup,
+                       hpSwitchFipsStatisticsGroup
+                     }
+    ::= { hpSwitchFipsCompliances 1}
+
+-- Mib Groupings
+
+hpSwitchFipsConfigGroup OBJECT-GROUP
+    OBJECTS     {
+                   hpSwitchFipsAdminStatus,
+                   hpSwitchFipsFcMap,
+                   hpSwitchFipsFcoeVlanId,
+                   hpSwitchFipsFcfFcMap,
+                   hpSwitchFipsFcfEnodeLoginCount,
+                   hpSwitchFipsFcfNameId,
+                   hpSwitchFipsFabricName,
+                   hpSwitchFipsFcfMacTableRowStatus
+                }
+    STATUS      current
+    DESCRIPTION "The collection of objects for Fip Snooping configuration."
+    ::= {hpSwitchFipsGroups 1}
+
+hpSwitchFipsSessionGroup OBJECT-GROUP
+    OBJECTS      {
+                   hpSwitchFipsSessEnodeMacAddress,
+                   hpSwitchFipsSessEnodeNportId,
+                   hpSwitchFipsSessEnodeNportIdType,
+                   hpSwitchFipsSessFcfMacAddress,
+                   hpSwitchFipsSessFcMap,
+                   hpSwitchFipsSessVlanId,
+                   hpSwitchFipsSessFcfNameId
+                 }
+    STATUS      current
+    DESCRIPTION "The collection of objects representing the FIP sessions."
+    ::= {hpSwitchFipsGroups 2}
+
+hpSwitchFipsStatisticsGroup OBJECT-GROUP
+    OBJECTS      {
+                   hpSwitchFipsFipDropPkts,
+                   hpSwitchFipsFcoeDropPkts,
+                   hpSwitchFipsStatsSessFcfMacAddress,
+                   hpSwitchFipsStatsSessFcoePermitPkts
+                 }
+    STATUS      current
+    DESCRIPTION "The collection of objects representing the FIP Statistics."
+    ::= {hpSwitchFipsGroups 3}
+         
+
+
+END
