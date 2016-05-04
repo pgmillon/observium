@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -27,7 +27,7 @@ if (count($diskio_array) > 0)
   {
     if ($entry['diskIONRead'] > "0" || $entry['diskIONWritten'] > "0")
     {
-      if ($debug) { echo("$index ".$entry['diskIODevice']."\n"); }
+      print_debug("$index ".$entry['diskIODevice']);
       if (isset($entries_db[$index]) && $entries_db[$index]['diskio_descr'] == $entry['diskIODevice'] )
       {
         // Entries match. Nothing to do here!
@@ -40,7 +40,6 @@ if (count($diskio_array) > 0)
         // Index doesn't exist in the database. Add it.
         $inserted = dbInsert(array('device_id' => $device['device_id'], 'diskio_index' => $index, 'diskio_descr' => $entry['diskIODevice']), 'ucd_diskio');
         echo("+");
-        if ($debug) { echo($sql . "$inserted inserted "); }
       }
       // Remove from the DB array
       unset($entries_db[$index]);
@@ -56,8 +55,6 @@ foreach ($entries_db as $entry)
   dbDelete('ucd_diskio', '`diskio_id` = ?', array($entry['diskio_id']));
 }
 
-/// FIXME - migrate this to dbFacile
+echo(PHP_EOL);
 
-echo("\n");
-
-?>
+// EOF

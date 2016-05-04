@@ -1,0 +1,805 @@
+-- *******************************************************************
+-- CISCO-LWAPP-MDNS-MIB.my 
+-- July 2012, Jose Thomas	
+--
+-- Copyright (c) 2011-2012 by Cisco Systems, Inc.
+-- All rights reserved.
+-- *******************************************************************
+--
+CISCO-LWAPP-MDNS-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS 
+        MODULE-IDENTITY, 
+        OBJECT-TYPE,
+        NOTIFICATION-TYPE,
+        Unsigned32
+                FROM SNMPv2-SMI
+        MODULE-COMPLIANCE, 
+        OBJECT-GROUP,
+        NOTIFICATION-GROUP
+                FROM SNMPv2-CONF
+        InetAddressType,
+        InetAddress
+                FROM INET-ADDRESS-MIB
+        RowStatus,
+	    MacAddress,
+        TruthValue
+                FROM SNMPv2-TC
+        SnmpAdminString
+                FROM SNMP-FRAMEWORK-MIB
+        ciscoMgmt
+                FROM CISCO-SMI;
+                
+--********************************************************************
+--*  MODULE IDENTITY
+--********************************************************************
+
+ciscoLwappMdnsMIB        MODULE-IDENTITY
+        LAST-UPDATED   "201207040000Z"
+        ORGANIZATION   "Cisco Systems Inc."
+        CONTACT-INFO  
+               "        Cisco Systems,
+                        Customer Service
+
+                Postal: 170 West Tasman Drive
+                        San Jose, CA  95134
+                        USA
+
+                   Tel: +1 800 553-NETS
+
+                 Email: cs-snmp@cisco.com"
+
+        DESCRIPTION             
+          "Multicast DNS (mDNS) is a way of using familiar
+	   Domain Name System (DNS) programming interfaces,
+	   packet formats and operating, without configuring
+	   a conventional DNS server. It is useful in small
+	   networks without a DNS server, but can also work
+	   in environments beside a DNS server. 
+	   mDNS functionality is provided using 
+	   IP multicast over User Datagram Protocol (UDP).
+
+	   The mDNS protocol is used by Apple's Bonjour, 
+	   Linux Avahi, and Oracle Grid Naming Service (GNS)
+	   service discovery systems.
+                       
+                     GLOSSARY 
+                 
+           Access Point ( AP )
+
+           An entity that contains an 802.11 medium access
+           control ( MAC ) and physical layer ( PHY ) interface
+           and provides access to the distribution services via
+           the wireless medium for associated clients.  
+
+           LWAPP APs encapsulate all the 802.11 frames in
+           LWAPP frames and sends it to the controller to which
+           it is logically connected to.
+
+           Central Controller ( CC )
+
+           The central entity that terminates the LWAPP protocol
+           tunnel from the LWAPP APs.  Throughout this MIB,
+           this entity also referred to as 'controller'.
+
+           Light Weight Access Point Protocol ( LWAPP ) 
+
+           This is a generic protocol that defines the
+           communication between the Access Points and the
+           controllers.
+
+           Mobile Node ( MN )
+
+           A roaming 802.11 wireless device in a wireless
+           network associated with an access point.
+
+           AVC - Application Visiblity and Control.
+           The client application or protocol statistics and control."
+
+        REVISION      "201207040000Z"
+        DESCRIPTION
+                "Initial version of this MIB module."
+        ::= { ciscoMgmt 99994 }
+
+ciscoLwappMdnsMIBNotifs  OBJECT IDENTIFIER 
+        ::= { ciscoLwappMdnsMIB 0 }
+ciscoLwappMdnsMIBObjects OBJECT IDENTIFIER 
+        ::= { ciscoLwappMdnsMIB 1 }
+ciscoLwappMdnsMIBConform OBJECT IDENTIFIER 
+        ::= { ciscoLwappMdnsMIB 2 }
+clMdnsConfigObjects OBJECT IDENTIFIER 
+	::= { ciscoLwappMdnsMIBObjects 1 }
+
+--********************************************************************
+    -- Mdns Configuration
+    --
+--********************************************************************
+clMdnsGlobalConfig OBJECT IDENTIFIER ::= { clMdnsConfigObjects 1 }
+
+clMdnsSnoopingEnabled OBJECT-TYPE
+     SYNTAX TruthValue
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+        "This object specifies whether Mdns Snooping is enabled 
+         or disabled on the controller.  
+	 A value of 'true' specifies that Mdns Snooping 
+	 is enabled and a value of 'false' specifies that 
+	 Mdns Snooping is disabled on the controller."
+     DEFVAL {false}
+     ::= { clMdnsGlobalConfig 1 }
+
+clMdnsQueryInterval OBJECT-TYPE
+     SYNTAX      Unsigned32
+     UNITS       "minutes"
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+        "This object specifies the Mdns query interval, in minutes.
+         To set this value, clMdnsSnoopingEnabled must be set to
+         True."
+     ::= { clMdnsGlobalConfig 2 }
+
+clMdnsMasterServiceTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF ClMdnsMasterServiceEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This table represents the configuration of all the
+         Mdns Services supported on the Wireless LAN Controller(WLC)."
+    ::= { clMdnsConfigObjects 2 }
+
+clMdnsMasterServiceEntry OBJECT-TYPE
+    SYNTAX          ClMdnsMasterServiceEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This represents an entry in the clMdnsMasterServiceTable.
+        Each entry corresponds to a service, indicated by
+        clMdnsServiceName."
+    INDEX           { clMdnsServiceName }
+    ::= { clMdnsMasterServiceTable 1 }
+
+ClMdnsMasterServiceEntry ::= SEQUENCE {
+        clMdnsServiceName           SnmpAdminString,
+        clMdnsServiceString         SnmpAdminString,
+        clMdnsServiceQueryStatus    TruthValue,
+        clMdnsServiceRowStatus      RowStatus
+}
+
+clMdnsServiceName OBJECT-TYPE
+    SYNTAX          SnmpAdminString
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This object represents the name of the mdns
+        service added on the controller."
+    ::= { clMdnsMasterServiceEntry 1 }
+
+clMdnsServiceString OBJECT-TYPE
+    SYNTAX          SnmpAdminString
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "This object represents the service string defined for 
+        the mdns service added on the controller."
+    ::= { clMdnsMasterServiceEntry 2 }
+
+clMdnsServiceQueryStatus OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "This object indicates whether the service
+        represented by clMdnsServiceName, will be
+        queried by the WLC."
+    DEFVAL          { false }
+    ::= { clMdnsMasterServiceEntry 3 }
+
+clMdnsServiceRowStatus  OBJECT-TYPE
+      SYNTAX RowStatus
+      MAX-ACCESS read-create
+      STATUS current
+      DESCRIPTION
+         "This object is used to add or delete entries
+          in clMdnsMasterServiceTable"
+      ::= { clMdnsMasterServiceEntry 4 }
+
+clMdnsProfileTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF ClMdnsProfileEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This table represents the configuration of all the
+         Mdns profiles on the Wireless LAN Controller(WLC)."
+    ::= { clMdnsConfigObjects 3 }
+
+clMdnsProfileEntry OBJECT-TYPE
+    SYNTAX          ClMdnsProfileEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This represents an entry in the clMdnsProfileTable.
+        Each entry corresponds to a mdns profiles, indicated by
+        clMdnsProfileName."
+    INDEX           {clMdnsProfileName }
+    ::= { clMdnsProfileTable 1 }
+
+ClMdnsProfileEntry ::= SEQUENCE {
+        clMdnsProfileName           SnmpAdminString,
+        clMdnsProfileRowStatus      RowStatus,
+	clMdnsProfileWlanCount	    Unsigned32,
+	clMdnsProfileInterfaceCount	    Unsigned32,
+	clMdnsProfileInterfaceGrpCount    Unsigned32
+}
+
+clMdnsProfileName OBJECT-TYPE
+    SYNTAX          SnmpAdminString
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This object represents the name of the mdns
+         profile added on the controller."
+    ::= { clMdnsProfileEntry 1 }
+
+clMdnsProfileRowStatus  OBJECT-TYPE
+      SYNTAX RowStatus
+      MAX-ACCESS read-create
+      STATUS current
+      DESCRIPTION
+         "This object is used to add or delete entries
+          in clMdnsProfileTable"
+      ::= { clMdnsProfileEntry 2 }
+
+clMdnsProfileWlanCount  OBJECT-TYPE
+      SYNTAX Unsigned32
+      MAX-ACCESS read-only
+      STATUS current
+      DESCRIPTION
+         "This object specifies the number of
+	  WLANs on which the profile is attached."
+      ::= { clMdnsProfileEntry 3 }
+
+clMdnsProfileInterfaceCount  OBJECT-TYPE
+      SYNTAX Unsigned32
+      MAX-ACCESS read-only
+      STATUS current
+      DESCRIPTION
+         "This object specifies the number of
+	  Interfaces on which the profile is attached."
+      ::= { clMdnsProfileEntry 4 }
+
+clMdnsProfileInterfaceGrpCount  OBJECT-TYPE
+      SYNTAX Unsigned32
+      MAX-ACCESS read-only
+      STATUS current
+      DESCRIPTION
+         "This object specifies the number of
+	  Inteface groups on which the profile is attached."
+      ::= { clMdnsProfileEntry 5 }
+
+clMdnsProfileServiceTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF ClMdnsProfileServiceEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This table represents the configuration of all the
+         Services added to Mdns profiles on the Wireless 
+         LAN Controller(WLC)."
+    ::= { clMdnsConfigObjects 4 }
+
+clMdnsProfileServiceEntry OBJECT-TYPE
+    SYNTAX          ClMdnsProfileServiceEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This represents an entry in the clMdnsProfileServiceTable.
+        Each entry corresponds to a service in the mdns profile."
+    INDEX           {clMdnsProfileName, clMdnsServiceName }
+    ::= { clMdnsProfileServiceTable 1 }
+
+ClMdnsProfileServiceEntry ::= SEQUENCE {
+        clMdnsProfileServiceRowStatus       RowStatus
+}
+
+clMdnsProfileServiceRowStatus  OBJECT-TYPE
+      SYNTAX RowStatus
+      MAX-ACCESS read-create
+      STATUS current
+      DESCRIPTION
+         "This object is used to add or delete entries
+          in clMdnsProfileServiceTable."
+      ::= { clMdnsProfileServiceEntry 1 }
+
+clMdnsServiceProviderTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF ClMdnsServiceProviderEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This table represents the list of all the
+         Service providers who have advertised Mdns 
+	 services on the Wireless LAN Controller(WLC)."
+    ::= { clMdnsConfigObjects 5 }
+
+clMdnsServiceProviderEntry OBJECT-TYPE
+    SYNTAX          ClMdnsServiceProviderEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This represents an entry in the clMdnsServiceProviderTable.
+        Each entry corresponds to a service Povider."
+    INDEX           {clMdnsServiceName, clMdnsServiceProviderIndex }
+    ::= { clMdnsServiceProviderTable 1 }
+
+ClMdnsServiceProviderEntry ::= SEQUENCE {
+	clMdnsServiceProviderIndex    	Unsigned32,
+	clMdnsServiceProviderMacAddress	MacAddress,
+	clMdnsServiceProviderName     	SnmpAdminString,
+	clMdnsServiceProviderVlan     	Unsigned32,
+	clMdnsServiceProviderType    	INTEGER,
+	clMdnsServiceProviderTtl     	Unsigned32,
+	clMdnsServiceProviderTimeLeft  	Unsigned32
+}
+
+clMdnsServiceProviderIndex  OBJECT-TYPE
+      SYNTAX Unsigned32
+      MAX-ACCESS not-accessible
+      STATUS current
+      DESCRIPTION
+         "This object specifies a unique index
+	  assigned by the wireless controller when
+          the service provider entry is added."
+      ::= { clMdnsServiceProviderEntry 1 }
+
+clMdnsServiceProviderMacAddress  OBJECT-TYPE
+      SYNTAX MacAddress
+      MAX-ACCESS read-only
+      STATUS current
+      DESCRIPTION
+         "This object specifies the hardware address
+	  of the service provider machine."
+      ::= { clMdnsServiceProviderEntry 2 }
+
+clMdnsServiceProviderName  OBJECT-TYPE
+      SYNTAX SnmpAdminString
+      MAX-ACCESS read-only
+      STATUS current
+      DESCRIPTION
+         "This object specifies the hostname
+	  assigned to the service provider machine."
+      ::= { clMdnsServiceProviderEntry 3 }
+
+clMdnsServiceProviderVlan  OBJECT-TYPE
+      SYNTAX Unsigned32
+      MAX-ACCESS read-only
+      STATUS current
+      DESCRIPTION
+         "This object specifies the VLAN on which  
+          the service provider is operating."
+      ::= { clMdnsServiceProviderEntry 4 }
+
+clMdnsServiceProviderType  OBJECT-TYPE
+      SYNTAX INTEGER  {
+                        wireless(1),
+                        wired(2),
+                        wired-guest(3),
+			both(4)
+		      }
+      MAX-ACCESS read-only
+      STATUS current
+      DESCRIPTION
+         "This object specifies whether the
+          the service provider is operating
+	  in a wired or wireless network."
+      ::= { clMdnsServiceProviderEntry 5 }
+
+clMdnsServiceProviderTtl  OBJECT-TYPE
+      SYNTAX Unsigned32
+      UNITS  "seconds"
+      MAX-ACCESS read-only
+      STATUS current
+      DESCRIPTION
+         "This object specifies the TTL (time to live)
+	  value in secondes, assigned when the 
+	  service provider entry is added. The entry will
+	  be removed from the control on expiry of this."
+      ::= { clMdnsServiceProviderEntry 6 }
+
+clMdnsServiceProviderTimeLeft  OBJECT-TYPE
+      SYNTAX Unsigned32
+      UNITS  "seconds"
+      MAX-ACCESS read-only
+      STATUS current
+      DESCRIPTION
+         "This object specifies the Time left before the entry
+	  is removed from the controller."
+      ::= { clMdnsServiceProviderEntry 7 }
+
+clMdnsDnipTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF ClMdnsDnipEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This table represents the list of all the
+	 Domain Name IP entries on the Wireless LAN Controller(WLC).
+	 The entries are learnt from the mDNS advertisements"
+    ::= { clMdnsConfigObjects 6 }
+
+clMdnsDnipEntry OBJECT-TYPE
+    SYNTAX          ClMdnsDnipEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This represents an entry in the clMdnsDnipTable.
+        Each entry corresponds to a Domain Name IP entry."
+    INDEX           {clMdnsDomainName }
+    ::= { clMdnsDnipTable 1 }
+
+ClMdnsDnipEntry ::= SEQUENCE {
+	clMdnsDomainName	    	SnmpAdminString,
+	clMdnsDomainMacAddress		MacAddress,
+	clMdnsDomainIpAddressType     	InetAddressType,
+	clMdnsDomainIpAddress     	InetAddress,
+	clMdnsDomainVlan     		Unsigned32,
+	clMdnsDomainType	    	INTEGER,
+	clMdnsDomainEntryTtl     	Unsigned32,
+	clMdnsDomainEntryTimeLeft     	Unsigned32
+}
+
+clMdnsDomainName  OBJECT-TYPE
+      SYNTAX SnmpAdminString
+      MAX-ACCESS not-accessible
+      STATUS current
+      DESCRIPTION
+         "This object specifies the domain name 
+	  added on the  controller."
+      ::= { clMdnsDnipEntry 1 }
+
+clMdnsDomainMacAddress  OBJECT-TYPE
+      SYNTAX MacAddress
+      MAX-ACCESS read-only
+      STATUS current
+      DESCRIPTION
+         "This object specifies the hardware address
+	  of the service provider machine."
+      ::= { clMdnsDnipEntry 2 }
+
+clMdnsDomainIpAddressType  OBJECT-TYPE
+      SYNTAX InetAddressType
+      MAX-ACCESS read-only
+      STATUS current
+      DESCRIPTION
+         "This object specifies the IP address type
+	  assigned to the domain."
+      ::= { clMdnsDnipEntry 3 }
+
+clMdnsDomainIpAddress  OBJECT-TYPE
+      SYNTAX InetAddress
+      MAX-ACCESS read-only
+      STATUS current
+      DESCRIPTION
+         "This object specifies the IP address
+	  assigned to the domain."
+      ::= { clMdnsDnipEntry 4 }
+
+clMdnsDomainVlan  OBJECT-TYPE
+      SYNTAX Unsigned32
+      MAX-ACCESS read-only
+      STATUS current
+      DESCRIPTION
+         "This object specifies the VLAN on which 
+          the domain is operating."
+      ::= { clMdnsDnipEntry 5 }
+
+clMdnsDomainType  OBJECT-TYPE
+      SYNTAX INTEGER  {
+                        wireless(1),
+                        wired(2),
+                        wired-guest(3),
+			both(4)
+		      }
+      MAX-ACCESS read-only
+      STATUS current
+      DESCRIPTION
+         "This object specifies whether the
+          the Domain name IP entry is a wired,
+	  wireless or wired-guest host."
+      ::= { clMdnsDnipEntry 6 }
+
+clMdnsDomainEntryTtl  OBJECT-TYPE
+      SYNTAX Unsigned32
+      UNITS  "seconds"
+      MAX-ACCESS read-only
+      STATUS current
+      DESCRIPTION
+         "This object specifies the TTL (time to live)
+	  value in secondes, assigned when the
+	  domain entry is added. The entry will
+	  be removed from the control on expiry of this."
+      ::= { clMdnsDnipEntry 7 }
+
+clMdnsDomainEntryTimeLeft  OBJECT-TYPE
+      SYNTAX Unsigned32
+      UNITS  "seconds"
+      MAX-ACCESS read-only
+      STATUS current
+      DESCRIPTION
+         "This object specifies the Time left before the entry
+	  is removed from the controller."
+      ::= { clMdnsDnipEntry 8 }
+
+--******************************************************************************
+--MDNS SERVICE GROUP TABLE 
+--******************************************************************************
+cLMdnsServiceGroupTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF CLMdnsServiceGroupEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "The table contains the Service group information.
+        Service group is group of devices and Location.
+        Rows are added or deleted by explicit
+        management actions initiated by the user from a
+        network management station through the
+        cLMdnsServiceGroupRowStatus object."
+    ::= { clMdnsConfigObjects 7 }
+
+cLMdnsServiceGroupEntry OBJECT-TYPE
+    SYNTAX          CLMdnsServiceGroupEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "An entry in cLMdnsServiceGroupTable"
+    INDEX           {
+                    cLMdnsServiceGroupName
+                    }
+    ::= { cLMdnsServiceGroupTable 1 }
+
+CLMdnsServiceGroupEntry ::= SEQUENCE {
+        cLMdnsServiceGroupName              OCTET STRING,
+        cLMdnsServiceGroupDescription       OCTET STRING,
+        cLMdnsServiceGroupRowStatus         RowStatus
+}
+
+cLMdnsServiceGroupName OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE  (1..256))
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This object defines name of the group and it is unique"
+    ::= { cLMdnsServiceGroupEntry 1 }
+
+cLMdnsServiceGroupDescription OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE  (0..256))
+    MAX-ACCESS      read-create 
+    STATUS          current
+    DESCRIPTION
+        "This object defines the description of the group name "
+    ::= { cLMdnsServiceGroupEntry 2 }
+
+
+cLMdnsServiceGroupRowStatus OBJECT-TYPE
+    SYNTAX          RowStatus
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "Row Status for creation/deletion of a particular
+        venue entry in the table."
+    ::= { cLMdnsServiceGroupEntry 3 }
+
+--***********************************************************
+--SERVICE GROUP DEVICE MAC TABLE
+--***********************************************************
+cLMdnsServiceGroupDeviceMacTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF CLMdnsServiceGroupDeviceMacEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "The table contains set of Devices and device group map to a service group.
+        Rows are added or deleted by explicit
+        management actions initiated by the user from a
+        network management station through the
+        cLMdnsServiceGroupDeviceMacRowStatus object."
+    ::= { clMdnsConfigObjects 8 }
+
+cLMdnsServiceGroupDeviceMacEntry OBJECT-TYPE
+    SYNTAX          CLMdnsServiceGroupDeviceMacEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "An entry in cLMdnsServiceGroupDeviceMacTable"
+    INDEX           {
+                        cLMdnsServiceGroupName,
+                        cLMdnsServiceGroupDeviceMac
+                    }
+    ::= { cLMdnsServiceGroupDeviceMacTable 1 }
+
+CLMdnsServiceGroupDeviceMacEntry ::= SEQUENCE {
+        cLMdnsServiceGroupDeviceMac           MacAddress,
+        cLMdnsServiceGroupDeviceName          OCTET STRING,
+        cLMdnsServiceGroupLocationName        OCTET STRING,
+        cLMdnsServiceGroupLocationType        INTEGER,
+        cLMdnsServiceGroupDeviceMacRowStatus  RowStatus
+        }
+
+
+cLMdnsServiceGroupDeviceMac OBJECT-TYPE
+    SYNTAX          MacAddress
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This object defines the device MAC of the device which is grouped in service group."
+    ::= { cLMdnsServiceGroupDeviceMacEntry 1 }
+
+cLMdnsServiceGroupDeviceName OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE  (0..256))
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "This object defines the unique device name of the device."
+    ::= { cLMdnsServiceGroupDeviceMacEntry 2 }
+
+cLMdnsServiceGroupLocationName OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE  (0..256))
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "This object defines the location of the device."
+    ::= { cLMdnsServiceGroupDeviceMacEntry 3 }
+
+cLMdnsServiceGroupLocationType OBJECT-TYPE
+    SYNTAX          INTEGER {
+                    apName(1),
+                    apGroup(2),
+                    apLocation(3)
+                    }
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "This object list the location type provided by the service provider (device)."
+    ::= { cLMdnsServiceGroupDeviceMacEntry 4 }
+
+
+cLMdnsServiceGroupDeviceMacRowStatus OBJECT-TYPE
+    SYNTAX          RowStatus
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "Row Status for creation/deletion of a particular
+        venue entry in the table."
+    ::= { cLMdnsServiceGroupDeviceMacEntry 5 }
+
+--*************************************************************
+-- MDNS SERVICE GROUP RULE MAPPING TABLE
+--*************************************************************
+cLMdnsServiceGroupRuleTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF CLMdnsServiceGroupRuleEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This table is for the mapping Service group to a Rule or set of rules.
+        Rows are added or deleted by explicit
+        management actions initiated by the user from a
+        network management station through the
+        cLMdnsServiceGroupRuleRowStatus object."
+    ::= { clMdnsConfigObjects 9 }
+
+cLMdnsServiceGroupRuleEntry OBJECT-TYPE
+    SYNTAX          CLMdnsServiceGroupRuleEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "An entry in cLMdnsServiceGroupRuleTable"
+    INDEX           {
+                        cLMdnsServiceGroupName,
+                        cLMdnsRuleName
+                    }
+    ::= { cLMdnsServiceGroupRuleTable 1 }
+
+CLMdnsServiceGroupRuleEntry ::= SEQUENCE {
+       cLMdnsRuleName                    OCTET STRING,
+       cLMdnsRuleRole                    OCTET STRING,
+       cLMdnsRuleUserId                  OCTET STRING,
+       cLMdnsServiceGroupRuleRowStatus   RowStatus
+}
+
+cLMdnsRuleName OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE(1..266))
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This object uniquely identifies a Rule which is
+         Added to a Rule table."
+    ::= { cLMdnsServiceGroupRuleEntry 1 }
+
+cLMdnsRuleRole OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE(0..512)) 
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "This object defines the set of roles apply to the Service group."
+    ::= { cLMdnsServiceGroupRuleEntry 2 }
+
+cLMdnsRuleUserId OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE(0..512))
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "This object defines the set of userIds apply to the service group."
+    ::= { cLMdnsServiceGroupRuleEntry 3 }
+
+cLMdnsServiceGroupRuleRowStatus OBJECT-TYPE
+    SYNTAX          RowStatus
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "Row Status for creation/deletion of a particular
+        venue entry in the table."
+    ::= { cLMdnsServiceGroupRuleEntry 4 }
+
+
+--*******************************************************************
+--*    NOTIFICATIONS
+--*******************************************************************
+
+--*******************************************************************
+--*   END OF -  NOTIFICATIONS
+--*******************************************************************
+
+--*******************************************************************
+--*    Compliance statements
+--*******************************************************************
+
+ciscoLwappMdnsMIBCompliances OBJECT IDENTIFIER
+        ::= { ciscoLwappMdnsMIBConform 1 }
+
+ciscoLwappMdnsMIBGroups OBJECT IDENTIFIER
+        ::= { ciscoLwappMdnsMIBConform 2 }
+
+ciscoLwappMdnsMIBCompliance MODULE-COMPLIANCE
+    STATUS          current
+    DESCRIPTION
+        "The compliance statement for the SNMP entities that
+        implement the ciscoLwappMdnsMIB module."
+    MODULE          -- this module
+    MANDATORY-GROUPS { cLMdnsConfigGroup,
+		       cLMdnsMonitorGroup }
+    ::= { ciscoLwappMdnsMIBCompliances 1 }
+
+-- *******************************************************************
+-- *    Units of conformance
+-- *******************************************************************
+cLMdnsConfigGroup OBJECT-GROUP
+    OBJECTS         {
+			clMdnsSnoopingEnabled,
+			clMdnsQueryInterval,
+			clMdnsServiceName,
+        		clMdnsServiceString,
+        		clMdnsServiceQueryStatus,
+        		clMdnsServiceRowStatus,
+			clMdnsProfileName,
+        		clMdnsProfileRowStatus,
+			clMdnsProfileServiceRowStatus
+                    }
+    STATUS          current
+    DESCRIPTION
+        "This is a collection of objects which can
+         be used to control Mdns parameters."
+    ::= { ciscoLwappMdnsMIBGroups 1 }
+
+cLMdnsMonitorGroup OBJECT-GROUP
+    OBJECTS         {
+			clMdnsServiceProviderIndex,
+        		clMdnsServiceProviderMacAddress,
+		        clMdnsServiceProviderName,
+		        clMdnsServiceProviderVlan,
+		        clMdnsServiceProviderType,
+		        clMdnsServiceProviderTtl
+                    }
+    STATUS          current
+    DESCRIPTION
+        "This is a collection of objects which can
+         be used to monitor Mdns parameters."
+    ::= { ciscoLwappMdnsMIBGroups 2 }
+
+END

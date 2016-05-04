@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -19,7 +19,7 @@ $oids = snmpwalk_cache_oid($device, "oaSfpDiagnosticTxBias",        $oids, "OA-S
 $oids = snmpwalk_cache_oid($device, "oaSfpDiagnosticTxPower",       $oids, "OA-SFP-MIB", mib_dirs('mrv'));
 $oids = snmpwalk_cache_oid($device, "oaSfpDiagnosticRxPower",       $oids, "OA-SFP-MIB", mib_dirs('mrv'));
 
-if ($debug) { print_vars($oids); }
+if (OBS_DEBUG > 1) { print_vars($oids); }
 
 foreach ($oids as $index => $entry)
 {
@@ -35,7 +35,7 @@ foreach ($oids as $index => $entry)
     $value = intval($entry['oaSfpDiagnosticTemperature']);
     if ($value <> 0)
     {
-      discover_sensor($valid['sensor'], 'temperature', $device, $oid, $index, 'lambdadriver-dom-temp', $descr, $scale, $value * $scale);
+      discover_sensor($valid['sensor'], 'temperature', $device, $oid, $index, 'lambdadriver-dom-temp', $descr, $scale, $value);
     }
   }
 
@@ -47,7 +47,7 @@ foreach ($oids as $index => $entry)
     $value = intval($entry['oaSfpDiagnosticVcc']);
     if ($value <> 0)
     {
-      discover_sensor($valid['sensor'], 'voltage', $device, $oid, $index, 'lambdadriver-dom-voltage', $descr, $scale, $value * $scale);
+      discover_sensor($valid['sensor'], 'voltage', $device, $oid, $index, 'lambdadriver-dom-voltage', $descr, $scale, $value);
     }
   }
 
@@ -59,7 +59,7 @@ foreach ($oids as $index => $entry)
     $value = intval($entry['oaSfpDiagnosticTxBias']);
     if ($value <> 0)
     {
-      discover_sensor($valid['sensor'], 'current', $device, $oid, $index, 'lambdadriver-dom-current', $descr, $scale, $value * $scale);
+      discover_sensor($valid['sensor'], 'current', $device, $oid, $index, 'lambdadriver-dom-current', $descr, $scale, $value);
     }
   }
 
@@ -71,7 +71,7 @@ foreach ($oids as $index => $entry)
     $value = intval($entry['oaSfpDiagnosticRxPower']);
     if ($value <> -5000)
     {
-      discover_sensor($valid['sensor'], 'dbm', $device, $oid, $index, 'lambdadriver-dom-rxpower', $descr, $scale, $value * $scale);
+      discover_sensor($valid['sensor'], 'dbm', $device, $oid, $index, 'lambdadriver-dom-rxpower', $descr, $scale, $value);
     }
   }
 
@@ -83,7 +83,7 @@ foreach ($oids as $index => $entry)
     $value = intval($entry['oaSfpDiagnosticRxPower']);
     if ($value <> -5000)
     {
-      discover_sensor($valid['sensor'], 'dbm', $device, $oid, $index, 'lambdadriver-dom-txpower', $descr, $scale, $value * $scale);
+      discover_sensor($valid['sensor'], 'dbm', $device, $oid, $index, 'lambdadriver-dom-txpower', $descr, $scale, $value);
     }
   }
 }

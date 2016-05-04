@@ -2,20 +2,20 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-if ($_POST['editing'])
+if ($vars['editing'])
 {
   if ($_SESSION['userlevel'] > "7")
   {
-    $agent_port = $_POST['agent_port'];
+    $agent_port = $vars['agent_port'];
 
     if ($agent_port == "")
     {
@@ -43,7 +43,7 @@ $descr  = $device['purpose'];
 if ($updated && $update_message)
 {
   print_message($update_message);
-  log_event('Device Agent configuration changed.', $device['device_id'], 'device');
+  log_event('Device Agent configuration changed.', $device['device_id'], 'device', $device, 5); // severity 5, for logging user info
 } elseif ($update_message) {
   print_error($update_message);
 }
@@ -59,7 +59,7 @@ if ($updated && $update_message)
       <div class="control-group">
         <label class="control-label" for="agent_port">Agent Port</label>
         <div class="controls">
-          <input type=text name="agent_port" size="32" value="<?php echo(htmlspecialchars(get_dev_attrib($device, 'agent_port'))); ?>"/>
+          <input type=text name="agent_port" size="32" value="<?php echo(escape_html(get_dev_attrib($device, 'agent_port'))); ?>"/>
         </div>
       </div>
     </fieldset>

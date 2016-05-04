@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -20,13 +20,19 @@ $radio2 = get_rrd_path($device, "wificlients-radio2.rrd");
 
 if (file_exists($radio1))
 {
+  $radio2_exists = file_exists($radio2);
+
   $rrd_options .= " COMMENT:'                           Cur   Min  Max\\n'";
   $rrd_options .= " DEF:wificlients1=".$radio1.":wificlients:AVERAGE ";
-  $rrd_options .= " LINE1:wificlients1#CC0000:'Clients on Radio1    ' ";
+  if ($radio2_exists) {
+    $rrd_options .= " LINE1:wificlients1#CC0000:'Clients on Radio1    ' ";
+  } else {
+    $rrd_options .= " LINE1:wificlients1#CC0000:'Clients              ' ";
+  }
   $rrd_options .= " GPRINT:wificlients1:LAST:%3.0lf ";
   $rrd_options .= " GPRINT:wificlients1:MIN:%3.0lf ";
   $rrd_options .= " GPRINT:wificlients1:MAX:%3.0lf\\\l ";
-  if (file_exists($radio2))
+  if ($radio2_exists)
   {
     $rrd_options .= " DEF:wificlients2=".$radio2.":wificlients:AVERAGE ";
     $rrd_options .= " LINE1:wificlients2#008C00:'Clients on Radio2    ' ";

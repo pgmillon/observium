@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -73,10 +73,10 @@ foreach ($oids_analog as $index => $entry)
   if (is_numeric($packetflux_analog[$oid]))
   {
     list($descr) = explode(' (', $packetflux_analog["$index_analog.2.$index"]);
-    $class   = $oids_analog[$index]['class'];
-    $scale = $oids_analog[$index]['scale'];
-    $value   = $packetflux_analog[$oid];
-    discover_sensor($valid['sensor'], $class, $device, $oid, "packetflux-analog-$index", 'packetflux', $descr, $scale, $value * $scale);
+    $class       = $oids_analog[$index]['class'];
+    $scale       = $oids_analog[$index]['scale'];
+    $value       = $packetflux_analog[$oid];
+    discover_sensor($valid['sensor'], $class, $device, $oid, "packetflux-analog-$index", 'packetflux', $descr, $scale, $value);
   }
 }
 

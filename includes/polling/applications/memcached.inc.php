@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -79,12 +79,6 @@ if (!empty($agent_data['app']['memcached']))
 
       $rrd_filename = "app-memcached-".$memcached_host.".rrd";
       $old_filename = "app-memcached-".$app_id.".rrd";
-
-      // CLEANME remove rename in r6000
-      if (is_file(get_rrd_path($device, $old_filename)) && !is_file(get_rrd_path($device, $rrd_filename)))
-      {
-        rename(get_rrd_path($device, $old_filename), get_rrd_path($device, $rrd_filename));
-      }
 
       rrdtool_create($device, $rrd_filename, " \
         DS:uptime:GAUGE:600:0:125000000000 \

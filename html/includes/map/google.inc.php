@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage map
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -31,7 +31,7 @@
         $locations_down = array();
         foreach (get_locations() as $location)
         {
-          $location_name = ($location == '' ? '[[UNKNOWN]]' : strtr(htmlspecialchars($location), "'", "`"));
+          $location_name = ($location === '' ? OBS_VAR_UNSET : strtr(escape_html($location), "'\\", "`/"));
           $location_url = generate_location_url($location);
           $devices_down = array();
           $devices_up = array();
@@ -44,11 +44,15 @@
               if ($device['status'] == "0" && $device['ignore'] == "0")
               {
                 $down++;
-                $devices_down[] = $device['hostname']; $lat = $device['location_lat']; $lon = $device['location_lon'];
+                $devices_down[] = $device['hostname'];
+                $lat = (is_numeric($device['location_lat']) ? $device['location_lat'] : $config['geocoding']['default']['lat']);
+                $lon = (is_numeric($device['location_lon']) ? $device['location_lon'] : $config['geocoding']['default']['lon']);
               }
               else if ($device['status'] == "1")
               {
-                $devices_up[]   = $device['hostname']; $lat = $device['location_lat']; $lon = $device['location_lon'];
+                $devices_up[]   = $device['hostname'];
+                $lat = (is_numeric($device['location_lat']) ? $device['location_lat'] : $config['geocoding']['default']['lat']);
+                $lon = (is_numeric($device['location_lon']) ? $device['location_lon'] : $config['geocoding']['default']['lon']);
               }
             }
           }

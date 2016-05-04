@@ -1,0 +1,289 @@
+-- ==================================================================
+-- Copyright (C) 2004 by Huawei 3Com Technologies. All rights reserved.
+--
+-- Description:  Huawei 3Com LAN Switch Storm-Constrain MIB
+-- Reference:
+-- Version: V1.1
+-- History:
+-- V1.0 2005-11-19 Created by XueCong
+-- V1.1 2008-06-06 Modified the description of H3cStormConstrainUnit
+--                 add h3cStormCtrlPortMode by jinyi
+-- ==================================================================
+H3C-STORM-CONSTRAIN-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+
+    MODULE-IDENTITY, OBJECT-TYPE, Integer32, OBJECT-IDENTITY,
+    NOTIFICATION-TYPE
+        FROM SNMPv2-SMI
+
+    RowStatus, TEXTUAL-CONVENTION
+        FROM SNMPv2-TC
+
+    ifIndex
+        FROM RFC1213-MIB
+
+    h3cCommon
+        FROM HUAWEI-3COM-OID-MIB;
+
+h3cStormConstrain MODULE-IDENTITY
+    LAST-UPDATED "200806060000Z"
+    ORGANIZATION
+        "Huawei 3Com Technologies Co., Ltd."
+    CONTACT-INFO
+        "Platform Team Huawei 3Com Technologies Co., Ltd.
+         Hai-Dian District Beijing P.R. China
+         http://www.huawei-3com.com
+         Zip:100085"
+    DESCRIPTION
+        "The Storm-Constrain function is used to avoid the
+         packet-storm on a port.  Three types of flux can be
+         set observed respectively: broadcast, multicast and
+         unicast.  If an observed flux exceeds its upper limit,
+         this kind of flux will be recognized as over-upper-flux.
+         This kind of flux will be considered as normal-flux
+         until it falls below its lower limit.  If any type of
+         observed flux is over-upper-flux, the port will change
+         its status to controlled-status, that is to stop packet
+         forwarding to avoid storm.  Only when all the observed
+         fluxes are not over-upper-flux, will the port return to
+         normal(forwarding) status."
+    ::= { h3cCommon  66 }
+
+H3cStormConstrainUnit ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "The unit of the flux.
+         none: not define.
+         packetsPerSecond: packets per second.
+         ratio: unit is 1%. For example, if the value is 40, it means 40%.
+         bytesPerSecond: bytes per second.
+         kbitsPerSecond: kilobits per second."
+    SYNTAX INTEGER
+        {
+        none(1),
+        packetsPerSecond(2),
+        ratio(3),
+        bytesPerSecond(4),
+        kbitsPerSecond(5)
+        }
+
+-- ==================================================================
+--
+-- ======================= definition begin =========================
+--
+-- ==================================================================
+
+h3cStormScalarGroup OBJECT IDENTIFIER ::= {  h3cStormConstrain 1  }
+
+h3cStormTrapType OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        broadcast(1),
+        multicast(2),
+        unicast(3)
+        }
+    MAX-ACCESS      accessible-for-notify
+    STATUS          current
+    DESCRIPTION
+        "This value is used to identify the type of trap.
+         broadcast: trap message is generated for broadcast flux exceeds
+                    upper limit or falls under lower limit on a port.
+         multicast: trap message is generated for multicast flux exceeds
+                    upper limit or falls under lower limit on a port.
+         unicast  : trap message is generated for unicast flux exceeds
+                    upper limit or falls under lower limit on a port."
+    ::= { h3cStormScalarGroup 1 }
+
+h3cStormTrapThreshold OBJECT-TYPE
+    SYNTAX          Integer32
+    MAX-ACCESS      accessible-for-notify
+    STATUS          current
+    DESCRIPTION
+        "This value is used to figure the threshold of flux in
+         trap message.
+         For example, when the trap is generated for broadcast
+         flux exceeds upper limit on a port, this value is
+         equal to upper limit value configured.  And when the
+         trap is generated for broadcast flux fell under lower
+         limit, this value is equal to lower limit value configured."
+    ::= { h3cStormScalarGroup 2 }
+
+h3cStormTableGroup OBJECT IDENTIFIER ::= {  h3cStormConstrain 2  }
+
+h3cStormCtrlTable  OBJECT-TYPE
+    SYNTAX          SEQUENCE OF H3cStormCtrlEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "A table containing configurations of storm-constrain."
+    ::= { h3cStormTableGroup  1 }
+
+h3cStormCtrlEntry  OBJECT-TYPE
+    SYNTAX          H3cStormCtrlEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "Detailed information of storm-constrain configurations."
+    INDEX { ifIndex }
+    ::= { h3cStormCtrlTable 1 }
+
+H3cStormCtrlEntry  ::=
+    SEQUENCE {
+        h3cStormCtrlPortStatus                      INTEGER,
+        h3cStormCtrlBroadcastUnit                   H3cStormConstrainUnit,
+        h3cStormCtrlBroadcastUpper                  Integer32,
+        h3cStormCtrlBroadcastLower                  Integer32,
+        h3cStormCtrlMulticastUnit                   H3cStormConstrainUnit,
+        h3cStormCtrlMulticastUpper                  Integer32,
+        h3cStormCtrlMulticastLower                  Integer32,
+        h3cStormCtrlUnicastUnit                     H3cStormConstrainUnit,
+        h3cStormCtrlUnicastUpper                    Integer32,
+        h3cStormCtrlUnicastLower                    Integer32,
+        h3cStormCtrlRowStatus                       RowStatus,
+        h3cStormCtrlPortMode                        INTEGER
+             }
+
+h3cStormCtrlPortStatus OBJECT-TYPE
+    SYNTAX          INTEGER{ controlled(1), normal(2)}
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "Status of the port:
+         controlled: indicate that the port is in controlled status.
+                     Port which is in this status will not forward some type
+                     of packet.
+         normal    : indicate that the port is in normal status."
+    ::= { h3cStormCtrlEntry 1 }
+
+h3cStormCtrlBroadcastUnit OBJECT-TYPE
+    SYNTAX          H3cStormConstrainUnit
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "The unit of the broadcast flux.
+         This value must be set together with h3cStormCtrlBroadcastUpper
+         and h3cStormCtrlBroadcastLower."
+    ::= { h3cStormCtrlEntry 2 }
+
+h3cStormCtrlBroadcastUpper  OBJECT-TYPE
+    SYNTAX          Integer32
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "The upper-limit of incoming broadcast taffic at a port
+         within 1 second interval.
+         Its unit depends on h3cStormCtrlBroadcastUnit value."
+    ::= { h3cStormCtrlEntry 3 }
+
+h3cStormCtrlBroadcastLower  OBJECT-TYPE
+    SYNTAX          Integer32
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "The lower-limit of incoming broadcast taffic at a port
+         within 1 second interval.
+         This value must be lower than h3cStormCtrlBroadcastUpper value.
+         Its unit depends on h3cStormCtrlBroadcastUnit value."
+    ::= { h3cStormCtrlEntry 4 }
+
+h3cStormCtrlMulticastUnit  OBJECT-TYPE
+    SYNTAX          H3cStormConstrainUnit
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "The unit of the multicast flux.
+         This value must be set together with h3cStormCtrlMulticastUpper
+         and h3cStormCtrlMulticastLower."
+    ::= { h3cStormCtrlEntry 5 }
+
+h3cStormCtrlMulticastUpper  OBJECT-TYPE
+    SYNTAX          Integer32
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "The upper-limit of incoming multicast taffic at a port
+         within 1 second interval.
+         Its unit depends on h3cStormCtrlMulticastUnit value."
+    ::= { h3cStormCtrlEntry 6 }
+
+h3cStormCtrlMulticastLower  OBJECT-TYPE
+    SYNTAX          Integer32
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "The lower-limit of incoming multicast taffic at a port
+         within 1 second interval.
+         This value must be lower than h3cStormCtrlMulticastUpper value.
+         Its unit depends on h3cStormCtrlMulticastUnit value."
+    ::= { h3cStormCtrlEntry 7 }
+
+h3cStormCtrlUnicastUnit  OBJECT-TYPE
+    SYNTAX          H3cStormConstrainUnit
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "The unit of the unicast flux.
+         This value must be set together with h3cStormCtrlUnicastUpper
+         and h3cStormCtrlUnicastLower."
+    ::= { h3cStormCtrlEntry 8 }
+
+h3cStormCtrlUnicastUpper  OBJECT-TYPE
+    SYNTAX          Integer32
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "The upper-limit of incoming unicast taffic at a port
+         within 1 second interval.
+         Its unit depends on h3cStormCtrlUnicastUnit value."
+    ::= { h3cStormCtrlEntry 9 }
+
+h3cStormCtrlUnicastLower  OBJECT-TYPE
+    SYNTAX          Integer32
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "The lower-limit of incoming unicast taffic at a port
+         within 1 second interval.
+         This value must be lower than h3cStormCtrlUnicastUpper value.
+         Its unit depends on h3cStormCtrlUnicastUnit value."
+    ::= { h3cStormCtrlEntry 10 }
+
+h3cStormCtrlRowStatus OBJECT-TYPE
+    SYNTAX          RowStatus
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "This object is responsible for managing the creation,
+         deletion and modification of rows, which supports active
+         status and CreatAndGo, destroy operation."
+    ::= { h3cStormCtrlEntry 11 }
+
+h3cStormCtrlPortMode OBJECT-TYPE
+    SYNTAX          INTEGER{ none(1), block(2), shutdown(3) }
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "The storm control mode of the port."
+    ::= { h3cStormCtrlEntry 12 }
+
+h3cStormNotifications OBJECT IDENTIFIER ::= {  h3cStormConstrain 3  }
+
+h3cStormRising NOTIFICATION-TYPE
+    OBJECTS  { ifIndex, h3cStormTrapType, h3cStormTrapThreshold, h3cStormCtrlPortStatus }
+    STATUS          current
+    DESCRIPTION
+        "This trap message is generated when any type of the
+         flux exceeds its upper limit on a port."
+    ::= { h3cStormNotifications 1 }
+
+h3cStormFalling NOTIFICATION-TYPE
+    OBJECTS  { ifIndex, h3cStormTrapType, h3cStormTrapThreshold, h3cStormCtrlPortStatus }
+    STATUS          current
+    DESCRIPTION
+        "This trap message is generated when a flux which used
+         to overflow its upper limit, falls below its lower
+         limit on a port."
+    ::= { h3cStormNotifications 2 }
+
+END

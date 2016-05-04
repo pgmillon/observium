@@ -1,7 +1,7 @@
 -- CISCO-TELEPRESENCE-MIB.my: Cisco MIB to manage a
 -- Telepresence System
 --   
--- Copyright (c) 2007-2012 by Cisco Systems Inc.
+-- Copyright (c) 2007-2012, 2014 by Cisco Systems Inc.
 -- All rights reserved.
 --   
 -- ******************************************************************
@@ -34,7 +34,7 @@ IMPORTS
 
 
 ciscoTelepresenceMIB MODULE-IDENTITY
-    LAST-UPDATED    "201201050000Z"
+    LAST-UPDATED    "201411240000Z"
     ORGANIZATION    "Cisco Systems, Inc."
     CONTACT-INFO
             "Cisco Systems
@@ -64,6 +64,18 @@ ciscoTelepresenceMIB MODULE-IDENTITY
         an interface. Some peripherals may have more than one
         interface to transmit audio and/or video data and provide a 
         configuration and/or control access."
+    REVISION        "201407180000Z"
+    DESCRIPTION
+        "Added ctpDPPeripheralStatusTable Table and added
+        auxHDMIInputDevice(19) and bringYourOwnDevice(20)
+        enum value in CtpPeripheralDeviceCategoryCode"
+    REVISION        "201207170000Z"
+    DESCRIPTION
+        "Added detectionDisabled in CtpPeripheralStatusCode"
+    REVISION        "201203230000Z"
+    DESCRIPTION
+        "Added ctpVlanId, ctpDefaultGateway and
+        ctpDefaultGatewayAddrType in ctpObjects"
     REVISION        "201108230000Z"
     DESCRIPTION
         "Added uiDevice in CtpPeripheralDeviceCategoryCode"
@@ -184,7 +196,9 @@ CtpPeripheralStatusCode ::= TEXTUAL-CONVENTION
             Expected peripheral device has port level link issue.
         commError          (8) -- 
             Expected peripheral device has port level communication 
-            issue."
+            issue.
+        detectionDisabled  (9) -- 
+            Status detection has been disabled."
     SYNTAX          INTEGER  {
                         noError(0),
                         other(1),
@@ -194,7 +208,8 @@ CtpPeripheralStatusCode ::= TEXTUAL-CONVENTION
                         systemError(5),
                         deviceError(6),
                         linkError(7),
-                        commError(8)
+                        commError(8),
+                        detectionDisabled(9)
                     }
 
 CtpSystemAccessProtocol ::= TEXTUAL-CONVENTION
@@ -234,7 +249,10 @@ CtpPeripheralDeviceCategoryCode ::= TEXTUAL-CONVENTION
         positionMic          (15) -- Position microphone
         digitalMediaSystem   (16) -- Digitial Media System
         auxHDMIOuputDevice   (17) -- Auxiliary HDMI output device
-        uiDevice             (18) -- User Interface device for CTS"
+        uiDevice             (18) -- User Interface device for CTS
+        auxHDMIInputDevice   (19) -- HDMI input enabled device
+        bringYourOwnDevice   (20) -- Bring Your Own Device,
+                                  -- like PC,Laptop,Tablet etc"
     SYNTAX          INTEGER  {
                         unknown(0),
                         other(1),
@@ -254,7 +272,9 @@ CtpPeripheralDeviceCategoryCode ::= TEXTUAL-CONVENTION
                         positionMic(15),
                         digitialMediaSystem(16),
                         auxHDMIOutputDevice(17),
-                        uiDevice(18)
+                        uiDevice(18),
+                        auxHDMIInputDevice(19),
+                        bringYourOwnDevice(20)
                     }
 ciscoTelepresenceMIBNotifs  OBJECT IDENTIFIER
     ::= { ciscoTelepresenceMIB 0 }
@@ -289,7 +309,8 @@ ctpPeripheralErrorNotifyEnable OBJECT-TYPE
         ctpPeripheralErrorNotification is enabled. 
         When the object is 'false(2)', generation of 
         ctpPeripheralErrorNotification is disabled.
-        ctpPeripheralErrorNotifyEnable object is superseded by ctpPeriStatusChangeNotifyEnable."
+        ctpPeripheralErrorNotifyEnable object is superseded by
+        ctpPeriStatusChangeNotifyEnable."
     DEFVAL          { false } 
     ::= { ctpObjects 1 }
 
@@ -331,6 +352,31 @@ ctpPeriStatusChangeNotifyEnable OBJECT-TYPE
         ctpPeriStatusChangeNotification is disabled."
     DEFVAL          { false } 
     ::= { ctpObjects 4 }
+
+ctpVlanId OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the Telepresence system VLAN ID." 
+    ::= { ctpObjects 5 }
+
+ctpDefaultGatewayAddrType OBJECT-TYPE
+    SYNTAX          InetAddressType
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the type of address contained
+        in the corresponding instance of ctpDefaultGateway." 
+    ::= { ctpObjects 6 }
+
+ctpDefaultGateway OBJECT-TYPE
+    SYNTAX          InetAddress
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the Telepresence system default gateway." 
+    ::= { ctpObjects 7 }
 -- Telepresence Peripheral Status Group
 --   
 
@@ -993,6 +1039,72 @@ ctp802dot11PeripheralLinkStatus OBJECT-TYPE
     ::= { ctp802dot11PeripheralStatusEntry 6 }
  
 
+-- Peripheral Status Table connected via DP
+
+ctpDPPeripheralStatusTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF CtpDPPeripheralStatusEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "The table contains information about all peripherals
+        connected to the system via DP."
+    ::= { ctpPeripheralStatusObjects 9 }
+
+ctpDPPeripheralStatusEntry OBJECT-TYPE
+    SYNTAX          CtpDPPeripheralStatusEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "An entry contains information about one Telepresence
+        DP peripheral."
+    INDEX           {
+                        ctpPeripheralIndex,
+                        ctpDPPeripheralIndex
+                    } 
+    ::= { ctpDPPeripheralStatusTable 1 }
+
+CtpDPPeripheralStatusEntry ::= SEQUENCE {
+        ctpDPPeripheralIndex       Unsigned32,
+        ctpDPPeripheralCableStatus CtpPeripheralCableCode,
+        ctpDPPeripheralPowerStatus CtpPeripheralPowerCode
+}
+
+ctpDPPeripheralIndex OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This object indicates a unique number for a peripheral DP.
+
+        If no peripheral has more than one DP, this 
+        object will have value '1'." 
+    ::= { ctpDPPeripheralStatusEntry 1 }
+
+ctpDPPeripheralCableStatus OBJECT-TYPE
+    SYNTAX          CtpPeripheralCableCode
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the cable status of a peripheral which
+        is attached to the system via Display Port interface.
+
+        This object returns 'loose' if system detects cable is
+        'unplugged' but power is 'on'." 
+    ::= { ctpDPPeripheralStatusEntry 2 }
+
+ctpDPPeripheralPowerStatus OBJECT-TYPE
+    SYNTAX          CtpPeripheralPowerCode
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the power status of a peripheral which
+        is attached to the system via Display Port interface.
+
+        This object returns 'unknown' if system detects cable is
+        'unplugged'." 
+    ::= { ctpDPPeripheralStatusEntry 3 }
+ 
+
 
 -- Event History Group
 --   
@@ -1287,7 +1399,8 @@ ctpPeripheralErrorNotification NOTIFICATION-TYPE
         "This notification is sent when a peripheral error is detected.
         This notification is deprecated in favor of
         ctpPeriStatusChangeNotification.
-        ctpPeripheralErrorNotification object is superseded by ctpPeriStatusChangeNotification."
+        ctpPeripheralErrorNotification object is superseded by
+        ctpPeriStatusChangeNotification."
    ::= { ciscoTelepresenceMIBNotifs 1 }
 
 ctpSysUserAuthFailNotification NOTIFICATION-TYPE
@@ -1461,7 +1574,7 @@ ciscoTelepresenceComplianceR02 MODULE-COMPLIANCE
     ::= { ciscoTelepresenceCompliances 3 }
 
 ciscoTelepresenceComplianceR03 MODULE-COMPLIANCE
-    STATUS          current
+    STATUS          deprecated
     DESCRIPTION
         "The compliance statement for entities which implement the
         Cisco Telepresence MIB."
@@ -1503,6 +1616,98 @@ ciscoTelepresenceComplianceR03 MODULE-COMPLIANCE
         "Write access is not required."
     ::= { ciscoTelepresenceCompliances 4 }
 
+ciscoTelepresenceComplianceR04 MODULE-COMPLIANCE
+    STATUS          deprecated
+    DESCRIPTION
+        "The compliance statement for entities which implement the
+        Cisco Telepresence MIB."
+    MODULE          -- this module
+    MANDATORY-GROUPS {
+                        ciscoTpConfigurationGroupR01,
+                        ciscoTpConfigurationGroupR02,
+                        ciscoTpPeripheralStatusGroupR02,
+                        ciscoTpEventHistoryGroupR01,
+                        ciscoTpNotificationGroupR01
+                    }
+
+    GROUP           ciscoTpRS232PeripheralStatusGroup
+    DESCRIPTION
+        "This group is mandatory for a Telepresence system which
+        has RS323 interface."
+
+    GROUP           ciscoTpPeripheralAttributeGroup
+    DESCRIPTION
+        "This group is optional."
+
+    OBJECT          ctpSysUserAuthFailNotifyEnable
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctpSystemReset
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctpSysUserAuthFailHistTableSize
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctpPeripheralErrorHistTableSize
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+    ::= { ciscoTelepresenceCompliances 5 }
+
+ciscoTelepresenceComplianceR05 MODULE-COMPLIANCE
+    STATUS          current
+    DESCRIPTION
+        "The compliance statement for entities which implement the
+        Cisco Telepresence MIB."
+    MODULE          -- this module
+    MANDATORY-GROUPS {
+                        ciscoTpConfigurationGroupR01,
+                        ciscoTpConfigurationGroupR02,
+                        ciscoTpPeripheralStatusGroupR02,
+                        ciscoTpEventHistoryGroupR01,
+                        ciscoTpNotificationGroupR01
+                    }
+
+    GROUP           ciscoTpDPPeripheralStatusGroup
+    DESCRIPTION
+        "This group is optional."
+
+    GROUP           ciscoTpRS232PeripheralStatusGroup
+    DESCRIPTION
+        "This group is mandatory for a Telepresence system which
+        has RS323 interface."
+
+    GROUP           ciscoTpPeripheralAttributeGroup
+    DESCRIPTION
+        "This group is optional."
+
+    OBJECT          ctpSysUserAuthFailNotifyEnable
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctpSystemReset
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctpSysUserAuthFailHistTableSize
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctpPeripheralErrorHistTableSize
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+    ::= { ciscoTelepresenceCompliances 6 }
+
 -- Units of Conformance
 
 ciscoTpConfigurationGroup OBJECT-GROUP
@@ -1515,7 +1720,8 @@ ciscoTpConfigurationGroup OBJECT-GROUP
     DESCRIPTION
         "A collection of objects providing the notification
         configuration and system reset.
-        ciscoTpConfigurationGroup object is superseded by ciscoTpConfigurationGroupR01."
+        ciscoTpConfigurationGroup object is superseded by
+        ciscoTpConfigurationGroupR01."
     ::= { ciscoTelepresenceMIBGroups 1 }
 
 ciscoTpPeripheralStatusGroup OBJECT-GROUP
@@ -1534,7 +1740,8 @@ ciscoTpPeripheralStatusGroup OBJECT-GROUP
     DESCRIPTION
         "A collection of objects providing the Telepresence peripheral
         information.
-        ciscoTpPeripheralStatusGroup object is superseded by ciscoTpPeripheralStatusGroupR01."
+        ciscoTpPeripheralStatusGroup object is superseded by
+        ciscoTpPeripheralStatusGroupR01."
     ::= { ciscoTelepresenceMIBGroups 2 }
 
 ciscoTpEventHistoryGroup OBJECT-GROUP
@@ -1557,7 +1764,8 @@ ciscoTpEventHistoryGroup OBJECT-GROUP
     DESCRIPTION
         "A collection of managed objects providing notification event
         history information.
-        ciscoTpEventHistoryGroup object is superseded by ciscoTpEventHistoryGroupR01."
+        ciscoTpEventHistoryGroup object is superseded by
+        ciscoTpEventHistoryGroupR01."
     ::= { ciscoTelepresenceMIBGroups 3 }
 
 ciscoTpNotificationGroup NOTIFICATION-GROUP
@@ -1568,7 +1776,8 @@ ciscoTpNotificationGroup NOTIFICATION-GROUP
     STATUS          deprecated
     DESCRIPTION
         "A collection of Telepresence system notifications.
-        ciscoTpNotificationGroup object is superseded by ciscoTpNotificationGroupR01."
+        ciscoTpNotificationGroup object is superseded by
+        ciscoTpNotificationGroupR01."
     ::= { ciscoTelepresenceMIBGroups 4 }
 
 ciscoTpRS232PeripheralStatusGroup OBJECT-GROUP
@@ -1611,7 +1820,8 @@ ciscoTpPeripheralStatusGroupR01 OBJECT-GROUP
     DESCRIPTION
         "A collection of objects providing the Telepresence peripheral
         information.
-        ciscoTpPeripheralStatusGroupR01 object is superseded by ciscoTpPeripheralStatusGroupR02."
+        ciscoTpPeripheralStatusGroupR01 object is superseded by
+        ciscoTpPeripheralStatusGroupR02."
     ::= { ciscoTelepresenceMIBGroups 7 }
 
 ciscoTpEventHistoryGroupR01 OBJECT-GROUP
@@ -1689,217 +1899,30 @@ ciscoTpPeripheralStatusGroupR02 OBJECT-GROUP
         information."
     ::= { ciscoTelepresenceMIBGroups 11 }
 
+ciscoTpConfigurationGroupR02 OBJECT-GROUP
+    OBJECTS         {
+                        ctpVlanId,
+                        ctpDefaultGateway,
+                        ctpDefaultGatewayAddrType
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A collection of objects providing network configurations."
+    ::= { ciscoTelepresenceMIBGroups 12 }
+
+ciscoTpDPPeripheralStatusGroup OBJECT-GROUP
+    OBJECTS         {
+                        ctpDPPeripheralCableStatus,
+                        ctpDPPeripheralPowerStatus
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A collection of objects providing the information
+        about Telepresence peripheral which is connected via
+        Display Port."
+    ::= { ciscoTelepresenceMIBGroups 13 }
+
 END
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

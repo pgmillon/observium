@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -18,7 +18,7 @@ echo(" NSCRTV-ROOT ");
 
 // Voltage Sensors
 $oids = snmp_walk($device, "oaDCPowerName", "-OsqnU", "NSCRTV-ROOT");
-if ($debug) { echo($oids."\n"); }
+
 $scale = 0.1;
 
 foreach (explode("\n", $oids) as $data)
@@ -41,14 +41,14 @@ foreach (explode("\n", $oids) as $data)
 
     if (is_numeric($value))
     {
-      discover_sensor($valid['sensor'], 'voltage', $device, $oid, $index, 'jdsu-edfa-power', $descr, $scale, $value * $scale, $limits);
+      discover_sensor($valid['sensor'], 'voltage', $device, $oid, $index, 'jdsu-edfa-power', $descr, $scale, $value, $limits);
     }
   }
 }
 
 // Pump Sensors
 $oids = snmp_walk($device, "oaPumpBIAS", "-OsqnU", "NSCRTV-ROOT");
-if ($debug) { echo($oids."\n"); }
+
 $scale = 0.001;
 
 foreach (explode("\n", $oids) as $data)
@@ -65,13 +65,13 @@ foreach (explode("\n", $oids) as $data)
     if (is_numeric($value) && $value != 0)
     {
       $descr = "Pump Bias $index";
-      discover_sensor($valid['sensor'], 'current', $device, $oid, $index, 'jdsu-edfa-pump-bias', $descr, $scale, $value * $scale);
+      discover_sensor($valid['sensor'], 'current', $device, $oid, $index, 'jdsu-edfa-pump-bias', $descr, $scale, $value);
     }
   }
 }
 
 $oids = snmp_walk($device, "oaPumpTEC", "-OsqnU", "NSCRTV-ROOT");
-if ($debug) { echo($oids."\n"); }
+
 $scale = 0.01;
 
 foreach (explode("\n", $oids) as $data)
@@ -88,13 +88,13 @@ foreach (explode("\n", $oids) as $data)
     if (is_numeric($value) && $value != 0)
     {
       $descr = "Pump TEC $index";
-      discover_sensor($valid['sensor'], 'current', $device, $oid, $index, 'jdsu-edfa-pump-tec', $descr, $scale, $value * $scale);
+      discover_sensor($valid['sensor'], 'current', $device, $oid, $index, 'jdsu-edfa-pump-tec', $descr, $scale, $value);
     }
   }
 }
 
 $oids = snmp_walk($device, "oaPumpTemp", "-OsqnU", "NSCRTV-ROOT");
-if ($debug) { echo($oids."\n"); }
+
 $scale = 0.1;
 
 foreach (explode("\n", $oids) as $data)
@@ -111,7 +111,7 @@ foreach (explode("\n", $oids) as $data)
     if (is_numeric($value) && $value != 0)
     {
       $descr = "Pump Temperature $index";
-      discover_sensor($valid['sensor'], 'temperature', $device, $oid, $index, 'jdsu-edfa-pump-temp', $descr, $scale, $value * $scale);
+      discover_sensor($valid['sensor'], 'temperature', $device, $oid, $index, 'jdsu-edfa-pump-temp', $descr, $scale, $value);
     }
   }
 }
@@ -123,7 +123,7 @@ $value = snmp_get($device, $oid, "-Oqv", "NSCRTV-ROOT");
 if (is_numeric($value))
 {
   $limits = array('limit_high' => 16, 'limit_low' => 9, 'limit_high_warn' => 15, 'limit_low_warn' => 10);
-  discover_sensor($valid['sensor'], 'dbm', $device, $oid, 0, 'jdsu-edfa-tx', 'Optical Output Power', $scale, $value * $scale, $limits);
+  discover_sensor($valid['sensor'], 'dbm', $device, $oid, 0, 'jdsu-edfa-tx', 'Optical Output Power', $scale, $value, $limits);
 }
 
 $oid   = ".1.3.6.1.4.1.17409.1.11.3.0";
@@ -132,7 +132,7 @@ $value = snmp_get($device, $oid, "-Oqv", "NSCRTV-ROOT");
 if (is_numeric($value))
 {
   $limits = array('limit_high' => -9, 'limit_low' => -18, 'limit_high_warn' => -10, 'limit_low_warn' => -14);
-  discover_sensor($valid['sensor'], 'dbm', $device, $oid, 0, 'jdsu-edfa-rx', 'Optical Input Power', $scale, $value * $scale, $limits);
+  discover_sensor($valid['sensor'], 'dbm', $device, $oid, 0, 'jdsu-edfa-rx', 'Optical Input Power', $scale, $value, $limits);
 }
 
 // Temperature sensors

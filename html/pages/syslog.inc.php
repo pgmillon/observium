@@ -2,12 +2,12 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -26,8 +26,7 @@
 
 unset($search, $devices_array, $priorities, $programs);
 
-$where = ' WHERE 1 ';
-$where .= generate_query_permitted();
+$where = ' WHERE 1 ' . generate_query_permitted();
 
 //Device field
 // Show devices only with syslog messages
@@ -44,7 +43,7 @@ natcasesort($devices_array);
 $search[] = array('type'    => 'multiselect',
                   'name'    => 'Devices',
                   'id'      => 'device_id',
-                  'width'   => '150px',
+                  'width'   => '125px',
                   'value'   => $vars['device_id'],
                   'values'  => $devices_array);
 
@@ -58,6 +57,7 @@ if (isset($vars['device_id']))
 $search[] = array('type'    => 'text',
                   'name'    => 'Message',
                   'id'      => 'message',
+                  'placeholder' => 'Message',
                   'width'   => '130px',
                   'value'   => $vars['message']);
 //Priority field
@@ -70,32 +70,34 @@ foreach ($config['syslog']['priorities'] as $p => $priority)
 $search[] = array('type'    => 'multiselect',
                   'name'    => 'Priorities',
                   'id'      => 'priority',
-                  'width'   => '150px',
+                  'width'   => '125px',
                   'subtext' => TRUE,
                   'value'   => $vars['priority'],
                   'values'  => $priorities);
 //Program field
 //$programs[''] = 'All Programs';
-foreach (dbFetchRows('SELECT `program` FROM `syslog`' . $where .
-                     'GROUP BY `program` ORDER BY `program`') as $data)
+foreach (dbFetchColumn('SELECT `program` FROM `syslog` IGNORE INDEX (`program`)' . // Use index 'program_device' for speedup
+                       $where . 'GROUP BY `program`;') as $program)
 {
-  $program = ($data['program'] != '' ? $data['program'] : '[[EMPTY]]');
+  $program = ($program != '' ? $program : OBS_VAR_UNSET);
   $programs[$program] = $program;
 }
 $search[] = array('type'    => 'multiselect',
                   'name'    => 'Programs',
                   'id'      => 'program',
-                  'width'   => '150px',
+                  'width'   => '125px',
                   'size'    => '15',
                   'value'   => $vars['program'],
                   'values'  => $programs);
-$search[] = array('type'    => 'newline',
-                  'hr'      => TRUE);
+
+//$search[] = array('type'    => 'newline',
+//                  'hr'      => TRUE);
+
 $search[] = array('type'    => 'datetime',
                   'id'      => 'timestamp',
                   'presets' => TRUE,
-                  'min'     => dbFetchCell('SELECT MIN(`timestamp`) FROM `syslog`' . $where),
-                  'max'     => dbFetchCell('SELECT MAX(`timestamp`) FROM `syslog`' . $where),
+                  'min'     => dbFetchCell('SELECT `timestamp` FROM `syslog`' . $where . ' ORDER BY `timestamp` LIMIT 0,1;'),
+                  'max'     => dbFetchCell('SELECT `timestamp` FROM `syslog`' . $where . ' ORDER BY `timestamp` DESC LIMIT 0,1;'),
                   'from'    => $vars['timestamp_from'],
                   'to'      => $vars['timestamp_to']);
 
@@ -107,7 +109,7 @@ $vars['pagination'] = TRUE;
 // Print syslog
 print_syslogs($vars);
 
-$pagetitle[] = 'Syslog';
+$page_title[] = 'Syslog';
 
 ?>
   </div> <!-- col-md-12 -->

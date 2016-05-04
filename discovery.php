@@ -9,34 +9,19 @@
  * @package    observium
  * @subpackage discovery
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 chdir(dirname($argv[0]));
 
+include_once("includes/defaults.inc.php");
+include_once("config.php");
+
+// Get options before definitions!
 $options = getopt("h:i:m:n:dquV");
 
-include("includes/defaults.inc.php");
-include("config.php");
-
-if (isset($options['d']))
-{
-  echo("DEBUG!\n");
-  $debug = TRUE;
-  ini_set('display_errors', 1);
-  ini_set('display_startup_errors', 1);
-  ini_set('log_errors', 1);
-  ini_set('error_reporting', 1);
-} else {
-  $debug = FALSE;
-  #  ini_set('display_errors', 0);
-  ini_set('display_startup_errors', 0);
-  ini_set('log_errors', 0);
-  #  ini_set('error_reporting', 0);
-}
-
-include("includes/definitions.inc.php");
+include_once("includes/definitions.inc.php");
 include("includes/functions.inc.php");
 include("includes/discovery/functions.inc.php");
 
@@ -52,12 +37,17 @@ $runtime_stats = array();
 if (isset($options['V']))
 {
   print_message(OBSERVIUM_PRODUCT." ".OBSERVIUM_VERSION);
+  if (is_array($options['V'])) { print_versions(); }
   exit;
 }
 
 if (!isset($options['q']))
 {
   print_message("%g".OBSERVIUM_PRODUCT." ".OBSERVIUM_VERSION."\n%WDiscovery%n\n", 'color');
+  if (OBS_DEBUG) { print_versions(); }
+
+  // Warning about obsolete configs.
+  if (print_obsolete_config()) { echo PHP_EOL; }
 }
 
 if (isset($options['h']))
@@ -78,7 +68,7 @@ if (isset($options['h']))
       $doing = 'all';
       break;
     case 'new':
-      $where = 'AND (`last_discovered` IS NULL OR `last_discovered` = ?)';
+      $where = 'AND (`last_discovered` IS NULL OR `last_discovered` = ? OR `force_discovery` = "1")';
       $params[] = '0000-00-00 00:00:00';
       $doing = 'new';
       break;
@@ -93,7 +83,7 @@ if (isset($options['h']))
         $params[] = $options['h'];
       } else {
         $where = 'AND `hostname` LIKE ?';
-        $params[] = str_replace('*','%',mres($options['h'])); # FIXME wtf mres
+        $params[] = str_replace('*','%', $options['h']);
       }
   }
 }
@@ -149,6 +139,7 @@ OPTIONS:
 
 DEBUGGING OPTIONS:
  -d                                          Enable debugging output.
+ -dd                                         More verbose debugging output.
  -m                                          Specify modules (separated by commas) to be run.
 
 %rInvalid arguments!%n", 'color', FALSE);
@@ -170,7 +161,7 @@ foreach (dbFetchRows("SELECT * FROM `devices` WHERE `status` = 1 AND `disabled` 
   if ($options['h'] == 'new' || isSNMPable($device))
   {
     discover_device($device, $options);
-    if (function_exists('update_device_alert_table')) { update_device_alert_table($device); } // not exist in 'community' edition
+    if (!isset($options['m']) && function_exists('update_device_alert_table')) { update_device_alert_table($device); } // not exist in 'community' edition
   } else {
     $string = "Device '" . $device['hostname'] . "' skipped, because switched off during runtime discovery process.";
     print_debug($string);
@@ -200,6 +191,7 @@ if (!isset($options['q']))
   {
     print_debug("NOTE, \$config['snmp']['hide_auth'] sets as TRUE, snmp community and snmp v3 auth hidden from debug output.");
   }
+  print_message('Memory usage: '.formatStorage(memory_get_usage(TRUE), 2, 4).' (peak: '.formatStorage(memory_get_peak_usage(TRUE), 2, 4).')');
   print_message('MySQL: Cell['.($db_stats['fetchcell']+0).'/'.round($db_stats['fetchcell_sec']+0,2).'s]'.
                        ' Row['.($db_stats['fetchrow']+0). '/'.round($db_stats['fetchrow_sec']+0,2).'s]'.
                       ' Rows['.($db_stats['fetchrows']+0).'/'.round($db_stats['fetchrows_sec']+0,2).'s]'.

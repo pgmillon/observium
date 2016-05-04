@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -41,7 +41,7 @@ $ipNetToPhysicalPhysAddress_oid = snmp_walk($device, 'ipNetToPhysicalPhysAddress
 if ($ipNetToPhysicalPhysAddress_oid)
 {
   $oid_data = $ipNetToPhysicalPhysAddress_oid;
-  if ($debug) { echo("Used IP-MIB::ipNetToPhysicalPhysAddress\n"); }
+  print_debug("Used IP-MIB::ipNetToPhysicalPhysAddress");
 } else {
   $oid_data = '';
   if ($device['os_group'] == 'cisco')
@@ -52,7 +52,7 @@ if ($ipNetToPhysicalPhysAddress_oid)
     if ($cInetNetToMediaPhysAddress_oid)
     {
       $oid_data .= $cInetNetToMediaPhysAddress_oid;
-      if ($debug) { echo("Used CISCO-IETF-IP-MIB::cInetNetToMediaPhysAddress\n"); }
+      print_debug("Used CISCO-IETF-IP-MIB::cInetNetToMediaPhysAddress");
     }
   } else {
     // Or check IPV6-MIB::ipv6NetToMediaPhysAddress (IPv6 only, deprecated, junos)
@@ -61,7 +61,7 @@ if ($ipNetToPhysicalPhysAddress_oid)
     if ($ipv6NetToMediaPhysAddress_oid)
     {
       $oid_data .= $ipv6NetToMediaPhysAddress_oid;
-      if ($debug) { echo("Used IPV6-MIB::ipv6NetToMediaPhysAddress\n"); }
+      print_debug("Used IPV6-MIB::ipv6NetToMediaPhysAddress");
     }
   }
 }
@@ -73,7 +73,7 @@ if (!strstr($oid_data, 'ipv4'))
   if ($ipNetToMediaPhysAddress_oid)
   {
     $oid_data .= $ipNetToMediaPhysAddress_oid;
-    if ($debug) { echo("Used IP-MIB::ipNetToMediaPhysAddress\n"); }
+    print_debug("Used IP-MIB::ipNetToMediaPhysAddress");
   }
 }
 $oid_data = trim($oid_data);
@@ -138,9 +138,9 @@ foreach (explode("\n", $oid_data) as $data)
     {
       $old_mac = $old_table[$if][$ip_version][$ip];
 
-      if ($clean_mac != $old_mac && $clean_mac != '' && $old_mac != '')
+      if ($clean_mac != $old_mac && $clean_mac != '00:00:00:00:00:00' && $old_mac != '00:00:00:00:00:00')
       {
-        if ($debug) { echo("Changed MAC address for $ip from $old_mac to $clean_mac\n"); }
+        print_debug("Changed MAC address for $ip from $old_mac to $clean_mac");
         log_event("MAC changed: $ip : " . format_mac($old_mac) . " -> " . format_mac($clean_mac), $device, "port", $port_id);
         dbUpdate(array('mac_address' => $clean_mac) , 'ip_mac', 'port_id = ? AND ip_address = ?', array($port_id, $ip));
         echo(".");
@@ -152,7 +152,7 @@ foreach (explode("\n", $oid_data) as $data)
                       'ip_address' => $ip,
                       'ip_version' => $ip_version);
       dbInsert($params, 'ip_mac');
-      if ($debug) { echo("Add MAC $clean_mac\n"); }
+      print_debug("Add MAC $clean_mac");
       //log_event("MAC added: $ip : " . format_mac($clean_mac), $device, "port", $port_id);
       echo("+");
     }
@@ -171,7 +171,7 @@ foreach ($cache_arp as $entry)
   if (!isset($mac_table[$entry_if][$entry_version][$entry_ip]))
   {
     dbDelete('ip_mac', 'mac_id = ?', array($entry_mac_id));
-    if ($debug) { echo("Removing MAC address $entry_mac for $entry_ip\n"); }
+    print_debug("Removing MAC address $entry_mac for $entry_ip");
     //log_event("MAC removed: $entry_ip : " . format_mac($entry_mac), $device, "port", $entry['port_id']);
     echo("-");
   }

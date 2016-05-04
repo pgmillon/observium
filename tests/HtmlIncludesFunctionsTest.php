@@ -196,6 +196,80 @@ class HtmlIncludesFunctionsTest extends PHPUnit_Framework_TestCase
     }
     return $result;
   }
+
+  /**
+   * @dataProvider providerGenerateQueryValues
+   * @group sql
+   */
+  public function testGenerateQueryValues($value, $column, $condition, $result)
+  {
+    $this->assertSame($result, generate_query_values($value, $column, $condition));
+  }
+
+  public function providerGenerateQueryValues()
+  {
+    return array(
+      // Basic values
+      array(0,                            'test', FALSE, " AND `test` = '0'"),
+      array('1,sf,98u8',                '`test`', FALSE, " AND `test` = '1,sf,98u8'"),
+      array(array('1,sf,98u8'),         'I.test', FALSE, " AND `I`.`test` = '1,sf,98u8'"),
+      array(array('1,sf,98u8', ''), '`I`.`test`', FALSE, " AND `I`.`test` IN ('1,sf,98u8','')"),
+      array(OBS_VAR_UNSET,              '`test`', FALSE, " AND `test` = ''"),
+      array('"*%F@W)b\'_u<[`R1/#F"',      'test', FALSE, " AND `test` = '\\\"*%F@W)b\'_u<[`R1/#F\\\"'"),
+      // Negative
+      array(array('1,sf,98u8'),         'I.test', 'NOT', " AND `I`.`test` != '1,sf,98u8'"),
+      array(array('1,sf,98u8'),         'I.test',  '!=', " AND `I`.`test` != '1,sf,98u8'"),
+      array(array('1,sf,98u8', ''), '`I`.`test`',  '!=', " AND `I`.`test` NOT IN ('1,sf,98u8','')"),
+      // LIKE conditions
+      array(0,                            'test',  '%LIKE', " AND (`test` LIKE '%0')"),
+      array('1,sf,98u8',                '`test`',  'LIKE%', " AND (`test` LIKE '1,sf,98u8%')"),
+      array(array('1,sf,98u8'),         'I.test', '%LIKE%', " AND (`I`.`test` LIKE '%1,sf,98u8%')"),
+      array(array('1,sf,98u8', ''), '`I`.`test`',   'LIKE', " AND (`I`.`test` LIKE '1,sf,98u8' OR `I`.`test` LIKE '')"),
+      array(OBS_VAR_UNSET,              '`test`',   'LIKE', " AND (`test` LIKE '".OBS_VAR_UNSET."')"),
+      array('"*%F@W)b\'_u<[`R1/#F"',      'test',   'LIKE', " AND (`test` LIKE '\\\"%\%F@W)b\'\_u<[`R1/#F\\\"')"),
+      // Negative LIKE
+      array('1,sf,98u8',                '`test`', 'NOT LIKE%', " AND (`test` NOT LIKE '1,sf,98u8%')"),
+      array(array('1,sf,98u8', ''), '`I`.`test`',  'NOT LIKE', " AND (`I`.`test` NOT LIKE '1,sf,98u8' AND `I`.`test` NOT LIKE '')"),
+      // Wrong conditions
+      array('"*%F@W)b\'_u<[`R1/#F"',      'test',    'wtf', " AND `test` = '\\\"*%F@W)b\'_u<[`R1/#F\\\"'"),
+      array('ssdf',                     '`test`',     TRUE, " AND (`test` LIKE 'ssdf')"),
+    );
+  }
+
+  /**
+  * @dataProvider providerGetDeviceIcon
+  * @group device
+  */
+  public function testGetDeviceIcon($device, $base_icon, $result)
+  {
+    $GLOBALS['config']['base_url'] = 'http://localhost';
+    $this->assertSame($result, get_device_icon($device, $base_icon));
+  }
+
+  public function providerGetDeviceIcon()
+  {
+    return array(
+      // by $device['os']
+      array(array('os' => 'screenos'), TRUE, 'screenos'),
+      // by $device['os'] and icon definition
+      array(array('os' => 'ios'), TRUE, 'cisco'),
+      // by $device['os'] and vendor definition
+      array(array('os' => 'cyclades'), TRUE, 'emerson'),
+      // by $device['os'] and distro name in array
+      array(array('os' => 'linux', 'distro' => 'RedHat'), TRUE, 'redhat'),
+      // by $device['os'] and icon in array
+      array(array('os' => 'ios', 'icon' => 'cisco-old'), TRUE, 'cisco-old'),
+      // by all, who win?
+      array(array('os' => 'cyclades', 'distro' => 'RedHat', 'icon' => 'cisco-old'), TRUE, 'cisco-old'),
+      // unknown
+      array(array('os' => 'yohoho'), TRUE, 'generic'),
+      // empty
+      array(array(), TRUE, 'generic'),
+      
+      // Last, check with img tag
+      array(array('os' => 'ios'), FALSE, '<img src="http://localhost/images/os/cisco.png" alt="" />'),
+    );
+  }
 }
 
 // EOF

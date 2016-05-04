@@ -1,0 +1,383 @@
+-- **********************************************************************
+--
+-- Name:	3Com SuperStack II RESILIENCE LINKS MIB
+-- 
+-- Description: 
+--  
+--
+-- History  Date        Reason for Change
+--
+-- 1.00     1997       	Issued as 3Com RFC.
+-- 1.10	Aug 1998	Added the resPairMode object. Tidy up descriptions.
+-- 1.11	Dec 1998	Added the resPairName object.
+-- 1.12 Dec 1998    Changed resFlushTable and resPairAction to read-write.
+--
+-- **********************************************************************
+-- Copyright 3Com Technologies Limited. (1996-1998)
+-- **********************************************************************
+
+A3COM0304-RESILIENTLINKS DEFINITIONS ::= BEGIN
+
+
+   IMPORTS
+      enterprises
+            FROM RFC1155-SMI
+      OBJECT-TYPE
+            FROM RFC-1212
+      DisplayString 
+            FROM RFC1213-MIB
+      TRAP-TYPE
+            FROM RFC-1215
+      ;
+
+a3Com         OBJECT IDENTIFIER ::= { enterprises 43 }
+generic       OBJECT IDENTIFIER ::= { a3Com 10 }
+mrmResilience OBJECT IDENTIFIER ::= { generic 15 }
+
+resTable OBJECT-TYPE
+   SYNTAX   SEQUENCE OF ResTableEntry
+   ACCESS   not-accessible
+   STATUS   mandatory
+   DESCRIPTION ""
+   ::= {mrmResilience 1}
+
+resTableEntry OBJECT-TYPE
+   SYNTAX   ResTableEntry
+   ACCESS   not-accessible
+   STATUS   mandatory
+   DESCRIPTION "An device may be configured to contain a number of
+   'resilient pairs'.  These are to point connections, e.g.
+   UTP, that allow two repeaters/switches to be connected together in a
+   resilient configuration. In such a configuration one of the two ports
+   is nominated the 'main' port while the other    is the 'standby' port.
+   One of these two ports is enabled and is the current    active port. The
+   other is present in case of failure of the active port. Such a failure is
+   detected by the device and a switch performed.
+   
+   In the case of repeaters, there are a couple of rules that must apply to a 
+   resilient pair definition before that definition becomes a valid resilient
+   pair. Firstly both ports must be on the same repeater. Secondly the standby
+   port must be configured to be 'disabled on boot'. That is it must recover
+   from a power failure in a disabled state. This prevents loops in the
+   network.
+   
+   There are two modes of operation. These are defined by the resPairMode
+   object. See that object for a full description.
+
+   Several tables control the resilient configuration for the device. 
+   This is the first. This is the main table and allows the creation and
+   deletion of pairs and provides status control and information. The
+   information in this table is indexed on the repeater number, the
+   slot (or unit) and the port location of the main port.
+   
+   To create a new resilient pair simply write any writeable object indexed
+   on the main port. This will create a new entry in the table which has the
+   state invalid(1) (read resPairState). Having created the row, write to the
+   other parameters specifying valid information. When all the parameters are
+   valid and 'resPairModificationStatus' is set to 'stable(2)', then resPairState will become      operational(2). In this state the pair
+   will correctly operate as a resilient pair. If any of the attributes in the
+   table change so that the pair in no linger valid this will be reflected in
+   the resPortState parameter.
+
+   To delete a resilient pair, write delete(2) to resPairAction."
+   INDEX {resRepeater,resMainSlot,resMainPort}
+   ::= {resTable 1}
+
+ResTableEntry ::= SEQUENCE {
+      resRepeater    		  INTEGER,
+      resMainSlot    		  INTEGER,
+      resMainPort    		  INTEGER,
+      resMainState      	  INTEGER,
+      resStandbySlot    	  INTEGER,
+      resStandbyPort    	  INTEGER,
+      resStandbyState      	  INTEGER,
+      resPairState      	  INTEGER,
+      resPairModificationStatus   INTEGER,
+      resPairAction     	  INTEGER,
+      resPairEnable     	  INTEGER,
+      resPairMode       	  INTEGER,
+      resPairName       	  DisplayString 
+      }
+
+resRepeater OBJECT-TYPE
+   SYNTAX   INTEGER 
+   ACCESS   read-only
+   STATUS   mandatory
+   DESCRIPTION "A resilient pair must be attached to one of the repeaters in 
+   the chassis. This is part of the index value required to access this table."
+   ::= {resTableEntry 1}
+
+resMainSlot OBJECT-TYPE
+   SYNTAX   INTEGER 
+   ACCESS   read-only
+   STATUS   mandatory
+   DESCRIPTION "This is the second key in the index to this table. This is 
+   the slot number of the main port in this pair."
+   ::= {resTableEntry 2}
+
+resMainPort OBJECT-TYPE
+   SYNTAX   INTEGER 
+   ACCESS   read-only
+   STATUS   mandatory
+   DESCRIPTION "This is the final, key used to index entries in this table. 
+   It is the port number of the main port in the pair."
+   ::= {resTableEntry 3}
+
+resMainState OBJECT-TYPE
+   SYNTAX   INTEGER  {
+      failed (1),
+      ok (2),
+      ok-and-active (3)
+   }
+   ACCESS   read-only
+   STATUS   mandatory
+   DESCRIPTION "Each port in a pair is constantly monitored for signs of 
+   failure. Failure information is used to automatically change the active port 
+   from main to standby or vice-versa. Each port may be in one of three states. 
+   Failed(1) indicates there is a loss of signal on this port. A port in this state 
+   cannot be active. Secondly ok(2). This state indicates that the port is capable 
+   of carrying traffic but is at the moment acting in the role of backup link. The 
+   other port in this pair will be in the Ok-and-active(3) state.
+   
+   Ok-and-active(3) means what it says, this port is capable of carrying traffic 
+   and is so doing at the time this parameter has been read."
+   ::= {resTableEntry 4}
+
+resStandbySlot OBJECT-TYPE
+   SYNTAX   INTEGER 
+   ACCESS   read-write
+   STATUS   mandatory
+   DESCRIPTION "This is the slot number of the standby port for this pair."
+   ::= {resTableEntry 5}
+
+resStandbyPort OBJECT-TYPE
+   SYNTAX   INTEGER 
+   ACCESS   read-write
+   STATUS   mandatory
+   DESCRIPTION "This is the port number of the standby port."
+   ::= {resTableEntry 6}
+
+resStandbyState OBJECT-TYPE
+   SYNTAX   INTEGER  {
+      failed (1),
+      ok (2),
+      ok-and-active (3)
+   }
+   ACCESS   read-only
+   STATUS   mandatory
+   DESCRIPTION "Each port in a pair is constantly monitored for signs of 
+   failure. Failure information is used to automatically change the active port 
+   from main to standby or vice-versa. Each port may be in one of three states. 
+   Failed(1) indicates there is a loss of signal on this port. A port in this state 
+   cannot be active. Secondly ok(2). This state indicates that the port is capable 
+   of carrying traffic but is at the moment acting in the role of backup link. The 
+   other port in this pair will be in the Ok-and-active(3) state.
+   
+   Ok-and-active(3) means what it says, this port is capable of carrying traffic 
+   and is so doing at the time this parameter has been read."
+   ::= {resTableEntry 7}
+
+resPairState OBJECT-TYPE
+   SYNTAX   INTEGER  {
+      invalid (1),
+      operational (2)
+   }
+   ACCESS   read-only
+   STATUS   mandatory
+   DESCRIPTION "Each row in the table is in one of two states, invalid(1) or 
+   operational(2). If the state is invalid(1), the resilient pair represented by 
+   this row is not active. There are several reasons why this may be the case. 
+   Firstly during the row creation process, not all information necessary may have been 
+   provided. Secondly an operational pair may become invalid because the 
+   resilient pair rules are no longer met because of a change in the device configuration. 
+   
+   If the parameters in the row are all valid then the pair becomes operational(2)."
+   ::= {resTableEntry 8}
+
+resPairModificationStatus OBJECT-TYPE
+   SYNTAX   INTEGER  {
+      under-modification (1),
+      stable (2)
+   }
+   ACCESS   read-write
+   STATUS   mandatory
+   DESCRIPTION "This parameter must be set to under-modification(1) before any 
+   changes are made to an existing configuration. Changes are not applied until 
+   this parameter is set to stable.
+   "
+   ::= {resTableEntry 9}
+
+resPairAction OBJECT-TYPE
+   SYNTAX   INTEGER  {
+      create (1),
+      delete (2),
+      togglePort (3)
+   }
+   ACCESS   read-write 
+   STATUS   mandatory
+   DESCRIPTION "This is object allows the state of a resilient pair to be 
+   modified. The create(1) operation configures the resilient port from this table 
+   entry. The delete(2) operation removes the resilient definitions from this table 
+   and terminates operation of resilience on this pair of ports. The togglePort(3) 
+   operation allows the current active port to be changed to the other port. 
+   This second operation will only take affect if the state of the currently non-
+   active port is ok(2)."
+   ::= {resTableEntry 10}
+
+resPairEnable OBJECT-TYPE
+   SYNTAX   INTEGER  {
+      enable (1),
+      disable (2)
+   }
+   ACCESS   read-write
+   STATUS   mandatory
+   DESCRIPTION "This parameter controls whether the resilient pair is 
+   enabled or not. In the disable(2) state , both ports of the resilient pair are 
+   disabled. The default value of this parameter is enable(1)."
+   ::= {resTableEntry 11}
+
+resPairMode OBJECT-TYPE
+   SYNTAX   INTEGER  {
+      no-switch-back (1),
+      switch-back-to-main (2)
+   }
+   ACCESS   read-write
+   STATUS   mandatory
+   DESCRIPTION "This parameter controls the rules that determine the
+   operation of the resilient pair. The value no-switch-back(1) means that
+   both ports are treated equally. The value switch-back-to-main(2) means
+   that when it is operational, precedence is always given to the main
+   port. If the main port has been stable for 1 minute, then the pair
+   will automatically switch the active port to main.
+   The default value of this parameter is no-switch-back(1)."
+   ::= {resTableEntry 12}
+
+resPairName OBJECT-TYPE
+   SYNTAX      DisplayString (SIZE(0..64))
+   ACCESS      read-write
+   STATUS      mandatory
+   DESCRIPTION 
+   "The textual name of the interface.  The value of this
+   object should be the name of the interface as assigned
+   by the local device and should be suitable for use in
+   commands entered at the device's `console'.
+   The default value of this parameter is a zero length string." 
+   ::= {resTableEntry 13}
+
+-- **********************************************************************
+-- resilient standby mapping table.
+-- **********************************************************************
+resStandbyMapTable OBJECT-TYPE
+   SYNTAX   SEQUENCE OF ResStandbyMapTableEntry
+   ACCESS   not-accessible
+   STATUS   mandatory
+   DESCRIPTION ""
+   ::= {mrmResilience 2}
+
+resStandbyMapTableEntry OBJECT-TYPE
+   SYNTAX   ResStandbyMapTableEntry
+   ACCESS   not-accessible
+   STATUS   mandatory
+   DESCRIPTION "This table is read-only. If provides shortcut information to 
+   allow for the translation of a port number to a corresponding main port 
+   number. This value can then be used to access the main resilience table.
+   Each resilient pair has two entries in this table, one for the main port and one for the 
+   standby port. The entry for the main port returns the same port, the entry 
+   for the standby port returns the corresponding main port."
+   INDEX {resSbRepeater,resSbSlot,resSbPort}
+   ::= {resStandbyMapTable 1}
+
+ResStandbyMapTableEntry ::= SEQUENCE {
+      resSbRepeater     INTEGER,
+      resSbSlot         INTEGER,
+      resSbPort         INTEGER,
+      resSbType         INTEGER,
+      resSbMainSlot     INTEGER,
+      resSbMainPort     INTEGER
+      }
+
+resSbRepeater OBJECT-TYPE
+   SYNTAX   INTEGER 
+   ACCESS   read-only
+   STATUS   mandatory
+   DESCRIPTION "The repeater index of the port being accessed. This is the 
+   first of three indices on this table."
+   ::= {resStandbyMapTableEntry 1}
+
+resSbSlot OBJECT-TYPE
+   SYNTAX   INTEGER 
+   ACCESS   read-only
+   STATUS   mandatory
+   DESCRIPTION "Second index on this table."
+   ::= {resStandbyMapTableEntry 2}
+
+resSbPort OBJECT-TYPE
+   SYNTAX   INTEGER 
+   ACCESS   read-only
+   STATUS   mandatory
+   DESCRIPTION "Third index on this table."
+   ::= {resStandbyMapTableEntry 3}
+
+resSbType OBJECT-TYPE
+   SYNTAX   INTEGER  {
+      main (1),
+      standby (2)
+   }
+   ACCESS   read-only
+   STATUS   mandatory
+   DESCRIPTION "This attribute specifies whether the port indexed is a main 
+   or standby port in the resilient pair table. If the port is neither then 
+   there will not be a row in this table indexed for that port."
+   ::= {resStandbyMapTableEntry 4}
+
+resSbMainSlot OBJECT-TYPE
+   SYNTAX   INTEGER 
+   ACCESS   read-only
+   STATUS   mandatory
+   DESCRIPTION "This is the slot number of the main port for the pair in 
+   which the indexed port participates. NOTE if the index port is the main port 
+   of a pair (resSbType is 'main') this value will be the same as the index."
+   ::= {resStandbyMapTableEntry 5}
+
+resSbMainPort OBJECT-TYPE
+   SYNTAX   INTEGER 
+   ACCESS   read-only
+   STATUS   mandatory
+   DESCRIPTION "This is the port number of the main port for the pair in 
+   which the indexed port participates. NOTE if the index port is the main port 
+   of a pair (resSbType is 'main') this value will be the same as the index."
+   ::= {resStandbyMapTableEntry 6}
+
+resFlushTable OBJECT-TYPE
+   SYNTAX   INTEGER 
+   ACCESS   read-write 
+   STATUS   mandatory
+   DESCRIPTION "This parameter causes all entries in the resilience table to 
+   be flushed. Flushing the resilience table does not affect the state of any of 
+   the resilient links or ports. Once the table has been flushed , NO resilient 
+   links are configured. This parameter is used to ensure that the resilient 
+   link table is empty , before new resilient links are configured."
+   ::= {mrmResilience 3}
+
+-- **********************************************************************
+-- Some traps generated by the resilience engine.
+-- **********************************************************************
+resResilienceSwitch TRAP-TYPE
+   ENTERPRISE  a3Com
+   VARIABLES {resMainState, resStandbyState }
+   DESCRIPTION "This trap is generated when a change of state of one of the 
+   ports in a resilient pair results in a switch of active port, or when
+   there was no active port and a port has now become active."
+   ::= 43
+
+resStateChange TRAP-TYPE
+   ENTERPRISE  a3Com
+   VARIABLES {resMainState, resStandbyState }
+   DESCRIPTION "This trap is generated when a change of state of one of the 
+   ports in a resilient pair does not result in a switch of active port. If
+   such a switch were to occur the resResilienceSwitch would be generated."
+   ::= 44
+
+
+
+END

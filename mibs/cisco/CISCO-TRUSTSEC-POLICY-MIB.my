@@ -3,7 +3,7 @@
 --   
 -- November 2009, Edward Pham 
 --   
--- Copyright (c) 2009 by cisco Systems Inc.
+-- Copyright (c) 2009, 2011-2012 by cisco Systems Inc.
 -- All rights reserved.
 --   
 -- *****************************************************************
@@ -13,12 +13,14 @@ CISCO-TRUSTSEC-POLICY-MIB DEFINITIONS ::= BEGIN
 IMPORTS
     MODULE-IDENTITY,
     OBJECT-TYPE,
+    NOTIFICATION-TYPE,
     Unsigned32,
     Counter64
         FROM SNMPv2-SMI
 
     MODULE-COMPLIANCE,
-    OBJECT-GROUP
+    OBJECT-GROUP,
+    NOTIFICATION-GROUP
         FROM SNMPv2-CONF
     
     TruthValue,
@@ -35,7 +37,8 @@ IMPORTS
     CtsAclName,
     CtsAclList,
     CtsAclListOrEmpty, 
-    CtsAclNameOrEmpty
+    CtsAclNameOrEmpty,
+    CtsSgaclMonitorMode
         FROM CISCO-TRUSTSEC-TC-MIB
 
     InetAddressType,
@@ -49,14 +52,15 @@ IMPORTS
     VlanIndex
         FROM Q-BRIDGE-MIB
 
-    CiscoVrfName 
+    CiscoVrfName, 
+    Cisco2KVlanList
         FROM CISCO-TC 
 
     ciscoMgmt
         FROM CISCO-SMI;
 
 ciscoTrustSecPolicyMIB MODULE-IDENTITY
-    LAST-UPDATED    "200911060000Z"
+    LAST-UPDATED    "201212190000Z"
     ORGANIZATION    "Cisco Systems, Inc."
     CONTACT-INFO
             "Cisco Systems
@@ -102,9 +106,13 @@ ciscoTrustSecPolicyMIB MODULE-IDENTITY
    
         SGACL: Security Group Access Control List.
 
+        ACE: Access Control Entries.
+
         SXP: SGT Propagation Protocol.
 
         SVI: Switch Virtual Interface.
+
+        IPM: Identity Port Mapping.
 
         SGT (Security Group Tag) is a unique 16 bits value assigned
         to every security group and used by network devices to
@@ -117,6 +125,21 @@ ciscoTrustSecPolicyMIB MODULE-IDENTITY
         no explicit policy between the SGT associated with the 
         originator of the traffic and the SGT associated with 
         the destination of the traffic." 
+
+    REVISION        "201212190000Z"
+    DESCRIPTION
+        "Added following OBJECT-GROUP:
+         - ctspNotifCtrlGroup
+         - ctspNotifGroup
+         - ctspNotifInfoGroup
+         - ctspIfSgtMappingGroup
+         - ctspVlanSgtMappingGroup
+         - ctspSgtCachingGroup
+         - ctspSgaclMonitorGroup 
+         - ctspSgaclMonitorStatisticGroup
+        Added new compliance
+         - ciscoTrustSecPolicyMIBCompliances
+        Modified ctspIpSgtSource to add l3if(6), vlan(7), caching(8)."
     REVISION        "200911060000Z"
     DESCRIPTION
         "Initial version of this MIB module."
@@ -133,6 +156,7 @@ ciscoTrustSecPolicyMIBConformance  OBJECT IDENTIFIER
     ::= { ciscoTrustSecPolicyMIB 2 }
 
 
+
 ctspSgacl
     OBJECT IDENTIFIER ::= { ciscoTrustSecPolicyMIBObjects 1 }
 ctspPeerPolicy
@@ -143,6 +167,17 @@ ctspIpSgtMappings
     OBJECT IDENTIFIER ::= { ciscoTrustSecPolicyMIBObjects 4 }
 ctspSgtPolicy
     OBJECT IDENTIFIER ::= { ciscoTrustSecPolicyMIBObjects 5 }
+ctspIfSgtMappings
+    OBJECT IDENTIFIER ::= { ciscoTrustSecPolicyMIBObjects 6 }
+ctspVlanSgtMappings
+    OBJECT IDENTIFIER ::= { ciscoTrustSecPolicyMIBObjects 7 }
+ctspSgtCaching
+    OBJECT IDENTIFIER ::= { ciscoTrustSecPolicyMIBObjects 8 }
+ctspNotifsControl
+    OBJECT IDENTIFIER ::= { ciscoTrustSecPolicyMIBObjects 9 }
+ctspNotifsOnlyInfo 
+    OBJECT IDENTIFIER ::= { ciscoTrustSecPolicyMIBObjects 10 }
+
 
 ctspSgaclGlobals
     OBJECT IDENTIFIER ::= { ctspSgacl 1 }
@@ -317,10 +352,10 @@ ctspConfigSgaclMappingEntry OBJECT-TYPE
     MAX-ACCESS    not-accessible
     STATUS        current
     DESCRIPTION
-        "Each row contains the SGACL mapping to source and destination SGT
-         for a certain traffic type as well as status of this instance. 
-         A row instance can be created or removed by setting the appropriate
-         value of its RowStatus object."
+        "Each row contains the SGACL mapping to source and destination
+        SGT for a certain traffic type as well as status of this
+        instance. A row instance can be created or removed by setting
+        the appropriate value of its RowStatus object."
     INDEX { ctspConfigSgaclMappingIpTrafficType,
             ctspConfigSgaclMappingDestSgt,
             ctspConfigSgaclMappingSourceSgt }
@@ -332,7 +367,8 @@ CtspConfigSgaclMappingEntry ::= SEQUENCE {
     ctspConfigSgaclMappingSourceSgt      CtsSecurityGroupTag, 
     ctspConfigSgaclMappingSgaclName      CtsAclList, 
     ctspConfigSgaclMappingStorageType    StorageType, 
-    ctspConfigSgaclMappingRowStatus      RowStatus
+    ctspConfigSgaclMappingRowStatus      RowStatus,
+    ctspConfigSgaclMonitor               CtsSgaclMonitorMode
 }
 
 ctspConfigSgaclMappingIpTrafficType OBJECT-TYPE
@@ -392,6 +428,16 @@ ctspConfigSgaclMappingRowStatus OBJECT-TYPE
          at any time." 
     ::= { ctspConfigSgaclMappingEntry 6 }
 
+ctspConfigSgaclMonitor OBJECT-TYPE
+    SYNTAX        CtsSgaclMonitorMode
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "This object specifies whether SGACL monitor mode is turned on 
+         for the configured SGACL enforced traffic."   
+    DEFVAL          { off }
+    ::= { ctspConfigSgaclMappingEntry 7 }
+
 ctspDefConfigIpv4Sgacls OBJECT-TYPE
     SYNTAX        CtsAclListOrEmpty 
     MAX-ACCESS    read-write
@@ -413,7 +459,6 @@ ctspDefConfigIpv6Sgacls OBJECT-TYPE
         for unicast default policy for IPv6 traffic, the value of
         this object is the zero-length string." 
     ::= { ctspSgaclMappings 3 } 
-
 
 --
 --  The ctspDownloadedSgaclMappingTable
@@ -449,7 +494,8 @@ CtspDownloadedSgaclMappingEntry ::= SEQUENCE {
     ctspDownloadedSgaclIndex     Unsigned32,
     ctspDownloadedSgaclName      CtsAclName,
     ctspDownloadedSgaclGenId     CtsGenerationId,
-    ctspDownloadedIpTrafficType  BITS
+    ctspDownloadedIpTrafficType  BITS,
+    ctspDownloadedSgaclMonitor   CtsSgaclMonitorMode 
 }
 
 ctspDownloadedSgaclDestSgt OBJECT-TYPE
@@ -511,6 +557,16 @@ ctspDownloadedIpTrafficType OBJECT-TYPE
          default policy."
     ::= { ctspDownloadedSgaclMappingEntry 6 }
 
+ctspDownloadedSgaclMonitor OBJECT-TYPE
+    SYNTAX        CtsSgaclMonitorMode
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "This object indicates whether SGACL monitor mode is turned on 
+         for the downloaded SGACL enforced traffic."   
+    ::= { ctspDownloadedSgaclMappingEntry 7 }
+
+
 --
 --  The ctspDefDownloadedSgaclMappingTable
 --
@@ -540,7 +596,8 @@ CtspDefDownloadedSgaclMappingEntry ::= SEQUENCE {
     ctspDefDownloadedSgaclIndex     Unsigned32,
     ctspDefDownloadedSgaclName      CtsAclName,
     ctspDefDownloadedSgaclGenId     CtsGenerationId,
-    ctspDefDownloadedIpTrafficType  BITS
+    ctspDefDownloadedIpTrafficType  BITS,
+    ctspDefDownloadedSgaclMonitor   CtsSgaclMonitorMode 
 }
 
 ctspDefDownloadedSgaclIndex OBJECT-TYPE
@@ -581,6 +638,15 @@ ctspDefDownloadedIpTrafficType OBJECT-TYPE
          default policy."
     ::= { ctspDefDownloadedSgaclMappingEntry 4 }
 
+ctspDefDownloadedSgaclMonitor OBJECT-TYPE
+    SYNTAX        CtsSgaclMonitorMode
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "This object indicates whether SGACL monitor mode is turned on 
+         for the default downloaded SGACL enforced traffic."   
+    ::= { ctspDefDownloadedSgaclMappingEntry 5 }
+
 --
 --  The ctspOperSgaclMappingTable
 --
@@ -619,7 +685,8 @@ CtspOperSgaclMappingEntry ::= SEQUENCE {
     ctspOperationalSgaclName      CtsAclName,
     ctspOperationalSgaclGenId     CtsGenerationId,
     ctspOperSgaclMappingSource    INTEGER,
-    ctspOperSgaclConfigSource     INTEGER 
+    ctspOperSgaclConfigSource     INTEGER,
+    ctspOperSgaclMonitor          CtsSgaclMonitorMode 
 }
 
 ctspOperIpTrafficType OBJECT-TYPE
@@ -711,6 +778,15 @@ ctspOperSgaclConfigSource OBJECT-TYPE
         ACS server and downloaded to the local device."
     ::= { ctspOperSgaclMappingEntry 8 }
 
+ctspOperSgaclMonitor OBJECT-TYPE
+    SYNTAX        CtsSgaclMonitorMode
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "This object indicates whether SGACL monitor mode is turned on 
+        for the SGACL enforced traffic."   
+    ::= { ctspOperSgaclMappingEntry 9 }
+
 --
 --  The ctspDefOperSgaclMappingTable
 --
@@ -743,7 +819,8 @@ CtspDefOperSgaclMappingEntry ::= SEQUENCE {
     ctspDefOperationalSgaclName      CtsAclName,
     ctspDefOperationalSgaclGenId     CtsGenerationId,
     ctspDefOperSgaclMappingSource    INTEGER,
-    ctspDefOperSgaclConfigSource     INTEGER 
+    ctspDefOperSgaclConfigSource     INTEGER, 
+    ctspDefOperSgaclMonitor          CtsSgaclMonitorMode
 }
 
 ctspDefOperIpTrafficType OBJECT-TYPE
@@ -815,6 +892,49 @@ ctspDefOperSgaclConfigSource OBJECT-TYPE
         configured in the local device."
     ::= { ctspDefOperSgaclMappingEntry 6 }
 
+ctspDefOperSgaclMonitor OBJECT-TYPE
+    SYNTAX        CtsSgaclMonitorMode
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "This object indicates whether SGACL monitor mode is turned on 
+        for the SGACL of default policy enforced traffic."   
+    ::= { ctspDefOperSgaclMappingEntry 7 }
+
+--
+--  ctspSgaclStatistics
+--
+
+ctspDefConfigIpv4SgaclsMonitor OBJECT-TYPE
+    SYNTAX        CtsSgaclMonitorMode
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "This object specifies whether SGACL monitor mode is turned on 
+         for the default configured SGACL enforced Ipv4 traffic."   
+    ::= { ctspSgaclMappings 8 } 
+
+ctspDefConfigIpv6SgaclsMonitor OBJECT-TYPE
+    SYNTAX        CtsSgaclMonitorMode
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "This object specifies whether SGACL monitor mode is turned on 
+         for the default configured SGACL enforced Ipv6 traffic."   
+    ::= { ctspSgaclMappings 9 } 
+
+ctspSgaclMonitorEnable OBJECT-TYPE
+    SYNTAX        CtsSgaclMonitorMode
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "This object specifies whether SGACL monitor mode is turned on 
+        for the entire system. It has precedence than the per SGACL 
+        ctspConfigSgaclMonitor control.  It could act as safety 
+        mechanism to turn off monitor in case the monitor feature
+        impact system performance."
+    ::= { ctspSgaclMappings 10 } 
+
 --
 --  ctspSgaclStatistics
 --
@@ -850,7 +970,9 @@ CtspSgtStatsEntry ::= SEQUENCE {
     ctspStatsIpSwDropPkts     Counter64,
     ctspStatsIpHwDropPkts     Counter64,
     ctspStatsIpSwPermitPkts   Counter64,
-    ctspStatsIpHwPermitPkts   Counter64
+    ctspStatsIpHwPermitPkts   Counter64,
+    ctspStatsIpSwMonitorPkts  Counter64,
+    ctspStatsIpHwMonitorPkts  Counter64
 }
 
 ctspStatsIpTrafficType OBJECT-TYPE
@@ -917,6 +1039,24 @@ ctspStatsIpHwPermitPkts OBJECT-TYPE
          IP packets which are permitted by SGACL." 
     ::= { ctspSgtStatsEntry 7 }
 
+ctspStatsIpSwMonitorPkts OBJECT-TYPE
+    SYNTAX          Counter64 
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the number of software-forwarded
+         IP packets which are SGACL enforced & monitored." 
+    ::= { ctspSgtStatsEntry 8 }
+
+ctspStatsIpHwMonitorPkts OBJECT-TYPE
+    SYNTAX          Counter64 
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the number of hardware-forwarded
+         IP packets which are SGACL enforced & monitored." 
+    ::= { ctspSgtStatsEntry 9 }
+
 ctspDefStatsTable OBJECT-TYPE
     SYNTAX        SEQUENCE OF CtspDefStatsEntry
     MAX-ACCESS    not-accessible
@@ -941,7 +1081,9 @@ CtspDefStatsEntry ::= SEQUENCE {
     ctspDefIpSwDropPkts     Counter64,
     ctspDefIpHwDropPkts     Counter64,
     ctspDefIpSwPermitPkts   Counter64,
-    ctspDefIpHwPermitPkts   Counter64
+    ctspDefIpHwPermitPkts   Counter64,
+    ctspDefIpSwMonitorPkts  Counter64,
+    ctspDefIpHwMonitorPkts  Counter64
 }
 
 ctspDefIpTrafficType OBJECT-TYPE
@@ -988,6 +1130,24 @@ ctspDefIpHwPermitPkts OBJECT-TYPE
         "This object indicates the number of hardware-forwarded
          IP packets which are permitted by default unicast policy." 
     ::= { ctspDefStatsEntry 5 }
+
+ctspDefIpSwMonitorPkts OBJECT-TYPE
+    SYNTAX          Counter64 
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the number of software-forwarded
+         IP packets which are monitored by default unicast policy." 
+    ::= { ctspDefStatsEntry 6 }
+
+ctspDefIpHwMonitorPkts OBJECT-TYPE
+    SYNTAX          Counter64 
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the number of hardware-forwarded
+         IP packets which are monitored by default unicast policy." 
+    ::= { ctspDefStatsEntry 7 }
 
 --
 --  ctsPeerPolicy group
@@ -1362,7 +1522,10 @@ ctspIpSgtSource OBJECT-TYPE
                         arp(2),
                         localAuthenticated(3),
                         sxp(4),
-                        internal(5)
+                        internal(5),
+                        l3if(6),
+                        vlan(7),
+                        caching(8)
                     } 
     MAX-ACCESS      read-create 
     STATUS          current
@@ -1385,6 +1548,13 @@ ctspIpSgtSource OBJECT-TYPE
         'internal' indicates that the mapping is automatically 
         created by the device between the device IP addresses
         and the device own SGT. 
+
+        'l3if' indicates that Interface-SGT mapping is configured
+        by user.
+
+        'vlan' indicates that Vlan-SGT mapping is configured by user.
+
+        'cached' indicates that sgt mapping is cached.
 
         Only 'configured' value is accepted when setting this
         object."
@@ -1607,6 +1777,357 @@ ctspDownloadedDefSgtPolicyAction OBJECT-TYPE
     ::= { ctspDownloadedDefSgtPolicyEntry 5 }
 
 --
+-- ctspIfSgtMappingTable
+--
+
+ctspIfSgtMappingTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF CtspIfSgtMappingEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "This table contains the Interface-to-SGT mapping configuration 
+         information in the device."  
+    ::= { ctspIfSgtMappings 1 }
+
+ctspIfSgtMappingEntry OBJECT-TYPE
+    SYNTAX        CtspIfSgtMappingEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "Each row contains the SGT mapping configuration of a particular
+         interface.  
+
+         A row instance can be created or removed by setting 
+         ctspIfSgtRowStatus."
+    INDEX { ifIndex }  
+    ::= { ctspIfSgtMappingTable 1 }
+
+CtspIfSgtMappingEntry ::= SEQUENCE {
+    ctspIfSgtValue            CtsSecurityGroupTag,
+    ctspIfSgName              SnmpAdminString,
+    ctspIfSgtStorageType      StorageType,
+    ctspIfSgtRowStatus        RowStatus
+}
+
+ctspIfSgtValue OBJECT-TYPE
+    SYNTAX          CtsSecurityGroupTag 
+    MAX-ACCESS      read-create 
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the SGT value assigned to the interface."
+    ::= { ctspIfSgtMappingEntry 1 }
+
+ctspIfSgName OBJECT-TYPE
+    SYNTAX          SnmpAdminString 
+    MAX-ACCESS      read-create 
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the Security Group Name assigned to 
+         the interface." 
+    ::= { ctspIfSgtMappingEntry 2 }
+
+ctspIfSgtStorageType OBJECT-TYPE
+    SYNTAX          StorageType
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "The storage type for this conceptual row."
+    DEFVAL          { volatile }
+    ::= { ctspIfSgtMappingEntry 3 }
+
+ctspIfSgtRowStatus OBJECT-TYPE
+    SYNTAX          RowStatus 
+    MAX-ACCESS      read-create 
+    STATUS          current
+    DESCRIPTION
+        "This object is used to manage the creation and deletion
+         of rows in this table." 
+    ::= { ctspIfSgtMappingEntry 4 }
+
+--
+-- ctspIfSgtMappingInfoTable
+--
+ctspIfSgtMappingInfoTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF CtspIfSgtMappingInfoEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "This table contains the Interface-to-SGT mapping status 
+         information in the device."  
+    ::= { ctspIfSgtMappings 2 }
+
+ctspIfSgtMappingInfoEntry OBJECT-TYPE
+    SYNTAX        CtspIfSgtMappingInfoEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "Containing the Interface-to-SGT mapping status of the
+        specified interface."
+    INDEX { ifIndex }  
+    ::= { ctspIfSgtMappingInfoTable 1 }
+
+CtspIfSgtMappingInfoEntry ::= SEQUENCE {
+    ctspL3IPMStatus       INTEGER
+}
+
+ctspL3IPMStatus OBJECT-TYPE
+    SYNTAX          INTEGER {
+                        disabled(1),
+                        active(2),
+                        inactive(3)
+                      }
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the Layer 3 Identity Port Mapping(IPM) 
+         operational mode.
+
+        disabled    - The L3 IPM is not configured. 
+        active      - The L3 IPM is configured for this interface, and
+                      SGT is available.
+        inactive    - The L3 IPM is configured for this interface, and
+                      SGT is unavailable." 
+    ::= { ctspIfSgtMappingInfoEntry 1 }
+
+--
+-- ctspVlanSgtMappingTable
+--
+
+ctspVlanSgtMappingTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF CtspVlanSgtMappingEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "This table contains the Vlan-SGT mapping information
+         in the device."  
+    ::= { ctspVlanSgtMappings 1 }
+
+ctspVlanSgtMappingEntry OBJECT-TYPE
+    SYNTAX        CtspVlanSgtMappingEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "Each row contains the SGT mapping configuration of a particular
+         VLAN.  
+
+         A row instance can be created or removed by setting 
+         ctspVlanSgtRowStatus."
+    INDEX { ctspVlanSgtMappingIndex }
+    ::= { ctspVlanSgtMappingTable 1 }
+
+CtspVlanSgtMappingEntry ::= SEQUENCE {
+    ctspVlanSgtMappingIndex     VlanIndex,
+    ctspVlanSgtMapValue         CtsSecurityGroupTag,
+    ctspVlanSgtStorageType      StorageType,
+    ctspVlanSgtRowStatus        RowStatus
+}
+
+ctspVlanSgtMappingIndex OBJECT-TYPE
+    SYNTAX          VlanIndex
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the VLAN-ID which is used as index."
+    ::= { ctspVlanSgtMappingEntry 1 }
+
+ctspVlanSgtMapValue OBJECT-TYPE
+    SYNTAX          CtsSecurityGroupTag
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the SGT value assigned to the vlan."
+    ::= { ctspVlanSgtMappingEntry 2 }
+
+ctspVlanSgtStorageType OBJECT-TYPE
+    SYNTAX          StorageType
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "The storage type for this conceptual row."
+    DEFVAL          { volatile }
+    ::= { ctspVlanSgtMappingEntry 3 }
+
+ctspVlanSgtRowStatus OBJECT-TYPE
+    SYNTAX          RowStatus
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "This object is used to manage the creation and deletion
+         of rows in this table."
+    ::= { ctspVlanSgtMappingEntry 4 }
+
+--
+--  ctsSgtCaching group
+--
+
+ctspSgtCachingMode OBJECT-TYPE
+    SYNTAX        INTEGER {
+                      none(1),
+                      standAlone(2),
+                      withEnforcement(3),
+                      vlan(4) 
+                  } 
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "This object specifies which SGT-caching mode is configured
+         for  SGT caching capable interfaces at the managed system. 
+
+         'none' indicates that sgt-caching for all Layer 3
+         interfaces (excluding SVIs) is disabled.
+         
+         'standAlone' indicates that SGT-caching is enabled on
+         every TrustSec capable Layer3 interface (excluding SVIs)
+         in the device.
+         
+         'withEnforcement' indicates that SGT-caching is enabled on
+         interfaces that have RBAC enforcement enabled.
+         
+         'vlan' indicates that SGT-caching is enabled on
+         the VLANs specified by ctspSgtCachingVlansfFirst2K &
+         ctspSgtCachingVlansSecond2K"
+    ::= { ctspSgtCaching 1 } 
+
+ctspSgtCachingVlansFirst2K OBJECT-TYPE
+    SYNTAX          Cisco2KVlanList
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "A string of octets containing one bit per VLAN for VLANs 0 to
+        2047.  
+
+        If the bit corresponding to a VLAN is set to 1, it indicates 
+        SGT-caching is enabled on the VLAN.
+
+        If the bit corresponding to a VLAN is set to 0, it indicates
+        SGT-caching is disabled on the VLAN."
+    ::= { ctspSgtCaching 2 } 
+
+ctspSgtCachingVlansSecond2K OBJECT-TYPE
+    SYNTAX          Cisco2KVlanList
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "A string of octets containing one bit per VLAN for VLANs 2048
+        to 4095.
+
+        If the bit corresponding to a VLAN is set to 1, it indicates 
+        SGT-caching is enabled on the VLAN.
+
+        If the bit corresponding to a VLAN is set to 0, it indicates
+        SGT-caching is disabled on the VLAN."
+    ::= { ctspSgtCaching 3 } 
+
+
+-- Notifications Control
+ctspPeerPolicyUpdatedNotifEnable OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies whether the system generates 
+        ctspPeerPolicyUpdatedNotif. 
+
+        A value of 'false' will prevent
+        ctspPeerPolicyUpdatedNotif notifications 
+        from being generated by this system." 
+
+    ::= { ctspNotifsControl 1 }
+
+ctspAuthorizationSgaclFailNotifEnable OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current 
+    DESCRIPTION
+        "This object specifies whether this system generates the 
+        ctspAuthorizationSgaclFailNotif.
+    
+        A value of 'false' will prevent  
+        ctspAuthorizationSgaclFailNotif notifications 
+        from being generated by this system."
+    ::= { ctspNotifsControl 2 }
+
+-- Notifications Only Info
+
+ctspOldPeerSgt OBJECT-TYPE
+    SYNTAX         CtsSecurityGroupTag 
+    MAX-ACCESS     accessible-for-notify
+    STATUS         current
+    DESCRIPTION
+        "This object provides the old sgt value for  
+        ctspPeerPolicyUpdatedNotif, i.e., the  
+        sgt value before the policy is updated."
+    ::= { ctspNotifsOnlyInfo 1 }
+
+
+ctspAuthorizationSgaclFailReason OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    downloadACE(1),
+                    downloadSrc(2),
+                    downloadDst(3),
+                    installPolicy(4),
+                    installPolicyStandby(5),
+                    installForIP(6),
+                    uninstall(7)
+                }         
+    MAX-ACCESS     accessible-for-notify
+    STATUS         current
+    DESCRIPTION
+        "This object indicates the reason of failure during SGACL 
+        acquisitions, installations and uninstallations, which is 
+        associated with ctspAuthorizationSgaclFailNotif;
+ 
+        'downloadACE' 
+          - Failure during downloading ACE in SGACL acquisition. 
+        'downloadSrc' 
+          - Failure during downloading source list in SGACL acquisition.
+        'downloadDst' 
+          - Failure during downloading destination list in 
+            SGACL acquisition.
+        'installPolicy' 
+          - Failure during SGACL policy installation
+        'installPolicyStandby' 
+          - Failure during SGACL policy installation on standby
+        'installForIP' 
+          - Failure during SGACL installation for specific IP type.
+        'uninstall' -  Failure during SGACL uninstallation."
+    ::= { ctspNotifsOnlyInfo 2 }
+
+ctspAuthorizationSgaclFailInfo OBJECT-TYPE
+    SYNTAX         SnmpAdminString
+    MAX-ACCESS     accessible-for-notify
+    STATUS         current
+    DESCRIPTION
+        "This object provides additional information about 
+        authorization SGACL failure, which is associated with 
+        ctspAuthorizationSgaclFailNotif."
+    ::= { ctspNotifsOnlyInfo 3 }
+
+-- Notifications
+
+ctspPeerPolicyUpdatedNotif NOTIFICATION-TYPE
+    OBJECTS         {
+                        ctspOldPeerSgt,
+                        ctspPeerSgt
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A ctspPeerPolicyUpdatedNotif is generated when 
+        the SGT value of a peer device has been updated."
+   ::= { ciscoTrustSecPolicyMIBNotifs 1 }
+
+ctspAuthorizationSgaclFailNotif NOTIFICATION-TYPE
+    OBJECTS         {
+                        ctspAuthorizationSgaclFailReason,
+                        ctspAuthorizationSgaclFailInfo
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A ctspAuthorizationSgaclFailNotif is generated 
+        when the authorization of SGACL fails."
+   ::= { ciscoTrustSecPolicyMIBNotifs 2 }
+
+--
 -- Conformance
 --
 
@@ -1617,7 +2138,7 @@ ciscoTrustSecPolicyMIBGroups
     OBJECT IDENTIFIER ::= { ciscoTrustSecPolicyMIBConformance 2 }
 
 ciscoTrustSecPolicyMIBCompliance MODULE-COMPLIANCE
-    STATUS  current
+    STATUS  deprecated
     DESCRIPTION
         "The compliance statement for the CISCO-TRUSTSEC-POLICY-MIB"
     MODULE
@@ -1819,8 +2340,339 @@ ciscoTrustSecPolicyMIBCompliance MODULE-COMPLIANCE
     MIN-ACCESS   read-only
     DESCRIPTION
         "Write access is not required."
-
     ::= { ciscoTrustSecPolicyMIBCompliances 1 }
+
+ciscoTrustSecPolicyMIBComplianceRev2 MODULE-COMPLIANCE
+    STATUS  current
+    DESCRIPTION
+        "The compliance statement for the CISCO-TRUSTSEC-POLICY-MIB"
+    MODULE
+    MANDATORY-GROUPS { 
+         ctspGlobalSgaclEnforcementGroup,
+         ctspOperSgaclMappingGroup,
+         ctspDownloadedSgaclMappingGroup,
+         ctspIpSwStatisticsGroup,
+         ctspDefSwStatisticsGroup
+    }
+
+    GROUP ctspVlanConfigGroup 
+    DESCRIPTION
+        "This group is mandatory only for platforms which support
+         SGACL enforcement for VLAN." 
+
+    GROUP ctspConfigSgaclMappingGroup 
+    DESCRIPTION
+        "This group is mandatory only for platforms which support
+         statically configured SGACLs in the device." 
+
+    GROUP ctspIpHwStatisticsGroup 
+    DESCRIPTION
+        "This group is mandatory only for platforms which support
+         hardware statistics counters for unicast IP traffic 
+         subjected to SGACL enforcement." 
+
+    GROUP ctspDefHwStatisticsGroup 
+    DESCRIPTION
+        "This group is mandatory only for platforms which support
+         hardware statistics counters for unicast IP traffic 
+         subjected to default unicast policy enforcement." 
+
+    GROUP ctspSgaclIpv4DropNetflowMonitorGroup 
+    DESCRIPTION
+        "This group is mandatory only for platforms which support
+         netflow monitor for IPv4 traffic drop packet due to SGACL
+         enforcement information in the device." 
+
+    GROUP ctspSgaclIpv6DropNetflowMonitorGroup 
+    DESCRIPTION
+        "This group is mandatory only for platforms which support
+         netflow monitor for IPv6 traffic drop packet due to SGACL
+         enforcement information in the device." 
+
+    GROUP ctspPeerPolicyGroup 
+    DESCRIPTION
+        "This group is mandatory only for platforms which support
+         peer policies information in the device." 
+
+    GROUP ctspPeerPolicyActionGroup
+    DESCRIPTION
+        "This group is mandatory only for platforms which support
+         refresh of all peer policies information in the device."
+
+    GROUP ctspLayer3TransportGroup 
+    DESCRIPTION
+        "This group is mandatory only for platforms which support
+         SGT propagation along Layer 3 traffic to network that is
+         not capable of TrustSec feature." 
+
+    GROUP ctspIpSgtMappingGroup 
+    DESCRIPTION
+        "This group is mandatory only for platforms which support
+         IP-to-SGT mapping information."
+
+    GROUP ctspIfL3PolicyConfigGroup
+    DESCRIPTION
+        "This group is mandatory only for platforms which support
+         Layer3 Transport policy enforcement on capable interface." 
+
+    GROUP ctspSgtPolicyGroup 
+    DESCRIPTION
+        "This group is mandatory only for platforms which support
+         SGT policies information in the device." 
+
+    GROUP ctspIfSgtMappingGroup 
+    DESCRIPTION
+        "This group is mandatory only for platforms which support
+         Interface-to-SGT mapping information."
+
+    GROUP ctspVlanSgtMappingGroup 
+    DESCRIPTION
+        "This group is mandatory only for platforms which support
+         Vlan-to-SGT mapping information."
+
+    GROUP ctspSgtCachingGroup 
+    DESCRIPTION
+        "This group is mandatory only for platforms which support
+         SGT-Caching feature."
+
+    GROUP ctspSgaclMonitorGroup 
+    DESCRIPTION
+        "This group is mandatory only for platforms which support
+         SGACL monitor feature."
+
+    GROUP ctspSgaclMonitorStatisticGroup 
+    DESCRIPTION
+        "This group is mandatory only for platforms which support
+         SGACL monitor statistic."
+
+    GROUP ctspNotifCtrlGroup
+    DESCRIPTION
+        "This group is mandatory only for platforms which support 
+        cisco TrustSec policy notifications."
+
+    GROUP ctspNotifGroup    
+    DESCRIPTION
+        "This group is mandatory only for platforms which support 
+        cisco TrustSec policy notifications."
+
+    GROUP  ctspNotifInfoGroup
+    DESCRIPTION
+        "This group is mandatory only for platforms which support 
+        cisco TrustSec policy notifications."
+
+   
+    OBJECT          ctspVlanConfigSgaclEnforcement
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Support for read-create access is not required."
+
+    OBJECT          ctspVlanConfigVrfName
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Support for read-create access is not required."
+
+    OBJECT      ctspVlanConfigStorageType
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Support for read-create access is not required."
+
+    OBJECT      ctspVlanConfigRowStatus 
+    SYNTAX          INTEGER { active(1) }
+    WRITE-SYNTAX    INTEGER { createAndGo(4), destroy(6) }
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Support for 'createAndWait' is not required."
+
+    OBJECT      ctspConfigSgaclMappingStorageType
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Support for read-create access is not required."
+
+    OBJECT      ctspConfigSgaclMappingRowStatus 
+    SYNTAX          INTEGER { active(1) }
+    WRITE-SYNTAX    INTEGER { createAndGo(4), destroy(6) }
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Support for 'createAndWait' is not required."
+
+    OBJECT       ctspSgaclEnforcementEnable  
+    MIN-ACCESS   read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT       ctspSgaclIpv4DropNetflowMonitor   
+    MIN-ACCESS   read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT       ctspSgaclIpv6DropNetflowMonitor 
+    MIN-ACCESS   read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT       ctspConfigSgaclMappingSgaclName 
+    MIN-ACCESS   read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT       ctspDefConfigIpv4Sgacls 
+    MIN-ACCESS   read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT       ctspDefConfigIpv6Sgacls 
+    MIN-ACCESS   read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT       ctspLayer3PolicyLocalConfig
+    MIN-ACCESS   read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT      ctspIpSgtStorageType
+    MIN-ACCESS  read-only
+    DESCRIPTION
+        "Support for read-create access is not required."
+
+    OBJECT      ctspIpSgtRowStatus 
+    SYNTAX          INTEGER { active(1) }
+    WRITE-SYNTAX    INTEGER { createAndGo(4), destroy(6) }
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Support for 'createAndWait' is not required."
+
+    OBJECT       ctspIpSgtValue
+    MIN-ACCESS   read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT       ctspIpSgtSource
+    MIN-ACCESS   read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT       ctspIfL3Ipv4PolicyEnabled
+    MIN-ACCESS   read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT       ctspIfL3Ipv6PolicyEnabled 
+    MIN-ACCESS   read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT       ctspAllPeerPolicyAction 
+    MIN-ACCESS   read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT       ctspPeerPolicyAction 
+    MIN-ACCESS   read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT       ctspAllSgtPolicyAction 
+    MIN-ACCESS   read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT       ctspDownloadedSgtPolicyAction 
+    MIN-ACCESS   read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT       ctspDownloadedDefSgtPolicyAction
+    MIN-ACCESS   read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT       ctspDefConfigIpv4SgaclsMonitor   
+    MIN-ACCESS   read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT       ctspDefConfigIpv6SgaclsMonitor   
+    MIN-ACCESS   read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT       ctspSgaclMonitorEnable   
+    MIN-ACCESS   read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT       ctspIfSgtValue
+    MIN-ACCESS   read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT       ctspIfSgName
+    MIN-ACCESS   read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT      ctspIfSgtStorageType
+    MIN-ACCESS  read-only
+    DESCRIPTION
+        "Read-create access is not required."
+
+    OBJECT      ctspIfSgtRowStatus 
+    SYNTAX          INTEGER { active(1) }
+    WRITE-SYNTAX    INTEGER { createAndGo(4), destroy(6) }
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Read-create access is not required."
+
+    OBJECT       ctspVlanSgtMapValue
+    MIN-ACCESS   read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT      ctspVlanSgtStorageType
+    MIN-ACCESS  read-only
+    DESCRIPTION
+        "Read-create access is not required."
+
+    OBJECT      ctspVlanSgtRowStatus 
+    SYNTAX          INTEGER { active(1) }
+    WRITE-SYNTAX    INTEGER { createAndGo(4), destroy(6) }
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Read-create access is not required."
+
+    OBJECT       ctspConfigSgaclMonitor
+    MIN-ACCESS   read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT       ctspSgtCachingMode  
+    MIN-ACCESS   read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT       ctspSgtCachingVlansFirst2K
+    MIN-ACCESS   read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT       ctspSgtCachingVlansSecond2K
+    MIN-ACCESS   read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT       ctspPeerPolicyUpdatedNotifEnable
+    MIN-ACCESS   read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT       ctspAuthorizationSgaclFailNotifEnable
+    MIN-ACCESS   read-only
+    DESCRIPTION
+        "Write access is not required."
+
+
+    ::= { ciscoTrustSecPolicyMIBCompliances 2 }
 
 --
 -- Units of Conformance
@@ -1926,8 +2778,9 @@ ctspIpSwStatisticsGroup OBJECT-GROUP
     }
     STATUS current
     DESCRIPTION
-        "A collection of objects which provides software statistics 
-        counters for unicast IP traffic subjected to SGACL enforcement." 
+        "A collection of objects which provides software
+        statistics counters for unicast IP traffic subjected
+        to SGACL enforcement." 
     ::= { ciscoTrustSecPolicyMIBGroups 8 }
 
 ctspIpHwStatisticsGroup OBJECT-GROUP
@@ -1937,8 +2790,9 @@ ctspIpHwStatisticsGroup OBJECT-GROUP
     }
     STATUS current
     DESCRIPTION
-        "A collection of objects which provides hardware statistics
-        counters for unicast IP traffic subjected to SGACL enforcement." 
+        "A collection of objects which provides hardware
+        statistics counters for unicast IP traffic subjected
+        to SGACL enforcement." 
     ::= { ciscoTrustSecPolicyMIBGroups 9 }
 
 ctspDefSwStatisticsGroup OBJECT-GROUP
@@ -1948,9 +2802,9 @@ ctspDefSwStatisticsGroup OBJECT-GROUP
     }
     STATUS current
     DESCRIPTION
-        "A collection of objects which provides software statistics 
-        counters for unicast IP traffic subjected to unicast default
-        policy enforcement." 
+        "A collection of objects which provides software
+        statistics counters for unicast IP traffic subjected
+        to unicast default policy enforcement." 
     ::= { ciscoTrustSecPolicyMIBGroups 10 }
 
 ctspDefHwStatisticsGroup OBJECT-GROUP
@@ -1960,9 +2814,9 @@ ctspDefHwStatisticsGroup OBJECT-GROUP
     }
     STATUS current
     DESCRIPTION
-        "A collection of objects which provides hardware statistics 
-        counters for unicast IP traffic subjected to unicast default
-        policy enforcement." 
+        "A collection of objects which provides hardware
+        statistics counters for unicast IP traffic subjected to
+        unicast default policy enforcement." 
     ::= { ciscoTrustSecPolicyMIBGroups 11 }
 
 ctspPeerPolicyActionGroup OBJECT-GROUP
@@ -1998,9 +2852,9 @@ ctspLayer3TransportGroup OBJECT-GROUP
     }
     STATUS current
     DESCRIPTION
-        "A collection of objects which provides managed information
-         regarding the SGT propagation along with Layer 3 traffic in
-         the device." 
+        "A collection of objects which provides managed
+        information regarding the SGT propagation along with
+        Layer 3 traffic in the device." 
     ::= { ciscoTrustSecPolicyMIBGroups 14 }
 
 ctspIfL3PolicyConfigGroup OBJECT-GROUP
@@ -2010,9 +2864,9 @@ ctspIfL3PolicyConfigGroup OBJECT-GROUP
     }
     STATUS current
     DESCRIPTION
-        "A collection of objects which provides managed information
-         for Layer3 Tranport policy enforcement on capable interface 
-         in the device." 
+        "A collection of objects which provides managed
+        information for Layer3 Tranport policy enforcement on
+        capable interface in the device." 
     ::= { ciscoTrustSecPolicyMIBGroups 15 }
 
 ctspIpSgtMappingGroup OBJECT-GROUP
@@ -2024,8 +2878,8 @@ ctspIpSgtMappingGroup OBJECT-GROUP
     }
     STATUS current
     DESCRIPTION
-        "A collection of objects which provides managed information
-         regarding IP-to-Sgt mapping in the device." 
+        "A collection of objects which provides managed
+        information regarding IP-to-Sgt mapping in the device." 
     ::= { ciscoTrustSecPolicyMIBGroups 16 }
 
 ctspSgtPolicyGroup OBJECT-GROUP
@@ -2046,7 +2900,120 @@ ctspSgtPolicyGroup OBJECT-GROUP
         information in the device." 
     ::= { ciscoTrustSecPolicyMIBGroups 17 }
 
+ctspIfSgtMappingGroup OBJECT-GROUP
+    OBJECTS {
+        ctspIfSgtValue,
+        ctspIfSgName,
+        ctspL3IPMStatus,
+        ctspIfSgtStorageType,
+        ctspIfSgtRowStatus
+    }
+    STATUS current
+    DESCRIPTION
+        "A collection of objects which provides managed
+        information regarding Interface-to-Sgt mapping in
+        the device."
+    ::= { ciscoTrustSecPolicyMIBGroups 18 }
+
+ctspVlanSgtMappingGroup OBJECT-GROUP
+    OBJECTS {
+        ctspVlanSgtMapValue,
+        ctspVlanSgtStorageType,
+        ctspVlanSgtRowStatus
+    }
+    STATUS current
+    DESCRIPTION
+        "A collection of objects which provides sgt mapping
+        information for the IP traffic  in the specified Vlan."
+    ::= { ciscoTrustSecPolicyMIBGroups 19 }
+
+ctspSgtCachingGroup OBJECT-GROUP
+    OBJECTS {
+        ctspSgtCachingMode,
+        ctspSgtCachingVlansFirst2K,
+        ctspSgtCachingVlansSecond2K
+    }
+    STATUS current
+    DESCRIPTION
+        "A collection of objects which provides sgt Caching
+        information."
+    ::= { ciscoTrustSecPolicyMIBGroups 20 }
+
+ctspSgaclMonitorGroup OBJECT-GROUP
+    OBJECTS {
+        ctspSgaclMonitorEnable,
+        ctspConfigSgaclMonitor,
+        ctspDefConfigIpv4SgaclsMonitor,
+        ctspDefConfigIpv6SgaclsMonitor,
+        ctspDownloadedSgaclMonitor,
+        ctspDefDownloadedSgaclMonitor,
+        ctspOperSgaclMonitor,
+        ctspDefOperSgaclMonitor
+    }
+    STATUS current
+    DESCRIPTION
+        "A collection of objects which provides SGACL monitor
+        information."
+    ::= { ciscoTrustSecPolicyMIBGroups 21 }
+
+ctspSgaclMonitorStatisticGroup OBJECT-GROUP
+    OBJECTS {
+        ctspStatsIpSwMonitorPkts,
+        ctspStatsIpHwMonitorPkts,
+        ctspDefIpSwMonitorPkts,
+        ctspDefIpHwMonitorPkts
+    }
+    STATUS current
+    DESCRIPTION
+        "A collection of objects which provides monitor statistics
+        counters for unicast IP traffic subjected to SGACL
+        enforcement." 
+    ::= { ciscoTrustSecPolicyMIBGroups 22 }
+
+ctspNotifCtrlGroup OBJECT-GROUP
+    OBJECTS {
+        ctspPeerPolicyUpdatedNotifEnable,
+        ctspAuthorizationSgaclFailNotifEnable
+    }
+    STATUS current
+    DESCRIPTION
+    "A collection of objects providing notification control
+    for TrustSec policy notifications."
+
+    ::= { ciscoTrustSecPolicyMIBGroups 23 }
+
+
+ctspNotifGroup NOTIFICATION-GROUP
+     NOTIFICATIONS {
+        ctspPeerPolicyUpdatedNotif,
+        ctspAuthorizationSgaclFailNotif
+    }
+    STATUS current
+    DESCRIPTION
+    "A collection of notifications for TrustSec policy."
+    ::= { ciscoTrustSecPolicyMIBGroups 24 }
+
+        
+ctspNotifInfoGroup  OBJECT-GROUP
+    OBJECTS {
+        ctspOldPeerSgt,
+        ctspAuthorizationSgaclFailReason,
+        ctspAuthorizationSgaclFailInfo
+    }
+    STATUS current
+    DESCRIPTION
+    "A collection of objects providing the variable binding for 
+    TrustSec policy notifications."    
+    ::= { ciscoTrustSecPolicyMIBGroups 25 }
 END
+
+
+
+
+
+
+
+
 
 
 

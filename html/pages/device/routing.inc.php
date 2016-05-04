@@ -2,12 +2,12 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -22,7 +22,7 @@ $type_text['ipsec_tunnels'] = "IPSEC Tunnels";
 $type_text['loadbalancer_rservers'] = "Rservers";
 $type_text['loadbalancer_vservers'] = "Serverfarms";
 
-$pagetitle[] = "Routing";
+$page_title[] = "Routing";
 
 $navbar = array();
 $navbar['brand'] = "Routing";

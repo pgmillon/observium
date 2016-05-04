@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -42,7 +42,8 @@
 #CISCO-REMOTE-ACCESS-MONITOR-MIB::crasWebvpnCumulateSessions.0 = Counter32: 29 Sessions
 #CISCO-REMOTE-ACCESS-MONITOR-MIB::crasWebvpnPeakConcurrentSessions.0 = Gauge32: 9 Sessions
 
-if ($device['os_group'] == "cisco")
+// FIXME. Candidate for migrate to graphs module with table_collect()
+if (is_device_mib($device, 'CISCO-REMOTE-ACCESS-MONITOR-MIB'))
 {
   $oid_list = "crasEmailNumSessions.0 crasIPSecNumSessions.0 crasL2LNumSessions.0 crasLBNumSessions.0 crasSVCNumSessions.0 crasWebvpnNumSessions.0";
   $data = snmp_get_multi($device, $oid_list, "-OUQs", "CISCO-REMOTE-ACCESS-MONITOR-MIB");

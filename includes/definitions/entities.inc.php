@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage definitions
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -80,6 +80,29 @@ $config['entities']['port']['disable_field']          = "disable";
 $config['entities']['port']['deleted_field']          = "deleted";
 $config['entities']['port']['icon']                   = "oicon-network-ethernet";
 $config['entities']['port']['graph']                  = array('type' => 'port_bits', 'id' => '@port_id');
+
+$entity = 'wifi_wlan';
+$config['entities'][$entity]['id_field']      = "wlan_id";
+$config['entities'][$entity]['name_field']    = "wlan_name";
+$config['entities'][$entity]['table']         = "wifi_wlans";
+$config['entities'][$entity]['ignore_field']  = "wlan_ignore";
+$config['entities'][$entity]['icon']          = "oicon-network-wireless";
+$config['entities'][$entity]['graph']         = NULL;
+
+$entity = 'sla';
+$config['entities'][$entity]['id_field']      = "sla_id";
+$config['entities'][$entity]['name_field']    = "sla_tag";
+$config['entities'][$entity]['table']         = "slas";
+//$config['entities'][$entity]['ignore_field']  = "sla_ignore"; // not exist
+$config['entities'][$entity]['icon']          = "oicon-chart-up";
+$config['entities'][$entity]['graph']         = NULL;
+
+$config['entities']['netscaler_svc']['id_field']      = "svc_id";
+$config['entities']['netscaler_svc']['name_field']    = "svc_label";
+$config['entities']['netscaler_svc']['table']         = "netscaler_services";
+$config['entities']['netscaler_svc']['ignore_field']  = "svc_ignore";
+$config['entities']['netscaler_svc']['icon']          = "oicon-service-bell";
+$config['entities']['netscaler_svc']['graph']         = array('type' => 'netscalersvc_bits', 'id' => '@svc_id');
 
 $config['default']['icon']                            = "oicon-circle-metal";
 

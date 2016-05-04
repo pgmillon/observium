@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -52,7 +52,7 @@ foreach (dbFetchRows("SELECT * FROM toner where device_id = ?", array($device['d
     }
   }
 
-  $hostname = gethostbyid($toner['device_id']);
+  $hostname = get_device_by_device_id($toner['device_id']);
 
   $descr = rrdtool_escape($toner['toner_descr'], 16);
   $rrd_filename = get_rrd_path($device, "toner-" . $toner['toner_index'] . ".rrd");

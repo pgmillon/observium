@@ -9,33 +9,19 @@
  * @package    observium
  * @subpackage poller
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 chdir(dirname($argv[0]));
 
+include_once("includes/defaults.inc.php");
+include_once("config.php");
+
+// Get options before definitions!
 $options = getopt("h:i:m:n:dqrV");
 
-if (isset($options['d']))
-{
-  echo("DEBUG!\n");
-  $debug = TRUE;
-  ini_set('display_errors', 1);
-  ini_set('display_startup_errors', 1);
-  ini_set('log_errors', 1);
-#  ini_set('error_reporting', E_ALL ^ E_NOTICE);
-} else {
-  $debug = FALSE;
-#  ini_set('display_errors', 0);
-  ini_set('display_startup_errors', 0);
-  ini_set('log_errors', 0);
-#  ini_set('error_reporting', 0);
-}
-
-include("includes/defaults.inc.php");
-include("config.php");
-include("includes/definitions.inc.php");
+include_once("includes/definitions.inc.php");
 include("includes/functions.inc.php");
 include("includes/polling/functions.inc.php");
 
@@ -48,11 +34,13 @@ $poller_start = utime();
 if (isset($options['V']))
 {
   print_message(OBSERVIUM_PRODUCT." ".OBSERVIUM_VERSION);
+  if (is_array($options['V'])) { print_versions(); }
   exit;
 }
 if (!isset($options['q']))
 {
   print_message("%g".OBSERVIUM_PRODUCT." ".OBSERVIUM_VERSION."\n%WPoller%n\n", 'color');
+  if (OBS_DEBUG) { print_versions(); }
 }
 
 if ($options['h'] == "odd")      { $options['n'] = "1"; $options['i'] = "2"; }
@@ -60,24 +48,25 @@ elseif ($options['h'] == "even") { $options['n'] = "0"; $options['i'] = "2"; }
 elseif ($options['h'] == "all")  { $where = " "; $doing = "all"; }
 elseif ($options['h'])
 {
+  $params = array();
   if (is_numeric($options['h']))
   {
-    # FIXME dbFacile: should probably put ? in the sql and add the parameter to an array passed below.
-    $where = "AND `device_id` = '".$options['h']."'";
+    $where = "AND `device_id` = ?";
     $doing = $options['h'];
+    $params[] = $options['h'];
   }
   else
   {
-    # FIXME dbFacile: should probably put ? in the sql and add the parameter to an array passed below.
-    $where = "AND `hostname` LIKE '".str_replace('*','%',mres($options['h']))."'";
+    $where = "AND `hostname` LIKE ?";
     $doing = $options['h'];
+    $params[] = str_replace('*','%', $options['h']);
   }
 }
 
 if (isset($options['i']) && $options['i'] && isset($options['n']))
 {
   $where = true; // FIXME
-  # FIXME dbFacile: should probably put ? in the sql and add the parameter to an array passed below.
+
   $query = 'SELECT `device_id` FROM (SELECT @rownum :=0) r,
               (
                 SELECT @rownum := @rownum +1 AS rownum, `device_id`
@@ -85,8 +74,9 @@ if (isset($options['i']) && $options['i'] && isset($options['n']))
                 WHERE `disabled` = 0
                 ORDER BY `device_id` ASC
               ) temp
-            WHERE MOD(temp.rownum, '.mres($options['i']).') = '.mres($options['n']).';';
+            WHERE MOD(temp.rownum, '.$options['i'].') = ?;';
   $doing = $options['n'] ."/".$options['i'];
+  $params[] = $options['n'];
 }
 
 if (!$where)
@@ -115,6 +105,7 @@ OPTIONS:
 DEBUGGING OPTIONS:
  -r                                          Do not create or update RRDs
  -d                                          Enable debugging output.
+ -dd                                         More verbose debugging output.
  -m                                          Specify module(s) (separated by commas) to be run.
 
 %rInvalid arguments!%n", 'color', FALSE);
@@ -135,9 +126,9 @@ if (!isset($query))
   $query = "SELECT `device_id` FROM `devices` WHERE `disabled` = 0 $where ORDER BY `device_id` ASC";
 }
 
-foreach (dbFetch($query) as $device)
+foreach (dbFetch($query, $params) as $device)
 {
-  $device = dbFetchRow("SELECT * FROM `devices` WHERE `device_id` = '".$device['device_id']."'");
+  $device = dbFetchRow("SELECT * FROM `devices` WHERE `device_id` = ?", array($device['device_id']));
   poll_device($device, $options);
   $polled_devices++;
 }
@@ -161,6 +152,7 @@ if (!isset($options['q']))
   {
     print_debug("NOTE, \$config['snmp']['hide_auth'] sets as TRUE, snmp community and snmp v3 auth hidden from debug output.");
   }
+  print_message('Memory usage: '.formatStorage(memory_get_usage(TRUE), 2, 4).' (peak: '.formatStorage(memory_get_peak_usage(TRUE), 2, 4).')');
   print_message('MySQL: Cell['.($db_stats['fetchcell']+0).'/'.round($db_stats['fetchcell_sec']+0,2).'s]'.
                        ' Row['.($db_stats['fetchrow']+0). '/'.round($db_stats['fetchrow_sec']+0,2).'s]'.
                       ' Rows['.($db_stats['fetchrows']+0).'/'.round($db_stats['fetchrows_sec']+0,2).'s]'.

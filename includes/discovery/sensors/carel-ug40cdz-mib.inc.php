@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -44,7 +44,7 @@ $temperatures = array(
 
 foreach ($humidities as $humidity)
 {
-  $value = snmp_get($device, $humidity['mib'], "-OqvU") * $humidity['scale'];
+  $value = snmp_get($device, $humidity['mib'], "-OqvU");
 
   if (is_numeric($value) && $value != 0)
   {
@@ -64,7 +64,7 @@ smHumidSetp.0 = INTEGER: 35 rH%
 
 foreach ($temperatures as $temperature)
 {
-  $value = snmp_get($device, $temperature['mib'], "-OqvU") * $temperature['scale'];
+  $value = snmp_get($device, $temperature['mib'], "-OqvU");
 
   if (is_numeric($value) && $value != 0)
   {

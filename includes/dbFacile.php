@@ -38,37 +38,61 @@ $db_stats = array('insert'    => 0, 'insert_sec'    => 0,
  * */
 function dbQuery($sql, $parameters = array())
 {
-  global $fullSql, $debug;
+  global $fullSql;
 
   $fullSql = dbMakeQuery($sql, $parameters);
-  if ($debug)
+
+  if (OBS_DEBUG)
   {
-    if ($GLOBALS['cli'])
+    // Pre query debug output
+    if (is_cli())
     {
-      print_message("\nSQL[%y".$fullSql."%n] ", 'color');
+      print_message(PHP_EOL.'SQL[%y'.$fullSql.'%n]', 'console', FALSE);
     } else {
       print_sql($fullSql);
     }
   }
 
-  if ($GLOBALS['config']['profile_sql'])
+  if (OBS_DEBUG || $GLOBALS['config']['profile_sql'])
   {
     $time_start = microtime(true);
   }
 
   $result = mysql_query($fullSql); // sets $this->result
 
-  if ($GLOBALS['config']['profile_sql'])
+  if (OBS_DEBUG || $GLOBALS['config']['profile_sql'])
   {
-    $time_end = microtime(true);
-    #fwrite($this->logFile, date('Y-m-d H:i:s') . "\n" . $fullSql . "\n" . number_format($time_end - $time_start, 8) . " seconds\n\n");
-    $GLOBALS['sql_profile'][] = array('sql' => $fullSql, 'time' => number_format($time_end - $time_start, 8));
+    $runtime = number_format(microtime(true) - $time_start, 8);
+    $debug_msg .= 'RUNTIME['.($runtime > 0.05 ? '%r' : '%g').$runtime.'s%n]';
+    if ($GLOBALS['config']['profile_sql'])
+    {
+      #fwrite($this->logFile, date('Y-m-d H:i:s') . "\n" . $fullSql . "\n" . number_format($time_end - $time_start, 8) . " seconds\n\n");
+      $GLOBALS['sql_profile'][] = array('sql' => $fullSql, 'time' => $runtime);
+    }
   }
 
-  if ($result === false && (error_reporting() & 1))
+  if (OBS_DEBUG)
   {
-    // aye. this gets triggers on duplicate Contact insert
-    //trigger_error('QDB - Error in query: ' . $fullSql . ' : ' . mysql_error(), E_USER_WARNING);
+    if ($result === FALSE && (error_reporting() & 1))
+    {
+      // aye. this gets triggers on duplicate Contact insert
+      //trigger_error('QDB - Error in query: ' . $fullSql . ' : ' . mysql_error(), E_USER_WARNING);
+      $error_msg = 'Error in query: (' . mysql_errno() . ') ' . mysql_error();
+      $debug_msg .= PHP_EOL . 'ERROR[%r'.$error_msg.'%n]';
+    }
+
+    if (is_cli())
+    {
+      if (OBS_DEBUG > 1)
+      {
+        $rows = mysql_affected_rows();
+        $debug_msg = 'ROWS['.($rows < 1 ? '%r' : '%g').$rows.'%n]'.PHP_EOL.$debug_msg;
+      }
+      // After query debug output for cli
+      print_message($debug_msg, 'console', FALSE);
+    } else {
+      print_error($error_msg);
+    }
   }
 
   return $result;
@@ -116,7 +140,7 @@ function dbInsert($data, $table)
   #logfile($fullSql);
 
   $time_end = microtime(true);
-  $GLOBALS['db_stats']['insert_sec'] += ($time_end - $time_start);
+  $GLOBALS['db_stats']['insert_sec'] += number_format($time_end - $time_start, 8);
   $GLOBALS['db_stats']['insert']++;
 
   return $id;
@@ -204,26 +228,23 @@ function dbFetchRows($sql, $parameters = array())
   $time_start = microtime(true);
   $result = dbQuery($sql, $parameters);
 
+  $rows = array();
   if (mysql_num_rows($result) > 0)
   {
-    $rows = array();
     while ($row = mysql_fetch_assoc($result))
     {
       $rows[] = $row;
     }
     mysql_free_result($result);
-    return $rows;
+
+    $time_end = microtime(true);
+    $GLOBALS['db_stats']['fetchrows_sec'] += number_format($time_end - $time_start, 8);
+    $GLOBALS['db_stats']['fetchrows']++;
   }
-
-  mysql_free_result($result);
-
-  $time_end = microtime(true);
-  $GLOBALS['db_stats']['fetchrows_sec'] += round($time_end - $time_start,4);
-  $GLOBALS['db_stats']['fetchrows']++;
 
   // no records, thus return empty array
   // which should evaluate to false, and will prevent foreach notices/warnings
-  return array();
+  return $rows;
 }
 /*
  * This is intended to be the method used for large result sets.
@@ -266,7 +287,7 @@ function dbFetchRow($sql = null, $parameters = array())
     return null;
   }
 
-  $time_start = microtime(true);
+  //$time_start = microtime(true);
 }
 
 /*
@@ -288,10 +309,6 @@ function dbFetchCell($sql, $parameters = array())
 
     return array_shift($row); // shift first field off first row
   }
-    //$time_end = microtime(true);
-
-    //$GLOBALS['db_stats']['fetchcell_sec'] += number_format($time_end - $time_start, 8);
-    //$GLOBALS['db_stats']['fetchcell']++;
 
   return null;
 }

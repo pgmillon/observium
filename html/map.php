@@ -8,27 +8,26 @@
  * @package    observium
  * @subpackage map
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
-
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-ini_set('log_errors', 1);
-ini_set('error_reporting', E_ALL);
 
 $links = 1;
 
 include_once("../includes/defaults.inc.php");
 include_once("../config.php");
 include_once("../includes/definitions.inc.php");
-include_once("../includes/functions.inc.php");
-include_once("../includes/dbFacile.php");
-include_once("includes/functions.inc.php");
-include_once("includes/authenticate.inc.php");
+include($config['install_dir'] . "/includes/functions.inc.php");
+include($config['html_dir'] . "/includes/functions.inc.php");
+include($config['html_dir'] . "/includes/authenticate.inc.php");
+
+if ($_SESSION['authenticated'])
+{
+  // Do various queries which we use in multiple places
+  include($config['html_dir'] . "/includes/cache-data.inc.php");
+}
 
 $vars = get_vars('GET');
-$debug = $vars['debug']; // Fill debug variable so we also get dbFacile debugging output
 
 if (strpos($_SERVER['REQUEST_URI'], "anon")) { $anon = 1; }
 
@@ -48,7 +47,7 @@ if (is_array($config['branding']))
   }
 }
 
-if (isset($vars['device']) && is_numeric($vars['device'])) { $where = "WHERE D.`device_id` = ".$vars['device']; } else { $where = ""; }
+if (isset($vars['device']) && is_numeric($vars['device'])) { $where = "WHERE D.`device_id` = ".$vars['device']; } else { $where = "WHERE 1"; }
 
 // FIXME this shit probably needs tidied up.
 
@@ -65,15 +64,11 @@ if (isset($vars['format']) && preg_match("/^[a-z]*$/", $vars['format']))
   if (!$_SESSION['authenticated'])
   {
     $map .= "\"Not authenticated\" [fontsize=20 fillcolor=\"lightblue\", URL=\"/\" shape=box3d]\n";
-  }
-  else // FIXME level 7+ only?
-  {
+  } else {
     $loc_count = 1;
 
-#    foreach (dbFetch("SELECT * from devices ".$where) as $device)
-#    foreach (dbFetch("SELECT D.*, COUNT(L.local_port_id) FROM devices AS D LEFT JOIN (ports AS I, links AS L) ON (D.device_id = I.device_id AND I.port_id = L.local_port_id) ". $where. " GROUP BY D.hostname ORDER BY COUNT(L.local_port_id) DESC".$where) as $device)
-
-    foreach (dbFetch("SELECT D.*, COUNT(L.local_port_id) FROM devices AS D LEFT JOIN (ports AS I, links AS L) ON (D.device_id = I.device_id AND I.port_id = L.local_port_id) ". $where. " GROUP BY D.hostname ORDER BY COUNT(L.local_port_id) DESC") as $device)
+    $cache['where']['devices_permitted'] = generate_query_permitted(array('device'), array('device_table' => 'D'));
+    foreach (dbFetch("SELECT D.*, COUNT(L.local_port_id) FROM devices AS D LEFT JOIN (ports AS I, links AS L) ON (D.device_id = I.device_id AND I.port_id = L.local_port_id) ". $where . $cache['where']['devices_permitted'] . " GROUP BY D.hostname ORDER BY COUNT(L.local_port_id) DESC") as $device)
     {
       if ($device)
       {
@@ -126,7 +121,7 @@ if (isset($vars['format']) && preg_match("/^[a-z]*$/", $vars['format']))
             if ($anon) { $src = md5($src); }
             if ($remote_port_id)
             {
-              $dst_query = dbFetchRow("SELECT D.`device_id`, `hostname` FROM `devices` AS D, `ports` AS I WHERE I.`port_id` = ? AND D.`device_id` = I.`device_id`", array($remote_port_id));
+              $dst_query = dbFetchRow("SELECT D.`device_id`, `hostname` FROM `devices` AS D, `ports` AS I WHERE I.`port_id` = ? AND D.`device_id` = I.`device_id`".$cache['where']['devices_permitted'], array($remote_port_id));
               $dst       = $dst_query['hostname'];
               $dst_host  = $dst_query['device_id'];              
             } else {
@@ -136,18 +131,18 @@ if (isset($vars['format']) && preg_match("/^[a-z]*$/", $vars['format']))
 
             if ($anon) { $dst = md5($dst); $src = md5($src);}
 
-            $sif = dbFetchRow("SELECT * FROM `ports` WHERE `port_id` = ?", array($link['local_port_id']));
+            $sif = dbFetchRow("SELECT * FROM `ports` WHERE `port_id` = ?".$cache['where']['ports_permitted'], array($link['local_port_id']));
             humanize_port($sif);
             if ($remote_port_id)
             {
-              $dif = dbFetchRow("SELECT * FROM `ports` WHERE `port_id` = ?", array($link['remote_port_id']));
+              $dif = dbFetchRow("SELECT * FROM `ports` WHERE `port_id` = ?".$cache['where']['ports_permitted'], array($link['remote_port_id']));
               humanize_port($dif);
             } else {
               $dif['label'] = $link['remote_port'];
               $dif['port_id'] = $link['remote_hostname'] . '/' . $link['remote_port'];
             }
 
-            if ($where == "")
+            if (!is_numeric($device['device_id']))
             {
               if (!$ifdone[$dst][$dif['port_id']] && !$ifdone[$src][$sif['port_id']])
               {
@@ -169,7 +164,7 @@ if (isset($vars['format']) && preg_match("/^[a-z]*$/", $vars['format']))
                 $map .= "\"$dst\" [ fontsize=20 shape=box3d]\n";
               }
 
-              if ($dst_host == $device['device_id'] || $where == '')
+              if ($dst_host == $device['device_id'] || !is_numeric($device['device_id']))
               {
                 $map .= "\"" . $dif['port_id'] . "\" [label=\"" . $dif['label'] . "\", fontsize=12, fillcolor=lightblue, URL=\"".generate_url(array('page' => 'device', 'device' => $dst_host,'tab' => 'port', 'port' => $remote_port_id))."\"]\n";
               } else {

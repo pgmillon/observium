@@ -2,26 +2,26 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-if ($_POST['editing'])
+if ($vars['editing'])
 {
   if ($_SESSION['userlevel'] > "7")
   {
-    $wmi_override = $_POST['wmi_override'];
+    $wmi_override = $vars['wmi_override'];
     if ($wmi_override)
     {
-      $wmi_hostname = $_POST['wmi_hostname'];
-      $wmi_domain   = $_POST['wmi_domain'];
-      $wmi_username = $_POST['wmi_username'];
-      $wmi_password = $_POST['wmi_password'];
+      $wmi_hostname = $vars['wmi_hostname'];
+      $wmi_domain   = $vars['wmi_domain'];
+      $wmi_username = $vars['wmi_username'];
+      $wmi_password = $vars['wmi_password'];
     }
 
     if ($wmi_override)         { set_dev_attrib($device, 'wmi_override', $wmi_override); } else { del_dev_attrib($device, 'wmi_override'); }
@@ -39,13 +39,13 @@ if ($_POST['editing'])
   }
 }
 
-if($_POST['toggle_poller'] && isset($GLOBALS['config']['wmi']['modules'][$_POST['toggle_poller']]))
+if($vars['toggle_poller'] && isset($GLOBALS['config']['wmi']['modules'][$vars['toggle_poller']]))
 {
-  $module = $_POST['toggle_poller'];
-  if (isset($attribs['wmi_poll_'.$module]) && $attribs['wmi_poll_'.$module] != $GLOBALS['config']['wmi']['modules'][$_POST['toggle_poller']])
+  $module = $vars['toggle_poller'];
+  if (isset($attribs['wmi_poll_'.$module]) && $attribs['wmi_poll_'.$module] != $GLOBALS['config']['wmi']['modules'][$vars['toggle_poller']])
   {
     del_dev_attrib($device, 'wmi_poll_' . $module);
-  } elseif ($GLOBALS['config']['wmi']['modules'][$_POST['toggle_poller']] == 0) {
+  } elseif ($GLOBALS['config']['wmi']['modules'][$vars['toggle_poller']] == 0) {
     set_dev_attrib($device, 'wmi_poll_' . $module, "1");
   } else {
     set_dev_attrib($device, 'wmi_poll_' . $module, "0");
@@ -92,28 +92,28 @@ if($_POST['toggle_poller'] && isset($GLOBALS['config']['wmi']['modules'][$_POST[
           <div class="control-group">
             <label class="control-label" for="wmi_hostname">WMI Hostname</label>
             <div class="controls">
-              <input name="wmi_hostname" type="text" size="32" value="<?php echo(htmlspecialchars(get_dev_attrib($device,'wmi_hostname'))); ?>" />
+              <input name="wmi_hostname" type="text" size="32" value="<?php echo(escape_html(get_dev_attrib($device,'wmi_hostname'))); ?>" />
             </div>
           </div>
 
           <div class="control-group">
             <label class="control-label" for="wmi_domain">WMI Domain</label>
             <div class="controls">
-              <input name="wmi_domain" type="text" size="32" value="<?php echo(htmlspecialchars(get_dev_attrib($device,'wmi_domain'))); ?>" />
+              <input name="wmi_domain" type="text" size="32" value="<?php echo(escape_html(get_dev_attrib($device,'wmi_domain'))); ?>" />
             </div>
           </div>
 
           <div class="control-group">
             <label class="control-label" for="wmi_username">WMI Username</label>
             <div class="controls">
-              <input name="wmi_username" type="text" size="32" value="<?php echo(htmlspecialchars(get_dev_attrib($device,'wmi_username'))); ?>" />
+              <input name="wmi_username" type="text" size="32" value="<?php echo(escape_html(get_dev_attrib($device,'wmi_username'))); ?>" />
             </div>
           </div>
 
           <div class="control-group">
             <label class="control-label" for="wmi_password">WMI Password</label>
             <div class="controls">
-              <input name="wmi_password" type="password" size="32" value="<?php echo(htmlspecialchars(get_dev_attrib($device,'wmi_password'))); ?>" />
+              <input name="wmi_password" type="password" size="32" value="<?php echo(escape_html(get_dev_attrib($device,'wmi_password'))); // FIXME. For passwords we should use filter instead escape! ?>" />
             </div>
           </div>
 

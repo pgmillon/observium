@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -27,12 +27,12 @@ if ($_SESSION['userlevel'] < '10')
       {
         if (deluser($delete_username))
         {
-          print_success('User "' . $delete_username . '" deleted!');
+          print_success('User "' . escape_html($delete_username) . '" deleted!');
         } else {
-          print_error('Error deleting user "' . $delete_username . '"!');
+          print_error('Error deleting user "' . escape_html($delete_username) . '"!');
         }
       } else {
-        print_error('You have requested deletion of the user "' . $delete_username . '". This action can not be reversed.<br /><a href="edituser/action=deleteuser/user_id=' . $vars['user_id'] . '/confirm=yes/">Click to confirm</a>');
+        print_error('You have requested deletion of the user "' . escape_html($delete_username) . '". This action can not be reversed.<br /><a href="edituser/action=deleteuser/user_id=' . $vars['user_id'] . '/confirm=yes/">Click to confirm</a>');
       }
     }
   } else {

@@ -7,18 +7,27 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-// NETAPP-MIB
+// UCD-SNMP-MIB
 echo(' UCD-SNMP-MIB: ');
 
+$ucd_oids = array();
 if ($storage['storage_hc'])
 {
-  $ucd_oids = array('dskTotalHigh', 'dskTotalLow', 'dskUsedHigh', 'dskUsedLow', 'dskAvailHigh', 'dskAvailLow');
+  if ($cache_storage['ucd-snmp-mib-walked']['storage_hc'] !== TRUE) // Hack for real caching
+  {
+    $ucd_oids = array('dskTotalHigh', 'dskTotalLow', 'dskUsedHigh', 'dskUsedLow', 'dskAvailHigh', 'dskAvailLow');
+    $cache_storage['ucd-snmp-mib-walked']['storage_hc'] = TRUE;
+  }
 } else {
-  $ucd_oids = array('dskTotal', 'dskUsed', 'dskAvail');
+  if ($cache_storage['ucd-snmp-mib-walked']['storage'] !== TRUE) // Hack for real caching
+  {
+    $ucd_oids = array('dskTotal', 'dskUsed', 'dskAvail');
+    $cache_storage['ucd-snmp-mib-walked']['storage'] = TRUE;
+  }
 }
 
 $index = $storage['storage_index'];

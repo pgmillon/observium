@@ -1,14 +1,22 @@
+-- $Id: CISCO-CONFIG-COPY-MIB.my,v 1.1.2.1 2010/10/15 11:24:32 gavelayu Exp $
+-- $Source: /auto/wnbu-cvsroot-acq/cvsroot/gate/lvl7dev/src/mgmt/snmp/snmp_sr/src/snmpd/unix/mibs/Attic/CISCO-CONFIG-COPY-MIB.my,v $
 -- *****************************************************************
 -- CISCO-CONFIG-COPY-MIB.my: MIB for copying a Cisco router's
 -- config
 --   
 -- December 1997, Ramanathan R. Kavasseri
 --   
--- Copyright (c) 2005, 1998, 2008 by cisco Systems Inc.
+-- Copyright (c) 2005, 1998, 2009 by cisco Systems Inc.
 -- All rights reserved.
 -- *****************************************************************
+-- $Log: CISCO-CONFIG-COPY-MIB.my,v $
+-- Revision 1.1.2.1  2010/10/15 11:24:32  gavelayu
+-- bug: CSCtj49032
+-- comment:Phase 1 of HA for SNMP/WEBUI. CISCO-RF-MIB implementation and monitor screens.
+--
+-- *****************************************************************
+-- $Endlog$
 --   
-
 
 CISCO-CONFIG-COPY-MIB DEFINITIONS ::= BEGIN
 
@@ -19,29 +27,29 @@ IMPORTS
     IpAddress,
     Unsigned32
         FROM SNMPv2-SMI
+    MODULE-COMPLIANCE,
+    OBJECT-GROUP,
+    NOTIFICATION-GROUP
+        FROM SNMPv2-CONF
     TEXTUAL-CONVENTION,
     DisplayString,
     TimeStamp,
     RowStatus,
     TruthValue
         FROM SNMPv2-TC
-    MODULE-COMPLIANCE,
-    OBJECT-GROUP,
-    NOTIFICATION-GROUP
-        FROM SNMPv2-CONF
     SnmpAdminString
         FROM SNMP-FRAMEWORK-MIB
-    ciscoMgmt
-        FROM CISCO-SMI
     InetAddressType,
     InetAddress
         FROM INET-ADDRESS-MIB
     FcNameIdOrZero
-        FROM CISCO-ST-TC;
+        FROM CISCO-ST-TC
+    ciscoMgmt
+        FROM CISCO-SMI;
 
 
 ciscoConfigCopyMIB MODULE-IDENTITY
-    LAST-UPDATED    "200504060000Z"
+    LAST-UPDATED    "200902270000Z"
     ORGANIZATION    "Cisco Systems, Inc."
     CONTACT-INFO
             "Cisco Systems
@@ -54,6 +62,10 @@ ciscoConfigCopyMIB MODULE-IDENTITY
             Tel:    +1 800 553-NETS
 
             E-mail: cs-snmp@cisco.com"
+    DESCRIPTION
+        "Added ccCopyVrfName attribute to support VPN config copy
+        in ccCopyTable"
+    REVISION        "200902270000Z"
     DESCRIPTION
         "This MIB facilitates writing of configuration files
         of an SNMP Agent running Cisco's IOS in the 
@@ -337,7 +349,8 @@ CcCopyEntry ::= SEQUENCE {
         ccCopyFailCause                ConfigCopyFailCause,
         ccCopyEntryRowStatus           RowStatus,
         ccCopyServerAddressType        InetAddressType,
-        ccCopyServerAddressRev1        InetAddress
+        ccCopyServerAddressRev1        InetAddress,
+        ccCopyVrfName                  OCTET STRING
 }
 
 ccCopyIndex OBJECT-TYPE
@@ -593,6 +606,21 @@ ccCopyServerAddressRev1 OBJECT-TYPE
         The format of this address depends on the value of 
         the ccCopyServerAddressType object." 
     ::= { ccCopyEntry 16 }
+
+ccCopyVrfName OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE  (0..32))
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the VPN domain in which the
+        server identified by ccCopyServerAddress or 
+        ccCopyServerAddressRev1 is located.
+        The agent will use this field to identify the VPN 
+        routing table for this config copy.  
+        This object need not be configured, if the server is 
+        not located in a VPN domain."
+    DEFVAL          { "" } 
+    ::= { ccCopyEntry 17 }
  
 
 
@@ -787,7 +815,7 @@ ccCopyMIBComplianceRev1 MODULE-COMPLIANCE
     ::= { ccCopyMIBCompliances 2 }
 
 ccCopyMIBComplianceRev2 MODULE-COMPLIANCE
-    STATUS          current
+    STATUS          deprecated
     DESCRIPTION
         "The compliance statement for Cisco agents which
         implement the Cisco ConfigCopy MIB. This MIB should 
@@ -806,6 +834,28 @@ ccCopyMIBComplianceRev2 MODULE-COMPLIANCE
     DESCRIPTION
         "Implementation of this group is optional."
     ::= { ccCopyMIBCompliances 3 }
+
+ccCopyMIBComplianceRev3 MODULE-COMPLIANCE
+    STATUS          current
+    DESCRIPTION
+        "The compliance statement for Cisco agents which
+        implement the Cisco ConfigCopy MIB. This MIB should 
+        be implemented on all Cisco agents that support 
+        copying of configs via the CLI.
+
+        This compliance module deprecates
+        ccCopyMIBComplianceRev2."
+    MODULE          -- this module
+    MANDATORY-GROUPS {
+                        ccCopyGroupRev1,
+                        ccCopyNotificationsGroup,
+                        ccCopyGroupVpn
+                    }
+
+    GROUP           ccCopyErrorGroup
+    DESCRIPTION
+        "Implementation of this group is optional."
+    ::= { ccCopyMIBCompliances 4 }
 
 -- units of conformance
 
@@ -881,4 +931,15 @@ ccCopyErrorGroup OBJECT-GROUP
         value of ccCopyState is 'failed'."
     ::= { ccCopyMIBGroups 4 }
 
+ccCopyGroupVpn OBJECT-GROUP
+    OBJECTS         {
+                        ccCopyVrfName
+                    }
+    STATUS          current
+    DESCRIPTION
+        "Additional collection of object providing the ability 
+        to copy an agent-configuration file."
+    ::= { ccCopyMIBGroups 5 }
+
 END
+

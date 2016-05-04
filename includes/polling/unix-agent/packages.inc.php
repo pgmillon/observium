@@ -7,9 +7,13 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
+
+// Init to avoid PHP warnings
+$pkgs_id    = array();
+$pkgs_db_id = array();
 
 // RPM
 if (!empty($agent_data['rpm']))

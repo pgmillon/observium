@@ -2,12 +2,12 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -27,11 +27,11 @@ if ($handle = opendir($config['install_dir'] . "/includes/polling/applications/"
 }
 
 # Check if the form was POSTed
-if ($_POST['device'])
+if ($vars['device'])
 {
   $updated = 0;
   $param[] = $device['device_id'];
-  foreach (array_keys($_POST) as $key)
+  foreach (array_keys($vars) as $key)
   {
     if (substr($key,0,4) == 'app_')
     {

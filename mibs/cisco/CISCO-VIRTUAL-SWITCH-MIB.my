@@ -5,7 +5,7 @@
 --   
 -- Frank Chao
 --   
--- Copyright (c) 2006-2010 by cisco Systems, Inc.
+-- Copyright (c) 2006-2012 by cisco Systems, Inc.
 -- All rights reserved.
 -- *****************************************************************
 
@@ -19,26 +19,28 @@ IMPORTS
     Counter32,
     Counter64
         FROM SNMPv2-SMI
+    MODULE-COMPLIANCE,
+    NOTIFICATION-GROUP,
+    OBJECT-GROUP
+        FROM SNMPv2-CONF
     TEXTUAL-CONVENTION,
     RowStatus,
     TimeStamp,
     DateAndTime,
     TruthValue
         FROM SNMPv2-TC
-    MODULE-COMPLIANCE,
-    NOTIFICATION-GROUP,
-    OBJECT-GROUP
-        FROM SNMPv2-CONF
     entPhysicalIndex
         FROM ENTITY-MIB
-    ciscoMgmt
-        FROM CISCO-SMI
+    SnmpAdminString
+        FROM SNMP-FRAMEWORK-MIB
     InterfaceIndex
-        FROM IF-MIB;
+        FROM IF-MIB
+    ciscoMgmt
+        FROM CISCO-SMI;
 
 
 ciscoVirtualSwitchMIB MODULE-IDENTITY
-    LAST-UPDATED    "201001210000Z"
+    LAST-UPDATED    "201204100000Z"
     ORGANIZATION    "Cisco Systems, Inc."
     CONTACT-INFO
             "Cisco Systems
@@ -75,10 +77,20 @@ ciscoVirtualSwitchMIB MODULE-IDENTITY
         The concept of virtual switch is to collect many physical
         switches chassis together to form a single management unit to
         simplify the whole network architecture."
+    REVISION        "201204100000"
+    DESCRIPTION
+          "Added cSSO(3) enum value to cvsModuleRprWarm object
+	  Added following OBJECT-GROUP  
+           - cvsCoreSwitchLocationGroup 
+           - cvsDualActiveDetectionNotifsControlGroup
+           - cvsDualActiveDetectionNotifsInfoGroup
+           - cvsDualActiveDetectionNotifsGroup 
+          Added new compliance  
+           - cvsMIBComplianceV03"
     REVISION        "201001210000Z"
     DESCRIPTION
         "New group cvsVSLStatisticsExtGroup and
-        cvsVssModuleStandbyGroupis are added."
+        cvsVssModuleStandbyGroup are added."
     REVISION        "200709250000Z"
     DESCRIPTION
         "Initial version of this MIB module."
@@ -184,6 +196,8 @@ cvsVSLObjects  OBJECT IDENTIFIER
 cvsModuleObjects  OBJECT IDENTIFIER
     ::= { ciscoVirtualSwitchMIBObjects 4 }
 
+cvsDualActiveDetection OBJECT IDENTIFIER
+    ::= { ciscoVirtualSwitchMIBObjects 5 }
 
 -- Virtual Switch global objects
 
@@ -261,6 +275,8 @@ cvsVSLChangeNotifEnable OBJECT-TYPE
         "Enable or disable the generation of cvsVSLConnectionChangeNotif
         notification." 
     ::= { cvsGlobalObjects 6 }
+
+
 -- Virtual Switch core chassis configuration table
 
 cvsCoreSwitchConfigTable OBJECT-TYPE
@@ -289,7 +305,8 @@ cvsCoreSwitchConfigEntry OBJECT-TYPE
 CvsCoreSwitchConfigEntry ::= SEQUENCE {
         cvsCoreSwitchID       VSSwitchID,
         cvsCoreSwitchPriority Unsigned32,
-        cvsCoreSwitchPreempt  TruthValue
+        cvsCoreSwitchPreempt  TruthValue,
+        cvsCoreSwitchLocation SnmpAdminString
 }
 
 cvsCoreSwitchID OBJECT-TYPE
@@ -322,6 +339,14 @@ cvsCoreSwitchPreempt OBJECT-TYPE
         This configuration will enable or disable the preemption of
         choosing the active core with higher priority." 
     ::= { cvsCoreSwitchConfigEntry 3 }
+
+cvsCoreSwitchLocation OBJECT-TYPE
+    SYNTAX          SnmpAdminString
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "The configured location for this core switch." 
+    ::= { cvsCoreSwitchConfigEntry 4 }
  
 
 -- Virtual Switch chassis table
@@ -926,7 +951,7 @@ cvsVSLPortTxOkPkts OBJECT-TYPE
     STATUS          current
     DESCRIPTION
         "The number of transmitted packets without errors for the
-         port." 
+        port." 
     ::= { cvsVSLPortStatsEntry 2 }
 
 cvsVSLPortTxFailPkts OBJECT-TYPE
@@ -1097,26 +1122,46 @@ cvsModuleSlotNumber OBJECT-TYPE
 cvsModuleRprWarm OBJECT-TYPE
     SYNTAX          INTEGER  {
                         notApplicable(1),
-                        rprWarm(2)
+                        rprWarm(2),
+                        cSSO(3)
                     }
     MAX-ACCESS      read-only
     STATUS          current
     DESCRIPTION
-        "The object indicates in-chassis supervisor module is in
-        the RPR Warm standby status or not.
+        "The object indicates in-chassis standby supervisor module's
+        redundancy state in a VS environment. 
 
-        The RPR Warm status indicates a supervisor module is in the
-        standby mode of the same chassis in the VS environment and 
-        the supervisor is acting like a DFC (Distributed Forwarding
-        Card).
+        'notApplicable' : the module is not applicable for the rest
+                          of states.
 
-        'notApplicable' : the module is not applicable for the RPR
-        warm status.
+        'rprWarm' : the module is the in-chassis standby supervisor in
+                    rpr warm state running as a DFC (Distributed
+                    Forwarding Card).
 
-        'rprWarm' : the module is the in-chassis standby supervisor
-        in the VS environment." 
+        'cSSO'    : the module is the in-chassis hot standby supervisor"
+
     ::= { cvsModuleEntry 4 }
- 
+
+-- Virtual Switch Dual Active Detection  
+
+cvsDualActiveDetectionNotifEnable OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "Enable or disable the generation of cvsDualActiveDetectionNotif
+        notification."
+    ::= { cvsDualActiveDetection 1 }
+
+cvsDualActiveDetectionInformation OBJECT-TYPE
+    SYNTAX         SnmpAdminString
+    MAX-ACCESS     accessible-for-notify
+    STATUS         current
+    DESCRIPTION
+        "This object provides information about the dual active
+        notification cvsDualActiveDetectionNotif, i.e., the cause
+        of dual-active, the detection method."
+    ::= { cvsDualActiveDetection 2 }
 
 
 -- Notifications objects
@@ -1128,6 +1173,22 @@ cvsVSLConnectionChangeNotif NOTIFICATION-TYPE
         "The notification will be generated when the state of the VSL
         connection is changed."
    ::= { ciscoVirtualSwitchMIBNotifs 1 }
+
+
+cvsDualActiveDetectionNotif NOTIFICATION-TYPE
+    OBJECTS         { 
+                        cvsSwitchID, 
+                        cvsDualActiveDetectionInformation
+                    }
+    STATUS          current
+    DESCRIPTION
+        "The notification will be generated when dual-active 
+        is detected."
+   ::= { ciscoVirtualSwitchMIBNotifs 2 }
+
+
+
+
 -- Conformance
 
 cvsMIBCompliances  OBJECT IDENTIFIER
@@ -1189,7 +1250,7 @@ cvsMIBCompliance MODULE-COMPLIANCE
     ::= { cvsMIBCompliances 1 }
 
 cvsMIBComplianceV02 MODULE-COMPLIANCE
-    STATUS          current
+    STATUS          deprecated
     DESCRIPTION
         "The compliance statement for entities which implement
         the CISCO-VIRTUAL-SWITCH-MIB."
@@ -1244,6 +1305,145 @@ cvsMIBComplianceV02 MODULE-COMPLIANCE
         environment.  This is only mandatory for the managed
         system in the virtual switch environment."
     ::= { cvsMIBCompliances 2 }
+
+
+cvsMIBComplianceV03 MODULE-COMPLIANCE
+    STATUS          current
+    DESCRIPTION
+        "The compliance statement for entities which implement
+        the CISCO-VIRTUAL-SWITCH-MIB."
+    MODULE          -- this module
+    MANDATORY-GROUPS {
+                        cvsGlobalGroup,
+                        cvsModuleGroup,
+                        cvsVssModuleStandbyGroup
+                    }
+
+    GROUP           cvsCoreSwitchGroup
+    DESCRIPTION
+        "This group contains the selection information of the
+        active or standby core switches in the virtual switch
+        environment.  This is only mandatory for the managed
+        system with supporting the configuring information
+        of core switches."
+
+    GROUP           cvsChassisGroup
+    DESCRIPTION
+        "This group contains physical chassis information in
+        the virtual switch environment.  This is only
+        mandatory for the managed system in the virtual
+        switch environment."
+
+    GROUP           cvsVSLConnectionGroup
+    DESCRIPTION
+        "This is the group to construct the VSL (Virtual
+        switch link) connection between core switches in the
+        virtual switch architecture and also provide the
+        information for the VSL.  This is only mandatory
+        for the managed system with supporting the
+        configuration of VSL."
+
+    GROUP           cvsVSLStatisticsGroup
+    DESCRIPTION
+        "This group contains the VSL (Virtual switch
+        link) statistics information in the virtual switch
+        environment.  This is only mandatory for the managed
+        system in the virtual switch environment."
+
+    GROUP           cvsConnectionNotifsGroup
+    DESCRIPTION
+        "The notifications for VSL connection status. This is
+        only mandatory for the managed system in the virtual
+        switch environment."
+    GROUP           cvsVSLStatisticsExtGroup
+    DESCRIPTION
+        "This group contains the VSL (Virtual switch link) more
+        detail statistics information in the virtual switch
+        environment.  This is only mandatory for the managed
+        system in the virtual switch environment."
+
+    GROUP           cvsCoreSwitchLocationGroup
+    DESCRIPTION
+        "This group contains the location configuration information of
+        the active or standby core switches in the virtual switch
+        environment.  This is only mandatory for the managed
+        system with supporting the location configuration information
+        of core switches."
+
+    GROUP           cvsDualActiveDetectionNotifsControlGroup
+    DESCRIPTION
+        "This is only mandatory for the managed system with 
+        supporting the dual active detection notification."
+
+    GROUP           cvsDualActiveDetectionNotifsInfoGroup
+    DESCRIPTION
+        "This is only mandatory for the managed system with 
+        supporting the dual active detection notification."
+
+    GROUP           cvsDualActiveDetectionNotifsGroup
+    DESCRIPTION
+        "This is only mandatory for the managed system with 
+        supporting the dual active detection notification"
+
+    OBJECT          cvsDomain
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cvsSwitchID
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cvsSwitchMode
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cvsVSLChangeNotifEnable
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cvsCoreSwitchPriority
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cvsCoreSwitchPreempt
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cvsCoreSwitchLocation
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cvsVSLCoreSwitchID
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cvsDualActiveDetectionNotifEnable
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cvsVSLConnectionRowStatus
+    SYNTAX          INTEGER  {
+                        active(1)
+                    }
+    WRITE-SYNTAX    INTEGER  {
+                        createAndGo(4),
+                        destroy(6)
+                    }
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required.
+
+        Support for createAndWait and notInService is not required."
+    ::= { cvsMIBCompliances 3 }
 
 -- Units of Conformance
 
@@ -1400,4 +1600,42 @@ cvsVssModuleStandbyGroup OBJECT-GROUP
         module in-chassis standby status information."
     ::= { cvsMIBGroups 9 }
 
+cvsCoreSwitchLocationGroup OBJECT-GROUP
+    OBJECTS         { cvsCoreSwitchLocation }
+    STATUS          current
+    DESCRIPTION
+        "The collection of objects which are used to configure
+        the location information of the core switches in the virtual
+        switch environment."
+    ::= { cvsMIBGroups 10 }
+
+cvsDualActiveDetectionNotifsControlGroup OBJECT-GROUP
+    OBJECTS         { cvsDualActiveDetectionNotifEnable }
+    STATUS          current
+    DESCRIPTION
+        "The collection of object(s) which are used to control
+        the notification of dual active detection in the virtual
+        switch environment."
+    ::= { cvsMIBGroups 11 }
+
+cvsDualActiveDetectionNotifsInfoGroup OBJECT-GROUP
+    OBJECTS         { cvsDualActiveDetectionInformation }
+    STATUS          current
+    DESCRIPTION
+        "The collection of object(s) providing variable binding
+        for the dual active detection notification in the virtual
+        switch environment."
+    ::= { cvsMIBGroups 12 }
+
+cvsDualActiveDetectionNotifsGroup NOTIFICATION-GROUP
+    NOTIFICATIONS         { cvsDualActiveDetectionNotif }
+    STATUS          current
+    DESCRIPTION
+        "The collection of notification(s) for the dual active 
+        detection in the virtual switch environment."
+    ::= { cvsMIBGroups 13 }
+
 END
+
+
+

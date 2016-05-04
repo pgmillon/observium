@@ -2,20 +2,20 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 include($config['install_dir'] . '/includes/polling/functions.inc.php');
 
-if($_POST['toggle_poller'] && isset($config['poller_modules'][$_POST['toggle_poller']]))
+if($vars['toggle_poller'] && isset($config['poller_modules'][$vars['toggle_poller']]))
 {
-  $module = mres($_POST['toggle_poller']); # FIXME wtf mres?
+  $module = $vars['toggle_poller'];
   if (isset($attribs['poll_'.$module]) && $attribs['poll_'.$module] != $config['poller_modules'][$module])
   {
     del_dev_attrib($device, 'poll_' . $module);
@@ -27,9 +27,9 @@ if($_POST['toggle_poller'] && isset($config['poller_modules'][$_POST['toggle_pol
   $attribs = get_dev_attribs($device['device_id']);
 }
 
-if($_POST['toggle_ports'] && isset($config[$_POST['toggle_ports']]) && strpos($_POST['toggle_ports'], 'enable_ports_') === 0)
+if($vars['toggle_ports'] && isset($config[$vars['toggle_ports']]) && strpos($vars['toggle_ports'], 'enable_ports_') === 0)
 {
-  $module = mres($_POST['toggle_ports']); # FIXME wtf mres?
+  $module = $vars['toggle_ports'];
   if (isset($attribs[$module]) && $attribs[$module] != $config[$module])
   {
     del_dev_attrib($device, $module);
@@ -41,9 +41,9 @@ if($_POST['toggle_ports'] && isset($config[$_POST['toggle_ports']]) && strpos($_
   $attribs = get_dev_attribs($device['device_id']);
 }
 
-if($_POST['toggle_discovery'] && isset($config['discovery_modules'][$_POST['toggle_discovery']]))
+if($vars['toggle_discovery'] && isset($config['discovery_modules'][$vars['toggle_discovery']]))
 {
-  $module = mres($_POST['toggle_discovery']); # FIXME wtf mres?
+  $module = $vars['toggle_discovery'];
   if (isset($attribs['discover_'.$module]) && $attribs['discover_'.$module] != $config['discovery_modules'][$module])
   {
     del_dev_attrib($device, 'discover_' . $module);

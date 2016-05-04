@@ -7,13 +7,11 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 // FIXME could do with a rewrite (MIB/tables)
-
-global $debug;
 
 if ($config['enable_printers'] && $device['os_group'] == 'printer')
 {
@@ -29,7 +27,7 @@ if ($config['enable_printers'] && $device['os_group'] == 'printer')
     $oids = trim(snmp_walk($device, "1.3.6.1.2.1.43.12.1.1.2.1", "-OsqnU"));
   }
   */
-  if ($debug) { echo($oids."\n"); }
+
   if ($oids) echo("Jetdirect ");
   foreach (explode("\n", $oids) as $data)
   {
@@ -41,10 +39,10 @@ if ($config['enable_printers'] && $device['os_group'] == 'printer')
       $index = $split_oid[count($split_oid)-1];
       if (is_numeric($role))
       {
-        $toner_oid    = ".1.3.6.1.2.1.43.11.1.1.9.1.$index";
+        $type_oid     = ".1.3.6.1.2.1.43.11.1.1.5.1.$index";
         $descr_oid    = ".1.3.6.1.2.1.43.11.1.1.6.1.$index";
         $capacity_oid = ".1.3.6.1.2.1.43.11.1.1.8.1.$index";
-        $type_oid     = ".1.3.6.1.2.1.43.11.1.1.5.1.$index";
+        $toner_oid    = ".1.3.6.1.2.1.43.11.1.1.9.1.$index";
 
         $resourcetype = snmp_get($device, $type_oid, "-Oqv");
 
@@ -56,11 +54,35 @@ if ($config['enable_printers'] && $device['os_group'] == 'printer')
           {
             case 3:
             case 21:
-              $current  = snmp_get($device, $toner_oid, "-Oqv");
+              /* .1.3.6.1.2.1.43.11.1.1.8 prtMarkerSuppliesMaxCapacity
+               *  The value (-1) means other and specifically indicates that the sub-unit places
+               *  no restrictions on this parameter. The value (-2) means unknown.
+               *
+               * .1.3.6.1.2.1.43.11.1.1.9 prtMarkerSuppliesLevel
+               *  The value (-1) means other and specifically indicates that the sub-unit places
+               *  no restrictions on this parameter. The value (-2) means unknown.
+               *  A value of (-3) means that the printer knows that there is some supply/remaining space,
+               *  respectively.
+               */
+              $level    = snmp_get($device, $toner_oid, "-Oqv");
               $capacity = snmp_get($device, $capacity_oid, "-Oqv");
-              $current  = $current / $capacity * 100;
-              $type     = "jetdirect";
-              discover_toner($valid_toner,$device, $toner_oid, $index, $type, $descr, $capacity_oid, $capacity, $current);
+              if ($level == '-1' || $capacity == '-1')
+              {
+                // Unlimited
+                $level    = 100;
+                $capacity = 100;
+              }
+              //else if ($level == '-3' || $level == '-2')
+              //{
+              //  $level    = 1; // This is wrong SuppliesLevel (1%), but better than nothing
+              //  $capacity = ($capacity > 0 ? $capacity : 100);
+              //}
+              if ($capacity > 0 && $level >= 0)
+              {
+                $level = round($level / $capacity * 100);
+              }
+              $type  = "jetdirect";
+              discover_toner($valid_toner, $device, $toner_oid, $index, $type, $descr, $capacity_oid, $capacity, $level);
             break;
             case 9:
             case 20:
@@ -127,9 +149,9 @@ if ($config['enable_printers'] && $device['os_group'] == 'printer')
   echo(" ");
 
   // Delete removed toners
-  if ($debug) { echo("\n Checking ... \n"); print_vars($valid_toner); }
+  if (OBS_DEBUG && count($valid_toner)) { print_vars($valid_toner); }
 
-  foreach (dbFetchRows("SELECT * FROM toner WHERE device_id = ?", array($device['device_id'])) as $test_toner)
+  foreach (dbFetchRows("SELECT * FROM `toner` WHERE `device_id` = ?", array($device['device_id'])) as $test_toner)
   {
   $toner_index = $test_toner['toner_index'];
   $toner_type = $test_toner['toner_type'];

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -16,14 +16,15 @@ echo("Ports : ");
 // Build SNMP Cache Array
 
 $port_stats = array();
-$port_stats = snmpwalk_cache_oid($device, "ifDescr", $port_stats, "IF-MIB", mib_dirs());
-$port_stats = snmpwalk_cache_oid($device, "ifAlias", $port_stats, "IF-MIB", mib_dirs());
-$port_stats = snmpwalk_cache_oid($device, "ifName", $port_stats, "IF-MIB", mib_dirs());
-$port_stats = snmpwalk_cache_oid($device, "ifType", $port_stats, "IF-MIB", mib_dirs());
+$port_stats = snmpwalk_cache_oid($device, "ifDescr",      $port_stats, "IF-MIB", mib_dirs());
+$port_stats = snmpwalk_cache_oid($device, "ifAlias",      $port_stats, "IF-MIB", mib_dirs());
+$port_stats = snmpwalk_cache_oid($device, "ifName",       $port_stats, "IF-MIB", mib_dirs());
+$port_stats = snmpwalk_cache_oid($device, "ifType",       $port_stats, "IF-MIB", mib_dirs());
+$port_stats = snmpwalk_cache_oid($device, "ifOperStatus", $port_stats, "IF-MIB", mib_dirs());
 
 // End Building SNMP Cache Array
 
-if ($debug) { print_vars($port_stats); }
+if (OBS_DEBUG && count($port_stats)) { print_vars($port_stats); }
 
 // Build array of ports in the database
 

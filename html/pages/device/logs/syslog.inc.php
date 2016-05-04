@@ -2,21 +2,21 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 unset($search, $priorities, $programs, $timestamp_min, $timestamp_max);
 
-$timestamp_min = dbFetchCell('SELECT MIN(`timestamp`) FROM `syslog` WHERE `device_id` = ?', array($vars['device']));
+$timestamp_min = dbFetchCell('SELECT `timestamp` FROM `syslog` WHERE `device_id` = ? ORDER BY `timestamp` LIMIT 0,1;', array($vars['device']));
 if ($timestamp_min)
 {
-  $timestamp_max = dbFetchCell('SELECT MAX(`timestamp`) FROM `syslog` WHERE `device_id` = ?', array($vars['device']));
+  $timestamp_max = dbFetchCell('SELECT `timestamp` FROM `syslog` WHERE `device_id` = ? ORDER BY `timestamp` DESC LIMIT 0,1;', array($vars['device']));
 
   //Message field
   $search[] = array('type'    => 'text',
@@ -40,9 +40,9 @@ if ($timestamp_min)
                     'values'  => $priorities);
   //Program field
   //$programs[''] = 'All Programs';
-  foreach (dbFetchRows('SELECT `program` FROM `syslog` WHERE `device_id` = ? GROUP BY `program` ORDER BY `program`', array($vars['device'])) as $data)
+  foreach (dbFetchColumn('SELECT `program` FROM `syslog` IGNORE INDEX (`program`) WHERE `device_id` = ? GROUP BY `program`;', array($vars['device'])) as $program)
   {
-    $program = ($data['program']) ? $data['program'] : '[[EMPTY]]';
+    $program = ($program != '' ? $program : OBS_VAR_UNSET);
     $programs[$program] = $program;
   }
   $search[] = array('type'    => 'multiselect',
@@ -76,6 +76,6 @@ Check that the syslog daemon and Observium configuration options are set correct
 See <a href="'.OBSERVIUM_URL.'/wiki/Category:Documentation" target="_blank">documentation</a> and <a href="'.OBSERVIUM_URL.'/wiki/Configuration_Options#Syslog_Settings" target="_blank">configuration options</a> for more information.');
 }
 
-$pagetitle[] = 'Syslog';
+$page_title[] = 'Syslog';
 
 // EOF

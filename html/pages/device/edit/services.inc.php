@@ -2,24 +2,24 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 echo('<div style="padding: 10px;">');
 
-if ($_POST['addsrv']) {
+if ($vars['addsrv']) {
   if ($_SESSION['userlevel'] == '10') {
     include("includes/service-add.inc.php");
   }
 }
 
-if ($_POST['delsrv']) {
+if ($vars['delsrv']) {
   if ($_SESSION['userlevel'] == '10') {
     include("includes/service-delete.inc.php");
   }

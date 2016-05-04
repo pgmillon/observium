@@ -7,19 +7,36 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
+// FIXME could do with a rewrite (MIB/tables)
+
 if ($config['enable_printers'])
 {
-  $toner_data = dbFetchRows("SELECT * FROM toner WHERE device_id = ?", array($device['device_id']));
+  $toner_data = dbFetchRows("SELECT * FROM `toner` WHERE `device_id` = ?", array($device['device_id']));
 
   foreach ($toner_data as $toner)
   {
     echo("Checking toner " . $toner['toner_descr'] . "... ");
 
-    $tonerperc = round(snmp_get($device, $toner['toner_oid'], "-OUqnv") / $toner['toner_capacity'] * 100);
+    $level = snmp_get($device, $toner['toner_oid'], "-OUqnv");
+    if ($level == '-1')
+    {
+      // Unlimited
+      $level = 100;
+    }
+    //else if ($level == '-3')
+    //{
+    //  $level = 1; // This is wrong SuppliesLevel (1%), but better than nothing
+    //}
+    if ($level >= 0)
+    {
+      $tonerperc = round($level / $toner['toner_capacity'] * 100);
+    } else {
+      $tonerperc = $level;
+    }
 
     $tonerrrd = "toner-" . $toner['toner_index'] . ".rrd";
 
@@ -38,6 +55,8 @@ if ($config['enable_printers'])
     dbUpdate(array('toner_current' => $tonerperc, 'toner_capacity' => $toner['toner_capacity']), 'toner', '`toner_id` = ?', array($toner['toner_id']));
 
     check_entity('toner', $toner, array('toner_current' => $tonerperc));
+    
+    $graphs['toner'] = TRUE;
   }
 
   if ($device['type'] == 'printer')
@@ -66,8 +85,23 @@ if ($config['enable_printers'])
     {
       echo("Checking Imaging Drum... ");
       $capacity = snmp_get($device, get_dev_attrib($device, 'imagingdrum_cap_oid'), '-OUqnv');
-      $level = round(snmp_get($device, $oid, "-OUqnv") / $capacity * 100);
+      $level    = snmp_get($device, $oid, "-OUqnv");
+      if ($level == '-1' || $capacity == '-1')
+      {
+        $level    = 100;
+        $capacity = 100;
+      }
+      //else if ($level == '-3' || $level == '-2')
+      //{
+      //  $level    = 1; // This is wrong SuppliesLevel (1%), but better than nothing
+      //  $capacity = ($capacity > 0 ? $capacity : 100);
+      //}
 
+      if ($capacity > 0 && $level >= 0)
+      {
+        $level = round($level / $capacity * 100);
+        echo("$level%\n");
+      }
       $drumrrd = "drum.rrd";
 
       rrdtool_create($device, $drumrrd," \
@@ -75,8 +109,6 @@ if ($config['enable_printers'])
 
       set_dev_attrib($device, "drum", $level);
       rrdtool_update($device, $drumrrd,"N:$level");
-
-      echo("$level%\n");
     }
 
     $drums = array(
@@ -94,17 +126,30 @@ if ($config['enable_printers'])
       {
         echo("Checking $drum Imaging Drum... ");
         $capacity = snmp_get($device, get_dev_attrib($device, 'imagingdrum_' . $letter . '_cap_oid'), '-OUqnv');
-        $level = round(snmp_get($device, $oid, "-OUqnv") / $capacity * 100);
+        $level    = snmp_get($device, $oid, "-OUqnv");
+        if ($level == '-1' || $capacity == '-1')
+        {
+          $level    = 100;
+          $capacity = 100;
+        }
+        //else if ($level == '-3' || $level == '-2')
+        //{
+        //  $level    = 1; // This is wrong SuppliesLevel (1%), but better than nothing
+        //  $capacity = ($capacity > 0 ? $capacity : 100);
+        //}
 
+        if ($capacity > 0 && $level >= 0)
+        {
+          $level = round($level / $capacity * 100);
+          echo("$level%\n");
+        }
         $drumrrd = "drum-" . $letter . ".rrd";
 
-        rrdtool_create($device, $drumrrd," \
+        rrdtool_create($device, $drumrrd, " \
           DS:drum:GAUGE:600:0:100 ");
 
         set_dev_attrib($device, "drum-" . $letter, $level);
         rrdtool_update($device, $drumrrd,"N:$level");
-
-        echo("$level%\n");
       }
     }
 
@@ -122,17 +167,29 @@ if ($config['enable_printers'])
       {
         echo("Checking $key... ");
         $capacity = snmp_get($device, get_dev_attrib($device, $value.'_cap_oid'), '-OUqnv');
-        $level = round(snmp_get($device, $oid, "-OUqnv") / $capacity * 100);
+        $level    = snmp_get($device, $oid, "-OUqnv");
+        if ($level == '-1' || $capacity == '-1')
+        {
+          $level    = 100;
+          $capacity = 100;
+        }
+        //else if ($level == '-3' || $level == '-2')
+        //{
+        //  $level    = 1; // This is wrong SuppliesLevel (1%), but better than nothing
+        //  $capacity = ($capacity > 0 ? $capacity : 100);
+        //}
 
+        if ($capacity > 0 && $level >= 0)
+        {
+          $level = round($level / $capacity * 100);
+          echo("$level%\n");
+        }
         $rrd = "$value.rrd";
-
         rrdtool_create($device, $rrd," \
           DS:level:GAUGE:600:0:100 ");
 
         set_dev_attrib($device, $value, $level);
         rrdtool_update($device, $rrd,"N:$level");
-
-        echo("$level%\n");
       }
     }
   }

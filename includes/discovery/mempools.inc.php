@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -18,10 +18,7 @@ echo("Memory : ");
 $include_dir = "includes/discovery/mempools";
 include("includes/include-dir-mib.inc.php");
 
-// Always discover host-resources-mib
-include("mempools/host-resources-mib.inc.php");
-
-if ($debug && count($valid['mempool'])) { print_vars($valid['mempool']); }
+if (OBS_DEBUG && count($valid['mempool'])) { print_vars($valid['mempool']); }
 
 // Remove memory pools which weren't redetected here
 foreach (dbFetchRows('SELECT * FROM `mempools` WHERE `device_id` = ?', array($device['device_id'])) as $test_mempool)

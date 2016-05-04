@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -18,10 +18,7 @@ echo("Storage : ");
 $include_dir = "includes/discovery/storage";
 include("includes/include-dir-mib.inc.php");
 
-// Always include HOST-RESOURCES-MIB
-include($config['install_dir']."/includes/discovery/storage/host-resources-mib.inc.php");
-
-if ($debug && count($valid['storage'])) { print_vars($valid['storage']); }
+if (OBS_DEBUG && count($valid['storage'])) { print_vars($valid['storage']); }
 
 // Remove storage which weren't redetected here
 $query = 'SELECT * FROM `storage` WHERE `device_id` = ?';

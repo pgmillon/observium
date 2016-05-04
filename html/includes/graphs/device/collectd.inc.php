@@ -103,16 +103,16 @@ if (isset($MetaGraphDefs[$type])) {
 if(isset($rrd_cmd))
 {
    # FIXME mres? wtf.
-   if ($vars['from'])  { $from   = mres($vars['from']);   }
-   if ($vars['to'])    { $to   = mres($vars['to']);   }
-   $rrd_cmd .= " -s " . $from . " -e " . $to;
+   if ($vars['from'])  { $from   = $vars['from'];   }
+   if ($vars['to'])    { $to     = $vars['to'];   }
+   $rrd_cmd .= " -s " . escapeshellarg($from) . " -e " . escapeshellarg($to);
 }
 
 if ($vars['legend'] == "no")  { $rrd_cmd .= " -g "; }
 
 if ($vars['height'] < "99")  { $rrd_cmd .= " --only-graph "; }
 if ($vars['width'] <= "300") { $rrd_cmd .= " --font LEGEND:7:" . $config['mono_font'] . " --font AXIS:6:" . $config['mono_font'] . " "; }
-else {                 $rrd_cmd .= " --font LEGEND:8:" . $config['mono_font'] . " --font AXIS:7:" . $config['mono_font'] . " "; }
+else {                         $rrd_cmd .= " --font LEGEND:8:" . $config['mono_font'] . " --font AXIS:7:" . $config['mono_font'] . " "; }
 
 $rt = 0;
 $rrd_options = $rrd_cmd;

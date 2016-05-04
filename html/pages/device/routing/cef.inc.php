@@ -2,12 +2,12 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -31,7 +31,7 @@ foreach ($navbar['options'] as $option => $array)
 print_navbar($navbar);
 unset($navbar);
 ?>
-      <table class="table table-bordered table-striped">
+      <table class="table table-bordered table-condensed table-striped">
       <thead>
       <tr><th><a title="Physical hardware entity">Entity</a></th>
           <th><a title="Address Family">AFI</a></th>

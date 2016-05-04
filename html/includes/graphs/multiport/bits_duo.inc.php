@@ -7,9 +7,11 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
+
+// FIXME. This file unused
 
 if (!is_array($vars['id'])) { $vars['id'] = array($vars['id']); }
 
@@ -19,7 +21,7 @@ $rrd_options = "--alt-autoscale-max -E --start $from --end " . ($to - 150) . " -
 $rrd_options .= $config['rrdgraph_def_text'];
 if ($height < "99") { $rrd_options .= " --only-graph"; }
 $i = 1;
-
+$rrd_multi = array();
 foreach ($vars['id'] as $ifid)
 {
   $int = dbFetchRow("SELECT `ifIndex`, `hostname`, D.`device_id` FROM `ports` AS I, devices AS D WHERE I.port_id = ? AND I.device_id = D.device_id", array($ifid));
@@ -28,15 +30,13 @@ foreach ($vars['id'] as $ifid)
   {
     $rrd_options .= " DEF:inoctets" . $i . "=" . $rrdfile . ":INOCTETS:AVERAGE";
     $rrd_options .= " DEF:outoctets" . $i . "=" . $rrdfile . ":OUTOCTETS:AVERAGE";
-    $in_thing .= $separator . "inoctets" . $i . ",UN,0," . "inoctets" . $i . ",IF";
-    $out_thing .= $separator . "outoctets" . $i . ",UN,0," . "outoctets" . $i . ",IF";
-    $pluses .= $plus;
-    $separator = ",";
-    $plus = ",+";
+
+    $rrd_multi['in_thing'][]  = "inoctets" .  $i . ",UN,0," . "inoctets" .  $i . ",IF";
+    $rrd_multi['out_thing'][] = "outoctets" . $i . ",UN,0," . "outoctets" . $i . ",IF";
+
     $i++;
   }
 }
-unset($separator); unset($plus);
 
 if (!is_array($vars['idb'])) { $vars['idb'] = array($vars['idb']); }
 foreach ($vars['idb'] as $ifid)
@@ -47,16 +47,21 @@ foreach ($vars['idb'] as $ifid)
   {
     $rrd_options .= " DEF:inoctetsb" . $i . "=" . $rrdfile . ":INOCTETS:AVERAGE";
     $rrd_options .= " DEF:outoctetsb" . $i . "=" . $rrdfile . ":OUTOCTETS:AVERAGE";
-    $in_thingb .= $separator . "inoctetsb" . $i . ",UN,0," . "inoctetsb" . $i . ",IF";
-    $out_thingb .= $separator . "outoctetsb" . $i . ",UN,0," . "outoctetsb" . $i . ",IF";
-    $plusesb .= $plus;
-    $separator = ",";
-    $plus = ",+";
+
+    $rrd_multi['in_thingb'][]  = "inoctetsb" .  $i . ",UN,0," . "inoctetsb" .  $i . ",IF";
+    $rrd_multi['out_thingb'][] = "outoctetsb" . $i . ",UN,0," . "outoctetsb" . $i . ",IF";
+
     $i++;
   }
 }
 
 if ($inverse) { $in = 'out'; $out = 'in'; } else { $in = 'in'; $out = 'out'; }
+$in_thing   = implode(',', $rrd_multi['in_thing']);
+$out_thing  = implode(',', $rrd_multi['out_thing']);
+$pluses     = str_repeat(',+', count($rrd_multi['in_thing']) - 1);
+$in_thingb  = implode(',', $rrd_multi['in_thingb']);
+$out_thingb = implode(',', $rrd_multi['out_thingb']);
+$plusesb    = str_repeat(',+', count($rrd_multi['in_thingb']) - 1);
 $rrd_options .= " CDEF:".$in."octets=" . $in_thing . $pluses;
 $rrd_options .= " CDEF:".$out."octets=" . $out_thing . $pluses;
 $rrd_options .= " CDEF:".$in."octetsb=" . $in_thingb . $plusesb;
@@ -134,5 +139,8 @@ if ($legend == "no")
 }
 
 if ($width <= "300") { $rrd_options .= " --font LEGEND:7:".$config['mono_font']." --font AXIS:6:".$config['mono_font']." --font-render-mode normal"; }
+
+// Clean
+unset($rrd_multi, $in_thing, $out_thing, $pluses, $in_thingb, $out_thingb, $plusesb);
 
 // EOF

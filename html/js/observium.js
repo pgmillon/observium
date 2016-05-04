@@ -5,12 +5,15 @@ function url_from_form(form_id) {
   for (var el, i = 0, n = partFields.length; i < n; i++) {
     el = partFields[i];
     if (el.value != '' && el.name != '') {
+      var val;
       if (el.multiple) {
         var multi = [];
         for (var part, ii = 0, nn = el.length; ii < nn; ii++) {
           part = el[ii];
           if (part.selected) {
-            multi.push(encodeURIComponent(part.value.replace('/', '%7F'))); // 7F - (not defined in HTML 4 standard)
+            val = part.value.replace(/\//g, '%7F'); // %7F (DEL, delete) - not defined in HTML 4 standard
+            val = val.replace(/,/g, '%1F'); // %1F (US, unit separator) - not defined in HTML 4 standard
+            multi.push(encodeURIComponent(val));
             //console.log(part.value);
           }
         }
@@ -19,14 +22,15 @@ function url_from_form(form_id) {
                  multi.join(',') + '/';
         }
       } else if (el.checked || el.type !== "checkbox") {
+        val = el.value.replace(/\//g, '%7F'); // %7F (DEL, delete) - not defined in HTML 4 standard
+        val = val.replace(/,/g, '%1F'); // %1F (US, unit separator) - not defined in HTML 4 standard
         url += encodeURIComponent(el.name) + '=' +
-               encodeURIComponent(el.value.replace('/', '%7F')) + '/'; // 7F - (not defined in HTML 4 standard)
+               encodeURIComponent(val) + '/';
       }
     }
   }
 
   return url;
-
 }
 
 function form_to_path(form_id) {
@@ -100,7 +104,7 @@ jQuery(document).ready(function() {
       content:{
           text: '<img class="" src="images/loading.gif" alt="Loading..." />',
           ajax:{
-              url: 'ajax_entitypopup.php',
+              url: 'ajax/entity_popup.php',
               type: 'POST',
               loading: false,
               data: { entity_type: $(this).data('etype'), entity_id: $(this).data('eid') },

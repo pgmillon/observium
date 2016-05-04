@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -36,7 +36,7 @@ foreach ($oids as $index => $entry)
   $value = $entry['mtxrHlTemperature'];
   if (is_numeric($value))
   {
-    discover_sensor($valid['sensor'], 'temperature', $device, $oid, $index, 'routeros', $descr, 0.1, $value);
+    discover_sensor($valid['sensor'], 'temperature', $device, $oid, $index, 'routeros', $descr, 0.1, $value * 10); // Value multiplied by 10, because in MIB it divided by 10.. yes, yes.. this is mikrotik
   }
 }
 
@@ -50,7 +50,7 @@ foreach ($oids as $index => $entry)
   $value = $entry['mtxrHlVoltage'];
   if (is_numeric($value))
   {
-    discover_sensor($valid['sensor'], 'voltage', $device, $oid, $index, 'routeros', $descr, 0.1, $value);
+    discover_sensor($valid['sensor'], 'voltage', $device, $oid, $index, 'routeros', $descr, 0.1, $value * 10); // Value multiplied by 10, because in MIB it divided by 10.. yes, yes.. this is mikrotik
   }
 }
 

@@ -1,0 +1,1957 @@
+G9983-MIB DEFINITIONS ::= BEGIN
+
+  IMPORTS
+    MODULE-IDENTITY,
+    OBJECT-TYPE,
+    NOTIFICATION-TYPE,
+    mib-2,
+    Unsigned32,
+    Counter32
+      FROM SNMPv2-SMI          -- RFC 2578
+    TEXTUAL-CONVENTION,
+    RowStatus,
+    TruthValue
+      FROM SNMPv2-TC           -- RFC 2579
+    MODULE-COMPLIANCE,
+    OBJECT-GROUP,
+    NOTIFICATION-GROUP
+      FROM SNMPv2-CONF         -- RFC 2580
+    ifIndex,
+    InterfaceIndex
+      FROM IF-MIB              -- RFC 2863
+    HCPerfCurrentCount,
+    HCPerfIntervalCount,
+    HCPerfValidIntervals,
+    HCPerfInvalidIntervals,
+    HCPerfTimeElapsed
+      FROM HC-PerfHist-TC-MIB  -- RFC 3705
+    ;
+------------------------------------------------------------------------
+  g9983MIB MODULE-IDENTITY
+    LAST-UPDATED "201302200000Z"  -- 20 February 2013
+    ORGANIZATION "IETF ADSL MIB Working Group"
+    CONTACT-INFO
+      "WG charter:
+        http://datatracker.ietf.org/wg/adslmib/charter/
+
+      Mailing Lists:
+        General Discussion: adslmib@ietf.org
+        To Subscribe: adslmib-request@ietf.org
+        In Body: subscribe your_email_address
+
+       Chair: Menachem Dodge
+      Postal: ECI Telecom, Ltd.
+              30 Hasivim St.
+              Petach-Tikva  4951169
+              Israel
+       Phone: +972-3-926-8421
+       EMail: menachemdodge1@gmail.com
+
+      Editor: Edward Beili
+      Postal: Actelis Networks, Inc.
+              25 Bazel St., P.O.B. 10173
+              Petach-Tikva  49103
+              Israel
+       Phone: +972-3-924-3491
+       EMail: edward.beili@actelis.com"
+    DESCRIPTION
+      "The objects in this MIB module are used to manage the
+      multi-pair bonded xDSL interfaces using time-division inverse
+      multiplexing (TDIM), as defined in ITU-T Recommendation G.998.3
+      (G.Bond/TDIM).
+
+      This MIB module MUST be used in conjunction with the GBOND-MIB
+      module, common to all G.Bond technologies.
+
+      The following references are used throughout this MIB module:
+
+      [G.998.3] refers to:
+        ITU-T Recommendation G.998.3: 'Multi-pair bonding using
+        time-division inverse multiplexing', January 2005.
+
+      [TR-159] refers to:
+        Broadband Forum Technical Report: 'Management Framework for
+        xDSL Bonding', December 2008.
+
+      Naming Conventions:
+        BCE    - Bonding Channel Entity
+        BTU    - Bonding Terminating Unit
+        BTU-C  - Bonding Terminating Unit, CO side
+        BTU-R  - Bonding Terminating Unit, Remote Terminal (CPE) side
+        CO     - Central Office
+        CPE    - Customer Premises Equipment
+        GBS    - Generic Bonding Sub-layer
+        GBS-C  - Generic Bonding Sub-layer, CO side
+        GBS-R  - Generic Bonding Sub-layer, Remote Terminal (CPE) side
+        SNR    - Signal to Noise Ratio
+
+     Copyright (c) 2013 IETF Trust and the persons identified as
+     authors of the code.  All rights reserved.
+
+     Redistribution and use in source and binary forms, with or without
+     modification, is permitted pursuant to, and subject to the license
+     terms contained in, the Simplified BSD License set forth in Section
+     4.c of the IETF Trust's Legal Provisions Relating to IETF Documents
+     (http://trustee.ietf.org/license-info)."
+
+    REVISION    "201302200000Z"  -- 20 February 2013
+    DESCRIPTION "Initial version, published as RFC 6766."
+    ::= { mib-2 210 }
+
+   -- Sections of the module
+   -- Structured as recommended by RFC 4181, Appendix D
+
+   g9983Objects     OBJECT IDENTIFIER ::= { g9983MIB 1 }
+
+   g9983Conformance OBJECT IDENTIFIER ::= { g9983MIB 2 }
+
+   -- Groups in the module
+
+   g9983Port        OBJECT IDENTIFIER ::= { g9983Objects 1 }
+
+   -- Textual Conventions
+
+   G9983SvcIndex ::= TEXTUAL-CONVENTION
+     DISPLAY-HINT "d"
+     STATUS      current
+     DESCRIPTION
+       "A unique value, greater than zero, for each service defined
+       in the managed G.Bond/TDIM port.
+       It is RECOMMENDED that values be assigned contiguously
+       starting from 1.  The value for each service MUST remain
+       constant at least from one re-initialization of the local
+       management subsystem to the next re-initialization."
+     SYNTAX      Unsigned32 (1..255)
+
+   G9983SvcIndexList ::= TEXTUAL-CONVENTION
+     DISPLAY-HINT "1d:"
+     STATUS      current
+     DESCRIPTION
+       "This textual convention represents a continuous ordered list of
+       all the services defined for the managed G.Bond/TDIM port.
+       The value of this object is a concatenation of zero or more (up
+       to 60) octets, where each octet contains an 8-bit
+       G9983SvcIndex value, identifying a particular service.
+
+       An octet's position reflects the associated service position
+       and its priority in the G.Bond/TDIM frame, with the first octet
+       being the first service of highest priority.
+
+       A zero-length octet string is object-specific and MUST
+       therefore be defined as part of the description of any object
+       that uses this syntax.  Examples of the usage of a zero-length
+       value might include situations where an object using this
+       textual convention is irrelevant for a specific G.Bond/TDIM port
+       type or where no services have been defined for this port."
+     SYNTAX      OCTET STRING (SIZE (0..60))
+
+   G9983SvcOrderIndex ::= TEXTUAL-CONVENTION
+     DISPLAY-HINT "d"
+     STATUS      current
+     DESCRIPTION
+       "A unique value, greater than zero, for each service defined
+       in the managed G.Bond/TDIM port, showing its relative position
+       inside the G.Bond/TDIM frame."
+     SYNTAX      Unsigned32 (1..60)
+
+  -- Port Notifications group
+
+   g9983PortNotifications OBJECT IDENTIFIER
+     ::= { g9983Port 0 }
+
+   g9983SvcUp NOTIFICATION-TYPE
+     OBJECTS {
+       -- ifIndex and g9983OperSvcPosition would be part of the trap OID
+       g9983OperSvcIdx,
+       g9983SvcIfIdx
+     }
+     STATUS      current
+     DESCRIPTION
+       "This notification indicates that a service, indicated by the
+       g9983OperSvcIdx (mapped to a particular interface
+       indicated by the g9983SvcIfIdx), in a particular
+       G.Bond/TDIM port is passing traffic.
+
+       This notification is generated (unless disabled or dropped by
+       the rate-limiting mechanism) when the g9983OperSvcState
+       object has left the 'down' state, while the G.Bond/TDIM port
+       state (the ifOperStatus of the IF-MIB) is 'up'.
+
+       Generation of this notification is controlled by the
+       g9983PortConfSvcUpDownEnable object.
+
+       This object maps to the TR-159 notification nServiceUp."
+     REFERENCE
+       "[TR-159], Section 5.5.5.7"
+     ::= { g9983PortNotifications 1 }
+
+   g9983SvcDown NOTIFICATION-TYPE
+     OBJECTS {
+       -- ifIndex and g9983OperSvcPosition would be part of the trap OID
+       g9983OperSvcIdx,
+       g9983SvcIfIdx
+     }
+     STATUS      current
+     DESCRIPTION
+       "This notification indicates that a service indicated by the
+       g9983OperSvcIdx (mapped to a particular interface
+       indicated by the g9983SvcIfIdx) in a particular
+       G.Bond/TDIM port has stopped passing traffic.
+
+       This notification is generated (unless disabled or dropped by
+       the rate-limiting mechanism), when the g9983OperSvcState
+       object has entered the 'down' state, while the G.Bond/TDIM port
+       state (the ifOperStatus of the IF-MIB) is 'up'.
+
+       Generation of this notification is controlled by the
+       g9983PortConfSvcUpDownEnable object.
+
+       This object maps to the TR-159 notification nServiceDown."
+     REFERENCE
+       "[TR-159], Section 5.5.5.8"
+     ::= { g9983PortNotifications 2 }
+
+   -- G.Bond/TDIM Port group
+
+   g9983PortConfTable OBJECT-TYPE
+     SYNTAX      SEQUENCE OF G9983PortConfEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+       "Table for configuration of G.Bond/TDIM ports.  Entries in
+       this table MUST be maintained in a persistent manner."
+     ::= { g9983Port 1 }
+
+   g9983PortConfEntry OBJECT-TYPE
+     SYNTAX      G9983PortConfEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+       "An entry in the G.Bond/TDIM Port Configuration table.
+       Each entry represents a G.Bond/TDIM port indexed by the
+
+       ifIndex.  Additional configuration parameters are available
+       via the gBondPortConfEntry of the GBOND-MIB.
+       Note that a G.Bond/TDIM port runs on top of a single or
+       multiple BCE port(s), which are also indexed by the ifIndex."
+     INDEX  { ifIndex }
+     ::= { g9983PortConfTable 1 }
+
+   G9983PortConfEntry ::=
+     SEQUENCE {
+       g9983PortConfFecAdminState        TruthValue,
+       g9983PortConfFecWordSize          Unsigned32,
+       g9983PortConfFecRedundancySize    Unsigned32,
+       g9983PortConfFecInterleaverType   INTEGER,
+       g9983PortConfFecInterleaverDepth  Unsigned32,
+       g9983PortConfAdminServices        G9983SvcIndexList,
+       g9983PortConfSvcUpDownEnable      TruthValue
+     }
+
+   g9983PortConfFecAdminState  OBJECT-TYPE
+     SYNTAX      TruthValue
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+       "A desired state of the OPTIONAL Forward Error Correction
+       (FEC) function of the G.Bond/TDIM port.
+
+       A value of 'false' indicates that the FEC function SHALL be
+       disabled.  A value of 'true' indicates that the FEC function
+       SHALL be enabled, if supported by the G.Bond/TDIM port, as
+       indicated by the g9983PortCapFecSupported object.
+       The g9983PortStatFecOperState object indicates the current
+       operational state of the FEC function.
+
+       For the GBS-R ports, the value of this object cannot be changed
+       directly.  This value may be changed as a result of a write
+       operation on the g9983PortCapFecSupported object of a remote
+       GBS-C.
+
+       Modifications of this object MUST be performed when the link
+       is 'down'.
+       Attempts to change this object MUST be rejected if the link is
+       'up' or initializing, or if it is a GBS-R.
+
+       This object maps to the TR-159/G.998.3 attribute aFECAdminState."
+     REFERENCE
+       "[TR-159], Section 5.5.4.5; [G.998.3], Appendix II, B-X"
+     ::= { g9983PortConfEntry 1 }
+
+   g9983PortConfFecWordSize  OBJECT-TYPE
+     SYNTAX      Unsigned32 (0|20..255)
+     UNITS       "octets"
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+       "A FEC code word size, in octets, for G.Bond/TDIM ports
+       supporting the FEC function.
+
+       This object is read-write for the GBS-C ports and read-only
+       for the GBS-R.
+
+       A value of zero SHALL be returned if the FEC function is
+       disabled (via g9983PortConfFecAdminState) or not supported.
+
+       Changing of the FEC code word size MUST be performed when the
+       FEC-enabled link is 'down'.  Attempts to change this object MUST
+       be rejected if the link is 'up' or initializing or if the
+       FEC function is disabled/not supported.
+
+       This object maps to the TR-159/G.998.3 attribute aFECWordSize."
+     REFERENCE
+       "[TR-159], Section 5.5.4.7; [G.998.3], Appendix II, B-XI"
+     ::= { g9983PortConfEntry 2 }
+
+   g9983PortConfFecRedundancySize  OBJECT-TYPE
+     SYNTAX      Unsigned32 (0|2|4|8|16|20)
+     UNITS       "octets"
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+       "A FEC redundancy word size, in octets, for G.Bond/TDIM
+       ports supporting the FEC function.
+
+       This object is read-write for the GBS-C ports and read-only
+       for the GBS-R.
+
+       A value of zero SHALL be returned if the FEC function is
+       disabled (via g9983PortConfFecAdminState) or not supported.
+
+       Changing of the FEC redundancy word size MUST be performed
+       when the FEC-enabled link is 'down'.  Attempts to change this
+       object MUST be rejected if the link is 'up' or initializing or
+       if the FEC function is disabled/not supported.
+
+       This object maps to the TR-159/G.998.3 attribute
+       aFECRedundancySize."
+     REFERENCE
+       "[TR-159], Section 5.5.4.8; [G.998.3], Appendix II, B-XII"
+     ::= { g9983PortConfEntry 3 }
+
+   g9983PortConfFecInterleaverType  OBJECT-TYPE
+     SYNTAX      INTEGER {
+       none(0),
+       block(1),
+       convolution(2)
+     }
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+       "An Interleaver type for G.Bond/TDIM ports supporting the
+       FEC function.
+
+       This object is read-write for the GBS-C ports and read-only
+       for the GBS-R.
+
+       A value of none(0) SHALL be returned if the FEC function is
+       disabled (via g9983PortConfFecAdminState) or not supported.
+
+       Changing of the Interleaver type MUST be performed when the
+       FEC-enabled link is 'down'.  Attempts to change this object MUST
+       be rejected if the link is 'up' or initializing or if the FEC
+       function is disabled/not supported.
+
+       This object maps to the TR-159/G.998.3 attribute
+       aFECInterleaverType."
+     REFERENCE
+       "[TR-159], Section 5.5.4.9; [G.998.3], Appendix II, B-XIII"
+     ::= { g9983PortConfEntry 4 }
+
+   g9983PortConfFecInterleaverDepth  OBJECT-TYPE
+     SYNTAX      Unsigned32 (0|1|2|3|4|6|8|12|16|24|32|48|96)
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+       "An Interleaver depth for G.Bond/TDIM ports supporting the
+       FEC function.
+
+       This object is read-write for the GBS-C ports and read-only
+       for the GBS-R.
+
+       A value of zero SHALL be returned if the FEC function is
+       disabled (via g9983PortConfFecAdminState) or not supported.
+
+       Changing of the Interleaver depth MUST be performed when the
+       FEC-enabled link is 'down'.  Attempts to change this object MUST
+       be rejected if the link is 'up' or initializing or if the FEC
+       function is disabled/not supported.
+
+       This object maps to the TR-159/G.998.3 attribute
+       aFECInterleaverDepth."
+     REFERENCE
+       "[TR-159], Section 5.5.4.10; [G.998.3], Appendix II, B-XIV"
+     ::= { g9983PortConfEntry 5 }
+
+   g9983PortConfAdminServices  OBJECT-TYPE
+     SYNTAX      G9983SvcIndexList
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+       "Desired list of services for a G.Bond/TDIM port.  This object
+       is a list of pointers to entries in the g9983SvcTable.
+
+       The value of this object is a continuous ordered list of up to
+       60 indices (g9983SvcIdx) of the active services carried
+       via the G.Bond/TDIM link.  The position of a service in the
+       list determines its relative priority in cases of bandwidth
+       degradation -- the priority decreases towards the end of the
+       list, which means that the last service in the list would be
+       suspended first when the bandwidth degrades.
+
+       This object is writable and readable for the GBS-C ports.
+       It is irrelevant for the GBS-R ports -- a zero-length octet
+       string SHALL be returned on an attempt to read this object, and
+       an attempt to change this object MUST be rejected in this case.
+
+       Note that the current operational service list is available
+       via the g9983OperSvcTable object.
+
+       This object for a GBS-C port MAY be modified independently of
+       the link's state, i.e., in-service and out-of-service.
+       Attempts to set this object to a list with a member value that
+       is not the value of the index for an active entry in the
+       corresponding g9983SvcTable table MUST be rejected."
+     REFERENCE
+       "[G.998.3], Sections 10.2.3, 13.3.4.6-13.3.4.11"
+     ::= { g9983PortConfEntry 6 }
+
+   g9983PortConfSvcUpDownEnable  OBJECT-TYPE
+     SYNTAX      TruthValue
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+       "Indicates whether g9983SvcUp and g9983SvcDown
+       notifications should be generated for this interface.
+
+       A value of true(1) indicates that the notifications are enabled.
+       A value of false(2) indicates that the notifications are
+       disabled.
+
+       This object maps to the TR-159 attribute
+       aServiceUpDownEnable."
+     REFERENCE
+       "[TR-159], Section 5.5.5.6"
+     ::= { g9983PortConfEntry 7 }
+
+   g9983PortCapTable OBJECT-TYPE
+     SYNTAX      SEQUENCE OF G9983PortCapEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+       "Table for capabilities of G.Bond/TDIM ports.  Entries in this
+       table MUST be maintained in a persistent manner."
+     ::= { g9983Port 2 }
+
+   g9983PortCapEntry OBJECT-TYPE
+     SYNTAX      G9983PortCapEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+       "An entry in the G.Bond/TDIM Port Capability table.
+       Each entry represents a G.Bond/TDIM port indexed by the
+       ifIndex.  Additional capabilities are available via the
+       gBondPortCapabilityEntry of the GBOND-MIB.
+       Note that a G.Bond/TDIM port runs on top of a single
+       or multiple BCE port(s), which are also indexed by the ifIndex."
+     INDEX  { ifIndex }
+     ::= { g9983PortCapTable 1 }
+
+   G9983PortCapEntry ::=
+     SEQUENCE {
+       g9983PortCapFecSupported                TruthValue,
+       g9983PortCapFecMaxWordSize              Unsigned32,
+       g9983PortCapFecMaxRedundancySize        Unsigned32,
+       g9983PortCapFecInterleaverTypeSupported INTEGER,
+       g9983PortCapFecMaxInterleaverDepth      Unsigned32
+     }
+
+   g9983PortCapFecSupported  OBJECT-TYPE
+     SYNTAX      TruthValue
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "FEC and Interleaver capability of the G.Bond/TDIM port.
+       This object has a value of true(1) when the port supports the
+       FEC and Interleaver function.
+       A value of false(2) is returned when the port does not
+       support the FEC and Interleaver function.
+
+       This object maps to the TR-159/G.998.3 attribute
+       aFECSupported."
+     REFERENCE
+       "[TR-159], Section 5.5.4.4; [G.998.3], Appendix II, B-VI"
+     ::= { g9983PortCapEntry 1 }
+
+   g9983PortCapFecMaxWordSize  OBJECT-TYPE
+     SYNTAX      Unsigned32 (0|20..255)
+     UNITS       "octets"
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A maximum supported FEC code word size, in octets, for
+       G.Bond/TDIM ports supporting the FEC function.
+
+       A value of zero SHALL be returned if the FEC function is not
+       supported.
+
+       This object maps to the TR-159 attribute aFECWordSize."
+     REFERENCE
+       "[TR-159], Section 5.5.4.11; [G.998.3], Appendix II, B-XI"
+     ::= { g9983PortCapEntry 2 }
+
+   g9983PortCapFecMaxRedundancySize  OBJECT-TYPE
+     SYNTAX      Unsigned32 (0|2|4|8|16|20)
+     UNITS       "octets"
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A maximum supported FEC redundancy word size, in octets, for
+       G.Bond/TDIM ports supporting the FEC function.
+
+       A value of zero SHALL be returned if the FEC function is not
+       supported.
+
+       This object maps to the TR-159 attribute
+       aFECMaxRedundancySize."
+     REFERENCE
+       "[TR-159], Section 5.5.4.12; [G.998.3], Appendix II, B-XII"
+     ::= { g9983PortCapEntry 3 }
+
+   g9983PortCapFecInterleaverTypeSupported  OBJECT-TYPE
+     SYNTAX      INTEGER {
+       none(0),
+       block(1),
+       convolution(2),
+       blockConvolution(3)
+     }
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "Supported Interleaver types for G.Bond/TDIM ports supporting
+       the FEC function.
+
+       Possible values are:
+         none             - the port does not support interleaving
+         block            - the port supports Block Interleaver
+         convolution      - the port supports Convolution Interleaver
+         blockConvolution - the port supports both Block Interleaver
+                            and Convolution Interleaver
+
+       This object maps to the TR-159 attribute
+       aFECInterleaverTypesSupported."
+     REFERENCE
+       "[TR-159], Section 5.5.4.13; [G.998.3], Appendix II, B-XIII"
+     ::= { g9983PortCapEntry 4 }
+
+   g9983PortCapFecMaxInterleaverDepth  OBJECT-TYPE
+     SYNTAX      Unsigned32 (0|1|2|3|4|6|8|12|16|24|32|48|96)
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A maximum Interleaver depth for G.Bond/TDIM ports supporting
+       the FEC function.
+
+       A value of zero SHALL be returned if the Interleaver is not
+       supported.
+
+       This object maps to the TR-159 attribute
+       aFECMaxInterleaverDepth."
+     REFERENCE
+       "[TR-159], Section 5.5.4.14; [G.998.3], Appendix II, B-XIV"
+     ::= { g9983PortCapEntry 5 }
+
+   g9983PortStatTable OBJECT-TYPE
+     SYNTAX      SEQUENCE OF G9983PortStatEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+       "This table provides overall status information of G.Bond
+       TDIM ports, complementing the generic status information from
+       the ifTable of the IF-MIB and the gBondPortStatFltStatus of
+       the GBOND-MIB.  Additional status information about connected
+       BCEs is available from the relevant line MIBs.
+
+       This table contains live data from the equipment.  As such,
+       it is NOT persistent."
+     ::= { g9983Port 3 }
+
+   g9983PortStatEntry OBJECT-TYPE
+     SYNTAX      G9983PortStatEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+       "An entry in the G.Bond/TDIM Port Status table.
+       Each entry represents a G.Bond/TDIM port indexed by the
+       ifIndex.
+       Note that a G.Bond GBS port runs on top of a single
+       or multiple BCE port(s), which are also indexed by the ifIndex."
+     INDEX  { ifIndex }
+     ::= { g9983PortStatTable 1 }
+
+   G9983PortStatEntry ::=
+     SEQUENCE {
+       g9983PortStatFecOperState         TruthValue,
+       g9983PortStatFltStatus            BITS,
+       g9983PortStatCrc4Errors           Counter32,
+       g9983PortStatCrc6Errors           Counter32,
+       g9983PortStatCrc8Errors           Counter32
+     }
+
+   g9983PortStatFecOperState  OBJECT-TYPE
+     SYNTAX      TruthValue
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only value indicating the current operational state
+       of the OPTIONAL Forward Error Correction (FEC) function for
+       the G.998.3 port.
+       A value of 'false' indicates that the FEC function is
+       disabled.  A value of 'true' indicates that the FEC function
+       is enabled (and supported).
+
+       This object maps to the TR-159 attribute aFECOperState."
+     REFERENCE
+       "[TR-159], Section 5.5.4.6"
+     ::= { g9983PortStatEntry 1 }
+
+   g9983PortStatFltStatus  OBJECT-TYPE
+     SYNTAX      BITS {
+       serviceDown(0),
+       wrongConfig(1)
+     }
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "G.Bond/TDIM port fault status.  This is a bitmap of possible
+       conditions.  The various bit positions are:
+         serviceDown         - at least one of the services defined
+                               for this aggregation group is down
+                               (due to low rate).
+         wrongConfig         - at least one BCE at the remote GBS-R
+                               is already connected to another GBS.
+
+       This object is intended to supplement the ifOperStatus object
+       in the IF-MIB and the gBondPortStatFltStatus object in the
+       GBOND-MIB."
+     REFERENCE
+       "[G.998.3], Section 6.3; RFC 2863, IF-MIB, ifOperStatus;
+       RFC 6765, GBOND-MIB, gBondPortStatFltStatus"
+     ::= { g9983PortStatEntry 2 }
+
+   g9983PortStatCrc4Errors  OBJECT-TYPE
+     SYNTAX      Counter32
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "The total number of CRC-4 errors (frame header errors) on all
+       pairs in the G.Bond/TDIM port.  Simultaneous errors on M lines
+       SHOULD be counted M times.
+
+       Discontinuities in the value of this counter can occur at
+       re-initialization of the management system, and at other times
+       as indicated by the value of ifCounterDiscontinuityTime as
+       defined in the IF-MIB.
+
+       This object maps to the TR-159/G.998.3 attribute aCRC4Errors."
+     REFERENCE
+       "[TR-159], Section 5.5.4.1; [G.998.3], Appendix II, B-VII"
+     ::= { g9983PortStatEntry 3 }
+
+   g9983PortStatCrc6Errors  OBJECT-TYPE
+     SYNTAX      Counter32
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "The total number of CRC-6 errors (super-frame errors) on all
+       pairs in the G.Bond/TDIM port.  Simultaneous errors on M lines
+       SHOULD be counted 1 time.
+
+       Discontinuities in the value of this counter can occur at
+       re-initialization of the local management subsystem, and at
+       other times as indicated by the value of
+       ifCounterDiscontinuityTime as defined in the IF-MIB.
+
+       This object maps to the TR-159/G.998.3 attribute aCRC6Errors."
+     REFERENCE
+       "[TR-159], Section 5.5.4.2; [G.998.3], Appendix II, B-VIII"
+     ::= { g9983PortStatEntry 4 }
+
+   g9983PortStatCrc8Errors  OBJECT-TYPE
+     SYNTAX      Counter32
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "The total number of CRC-8 errors (event/message errors) on all
+       pairs in the G.Bond/TDIM port.  Simultaneous errors on M lines
+       SHOULD be counted M times.
+
+       Discontinuities in the value of this counter can occur at
+       re-initialization of the local management subsystem, and at
+       other times as indicated by the value of
+       ifCounterDiscontinuityTime as defined in the IF-MIB.
+
+       This object maps to the TR-159/G.998.3 attribute aCRC8Errors."
+     REFERENCE
+       "[TR-159], Section 5.5.4.3; [G.998.3], Appendix II, B-IX"
+     ::= { g9983PortStatEntry 5 }
+
+   g9983OperSvcTable OBJECT-TYPE
+     SYNTAX      SEQUENCE OF G9983OperSvcEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+       "Table of the operational services configured on a G.Bond/TDIM
+       port.  This table reflects current actual service configuration,
+       set by the g9983PortConfAdminServices object.  The number of
+       entries (services) in this table therefore can vary between
+
+       0, when no services are configured, and 60, for the maximum
+       number of services.
+       This table contains live data from the equipment.  As such,
+       it is NOT persistent."
+     ::= { g9983Port 4 }
+
+   g9983OperSvcEntry OBJECT-TYPE
+     SYNTAX      G9983OperSvcEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+       "An entry in the G.Bond/TDIM Port Operational Service table,
+       containing the index of an active service entry in the
+       g9983SvcTable.  The entry is indexed by the ifIndex,
+       indicating a corresponding G.Bond/TDIM port, and by
+       g9983OperSvcPosition (1..60), indicating the
+       corresponding service position in the G.Bond/TDIM frame."
+     INDEX  { ifIndex, g9983OperSvcPosition }
+     ::= { g9983OperSvcTable 1 }
+
+   G9983OperSvcEntry ::=
+     SEQUENCE {
+       g9983OperSvcPosition          G9983SvcOrderIndex,
+       g9983OperSvcIdx               G9983SvcIndex,
+       g9983OperSvcState             INTEGER
+     }
+
+   g9983OperSvcPosition OBJECT-TYPE
+     SYNTAX      G9983SvcOrderIndex
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+       "G.Bond/TDIM operational service position -- a unique index,
+       indicating relative placement of the associated service
+       pointed to by g9983OperSvcIdx, within the G.Bond/TDIM frame.
+
+       There can be up to 60 services defined over a TDIM bonded
+       facility.  Services with lower indices have higher priority in
+       cases of bandwidth degradation.
+
+       The value of g9983OperSvcPosition for the first
+       g9983OperSvcEntry is always 1, incrementing sequentially
+       for each consecutive entry, i.e., 2 for the second entry,
+       3 for the third, etc.
+
+       This objects maps to the TR-159/G.998.3 attribute aServiceID."
+     REFERENCE
+       "[TR-159], Section 5.5.5.1; [G.998.3], Appendix II, C-I"
+     ::= { g9983OperSvcEntry 1 }
+
+   g9983OperSvcIdx OBJECT-TYPE
+     SYNTAX      G9983SvcIndex
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "G.Bond/TDIM operational service index -- a read-only pointer
+       to an existing entry in the g9983SvcTable (value of
+       g9983SvcIdx) describing a particular service."
+     ::= { g9983OperSvcEntry 2 }
+
+   g9983OperSvcState  OBJECT-TYPE
+     SYNTAX      INTEGER {
+       up(1),
+       down(2)
+     }
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "G.Bond/TDIM service operational state.
+
+       Possible values are:
+         up                  - Service is up and passing traffic.
+         down                - Service is down, due to a variety of
+                               reasons, e.g., G.Bond/TDIM port is
+                               down, current link bandwidth is too
+                               low to support a particular service,
+                               etc.
+       This objects maps to the TR-159 attribute aServiceOperState."
+     REFERENCE
+       "[TR-159], Section 5.5.5.5"
+     ::= { g9983OperSvcEntry 3 }
+
+   g9983SvcTable OBJECT-TYPE
+     SYNTAX      SEQUENCE OF G9983SvcEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+       "Table of possible services for G.Bond/TDIM ports.
+       Entries in this table MUST be maintained in a persistent
+       manner."
+     ::= { g9983Port 5 }
+
+   g9983SvcEntry OBJECT-TYPE
+     SYNTAX      G9983SvcEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+       "An entry in the G.Bond/TDIM Port Service table, containing
+       the management information applicable to a particular service,
+       indexed by the g9983SvcIdx, on a G.Bond/TDIM port,
+       indexed by the ifIndex."
+     INDEX  { ifIndex, g9983SvcIdx }
+     ::= { g9983SvcTable 1 }
+
+   G9983SvcEntry ::=
+     SEQUENCE {
+       g9983SvcIdx           G9983SvcIndex,
+       g9983SvcIfIdx         InterfaceIndex,
+       g9983SvcType          INTEGER,
+       g9983SvcSize          Unsigned32,
+       g9983SvcRowStatus     RowStatus
+     }
+
+   g9983SvcIdx OBJECT-TYPE
+     SYNTAX      G9983SvcIndex
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+       "G.Bond/TDIM service index -- a unique index associated with
+       a particular service entry."
+     ::= { g9983SvcEntry 1 }
+
+   g9983SvcIfIdx OBJECT-TYPE
+     SYNTAX      InterfaceIndex
+     MAX-ACCESS  read-create
+     STATUS      current
+     DESCRIPTION
+       "This is a unique index within the ifTable.  It represents
+       the interface index of a service to be transmitted over the
+       G.Bond/TDIM service instance.
+
+       This objects maps to the TR-159 attribute aServiceIfIndex."
+     REFERENCE
+       "[TR-159], Section 5.5.5.2"
+     ::= { g9983SvcEntry 2 }
+
+   g9983SvcType  OBJECT-TYPE
+     SYNTAX      INTEGER {
+       ds1(0),
+       e1(1),
+       nxds0(2),
+       nxe0(3),
+       ds3(4),
+       e3(5),
+       clock(6),
+       ethernet(7),
+       atm(8),
+       gfpNoFCS(9),
+       gfp(10)
+     }
+     MAX-ACCESS  read-create
+     STATUS      current
+     DESCRIPTION
+       "G.Bond/TDIM service type.
+
+       Possible values are:
+         ds1            - Clear Channel DS1 (synchronous)
+         e1             - Clear Channel E1 (synchronous)
+         nxds0          - Fractional DS1 (synchronous)
+         nxe0           - Fractional E1 (synchronous)
+         ds3            - DS3 (synchronous)
+         e3             - E3 (synchronous)
+         clock          - Clock transfer (synchronous)
+         ethernet       - Ethernet (asynchronous)
+         atm            - ATM (asynchronous)
+         gfpNoFCS       - GFP encapsulated without FCS (asynchronous)
+         gfp            - GFP encapsulated with FCS (asynchronous)
+
+       For the GBS-R ports, the value of this object cannot be
+       changed directly.  This value may be changed as a result of a
+       write operation on the g9983SvcType object of a remote GBS-C.
+
+       Attempts to change this object MUST be rejected for the GBS-R
+       ports.
+
+       This object maps to the TR-159/G.998.3 attribute aServiceType."
+     REFERENCE
+       "[TR-159], Section 5.5.5.3; [G.998.3], Appendix II, C-II"
+     ::= { g9983SvcEntry 3 }
+
+   g9983SvcSize  OBJECT-TYPE
+     SYNTAX      Unsigned32 (0|20..255)
+     UNITS       "octets"
+     MAX-ACCESS  read-create
+     STATUS      current
+     DESCRIPTION
+       "Service size, in octets, per bonding sub-block for a specific
+       service identified by g9983SvcIdx.
+
+       For TDM (synchronous) services with variable size
+       (e.g., fractional DS1/E1), this object represents the number of
+       DS0/E0 channels.
+       For asynchronous services (Ethernet, ATM, GFPnoFCS, or GFP),
+       this object represents the maximum number of octets.
+       For non-fractional TDM services (i.e., DS1, E1, DS3, E3, and
+       clock), the value of this object MUST be 0.
+
+       A GET operation returns the current value.
+       A SET operation, allowed on GBS-C ports, changes the service
+       size to the indicated value.  If the service type is a
+       fixed-rate synchronous service (g9983SvcType is nxds0, nxe0,
+       ds1, e1, ds3, e3, or clock), the operation MUST be rejected.
+
+       This object maps to the TR-159/G.998.3 attribute aServiceSize."
+     REFERENCE
+       "[TR-159], Section 5.5.5.4; [G.998.3], Appendix II, C-III"
+     ::= { g9983SvcEntry 4 }
+
+   g9983SvcRowStatus  OBJECT-TYPE
+     SYNTAX      RowStatus
+     MAX-ACCESS  read-create
+     STATUS      current
+     DESCRIPTION
+       "This object controls the creation, modification, or deletion
+       of the associated entry in the g9983SvcTable per the
+       semantics of RowStatus.
+
+       If an 'active' entry is referenced via g9983OperSvcIdx
+       or a g9983PortConfAdminServices instance, or indexes a
+       g9983SvcPm*Entry, the entry MUST remain 'active'.
+
+       An 'active' entry SHALL NOT be modified.  In order to modify an
+       existing entry, it MUST be taken out of service (by setting
+       this object to 'notInService'), modified, and set to 'active'
+       again."
+     ::= { g9983SvcEntry 5 }
+
+   -------------------------------
+   -- Performance Monitoring group
+   -------------------------------
+
+   g9983PM   OBJECT IDENTIFIER ::= { g9983Port 6 }
+
+   g9983PortPmCurTable OBJECT-TYPE
+     SYNTAX      SEQUENCE OF G9983PortPmCurEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+       "This table contains current Performance Monitoring information
+       for a G.Bond/TDIM port.  This table contains live data from the
+       equipment and as such is NOT persistent."
+     ::= { g9983PM 1 }
+
+   g9983PortPmCurEntry OBJECT-TYPE
+     SYNTAX      G9983PortPmCurEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+       "An entry in the G.Bond/TDIM Port PM table.
+       Each entry represents a G.Bond/TDIM port indexed by the
+       ifIndex."
+     INDEX  { ifIndex }
+     ::= { g9983PortPmCurTable 1 }
+
+   G9983PortPmCurEntry ::=
+     SEQUENCE {
+       g9983PortPmCur15MinValidIntervals   HCPerfValidIntervals,
+       g9983PortPmCur15MinInvalidIntervals HCPerfInvalidIntervals,
+       g9983PortPmCur15MinTimeElapsed      HCPerfTimeElapsed,
+       g9983PortPmCur15MinCrc4s            HCPerfCurrentCount,
+       g9983PortPmCur15MinCrc6s            HCPerfCurrentCount,
+       g9983PortPmCur15MinCrc8s            HCPerfCurrentCount,
+       g9983PortPmCur1DayValidIntervals    Unsigned32,
+       g9983PortPmCur1DayInvalidIntervals  Unsigned32,
+       g9983PortPmCur1DayTimeElapsed       HCPerfTimeElapsed,
+       g9983PortPmCur1DayCrc4s             HCPerfCurrentCount,
+       g9983PortPmCur1DayCrc6s             HCPerfCurrentCount,
+       g9983PortPmCur1DayCrc8s             HCPerfCurrentCount
+     }
+
+   g9983PortPmCur15MinValidIntervals  OBJECT-TYPE
+     SYNTAX      HCPerfValidIntervals
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only number of 15-minute intervals for which the
+       performance data was collected.  The value of this object will
+       be 96 or the maximum number of 15-minute history intervals
+       collected by the implementation, unless the measurement was
+       (re)started recently, in which case the value will be the
+       number of complete 15-minute intervals for which there are at
+       least some data.
+
+       In certain cases, it is possible that some intervals are
+       unavailable.  In this case, this object reports the maximum
+       interval number for which data is available.
+
+       This object partially maps to the TR-159 attribute
+       aGroupPerf15MinValidIntervals."
+     REFERENCE
+       "[TR-159], Section 5.5.1.32"
+     ::= { g9983PortPmCurEntry 1 }
+
+   g9983PortPmCur15MinInvalidIntervals  OBJECT-TYPE
+     SYNTAX      HCPerfInvalidIntervals
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only number of 15-minute intervals for which the
+       performance data was not always available.  The value will
+       typically be zero, except in cases where the data for some
+       intervals are not available.
+
+       This object partially maps to the TR-159 attribute
+       aGroupPerf15MinInvalidIntervals."
+     REFERENCE
+       "[TR-159], Section 5.5.1.33"
+     ::= { g9983PortPmCurEntry 2 }
+
+   g9983PortPmCur15MinTimeElapsed  OBJECT-TYPE
+     SYNTAX      HCPerfTimeElapsed
+     UNITS       "seconds"
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only count of seconds that have elapsed since the
+       beginning of the current 15-minute performance interval.
+
+       This object partially maps to the TR-159 attribute
+       aGroupPerfCurr15MinTimeElapsed."
+     REFERENCE
+       "[TR-159], Section 5.5.1.34"
+     ::= { g9983PortPmCurEntry 3 }
+
+   g9983PortPmCur15MinCrc4s  OBJECT-TYPE
+     SYNTAX      HCPerfCurrentCount
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only count of CRC-4 errors (frame header errors) on all
+       active pairs in the G.Bond/TDIM port during the current
+
+       15-minute performance interval.
+       Simultaneous errors on M lines SHOULD be counted M times.
+
+       Note that the total number of CRC-4 errors is indicated by the
+       g9983PortStatCrc4Errors object.
+
+       This object is inhibited during Severely Errored Seconds (SES)
+       or Unavailable Seconds (UAS)."
+     REFERENCE
+       "[TR-159], Section 5.5.4.1"
+     ::= { g9983PortPmCurEntry 4}
+
+   g9983PortPmCur15MinCrc6s  OBJECT-TYPE
+     SYNTAX      HCPerfCurrentCount
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only count of CRC-6 errors (super-frame errors) on all
+       active pairs in the G.Bond/TDIM port during the current
+       15-minute performance interval.
+       Simultaneous errors on M lines SHOULD be counted 1 time.
+
+       Note that the total number of CRC-6 errors is indicated by the
+       g9983PortStatCrc6Errors object.
+
+       This object is inhibited during Unavailable Seconds (UAS)."
+     REFERENCE
+       "[TR-159], Section 5.5.4.2"
+     ::= { g9983PortPmCurEntry 5}
+
+   g9983PortPmCur15MinCrc8s  OBJECT-TYPE
+     SYNTAX      HCPerfCurrentCount
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only count of CRC-8 errors (event/message errors) on all
+       active pairs in the G.Bond/TDIM port during the current
+       15-minute performance interval.
+       Simultaneous errors on M lines SHOULD be counted M times.
+
+       Note that the total number of CRC-8 errors is indicated by the
+       g9983PortStatCrc8Errors object.
+
+       This object is inhibited during Unavailable Seconds (UAS)."
+     REFERENCE
+       "[TR-159], Section 5.5.4.3"
+     ::= { g9983PortPmCurEntry 6}
+
+   g9983PortPmCur1DayValidIntervals  OBJECT-TYPE
+     SYNTAX      Unsigned32 (0..7)
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only number of 1-day intervals for which data was
+       collected.  The value of this object will be 7 or the maximum
+       number of 1-day history intervals collected by the
+       implementation, unless the measurement was (re)started recently,
+       in which case the value will be the number of complete 1-day
+       intervals for which there are at least some data.
+       In certain cases, it is possible that some intervals are
+       unavailable.  In this case, this object reports the maximum
+       interval number for which data is available."
+     REFERENCE
+       "[TR-159], Section 5.5.1.45"
+     ::= { g9983PortPmCurEntry 7 }
+
+   g9983PortPmCur1DayInvalidIntervals  OBJECT-TYPE
+     SYNTAX      Unsigned32 (0..7)
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only number of 1-day intervals for which data was
+       not always available.  The value will typically be zero, except
+       in cases where the data for some intervals are not available."
+     REFERENCE
+       "[TR-159], Section 5.5.1.46"
+     ::= { g9983PortPmCurEntry 8 }
+
+   g9983PortPmCur1DayTimeElapsed  OBJECT-TYPE
+     SYNTAX      HCPerfTimeElapsed
+     UNITS       "seconds"
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only count of seconds that have elapsed since the
+       beginning of the current 1-day performance interval."
+     REFERENCE
+       "[TR-159], Section 5.5.1.47"
+     ::= { g9983PortPmCurEntry 9 }
+
+   g9983PortPmCur1DayCrc4s  OBJECT-TYPE
+     SYNTAX      HCPerfCurrentCount
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only count of CRC-4 errors on the G.Bond/TDIM port in
+       the current 1-day performance interval.
+
+       This object is inhibited during Severely Errored Seconds (SES)
+       and Unavailable Seconds (UAS)."
+     ::= { g9983PortPmCurEntry 10 }
+
+   g9983PortPmCur1DayCrc6s  OBJECT-TYPE
+     SYNTAX      HCPerfCurrentCount
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only count of CRC-6 errors on the G.Bond/TDIM port
+       in the current 1-day performance interval.
+
+       This object is inhibited during Unavailable Seconds (UAS)."
+     ::= { g9983PortPmCurEntry 11 }
+
+   g9983PortPmCur1DayCrc8s  OBJECT-TYPE
+     SYNTAX      HCPerfCurrentCount
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only count of CRC-8 errors on the G.Bond/TDIM port in
+       the current 1-day performance interval.
+
+       This object is inhibited during Unavailable Seconds (UAS)."
+     ::= { g9983PortPmCurEntry 12 }
+
+   -- Port PM history: 15-min buckets
+
+   g9983PortPm15MinTable OBJECT-TYPE
+     SYNTAX      SEQUENCE OF G9983PortPm15MinEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+       "This table contains historical 15-minute buckets of Performance
+       Monitoring information for a G.Bond/TDIM port (a row for each
+       15-minute interval, up to 96 intervals).
+       Entries in this table MUST be maintained in a persistent manner."
+     ::= { g9983PM 2 }
+
+   g9983PortPm15MinEntry OBJECT-TYPE
+     SYNTAX      G9983PortPm15MinEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+       "An entry in the G.Bond/TDIM Port historical 15-minute PM table.
+       Each entry represents Performance Monitoring data for a G.Bond
+       TDIM port, indexed by the ifIndex, collected during a particular
+       15-minute interval, indexed by the
+       g9983PortPm15MinIntervalIndex."
+     INDEX  { ifIndex, g9983PortPm15MinIntervalIndex }
+     ::= { g9983PortPm15MinTable 1 }
+
+   G9983PortPm15MinEntry ::=
+     SEQUENCE {
+       g9983PortPm15MinIntervalIndex      Unsigned32,
+       g9983PortPm15MinIntervalMoniTime   HCPerfTimeElapsed,
+       g9983PortPm15MinIntervalCrc4s      HCPerfIntervalCount,
+       g9983PortPm15MinIntervalCrc6s      HCPerfIntervalCount,
+       g9983PortPm15MinIntervalCrc8s      HCPerfIntervalCount,
+       g9983PortPm15MinIntervalValid      TruthValue
+     }
+
+   g9983PortPm15MinIntervalIndex  OBJECT-TYPE
+     SYNTAX      Unsigned32 (1..96)
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+       "Performance data interval number.  1 is the most recent
+       previous interval; interval 96 is 24 hours ago.
+       Intervals 2..96 are OPTIONAL.
+
+       This object partially maps to the TR-159 attribute
+       aGroupPerf15MinIntervalNumber."
+     REFERENCE
+       "[TR-159], Section 5.5.1.57"
+     ::= { g9983PortPm15MinEntry 1 }
+
+   g9983PortPm15MinIntervalMoniTime  OBJECT-TYPE
+     SYNTAX      HCPerfTimeElapsed
+     UNITS       "seconds"
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only count of seconds over which the performance data
+       was actually monitored.  This value will be the same as the
+       interval duration (900 seconds), except in a situation where
+       performance data could not be collected for any reason."
+     ::= { g9983PortPm15MinEntry 2 }
+
+   g9983PortPm15MinIntervalCrc4s  OBJECT-TYPE
+     SYNTAX      HCPerfIntervalCount
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only count of CRC-4 errors on the G.Bond/TDIM port
+       during the 15-minute performance history interval.
+
+       This object is inhibited during Severely Errored Seconds (SES)
+       and Unavailable Seconds (UAS)."
+     ::= { g9983PortPm15MinEntry 3 }
+
+   g9983PortPm15MinIntervalCrc6s  OBJECT-TYPE
+     SYNTAX      HCPerfIntervalCount
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only count of CRC-6 errors on the G.Bond/TDIM port
+       during the 15-minute performance history interval.
+
+       This object is inhibited during Unavailable Seconds (UAS)."
+     ::= { g9983PortPm15MinEntry 4 }
+
+   g9983PortPm15MinIntervalCrc8s  OBJECT-TYPE
+     SYNTAX      HCPerfIntervalCount
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only count of CRC-8 errors on the G.Bond/TDIM port
+       during the current 15-minute performance interval.
+
+       This object is inhibited during Unavailable Seconds (UAS)."
+     ::= { g9983PortPm15MinEntry 5 }
+
+   g9983PortPm15MinIntervalValid  OBJECT-TYPE
+     SYNTAX      TruthValue
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only object indicating whether or not this history
+       bucket contains valid data.  A valid bucket is reported as
+       true(1) and an invalid bucket as false(2).
+       If this history bucket is invalid, the BTU-C MUST NOT produce
+       notifications based upon the value of the counters in this
+       bucket.
+       Note that an implementation may decide not to store invalid
+       history buckets in its database.  In such a case, this object
+       is not required, as only valid history buckets are available
+       while invalid history buckets are simply not in the database.
+
+       This object partially maps to the TR-159 attribute
+       aGroupPerf15MinIntervalValid."
+     REFERENCE
+       "[TR-159], Section 5.5.1.58"
+     ::= { g9983PortPm15MinEntry 6 }
+
+   -- Port PM history: 1-day buckets
+
+   g9983PortPm1DayTable OBJECT-TYPE
+     SYNTAX      SEQUENCE OF G9983PortPm1DayEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+       "This table contains historical 1-day buckets of Performance
+       Monitoring information for a G.Bond/TDIM port (a row for each
+       1-day interval, up to 7 intervals).
+       Entries in this table MUST be maintained in a persistent manner."
+     ::= { g9983PM 3 }
+
+   g9983PortPm1DayEntry OBJECT-TYPE
+     SYNTAX      G9983PortPm1DayEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+       "An entry in the G.Bond/TDIM Port historical 1-day PM table.
+       Each entry represents Performance Monitoring data for such a
+       port, indexed by the ifIndex, collected during a particular
+       1-day interval, indexed by the g9983PortPm1DayIntervalIndex."
+     INDEX  { ifIndex, g9983PortPm1DayIntervalIndex }
+     ::= { g9983PortPm1DayTable 1 }
+
+   G9983PortPm1DayEntry ::=
+     SEQUENCE {
+       g9983PortPm1DayIntervalIndex      Unsigned32,
+       g9983PortPm1DayIntervalMoniTime   HCPerfTimeElapsed,
+       g9983PortPm1DayIntervalCrc4s      HCPerfIntervalCount,
+       g9983PortPm1DayIntervalCrc6s      HCPerfIntervalCount,
+       g9983PortPm1DayIntervalCrc8s      HCPerfIntervalCount,
+       g9983PortPm1DayIntervalValid      TruthValue
+     }
+
+   g9983PortPm1DayIntervalIndex  OBJECT-TYPE
+     SYNTAX      Unsigned32 (1..7)
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+       "Performance data interval number.  1 is the most recent
+       previous interval; interval 7 is 7 days ago.
+
+       Intervals 2..7 are OPTIONAL.
+
+       This object partially maps to the TR-159 attribute
+       aGroupPerf1DayIntervalNumber."
+     REFERENCE
+       "[TR-159], Section 5.5.1.62"
+     ::= { g9983PortPm1DayEntry 1 }
+
+   g9983PortPm1DayIntervalMoniTime  OBJECT-TYPE
+     SYNTAX      HCPerfTimeElapsed
+     UNITS       "seconds"
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only count of seconds over which the performance data
+       was actually monitored.  This value will be the same as the
+       interval duration (86400 seconds), except in a situation where
+       performance data could not be collected for any reason.
+
+       This object partially maps to the TR-159 attribute
+       aGroupPerf1DayIntervalMoniSecs."
+     REFERENCE
+       "[TR-159], Section 5.5.1.64"
+     ::= { g9983PortPm1DayEntry 2 }
+
+   g9983PortPm1DayIntervalCrc4s  OBJECT-TYPE
+     SYNTAX      HCPerfIntervalCount
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only count of CRC-4 errors on the G.Bond/TDIM port
+       during the 1-day performance history interval.
+
+       This object is inhibited during Severely Errored Seconds (SES)
+       and Unavailable Seconds (UAS)."
+     ::= { g9983PortPm1DayEntry 3 }
+
+   g9983PortPm1DayIntervalCrc6s  OBJECT-TYPE
+     SYNTAX      HCPerfIntervalCount
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only count of CRC-6 errors on the G.Bond/TDIM port
+       during the 1-day performance history interval.
+
+       This object is inhibited during Unavailable Seconds (UAS)."
+     ::= { g9983PortPm1DayEntry 4 }
+
+   g9983PortPm1DayIntervalCrc8s  OBJECT-TYPE
+     SYNTAX      HCPerfIntervalCount
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only count of CRC-8 errors on the G.Bond/TDIM port
+       during the current 1-day performance interval.
+
+       This object is inhibited during Unavailable Seconds (UAS)."
+     ::= { g9983PortPm1DayEntry 5 }
+
+   g9983PortPm1DayIntervalValid  OBJECT-TYPE
+     SYNTAX      TruthValue
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only object indicating whether or not this history
+       bucket contains valid data.  A valid bucket is reported as
+       true(1) and an invalid bucket as false(2).
+       If this history bucket is invalid, the BTU-C MUST NOT produce
+       notifications based upon the value of the counters in this
+       bucket.
+       Note that an implementation may decide not to store invalid
+       history buckets in its database.  In such a case, this object
+       is not required, as only valid history buckets are available
+       while invalid history buckets are simply not in the database.
+
+       This object partially maps to the TR-159 attribute
+       aGroupPerf1DayIntervalValid."
+     REFERENCE
+       "[TR-159], Section 5.5.1.63"
+     ::= { g9983PortPm1DayEntry 6 }
+
+   -- Services PM
+
+   g9983SvcPmCurTable OBJECT-TYPE
+     SYNTAX      SEQUENCE OF G9983SvcPmCurEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+       "This table contains current Performance Monitoring information
+       for the services of a G.Bond/TDIM port.
+       This table contains live data from the equipment and as such is
+       NOT persistent."
+     ::= { g9983PM 4 }
+
+   g9983SvcPmCurEntry OBJECT-TYPE
+     SYNTAX      G9983SvcPmCurEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+       "An entry in the G.Bond/TDIM Services PM table.
+       Each entry represents a service, indexed by the
+       g9983SvcIdx, in a G.Bond/TDIM port, indexed by the
+       ifIndex."
+     INDEX  { ifIndex, g9983SvcIdx }
+     ::= { g9983SvcPmCurTable 1 }
+
+   G9983SvcPmCurEntry ::=
+     SEQUENCE {
+       g9983SvcPmCur15MinValidIntervals   HCPerfValidIntervals,
+       g9983SvcPmCur15MinInvalidIntervals HCPerfInvalidIntervals,
+       g9983SvcPmCur15MinTimeElapsed      HCPerfTimeElapsed,
+       g9983SvcPmCur15MinDowns            HCPerfCurrentCount,
+       g9983SvcPmCur1DayValidIntervals    Unsigned32,
+       g9983SvcPmCur1DayInvalidIntervals  Unsigned32,
+       g9983SvcPmCur1DayTimeElapsed       HCPerfTimeElapsed,
+       g9983SvcPmCur1DayDowns             HCPerfCurrentCount
+     }
+
+   g9983SvcPmCur15MinValidIntervals  OBJECT-TYPE
+     SYNTAX      HCPerfValidIntervals
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only number of 15-minute intervals for which the
+       performance data was collected.  The value of this object will
+       be 96 or the maximum number of 15-minute history intervals
+       collected by the implementation, unless the measurement was
+       (re)started recently, in which case the value will be the
+       number of complete 15-minute intervals for which there are at
+       least some data.
+       In certain cases, it is possible that some intervals are
+       unavailable.  In this case, this object reports the maximum
+       interval number for which data is available.
+
+       This object partially maps to the TR-159 attribute
+       aGroupPerf15MinValidIntervals."
+     REFERENCE
+       "[TR-159], Section 5.5.1.32"
+     ::= { g9983SvcPmCurEntry 1 }
+
+   g9983SvcPmCur15MinInvalidIntervals  OBJECT-TYPE
+     SYNTAX      HCPerfInvalidIntervals
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only number of 15-minute intervals for which the
+       performance data was not always available.  The value will
+       typically be zero, except in cases where the data for some
+       intervals are not available.
+
+       This object partially maps to the TR-159 attribute
+       aGroupPerf15MinInvalidIntervals."
+     REFERENCE
+       "[TR-159], Section 5.5.1.33"
+     ::= { g9983SvcPmCurEntry 2 }
+
+   g9983SvcPmCur15MinTimeElapsed  OBJECT-TYPE
+     SYNTAX      HCPerfTimeElapsed
+     UNITS       "seconds"
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only count of seconds that have elapsed since the
+       beginning of the current 15-minute performance interval.
+
+       This object partially maps to the TR-159 attribute
+       aGroupPerfCurr15MinTimeElapsed."
+     REFERENCE
+       "[TR-159], Section 5.5.1.34"
+     ::= { g9983SvcPmCurEntry 3 }
+
+   g9983SvcPmCur15MinDowns  OBJECT-TYPE
+     SYNTAX      HCPerfCurrentCount
+     UNITS       "seconds"
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only count of seconds in the current 15-minute
+       performance interval during which a particular TDIM
+       service was 'down', as indicated by the
+       g9983OperSvcState object.
+
+       This object is inhibited during Unavailable Seconds (UAS)."
+     ::= { g9983SvcPmCurEntry 4}
+
+   g9983SvcPmCur1DayValidIntervals  OBJECT-TYPE
+     SYNTAX      Unsigned32 (0..7)
+     UNITS       "days"
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only number of 1-day performance history intervals for
+       which the data was collected.  The value of this object will be
+       7 or the maximum number of 1-day history intervals collected by
+       the implementation, unless the measurement was (re)started
+       recently, in which case the value will be the number of complete
+       1-day intervals for which there are at least some data.
+       In certain cases, it is possible that some intervals are
+       unavailable.  In this case, this object reports the maximum
+       interval number for which data is available."
+     REFERENCE
+       "[TR-159], Section 5.5.1.45"
+     ::= { g9983SvcPmCurEntry 5 }
+
+   g9983SvcPmCur1DayInvalidIntervals  OBJECT-TYPE
+     SYNTAX      Unsigned32 (0..7)
+     UNITS       "days"
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only number of 1-day performance history intervals for
+       which the performance data was not always available.  The value
+       will typically be zero, except in cases where the data for some
+       intervals are not available."
+     REFERENCE
+       "[TR-159], Section 5.5.1.46"
+     ::= { g9983SvcPmCurEntry 6 }
+
+   g9983SvcPmCur1DayTimeElapsed  OBJECT-TYPE
+     SYNTAX      HCPerfTimeElapsed
+     UNITS       "seconds"
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only count of seconds that have elapsed since the
+       beginning of the current 1-day performance interval."
+     REFERENCE
+       "[TR-159], Section 5.5.1.47"
+     ::= { g9983SvcPmCurEntry 7 }
+
+   g9983SvcPmCur1DayDowns  OBJECT-TYPE
+     SYNTAX      HCPerfCurrentCount
+     UNITS       "seconds"
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only count of seconds in the current 1-day performance
+       interval during which a particular TDIM service was
+       'down', as indicated by the g9983OperSvcState object.
+
+       This object is inhibited during Unavailable Seconds (UAS)."
+     ::= { g9983SvcPmCurEntry 8 }
+
+   -- Service PM history: 15-min buckets
+
+   g9983SvcPm15MinTable OBJECT-TYPE
+     SYNTAX      SEQUENCE OF G9983SvcPm15MinEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+       "This table contains historical 15-minute buckets of Performance
+       Monitoring information for the services of a G.Bond/TDIM port
+       (a multi-dimensional row for each 15-minute interval, up to 96
+       intervals).
+
+       Entries in this table MUST be maintained in a persistent manner."
+     ::= { g9983PM 5 }
+
+   g9983SvcPm15MinEntry OBJECT-TYPE
+     SYNTAX      G9983SvcPm15MinEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+       "An entry in the G.Bond/TDIM Service historical 15-minute PM
+       table.
+       Each entry represents Performance Monitoring data for a
+       particular service, indexed by the g9983SvcIdx, in a G.Bond
+       TDIM port, indexed by the ifIndex, collected during a particular
+       15-minute interval, indexed by the
+       g9983SvcPm15MinIntervalIndex."
+     INDEX  { ifIndex, g9983SvcIdx,
+              g9983SvcPm15MinIntervalIndex }
+     ::= { g9983SvcPm15MinTable 1 }
+
+   G9983SvcPm15MinEntry ::=
+     SEQUENCE {
+       g9983SvcPm15MinIntervalIndex      Unsigned32,
+       g9983SvcPm15MinIntervalMoniTime   HCPerfTimeElapsed,
+       g9983SvcPm15MinIntervalDowns      HCPerfIntervalCount,
+       g9983SvcPm15MinIntervalValid      TruthValue
+     }
+
+   g9983SvcPm15MinIntervalIndex  OBJECT-TYPE
+     SYNTAX      Unsigned32 (1..96)
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+       "Performance data interval number.  1 is the most recent
+       previous interval; interval 96 is 24 hours ago.
+       Intervals 2..96 are OPTIONAL.
+
+       This object partially maps to the TR-159 attribute
+       aGroupPerf15MinIntervalNumber."
+     REFERENCE
+       "[TR-159], Section 5.5.1.57"
+     ::= { g9983SvcPm15MinEntry 1 }
+
+   g9983SvcPm15MinIntervalMoniTime  OBJECT-TYPE
+     SYNTAX      HCPerfTimeElapsed
+     UNITS       "seconds"
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only count of seconds over which the performance data
+       was actually monitored.  This value will be the same as the
+       interval duration (900 seconds), except in a situation where
+       performance data could not be collected for any reason."
+     ::= { g9983SvcPm15MinEntry 2 }
+
+   g9983SvcPm15MinIntervalDowns  OBJECT-TYPE
+     SYNTAX      HCPerfIntervalCount
+     UNITS       "seconds"
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only count of seconds in the 15-minute performance
+       history interval during which a particular TDIM service was
+       'down', as indicated by the g9983OperSvcState object.
+
+       This object is inhibited during Unavailable Seconds (UAS)."
+     ::= { g9983SvcPm15MinEntry 3 }
+
+   g9983SvcPm15MinIntervalValid  OBJECT-TYPE
+     SYNTAX      TruthValue
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only object indicating whether or not this history
+       bucket contains valid data.  A valid bucket is reported as
+       true(1) and an invalid bucket as false(2).
+
+       If this history bucket is invalid, the BTU-C MUST NOT produce
+       notifications based upon the value of the counters in this
+       bucket.
+       Note that an implementation may decide not to store invalid
+       history buckets in its database.  In such a case, this object
+       is not required, as only valid history buckets are available
+       while invalid history buckets are simply not in the database.
+
+       This object partially maps to the TR-159 attribute
+       aGroupPerf15MinIntervalValid."
+     REFERENCE
+       "[TR-159], Section 5.5.1.58"
+     ::= { g9983SvcPm15MinEntry 4 }
+
+   -- Service PM history: 1-day buckets
+
+   g9983SvcPm1DayTable OBJECT-TYPE
+     SYNTAX      SEQUENCE OF G9983SvcPm1DayEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+       "This table contains historical 1-day buckets of Performance
+       Monitoring information for the services of a G.Bond/TDIM port
+       (a multi-dimensional row for each 1-day interval, up to 7
+       intervals).
+       Entries in this table MUST be maintained in a persistent manner."
+     ::= { g9983PM 6 }
+
+   g9983SvcPm1DayEntry OBJECT-TYPE
+     SYNTAX      G9983SvcPm1DayEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+       "An entry in the G.Bond/TDIM Service historical 1-day PM table.
+       Each entry represents Performance Monitoring data for a
+       particular service, indexed by the g9983SvcIdx, defined in a
+       G.Bond/TDIM port, indexed by the ifIndex, collected during a
+       particular 1-day interval, indexed by the
+       g9983SvcPm1DayIntervalIndex."
+     INDEX  { ifIndex, g9983SvcIdx,
+              g9983SvcPm1DayIntervalIndex }
+     ::= { g9983SvcPm1DayTable 1 }
+
+   G9983SvcPm1DayEntry ::=
+     SEQUENCE {
+       g9983SvcPm1DayIntervalIndex       Unsigned32,
+       g9983SvcPm1DayIntervalMoniTime    HCPerfTimeElapsed,
+       g9983SvcPm1DayIntervalDowns       HCPerfIntervalCount,
+       g9983SvcPm1DayIntervalValid       TruthValue
+     }
+
+   g9983SvcPm1DayIntervalIndex  OBJECT-TYPE
+     SYNTAX      Unsigned32 (1..7)
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+       "Performance data interval number.  1 is the most recent
+       previous interval; interval 7 is 7 days ago.
+       Intervals 2..7 are OPTIONAL.
+
+       This object partially maps to the TR-159 attribute
+       aGroupPerf1DayIntervalNumber."
+     REFERENCE
+       "[TR-159], Section 5.5.1.62"
+     ::= { g9983SvcPm1DayEntry 1 }
+
+   g9983SvcPm1DayIntervalMoniTime  OBJECT-TYPE
+     SYNTAX      HCPerfTimeElapsed
+     UNITS       "seconds"
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only count of seconds over which the performance data
+       was actually monitored.  This value will be the same as the
+       interval duration (86400 seconds), except in a situation where
+       performance data could not be collected for any reason.
+
+       This object partially maps to the TR-159 attribute
+       aGroupPerf1DayIntervalMoniSecs."
+     REFERENCE
+       "[TR-159], Section 5.5.1.64"
+     ::= { g9983SvcPm1DayEntry 2 }
+
+   g9983SvcPm1DayIntervalDowns  OBJECT-TYPE
+     SYNTAX      HCPerfIntervalCount
+     UNITS       "seconds"
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only count of seconds in the 1-day performance history
+       interval during which a particular TDIM service was 'down',
+       as indicated by the g9983OperSvcState object.
+
+       This object is inhibited during Unavailable Seconds (UAS)."
+     ::= { g9983SvcPm1DayEntry 3 }
+
+   g9983SvcPm1DayIntervalValid  OBJECT-TYPE
+     SYNTAX      TruthValue
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+       "A read-only object indicating whether or not this history
+       bucket contains valid data.  A valid bucket is reported as
+       true(1) and an invalid bucket as false(2).
+       If this history bucket is invalid, the BTU-C MUST NOT produce
+       notifications based upon the value of the counters in this
+       bucket.
+       Note that an implementation may decide not to store invalid
+       history buckets in its database.  In such a case, this object
+       is not required, as only valid history buckets are available
+       while invalid history buckets are simply not in the database.
+
+       This object partially maps to the TR-159 attribute
+       aGroupPerf1DayIntervalValid."
+     REFERENCE
+       "[TR-159], Section 5.5.1.63"
+     ::= { g9983SvcPm1DayEntry 4 }
+
+  --
+  -- Conformance Statements
+  --
+
+   g9983Groups      OBJECT IDENTIFIER
+     ::= { g9983Conformance 1 }
+
+   g9983Compliances OBJECT IDENTIFIER
+     ::= { g9983Conformance 2 }
+
+   -- Object Groups
+
+   g9983BasicGroup OBJECT-GROUP
+     OBJECTS {
+       g9983PortConfAdminServices,
+       g9983PortStatCrc4Errors,
+       g9983PortStatCrc6Errors,
+       g9983PortStatCrc8Errors,
+       g9983PortCapFecSupported,
+       g9983OperSvcIdx,
+       g9983OperSvcState,
+       g9983SvcIfIdx,
+       g9983SvcType,
+       g9983SvcSize,
+       g9983SvcRowStatus,
+       g9983PortStatFltStatus
+     }
+     STATUS      current
+     DESCRIPTION
+       "A collection of objects representing management information
+       for G.Bond/TDIM ports."
+     ::= { g9983Groups 1 }
+
+   g9983FecGroup OBJECT-GROUP
+     OBJECTS {
+       g9983PortCapFecSupported,
+       g9983PortConfFecAdminState,
+       g9983PortStatFecOperState,
+       g9983PortConfFecWordSize,
+       g9983PortConfFecRedundancySize,
+       g9983PortConfFecInterleaverType,
+       g9983PortConfFecInterleaverDepth,
+       g9983PortCapFecMaxWordSize,
+       g9983PortCapFecMaxRedundancySize,
+       g9983PortCapFecInterleaverTypeSupported,
+       g9983PortCapFecMaxInterleaverDepth
+     }
+     STATUS      current
+     DESCRIPTION
+       "A collection of objects supporting the OPTIONAL Forward Error
+       Correction (FEC) and Interleaver function in G.Bond/TDIM
+       ports."
+     ::= { g9983Groups 2 }
+
+   g9983AlarmConfGroup OBJECT-GROUP
+     OBJECTS {
+       g9983PortConfSvcUpDownEnable
+     }
+     STATUS      current
+     DESCRIPTION
+       "A collection of objects required for configuration of alarm
+       thresholds and notifications in G.Bond/TDIM ports."
+     ::= { g9983Groups 3 }
+
+   g9983NotificationGroup NOTIFICATION-GROUP
+     NOTIFICATIONS {
+       g9983SvcUp,
+       g9983SvcDown
+     }
+     STATUS      current
+     DESCRIPTION
+       "This group supports notifications of significant conditions
+       associated with G.Bond/TDIM ports."
+     ::= { g9983Groups 4 }
+
+   g9983PerfCurrGroup OBJECT-GROUP
+     OBJECTS {
+       g9983PortPmCur15MinValidIntervals,
+       g9983PortPmCur15MinInvalidIntervals,
+       g9983PortPmCur15MinTimeElapsed,
+       g9983PortPmCur15MinCrc4s,
+       g9983PortPmCur15MinCrc6s,
+       g9983PortPmCur15MinCrc8s,
+       g9983PortPmCur1DayValidIntervals,
+       g9983PortPmCur1DayInvalidIntervals,
+       g9983PortPmCur1DayTimeElapsed,
+       g9983PortPmCur1DayCrc4s,
+       g9983PortPmCur1DayCrc6s,
+       g9983PortPmCur1DayCrc8s,
+       g9983SvcPmCur15MinValidIntervals,
+       g9983SvcPmCur15MinInvalidIntervals,
+       g9983SvcPmCur15MinTimeElapsed,
+       g9983SvcPmCur15MinDowns,
+       g9983SvcPmCur1DayValidIntervals,
+       g9983SvcPmCur1DayInvalidIntervals,
+       g9983SvcPmCur1DayTimeElapsed,
+       g9983SvcPmCur1DayDowns
+     }
+     STATUS      current
+     DESCRIPTION
+       "A collection of objects supporting OPTIONAL current Performance
+       Monitoring information for G.Bond/TDIM ports."
+     ::= { g9983Groups 5 }
+
+   g9983Perf15MinGroup OBJECT-GROUP
+     OBJECTS {
+       g9983PortPm15MinIntervalMoniTime,
+       g9983PortPm15MinIntervalCrc4s,
+       g9983PortPm15MinIntervalCrc6s,
+       g9983PortPm15MinIntervalCrc8s,
+       g9983PortPm15MinIntervalValid,
+       g9983SvcPm15MinIntervalMoniTime,
+       g9983SvcPm15MinIntervalDowns,
+       g9983SvcPm15MinIntervalValid
+     }
+     STATUS      current
+     DESCRIPTION
+       "A collection of objects supporting OPTIONAL historical
+       Performance Monitoring information for G.Bond/TDIM ports, during
+       previous 15-minute intervals."
+     ::= { g9983Groups 6 }
+
+   g9983Perf1DayGroup OBJECT-GROUP
+     OBJECTS {
+       g9983PortPm1DayIntervalMoniTime,
+       g9983PortPm1DayIntervalCrc4s,
+       g9983PortPm1DayIntervalCrc6s,
+       g9983PortPm1DayIntervalCrc8s,
+       g9983PortPm1DayIntervalValid,
+       g9983SvcPm1DayIntervalMoniTime,
+       g9983SvcPm1DayIntervalDowns,
+       g9983SvcPm1DayIntervalValid
+     }
+     STATUS      current
+     DESCRIPTION
+       "A collection of objects supporting OPTIONAL historical
+       Performance Monitoring information for G.Bond/TDIM ports, during
+       previous 1-day intervals."
+     ::= { g9983Groups 7 }
+
+  -- Compliance Statements
+
+   g9983Compliance MODULE-COMPLIANCE
+     STATUS      current
+     DESCRIPTION
+       "The compliance statement for G.Bond/TDIM interfaces.
+       Compliance with the following external compliance statements
+       is REQUIRED:
+
+       MIB Module             Compliance Statement
+       ----------             --------------------
+       IF-MIB                 ifCompliance3
+       GBOND-MIB              gBondCompliance"
+
+     MODULE  -- this module
+       MANDATORY-GROUPS {
+         g9983BasicGroup,
+         g9983AlarmConfGroup,
+         g9983NotificationGroup
+       }
+
+       GROUP       g9983FecGroup
+       DESCRIPTION
+         "Support for this group is only required for implementations
+         supporting the G.Bond/TDIM FEC and Interleaver function."
+
+       GROUP       g9983PerfCurrGroup
+       DESCRIPTION
+         "Support for this group is only required for implementations
+         supporting Performance Monitoring."
+
+       GROUP       g9983Perf15MinGroup
+       DESCRIPTION
+         "Support for this group is only required for implementations
+         supporting historical Performance Monitoring."
+
+       GROUP       g9983Perf1DayGroup
+       DESCRIPTION
+         "Support for this group is only required for implementations
+         supporting historical Performance Monitoring."
+     ::= { g9983Compliances 1 }
+END

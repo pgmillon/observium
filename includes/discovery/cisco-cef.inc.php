@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -15,7 +15,7 @@ echo("Cisco CEF Switching Path: ");
 
 $cefs = array();
 $cefs = snmpwalk_cache_threepart_oid($device, "CISCO-CEF-MIB::cefSwitchingPath", $cefs, NULL, mib_dirs(array("cisco")));
-if ($debug) { print_vars($cefs); }
+if (OBS_DEBUG > 1) { print_vars($cefs); }
 
 if (is_array($cefs))
 {
@@ -55,6 +55,6 @@ if (is_array($cefs))
 
 // FIXME - need to delete old ones. FIXME REALLY.
 
-echo("\n");
+echo(PHP_EOL);
 
 // EOF

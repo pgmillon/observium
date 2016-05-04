@@ -3,7 +3,7 @@
 --   
 -- August 2009, Liwei Lue
 --   
--- Copyright (c) 2009-2010 by Cisco Systems Inc.
+-- Copyright (c) 2009-2011 by Cisco Systems Inc,
 -- All rights reserved.
 --   
 -- *****************************************************************
@@ -13,10 +13,12 @@ CISCO-TRUSTSEC-SERVER-MIB DEFINITIONS ::= BEGIN
 IMPORTS
     MODULE-IDENTITY,
     OBJECT-TYPE,
+    NOTIFICATION-TYPE,
     Unsigned32
         FROM SNMPv2-SMI
     MODULE-COMPLIANCE,
-    OBJECT-GROUP
+    OBJECT-GROUP,
+    NOTIFICATION-GROUP
         FROM SNMPv2-CONF
     StorageType,
     RowStatus,
@@ -28,14 +30,14 @@ IMPORTS
         FROM INET-ADDRESS-MIB
     SnmpAdminString
         FROM SNMP-FRAMEWORK-MIB
-    ciscoMgmt
-        FROM CISCO-SMI
     CtsAcsAuthorityIdentity
-        FROM CISCO-TRUSTSEC-TC-MIB;
+        FROM CISCO-TRUSTSEC-TC-MIB
+    ciscoMgmt
+        FROM CISCO-SMI;
 
 
 ciscoTrustSecServerMIB MODULE-IDENTITY
-    LAST-UPDATED    "201006010000Z"
+    LAST-UPDATED    "201112070000Z"
     ORGANIZATION    "Cisco Systems, Inc."
     CONTACT-INFO
             "Cisco Systems
@@ -68,6 +70,15 @@ ciscoTrustSecServerMIB MODULE-IDENTITY
             address manually configured.  All devices that connect
             to the seed device obtain the AAA server addresses
             via authentication and authorization."
+    REVISION        "201112070000Z"
+    DESCRIPTION
+        "Added following OBJECT-GROUP
+        - ciscoTrustSecServerMIBKeyWrapGroup
+        - ciscoTrustSecServerMIBNotifsCtrlGroup
+        - ciscoTrustSecServerMIBNotifsGroup
+        - ciscoTrustSecServerMIBNotifsOnlyInfoGroup
+        Added new compliance
+        - ciscoTrustSecServerMIBCompliance2."
     REVISION        "201006010000Z"
     DESCRIPTION
         "Initial version of this MIB module."
@@ -97,6 +108,12 @@ ctsvDownloadServerListObjects  OBJECT IDENTIFIER
 
 ctsvDownloadServerObjects  OBJECT IDENTIFIER
     ::= { ciscoTrustSecServerMIBObjects 5 }
+
+ctsvNotificationControlObjects  OBJECT IDENTIFIER
+    ::= { ciscoTrustSecServerMIBObjects 6 }
+
+ctsvNotificationOnlyInfoObjects  OBJECT IDENTIFIER
+    ::= { ciscoTrustSecServerMIBObjects 7 }
 
 
 -- --------------------------------------------------------------
@@ -235,6 +252,14 @@ ctsvAllServerTestInterval OBJECT-TYPE
         ctsvServerTestConfigTable." 
     ::= { ctsvGlobalServerConfigObjects 8 }
 
+ctsvServerKeyWrapEnabled OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies whether the TrustSec key wrap is
+        enabled for all TrustSec downloaded servers." 
+    ::= { ctsvGlobalServerConfigObjects 9 }
 -- --------------------------------------------------------------
 -- Objects to manage per server aliveness automated test
 -- --------------------------------------------------------------
@@ -406,14 +431,15 @@ ctsvProvisionedServerEntry OBJECT-TYPE
     ::= { ctsvProvisionedServerTable 1 }
 
 CtsvProvisionedServerEntry ::= SEQUENCE {
-        ctsvProvisionedServerAddrType     InetAddressType,
-        ctsvProvisionedServerAddr         InetAddress,
-        ctsvProvisionedServerPort         InetPortNumber,
-        ctsvProvisionedServerAuthorityId  CtsAcsAuthorityIdentity,
-        ctsvProvisionedServerStatus       INTEGER,
-        ctsvProvisionedServerTestEnabled  TruthValue,
-        ctsvProvisionedServerTestInterval Unsigned32,
-        ctsvProvisionedServerTestDeadTime Unsigned32
+        ctsvProvisionedServerAddrType       InetAddressType,
+        ctsvProvisionedServerAddr           InetAddress,
+        ctsvProvisionedServerPort           InetPortNumber,
+        ctsvProvisionedServerAuthorityId    CtsAcsAuthorityIdentity,
+        ctsvProvisionedServerStatus         INTEGER,
+        ctsvProvisionedServerTestEnabled    TruthValue,
+        ctsvProvisionedServerTestInterval   Unsigned32,
+        ctsvProvisionedServerTestDeadTime   Unsigned32,
+        ctsvProvisionedServerKeyWrapEnabled TruthValue
 }
 
 ctsvProvisionedServerAddrType OBJECT-TYPE
@@ -498,6 +524,15 @@ ctsvProvisionedServerTestDeadTime OBJECT-TYPE
         should not be retried once it has been marked dead during the
         server-aliveness automated test." 
     ::= { ctsvProvisionedServerEntry 8 }
+
+ctsvProvisionedServerKeyWrapEnabled OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the TrustSec key wrap operational
+        status of the provisioned server." 
+    ::= { ctsvProvisionedServerEntry 9 }
  
 
 -- -------------------------------------------------------------
@@ -598,15 +633,16 @@ ctsvDownloadServerEntry OBJECT-TYPE
     ::= { ctsvDownloadServerTable 1 }
 
 CtsvDownloadServerEntry ::= SEQUENCE {
-        ctsvDownloadServerAddrType     InetAddressType,
-        ctsvDownloadServerAddr         InetAddress,
-        ctsvDownloadServerPort         InetPortNumber,
-        ctsvDownloadServerProvisioned  TruthValue,
-        ctsvDownloadServerAuthorityId  CtsAcsAuthorityIdentity,
-        ctsvDownloadServerStatus       INTEGER,
-        ctsvDownloadServerTestEnabled  TruthValue,
-        ctsvDownloadServerTestInterval Unsigned32,
-        ctsvDownloadServerTestDeadTime Unsigned32
+        ctsvDownloadServerAddrType       InetAddressType,
+        ctsvDownloadServerAddr           InetAddress,
+        ctsvDownloadServerPort           InetPortNumber,
+        ctsvDownloadServerProvisioned    TruthValue,
+        ctsvDownloadServerAuthorityId    CtsAcsAuthorityIdentity,
+        ctsvDownloadServerStatus         INTEGER,
+        ctsvDownloadServerTestEnabled    TruthValue,
+        ctsvDownloadServerTestInterval   Unsigned32,
+        ctsvDownloadServerTestDeadTime   Unsigned32,
+        ctsvDownloadServerKeyWrapEnabled TruthValue
 }
 
 ctsvDownloadServerAddrType OBJECT-TYPE
@@ -673,7 +709,7 @@ ctsvDownloadServerTestEnabled OBJECT-TYPE
     DESCRIPTION
         "This object indicates whether the server-aliveness automated
         test of the downloaded server is currently enabled or
-        disabled."
+        disabled." 
     ::= { ctsvDownloadServerEntry 7 }
 
 ctsvDownloadServerTestInterval OBJECT-TYPE
@@ -698,8 +734,101 @@ ctsvDownloadServerTestDeadTime OBJECT-TYPE
         "This object indicates the operational deadtime of the
         downloaded server." 
     ::= { ctsvDownloadServerEntry 9 }
+
+ctsvDownloadServerKeyWrapEnabled OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the TrustSec key wrap operational
+        status of the downloaded server. 
+
+        Among all the servers in the same server list, only one
+        server can have operational key wrap enabled if the value
+        of ctsvAllServerKeyWrapEnabled is 'true'." 
+    ::= { ctsvDownloadServerEntry 10 }
  
 
+
+-- Notifications Control
+
+ctsvNoRadiusServerNotifEnable OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This variable specifies whether the system generates the
+        ctsvNoRadiusServerNotif.
+
+        A value of 'false' will prevent ctsvNoRadiusServerNotif
+        notifications from being generated by this system." 
+    ::= { ctsvNotificationControlObjects 1 }
+
+ctsvNoProvisionSecretNotifEnable OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This variable specifies whether the system generates the
+        ctsvNoProvisionSecretNotif.
+
+        A value of 'false' will prevent ctsvNoProvisionSecretNotif
+        notifications from being generated by this system." 
+    ::= { ctsvNotificationControlObjects 2 }
+
+-- Notifications Only Info
+
+ctsvServerNotifMsg OBJECT-TYPE
+    SYNTAX          SnmpAdminString
+    MAX-ACCESS      accessible-for-notify
+    STATUS          current
+    DESCRIPTION
+        "This object indicates detail message associated with
+        notifications." 
+    ::= { ctsvNotificationOnlyInfoObjects 1 }
+
+ctsvServerNoProvisionSecretAddrType OBJECT-TYPE
+    SYNTAX          InetAddressType
+    MAX-ACCESS      accessible-for-notify
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the type of IP address for which server
+        has no shared secret available for provisioning PAC." 
+    ::= { ctsvNotificationOnlyInfoObjects 2 }
+
+ctsvServerNoProvisionSecretAddr OBJECT-TYPE
+    SYNTAX          InetAddress
+    MAX-ACCESS      accessible-for-notify
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the IP address for which server has no
+        shared secret available for provisioning PAC.
+
+        The type of this address is determined by the value of
+        ctsvServerNoProvisionSecretAddrType object." 
+    ::= { ctsvNotificationOnlyInfoObjects 3 }
+
+-- Notifications
+
+ctsvNoRadiusServerNotif NOTIFICATION-TYPE
+    OBJECTS         { ctsvServerNotifMsg }
+    STATUS          current
+    DESCRIPTION
+        "A ctsvNoRadiusServerNotif is generated if there is no
+        RADIUS servers available for a CTS AAA request."
+   ::= { ciscoTrustSecServerMIBNotifs 1 }
+
+ctsvNoProvisionSecretNotif NOTIFICATION-TYPE
+    OBJECTS         {
+                        ctsvServerNoProvisionSecretAddrType,
+                        ctsvServerNoProvisionSecretAddr
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A ctsvNoProvisionSecretNotif is generated if the system
+        does not have share secret available in order to provision
+        a RADIUS server with PAC."
+   ::= { ciscoTrustSecServerMIBNotifs 2 }
 -- Conformance
 
 ciscoTrustSecServerMIBCompliances  OBJECT IDENTIFIER
@@ -710,9 +839,9 @@ ciscoTrustSecServerMIBGroups  OBJECT IDENTIFIER
 
 
 ciscoTrustSecServerMIBCompliance MODULE-COMPLIANCE
-    STATUS          current
+    STATUS          deprecated
     DESCRIPTION
-        "The compliance statement for the CISCO-TRUSTSEC-MIB."
+        "The compliance statement for the CISCO-TRUSTSEC-SERVER-MIB."
     MODULE          -- this module
     MANDATORY-GROUPS {
                         ciscoTrustSecMIBServerConfigGroup,
@@ -795,6 +924,128 @@ ciscoTrustSecServerMIBCompliance MODULE-COMPLIANCE
     DESCRIPTION
         "read-create access is not required."
     ::= { ciscoTrustSecServerMIBCompliances 1 }
+
+ciscoTrustSecServerMIBCompliance2 MODULE-COMPLIANCE
+    STATUS          current
+    DESCRIPTION
+        "The compliance statement for the CISCO-TRUSTSEC-SERVER-MIB."
+    MODULE          -- this module
+    MANDATORY-GROUPS {
+                        ciscoTrustSecMIBServerConfigGroup,
+                        ciscoTrustSecMIBGlobalServerTestGroup,
+                        ciscoTrustSecMIBServerTestGroup,
+                        ciscoTrustSecMIBProvisionedServerGroup,
+                        ciscoTrustSecMIBDownloadServerListGroup,
+                        ciscoTrustSecMIBDownloadServerGroup
+                    }
+
+    GROUP           ciscoTrustSecServerMIBKeyWrapGroup
+    DESCRIPTION
+        "This group is mandatory for platforms which support
+        TrustSec key wrap feature."
+
+    GROUP           ciscoTrustSecServerMIBNotifsCtrlGroup
+    DESCRIPTION
+        "This group is mandatory for platforms which support
+        TrustSec server notifications."
+
+    GROUP           ciscoTrustSecServerMIBNotifsOnlyInfoGroup
+    DESCRIPTION
+        "This group is mandatory for platforms which support
+        TrustSec server notifications."
+
+    GROUP           ciscoTrustSecServerMIBNotifsGroup
+    DESCRIPTION
+        "This group is mandatory for platforms which support
+        TrustSec server notifications."
+
+    OBJECT          ctsvAuthorizationList
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsvServerDeadTime
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsvServerLoadBalanceMethod
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsvServerLoadBalanceBatchSize
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsvUseSameProvisionedServer
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsvAllServerTestEnabled
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsvAllServerTestDeadTime
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsvAllServerTestInterval
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsvServerTestEnabled
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "read-create access is not required."
+
+    OBJECT          ctsvServerTestDeadTime
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "read-create access is not required."
+
+    OBJECT          ctsvServerTestInterval
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "read-create access is not required."
+
+    OBJECT          ctsvServerTestStorageType
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "read-create access is not required."
+
+    OBJECT          ctsvServerTestRowStatus
+    SYNTAX          INTEGER  {
+                        active(1)
+                    }
+    WRITE-SYNTAX    INTEGER  {
+                        createAndGo(4),
+                        destroy(6)
+                    }
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "read-create access is not required."
+
+    OBJECT          ctsvServerKeyWrapEnabled
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsvNoRadiusServerNotifEnable
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsvNoProvisionSecretNotifEnable
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+    ::= { ciscoTrustSecServerMIBCompliances 2 }
 
 -- Units of Conformance
 
@@ -880,4 +1131,53 @@ ciscoTrustSecMIBDownloadServerGroup OBJECT-GROUP
         the individual server in the downloaded server group."
     ::= { ciscoTrustSecServerMIBGroups 6 }
 
+ciscoTrustSecServerMIBKeyWrapGroup OBJECT-GROUP
+    OBJECTS         {
+                        ctsvServerKeyWrapEnabled,
+                        ctsvProvisionedServerKeyWrapEnabled,
+                        ctsvDownloadServerKeyWrapEnabled
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A collection of objects that provides the Trustsec key wrap
+        information for the downloaded servers."
+    ::= { ciscoTrustSecServerMIBGroups 7 }
+
+ciscoTrustSecServerMIBNotifsCtrlGroup OBJECT-GROUP
+    OBJECTS         {
+                        ctsvNoRadiusServerNotifEnable,
+                        ctsvNoProvisionSecretNotifEnable
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A collection of objects providing notification control for
+        TrustSec Server."
+    ::= { ciscoTrustSecServerMIBGroups 8 }
+
+ciscoTrustSecServerMIBNotifsOnlyInfoGroup OBJECT-GROUP
+    OBJECTS         {
+                        ctsvServerNotifMsg,
+                        ctsvServerNoProvisionSecretAddrType,
+                        ctsvServerNoProvisionSecretAddr
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A collection of objects providing the notification information
+        for TrustSec Server."
+    ::= { ciscoTrustSecServerMIBGroups 9 }
+
+ciscoTrustSecServerMIBNotifsGroup NOTIFICATION-GROUP
+   NOTIFICATIONS    {
+                        ctsvNoRadiusServerNotif,
+                        ctsvNoProvisionSecretNotif
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A collection of notifications for TrustSec server."
+    ::= { ciscoTrustSecServerMIBGroups 10 }
+
 END
+
+
+
+

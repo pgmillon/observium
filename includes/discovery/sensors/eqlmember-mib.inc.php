@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -32,7 +32,6 @@ if (is_numeric($eqlgrpmemid))
   );
   $sensorid = array(1,2,3,4,5,6,7,8);
 
-  if ($debug) { print_vars($oids); }
   foreach ($oids as $index => $entry)
   {
     # EQLMEMBER-MIB returns sensors for all members. only process sensors that match our member id
@@ -77,7 +76,6 @@ if (is_numeric($eqlgrpmemid))
   );
   $sensorid = array(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18);
 
-  if ($debug) { print_vars($oids); }
   foreach ($oids as $index => $entry)
   {
     # EQLMEMBER-MIB returns sensors for all members. only process sensors that match our member id

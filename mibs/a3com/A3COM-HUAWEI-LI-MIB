@@ -1,0 +1,792 @@
+-- ============================================================================
+-- Copyright (c) 2004-2010 Hangzhou H3C Tech. Co., Ltd. All rights reserved.
+--
+-- Description: Lawful Interception MIB
+-- Reference:
+-- Version: V1.0
+-- History:
+--   V1.0 2009-08-25 Initial version Created by Lixin Xu
+-- ============================================================================
+A3COM-HUAWEI-LI-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    h3cCommon
+        FROM A3COM-HUAWEI-OID-MIB
+    Counter64, Counter32, Integer32, Unsigned32,
+    OBJECT-TYPE, MODULE-IDENTITY, NOTIFICATION-TYPE
+        FROM SNMPv2-SMI
+    RowStatus, TruthValue, MacAddress, DateAndTime
+        FROM SNMPv2-TC
+    InetAddress, InetAddressType, InetAddressPrefixLength, InetPortNumber
+        FROM INET-ADDRESS-MIB
+    InterfaceIndexOrZero
+        FROM IF-MIB
+    SnmpAdminString
+        FROM SNMP-FRAMEWORK-MIB;
+
+h3cLI MODULE-IDENTITY
+    LAST-UPDATED "200908251000Z"
+    ORGANIZATION
+        "Hangzhou H3C Tech. Co., Ltd."
+    CONTACT-INFO
+        "Platform Team Hangzhou H3C Tech. Co., Ltd.
+         Hai-Dian District Beijing P.R. China
+         http://www.h3c.com
+         Zip:100085"
+    DESCRIPTION
+        "Lawful Interception MIB"
+    REVISION
+        "200908251000Z"
+    DESCRIPTION
+        "Initial version."
+    ::= { h3cCommon 111 }
+
+--
+-- Node definitions
+--
+
+h3cLICommon OBJECT IDENTIFIER ::= { h3cLI 1 }
+
+h3cLITrapBindObjects OBJECT IDENTIFIER ::= { h3cLICommon 1 }
+
+h3cLIBoardInformation OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "It is a slot number."
+    ::= { h3cLITrapBindObjects 1 }
+
+h3cLINotifications OBJECT IDENTIFIER ::= { h3cLICommon 2 }
+
+h3cLINotificationsPrefix OBJECT IDENTIFIER ::= { h3cLINotifications 0 }
+
+h3cLIActive NOTIFICATION-TYPE
+    OBJECTS {
+              h3cLIStreamtype
+            }
+    STATUS current
+    DESCRIPTION
+        "This Notification is sent when a type of intercepting configuration
+        is changed from inactive to active.
+        The value of the h3cLIStreamtype which identify the actual intercept
+        stream is included in this notification."
+    ::= { h3cLINotificationsPrefix 1 }
+
+h3cLITimeOut NOTIFICATION-TYPE
+    OBJECTS { h3cLIMediationRowStatus }
+    STATUS current
+    DESCRIPTION
+        "When the time specified in h3cLIMediationTimeout arrives,
+        the device notifies the manager corresponding intercept is removed."
+    ::= { h3cLINotificationsPrefix 2 }
+
+h3cLIFailureInformation NOTIFICATION-TYPE
+    OBJECTS {
+                h3cLIStreamtype,
+                h3cLIBoardInformation
+            }
+    STATUS current
+    DESCRIPTION
+        "When interception is configured on distributed device,
+        the configuration perhaps failed on some board.
+        If this happened, this notification will occur."
+    ::= { h3cLINotificationsPrefix 3 }
+
+h3cLIObjects OBJECT IDENTIFIER ::= { h3cLICommon 3 }
+
+h3cLINewIndex OBJECT-TYPE
+    SYNTAX Integer32 (1..2147483647)
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "This object will be used as an index value for a new
+        h3cLIMediationEntry.  Whenever read, the agent will
+        give a non-used value.  This is to reduce the probability
+        of conflict during creation of new h3cLIMediationTable entries."
+    ::= { h3cLIObjects 1 }
+--
+-- h3cLIMediationTable definition
+--
+h3cLIMediationTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF H3cLIMediationEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table describes interception gateway information with which
+        interception device communicates."
+    ::= { h3cLIObjects 2 }
+
+h3cLIMediationEntry OBJECT-TYPE
+    SYNTAX H3cLIMediationEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "An entry of configuring mediation device."
+    INDEX { h3cLIMediationIndex }
+    ::= { h3cLIMediationTable 1 }
+
+H3cLIMediationEntry ::=
+    SEQUENCE {
+        h3cLIMediationIndex                 Integer32,
+        h3cLIMediationDestAddrType          InetAddressType,
+        h3cLIMediationDestAddr              InetAddress,
+        h3cLIMediationDestPort              InetPortNumber,
+        h3cLIMediationSrcInterface          InterfaceIndexOrZero,
+        h3cLIMediationDscp                  Integer32,
+        h3cLIMediationTimeOut               DateAndTime,
+        h3cLIMediationTransport             INTEGER,
+        h3cLIMediationNotificationEnable    TruthValue,
+        h3cLIMediationRowStatus             RowStatus
+     }
+
+h3cLIMediationIndex OBJECT-TYPE
+    SYNTAX Integer32 (1..2147483647)
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "h3cLIMediationIndex is a entry identifier.  The Mediation Device
+            should be responsible for making sure these are unique.
+            Before creating a new entry, a value for this variable may be
+            obtained by reading h3cLINewIndex to reduce the probability
+            of a value collision."
+    ::= { h3cLIMediationEntry 1 }
+
+h3cLIMediationDestAddrType OBJECT-TYPE
+    SYNTAX InetAddressType
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The type of h3cLIMediationDestAddr."
+    ::= { h3cLIMediationEntry 2 }
+
+h3cLIMediationDestAddr OBJECT-TYPE
+    SYNTAX InetAddress
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The IP Address of the Mediation Device to receive intercepted traffic."
+    ::= { h3cLIMediationEntry 3 }
+
+h3cLIMediationDestPort OBJECT-TYPE
+    SYNTAX InetPortNumber
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The L4-port number on the Mediation Device
+         to receive intercepted traffic."
+    ::= { h3cLIMediationEntry 4 }
+
+h3cLIMediationSrcInterface OBJECT-TYPE
+    SYNTAX InterfaceIndexOrZero
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The interface on the intercepting device from which to
+        transmit intercepted data.
+        If zero, intercepting device will select an outbound
+        interface according to h3cLIMediationDestAddr."
+    ::= { h3cLIMediationEntry 5 }
+
+h3cLIMediationDscp OBJECT-TYPE
+    SYNTAX Integer32
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The Differentiated Services Code Point the intercepting
+        device applies to the IP packets encapsulating the intercepted traffic."
+    DEFVAL { 34 }
+    ::= { h3cLIMediationEntry 6 }
+
+h3cLIMediationTimeOut OBJECT-TYPE
+    SYNTAX DateAndTime
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The time at which this row and all related Stream Table rows
+        should be automatically removed, and the intercept function expire."
+    ::= { h3cLIMediationEntry 7 }
+
+h3cLIMediationTransport OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+            udp(1)
+        }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The protocol used in transferring intercepted data to the
+        Mediation Device."
+    ::= { h3cLIMediationEntry 8 }
+
+h3cLIMediationNotificationEnable OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "This variable controls the generation of any notifications or
+        informs by the MIB agent for this table entry."
+    DEFVAL { true }
+    ::= { h3cLIMediationEntry 9 }
+
+h3cLIMediationRowStatus OBJECT-TYPE
+    SYNTAX RowStatus
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Operation status of this table entry."
+    ::= { h3cLIMediationEntry 10 }
+
+--
+-- h3cLIStreamTable definition
+--
+h3cLIStreamTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF H3cLIStreamEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table lists the traffic stream's type to be intercepted.
+         The specified filter is defined in h3cLIIPStreamTable,
+         h3cLIMACStreamTable or h3cLIUserStreamTable, according to
+         h3cLIStreamtype.  Also it contains counters for packets to
+         be intercepted and dropped by attached type of filter."
+    ::= { h3cLIObjects 3 }
+
+h3cLIStreamEntry OBJECT-TYPE
+    SYNTAX H3cLIStreamEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "A single type of data stream to be intercepted."
+    INDEX { h3cLIMediationIndex, h3cLIStreamIndex }
+    ::= { h3cLIStreamTable 1 }
+
+H3cLIStreamEntry ::=
+    SEQUENCE {
+        h3cLIStreamIndex        Integer32,
+        h3cLIStreamtype         INTEGER,
+        h3cLIStreamEnable       TruthValue,
+        h3cLIStreamPackets      Counter32,
+        h3cLIStreamDrops        Counter32,
+        h3cLIStreamHPackets     Counter64,
+        h3cLIStreamHDrops       Counter64,
+        h3cLIStreamRowStatus    RowStatus
+     }
+
+h3cLIStreamIndex OBJECT-TYPE
+    SYNTAX Integer32 (1..2147483647)
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "The index of the stream entry."
+    ::= { h3cLIStreamEntry 1 }
+
+h3cLIStreamtype OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+            ip(1),
+            mac(2),
+            userConnection(3)
+        }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "Identifies the type of stream, and according to it uses filter table.
+        It can not be changed after a filter table is attached to it.
+        The following types of streams are supported:
+         ip:             IP filter.  The exact definition is a row in
+                         h3cLIIPStreamTable.
+         mac:            MAC filter.  The exact definition is a row in
+                         h3cLIMACStreamTable.
+         userConnecton:  User connection filter.  The exact definition
+                         is a row in h3cLIUserStreamTable."
+    ::= { h3cLIStreamEntry 2 }
+
+h3cLIStreamEnable OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "If 'true', the interception is active.  And it is set to 'true'
+         only after an additional filter specification has been attached
+         to this stream."
+    DEFVAL { false }
+    ::= { h3cLIStreamEntry 3 }
+
+h3cLIStreamPackets OBJECT-TYPE
+    SYNTAX Counter32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The numbers of packets that have been intercepted."
+    ::= { h3cLIStreamEntry 4 }
+
+h3cLIStreamDrops OBJECT-TYPE
+    SYNTAX Counter32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The numbers of packets were dropped in the lawful intercept process."
+    ::= { h3cLIStreamEntry 5 }
+
+h3cLIStreamHPackets OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The numbers of packets have been intercepted.
+        This object is a 64-bit version of h3cLIStreamPackets."
+    ::= { h3cLIStreamEntry 6 }
+
+h3cLIStreamHDrops OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The numbers of packets were dropped in the lawful intercept process.
+        This object is a 64-bit version of h3cLIStreamDrops."
+    ::= { h3cLIStreamEntry 7 }
+
+h3cLIStreamRowStatus OBJECT-TYPE
+    SYNTAX RowStatus
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Operation status of this table entry."
+    ::= { h3cLIStreamEntry 8 }
+
+--
+-- h3cLIIPStreamTable definition
+--
+h3cLIIPStream OBJECT IDENTIFIER ::= { h3cLI 2 }
+
+h3cLIIPStreamObjects OBJECT IDENTIFIER ::= { h3cLIIPStream 1 }
+
+h3cLIIPStreamTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF H3cLIIPStreamEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table lists the IPv4 and IPv6 streams to be intercepted.
+        It is associated with h3cLIMediationTable and h3cLIStreamTable."
+    ::= { h3cLIIPStreamObjects 1 }
+
+h3cLIIPStreamEntry OBJECT-TYPE
+    SYNTAX H3cLIIPStreamEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "A single stream to be intercepted.
+        The first index indicates the Mediation Device.
+        The second index is that of the stream's counter entry
+        in the h3cLIStreamTable.  The second index permits multiple
+        classifiers to be used together, such as having an IP address
+        as source or destination."
+    INDEX { h3cLIMediationIndex, h3cLIStreamIndex }
+    ::= { h3cLIIPStreamTable 1 }
+
+H3cLIIPStreamEntry ::=
+    SEQUENCE {
+        h3cLIIPStreamInterface          InterfaceIndexOrZero,
+        h3cLIIPStreamAddrType           InetAddressType,
+        h3cLIIPStreamDestAddr           InetAddress,
+        h3cLIIPStreamDestAddrLength     InetAddressPrefixLength,
+        h3cLIIPStreamSrcAddr            InetAddress,
+        h3cLIIPStreamSrcAddrLength      InetAddressPrefixLength,
+        h3cLIIPStreamTosByte            Integer32,
+        h3cLIIPStreamTosByteMask        Integer32,
+        h3cLIIPStreamFlowId             Integer32,
+        h3cLIIPStreamProtocol           Integer32,
+        h3cLIIPStreamDestL4PortMin      InetPortNumber,
+        h3cLIIPStreamDestL4PortMax      InetPortNumber,
+        h3cLIIPStreamSrcL4PortMin       InetPortNumber,
+        h3cLIIPStreamSrcL4PortMax       InetPortNumber,
+        h3cLIIPStreamVRF                SnmpAdminString,
+        h3cLIIPStreamRowStatus          RowStatus
+     }
+
+h3cLIIPStreamInterface OBJECT-TYPE
+    SYNTAX InterfaceIndexOrZero
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "Traffic received or transmitted over this interface
+         will be intercepted.
+
+         This value must be set when creating a stream entry,
+         either zero, or a valid interface index.
+
+         If the value is zero, interception accepts any interface.
+         Then at least one additional parameter must be selected,
+         and not be default value."
+    ::= { h3cLIIPStreamEntry 1 }
+
+h3cLIIPStreamAddrType OBJECT-TYPE
+    SYNTAX InetAddressType
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The type of address, used in packet selection."
+    DEFVAL { ipv4 }
+    ::= { h3cLIIPStreamEntry 2 }
+
+h3cLIIPStreamDestAddr OBJECT-TYPE
+    SYNTAX InetAddress
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The Destination address  used in packet selection.
+        This address will be consistent with the type specified in
+        h3cLIIPStreamAddrType."
+    DEFVAL  { '00000000'H }
+    ::= { h3cLIIPStreamEntry 3 }
+
+h3cLIIPStreamDestAddrLength OBJECT-TYPE
+    SYNTAX InetAddressPrefixLength
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The length of the Destination Prefix.  A value of zero means
+        all addresses to match.  This prefix length will be consistent
+        with the type specified in h3cLIIPStreamAddrType."
+    DEFVAL { 0 }
+    ::= { h3cLIIPStreamEntry 4 }
+
+h3cLIIPStreamSrcAddr OBJECT-TYPE
+    SYNTAX InetAddress
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The Source Address used in packet selection.  This address will
+        be consistent with the type specified in h3cLIIPStreamAddrType."
+    DEFVAL  { '00000000'H }
+    ::= { h3cLIIPStreamEntry 5 }
+
+h3cLIIPStreamSrcAddrLength OBJECT-TYPE
+    SYNTAX InetAddressPrefixLength
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The length of the Source Prefix.  A value of zero means all
+        addresses to match.  This prefix length will be consistent with
+        the type specified in h3cLIIPStreamAddrType."
+    DEFVAL { 0 }
+    ::= { h3cLIIPStreamEntry 6 }
+
+h3cLIIPStreamTosByte OBJECT-TYPE
+    SYNTAX Integer32 (0..255)
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The value of the TOS byte.
+        If h3cLIIPStreamTosByte&(~h3cLIIPStreamTosByteMask)!=0,
+        configuration is rejected."
+    DEFVAL { 0 }
+    ::= { h3cLIIPStreamEntry 7 }
+
+h3cLIIPStreamTosByteMask OBJECT-TYPE
+    SYNTAX Integer32 (0..255)
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "This value is ANDed with the value of the TOS byte in a packet
+         and compared with h3cLIIPStreamTosByte.  If the values are equal,
+         the comparison is equal.
+         If both the mask and the TosByte value are zero,
+         the result is to always accept."
+    DEFVAL { 0 }
+    ::= { h3cLIIPStreamEntry 8 }
+
+h3cLIIPStreamFlowId OBJECT-TYPE
+    SYNTAX Integer32 (-1 | 0..1048575)
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The flow identifier in an IPv6 header.  -1 indicates that the
+        Flow Id is unused."
+    DEFVAL { -1 } -- any flow identifier value
+    ::= { h3cLIIPStreamEntry 9 }
+
+h3cLIIPStreamProtocol OBJECT-TYPE
+    SYNTAX Integer32 (-1 | 0..255)
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The IP protocol to match against the IPv4 protocol number or
+        the IPv6 Next- Header number in the packet."
+    DEFVAL { -1 } -- any IP protocol
+    ::= { h3cLIIPStreamEntry 10 }
+
+h3cLIIPStreamDestL4PortMin OBJECT-TYPE
+    SYNTAX InetPortNumber
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The minimum value that the layer-4 destination port number in
+         the packet must have in order to match.  This value must be
+         equal to or less than the value specified for this entry in
+         h3cLIIPStreamDestL4PortMax.
+
+         If both h3cLIIPStreamDestL4PortMin and h3cLIIPStreamDestL4PortMax
+         are at their default values, the port number is effectively unused.
+         If h3cLIIPStreamDestL4PortMin is equal to
+         h3cLIIPStreamDestL4PortMax, only one port number to be intercepted."
+    DEFVAL { 0 }
+    ::= { h3cLIIPStreamEntry 11 }
+
+h3cLIIPStreamDestL4PortMax OBJECT-TYPE
+    SYNTAX InetPortNumber
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The maximum value that the layer-4 destination port number in
+         the packet must have in order to match this classifier entry.
+         This value must be equal to or greater than the value specified
+         for this entry in h3cLIIPStreamDestL4PortMin.
+         If both h3cLIIPStreamDestL4PortMin and h3cLIIPStreamDestL4PortMax
+         are at their default values, the port number is effectively unused.
+         If h3cLIIPStreamDestL4PortMin is equal to h3cLIIPStreamDestL4PortMax,
+         only one port number to be intercepted."
+    DEFVAL { 65535 }
+    ::= { h3cLIIPStreamEntry 12 }
+
+h3cLIIPStreamSrcL4PortMin OBJECT-TYPE
+    SYNTAX InetPortNumber
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The minimum value that the layer-4 destination port number in
+         the packet must have in order to match.  This value must be
+         equal to or less than the value specified for this entry in
+         h3cLIIPStreamSrcL4PortMax.
+         If both h3cLIIPStreamSrcL4PortMin and h3cLIIPStreamSrcL4PortMax
+         are at their default values, the port number is effectively unused.
+         If h3cLIIPStreamSrcL4PortMin is equal to
+         h3cLIIPStreamSrcL4PortMax, only one port number to be intercepted."
+    DEFVAL { 0 }
+    ::= { h3cLIIPStreamEntry 13 }
+
+h3cLIIPStreamSrcL4PortMax OBJECT-TYPE
+    SYNTAX InetPortNumber
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The maximum value that the layer-4 destination port number in
+         the packet must have in order to match this classifier entry.
+         This value must be equal to or greater than the value specified
+         for this entry in h3cLIIPStreamSrcL4PortMin.
+         If both h3cLIIPStreamSrcL4PortMin and h3cLIIPStreamSrcL4PortMax
+         are at their default values, the port number is effectively unused.
+         If h3cLIIPStreamSrcL4PortMin is equal to h3cLIIPStreamSrcL4PortMax,
+         only one port number to be intercepted."
+    DEFVAL { 65535 }
+    ::= { h3cLIIPStreamEntry 14 }
+
+h3cLIIPStreamVRF OBJECT-TYPE
+    SYNTAX SnmpAdminString
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "It is the name of a Virtual Routing and Forwarding (VRF) of a VPN."
+    DEFVAL { "" }
+    ::= { h3cLIIPStreamEntry 15 }
+
+h3cLIIPStreamRowStatus OBJECT-TYPE
+    SYNTAX RowStatus
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Operation status of this table entry."
+    ::= { h3cLIIPStreamEntry 18 }
+
+--
+-- h3cLIMACStreamTable definition
+--
+h3cLIMACStream OBJECT IDENTIFIER ::= { h3cLI 3 }
+
+h3cLIMACStreamObjects OBJECT IDENTIFIER ::= { h3cLIMACStream 1 }
+
+h3cLIMACStreamTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF H3cLIMACStreamEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table lists the IEEE 802 streams to be intercepted.
+        It is associated with h3cLIMediationTable and h3cLIStreamTable."
+    ::= { h3cLIMACStreamObjects 1 }
+
+h3cLIMACStreamEntry OBJECT-TYPE
+    SYNTAX H3cLIMACStreamEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "A single stream to be intercepted.
+        The first index indicates the Mediation Device.
+        The second index is that of the stream's counter entry
+        in the h3cLIStreamTable.  The second index permits multiple
+        classifiers to be used together, such as having an MAC address
+        as source or destination."
+    INDEX { h3cLIMediationIndex, h3cLIStreamIndex }
+    ::= { h3cLIMACStreamTable 1 }
+
+H3cLIMACStreamEntry ::=
+    SEQUENCE {
+        h3cLIMACStreamFields        BITS,
+        h3cLIMACStreamInterface     InterfaceIndexOrZero,
+        h3cLIMACStreamDestAddr      MacAddress,
+        h3cLIMACStreamSrcAddr       MacAddress,
+        h3cLIMACStreamEthPid        Unsigned32,
+        h3cLIMACStreamDSap          Unsigned32,
+        h3cLIMACStreamSSap          Unsigned32,
+        h3cLIMACStreamRowStatus     RowStatus
+     }
+
+h3cLIMACStreamFields OBJECT-TYPE
+    SYNTAX BITS {
+                    interface(0),
+                    dstMacAddress(1),
+                    srcMacAddress(2),
+                    ethernetPid(3),
+                    dSap(4),
+                    sSap(5)
+                }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "This object displays what attributes will be compared to
+         identify traffic.
+         interface:     indicates that traffic on the stated
+                                interface is to be intercepted
+         dstMacAddress: indicates that traffic destined to a
+                                given address should be intercepted
+         srcMacAddress: indicates that traffic sourced from a
+                                given address should be intercepted
+         ethernetPid:   indicates that traffic with a stated
+                                Ethernet Protocol Identifier should
+                                be intercepted
+         dSap:          indicates that traffic with an certain
+                                802.2 LLC Destination SAP should be
+                                intercepted
+         sSap:          indicates that traffic with an certain
+                                802.2 LLC Source SAP should be intercepted
+
+         At least one of the bits has to be set in order to activate an
+         entry.  If multiple bits are set, traffic to be intercepted must
+         be satisfied with all set attributes."
+    ::= { h3cLIMACStreamEntry 1 }
+
+h3cLIMACStreamInterface OBJECT-TYPE
+    SYNTAX InterfaceIndexOrZero
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "Traffic received or transmitted over this interface
+         will be intercepted.
+         This value must be set when creating a stream entry,
+         either zero, or a valid interface index.
+         If the value is zero, interception accepts any interface.
+         Additional parameter must be selected together."
+    ::= { h3cLIMACStreamEntry 2 }
+
+h3cLIMACStreamDestAddr OBJECT-TYPE
+    SYNTAX MacAddress
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The Destination address used in packet selection."
+    ::= { h3cLIMACStreamEntry 3 }
+
+h3cLIMACStreamSrcAddr OBJECT-TYPE
+    SYNTAX MacAddress
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The Source Address used in packet selection."
+    ::= { h3cLIMACStreamEntry 4 }
+
+h3cLIMACStreamEthPid OBJECT-TYPE
+    SYNTAX Unsigned32
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The value of the Ethernet Protocol Identifier in the
+        Ethernet traffic or IEEE 802.2 SNAP traffic."
+    ::= { h3cLIMACStreamEntry 5 }
+
+h3cLIMACStreamDSap OBJECT-TYPE
+    SYNTAX Unsigned32
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The value of the IEEE 802.2 Destination SAP."
+    ::= { h3cLIMACStreamEntry 6 }
+
+h3cLIMACStreamSSap OBJECT-TYPE
+    SYNTAX Unsigned32
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The value of the IEEE 802.2 Source SAP."
+    ::= { h3cLIMACStreamEntry 7 }
+
+h3cLIMACStreamRowStatus OBJECT-TYPE
+    SYNTAX RowStatus
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Operation status of this table entry."
+    ::= { h3cLIMACStreamEntry 8 }
+
+--
+-- h3cLIUserStreamTable definition
+--
+h3cLIUserStream OBJECT IDENTIFIER ::= { h3cLI 4 }
+
+h3cLIUserStreamObjects OBJECT IDENTIFIER ::= { h3cLIUserStream 1 }
+
+h3cLIUserStreamTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF H3cLIUserStreamEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table lists the user connection streams to be intercepted.
+        It is associated with h3cLIMediationTable and h3cLIStreamTable."
+    ::= { h3cLIUserStreamObjects 1 }
+
+h3cLIUserStreamEntry OBJECT-TYPE
+    SYNTAX H3cLIUserStreamEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "A single stream to be intercepted.
+        The first index indicates the Mediation Device.
+        The second index is that of the stream's counter entry
+        in the h3cLIStreamTable.  This permits multiple classifiers
+        to be used together."
+    INDEX { h3cLIMediationIndex, h3cLIStreamIndex }
+    ::= { h3cLIUserStreamTable 1 }
+
+H3cLIUserStreamEntry ::=
+    SEQUENCE {
+        h3cLIUserStreamAcctSessID       OCTET STRING,
+        h3cLIUserStreamRowStatus        RowStatus
+     }
+
+h3cLIUserStreamAcctSessID OBJECT-TYPE
+    SYNTAX OCTET STRING (SIZE (0..253))
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "This is the RADIUS attribute 44 acct-session-ID.
+         The string must be set, and the length not be zero."
+    ::= { h3cLIUserStreamEntry 1 }
+
+h3cLIUserStreamRowStatus OBJECT-TYPE
+    SYNTAX RowStatus
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Operation status of this table entry."
+    ::= { h3cLIUserStreamEntry 2 }
+
+END

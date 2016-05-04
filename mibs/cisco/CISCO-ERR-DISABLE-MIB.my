@@ -2,8 +2,7 @@
 -- CISCO-ERR-DISABLE-MIB.my
 -- MIB support for the Error Disable feature
 --   
-
--- Copyright (c) 2006, 2008-2009, 2010 by Cisco Systems Inc.
+-- Copyright (c) 2006, 2008-2013 by Cisco Systems Inc.
 -- All rights reserved.
 --   
 -- ****************************************************
@@ -34,7 +33,7 @@ IMPORTS
 
 
 ciscoErrDisableMIB MODULE-IDENTITY
-    LAST-UPDATED    "201010190000Z"
+    LAST-UPDATED    "201304230000Z"
     ORGANIZATION    "Cisco Systems, Inc."
     CONTACT-INFO
             "Cisco Systems
@@ -104,11 +103,15 @@ ciscoErrDisableMIB MODULE-IDENTITY
             3) If error recovery is possible, then the time
             interval to wait before the system starts the recovery
             attempt."
+    REVISION        "201304230000Z"
+    DESCRIPTION
+        "Added ciscoErrDisableFeatureFlapGroup and
+        a new enumeration flapControl(4) in 
+        cErrDisableFeatureConfigurable."
     REVISION        "201010190000Z"
     DESCRIPTION
         "Added a new enumeration in CErrDisableFeatureID:
-        tranceiverIncomp(35).
-	" 	
+        tranceiverIncomp(35)."
     REVISION        "200903230000Z"
     DESCRIPTION
         "Added the following new enumerations in
@@ -246,8 +249,7 @@ CErrDisableFeatureID ::= TEXTUAL-CONVENTION
 
         mvrp: Errors detected by Multiple VLAN Registration Protocol
 
-        tranceiverIncomp: Tranceiver incompatible errors
-        "
+        tranceiverIncomp: Tranceiver incompatible errors"
     SYNTAX          INTEGER  {
                         udld(1),
                         bpduGuard(2),
@@ -354,7 +356,9 @@ CErrDisableFeatureEntry ::= SEQUENCE {
         cErrDisableFeatureDetectEnable       TruthValue,
         cErrDisableFeatureRecoveryEnable     TruthValue,
         cErrDisableFeatureRecoveryInterval   TimeIntervalSec,
-        cErrDisableFeatureDetectShutdownVlan TruthValue  
+        cErrDisableFeatureDetectShutdownVlan TruthValue,
+        cErrDisableFeatureMaxFlapCount       Unsigned32,
+        cErrDisableFeatureFlapTimePeriod     Unsigned32
 }
 
 cErrDisableFeatureIndex OBJECT-TYPE
@@ -371,7 +375,8 @@ cErrDisableFeatureConfigurable OBJECT-TYPE
                         detectionEnable(0),
                         recoveryEnable(1),
                         recoveryInterval(2),
-                        detectShutdownVlan(3)
+                        detectShutdownVlan(3),
+                        flapControl(4)
                     }
     MAX-ACCESS      read-only
     STATUS          current
@@ -393,7 +398,11 @@ cErrDisableFeatureConfigurable OBJECT-TYPE
         'detectShutdownVlan' - indicates the error-disable detection
                                shutdown vlan mode can be configured for
                                this feature via 
-                               cErrDisableFeatureDetectShutdownVlan." 
+                               cErrDisableFeatureDetectShutdownVlan. 
+        'flapControl'        - indicates the error-disable flap control
+                               can be configured via 
+                               cErrDisableFeatureMaxFlapCount and
+                               cErrDisableFeatureFlapTimePeriod." 
     ::= { cErrDisableFeatureEntry 2 }
 
 cErrDisableFeatureDetectEnable OBJECT-TYPE
@@ -434,19 +443,43 @@ cErrDisableFeatureRecoveryInterval OBJECT-TYPE
         use the value specified by the global configuration object
         cErrDisableRecoveryInterval." 
     ::= { cErrDisableFeatureEntry 5 }
- 
+
 cErrDisableFeatureDetectShutdownVlan OBJECT-TYPE
-    SYNTAX          TruthValue 
+    SYNTAX          TruthValue
     MAX-ACCESS      read-write
     STATUS          current
     DESCRIPTION
-        "This object specifies whether shutting down the violating 
+        "This object specifies whether shutting down the violating
         VLAN on an interface is enabled or not. The value of 'true'
         indicates that shutting down the violating VLAN on an 
         interface is enabled. The value of 'false' indicates that 
         shutting down the violating VLAN on an interface is 
-        disabled."
+        disabled." 
     ::= { cErrDisableFeatureEntry 6 }
+
+cErrDisableFeatureMaxFlapCount OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the maximum number of flaps that
+        are allowed to occur before setting to error disable state.
+        A read-only value of zero indicates that no flap control
+        is present." 
+    ::= { cErrDisableFeatureEntry 7 }
+
+cErrDisableFeatureFlapTimePeriod OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the period of time counting the number of
+        flaps that are allowed before setting to error disable state.
+        A read-only value of zero indicates that no flap control
+        is present." 
+    ::= { cErrDisableFeatureEntry 8 }
+ 
+
 
 cErrDisableIfStatusTable OBJECT-TYPE
     SYNTAX          SEQUENCE OF CErrDisableIfStatusEntry 
@@ -552,7 +585,6 @@ cErrDisableInterfaceEventRev1 NOTIFICATION-TYPE
         to last sub-identifier in the name of any newly-defined
         notification must have the value zero."
    ::= { ciscoErrDisableMIBNotifs 2 }
-
 -- MIB Conformance statements
 
 ciscoErrDisableMIBCompliances  OBJECT IDENTIFIER
@@ -585,7 +617,7 @@ ciscoErrDisableMIBCompliance MODULE-COMPLIANCE
     ::= { ciscoErrDisableMIBCompliances 1 }
 
 ciscoErrDisableMIBComplianceRev1 MODULE-COMPLIANCE
-    STATUS          current
+    STATUS          deprecated
     DESCRIPTION
         "The compliance statement for the cisco errdisable MIB."
     MODULE          -- this module
@@ -641,12 +673,90 @@ ciscoErrDisableMIBComplianceRev1 MODULE-COMPLIANCE
     DESCRIPTION
         "Write access is not required."
 
-    OBJECT          cErrDisableFeatureDetectShutdownVlan 
+    OBJECT          cErrDisableFeatureDetectShutdownVlan
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+    ::= { ciscoErrDisableMIBCompliances 2 }
+
+ciscoErrDisableMIBComplianceRev2 MODULE-COMPLIANCE
+    STATUS          current
+    DESCRIPTION
+        "The compliance statement for the cisco errdisable MIB."
+    MODULE          -- this module
+    MANDATORY-GROUPS {
+                        ciscoErrDisableGlobalCfgGroup,
+                        ciscoErrDisableFeatureCfgGroup,
+                        ciscoErrDisableIfStatusGroup
+                    }
+
+    GROUP           ciscoErrDisableNotifCfgGroup
+    DESCRIPTION
+        "This group is mandatory if the managed system
+        supports notifications for error-disable events."
+
+    GROUP           ciscoErrDisableNotifGroupRev1
+    DESCRIPTION
+        "This group is mandatory if the managed system
+        supports notifications for error-disable events."
+
+    GROUP           ciscoErrDisableShutdownVlanGroup
+    DESCRIPTION
+        "This group is mandatory if the managed system
+        supports the configuration on error-disable 
+        detection shutdown vlan mode."
+
+    GROUP           ciscoErrDisableFeatureFlapGroup
+    DESCRIPTION
+        "This group is mandatory if the managed system
+        supports the configuration on error-disable 
+        flap control."
+
+    OBJECT          cErrDisableRecoveryInterval
     MIN-ACCESS      read-only
     DESCRIPTION
         "Write access is not required."
 
-    ::= { ciscoErrDisableMIBCompliances 2 }
+    OBJECT          cErrDisableNotifEnable
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cErrDisableNotifRate
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cErrDisableFeatureDetectEnable
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cErrDisableFeatureRecoveryEnable
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cErrDisableFeatureRecoveryInterval
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cErrDisableFeatureDetectShutdownVlan
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cErrDisableFeatureMaxFlapCount
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cErrDisableFeatureFlapTimePeriod
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+    ::= { ciscoErrDisableMIBCompliances 3 }
 
 -- Object groups
 
@@ -693,14 +803,14 @@ ciscoErrDisableNotifCfgGroup OBJECT-GROUP
     ::= { ciscoErrDisableMIBGroups 4 }
 
 ciscoErrDisableNotifGroup NOTIFICATION-GROUP
-    NOTIFICATIONS    { cErrDisableInterfaceEvent }
+   NOTIFICATIONS    { cErrDisableInterfaceEvent }
     STATUS          deprecated
     DESCRIPTION
         "A collection of error-disable notification objects."
     ::= { ciscoErrDisableMIBGroups 5 }
 
 ciscoErrDisableNotifGroupRev1 NOTIFICATION-GROUP
-    NOTIFICATIONS    { cErrDisableInterfaceEventRev1 }
+   NOTIFICATIONS    { cErrDisableInterfaceEventRev1 }
     STATUS          current
     DESCRIPTION
         "A collection of error-disable notification objects."
@@ -714,6 +824,20 @@ ciscoErrDisableShutdownVlanGroup OBJECT-GROUP
         error-disable detection shutdown vlan mode."
     ::= { ciscoErrDisableMIBGroups 7 }
 
+ciscoErrDisableFeatureFlapGroup OBJECT-GROUP
+    OBJECTS         {
+                        cErrDisableFeatureMaxFlapCount,
+                        cErrDisableFeatureFlapTimePeriod
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A collection of objects to manage the configuration of
+        the error-disable flap control."
+    ::= { ciscoErrDisableMIBGroups 8 }
+
 END
+
+
+
 
 

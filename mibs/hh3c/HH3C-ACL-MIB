@@ -1,0 +1,3757 @@
+-- ============================================================================
+-- Copyright (c) 2004-2010 Hangzhou H3C Tech. Co., Ltd. All rights reserved.
+--
+-- Description:
+-- Reference:
+-- Version: V3.0
+-- History:
+-- V1.0 created by yuhui.
+-- V2.0 2004-10-12 updated by gaolong
+--     Define MODULE-IDENTITY for hh3cAcl
+--     Remove chinese characters
+--     Add limitation(0..65535) for some table index
+--     Fix a default value error of hh3cAclAdvancedEstablish
+-- V2.1 2004-11-18 updated by yubo
+--     Add 'hh3cAclIDSTable' for IDS
+-- V2.2 2004-12-13
+--     Fix syntax bugs and adjust format of the whole file by jinyi
+--     Modify description of hh3cAclAdvancedDscp by zhuangyu
+-- V2.3 2005-1-26 updated by WuZhao02557
+--     Change MAX-ACCESS from read-create to not-accessible for the
+--     following MIB nodes:
+--       hh3cAclNumGroupAclNum, hh3cAclNameGroupIndex, hh3cAclBasicAclNum,
+--       hh3cAclBasicSubitem, hh3cAclAdvancedAclNum, hh3cAclAdvancedSubitem
+--       hh3cAclIfAclNum, hh3cAclIfSubitem, hh3cAclLinkAclNum, hh3cAclLinkSubitem
+--       hh3cAclUserAclNum, hh3cAclUserSubitem, hh3cAclActiveAclIndex,
+--       hh3cAclActiveIfIndex, hh3cAclActiveVlanID, hh3cAclActiveDirection
+--     Adjust format of whole file.
+--     2005-01-27   updated by zhangyinxi
+--     1. Add objects hh3cAclLinkL2LabelRangeOp, hh3cAclLinkL2LabelRangeBegin
+--        hh3cAclLinkL2LabelRangeEnd and hh3cAclLinkMplsExp in hh3cAclLinkTable
+--     2. Add an enumeration mpls(34887) to object hh3cAclLinkProtocol
+--     3. Expand the range of object hh3cAclActiveVlanID to Integer32
+-- V2.4 2005-2-24
+--     Make the index of hh3cAclIDSTable IMPLIED by fuzhenyu because IDS devices
+--     require fixed length index to be used. IDS devices only provide index
+--     with no sub-identifier indicating the length of the string.
+--     Modify enum name(value is 4) of hh3cAclLinkFormatType to ieee802Dot3 by daishijun
+-- V2.5 2005-7-25
+--     Add objects hh3cAclMib2Mode, hh3cAclVersion, hh3cAclMib2ObjectsCapabilities,
+--      hh3cAclIPAclNumGroupTable, hh3cAclIPAclBasicTable, hh3cAclIPAclAdvancedTable,
+--      hh3cAclMACTable, hh3cAclEnUserTable by tangshun.
+-- V2.6 2006-01-03
+--     Add objects hh3cAclIPAclBasicComment, hh3cAclIPAclAdvancedComment,
+--      hh3cAclMACComment, hh3cAclEnUserComment by tangshun.
+-- V2.7 2006-03-09 updated by changhuifeng
+--     Add object hh3cAclIPAclAdvancedReflective in hh3cAclIPAclAdvancedTable.
+--     Modify the description of object hh3cAclIPAclAdvancedFragmentFlag.
+--     Modify the description of object hh3cAclMib2Version.
+--     Modify the description of object hh3cAclLinkDestAny for text error.
+--     Modify the description of object hh3cAclMib2CharacteristicsValue.
+-- V2.8 2006-07-06 updated by xialei
+--     Modify the description of hh3cAclIPAclAdvancedIcmpType
+--     and hh3cAclIPAclAdvancedIcmpCode.
+--     Change value range of hh3cAclIPAclAdvancedIcmpCode.
+-- V2.9 2006-08-08 updated by chenzhaojie
+--     Add enumeration value to hh3cAclActiveDirection.
+-- V3.0 2010-09-01 updated by zhaixiaoxiang
+--     Add hh3cAclResourceUsageTable.
+-- ============================================================================
+HH3C-ACL-MIB DEFINITIONS ::= BEGIN
+
+        IMPORTS
+            hh3cCommon
+                FROM  HH3C-OID-MIB
+            OBJECT-GROUP, MODULE-COMPLIANCE
+                FROM SNMPv2-CONF
+            IpAddress, Integer32, Counter32, OBJECT-TYPE, MODULE-IDENTITY,Unsigned32
+                FROM SNMPv2-SMI
+            InetAddressType, InetAddress, InetAddressPrefixLength
+                FROM INET-ADDRESS-MIB
+            RowStatus, TruthValue, MacAddress, TEXTUAL-CONVENTION
+                FROM SNMPv2-TC;
+
+--
+-- Node definitions
+--
+
+        hh3cAcl MODULE-IDENTITY
+            LAST-UPDATED "200409211936Z"        -- Sept 21, 2004 at 19:36 GMT
+            ORGANIZATION
+                "Hangzhou H3C Tech. Co., Ltd."
+            CONTACT-INFO
+                "Platform Team Hangzhou H3C Tech. Co., Ltd.
+                Hai-Dian District Beijing P.R. China
+                http://www.h3c.com
+                Zip:100085
+                "
+            DESCRIPTION
+                "Description"
+            ::= { hh3cCommon 8 }
+
+-- Rule action value
+        RuleAction ::= TEXTUAL-CONVENTION
+            STATUS current
+            DESCRIPTION
+                "The value of rule's action.
+                 permit: The packet matching the rule will be permitted to forward.
+                 deny: The packet matching the rule will be denied.
+                "
+            SYNTAX INTEGER
+            {
+                invalid(1),
+                permit(2),
+                deny(3)
+            }
+
+-- CounterClear value
+        CounterClear ::= TEXTUAL-CONVENTION
+            STATUS  current
+            DESCRIPTION
+                "cleared: Reset the value of the rule's counter.
+                 nouse: 'nouse' will be returned when getting.
+                "
+            SYNTAX INTEGER
+            {
+                cleared(1),
+                nouse(2)
+            }
+
+-- PortOp value
+        PortOp ::= TEXTUAL-CONVENTION
+            STATUS current
+            DESCRIPTION
+                "The operation type of TCP and UDP.
+                 lt : Less than given port number.
+                 eq : Equal to given port number.
+                 gt : Greater than given port number.
+                 neq : Not equal to given port number.
+                 range : Between two port numbers.
+                 Default value is 'invalid'.
+                "
+            SYNTAX INTEGER
+            {
+                invalid(0),
+                lt(1),
+                eq(2),
+                gt(3),
+                neq(4),
+                range(5)
+            }
+
+-- DSCP value
+        DSCPValue ::= TEXTUAL-CONVENTION
+            STATUS current
+            DESCRIPTION
+                "The value of DSCP.
+                 <0-63>  Value of DSCP
+                 af11    Specify Assured Forwarding 11 service(10)
+                 af12    Specify Assured Forwarding 12 service(12)
+                 af13    Specify Assured Forwarding 13 service(14)
+                 af21    Specify Assured Forwarding 21 service(18)
+                 af22    Specify Assured Forwarding 22 service(20)
+                 af23    Specify Assured Forwarding 23 service(22)
+                 af31    Specify Assured Forwarding 31 service(26)
+                 af32    Specify Assured Forwarding 32 service(28)
+                 af33    Specify Assured Forwarding 33 service(30)
+                 af41    Specify Assured Forwarding 41 service(34)
+                 af42    Specify Assured Forwarding 42 service(36)
+                 af43    Specify Assured Forwarding 43 service(38)
+                 be      Specify Best Effort service(0)
+                 cs1     Specify Class Selector 1 service(8)
+                 cs2     Specify Class Selector 2 service(16)
+                 cs3     Specify Class Selector 3 service(24)
+                 cs4     Specify Class Selector 4 service(32)
+                 cs5     Specify Class Selector 5 service(40)
+                 cs6     Specify Class Selector 6 service(48)
+                 cs7     Specify Class Selector 7 service(56)
+                 ef      Specify Expedited Forwarding service(46)
+                "
+            SYNTAX Integer32 (0..63|255)
+
+-- TCP Flags
+        TCPFlag ::= TEXTUAL-CONVENTION
+            STATUS current
+            DESCRIPTION
+                "Type of TCP.
+                 invalid(0)
+                 tcpack(1)  TCP protocol ACK Packet
+                 tcpfin(2)  TCP protocol PIN Packet
+                 tcppsh(3)  TCP protocol PUSH Packet
+                 tcprst(4)  TCP protocol RST Packet
+                 tcpsyn(5)  TCP protocol SYN Packet
+                 tcpurg(6)  TCP protocol URG Packet
+                 Default value is 'invalid'.
+                "
+            SYNTAX INTEGER
+            {
+                invalid(0),
+                tcpack(1),
+                tcpfin(2),
+                tcppsh(3),
+                tcprst(4),
+                tcpsyn(5),
+                tcpurg(6)
+            }
+
+-- Fragment Flags
+        FragmentFlag ::= TEXTUAL-CONVENTION
+            STATUS current
+            DESCRIPTION
+                "Type of fragment.
+                 invalid(0)
+                 fragment(1)       Frag-Type Fragment
+                 fragmentSubseq(2) Frag-Type Fragment-subsequent
+                 nonFragment(3)    Frag-Type non-Fragment
+                 nonSubseq(4)      Frag-Type non-subsequent
+                 Default value is 'invalid'.
+                "
+            SYNTAX INTEGER
+            {
+                invalid(0),
+                fragment(1),
+                fragmentSubseq(2),
+                nonFragment(3),
+                nonSubseq(4)
+            }
+
+-- Address Flags
+        AddressFlag ::= TEXTUAL-CONVENTION
+            STATUS current
+            DESCRIPTION
+                "Address flag to select IPv6 Address.
+                 Default value is 'invalid'.
+
+                 t64SrcAddrPre64DestAddrPre(1):
+                 The mean of the enumeration 't64SrcAddrPre64DestAddrPre' is
+                 that system gets the 64 bits prefix of source address and
+                 the 64 bits prefix of destination address.
+
+                 t64SrcAddrPre64DestAddrSuf(2):
+                 The mean of the enumeration 't64SrcAddrPre64DestAddrSuf' is
+                 that system gets the 64 bits prefix of source address and
+                 the 64 bits suffix of destination address.
+
+                 t64SrcAddrSuf64DestAddrPre(3):
+                 The mean of the enumeration 't64SrcAddrSuf64DestAddrPre' is
+                 that system gets the 64 bits suffix of source address and
+                 the 64 bits prefix of destination address.
+
+                 t64SrcAddrSuf64DestAddrSuf(4):
+                 The mean of the enumeration 't64SrcAddrSuf64DestAddrSuf' is
+                 that system gets the 64 bits suffix of source address and
+                 the 64 bits suffix of destination address.
+
+                 t128SourceAddress(5):
+                 The mean of the enumeration 't128SourceAddress' is that
+                 system gets the 128 bits of source address.
+
+                 t128DestinationAddress(6):
+                 The mean of the enumeration 't128SourceAddress' is that
+                 system gets the 128 bits of destination address.
+                "
+            SYNTAX INTEGER
+            {
+                invalid(0),
+                t64SrcAddrPre64DestAddrPre(1),
+                t64SrcAddrPre64DestAddrSuf(2),
+                t64SrcAddrSuf64DestAddrPre(3),
+                t64SrcAddrSuf64DestAddrSuf(4),
+                t128SourceAddress(5),
+                t128DestinationAddress(6)
+            }
+--
+-- nodes defined
+--
+        hh3cAclMibObjects OBJECT IDENTIFIER ::= { hh3cAcl 1 }
+
+        hh3cAclMode OBJECT-TYPE
+            SYNTAX INTEGER
+            {
+                linkBased(1),
+                ipBased(2)
+            }
+            MAX-ACCESS read-write
+            STATUS current
+            DESCRIPTION
+                "Access-list mode."
+            DEFVAL { ipBased }
+            ::= { hh3cAclMibObjects 1 }
+
+--
+-- Node of hh3cAclNumGroupTable
+--
+        hh3cAclNumGroupTable OBJECT-TYPE
+            SYNTAX SEQUENCE OF Hh3cAclNumGroupEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "Configure the match-order of number-acl group."
+            ::= { hh3cAclMibObjects 2 }
+
+        hh3cAclNumGroupEntry OBJECT-TYPE
+            SYNTAX Hh3cAclNumGroupEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "Define the index of hh3cAclNumGroupTable."
+            INDEX { hh3cAclNumGroupAclNum }
+            ::= { hh3cAclNumGroupTable 1 }
+
+        Hh3cAclNumGroupEntry ::=
+            SEQUENCE
+            {
+                hh3cAclNumGroupAclNum
+                    Integer32,
+                hh3cAclNumGroupMatchOrder
+                    INTEGER,
+                hh3cAclNumGroupSubitemNum
+                    Integer32,
+                hh3cAclNumGroupDescription
+                    OCTET STRING,
+                hh3cAclNumGroupCountClear
+                    INTEGER,
+                hh3cAclNumGroupRowStatus
+                    RowStatus
+             }
+
+        hh3cAclNumGroupAclNum OBJECT-TYPE
+            SYNTAX Integer32 (1000..5999)
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The index of number-acl group
+                 Interface type:1000..1999
+                 Basic type:2000..2999
+                 Advance type:3000..3999
+                 Link type:4000..4999
+                 User type:5000..5999"
+            ::= { hh3cAclNumGroupEntry 1 }
+
+        hh3cAclNumGroupMatchOrder OBJECT-TYPE
+            SYNTAX INTEGER
+            {
+                config(1),
+                auto(2)
+            }
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The match-order of number-acl group."
+            DEFVAL { config }
+            ::= { hh3cAclNumGroupEntry 2 }
+
+        hh3cAclNumGroupSubitemNum OBJECT-TYPE
+            SYNTAX Integer32
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "The number of number-acl group's node."
+            ::= { hh3cAclNumGroupEntry 3 }
+
+        hh3cAclNumGroupDescription OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE(0..127))
+            MAX-ACCESS read-write
+            STATUS current
+            DESCRIPTION
+                "The description of this acl group."
+            ::= { hh3cAclNumGroupEntry 4 }
+
+        hh3cAclNumGroupCountClear OBJECT-TYPE
+            SYNTAX INTEGER
+            {
+                cleared(1),
+                nouse(2)
+            }
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Reset the value of rules' counter, which belong to this group."
+            ::= { hh3cAclNumGroupEntry 5 }
+
+        hh3cAclNumGroupRowStatus OBJECT-TYPE
+            SYNTAX RowStatus
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "RowStatus, now support three state: CreateAndGo, Active, Destroy."
+            ::= { hh3cAclNumGroupEntry 6 }
+
+--
+-- Node of hh3cAclNameGroupTable
+--
+        hh3cAclNameGroupTable OBJECT-TYPE
+            SYNTAX SEQUENCE OF Hh3cAclNameGroupEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "Create acl-group that identified by name."
+            ::= { hh3cAclMibObjects 3 }
+
+        hh3cAclNameGroupEntry OBJECT-TYPE
+            SYNTAX Hh3cAclNameGroupEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "Define the index of hh3cAclNameGroupTable."
+            INDEX { hh3cAclNameGroupIndex }
+            ::= { hh3cAclNameGroupTable 1 }
+
+        Hh3cAclNameGroupEntry ::=
+            SEQUENCE {
+                hh3cAclNameGroupIndex
+                    Integer32,
+                hh3cAclNameGroupCreateName
+                    OCTET STRING,
+                hh3cAclNameGroupTypes
+                    INTEGER,
+                hh3cAclNameGroupMatchOrder
+                    INTEGER,
+                hh3cAclNameGroupSubitemNum
+                    Integer32,
+                hh3cAclNameGroupRowStatus
+                    RowStatus
+             }
+
+        hh3cAclNameGroupIndex OBJECT-TYPE
+            SYNTAX Integer32 (10000..12999)
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The index of name-acl group."
+            ::= { hh3cAclNameGroupEntry 1 }
+
+        hh3cAclNameGroupCreateName OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE (0..32))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The name of name-acl group."
+            ::= { hh3cAclNameGroupEntry 2 }
+
+        hh3cAclNameGroupTypes OBJECT-TYPE
+            SYNTAX INTEGER
+            {
+                basic(1),
+                advanced(2),
+                ifBased(3),
+                link(4),
+                user(5)
+            }
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The type of name-acl group."
+            ::= { hh3cAclNameGroupEntry 3 }
+
+        hh3cAclNameGroupMatchOrder OBJECT-TYPE
+            SYNTAX INTEGER
+            {
+                config(1),
+                auto(2)
+            }
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The match-order of name-acl group."
+            DEFVAL { config }
+            ::= { hh3cAclNameGroupEntry 4 }
+
+        hh3cAclNameGroupSubitemNum OBJECT-TYPE
+            SYNTAX Integer32 (0..128)
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "The number of name-acl group's node."
+            ::= { hh3cAclNameGroupEntry 5 }
+
+        hh3cAclNameGroupRowStatus OBJECT-TYPE
+            SYNTAX RowStatus
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "RowStatus, now support three state: CreateAndGo, Active, Destroy."
+            ::= { hh3cAclNameGroupEntry 6 }
+
+--
+-- hh3cAclBasicRuleTable
+--
+        hh3cAclBasicRuleTable OBJECT-TYPE
+            SYNTAX SEQUENCE OF Hh3cAclBasicRuleEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "Configure the rule for basic acl group."
+            ::= { hh3cAclMibObjects 4 }
+
+        hh3cAclBasicRuleEntry OBJECT-TYPE
+            SYNTAX Hh3cAclBasicRuleEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "Define the index of hh3cAclBasicRuleTable."
+            INDEX { hh3cAclBasicAclNum, hh3cAclBasicSubitem }
+            ::= { hh3cAclBasicRuleTable 1 }
+
+        Hh3cAclBasicRuleEntry ::=
+            SEQUENCE {
+                hh3cAclBasicAclNum
+                    Integer32,
+                hh3cAclBasicSubitem
+                    Integer32,
+                hh3cAclBasicAct
+                    INTEGER,
+                hh3cAclBasicSrcIp
+                    IpAddress,
+                hh3cAclBasicSrcWild
+                    IpAddress,
+                hh3cAclBasicTimeRangeName
+                    OCTET STRING,
+                hh3cAclBasicFragments
+                    TruthValue,
+                hh3cAclBasicLog
+                    TruthValue,
+                hh3cAclBasicEnable
+                    TruthValue,
+                hh3cAclBasicCount
+                    Counter32,
+                hh3cAclBasicCountClear
+                    INTEGER,
+                hh3cAclBasicRowStatus
+                    RowStatus
+             }
+
+        hh3cAclBasicAclNum OBJECT-TYPE
+            SYNTAX Integer32 (0|2000..2999|10000..12999)
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The index of basic acl group."
+            ::= { hh3cAclBasicRuleEntry 1 }
+
+        hh3cAclBasicSubitem OBJECT-TYPE
+            SYNTAX Integer32 (0..65535)
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The subindex of basic acl group."
+            ::= { hh3cAclBasicRuleEntry 2 }
+
+        hh3cAclBasicAct OBJECT-TYPE
+            SYNTAX INTEGER
+            {
+                permit(1),
+                deny(2)
+            }
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The action of basic acl rule."
+            ::= { hh3cAclBasicRuleEntry 3 }
+
+        hh3cAclBasicSrcIp OBJECT-TYPE
+            SYNTAX IpAddress
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Source IP-address of basic acl rule."
+            ::= { hh3cAclBasicRuleEntry 4 }
+
+        hh3cAclBasicSrcWild OBJECT-TYPE
+            SYNTAX IpAddress
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Source IP-address wild of basic acl rule."
+            ::= { hh3cAclBasicRuleEntry 5 }
+
+        hh3cAclBasicTimeRangeName OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE (0..32))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The Time-range of basic acl rule."
+            ::= { hh3cAclBasicRuleEntry 6 }
+
+        hh3cAclBasicFragments OBJECT-TYPE
+            SYNTAX TruthValue
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The flag of matching fragmented packet."
+            ::= { hh3cAclBasicRuleEntry 7 }
+
+        hh3cAclBasicLog OBJECT-TYPE
+            SYNTAX TruthValue
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The flag of log."
+            ::= { hh3cAclBasicRuleEntry 8 }
+
+        hh3cAclBasicEnable OBJECT-TYPE
+            SYNTAX TruthValue
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "The rule is active or not.
+                 true : active
+                 false : inactive
+                "
+            ::= { hh3cAclBasicRuleEntry 9 }
+
+        hh3cAclBasicCount OBJECT-TYPE
+            SYNTAX Counter32
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "The count of matched by basic rule."
+            ::= { hh3cAclBasicRuleEntry 10 }
+
+        hh3cAclBasicCountClear OBJECT-TYPE
+            SYNTAX INTEGER
+            {
+                cleared(1),
+                nouse(2)
+            }
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Reset the value of counter."
+            ::= { hh3cAclBasicRuleEntry 11 }
+
+        hh3cAclBasicRowStatus OBJECT-TYPE
+            SYNTAX RowStatus
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "RowStatus, now support three state: CreateAndGo, Active, Destroy."
+            ::= { hh3cAclBasicRuleEntry 12 }
+
+--
+-- hh3cAclAdvancedRuleTable
+--
+        hh3cAclAdvancedRuleTable OBJECT-TYPE
+            SYNTAX SEQUENCE OF Hh3cAclAdvancedRuleEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "Configure the rule for advanced acl group."
+            ::= { hh3cAclMibObjects 5 }
+
+        hh3cAclAdvancedRuleEntry OBJECT-TYPE
+            SYNTAX Hh3cAclAdvancedRuleEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "Define the index of hh3cAclAdvancedRuleTable."
+            INDEX { hh3cAclAdvancedAclNum, hh3cAclAdvancedSubitem }
+            ::= { hh3cAclAdvancedRuleTable 1 }
+
+        Hh3cAclAdvancedRuleEntry ::=
+            SEQUENCE {
+                hh3cAclAdvancedAclNum
+                    Integer32,
+                hh3cAclAdvancedSubitem
+                    Integer32,
+                hh3cAclAdvancedAct
+                    INTEGER,
+                hh3cAclAdvancedProtocol
+                    Integer32,
+                hh3cAclAdvancedSrcIp
+                    IpAddress,
+                hh3cAclAdvancedSrcWild
+                    IpAddress,
+                hh3cAclAdvancedSrcOp
+                    INTEGER,
+                hh3cAclAdvancedSrcPort1
+                    Integer32,
+                hh3cAclAdvancedSrcPort2
+                    Integer32,
+                hh3cAclAdvancedDestIp
+                    IpAddress,
+                hh3cAclAdvancedDestWild
+                    IpAddress,
+                hh3cAclAdvancedDestOp
+                    INTEGER,
+                hh3cAclAdvancedDestPort1
+                    Integer32,
+                hh3cAclAdvancedDestPort2
+                    Integer32,
+                hh3cAclAdvancedPrecedence
+                    Integer32,
+                hh3cAclAdvancedTos
+                    Integer32,
+                hh3cAclAdvancedDscp
+                    Integer32,
+                hh3cAclAdvancedEstablish
+                    TruthValue,
+                hh3cAclAdvancedTimeRangeName
+                    OCTET STRING,
+                hh3cAclAdvancedIcmpType
+                    Integer32,
+                hh3cAclAdvancedIcmpCode
+                    Integer32,
+                hh3cAclAdvancedFragments
+                    TruthValue,
+                hh3cAclAdvancedLog
+                    TruthValue,
+                hh3cAclAdvancedEnable
+                    TruthValue,
+                hh3cAclAdvancedCount
+                    Counter32,
+                hh3cAclAdvancedCountClear
+                    INTEGER,
+                hh3cAclAdvancedRowStatus
+                    RowStatus
+             }
+
+        hh3cAclAdvancedAclNum OBJECT-TYPE
+            SYNTAX Integer32 (0|3000..3999|10000..12999)
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The index of advanced acl group."
+            ::= { hh3cAclAdvancedRuleEntry 1 }
+
+        hh3cAclAdvancedSubitem OBJECT-TYPE
+            SYNTAX Integer32 (0..65535)
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The subindex of advanced acl group."
+            ::= { hh3cAclAdvancedRuleEntry 2 }
+
+        hh3cAclAdvancedAct OBJECT-TYPE
+            SYNTAX INTEGER
+            {
+                permit(1),
+                deny(2)
+            }
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The action of Advance acl rule."
+
+            ::= { hh3cAclAdvancedRuleEntry 3 }
+
+        hh3cAclAdvancedProtocol OBJECT-TYPE
+            SYNTAX Integer32 (0..255)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The protocol-type of advanced acl group.
+                 <1-255>  Protocol number
+                  gre      GRE tunneling(47)
+                  icmp     Internet Control Message Protocol(1)
+                  igmp     Internet Group Management Protocol(2)
+                  ip       Any IP protocol
+                  ipinip   IP in IP tunneling(4)
+                  ospf     OSPF routing protocol(89)
+                  tcp      Transmission Control Protocol (6)
+                  udp      User Datagram Protocol (17)"
+            ::= { hh3cAclAdvancedRuleEntry 4 }
+
+        hh3cAclAdvancedSrcIp OBJECT-TYPE
+            SYNTAX IpAddress
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Source IP-address of advanced acl group."
+            ::= { hh3cAclAdvancedRuleEntry 5 }
+
+        hh3cAclAdvancedSrcWild OBJECT-TYPE
+            SYNTAX IpAddress
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Source IP-address wild of advanced acl group."
+            ::= { hh3cAclAdvancedRuleEntry 6 }
+
+        hh3cAclAdvancedSrcOp OBJECT-TYPE
+            SYNTAX INTEGER
+            {
+                invalid(0),
+                lt(1),
+                eq(2),
+                gt(3),
+                neq(4),
+                range(5)
+            }
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The source IP-address's operator of advanced acl group."
+            ::= { hh3cAclAdvancedRuleEntry 7 }
+
+        hh3cAclAdvancedSrcPort1 OBJECT-TYPE
+            SYNTAX Integer32 (0..65535)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The fourth layer source port1."
+            ::= { hh3cAclAdvancedRuleEntry 8 }
+
+        hh3cAclAdvancedSrcPort2 OBJECT-TYPE
+            SYNTAX Integer32 (0..65535)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The fourth layer source port2."
+            ::= { hh3cAclAdvancedRuleEntry 9 }
+
+        hh3cAclAdvancedDestIp OBJECT-TYPE
+            SYNTAX IpAddress
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Destination IP-address of advanced acl group."
+            ::= { hh3cAclAdvancedRuleEntry 10 }
+
+        hh3cAclAdvancedDestWild OBJECT-TYPE
+            SYNTAX IpAddress
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Destination IP-address wild of advanced acl group."
+            ::= { hh3cAclAdvancedRuleEntry 11 }
+
+        hh3cAclAdvancedDestOp OBJECT-TYPE
+            SYNTAX INTEGER
+            {
+                invalid(0),
+                lt(1),
+                eq(2),
+                gt(3),
+                neq(4),
+                range(5)
+            }
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The destination IP-address's operator of advanced acl group."
+            ::= { hh3cAclAdvancedRuleEntry 12 }
+
+        hh3cAclAdvancedDestPort1 OBJECT-TYPE
+            SYNTAX Integer32 (0..65535)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The fourth layer destination port1."
+            ::= { hh3cAclAdvancedRuleEntry 13 }
+
+        hh3cAclAdvancedDestPort2 OBJECT-TYPE
+            SYNTAX Integer32 (0..65535)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The fourth layer destination port2."
+            ::= { hh3cAclAdvancedRuleEntry 14 }
+
+        hh3cAclAdvancedPrecedence OBJECT-TYPE
+            SYNTAX Integer32 (0..7|255)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The value of IP-packet's precedence.
+                <0-7>           Value of precedence
+                routine         Specify routine precedence(0)
+                priority        Specify priority precedence(1)
+                immediate       Specify immediate precedence(2)
+                flash           Specify flash precedence(3)
+                flash-override  Specify flash-override precedence(4)
+                critical        Specify critical precedence(5)
+                internet        Specify internetwork control precedence(6)
+                network         Specify network control precedence(7) "
+            ::= { hh3cAclAdvancedRuleEntry 15 }
+
+        hh3cAclAdvancedTos OBJECT-TYPE
+            SYNTAX Integer32 (0..15|255)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The value of IP-packet's TOS.
+                  <0-15>             Value of TOS(type of service)
+                  max-reliability    Match packets with max reliable TOS(2)
+                  max-throughput     Match packets with max throughput TOS(4)
+                  min-delay          Match packets with min delay TOS(8)
+                  min-monetary-cost  Match packets with min monetary cost TOS(1)
+                  normal             Match packets with normal TOS(0) "
+            ::= { hh3cAclAdvancedRuleEntry 16 }
+
+        hh3cAclAdvancedDscp OBJECT-TYPE
+            SYNTAX Integer32 (0..63|255)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The value of DSCP.
+                <0-63>  Value of DSCP
+                af11    Specify Assured Forwarding 11 service(10)
+                af12    Specify Assured Forwarding 12 service(12)
+                af13    Specify Assured Forwarding 13 service(14)
+                af21    Specify Assured Forwarding 21 service(18)
+                af22    Specify Assured Forwarding 22 service(20)
+                af23    Specify Assured Forwarding 23 service(22)
+                af31    Specify Assured Forwarding 31 service(26)
+                af32    Specify Assured Forwarding 32 service(28)
+                af33    Specify Assured Forwarding 33 service(30)
+                af41    Specify Assured Forwarding 41 service(34)
+                af42    Specify Assured Forwarding 42 service(36)
+                af43    Specify Assured Forwarding 43 service(38)
+                be      Specify Best Effort service(0)
+                cs1     Specify Class Selector 1 service(8)
+                cs2     Specify Class Selector 2 service(16)
+                cs3     Specify Class Selector 3 service(24)
+                cs4     Specify Class Selector 4 service(32)
+                cs5     Specify Class Selector 5 service(40)
+                cs6     Specify Class Selector 6 service(48)
+                cs7     Specify Class Selector 7 service(56)
+                ef      Specify Expedited Forwarding service(46)"
+            ::= { hh3cAclAdvancedRuleEntry 17 }
+
+        hh3cAclAdvancedEstablish OBJECT-TYPE
+            SYNTAX TruthValue
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Establish flag."
+            DEFVAL { false }
+            ::= { hh3cAclAdvancedRuleEntry 18 }
+
+        hh3cAclAdvancedTimeRangeName OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE (0..32))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The Time-range of advanced acl rule."
+            ::= { hh3cAclAdvancedRuleEntry 19 }
+
+        hh3cAclAdvancedIcmpType OBJECT-TYPE
+            SYNTAX Integer32 (0..255|65535)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The type of ICMP packet.
+                INTEGER<0-255>        ICMP type
+                echo                  Type=8, Code=0
+                echo-reply            Type=0, Code=0
+                fragmentneed-DFset    Type=3, Code=4
+                host-redirect         Type=5, Code=1
+                host-tos-redirect     Type=5, Code=3
+                host-unreachable      Type=3, Code=1
+                information-reply     Type=16, Code=0
+                information-request   Type=15, Code=0
+                net-redirect          Type=5, Code=0
+                net-tos-redirect      Type=5, Code=2
+                net-unreachable       Type=3, Code=0
+                parameter-problem     Type=12, Code=0
+                port-unreachable      Type=3, Code=3
+                protocol-unreachable  Type=3, Code=2
+                reassembly-timeout    Type=11, Code=1
+                source-quench         Type=4, Code=0
+                source-route-failed   Type=3, Code=5
+                timestamp-reply       Type=14, Code=0
+                timestamp-request     Type=13, Code=0
+                ttl-exceeded          Type=11, Code=0  "
+            ::= { hh3cAclAdvancedRuleEntry 20 }
+
+        hh3cAclAdvancedIcmpCode OBJECT-TYPE
+            SYNTAX Integer32 (0..255|65535)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The code of ICMP packet."
+            ::= { hh3cAclAdvancedRuleEntry 21 }
+
+        hh3cAclAdvancedFragments OBJECT-TYPE
+            SYNTAX TruthValue
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The flag of matching fragmented packet."
+            ::= { hh3cAclAdvancedRuleEntry 22 }
+
+        hh3cAclAdvancedLog OBJECT-TYPE
+            SYNTAX TruthValue
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The flag of log."
+            ::= { hh3cAclAdvancedRuleEntry 23 }
+
+        hh3cAclAdvancedEnable OBJECT-TYPE
+            SYNTAX TruthValue
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "The rule is active or not.
+                 true : active
+                 false : inactive
+                "
+            ::= { hh3cAclAdvancedRuleEntry 24 }
+
+        hh3cAclAdvancedCount OBJECT-TYPE
+            SYNTAX Counter32
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "The count of matched by advanced rule."
+            ::= { hh3cAclAdvancedRuleEntry 25 }
+
+        hh3cAclAdvancedCountClear OBJECT-TYPE
+            SYNTAX INTEGER
+            {
+                cleared(1),
+                nouse(2)
+            }
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Reset the value of counter."
+            ::= { hh3cAclAdvancedRuleEntry 26 }
+
+        hh3cAclAdvancedRowStatus OBJECT-TYPE
+            SYNTAX RowStatus
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "RowStatus, now support three state: CreateAndGo, Active, Destroy."
+            ::= { hh3cAclAdvancedRuleEntry 27 }
+--
+-- hh3cAclIfRuleTable
+--
+        hh3cAclIfRuleTable OBJECT-TYPE
+            SYNTAX SEQUENCE OF Hh3cAclIfRuleEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "Configure the rule for interface-based acl group."
+            ::= { hh3cAclMibObjects 6 }
+
+        hh3cAclIfRuleEntry OBJECT-TYPE
+            SYNTAX Hh3cAclIfRuleEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "Define the index of hh3cAclIfRuleTable."
+            INDEX { hh3cAclIfAclNum, hh3cAclIfSubitem }
+            ::= { hh3cAclIfRuleTable 1 }
+
+        Hh3cAclIfRuleEntry ::=
+            SEQUENCE {
+                hh3cAclIfAclNum
+                    Integer32,
+                hh3cAclIfSubitem
+                    Integer32,
+                hh3cAclIfAct
+                    INTEGER,
+                hh3cAclIfIndex
+                    Integer32,
+                hh3cAclIfAny
+                    TruthValue,
+                hh3cAclIfTimeRangeName
+                    OCTET STRING,
+                hh3cAclIfLog
+                    TruthValue,
+                hh3cAclIfEnable
+                    TruthValue,
+                hh3cAclIfCount
+                    Counter32,
+                hh3cAclIfCountClear
+                    INTEGER,
+                hh3cAclIfRowStatus
+                    RowStatus
+             }
+
+        hh3cAclIfAclNum OBJECT-TYPE
+            SYNTAX Integer32 (0|1000..1999|10000..12999)
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The index of interface-based acl group."
+            ::= { hh3cAclIfRuleEntry 1 }
+
+        hh3cAclIfSubitem OBJECT-TYPE
+            SYNTAX Integer32 (0..65535)
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The subindex of interface-based acl group."
+            ::= { hh3cAclIfRuleEntry 2 }
+
+        hh3cAclIfAct OBJECT-TYPE
+            SYNTAX INTEGER
+            {
+                permit(1),
+                deny(2)
+            }
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The action of interface-based acl group."
+            ::= { hh3cAclIfRuleEntry 3 }
+
+        hh3cAclIfIndex OBJECT-TYPE
+            SYNTAX Integer32 (0..2147483647)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The index of interface."
+            ::= { hh3cAclIfRuleEntry 4 }
+
+        hh3cAclIfAny OBJECT-TYPE
+            SYNTAX TruthValue
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The flag of matching any interface."
+            ::= { hh3cAclIfRuleEntry 5 }
+
+        hh3cAclIfTimeRangeName OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE (0..32))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The Time-range of interface-based acl rule."
+            ::= { hh3cAclIfRuleEntry 6 }
+
+        hh3cAclIfLog OBJECT-TYPE
+            SYNTAX TruthValue
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The flag of log."
+            ::= { hh3cAclIfRuleEntry 7 }
+
+        hh3cAclIfEnable OBJECT-TYPE
+            SYNTAX TruthValue
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "The rule is active or not.
+                 true : active
+                 false : inactive
+                "
+            ::= { hh3cAclIfRuleEntry 8 }
+
+        hh3cAclIfCount OBJECT-TYPE
+            SYNTAX Counter32
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "The count of matched by basic rule."
+            ::= { hh3cAclIfRuleEntry 9 }
+
+        hh3cAclIfCountClear OBJECT-TYPE
+            SYNTAX INTEGER
+            {
+                cleared(1),
+                nouse(2)
+            }
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Reset the value of the rule's counter."
+            ::= { hh3cAclIfRuleEntry 10 }
+
+        hh3cAclIfRowStatus OBJECT-TYPE
+            SYNTAX RowStatus
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "RowStatus, now support three state: CreateAndGo, Active, Destroy."
+            ::= { hh3cAclIfRuleEntry 11 }
+
+--
+-- hh3cAclLinkTable
+--
+        hh3cAclLinkTable OBJECT-TYPE
+            SYNTAX SEQUENCE OF Hh3cAclLinkEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "Create link acl."
+            ::= { hh3cAclMibObjects 7 }
+
+        hh3cAclLinkEntry OBJECT-TYPE
+            SYNTAX Hh3cAclLinkEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The entry of the link acl table."
+            INDEX { hh3cAclLinkAclNum, hh3cAclLinkSubitem }
+            ::= { hh3cAclLinkTable 1 }
+
+        Hh3cAclLinkEntry ::=
+            SEQUENCE {
+                hh3cAclLinkAclNum
+                    Integer32,
+                hh3cAclLinkSubitem
+                    Integer32,
+                hh3cAclLinkAct
+                    INTEGER,
+                hh3cAclLinkProtocol
+                    INTEGER,
+                hh3cAclLinkFormatType
+                    INTEGER,
+                hh3cAclLinkVlanTag
+                    INTEGER,
+                hh3cAclLinkVlanPri
+                    Integer32,
+                hh3cAclLinkSrcVlanId
+                    Integer32,
+                hh3cAclLinkSrcMac
+                    MacAddress,
+                hh3cAclLinkSrcMacWild
+                    MacAddress,
+                hh3cAclLinkSrcIfIndex
+                    Integer32,
+                hh3cAclLinkSrcAny
+                    TruthValue,
+                hh3cAclLinkDestVlanId
+                    Integer32,
+                hh3cAclLinkDestMac
+                    MacAddress,
+                hh3cAclLinkDestMacWild
+                    MacAddress,
+                hh3cAclLinkDestIfIndex
+                    Integer32,
+                hh3cAclLinkDestAny
+                    TruthValue,
+                hh3cAclLinkTimeRangeName
+                    OCTET STRING,
+                hh3cAclLinkEnable
+                    TruthValue,
+                hh3cAclLinkRowStatus
+                    RowStatus,
+                hh3cAclLinkTypeCode
+                    OCTET STRING,
+                hh3cAclLinkTypeMask
+                    OCTET STRING,
+                hh3cAclLinkLsapCode
+                    OCTET STRING,
+                hh3cAclLinkLsapMask
+                    OCTET STRING,
+                hh3cAclLinkL2LabelRangeOp
+                    INTEGER,
+                hh3cAclLinkL2LabelRangeBegin
+                    Integer32,
+                hh3cAclLinkL2LabelRangeEnd
+                    Integer32,
+                hh3cAclLinkMplsExp
+                    Integer32
+             }
+
+        hh3cAclLinkAclNum OBJECT-TYPE
+            SYNTAX Integer32 (0|4000..4999|10000..12999)
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The index of link-based acl group."
+            ::= { hh3cAclLinkEntry 1 }
+
+        hh3cAclLinkSubitem OBJECT-TYPE
+            SYNTAX Integer32 (0..65535)
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The subindex of link-based acl group."
+            ::= { hh3cAclLinkEntry 2 }
+
+        hh3cAclLinkAct OBJECT-TYPE
+            SYNTAX INTEGER
+            {
+                permit(1),
+                deny(2)
+            }
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The action of link-based acl group."
+            ::= { hh3cAclLinkEntry 3 }
+
+        hh3cAclLinkProtocol OBJECT-TYPE
+            SYNTAX INTEGER
+            {
+                invalid(0),
+                ip(2048),
+                arp(2054),
+                rarp(32821),
+                pppoeControl(34915),
+                pppoeData(34916),
+                mpls(34887)
+            }
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The layer 2 protocol-type of link acl rule."
+            DEFVAL { invalid }
+            ::= { hh3cAclLinkEntry 4 }
+
+        hh3cAclLinkFormatType OBJECT-TYPE
+            SYNTAX INTEGER
+            {
+                invalid(0),
+                ethernetII(1),
+                snap(2),
+                ieee802Dot3And2(3),
+                ieee802Dot3(4)
+            }
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Format type of link acl rule."
+            ::= { hh3cAclLinkEntry 5 }
+
+        hh3cAclLinkVlanTag OBJECT-TYPE
+            SYNTAX INTEGER
+            {
+                invalid(0),
+                tagged(1),
+                untagged(2)
+            }
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The flag of vlan tag of link acl rule."
+            ::= { hh3cAclLinkEntry 6 }
+
+        hh3cAclLinkVlanPri OBJECT-TYPE
+            SYNTAX Integer32 (0..7 | 255)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Vlan priority of link acl rule."
+            ::= { hh3cAclLinkEntry 7 }
+
+        hh3cAclLinkSrcVlanId OBJECT-TYPE
+            SYNTAX Integer32 (0..4094)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Source vlan ID of link acl rule."
+            ::= { hh3cAclLinkEntry 8 }
+
+        hh3cAclLinkSrcMac OBJECT-TYPE
+            SYNTAX MacAddress
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Source mac of link acl rule."
+            ::= { hh3cAclLinkEntry 9 }
+
+        hh3cAclLinkSrcMacWild OBJECT-TYPE
+            SYNTAX MacAddress
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Source mac wildzard of link acl rule."
+            ::= { hh3cAclLinkEntry 10 }
+
+        hh3cAclLinkSrcIfIndex OBJECT-TYPE
+            SYNTAX Integer32 (0..2147483647)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Source IfIndex of link acl rule."
+            ::= { hh3cAclLinkEntry 11 }
+
+        hh3cAclLinkSrcAny OBJECT-TYPE
+            SYNTAX TruthValue
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The flag of matching any source."
+            ::= { hh3cAclLinkEntry 12 }
+
+        hh3cAclLinkDestVlanId OBJECT-TYPE
+            SYNTAX Integer32 (0..4094)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Destination vlan ID of link acl rule."
+            ::= { hh3cAclLinkEntry 13 }
+
+        hh3cAclLinkDestMac OBJECT-TYPE
+            SYNTAX MacAddress
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Destination mac of link acl rule."
+            ::= { hh3cAclLinkEntry 14 }
+
+        hh3cAclLinkDestMacWild OBJECT-TYPE
+            SYNTAX MacAddress
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Destination mac wildzard of link acl rule."
+            ::= { hh3cAclLinkEntry 15 }
+
+        hh3cAclLinkDestIfIndex OBJECT-TYPE
+            SYNTAX Integer32 (0..2147483647)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Destination IfIndex of link acl rule."
+            ::= { hh3cAclLinkEntry 16 }
+
+        hh3cAclLinkDestAny OBJECT-TYPE
+            SYNTAX TruthValue
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The flag of matching any destination."
+            ::= { hh3cAclLinkEntry 17 }
+
+        hh3cAclLinkTimeRangeName OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE (0..32))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The Time-range of link-based acl rule."
+            ::= { hh3cAclLinkEntry 18 }
+
+        hh3cAclLinkEnable OBJECT-TYPE
+            SYNTAX TruthValue
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "The rule is active or not.
+                 true : active
+                 false : inactive
+                "
+            ::= { hh3cAclLinkEntry 19 }
+
+        hh3cAclLinkRowStatus OBJECT-TYPE
+            SYNTAX RowStatus
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "RowStatus, now support three state: CreateAndGo, Active, Destroy."
+            ::= { hh3cAclLinkEntry 20 }
+
+            hh3cAclLinkTypeCode   OBJECT-TYPE
+            SYNTAX OCTET STRING ( SIZE(0..32) )
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The type of layer 2 protocol.0x0000...0xffff."
+            ::= { hh3cAclLinkEntry 21 }
+
+            hh3cAclLinkTypeMask   OBJECT-TYPE
+            SYNTAX OCTET STRING ( SIZE(0..32) )
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The mask of layer 2 protocol.0x0000...0xffff."
+            ::= { hh3cAclLinkEntry 22 }
+
+            hh3cAclLinkLsapCode   OBJECT-TYPE
+            SYNTAX     OCTET STRING (SIZE(0..32))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The type of LSAP.0x0000...0xffff."
+            ::= { hh3cAclLinkEntry 23 }
+
+        hh3cAclLinkLsapMask   OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE(0..32))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The mask of LSAP.0x0000...0xffff."
+            ::= { hh3cAclLinkEntry 24 }
+
+        hh3cAclLinkL2LabelRangeOp OBJECT-TYPE
+            SYNTAX INTEGER
+            {
+                invalid(0),
+                lt(1),
+                eq(2),
+                gt(3),
+                neq(4),
+                range(5)
+            }
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Operation symbol of the MPLS label.
+                 If the symbol is range(5), the objects hh3cAclLinkL2LabelRangeBegin and
+                 hh3cAclLinkL2LabelRangeEnd should have different values indicating a range.
+                 Otherwise, only hh3cAclLinkL2LabelRangeBegin counts,
+                 object hh3cAclLinkL2LabelRangeEnd is ignored.
+
+                 invalid(0) -- unavailable
+                 lt(1) -- less than
+                 eq(2) -- equal
+                 gt(3) -- great than
+                 neq(4) -- not equal
+                 range(5) -- a range with two ends included
+                "
+            ::= { hh3cAclLinkEntry 25 }
+
+        hh3cAclLinkL2LabelRangeBegin OBJECT-TYPE
+            SYNTAX Integer32
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The beginning of VPLS VC label."
+            ::= { hh3cAclLinkEntry 26 }
+
+        hh3cAclLinkL2LabelRangeEnd OBJECT-TYPE
+            SYNTAX Integer32
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The end of VPLS VC label."
+            ::= { hh3cAclLinkEntry 27 }
+
+        hh3cAclLinkMplsExp OBJECT-TYPE
+            SYNTAX Integer32
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The value of MPLS-packet's Exp."
+            ::= { hh3cAclLinkEntry 28 }
+--
+-- hh3cAclUserTable
+--
+        hh3cAclUserTable OBJECT-TYPE
+            SYNTAX SEQUENCE OF Hh3cAclUserEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "Create user acl."
+            ::= { hh3cAclMibObjects 8 }
+
+        hh3cAclUserEntry OBJECT-TYPE
+            SYNTAX Hh3cAclUserEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The entry of user acl table."
+            INDEX { hh3cAclUserAclNum, hh3cAclUserSubitem }
+            ::= { hh3cAclUserTable 1 }
+
+        Hh3cAclUserEntry ::=
+            SEQUENCE {
+                hh3cAclUserAclNum
+                    Integer32,
+                hh3cAclUserSubitem
+                    Integer32,
+                hh3cAclUserAct
+                    INTEGER,
+                hh3cAclUserFormatType
+                    INTEGER,
+                hh3cAclUserVlanTag
+                    INTEGER,
+                hh3cAclUserRuleStr
+                    OCTET STRING,
+                hh3cAclUserRuleMask
+                    OCTET STRING,
+                hh3cAclUserTimeRangeName
+                    OCTET STRING,
+                hh3cAclUserEnable
+                    TruthValue,
+                hh3cAclUserRowStatus
+                    RowStatus
+             }
+
+        hh3cAclUserAclNum OBJECT-TYPE
+            SYNTAX Integer32 (0|5000..5999|10000..12999)
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The number of the user acl."
+            ::= { hh3cAclUserEntry 1 }
+
+        hh3cAclUserSubitem OBJECT-TYPE
+            SYNTAX Integer32 (0..65535)
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The subitem of the user acl."
+            ::= { hh3cAclUserEntry 2 }
+
+        hh3cAclUserAct OBJECT-TYPE
+            SYNTAX INTEGER
+            {
+                permit(1),
+                deny(2)
+            }
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The action of the user acl."
+            ::= { hh3cAclUserEntry 3 }
+
+        hh3cAclUserFormatType OBJECT-TYPE
+            SYNTAX INTEGER
+            {
+                invalid(0),
+                ethernetII(1),
+                snap(2),
+                ieee802Dot2And3(3),
+                ieee802Dot4(4)
+            }
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Format type."
+            DEFVAL { invalid }
+            ::= { hh3cAclUserEntry 4 }
+
+        hh3cAclUserVlanTag OBJECT-TYPE
+            SYNTAX INTEGER
+            {
+                tagged(1),
+                untagged(2),
+                invalid(0)
+            }
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Vlan tag exits or not."
+            DEFVAL { invalid }
+            ::= { hh3cAclUserEntry 5 }
+
+        hh3cAclUserRuleStr OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE (1..80))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Rule string."
+            ::= { hh3cAclUserEntry 6 }
+
+        hh3cAclUserRuleMask OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE (1..80))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Rule mask."
+            ::= { hh3cAclUserEntry 7 }
+
+        hh3cAclUserTimeRangeName OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE (0..32))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The Time-range of the user defined acl."
+            ::= { hh3cAclUserEntry 8 }
+
+        hh3cAclUserEnable OBJECT-TYPE
+            SYNTAX TruthValue
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "The rule is active or not.
+                 true : active
+                 false : inactive
+                "
+            ::= { hh3cAclUserEntry 9 }
+
+        hh3cAclUserRowStatus OBJECT-TYPE
+            SYNTAX RowStatus
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "RowStatus, now support three state: CreateAndGo, Active, Destroy."
+            ::= { hh3cAclUserEntry 10 }
+--
+-- hh3cAclActiveTable
+--
+        hh3cAclActiveTable OBJECT-TYPE
+            SYNTAX SEQUENCE OF Hh3cAclActiveEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "Active acl."
+            ::= { hh3cAclMibObjects 9 }
+
+        hh3cAclActiveEntry OBJECT-TYPE
+            SYNTAX Hh3cAclActiveEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The entry of active acl table."
+            INDEX { hh3cAclActiveAclIndex,
+                    hh3cAclActiveIfIndex,
+                    hh3cAclActiveVlanID,
+                    hh3cAclActiveDirection
+                  }
+            ::= { hh3cAclActiveTable 1 }
+
+        Hh3cAclActiveEntry ::=
+            SEQUENCE {
+                hh3cAclActiveAclIndex
+                    Integer32,
+                hh3cAclActiveIfIndex
+                    Integer32,
+                hh3cAclActiveVlanID
+                    Integer32,
+                hh3cAclActiveDirection
+                    INTEGER,
+                hh3cAclActiveUserAclNum
+                    Integer32,
+                hh3cAclActiveUserAclSubitem
+                    Integer32,
+                hh3cAclActiveIpAclNum
+                    Integer32,
+                hh3cAclActiveIpAclSubitem
+                    Integer32,
+                hh3cAclActiveLinkAclNum
+                    Integer32,
+                hh3cAclActiveLinkAclSubitem
+                    Integer32,
+                hh3cAclActiveRuntime
+                    TruthValue,
+                hh3cAclActiveRowStatus
+                    RowStatus
+             }
+
+        hh3cAclActiveAclIndex OBJECT-TYPE
+            SYNTAX Integer32 (0|1..5999|10000..12999)
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "Acl index."
+            ::= { hh3cAclActiveEntry 1 }
+
+        hh3cAclActiveIfIndex OBJECT-TYPE
+            SYNTAX Integer32 (0..2147483647)
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "IfIndex."
+            ::= { hh3cAclActiveEntry 2 }
+
+        hh3cAclActiveVlanID OBJECT-TYPE
+            SYNTAX Integer32
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The lower 16 bits is Vlan ID, the higher 16 bits,
+                 if not zero, it describes the slot ID of the L3plus board.
+                "
+            ::= { hh3cAclActiveEntry 3 }
+
+        hh3cAclActiveDirection OBJECT-TYPE
+            SYNTAX INTEGER
+            {
+                input(1),
+                output(2),
+                both(3),
+                invalid(0)
+            }
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "Direction."
+            ::= { hh3cAclActiveEntry 4 }
+
+        hh3cAclActiveUserAclNum OBJECT-TYPE
+            SYNTAX Integer32 (0|5000..5999|10000..12999)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The number of the user acl."
+            ::= { hh3cAclActiveEntry 5 }
+
+        hh3cAclActiveUserAclSubitem OBJECT-TYPE
+            SYNTAX Integer32 (0..65535)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The subitem of the user acl."
+            ::= { hh3cAclActiveEntry 6 }
+
+        hh3cAclActiveIpAclNum OBJECT-TYPE
+            SYNTAX Integer32 (0|2000..3999|10000..12999)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The number of the IP acl."
+            ::= { hh3cAclActiveEntry 7 }
+
+        hh3cAclActiveIpAclSubitem OBJECT-TYPE
+            SYNTAX Integer32 (0..65535)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The subitem of the IP acl."
+            ::= { hh3cAclActiveEntry 8 }
+
+        hh3cAclActiveLinkAclNum OBJECT-TYPE
+            SYNTAX Integer32 (0|4000..4999|10000..12999)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The num of the link acl."
+            ::= { hh3cAclActiveEntry 9 }
+
+        hh3cAclActiveLinkAclSubitem OBJECT-TYPE
+            SYNTAX Integer32 (0..65535)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The subitem of the link acl."
+            ::= { hh3cAclActiveEntry 10 }
+
+        hh3cAclActiveRuntime OBJECT-TYPE
+            SYNTAX TruthValue
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "Is run or not."
+            ::= { hh3cAclActiveEntry 11 }
+
+        hh3cAclActiveRowStatus OBJECT-TYPE
+            SYNTAX RowStatus
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "RowStatus, now support three state: CreateAndGo, Active, Destroy."
+            ::= { hh3cAclActiveEntry 12 }
+
+--
+-- hh3cAclIDSTable
+--
+        hh3cAclIDSTable OBJECT-TYPE
+            SYNTAX SEQUENCE OF Hh3cAclIDSEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "Configure the rule for IDS."
+            ::= { hh3cAclMibObjects 10 }
+
+        hh3cAclIDSEntry OBJECT-TYPE
+            SYNTAX Hh3cAclIDSEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The entry of acl ids table."
+            INDEX { IMPLIED hh3cAclIDSName}
+            ::= { hh3cAclIDSTable 1 }
+
+        Hh3cAclIDSEntry ::=
+            SEQUENCE {
+                hh3cAclIDSName
+                    OCTET STRING,
+                hh3cAclIDSSrcMac
+                    MacAddress,
+                hh3cAclIDSDestMac
+                    MacAddress,
+                hh3cAclIDSSrcIp
+                    IpAddress,
+                hh3cAclIDSSrcWild
+                    IpAddress,
+                hh3cAclIDSDestIp
+                    IpAddress,
+                hh3cAclIDSDestWild
+                    IpAddress,
+                hh3cAclIDSSrcPort
+                    Integer32,
+                hh3cAclIDSDestPort
+                    Integer32,
+                hh3cAclIDSProtocol
+                    Integer32,
+                hh3cAclIDSDenyTime
+                    Unsigned32,
+                hh3cAclIDSAct
+                    INTEGER,
+                hh3cAclIDSRowStatus
+                    RowStatus
+             }
+
+        hh3cAclIDSName OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE (1..32))
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The name index of the IDS table."
+            ::= { hh3cAclIDSEntry 1 }
+
+        hh3cAclIDSSrcMac OBJECT-TYPE
+            SYNTAX MacAddress
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Source mac of IDS acl rule."
+            ::= { hh3cAclIDSEntry 2 }
+
+
+        hh3cAclIDSDestMac OBJECT-TYPE
+            SYNTAX MacAddress
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Destination mac of IDS acl rule."
+            ::= { hh3cAclIDSEntry 3 }
+
+           hh3cAclIDSSrcIp OBJECT-TYPE
+            SYNTAX IpAddress
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Source IP-address of IDS acl rule."
+            ::= { hh3cAclIDSEntry 4 }
+
+        hh3cAclIDSSrcWild OBJECT-TYPE
+            SYNTAX IpAddress
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Source IP-address wild of IDS acl rule."
+            ::= { hh3cAclIDSEntry 5 }
+
+           hh3cAclIDSDestIp OBJECT-TYPE
+            SYNTAX IpAddress
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Destination IP-address of IDS acl rule."
+            ::= { hh3cAclIDSEntry 6 }
+
+        hh3cAclIDSDestWild OBJECT-TYPE
+            SYNTAX IpAddress
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Destination IP-address wild of IDS acl rule."
+            ::= { hh3cAclIDSEntry 7 }
+
+            hh3cAclIDSSrcPort OBJECT-TYPE
+            SYNTAX Integer32 (0..65535)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The fourth layer source port."
+            ::= { hh3cAclIDSEntry 8 }
+
+        hh3cAclIDSDestPort OBJECT-TYPE
+            SYNTAX Integer32 (0..65535)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The fourth layer destination port."
+            ::= { hh3cAclIDSEntry 9 }
+
+            hh3cAclIDSProtocol OBJECT-TYPE
+            SYNTAX Integer32 (0..255)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The protocol-type of advanced acl group.
+                 <1-255>  Protocol number
+                  gre      GRE tunneling(47)
+                  icmp     Internet Control Message Protocol(1)
+                  igmp     Internet Group Management Protocol(2)
+                  ip       Any IP protocol
+                  ipinip   IP in IP tunneling(4)
+                  ospf     OSPF routing protocol(89)
+                  tcp      Transmission Control Protocol (6)
+                  udp      User Datagram Protocol (17)
+                 "
+            ::= { hh3cAclIDSEntry 10 }
+
+        hh3cAclIDSDenyTime OBJECT-TYPE
+            SYNTAX Unsigned32
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The maximum number of seconds which deny for this acl rule."
+            DEFVAL { 0 }
+            ::= { hh3cAclIDSEntry 11 }
+
+
+        hh3cAclIDSAct OBJECT-TYPE
+            SYNTAX INTEGER
+            {
+                permit(1),
+                deny(2)
+            }
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The action of IDS acl rule."
+            ::= { hh3cAclIDSEntry 12 }
+
+        hh3cAclIDSRowStatus OBJECT-TYPE
+            SYNTAX RowStatus
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "RowStatus, now supports three states:  CreateAndGo, Active, and Destroy."
+            ::= { hh3cAclIDSEntry 13 }
+--
+-- Nodes of hh3cAclMib2Objects
+--
+        hh3cAclMib2Objects OBJECT IDENTIFIER ::= { hh3cAcl 2 }
+--
+-- Nodes of hh3cAclMib2GlobalGroup
+--
+        hh3cAclMib2GlobalGroup OBJECT IDENTIFIER ::= { hh3cAclMib2Objects 1 }
+
+        hh3cAclMib2NodesGroup OBJECT IDENTIFIER ::= { hh3cAclMib2GlobalGroup 1 }
+
+        hh3cAclMib2Mode OBJECT-TYPE
+            SYNTAX INTEGER
+            {
+                linkBased(1),
+                ipBased(2)
+            }
+            MAX-ACCESS read-write
+            STATUS current
+            DESCRIPTION
+                "The applying mode of ACL."
+            ::= { hh3cAclMib2NodesGroup 1 }
+
+        hh3cAclMib2Version OBJECT-TYPE
+            SYNTAX Integer32
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "The version of this file.
+                 The output value has the format of 'xx'or 'xxx'.
+                 For example: 10 means 1.0; 125 means 12.5.
+                "
+            ::= { hh3cAclMib2NodesGroup 2 }
+
+        hh3cAclMib2ObjectsCapabilities OBJECT-TYPE
+            SYNTAX BITS
+            {
+                hh3cAclMib2Mode(0),
+                hh3cAclVersion(1),
+                hh3cAclMib2ObjectsCapabilities(2),
+                hh3cAclMib2CapabilityTable(3),
+                hh3cAclNumberGroupTable(4),
+                hh3cAclIPAclBasicTable(5),
+                hh3cAclIPAclAdvancedTable(6),
+                hh3cAclMACTable(7),
+                hh3cAclEnUserTable(8)
+            }
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "The objects of hh3cAclMib2Objects."
+            ::= { hh3cAclMib2NodesGroup 3 }
+
+        hh3cAclMib2CapabilityTable OBJECT-TYPE
+            SYNTAX SEQUENCE OF Hh3cAclMib2CapabilityEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The capability of mib2."
+            ::= { hh3cAclMib2GlobalGroup 2 }
+
+        hh3cAclMib2CapabilityEntry OBJECT-TYPE
+            SYNTAX Hh3cAclMib2CapabilityEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The information of Capability of mib2."
+            INDEX { hh3cAclMib2EntityType,
+                    hh3cAclMib2EntityIndex,
+                    hh3cAclMib2ModuleIndex,
+                    hh3cAclMib2CharacteristicsIndex
+                  }
+            ::= { hh3cAclMib2CapabilityTable 1 }
+
+        Hh3cAclMib2CapabilityEntry ::=
+            SEQUENCE
+            {
+                hh3cAclMib2EntityType
+                    INTEGER,
+                hh3cAclMib2EntityIndex
+                    Integer32,
+                hh3cAclMib2ModuleIndex
+                    INTEGER,
+                hh3cAclMib2CharacteristicsIndex
+                    Integer32,
+                hh3cAclMib2CharacteristicsDesc
+                    OCTET STRING,
+                hh3cAclMib2CharacteristicsValue
+                    Unsigned32
+            }
+
+        hh3cAclMib2EntityType OBJECT-TYPE
+            SYNTAX INTEGER
+            {
+                system(1),
+                interface(2)
+            }
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The type of entity .
+                 system: The entity is systemic level.
+                 interface: The entity is interface level.
+                "
+            ::= { hh3cAclMib2CapabilityEntry 1 }
+
+        hh3cAclMib2EntityIndex OBJECT-TYPE
+            SYNTAX Integer32
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The index of entity.
+                 If hh3cAclMib2EntityType is system, the value of this object is 0.
+
+                 If hh3cAclMib2EntityType is interface,
+                 the value of this object is equal to 'ifIndex'.
+                "
+            ::= { hh3cAclMib2CapabilityEntry 2 }
+
+        hh3cAclMib2ModuleIndex OBJECT-TYPE
+            SYNTAX INTEGER
+            {
+                layer3(1),
+                layer2(2),
+                userDefined(3)
+            }
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The module index of ACL."
+            ::= { hh3cAclMib2CapabilityEntry 3 }
+
+        hh3cAclMib2CharacteristicsIndex OBJECT-TYPE
+            SYNTAX Integer32
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The characteristics index of mib2.
+                 See DESCRIPTION of hh3cAclMib2CharacteristicsValue
+                 to get detail information about the value of this object.
+                "
+            ::= { hh3cAclMib2CapabilityEntry 4 }
+
+        hh3cAclMib2CharacteristicsDesc OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE(0..255))
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "The description of characteristics."
+            ::= { hh3cAclMib2CapabilityEntry 5 }
+
+        hh3cAclMib2CharacteristicsValue OBJECT-TYPE
+            SYNTAX Unsigned32
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "The value of capability of this object.
+                 TypeOfRuleStringValue : notSupport(0) and the length of
+                 RuleString.
+
+                 TypeOfCodeValue : OnlyOneNotSupport(0),
+                                   MoreThanOneNotSupport(1)
+                 If hh3cAclMib2CharacteristicsValue is 'moreThanOneNotSupport',
+                 hh3cAclMib2CharacteristicsDesc must be used to depict which
+                 protocols are not supported.  The output value of
+                 hh3cAclMib2CharacteristicsDesc has the format of 'a,b'.
+                 For example, 'ip,rarp'.
+
+                 layer3 Module:
+                 Index    Characteristics           value
+                 1        SourceIPAddress           notSupport(0)
+                 2        DestinationIPAddress      notSupport(0)
+                 3        SourcePort                notSupport(0)
+                 4        DestinationPort           notSupport(0)
+                 5        IPPrecedence              notSupport(0)
+                 6        TOS                       notSupport(0)
+                 7        DSCP                      notSupport(0)
+                 8        TCPFlag                   notSupport(0)
+                 9        FragmentFlag              notSupport(0)
+                 10       Log                       notSupport(0)
+                 11       RuleMatchCounter          notSupport(0)
+                 12       ResetRuleMatchCounter     notSupport(0)
+                 13       VPN                       notSupport(0)
+                 15       protocol                  notSupport(0)
+                 16       AddressFlag               notSupport(0)
+
+                 layer2 Module:
+                 Index    Characteristics           value
+                 1        ProtocolType              TypeOfCodeValue
+                 2        SourceMAC                 notSupport(0)
+                 3        DestinationMAC            notSupport(0)
+                 4        LSAPType                  TypeOfCodeValue
+                 5        CoS                       notSupport(0)
+
+                 UserDefined Module:
+                 Index    Characteristics           value
+                 1        UserDefaultOffset         TypeOfRuleStringValue
+                 2        UserL2RuleOffset          TypeOfRuleStringValue
+                 3        UserMplsOffset            TypeOfRuleStringValue
+                 4        UserIPv4Offset            TypeOfRuleStringValue
+                 5        UserIPv6Offset            TypeOfRuleStringValue
+                 6        UserL4Offset              TypeOfRuleStringValue
+                 7        UserL5Offset              TypeOfRuleStringValue
+                "
+            ::= { hh3cAclMib2CapabilityEntry 6 }
+
+--
+-- Nodes of number group
+--
+        hh3cAclNumberGroupTable OBJECT-TYPE
+            SYNTAX SEQUENCE OF Hh3cAclNumberGroupEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "A table of the number acl group information."
+            ::= { hh3cAclMib2GlobalGroup 3 }
+
+        hh3cAclNumberGroupEntry OBJECT-TYPE
+            SYNTAX Hh3cAclNumberGroupEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "Number acl group information entry."
+            INDEX { hh3cAclNumberGroupType, hh3cAclNumberGroupIndex }
+            ::= { hh3cAclNumberGroupTable 1 }
+
+        Hh3cAclNumberGroupEntry ::=
+            SEQUENCE
+            {
+                hh3cAclNumberGroupType
+                    INTEGER,
+                hh3cAclNumberGroupIndex
+                    Integer32,
+                hh3cAclNumberGroupRowStatus
+                    RowStatus,
+                hh3cAclNumberGroupMatchOrder
+                    INTEGER,
+                hh3cAclNumberGroupStep
+                    Integer32,
+                hh3cAclNumberGroupDescription
+                    OCTET STRING,
+                hh3cAclNumberGroupCountClear
+                    CounterClear,
+                hh3cAclNumberGroupRuleCounter
+                    Counter32
+
+            }
+        hh3cAclNumberGroupType OBJECT-TYPE
+            SYNTAX INTEGER
+            {
+                ipv4(1),
+                ipv6(2)
+            }
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The type of number group.
+                 Basic ACL and Advanced ACL support ipv4 and ipv6.
+                 The range of Basic ACL is from 2000 to 2999.
+                 The range of Advanced ACL is from 3000 to 3999.
+
+                 Simple ACL supports ipv6 only.
+                 The range of Simple ACL is from 10000 to 42767.
+
+                 MAC ACL and User ACL support ipv4 only.
+                 The range of MAC ACL is from 4000 to 4999.
+                 The range of User ACL is from 5000 to 5999.
+                "
+            DEFVAL { ipv4 }
+            ::= { hh3cAclNumberGroupEntry 1 }
+
+        hh3cAclNumberGroupIndex OBJECT-TYPE
+            SYNTAX Integer32 (2000..5999|10000..42767)
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The group index of number acl.
+                 Basic type:2000..2999
+                 Advanced type:3000..3999
+                 MAC type:4000..4999
+                 User type:5000..5999
+                 Simple type:10000..42767
+                "
+            ::= { hh3cAclNumberGroupEntry 2 }
+
+        hh3cAclNumberGroupRowStatus OBJECT-TYPE
+            SYNTAX RowStatus
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "RowStatus."
+            ::= { hh3cAclNumberGroupEntry 3 }
+
+        hh3cAclNumberGroupMatchOrder OBJECT-TYPE
+            SYNTAX INTEGER
+            {
+                config(1),
+                auto(2)
+            }
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The match-order of number acl group."
+            DEFVAL { config }
+            ::= { hh3cAclNumberGroupEntry 4 }
+
+        hh3cAclNumberGroupStep OBJECT-TYPE
+            SYNTAX Integer32 (1..20)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The step of rule index."
+            DEFVAL { 5 }
+            ::= { hh3cAclNumberGroupEntry 5 }
+
+        hh3cAclNumberGroupDescription OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE(0..127))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Description of this acl group."
+            ::= { hh3cAclNumberGroupEntry 6 }
+
+        hh3cAclNumberGroupCountClear OBJECT-TYPE
+            SYNTAX CounterClear
+            MAX-ACCESS read-write
+            STATUS current
+            DESCRIPTION
+                "Reset the value of counters of this group."
+            DEFVAL { nouse }
+            ::= { hh3cAclNumberGroupEntry 7 }
+
+        hh3cAclNumberGroupRuleCounter OBJECT-TYPE
+            SYNTAX Counter32
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "The rule count of number acl group."
+            ::= { hh3cAclNumberGroupEntry 8 }
+--
+-- Node of hh3cAclIPv6Group
+--
+        hh3cAclIPAclGroup OBJECT IDENTIFIER ::= { hh3cAclMib2Objects 2 }
+
+--
+-- Nodes of hh3cAclIPAclBasicTable
+--
+
+        hh3cAclIPAclBasicTable OBJECT-TYPE
+            SYNTAX SEQUENCE OF Hh3cAclIPAclBasicEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "A table of basic rule group.
+                 If some objects of this table are not supported by some products,
+                 these objects can't be created, changed and applied.
+                 Default value of these objects will be returned when they are read.
+                "
+            ::= { hh3cAclIPAclGroup 2 }
+
+        hh3cAclIPAclBasicEntry OBJECT-TYPE
+            SYNTAX Hh3cAclIPAclBasicEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "Basic rule group information."
+            INDEX { hh3cAclNumberGroupType,
+                    hh3cAclNumberGroupIndex,
+                    hh3cAclIPAclBasicRuleIndex
+                  }
+            ::= { hh3cAclIPAclBasicTable 1 }
+
+        Hh3cAclIPAclBasicEntry ::=
+            SEQUENCE
+            {
+                hh3cAclIPAclBasicRuleIndex
+                    Integer32,
+                hh3cAclIPAclBasicRowStatus
+                    RowStatus,
+                hh3cAclIPAclBasicAct
+                    RuleAction,
+                hh3cAclIPAclBasicSrcAddrType
+                    InetAddressType,
+                hh3cAclIPAclBasicSrcAddr
+                    InetAddress,
+                hh3cAclIPAclBasicSrcPrefix
+                    InetAddressPrefixLength,
+                hh3cAclIPAclBasicSrcAny
+                    TruthValue,
+                hh3cAclIPAclBasicSrcWild
+                    IpAddress,
+                hh3cAclIPAclBasicTimeRangeName
+                    OCTET STRING,
+                hh3cAclIPAclBasicFragmentFlag
+                    FragmentFlag,
+                hh3cAclIPAclBasicLog
+                    TruthValue,
+                hh3cAclIPAclBasicCount
+                    Unsigned32,
+                hh3cAclIPAclBasicCountClear
+                    CounterClear,
+                hh3cAclIPAclBasicEnable
+                    TruthValue,
+                hh3cAclIPAclBasicVpnInstanceName
+                    OCTET STRING,
+                hh3cAclIPAclBasicComment
+                    OCTET STRING
+            }
+
+        hh3cAclIPAclBasicRuleIndex OBJECT-TYPE
+            SYNTAX Integer32 (0..65534)
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The rule index of basic acl group."
+            ::= { hh3cAclIPAclBasicEntry 1 }
+
+        hh3cAclIPAclBasicRowStatus OBJECT-TYPE
+            SYNTAX RowStatus
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "RowStatus."
+            ::= { hh3cAclIPAclBasicEntry 2 }
+
+        hh3cAclIPAclBasicAct OBJECT-TYPE
+            SYNTAX RuleAction
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The action of basic acl rule."
+            ::= { hh3cAclIPAclBasicEntry 3 }
+
+        hh3cAclIPAclBasicSrcAddrType OBJECT-TYPE
+            SYNTAX InetAddressType
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The IP addresses type of IP pool."
+            ::= { hh3cAclIPAclBasicEntry 4 }
+
+        hh3cAclIPAclBasicSrcAddr OBJECT-TYPE
+            SYNTAX InetAddress
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The value of a local IP address is available for this association.
+
+                 The type of this address is determined by the value of
+                 hh3cAclIPAclBasicSrcAddrType.
+                "
+            ::= { hh3cAclIPAclBasicEntry 5 }
+
+        hh3cAclIPAclBasicSrcPrefix OBJECT-TYPE
+            SYNTAX InetAddressPrefixLength
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Denotes the length of a generic Internet network address prefix.
+                 A value of n corresponds to an IP address mask
+                 which has n contiguous 1-bits from the most significant bit (MSB)
+                 and all other bits set to 0.
+                "
+            ::= { hh3cAclIPAclBasicEntry 6 }
+
+        hh3cAclIPAclBasicSrcAny OBJECT-TYPE
+            SYNTAX TruthValue
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The flag of matching any IP address."
+            ::= { hh3cAclIPAclBasicEntry 7 }
+
+        hh3cAclIPAclBasicSrcWild OBJECT-TYPE
+            SYNTAX IpAddress
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Source IPv4 address wild.
+                 Only IPv4 Basic Rule support this object.
+                 Default value is '0.0.0.0'.
+                "
+            ::= { hh3cAclIPAclBasicEntry 8 }
+
+        hh3cAclIPAclBasicTimeRangeName OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE(0..32))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The Time-range of basic acl rule.
+                 Default value is null.
+                "
+            ::= { hh3cAclIPAclBasicEntry 9 }
+
+        hh3cAclIPAclBasicFragmentFlag OBJECT-TYPE
+            SYNTAX FragmentFlag
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The flag of matching fragmented packets."
+            ::= { hh3cAclIPAclBasicEntry 10 }
+
+        hh3cAclIPAclBasicLog OBJECT-TYPE
+            SYNTAX TruthValue
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The packet will be logged when it matches the rule."
+            ::= { hh3cAclIPAclBasicEntry 11 }
+
+        hh3cAclIPAclBasicCount OBJECT-TYPE
+            SYNTAX Unsigned32
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "The count of matched by the rule."
+            ::= { hh3cAclIPAclBasicEntry 12 }
+
+        hh3cAclIPAclBasicCountClear OBJECT-TYPE
+            SYNTAX CounterClear
+            MAX-ACCESS read-write
+            STATUS current
+            DESCRIPTION
+                "Reset the value of counter."
+            ::= { hh3cAclIPAclBasicEntry 13 }
+
+        hh3cAclIPAclBasicEnable OBJECT-TYPE
+            SYNTAX TruthValue
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "The rule is active or not.
+                 true : active
+                 false : inactive
+                "
+            ::= { hh3cAclIPAclBasicEntry 14 }
+
+        hh3cAclIPAclBasicVpnInstanceName OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE(0..32))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The VPN name, which the rule will be applied.
+                 Default value is null.
+                "
+            ::= { hh3cAclIPAclBasicEntry 15 }
+
+        hh3cAclIPAclBasicComment OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE(0..127))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The description of ACL rule.
+                 Default value is Zero-length String.
+                "
+            ::= { hh3cAclIPAclBasicEntry 16 }
+
+--
+-- Notes of hh3cAclIPAclAdvancedTable
+--
+        hh3cAclIPAclAdvancedTable OBJECT-TYPE
+            SYNTAX SEQUENCE OF Hh3cAclIPAclAdvancedEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "A table of advanced and simple acl group.
+                 If some objects of this table are not supported by some products,
+                 these objects can't be created, changed and applied.
+                 Default value of these objects will be returned when they are read.
+                "
+            ::= { hh3cAclIPAclGroup 3 }
+
+        hh3cAclIPAclAdvancedEntry OBJECT-TYPE
+            SYNTAX Hh3cAclIPAclAdvancedEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "Advanced acl group information."
+            INDEX { hh3cAclNumberGroupType,
+                    hh3cAclNumberGroupIndex,
+                    hh3cAclIPAclAdvancedRuleIndex
+                  }
+            ::= { hh3cAclIPAclAdvancedTable 1  }
+
+        Hh3cAclIPAclAdvancedEntry ::=
+            SEQUENCE
+            {
+                hh3cAclIPAclAdvancedRuleIndex
+                    Integer32,
+                hh3cAclIPAclAdvancedRowStatus
+                    RowStatus,
+                hh3cAclIPAclAdvancedAct
+                    RuleAction,
+                hh3cAclIPAclAdvancedProtocol
+                    INTEGER,
+                hh3cAclIPAclAdvancedAddrFlag
+                    AddressFlag,
+                hh3cAclIPAclAdvancedSrcAddrType
+                    InetAddressType,
+                hh3cAclIPAclAdvancedSrcAddr
+                    InetAddress,
+                hh3cAclIPAclAdvancedSrcPrefix
+                    InetAddressPrefixLength,
+                hh3cAclIPAclAdvancedSrcAny
+                    TruthValue,
+                hh3cAclIPAclAdvancedSrcWild
+                    IpAddress,
+                hh3cAclIPAclAdvancedSrcOp
+                    PortOp,
+                hh3cAclIPAclAdvancedSrcPort1
+                    Integer32,
+                hh3cAclIPAclAdvancedSrcPort2
+                    Integer32,
+                hh3cAclIPAclAdvancedDestAddrType
+                    InetAddressType,
+                hh3cAclIPAclAdvancedDestAddr
+                    InetAddress,
+                hh3cAclIPAclAdvancedDestPrefix
+                    InetAddressPrefixLength,
+                hh3cAclIPAclAdvancedDestAny
+                    TruthValue,
+                hh3cAclIPAclAdvancedDestWild
+                    IpAddress,
+                hh3cAclIPAclAdvancedDestOp
+                    PortOp,
+                hh3cAclIPAclAdvancedDestPort1
+                    Integer32,
+                hh3cAclIPAclAdvancedDestPort2
+                    Integer32,
+                hh3cAclIPAclAdvancedIcmpType
+                    Integer32,
+                hh3cAclIPAclAdvancedIcmpCode
+                    Integer32,
+                hh3cAclIPAclAdvancedPrecedence
+                    Integer32,
+                hh3cAclIPAclAdvancedTos
+                    Integer32,
+                hh3cAclIPAclAdvancedDscp
+                    DSCPValue,
+                hh3cAclIPAclAdvancedTimeRangeName
+                    OCTET STRING,
+                hh3cAclIPAclAdvancedTCPFlag
+                    TCPFlag,
+                hh3cAclIPAclAdvancedFragmentFlag
+                    FragmentFlag,
+                hh3cAclIPAclAdvancedLog
+                    TruthValue,
+                hh3cAclIPAclAdvancedCount
+                    Unsigned32,
+                hh3cAclIPAclAdvancedCountClear
+                    CounterClear,
+                hh3cAclIPAclAdvancedEnable
+                    TruthValue,
+                hh3cAclIPAclAdvancedVpnInstanceName
+                    OCTET STRING,
+                hh3cAclIPAclAdvancedComment
+                    OCTET STRING,
+                hh3cAclIPAclAdvancedReflective
+                    TruthValue
+            }
+
+        hh3cAclIPAclAdvancedRuleIndex OBJECT-TYPE
+            SYNTAX Integer32 (0..65534)
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The rule index of advanced acl group.
+                 As a Simple ACL group, the value of this object must be 0.
+                 As an Advanced ACL group, the value of this object is ranging
+                 from 0 to 65534.
+                "
+            ::= { hh3cAclIPAclAdvancedEntry 1 }
+
+        hh3cAclIPAclAdvancedRowStatus OBJECT-TYPE
+            SYNTAX RowStatus
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "RowStatus."
+            ::= { hh3cAclIPAclAdvancedEntry 2 }
+
+        hh3cAclIPAclAdvancedAct OBJECT-TYPE
+            SYNTAX RuleAction
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The action of advanced acl rule."
+            ::= { hh3cAclIPAclAdvancedEntry 3 }
+
+        hh3cAclIPAclAdvancedProtocol OBJECT-TYPE
+            SYNTAX INTEGER (0..255)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The protocol-type of advanced acl group.
+                  <1-255>  Protocol number
+                  gre      GRE tunneling(47)
+                  icmp     Internet Control Message Protocol(1)
+                  icmpv6   Internet Control Message Protocol6(58)
+                  igmp     Internet Group Management Protocol(2)
+                  ip       Any IPv4 protocol
+                  ipv6     Any IPv6 protocol
+                  ipinip   IP in IP tunneling(4)
+                  ospf     OSPF routing protocol(89)
+                  tcp      Transmission Control Protocol (6)
+                  udp      User Datagram Protocol (17)
+                  ipv6-ah  IPv6 Authentication Header(51)
+                  ipv6-esp IPv6 Encapsulating Security Payload(50)
+                "
+            ::= { hh3cAclIPAclAdvancedEntry 4 }
+
+        hh3cAclIPAclAdvancedAddrFlag OBJECT-TYPE
+            SYNTAX AddressFlag
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Address flag to select address."
+            DEFVAL { invalid }
+            ::= { hh3cAclIPAclAdvancedEntry 5 }
+
+        hh3cAclIPAclAdvancedSrcAddrType OBJECT-TYPE
+            SYNTAX InetAddressType
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The IP addresses type of IP pool."
+            ::= { hh3cAclIPAclAdvancedEntry 6 }
+
+        hh3cAclIPAclAdvancedSrcAddr OBJECT-TYPE
+            SYNTAX InetAddress
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The value of a local IP address available for this association.
+
+                 The type of this address is determined by the value of
+                 hh3cAclIPAclAdvancedSrcAddrType.
+                "
+            ::= { hh3cAclIPAclAdvancedEntry 7 }
+
+        hh3cAclIPAclAdvancedSrcPrefix OBJECT-TYPE
+            SYNTAX InetAddressPrefixLength
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Denotes the length of a generic Internet network address prefix.
+                 A value of n corresponds to an IP address mask
+                 which has n contiguous 1-bits from the most significant bit (MSB)
+                 and all other bits set to 0.
+                "
+            ::= { hh3cAclIPAclAdvancedEntry 8 }
+
+        hh3cAclIPAclAdvancedSrcAny OBJECT-TYPE
+            SYNTAX TruthValue
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The flag of matching any IP address."
+            DEFVAL { false }
+            ::= { hh3cAclIPAclAdvancedEntry 9 }
+
+        hh3cAclIPAclAdvancedSrcWild OBJECT-TYPE
+            SYNTAX IpAddress
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Source IPv4 address wild.
+                 Only IPv4 Advanced Rule supports this object.
+                 Default value is '0.0.0.0'.
+                "
+            ::= { hh3cAclIPAclAdvancedEntry 10 }
+
+        hh3cAclIPAclAdvancedSrcOp OBJECT-TYPE
+            SYNTAX PortOp
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Source port operation symbol of advanced acl group."
+            ::= { hh3cAclIPAclAdvancedEntry 11 }
+
+        hh3cAclIPAclAdvancedSrcPort1 OBJECT-TYPE
+            SYNTAX Integer32 (0..65535)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The fourth layer source port1."
+            DEFVAL { 0 }
+            ::= { hh3cAclIPAclAdvancedEntry 12 }
+
+        hh3cAclIPAclAdvancedSrcPort2 OBJECT-TYPE
+            SYNTAX Integer32 (0..65535)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The fourth layer source port2."
+            DEFVAL { 65535 }
+            ::= { hh3cAclIPAclAdvancedEntry 13 }
+
+        hh3cAclIPAclAdvancedDestAddrType OBJECT-TYPE
+            SYNTAX InetAddressType
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The IP addresses type of IP pool."
+            ::= { hh3cAclIPAclAdvancedEntry 14 }
+
+        hh3cAclIPAclAdvancedDestAddr OBJECT-TYPE
+            SYNTAX InetAddress
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The value of a local IP address available for this association.
+
+                 The type of this address is determined by the value of
+                 hh3cAclIPAclAdvancedDestAddrType.
+                "
+            ::= { hh3cAclIPAclAdvancedEntry 15 }
+
+        hh3cAclIPAclAdvancedDestPrefix OBJECT-TYPE
+            SYNTAX InetAddressPrefixLength
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Denotes the length of a generic Internet network address prefix.
+                 A value of n corresponds to an IP address mask
+                 which has n contiguous 1-bits from the most significant bit (MSB)
+                 and all other bits set to 0.
+                "
+            ::= { hh3cAclIPAclAdvancedEntry 16 }
+
+        hh3cAclIPAclAdvancedDestAny OBJECT-TYPE
+            SYNTAX TruthValue
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The flag of matching any IP address."
+            DEFVAL { false }
+            ::= { hh3cAclIPAclAdvancedEntry 17 }
+
+        hh3cAclIPAclAdvancedDestWild OBJECT-TYPE
+            SYNTAX IpAddress
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Destination IPv4 address wild.
+                 Only IPv4 Advanced Rule supports this object.
+                 Default value is '0.0.0.0'.
+                "
+            ::= { hh3cAclIPAclAdvancedEntry 18 }
+
+        hh3cAclIPAclAdvancedDestOp OBJECT-TYPE
+            SYNTAX PortOp
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Destination port operation symbol of advanced acl group."
+            ::= { hh3cAclIPAclAdvancedEntry 19 }
+
+        hh3cAclIPAclAdvancedDestPort1 OBJECT-TYPE
+            SYNTAX Integer32 (0..65535)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The fourth layer destination port1."
+            DEFVAL { 0 }
+            ::= { hh3cAclIPAclAdvancedEntry 20 }
+
+        hh3cAclIPAclAdvancedDestPort2 OBJECT-TYPE
+            SYNTAX Integer32 (0..65535)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The fourth layer destination port2."
+            DEFVAL { 65535 }
+            ::= { hh3cAclIPAclAdvancedEntry 21 }
+
+        hh3cAclIPAclAdvancedIcmpType OBJECT-TYPE
+            SYNTAX Integer32 (0..255|65535)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The type of ICMP packet."
+            DEFVAL { 65535 }
+            ::= { hh3cAclIPAclAdvancedEntry 22 }
+
+        hh3cAclIPAclAdvancedIcmpCode OBJECT-TYPE
+            SYNTAX Integer32 (0..255|65535)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The code of ICMP packet."
+            DEFVAL { 65535 }
+            ::= { hh3cAclIPAclAdvancedEntry 23 }
+
+        hh3cAclIPAclAdvancedPrecedence OBJECT-TYPE
+            SYNTAX Integer32 (0..7|255)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The value of IP-packet's precedence.
+                <0-7>           Value of precedence
+                routine         Specify routine precedence(0)
+                priority        Specify priority precedence(1)
+                immediate       Specify immediate precedence(2)
+                flash           Specify flash precedence(3)
+                flash-override  Specify flash-override precedence(4)
+                critical        Specify critical precedence(5)
+                internet        Specify internetwork control precedence(6)
+                network         Specify network control precedence(7)
+                "
+            DEFVAL { 255 }
+            ::= { hh3cAclIPAclAdvancedEntry 24 }
+
+        hh3cAclIPAclAdvancedTos OBJECT-TYPE
+            SYNTAX Integer32 (0..15|255)
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The value of IP-packet's TOS.
+                  <0-15>             Value of TOS(type of service)
+                  max-reliability    Match packets with max reliable TOS(2)
+                  max-throughput     Match packets with max throughput TOS(4)
+                  min-delay          Match packets with min delay TOS(8)
+                  min-monetary-cost  Match packets with min monetary cost TOS(1)
+                  normal             Match packets with normal TOS(0)
+                "
+            DEFVAL { 255 }
+            ::= { hh3cAclIPAclAdvancedEntry 25 }
+
+        hh3cAclIPAclAdvancedDscp OBJECT-TYPE
+            SYNTAX DSCPValue
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The value of DSCP of IP packet."
+            DEFVAL { 255 }
+            ::= { hh3cAclIPAclAdvancedEntry 26 }
+
+        hh3cAclIPAclAdvancedTimeRangeName OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE(0..32))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The Time-range of advanced acl rule.
+                 Default value is null.
+                "
+            ::= { hh3cAclIPAclAdvancedEntry 27 }
+
+        hh3cAclIPAclAdvancedTCPFlag OBJECT-TYPE
+            SYNTAX TCPFlag
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The packet type of TCP protocol."
+            DEFVAL { invalid }
+            ::= { hh3cAclIPAclAdvancedEntry 28 }
+
+        hh3cAclIPAclAdvancedFragmentFlag OBJECT-TYPE
+            SYNTAX FragmentFlag
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The flag of matching fragmented packet,
+                 and now support two value: 0 or 2 ."
+            DEFVAL { invalid }
+            ::= { hh3cAclIPAclAdvancedEntry 29 }
+
+        hh3cAclIPAclAdvancedLog OBJECT-TYPE
+            SYNTAX TruthValue
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Log matched packets."
+            DEFVAL { false }
+            ::= { hh3cAclIPAclAdvancedEntry 30 }
+
+        hh3cAclIPAclAdvancedCount OBJECT-TYPE
+            SYNTAX Unsigned32
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "The count of matched by the rule."
+            ::= { hh3cAclIPAclAdvancedEntry 31 }
+
+        hh3cAclIPAclAdvancedCountClear OBJECT-TYPE
+            SYNTAX CounterClear
+            MAX-ACCESS read-write
+            STATUS current
+            DESCRIPTION
+                "Reset the value of counter."
+            DEFVAL { nouse }
+            ::= { hh3cAclIPAclAdvancedEntry 32 }
+
+        hh3cAclIPAclAdvancedEnable OBJECT-TYPE
+            SYNTAX TruthValue
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "The rule is active or not.
+                 true : active
+                 false : inactive
+                "
+            DEFVAL { false }
+            ::= { hh3cAclIPAclAdvancedEntry 33 }
+
+        hh3cAclIPAclAdvancedVpnInstanceName OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE(0..32))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The VPN name that the rule will be applied.
+                 Default value is null.
+                "
+            ::= { hh3cAclIPAclAdvancedEntry 34 }
+
+        hh3cAclIPAclAdvancedComment OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE(0..127))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The description of ACL rule.
+                 Default value is Zero-length String.
+                "
+            ::= { hh3cAclIPAclAdvancedEntry 35 }
+
+       hh3cAclIPAclAdvancedReflective OBJECT-TYPE
+            SYNTAX TruthValue
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The flag of reflective."
+            ::= { hh3cAclIPAclAdvancedEntry 36 }
+
+--
+-- Node of hh3cAclMACAclGroup
+--
+        hh3cAclMACAclGroup OBJECT IDENTIFIER ::= { hh3cAclMib2Objects 3 }
+--
+-- Nodes of hh3cAclMACTable
+--
+        hh3cAclMACTable OBJECT-TYPE
+            SYNTAX SEQUENCE OF Hh3cAclMACEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "A table of MAC acl group.
+                 If some objects of this table are not supported by some products,
+                 these objects can't be created, changed and applied.
+                 Default value of these objects will be returned when they are read.
+                "
+            ::= { hh3cAclMACAclGroup 1 }
+
+        hh3cAclMACEntry OBJECT-TYPE
+            SYNTAX Hh3cAclMACEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "MAC acl group information."
+            INDEX { hh3cAclNumberGroupType,
+                    hh3cAclNumberGroupIndex,
+                    hh3cAclMACRuleIndex
+                  }
+            ::= { hh3cAclMACTable 1 }
+
+        Hh3cAclMACEntry ::=
+            SEQUENCE
+            {
+                hh3cAclMACRuleIndex
+                    Integer32,
+                hh3cAclMACRowStatus
+                    RowStatus,
+                hh3cAclMACAct
+                    RuleAction,
+                hh3cAclMACTypeCode
+                    OCTET STRING,
+                hh3cAclMACTypeMask
+                    OCTET STRING,
+                hh3cAclMACSrcMac
+                    MacAddress,
+                hh3cAclMACSrcMacWild
+                    MacAddress,
+                hh3cAclMACDestMac
+                    MacAddress,
+                hh3cAclMACDestMacWild
+                    MacAddress,
+                hh3cAclMACLsapCode
+                    OCTET STRING,
+                hh3cAclMACLsapMask
+                    OCTET STRING,
+                hh3cAclMACCos
+                    Integer32,
+                hh3cAclMACTimeRangeName
+                    OCTET STRING,
+                hh3cAclMACCount
+                    Unsigned32,
+                hh3cAclMACCountClear
+                    CounterClear,
+                hh3cAclMACEnable
+                    TruthValue,
+                hh3cAclMACComment
+                    OCTET STRING
+             }
+
+        hh3cAclMACRuleIndex OBJECT-TYPE
+            SYNTAX Integer32 (0..65534)
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The rule index of MAC-based acl group."
+            ::= { hh3cAclMACEntry 1 }
+
+        hh3cAclMACRowStatus OBJECT-TYPE
+            SYNTAX RowStatus
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "RowStatus."
+            ::= { hh3cAclMACEntry 2 }
+
+        hh3cAclMACAct OBJECT-TYPE
+            SYNTAX RuleAction
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The action of MAC acl rule."
+            ::= { hh3cAclMACEntry 3 }
+
+        hh3cAclMACTypeCode OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE(0..32))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The type of protocol."
+            REFERENCE
+                "rfc894, rfc1010."
+            ::= { hh3cAclMACEntry 4 }
+
+        hh3cAclMACTypeMask OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE(0..32))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The mask of protocol."
+            ::= { hh3cAclMACEntry 5 }
+
+        hh3cAclMACSrcMac OBJECT-TYPE
+            SYNTAX MacAddress
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Source MAC of MAC acl rule.
+                 Default value is '00:00:00:00:00:00'.
+                "
+            ::= { hh3cAclMACEntry 6 }
+
+        hh3cAclMACSrcMacWild OBJECT-TYPE
+            SYNTAX MacAddress
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Source MAC wildzard of MAC acl rule.
+                 Default value is '00:00:00:00:00:00'.
+                "
+            ::= { hh3cAclMACEntry 7 }
+
+        hh3cAclMACDestMac OBJECT-TYPE
+            SYNTAX MacAddress
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Destination MAC of MAC acl rule.
+                 Default value is '00:00:00:00:00:00'.
+                "
+            ::= { hh3cAclMACEntry 8 }
+
+        hh3cAclMACDestMacWild OBJECT-TYPE
+            SYNTAX MacAddress
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Destination MAC wildzard of MAC acl rule.
+                 Default value is '00:00:00:00:00:00'
+                "
+            ::= { hh3cAclMACEntry 9 }
+
+        hh3cAclMACLsapCode OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE(0..32))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The type of LSAP."
+            REFERENCE
+                "ANSI/IEEE Std 802.3"
+            ::= { hh3cAclMACEntry 10 }
+
+        hh3cAclMACLsapMask OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE(0..32))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The mask of LSAP."
+            ::= { hh3cAclMACEntry 11 }
+
+        hh3cAclMACCos OBJECT-TYPE
+            SYNTAX Integer32
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "Vlan priority of MAC acl rule."
+            ::= { hh3cAclMACEntry 12 }
+
+        hh3cAclMACTimeRangeName OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE(0..32))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The Time-range of MAC acl rule.
+                 Default value is null.
+                "
+            ::= { hh3cAclMACEntry 13 }
+
+        hh3cAclMACCount OBJECT-TYPE
+            SYNTAX Unsigned32
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "The count of matched frame by the rule."
+            ::= { hh3cAclMACEntry 14 }
+
+        hh3cAclMACCountClear OBJECT-TYPE
+            SYNTAX CounterClear
+            MAX-ACCESS read-write
+            STATUS current
+            DESCRIPTION
+                "Reset the value of counter."
+            ::= { hh3cAclMACEntry 15 }
+
+        hh3cAclMACEnable OBJECT-TYPE
+            SYNTAX TruthValue
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "The rule is active or not.
+                 true : active
+                 false : inactive
+                "
+            DEFVAL { false }
+            ::= { hh3cAclMACEntry 16 }
+
+        hh3cAclMACComment OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE(0..127))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The description of ACL rule.
+                 Default value is Zero-length String.
+                "
+            ::= { hh3cAclMACEntry 17 }
+
+--
+-- Node of hh3cAclEnUserGroup
+--
+        hh3cAclEnUserAclGroup OBJECT IDENTIFIER ::= { hh3cAclMib2Objects 4 }
+--
+-- Nodes of hh3cAclEnUserTable
+--
+        hh3cAclEnUserTable OBJECT-TYPE
+            SYNTAX SEQUENCE OF Hh3cAclEnUserEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "A table of user acl group information.
+                 If some objects of this table are not supported by some products,
+                 these objects can't be created, changed and applied.
+                 Default value of these objects will be returned when they are read.
+                "
+            ::= { hh3cAclEnUserAclGroup 3 }
+
+        hh3cAclEnUserEntry OBJECT-TYPE
+            SYNTAX Hh3cAclEnUserEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "User defined acl group entry."
+            INDEX { hh3cAclNumberGroupType,
+                    hh3cAclNumberGroupIndex,
+                    hh3cAclEnUserRuleIndex }
+            ::= { hh3cAclEnUserTable 1 }
+
+        Hh3cAclEnUserEntry ::=
+            SEQUENCE
+            {
+                hh3cAclEnUserRuleIndex
+                    Integer32,
+                hh3cAclEnUserRowStatus
+                    RowStatus,
+                hh3cAclEnUserAct
+                    RuleAction,
+                hh3cAclEnUserStartString
+                    OCTET STRING,
+                hh3cAclEnUserL2String
+                    OCTET STRING,
+                hh3cAclEnUserMplsString
+                    OCTET STRING,
+                hh3cAclEnUserIPv4String
+                    OCTET STRING,
+                hh3cAclEnUserIPv6String
+                    OCTET STRING,
+                hh3cAclEnUserL4String
+                    OCTET STRING,
+                hh3cAclEnUserL5String
+                    OCTET STRING,
+                hh3cAclEnUserTimeRangeName
+                    OCTET STRING,
+                hh3cAclEnUserCount
+                    Unsigned32,
+                hh3cAclEnUserCountClear
+                    CounterClear,
+                hh3cAclEnUserEnable
+                    TruthValue,
+                hh3cAclEnUserComment
+                    OCTET STRING
+             }
+
+        hh3cAclEnUserRuleIndex OBJECT-TYPE
+            SYNTAX Integer32 (0..65534)
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The subitem of the user acl."
+            ::= { hh3cAclEnUserEntry 1 }
+
+        hh3cAclEnUserRowStatus OBJECT-TYPE
+            SYNTAX RowStatus
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "RowStatus."
+            ::= { hh3cAclEnUserEntry 2 }
+
+        hh3cAclEnUserAct OBJECT-TYPE
+            SYNTAX RuleAction
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The action of user defined acl rule."
+            ::= { hh3cAclEnUserEntry 3 }
+
+        hh3cAclEnUserStartString OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE(0..255))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The rule, matching packets, input like this:
+                 'RuleOffset','RuleString','RuleMask'.
+
+                 RuleOffset: The value of this object is defined by product and
+                 it indicates the offset of the rule mask in the packet(unit: byte).
+
+                 RuleString: The length of RuleString is defined by product.
+                 The string must be hexadecimal.
+                 The length of string must be multiple of 2.
+
+                 RuleMask: The length of RuleMask is defined by product.
+                 The string must be hexadecimal.
+                 The length of string must be multiple of 2.
+
+                 For example: 10,10af,ffff.
+
+                 Default value is null.
+                "
+            ::= { hh3cAclEnUserEntry 4 }
+
+        hh3cAclEnUserL2String OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE(0..255))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The rule, matching layer 2 packets, input like this:
+                 'RuleOffset','RuleString','RuleMask'.
+
+                 RuleOffset: The value is defined by product and
+                 it indicates offset of the rule mask in the packet(unit: byte).
+
+                 RuleString: The length of RuleString is defined by product.
+                 The string must be hexadecimal.
+                 The length of string must be multiple of 2.
+
+                 RuleMask: The length of RuleMask is defined by product.
+                 The string must be hexadecimal.
+                 The length of string must be multiple of 2.
+
+                 For example: '10','10af','ffff'.
+
+                 Default value is null.
+                "
+            ::= { hh3cAclEnUserEntry 5 }
+
+        hh3cAclEnUserMplsString OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE(0..255))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The rule, matching mpls packets, input like this:
+                 'RuleOffset','RuleString','RuleMask'.
+
+                 RuleOffset: The value is defined by product and
+                 it indicates offset of the rule mask in the packet(unit: byte).
+
+                 RuleString: The length of RuleString is defined by product.
+                 The string must be hexadecimal.
+                 The length of string must be multiple of 2.
+
+                 RuleMask: The length of RuleMask is defined by product.
+                 The string must be hexadecimal.
+                 The length of string must be multiple of 2.
+
+                 For example: '10','10af','ffff'.
+
+                 Default value is null.
+                "
+            ::= { hh3cAclEnUserEntry 6 }
+
+        hh3cAclEnUserIPv4String OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE(0..255))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The rule, matching IPv4 packets, input like this:
+                 'RuleOffset','RuleString','RuleMask'.
+
+                 RuleOffset: The value is defined by product and
+                 it indicates offset of the rule mask in the packet(unit: byte).
+
+                 RuleString: The length of RuleString is defined by product.
+                 The string must be hexadecimal.
+                 The length of string must be multiple of 2.
+
+                 RuleMask: The length of RuleMask is defined by product.
+                 The string must be hexadecimal.
+                 The length of string must be multiple of 2.
+
+                 For example: '10','10af','ffff'.
+
+                 Default value is null.
+                "
+            ::= { hh3cAclEnUserEntry 7 }
+
+        hh3cAclEnUserIPv6String OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE(0..255))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The rule, matching IPv6 packets, input like this:
+                 'RuleOffset','RuleString','RuleMask'.
+
+                 RuleOffset: The value is defined by product and
+                 it indicates offset of the rule mask in the packet(unit: byte).
+
+                 RuleString: The length of RuleString is defined by product.
+                 The string must be hexadecimal.
+                 The length of string must be multiple of 2.
+
+                 RuleMask: The length of RuleMask is defined by product.
+                 The string must be hexadecimal.
+                 The length of string must be multiple of 2.
+
+                 For example: '10','10af','ffff'.
+
+                 Default value is null.
+                "
+            ::= { hh3cAclEnUserEntry 8 }
+
+        hh3cAclEnUserL4String OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE(0..255))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The rule, matching layer 4 packets, input like this:
+                 'RuleOffset','RuleString','RuleMask'.
+
+                 RuleOffset: The value is defined by product and
+                 it indicates offset of the rule mask in the packet(unit: byte).
+
+                 RuleString: The length of RuleString is defined by product.
+                 The string must be hexadecimal.
+                 The length of string must be multiple of 2.
+
+                 RuleMask: The length of RuleMask is defined by product.
+                 The string must be hexadecimal.
+                 The length of string must be multiple of 2.
+
+                 For example: '10','10af','ffff'.
+
+                 Default value is null.
+                "
+            ::= { hh3cAclEnUserEntry 9 }
+
+        hh3cAclEnUserL5String OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE(0..255))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The rule, matching layer 5 packets, input like this:
+                 'RuleOffset','RuleString','RuleMask'.
+
+                 RuleOffset: The value is defined by product and
+                 it indicates offset of the rule mask in the packet(unit: byte).
+
+                 RuleString: The length of RuleString is defined by product.
+                 The string must be hexadecimal.
+                 The length of string must be multiple of 2.
+
+                 RuleMask: The length of RuleMask is defined by product.
+                 The string must be hexadecimal.
+                 The length of string must be multiple of 2.
+
+                 For example: '10','10af','ffff'.
+
+                 Default value is null.
+                "
+            ::= { hh3cAclEnUserEntry 10 }
+
+        hh3cAclEnUserTimeRangeName OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE(0..32))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The Time-range of user acl rule.
+                 Default value is null."
+            ::= { hh3cAclEnUserEntry 11 }
+
+        hh3cAclEnUserCount OBJECT-TYPE
+            SYNTAX Unsigned32
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "The count of matched by the rule."
+            ::= { hh3cAclEnUserEntry 12 }
+
+        hh3cAclEnUserCountClear OBJECT-TYPE
+            SYNTAX CounterClear
+            MAX-ACCESS read-write
+            STATUS current
+            DESCRIPTION
+                "Reset the value of counter."
+            ::= { hh3cAclEnUserEntry 13 }
+
+        hh3cAclEnUserEnable OBJECT-TYPE
+            SYNTAX TruthValue
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "The rule is active or not.
+                 true : active
+                 false : inactive
+                "
+            DEFVAL { false }
+            ::= { hh3cAclEnUserEntry 14 }
+
+        hh3cAclEnUserComment OBJECT-TYPE
+            SYNTAX OCTET STRING (SIZE(0..127))
+            MAX-ACCESS read-create
+            STATUS current
+            DESCRIPTION
+                "The description of ACL rule.
+                 Default value is Zero-length String.
+                "
+            ::= { hh3cAclEnUserEntry 15 }
+
+--
+-- Node of hh3cAclResourceGroup
+--
+        hh3cAclResourceGroup OBJECT IDENTIFIER ::= { hh3cAclMib2Objects 5 }
+--
+-- Nodes of hh3cAclResourceUsageTable
+--
+        hh3cAclResourceUsageTable OBJECT-TYPE
+            SYNTAX SEQUENCE OF Hh3cAclResourceUsageEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The table shows ACL resource usage information. Support for
+                resource types that are denoted by hh3cAclResourceType object
+                varies with products. If a type is not supported, the
+                corresponding row for the type will not be instantiated
+                in this table.
+                "
+            ::= { hh3cAclResourceGroup 1 }
+
+        hh3cAclResourceUsageEntry OBJECT-TYPE
+            SYNTAX Hh3cAclResourceUsageEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "Each row contains a brief description of the resource type,
+                a port range associated with the chip, total, reserved, and
+                configured amount of resource of this type, the percent of
+                resource that has been allocated, and so on.
+                "
+            INDEX
+            {
+                hh3cAclResourceChassis,
+                hh3cAclResourceSlot,
+                hh3cAclResourceChip,
+                hh3cAclResourceType
+            }
+            ::= { hh3cAclResourceUsageTable 1 }
+
+        Hh3cAclResourceUsageEntry ::=
+            SEQUENCE
+            {
+                hh3cAclResourceChassis
+                    Unsigned32,
+                hh3cAclResourceSlot
+                    Unsigned32,
+                hh3cAclResourceChip
+                    Unsigned32,
+                hh3cAclResourceType
+                    INTEGER,
+                hh3cAclPortRange
+                    OCTET STRING,
+                hh3cAclResourceTotal
+                    Unsigned32,
+                hh3cAclResourceReserved
+                    Unsigned32,
+                hh3cAclResourceConfigured
+                    Unsigned32,
+                hh3cAclResourceUsagePercent
+                    Unsigned32
+            }
+
+        hh3cAclResourceChassis OBJECT-TYPE
+            SYNTAX Unsigned32
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The chassis number. On a centralized or distributed device,
+                the value for this node is always zero.
+                "
+            ::= { hh3cAclResourceUsageEntry 1 }
+
+        hh3cAclResourceSlot OBJECT-TYPE
+            SYNTAX Unsigned32
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The slot number. On a centralized device, the value for
+                this node is always zero."
+            ::= { hh3cAclResourceUsageEntry 2 }
+
+        hh3cAclResourceChip OBJECT-TYPE
+            SYNTAX Unsigned32
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "The chip number. On a single chip device, the value for
+                this node is always zero."
+            ::= { hh3cAclResourceUsageEntry 3 }
+
+        hh3cAclResourceType OBJECT-TYPE
+            SYNTAX INTEGER
+                {
+                    vfpAclResource(1),
+                    ifpAclResource(2),
+                    ifpMeterResource(3),
+                    ifpCounterResource(4),
+                    efpAclResource(5),
+                    efpMeterResource(6),
+                    efpCounterResource(7),
+                    aclRuleResource(8),
+                    meterResource(9),
+                    counterResource(10),
+                    ingressAclResource(11),
+                    egressAclResource(12),
+                    ipv4AclResource(13),
+                    ipv6AclResource(14)
+                }
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "TCAM (Ternary Content Addressable Memory) resource can be of
+                the following types.
+
+                vfpAclResource indicates TCAM entries used by VFP
+                for packet filtering.
+
+                ifpAclResource indicates TCAM entries used by IFP
+                for packet filtering.
+
+                ifpMeterResource indicates TCAM entries used by IFP
+                for traffic policing.
+
+                ifpCounterResource indicates TCAM entries used by IFP
+                for packet counting.
+
+                efpAclResource indicates TCAM entries used by EFP
+                for packet filtering.
+
+                efpMeterResource indicates TCAM entries used by EFP
+                for traffic policing.
+
+                efpCounterResource indicates TCAM entries used by EFP
+                for packet counting.
+
+                aclRuleResource indicates TCAM entries for packet filtering.
+
+                meterResource indicates TCAM entries for traffic policing.
+
+                counterResource indicates TCAM entries for packet counting.
+
+                ingressAclResource indicates TCAM entries for inbound packet
+                filtering.
+
+                egressAclResource indicates TCAM entries for outbound packet
+                filtering.
+
+                ipv4AclResource indicates TCAM entries for IPv4 packet
+                filtering.
+
+                ipv6AclResource indicates TCAM entries for IPv6 packet
+                filtering.
+                "
+            ::= { hh3cAclResourceUsageEntry 4 }
+
+        hh3cAclPortRange OBJECT-TYPE
+            SYNTAX OCTET STRING
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "The port range associated with the chip. Commas are used to
+                separate multiple port ranges, for example, Ethernet1/2 to
+                Ethernet1/12, Ethernet1/31 to Ethernet1/48.
+                "
+            ::= { hh3cAclResourceUsageEntry 5 }
+
+        hh3cAclResourceTotal OBJECT-TYPE
+            SYNTAX Unsigned32
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "Total TCAM entries of the resource type."
+            ::= { hh3cAclResourceUsageEntry 6 }
+
+        hh3cAclResourceReserved OBJECT-TYPE
+            SYNTAX Unsigned32
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "The amount of reserved TCAM entries of the resource type."
+            ::= { hh3cAclResourceUsageEntry 7 }
+
+        hh3cAclResourceConfigured OBJECT-TYPE
+            SYNTAX Unsigned32
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "The amount of configured TCAM entries of the resource type."
+            ::= { hh3cAclResourceUsageEntry 8 }
+
+        hh3cAclResourceUsagePercent OBJECT-TYPE
+            SYNTAX Unsigned32
+            MAX-ACCESS read-only
+            STATUS current
+            DESCRIPTION
+                "The percent of TCAM entries that have been used for
+                this resource type.
+                "
+            ::= { hh3cAclResourceUsageEntry 9 }
+
+END

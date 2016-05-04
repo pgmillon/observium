@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -15,7 +15,6 @@ include_once($GLOBALS['config']['install_dir'] . "/includes/wmi.inc.php");
 
 if ($device['os'] == "windows")
 {
-  $wmi_start = utime();
   $wmi = array();
 
   echo("WMI Poller:\n");
@@ -115,8 +114,6 @@ if ($device['os'] == "windows")
   }
 
   unset($wmi);
-  $wmi_end = utime(); $wmi_time = round(($wmi_end - $wmi_start) * 1000);
-  if ($GLOBALS['debug']) { echo("Execution time: ".$wmi_time."ms\n"); }
 }
 
 /* End of file wmi.inc.php */

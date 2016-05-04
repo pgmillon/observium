@@ -1,0 +1,1595 @@
+TIMETRA-SAS-PORT-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+        MODULE-IDENTITY, OBJECT-TYPE, 
+        NOTIFICATION-TYPE, Unsigned32, 
+        Counter32, IpAddress, Counter64, 
+        Integer32, Gauge32
+                                                FROM SNMPv2-SMI
+
+        MODULE-COMPLIANCE, OBJECT-GROUP, 
+        NOTIFICATION-GROUP                      FROM SNMPv2-CONF
+
+        TEXTUAL-CONVENTION, DateAndTime, 
+        RowStatus, TimeStamp, TimeInterval,
+        TruthValue, MacAddress, RowPointer,
+        DisplayString                           FROM SNMPv2-TC
+
+        timetraSASObjs, timetraSASNotifyPrefix, 
+        timetraSASConfs, timetraSASModules      FROM TIMETRA-SAS-GLOBAL-MIB
+
+
+        TmnxActionType, TmnxPortID, ServObjDesc,
+        TItemDescription, TNamedItemOrEmpty,
+        TNamedItem, TFCName, TQueueId, TmnxServId, 
+        TmnxOperState, TPortSchedulerPIR, 
+        TPortSchedulerCIR, TItemLongDescription, 
+        TNetworkIngressMeterId,TmnxEncapVal     FROM TIMETRA-TC-MIB
+
+        timetraSRMIBModules                     FROM TIMETRA-GLOBAL-MIB                                           
+        
+        tmnxHwObjs, tmnxHwNotification,
+        tmnxHwConformance, tmnxChassisIndex, 
+        tmnxChassisNotifyChassisId,
+        TmnxAlarmState, TmnxPortAdminStatus,
+        TmnxMDAChanType                         FROM TIMETRA-CHASSIS-MIB
+
+        tmnxPortEntry, tmnxPortPortID, tmnxDS1Entry,
+        tmnxPortEtherEntry, tmnxDS1PortEntry,
+        tmnxPortNotifyPortId                    FROM TIMETRA-PORT-MIB
+
+        pethPsePortEntry, pethPsePortIndex, 
+        pethPsePortPowerClassifications, 
+        pethPsePortDetectionStatus              FROM POWER-ETHERNET-MIB
+
+        ;
+
+
+tmnxSASPortMIBModule MODULE-IDENTITY
+        LAST-UPDATED    "0701010000Z"
+        ORGANIZATION    "Alcatel"
+        CONTACT-INFO    
+            "Alcatel 7x50 Support
+             Web: http://www.alcatel.com/comps/pages/carrier_support.jhtml"
+        DESCRIPTION
+        "This document is the SNMP MIB module to manage and provision the 
+        hardware components of the Alcatel 7x50 device.
+        
+        Copyright 2003-2014 Alcatel-Lucent.  All rights reserved.
+        Reproduction of this document is authorized on the condition that
+        the foregoing copyright notice is included.
+
+        This SNMP MIB module (Specification) embodies Alcatel's
+        proprietary intellectual property.  Alcatel retains 
+        all title and ownership in the Specification, including any 
+        revisions.
+
+        Alcatel grants all interested parties a non-exclusive 
+        license to use and distribute an unmodified copy of this 
+        Specification in connection with management of Alcatel 
+        products, and without fee, provided this copyright notice and 
+        license appear on all copies.
+
+        This Specification is supplied 'as is', and Alcatel 
+        makes no warranty, either express or implied, as to the use, 
+        operation, condition, or performance of the Specification."
+
+--
+--  Revision History
+--
+        REVISION        "0801090000Z"
+        DESCRIPTION     "Rev 1.0                09 Jan 2008 00:00
+                This is the 1.0 release of the TIMETRA-SAS-GLOBAL-MIB."
+        ::= { timetraSASModules 6 }
+
+
+
+tmnxSASPortObjs                    OBJECT IDENTIFIER ::= { timetraSASObjs 2 }
+tmnxSASPortNotificationObjects     OBJECT IDENTIFIER ::= { timetraSASObjs 3 }
+tmnxSASPortStatsObjs               OBJECT IDENTIFIER ::= { timetraSASObjs 4 }
+tmnxSASPortConformance             OBJECT IDENTIFIER ::= { timetraSASConfs 2 }
+
+
+portShgInfoTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF PortShgInfoEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "A table that contains port split-horizon group
+                     information. "
+    ::= { tmnxSASPortObjs 6 }
+
+portShgInfoEntry OBJECT-TYPE
+    SYNTAX          PortShgInfoEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "Split-horizon group information about a TLS service."
+    INDEX           { IMPLIED portShgName }
+    ::= { portShgInfoTable 1 }
+
+PortShgInfoEntry ::=
+    SEQUENCE {
+        portShgName                  TNamedItem,
+        portShgRowStatus             RowStatus,
+        portShgInstanceId            Unsigned32,
+        portShgDescription           ServObjDesc,
+        portShgLastMgmtChange        TimeStamp
+    }
+
+portShgName OBJECT-TYPE
+    SYNTAX          TNamedItem
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "The value of the object portShgName specifies the name of
+                     the split-horizon group. "
+    ::= { portShgInfoEntry 1 }
+
+portShgRowStatus OBJECT-TYPE
+    SYNTAX          RowStatus
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION     "The value of the object  portShgRowStatus specifies the
+                     status of this row.
+                     The only values supported during a set operation are
+                     createAndGo(4) and destroy(6). To delete an entry
+                     from this table, there should be no port Bindings 
+                     refering to it."
+    ::= { portShgInfoEntry 2 }
+
+
+portShgInstanceId OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The value of the object portShgInstanceId indicates the
+                     instance identifier for the split horizon group."
+    ::= { portShgInfoEntry 3 }
+
+portShgDescription OBJECT-TYPE
+    SYNTAX          ServObjDesc
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION     "The value of the object portShgDescription specifies
+                     generic information about this split-horizon group."
+    DEFVAL { "" }
+    ::= { portShgInfoEntry 4 }
+
+portShgLastMgmtChange OBJECT-TYPE
+    SYNTAX          TimeStamp
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The value of the object portShgLastMgmtChange indicates the
+                     value of sysUpTime at the time of the most recent
+                     management-initiated change to this split-horizon group."
+    ::= { portShgInfoEntry 5 }
+
+sasTmnxPortExtnTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF SasTmnxPortExtnEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "This table has additional information about the 7210 platforms"
+    ::= { tmnxSASPortObjs 2 }
+
+sasTmnxPortExtnEntry       OBJECT-TYPE
+    SYNTAX      SasTmnxPortExtnEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each row entry represents a port on a IOM card in a chassis in the 
+         system.  Entries cannot be created and deleted via SNMP SET 
+         operations.  Before an IOM tmnxMDAEntry can be deleted from the 
+         tmnxMDATable, its supported 'tmnxPortEntries' must be in the proper 
+         state for removal."
+    AUGMENTS    { tmnxPortEntry }
+    ::= { sasTmnxPortExtnTable 1 }
+
+SasTmnxPortExtnEntry ::=
+    SEQUENCE {
+        tmnxPortUplinkMode                TruthValue,
+        tmnxPortAccessEgressQoSPolicyId   Unsigned32,
+        tmnxPortNetworkQoSPolicyId        Unsigned32,
+        tmnxPortShgName                   TNamedItemOrEmpty,
+        tmnxPortUseDei                    TruthValue,
+        tmnxPortOperGrpName               TNamedItemOrEmpty,
+        tmnxPortMonitorOperGrpName        TNamedItemOrEmpty
+    }
+
+
+tmnxPortUplinkMode  OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If the tmnxPortUplinkMode is set to true when the tmnxPortMode 
+         is set to 'access(1)' and the port acts as an uplink.
+         'tmnxPortEncaptype' must also be configured 'qinqEncap' 
+         when using access port as uplink port."
+    ::= { sasTmnxPortExtnEntry 1 }         
+
+tmnxPortAccessEgressQoSPolicyId  OBJECT-TYPE
+    SYNTAX      Unsigned32 (1..65535)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Qos Policy ID for Access Egress Port"
+    DEFVAL { 1 }
+    ::= { sasTmnxPortExtnEntry 2 }         
+
+tmnxPortNetworkQoSPolicyId  OBJECT-TYPE
+    SYNTAX      Unsigned32 (1..65535)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Port Network Policy ID "
+    DEFVAL { 1 }
+    ::= { sasTmnxPortExtnEntry 3 }         
+
+tmnxPortShgName  OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Split horizon group to be attached to this port"
+    ::= { sasTmnxPortExtnEntry 4 }
+
+tmnxPortUseDei  OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Enable/disable DEI based policing."
+    DEFVAL { false }
+    ::= { sasTmnxPortExtnEntry 5 }         
+
+tmnxPortOperGrpName  OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "System oper group to be attached to this port"
+    ::= { sasTmnxPortExtnEntry 6 }
+
+tmnxPortMonitorOperGrpName  OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "System monitor oper group to be attached to this port"
+    ::= { sasTmnxPortExtnEntry 7 }
+
+--
+--  Network Port Ingress Stats Table
+--
+tmnxSASPortNetIngressStatsTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxSASPortNetIngressStatsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Defines the Alcatel SAS series network port ingress 
+         statistics table for providing, via SNMP, the capability of
+         retrieving the traffic statistics for the physical Meters
+         being used for the ports to forward the network ingress
+         traffic."
+    ::= { tmnxSASPortObjs 3 }
+
+tmnxSASPortNetIngressStatsEntry    OBJECT-TYPE
+    SYNTAX      TmnxSASPortNetIngressStatsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Defines an entry in tmnxSASPortNetIngressStatsTable. Entries are 
+         created and deleted by the system depending on the meter policy 
+         being used at the specific port."
+    INDEX   { tmnxChassisIndex, tmnxPortPortID, tmnxSASPortNetIngressMeterIndex }
+    ::= { tmnxSASPortNetIngressStatsTable 1 }
+
+TmnxSASPortNetIngressStatsEntry ::=
+    SEQUENCE {
+        tmnxSASPortNetIngressMeterIndex      TNetworkIngressMeterId,
+        tmnxSASPortNetIngressFwdInProfPkts   Counter64,
+        tmnxSASPortNetIngressFwdOutProfPkts  Counter64,
+        tmnxSASPortNetIngressFwdInProfOcts   Counter64,
+        tmnxSASPortNetIngressFwdOutProfOcts  Counter64
+    }
+
+tmnxSASPortNetIngressMeterIndex OBJECT-TYPE
+    SYNTAX      TNetworkIngressMeterId
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "'tmnxSASPortNetIngressQueueIndex' serves as the tertiary index. When used
+         in conjunction with tmnxChassisIndex and tmnxPortPortID, it uniquely 
+         identifies a network ingress meter for the specified port in the
+         managed system."
+    ::= { tmnxSASPortNetIngressStatsEntry 1 }
+
+tmnxSASPortNetIngressFwdInProfPkts OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "tmnxSASPortNetIngressFwdInProfPkts indicates the number of conforming
+         network ingress packets forwarded on this port using this meter."
+    ::= { tmnxSASPortNetIngressStatsEntry 2 }
+
+tmnxSASPortNetIngressFwdOutProfPkts OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "tmnxSASPortNetIngressFwdOutProfPkts indicates the number of exceeding
+         network ingress packets forwarded on this port using this meter."
+    ::= { tmnxSASPortNetIngressStatsEntry 3 }
+
+tmnxSASPortNetIngressFwdInProfOcts OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "tmnxSASPortNetIngressFwdInProfOcts indicates the number of conforming
+         network ingress octets forwarded on this port using this meter."
+    ::= { tmnxSASPortNetIngressStatsEntry 4 }
+
+tmnxSASPortNetIngressFwdOutProfOcts OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "tmnxSASPortNetIngressFwdOutProfOcts indicates the number of exceeding
+         network ingress octets forwarded on this port using this meter."
+    ::= { tmnxSASPortNetIngressStatsEntry 5 }
+
+
+sasTmnxPortEtherExtnTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF SasTmnxPortEtherExtnEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "This table has additional information about the 7210 platforms"
+    ::= { tmnxSASPortObjs 4 }
+
+sasTmnxPortEtherExtnEntry       OBJECT-TYPE
+    SYNTAX      SasTmnxPortEtherExtnEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each row entry represents an Ethernet port on a IOM card in a
+         chassis in the system.  Entries cannot be created and
+         deleted via SNMP SET operations.  Before an IOM 'cardEntry'
+         can be deleted from the tmnxMDATable, its supported
+         'tmnxPortEntries' and 'tmnxPortEtherEntries' must be in the proper
+         state for removal.  The tmnxPortEtherEntry contains attributes
+         that are unique to the Ethernet TmnxPortType."
+    AUGMENTS    { tmnxPortEtherEntry }
+    ::= { sasTmnxPortEtherExtnTable 1 }
+
+SasTmnxPortEtherExtnEntry ::=
+    SEQUENCE {
+        tmnxPortEtherEgressMaxBurst       Integer32,
+        tmnxPortStatsQueue1PktsFwd        TruthValue,
+        tmnxPortStatsQueue2PktsFwd        TruthValue,
+        tmnxPortStatsQueue3PktsFwd        TruthValue,
+        tmnxPortStatsQueue4PktsFwd        TruthValue,
+        tmnxPortStatsQueue5PktsFwd        TruthValue,        
+        tmnxPortStatsQueue6PktsFwd        TruthValue,        
+        tmnxPortStatsQueue7PktsFwd        TruthValue,        
+        tmnxPortStatsQueue8PktsFwd        TruthValue,
+        tmnxPortEtherEgrSchedMode         INTEGER,
+        tmnxPortEtherLoopback             INTEGER,
+        tmnxPortEtherIpMTU                Unsigned32,
+        tmnxPortEtherClockConfig          INTEGER,
+        tmnxPortLoopbckServId             TmnxServId,        
+        tmnxPortLoopbckSapPortId          TmnxPortID,
+        tmnxPortLoopbckSapEncapVal        TmnxEncapVal,
+        tmnxPortLoopbckSrcMacAddr         MacAddress,
+        tmnxPortLoopbckDstMacAddr         MacAddress,
+        tmnxPortAccEgrSapQosMarking       INTEGER,
+        tmnxPortLldpTnlNrstBrdgeDstMac    TruthValue,
+        tmnxPortEtherDe1OutProfile        TruthValue,
+        tmnxPortEtherNwAggRateLimit       INTEGER,
+        tmnxPortEtherNwAggRateLimitCir    Integer32,
+        tmnxPortEtherNwAggRateLimitPir    Integer32,
+        tmnxPortEtherDcommStatus          TruthValue,
+        tmnxPortEtherMulticastIngress     INTEGER
+    }
+
+tmnxPortEtherEgressMaxBurst  OBJECT-TYPE
+    SYNTAX      Integer32 (-1 | 32..16384) 
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Controls the amount of burst the egress port can generate.
+        Its configured in terms of Kilo bits.Its an optional parameter.
+        And cannot be used without egress-rate being set."
+    DEFVAL { -1 }
+    ::= { sasTmnxPortEtherExtnEntry 1 }
+
+tmnxPortStatsQueue1PktsFwd  OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If tmnxPortStatsQueue1PktsFwd is set to 'true', count the egress
+        packets with forwarding class value '0'."
+    ::= { sasTmnxPortEtherExtnEntry 2 }    
+
+
+tmnxPortStatsQueue2PktsFwd  OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If tmnxPortStatsQueue2PktsFwd is set to 'true', count the egress
+        packets with forwarding class value '1'."
+    ::= { sasTmnxPortEtherExtnEntry 3 }    
+
+tmnxPortStatsQueue3PktsFwd  OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If tmnxPortStatsQueue3PktsFwd is set to 'true', count the egress
+        packets with forwarding class value '2'."
+    ::= { sasTmnxPortEtherExtnEntry 4 }    
+
+tmnxPortStatsQueue4PktsFwd  OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If tmnxPortStatsQueue4PktsFwd is set to 'true', count the egress
+        packets with forwarding class value '3'."
+    ::= { sasTmnxPortEtherExtnEntry 5 }    
+
+tmnxPortStatsQueue5PktsFwd  OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If tmnxPortStatsQueue5PktsFwd is set to 'true', count the egress
+        packets with forwarding class value '5'."
+    ::= { sasTmnxPortEtherExtnEntry 6 }    
+
+tmnxPortStatsQueue6PktsFwd  OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If tmnxPortStatsQueue6PktsFwd is set to 'true', count the egress
+        packets with forwarding class value '6'."
+    ::= { sasTmnxPortEtherExtnEntry 7 }    
+
+tmnxPortStatsQueue7PktsFwd  OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If tmnxPortStatsQueue7PktsFwd is set to 'true', count the egress
+        packets with forwarding class value '7'."
+    ::= { sasTmnxPortEtherExtnEntry 8 }    
+
+tmnxPortStatsQueue8PktsFwd  OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If tmnxPortStatsQueue8PktsFwd is set to 'true', count the egress
+        packets with forwarding class value '8'."
+    ::= { sasTmnxPortEtherExtnEntry 9 }    
+
+tmnxPortEtherEgrSchedMode    OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    fc-based     (1),
+                    sap-based    (2)
+                }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "tmnxPortEtherEgrSchedMode sets the SAP egress scheduler mode. In
+        'fc-based' mode the prority of all the egress queues across all the 
+        SAPs are considered to determine the next queue to schedule. In 
+        'sap-based' mode the scheduler uses the priority of all the egress 
+        queues in a SAP to determine the next queue to schedule and uses 
+        round-robin scheduling mechanism to schedule each of the SAP"
+    DEFVAL      { fc-based }
+    ::= { sasTmnxPortEtherExtnEntry 10 }
+
+tmnxPortEtherLoopback  OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    none     (0),
+                    internal (2)
+                }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If tmnxPortEtherLoopback is set to internal, the ethernet port
+         is set to loopback mode. none will clear the loopback"
+    DEFVAL      { none }
+    ::= { sasTmnxPortEtherExtnEntry 11 }    
+
+tmnxPortEtherIpMTU  OBJECT-TYPE
+    SYNTAX      Unsigned32 (0|512..9000)
+    UNITS       "bytes"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "tmnxPortEtherIpMTU is the IP MTU for interfaces using this 
+        port"  
+    ::= { sasTmnxPortEtherExtnEntry 12 }
+
+tmnxPortEtherClockConfig   OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    notApplicable (0),
+                    automatic (1),
+                    manual-master (2),
+                    manual-slave (3)
+                }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "When the value of tmnxPortEtherClockConfig is 'automatic' the 
+         Ethernet interface will automatically negotiate clock mastership
+         along with other link parameters with the far end. Depending 
+         upon the capabilities of the two ends, one will be master the 
+         other will be slave for clocking. 
+         When the value of tmnxPortEtherClockConfig is 'manual-master', the 
+         Ethernet interface will negotiate other link parameters with the 
+         far end except clock mastership. It assumes clock mastership and want 
+         the other end to be slave. 
+         When the value is 'manual-slave' this ethernet interface chooses to 
+         be slave and wants the far end to assume clock mastership. 
+         For 10 baseT and 100 baseT ethernet interfaces, value of this 
+         variable should be 'none', as this will not be applicable 
+         for those interfaces."
+         
+    DEFVAL { notApplicable }
+    ::= { sasTmnxPortEtherExtnEntry 13 }
+
+tmnxPortLoopbckServId OBJECT-TYPE
+    SYNTAX      TmnxServId
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Loopback Service Id"
+    ::= { sasTmnxPortEtherExtnEntry 14 } 
+    
+tmnxPortLoopbckSapPortId  OBJECT-TYPE
+    SYNTAX      TmnxPortID
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Loopback Sap Port Id"
+    ::= { sasTmnxPortEtherExtnEntry 15 }     
+
+tmnxPortLoopbckSapEncapVal  OBJECT-TYPE
+    SYNTAX      TmnxEncapVal
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Loopback Sap Encapsulation"
+    ::= { sasTmnxPortEtherExtnEntry 16 } 
+    
+tmnxPortLoopbckSrcMacAddr  OBJECT-TYPE
+    SYNTAX      MacAddress
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Loopback Source Mac Address"
+    ::= { sasTmnxPortEtherExtnEntry 17 } 
+   
+tmnxPortLoopbckDstMacAddr  OBJECT-TYPE
+    SYNTAX      MacAddress
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Loopback Destination Mac Address"
+    ::= { sasTmnxPortEtherExtnEntry 18 } 
+
+
+tmnxPortAccEgrSapQosMarking  OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    enable     (1),
+                    disable    (2)
+                }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Port Ethernet Access Egress Sap Qos Marking"
+    DEFVAL { enable }        
+    ::= { sasTmnxPortEtherExtnEntry 19 } 
+
+tmnxPortLldpTnlNrstBrdgeDstMac  OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If tmnxPortLldpTnlNrstBrdgeDstMac is set to 'true' 
+        and admin status is disabled lldp pkts will be
+        tunnelled"
+    DEFVAL { false }    
+    ::= { sasTmnxPortEtherExtnEntry 20 }    
+
+tmnxPortEtherDe1OutProfile         OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPortEtherDe1OutProfile if enabled 
+        will consider the value of the DEI(CFI) bit of the incoming 
+        packet , which if 1 will result in the packet being classified 
+        as out-profile and in-profile otherwise"
+    DEFVAL { false }
+    ::= { sasTmnxPortEtherExtnEntry 22 }    
+    
+tmnxPortEtherNwAggRateLimit         OBJECT-TYPE
+    SYNTAX      INTEGER (-1 |1..100000000)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPortEtherNwAggRateLimit in kbps is used
+          to cap network traffic on a hybrid port."
+    DEFVAL { -1 }
+    ::= { sasTmnxPortEtherExtnEntry 23 }
+
+tmnxPortEtherNwAggRateLimitCir  OBJECT-TYPE
+    SYNTAX      Integer32 (0..10000000) 
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPortEtherNwAggRateLimit in kbps is used
+          to cap network traffic cir rate on a hybrid port."
+    DEFVAL { 0 }
+    ::= { sasTmnxPortEtherExtnEntry 28 }
+
+tmnxPortEtherNwAggRateLimitPir  OBJECT-TYPE
+    SYNTAX      Integer32 (-1 | 1..10000000) 
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPortEtherNwAggRateLimit in kbps is used
+          to cap network traffic cir rate on a hybrid port."
+    DEFVAL { -1 }
+    ::= { sasTmnxPortEtherExtnEntry 29 }
+
+tmnxPortEtherDcommStatus         OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPortEtherDcommStatus is true if this port
+        is decommissioned"
+    ::= { sasTmnxPortEtherExtnEntry 30 }
+      
+tmnxPortEtherMulticastIngress   OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    l2-mc (1),
+                    ip-mc (2)
+                }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Defines multicast ingress lookup type" 
+    DEFVAL { l2-mc }
+    ::= { sasTmnxPortEtherExtnEntry 31 }
+
+--
+--  Network Port Egress Stats Table
+--
+tmnxPortAccessEgressQueueStatsTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxPortAccessEgressQueueStatsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Defines the Alcatel SAS series access port egress 
+         statistics table for providing, via SNMP, the capability of
+         retrieving the traffic statistics for the physical queues
+         being used for the ports to forward the access egress
+         traffic."
+    ::= { tmnxSASPortObjs 7 }
+
+tmnxPortAccessEgressQueueStatsEntry    OBJECT-TYPE
+    SYNTAX      TmnxPortAccessEgressQueueStatsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Defines an entry in tmnxPortAccessEgressQueueStatsTable. Entries are 
+         created and deleted by the system depending on the queue policy 
+         being used at the specific port."
+    INDEX   { tmnxChassisIndex, tmnxPortPortID, tmnxPortAccessEgressQueueStatsIndex }
+    ::= { tmnxPortAccessEgressQueueStatsTable 1 }
+
+TmnxPortAccessEgressQueueStatsEntry ::=
+    SEQUENCE {
+        tmnxPortAccessEgressQueueStatsIndex     TQueueId,
+        tmnxPortAccessEgressQueueStatsFwdPkts   Counter64,
+        tmnxPortAccessEgressQueueStatsFwdOcts   Counter64,
+        tmnxPortAccessEgressQueueStatsDroPkts   Counter64,
+        tmnxPortAccessEgressQueueStatsDroOcts   Counter64
+    }
+
+tmnxPortAccessEgressQueueStatsIndex OBJECT-TYPE
+    SYNTAX      TQueueId (1..8)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "'tmnxPortAccessEgressQueueIndex' serves as the tertiary index. When used
+         in conjunction with tmnxChassisIndex and tmnxPortPortID, it uniquely 
+         identifies a access egress queue for the specified port in the
+         managed system."
+    ::= { tmnxPortAccessEgressQueueStatsEntry 1 }
+
+tmnxPortAccessEgressQueueStatsFwdPkts OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "tmnxPortAccessEgressQueueStatsFwdPkts indicates the number of forwarded
+         access egress packets forwarded on this port using this queue."
+    ::= { tmnxPortAccessEgressQueueStatsEntry 2 }
+
+tmnxPortAccessEgressQueueStatsFwdOcts OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "tmnxPortAccessEgressQueueStatsFwdOcts indicates the number of forward
+         access egress octets forwarded on this port using this queue."
+    ::= { tmnxPortAccessEgressQueueStatsEntry 3 }
+
+tmnxPortAccessEgressQueueStatsDroPkts OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "tmnxPortAccessEgressQueueStatsDroPkts indicates the number of dropped
+         access egress packets on this port using this queue."
+    ::= { tmnxPortAccessEgressQueueStatsEntry 4 }
+
+tmnxPortAccessEgressQueueStatsDroOcts OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "tmnxPortAccessEgressQueueStatsDroOcts indicates the number of dropped
+         network egress octets on this port using this queue."
+    ::= { tmnxPortAccessEgressQueueStatsEntry 5 }
+
+tmnxPortNetEgressQueueStatsTable  OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxPortNetEgressQueueStatsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Defines the Alcatel SAS series network port egress 
+         statistics table for providing, via SNMP, the capability of
+         retrieving the traffic statistics for the physical queues
+         being used for the ports to forward the network egress
+         traffic."
+    ::= { tmnxSASPortObjs 8 }
+
+tmnxPortNetEgressQueueStatsEntry    OBJECT-TYPE
+    SYNTAX      TmnxPortNetEgressQueueStatsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Defines an entry in tmnxPortNetEgressQueueStatsTable. Entries are 
+         created and deleted by the system depending on the queue policy 
+         being used at the specific port."
+    INDEX   { tmnxChassisIndex, tmnxPortPortID, tmnxPortNetEgressQueueStatsIndex }
+    ::= { tmnxPortNetEgressQueueStatsTable 1 }
+
+TmnxPortNetEgressQueueStatsEntry ::=
+    SEQUENCE {
+        tmnxPortNetEgressQueueStatsIndex           TQueueId,
+        tmnxPortNetEgressQueueStatsFwdPkts         Counter64,
+        tmnxPortNetEgressQueueStatsFwdOcts         Counter64,
+        tmnxPortNetEgressQueueStatsDroPkts         Counter64,
+        tmnxPortNetEgressQueueStatsDroOcts         Counter64,
+        tmnxPortNetEgressQueueStatsInProfDroPkts   Counter64,
+        tmnxPortNetEgressQueueStatsInProfDroOcts   Counter64,
+        tmnxPortNetEgressQueueStatsOutProfDroPkts  Counter64,
+        tmnxPortNetEgressQueueStatsOutProfDroOcts  Counter64        
+    }
+
+tmnxPortNetEgressQueueStatsIndex OBJECT-TYPE
+    SYNTAX      TQueueId (1..8)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "tmnxPortNetEgressQueueStatsIndex serves as the tertiary index. When used
+         in conjunction with tmnxChassisIndex and tmnxPortPortID, it uniquely 
+         identifies a network egress queue for the specified port in the
+         managed system."
+    ::= { tmnxPortNetEgressQueueStatsEntry 1 }
+
+tmnxPortNetEgressQueueStatsFwdPkts OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "tmnxPortNetEgressQueueStatsFwdPkts indicates the number of forwarded
+         network egress packets on this port using this queue."
+    ::= { tmnxPortNetEgressQueueStatsEntry 2 }
+
+tmnxPortNetEgressQueueStatsFwdOcts OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "tmnxPortNetEgressQueueStatsFwdOcts indicates the number of forwarded
+         network egress octets on this port using this queue."
+    ::= { tmnxPortNetEgressQueueStatsEntry 3 }
+
+tmnxPortNetEgressQueueStatsDroPkts OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "tmnxPortNetEgressQueueStatsDroPkts indicates the number of dropped
+         network egress packets on this port using this queue."
+    ::= { tmnxPortNetEgressQueueStatsEntry 4 }
+
+tmnxPortNetEgressQueueStatsDroOcts OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "tmnxPortNetEgressQueueStatsDroOcts indicates the number of dropped
+         network egress octets on this port using this queue."
+    ::= { tmnxPortNetEgressQueueStatsEntry 5 }
+
+tmnxPortNetEgressQueueStatsInProfDroPkts OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "tmnxPortNetEgressQueueStatsInProfDroPkts indicates the number of dropped
+         network egress octets on this port using this in-profile queue."
+    ::= { tmnxPortNetEgressQueueStatsEntry 6 }
+
+tmnxPortNetEgressQueueStatsInProfDroOcts OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "tmnxPortNetEgressQueueStatsInProfDroOcts indicates the number of dropped
+         network egress octets on this port using this in-profile queue."
+    ::= { tmnxPortNetEgressQueueStatsEntry 7 }
+
+tmnxPortNetEgressQueueStatsOutProfDroPkts OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "tmnxPortNetEgressQueueStatsOutProfDroPkts indicates the number of dropped
+         network egress octets on this port using this out-profile queue."
+    ::= { tmnxPortNetEgressQueueStatsEntry 8 }
+
+tmnxPortNetEgressQueueStatsOutProfDroOcts OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "tmnxPortNetEgressQueueStatsOutProfDroOcts indicates the number of dropped
+         network egress octets on this port using this out-profile queue."
+    ::= { tmnxPortNetEgressQueueStatsEntry 9 }
+
+--
+-- Extensions of Tmnx DS1 Port table
+--
+aluExtTmnxDS1PortTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF AluExtTmnxDS1PortEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The aluExtTmnxDS1PortTable has an entry for a DS1 physical port."
+    ::= { tmnxSASPortObjs 9 }
+
+aluExtTmnxDS1PortEntry       OBJECT-TYPE
+    SYNTAX      AluExtTmnxDS1PortEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each row entry represents extended functionality of a physical 
+         DS1 port on Alcatel-Lucent 7210 SAS devices.  Entries cannot be 
+         created or deleted via SNMP SET operations.  Entries in this table 
+         will be created or deleted automatically when entries in the 
+         tmnxDS1PortTable are created or deleted."
+    AUGMENTS  { tmnxDS1PortEntry }
+    ::= { aluExtTmnxDS1PortTable 1 }
+
+AluExtTmnxDS1PortEntry ::=
+    SEQUENCE {
+        aluExtDS1PortLineImpedance        INTEGER
+    }
+
+aluExtDS1PortLineImpedance    OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    notApplicable     (0),
+                    impedance75Ohms   (1),
+                    impedance100Ohms  (2),
+                    impedance120Ohms  (3)
+                }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of aluExtDS1PortLineImpedance indicates the current line 
+         impedance set on the physical T1/E1 port.
+         
+         T1 Ports may only be configured to have an impedance of 100 Ohms.
+         
+         E1 Ports may be configured to have an impledance of either 75 or 
+         120 Ohms where the default impedance is 120 Ohms."
+    DEFVAL      { impedance100Ohms }
+    ::= { aluExtTmnxDS1PortEntry 1 }
+
+--
+--  Port ACR Clock Stats Table
+--
+aluPortAcrClkStatsTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF AluPortAcrClkStatsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Defines the Alcatel-Lucent SAR series port adaptive clock
+         recovery (ACR) statistics table for providing, via SNMP, the 
+         capability of retrieving statistical information relating
+         to clock that is derived from the ACR CPIPE PW."
+    ::= { tmnxSASPortObjs 10 }
+
+aluPortAcrClkStatsEntry    OBJECT-TYPE
+    SYNTAX      AluPortAcrClkStatsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Defines an entry in aluPortAcrClkStatsTable. Entries are 
+         created and deleted by the system depending port 
+         configuration."
+    INDEX   { tmnxChassisIndex, tmnxPortPortID }
+    ::= { aluPortAcrClkStatsTable 1 }
+
+AluPortAcrClkStatsEntry ::=
+    SEQUENCE {
+        aluLastUpdateTime                   TimeStamp,
+        aluTotalMinutesIn24Hour             Unsigned32,
+        aluCurrent24HourFreqOffsetMeanPpb   Integer32,
+        aluCurrent24HourFreqOffsetStdDevPpb Unsigned32,
+        aluMaxShortIntervalMinutes          Unsigned32,
+        aluTotalShortIntervalMinutes        Unsigned32,
+        aluCurrent1MinValidData              TruthValue,
+        aluCurrent1MinPhaseErrorMeanPpb      Integer32,
+        aluCurrent1MinPhaseErrorStdDevNs     Unsigned32,
+        aluCurrent1MinPhaseErrorMeanNs       Integer32,
+        aluCurrent1MinFreqOffsetMeanPpb      Integer32,
+        aluCurrent1MinFreqOffsetStdDevPpb    Unsigned32
+    }
+
+aluLastUpdateTime OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The last time the ACR statistics were updated"
+    ::= { aluPortAcrClkStatsEntry 1 }
+
+aluTotalMinutesIn24Hour OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The number of minutes in alu24HourFreqOffsetMeanPpb
+        and alu24HourFreqOffsetStdDevPpb"
+    ::= { aluPortAcrClkStatsEntry 2 }
+
+aluCurrent24HourFreqOffsetMeanPpb OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "aluCurrent24HourFreqOffsetMeanPpb indicates the mean frequency offset
+         from the local oscillator clock in parts per billion for up to the
+         last 24 hour."
+    ::= { aluPortAcrClkStatsEntry 3 }
+
+aluCurrent24HourFreqOffsetStdDevPpb OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "aluCurrent24HourFreqOffsetStdDevPpb indicates the standard deviation of the 
+         frequency offset from the local oscillator clock in parts per billion
+         for up to the last 24 hour."
+    ::= { aluPortAcrClkStatsEntry 4 }
+
+aluMaxShortIntervalMinutes OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "'aluMaxShortIntervalMinutes' the maximum number of 'aluStatsShortIntervalIndexes'."
+    ::= { aluPortAcrClkStatsEntry 5 }
+
+aluTotalShortIntervalMinutes OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "'aluTotalShortIntervalMinutes' is the number of 'aluStatsShortIntervalIndexes'
+        that have valid statistics"
+    ::= { aluPortAcrClkStatsEntry 6 }
+
+aluCurrent1MinValidData OBJECT-TYPE
+     SYNTAX TruthValue
+     MAX-ACCESS read-only
+     STATUS current
+     DESCRIPTION
+            "This variable indicates if the data for the first
+            interval is valid."
+     ::= { aluPortAcrClkStatsEntry 7 }
+
+aluCurrent1MinPhaseErrorMeanPpb OBJECT-TYPE
+     SYNTAX  Integer32
+     MAX-ACCESS  read-only
+     STATUS  current
+     DESCRIPTION
+            "The mean phase error from the local oscillator clock 
+            in parts per billion during the first interval."
+     ::= { aluPortAcrClkStatsEntry 8 }
+
+aluCurrent1MinPhaseErrorStdDevNs OBJECT-TYPE
+     SYNTAX  Unsigned32
+     MAX-ACCESS  read-only
+     STATUS  current
+     DESCRIPTION
+            "The standard deviation of the phase error from the local
+            oscillator clock in nano seconds during the first interval."
+     ::= { aluPortAcrClkStatsEntry 9 }
+
+aluCurrent1MinPhaseErrorMeanNs OBJECT-TYPE
+     SYNTAX  Integer32
+     MAX-ACCESS  read-only
+     STATUS  current
+     DESCRIPTION
+            "The mean of the phase error from the local 
+            oscillator clock in nano seconds during the first interval."
+     ::= { aluPortAcrClkStatsEntry 10 }
+
+aluCurrent1MinFreqOffsetMeanPpb OBJECT-TYPE
+     SYNTAX  Integer32
+     MAX-ACCESS  read-only
+     STATUS  current
+     DESCRIPTION
+            "The mean frequency offset from the local oscillator clock
+            in parts per billion during the first interval."
+     ::= { aluPortAcrClkStatsEntry 11 }
+
+aluCurrent1MinFreqOffsetStdDevPpb OBJECT-TYPE
+     SYNTAX  Unsigned32
+     MAX-ACCESS  read-only
+     STATUS  current
+     DESCRIPTION
+            "The standard deviation of the frequency offset from the
+            local oscillator clock in nano seconds during the first interval."
+     ::= { aluPortAcrClkStatsEntry 12 }
+
+--
+--  Port ACR Clock Stats Short Interval Table
+--
+aluPortAcrClkStatsShortIntervalTable OBJECT-TYPE
+     SYNTAX  SEQUENCE OF AluPortAcrClkStatsShortIntervalEntry
+     MAX-ACCESS  not-accessible
+     STATUS  current
+     DESCRIPTION
+            "The Port ACR Clock Interval Table contains various
+            statistics collected by each adaptively timed port
+            over the previous 15 minutes. The past 15 minutes are
+            broken into 15 1 minute intervals.  Each 
+            row in this table represents one such interval 
+            (identified by aluAcrClkIntervalNumber)."
+     ::= { tmnxSASPortObjs 11 }
+
+aluPortAcrClkStatsShortIntervalEntry OBJECT-TYPE
+     SYNTAX  AluPortAcrClkStatsShortIntervalEntry
+     MAX-ACCESS  not-accessible
+     STATUS  current
+     DESCRIPTION
+            "An entry in the Port ACR Clock Interval table."
+    INDEX   { tmnxChassisIndex, tmnxPortPortID, aluIntervalNumber}
+     ::= { aluPortAcrClkStatsShortIntervalTable 1 }
+
+AluPortAcrClkStatsShortIntervalEntry ::=
+     SEQUENCE {
+         aluIntervalNumber              INTEGER,
+         aluIntervalValidData           TruthValue,
+         aluIntervalUpdateTime          TimeStamp,
+         aluIntervalPhaseErrorMeanPpb   Integer32,
+         aluIntervalPhaseErrorStdDevNs  Unsigned32,
+         aluIntervalPhaseErrorMeanNs    Integer32,
+         aluIntervalFreqOffsetMeanPpb   Integer32,
+         aluIntervalFreqOffsetStdDevPpb Unsigned32
+}
+
+aluIntervalNumber OBJECT-TYPE
+     SYNTAX  INTEGER (1..15)
+     MAX-ACCESS  read-only
+     STATUS  current
+     DESCRIPTION
+            "A number between 1 and 15, where 1 is the most
+            recently completed 1 minute interval and 15 is
+            the 1 minutes interval completed 14 minutes prior 
+            to interval 1."
+     ::= { aluPortAcrClkStatsShortIntervalEntry 1 }
+
+aluIntervalValidData OBJECT-TYPE
+     SYNTAX TruthValue
+     MAX-ACCESS read-only
+     STATUS current
+     DESCRIPTION
+            "This variable indicates if the data for this
+            interval is valid."
+     ::= { aluPortAcrClkStatsShortIntervalEntry 2 }
+
+aluIntervalUpdateTime OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The update time of the ACR interval statistics"
+    ::= { aluPortAcrClkStatsShortIntervalEntry 3 }
+
+aluIntervalPhaseErrorMeanPpb OBJECT-TYPE
+     SYNTAX  Integer32
+     MAX-ACCESS  read-only
+     STATUS  current
+     DESCRIPTION
+            "The mean phase error from the local oscillator clock 
+            in parts per billion during the interval."
+     ::= { aluPortAcrClkStatsShortIntervalEntry 4 }
+
+aluIntervalPhaseErrorStdDevNs OBJECT-TYPE
+     SYNTAX  Unsigned32
+     MAX-ACCESS  read-only
+     STATUS  current
+     DESCRIPTION
+            "The standard deviation of the phase error from the local
+            oscillator clock in nano seconds during the interval."
+     ::= { aluPortAcrClkStatsShortIntervalEntry 5 }
+
+aluIntervalPhaseErrorMeanNs OBJECT-TYPE
+     SYNTAX  Integer32
+     MAX-ACCESS  read-only
+     STATUS  current
+     DESCRIPTION
+            "The mean of the phase error from the local 
+            oscillator clock in nano seconds during the interval."
+     ::= { aluPortAcrClkStatsShortIntervalEntry 6 }
+
+aluIntervalFreqOffsetMeanPpb OBJECT-TYPE
+     SYNTAX  Integer32
+     MAX-ACCESS  read-only
+     STATUS  current
+     DESCRIPTION
+            "The mean frequency offset from the local oscillator clock
+            in parts per billion during the interval."
+     ::= { aluPortAcrClkStatsShortIntervalEntry 7 }
+
+aluIntervalFreqOffsetStdDevPpb OBJECT-TYPE
+     SYNTAX  Unsigned32
+     MAX-ACCESS  read-only
+     STATUS  current
+     DESCRIPTION
+            "The standard deviation of the frequency offset from the
+            local oscillator clock in nano seconds during the interval."
+     ::= { aluPortAcrClkStatsShortIntervalEntry 8 }
+
+--
+-- ALU Extensions of Tmnx DS1 table
+--
+aluExtTmnxDS1Table OBJECT-TYPE
+    SYNTAX      SEQUENCE OF AluExtTmnxDS1Entry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The aluExtTmnxDS1Table has an entry for a DS1 physical port or channel."
+    ::= { tmnxSASPortObjs 12 }
+
+aluExtTmnxDS1Entry       OBJECT-TYPE
+    SYNTAX      AluExtTmnxDS1Entry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each row entry represents extended functionality of a DS1 physical 
+         port or channel on Alcatel-Lucent 7210 SAS devices.  Entries cannot be 
+         created or deleted via SNMP SET operations.  Entries in this table 
+         will be created or deleted automatically when entries in the 
+         tmnxDS1Table are created or deleted."
+    AUGMENTS  { tmnxDS1Entry }
+    ::= { aluExtTmnxDS1Table 1 }
+
+AluExtTmnxDS1Entry ::=
+    SEQUENCE {
+                aluExtDS1SignalBitsState     OCTET STRING
+    }
+
+aluExtDS1SignalBitsState OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(64))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "aluExtDS1SignalBitsState is an array of bytes used to indicate the
+         current state of the ABCD signalling bits for all timeslots of a
+         DS1/E1.
+
+         The first half of the array or the 32 most significant bytes describe
+         the RX ABCD bits. The other half describes the TX ABCD bits.
+
+         In each half of the array, every byte represents a particular timeslot.
+         The most significant byte represents timeslot 1. The least significant
+         byte represents timeslot 32.
+
+         The byte arrangement is as follows:
+
+         array index: |  0  1 ... 30 31 | 32 33 ... 62 63 |
+         timeslot:    |  1  2 ... 31 32 |  1  2 ... 31 32 |
+                      | <---- RX -----> | <---- TX -----> |
+
+         Each byte carries ABCD bits in the least significant nibble. The
+         byte's most significant bit indicates the validity of the ABCD bits.
+
+         The bit arrangement is as follows:
+
+         bit pos:    | 7 6 5 4 3 2 1 0 |
+                     | V x x x A B C D |
+
+         'V' - validity (0 = invalid, 1 = valid)
+         'x' - don't care
+
+         ABCD bits are marked invalid for a variety of situations (eg.
+         tmnxDS1SignalMode not configured for CAS, timeslot(s) not configured
+         as part of a channel-group, DS1/E1 status not up, etc.).
+
+         For CAS DS1 SF, only the AB signalling bits are supported. The remaining
+         2 least significant bits in the nibble are undefined.
+         "
+    ::= { aluExtTmnxDS1Entry 3 }
+
+--
+-- ALU Extensions of pethPsePortTable
+--
+aluExtPethPsePortTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF AluExtPethPsePortEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The aluExtPethPsePortTable has an entry for a table of objects 
+        that display and control the power characteristics of power Ethernet 
+        ports on a Power Source Entity (PSE) device."
+    ::= { tmnxSASPortObjs 13 }
+
+aluExtPethPsePortEntry  OBJECT-TYPE
+    SYNTAX      AluExtPethPsePortEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each row entry represents the extended functionality of a power Ethernet 
+        port"
+    AUGMENTS  { pethPsePortEntry }
+    ::= { aluExtPethPsePortTable 1 }
+
+AluExtPethPsePortEntry ::=
+    SEQUENCE {
+        aluExtPethPsePortFaultReason INTEGER,
+        aluExtPethPsePortPowerLevel INTEGER,
+        aluExtPethPsePortOperStatus INTEGER
+    }
+
+aluExtPethPsePortFaultReason OBJECT-TYPE
+    SYNTAX INTEGER   {
+             none   (1),
+             dcp    (2),
+             hicap  (3),
+             rlow   (4),
+             detok  (5),
+             rhigh  (6),
+             open   (7),
+             dcn    (8),
+             tstart (9),
+             icv    (10),
+             tcut   (11),
+             dis    (12),
+             sup    (13),
+             pdeny  (14)
+          }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Reason for a detection status failure:
+          none   (1)
+          dcp    (2) - Positive DC supply connected at the port
+          hicap  (3) - High Capacitance at the port
+          rlow   (4) - Low Resistance at the port
+          detok  (5) - detection ok
+          rhigh  (6) - High resistance at the port
+          open   (7) - open circuit
+          dcn    (8) - Low impedence to Vee at the port
+          tstart (9) - Startup failure at the port
+          icv   (10) - Current limit disconnect timeout at the port
+          tcut  (11) - Overcurrent and current limit violation at the port
+          dis   (12) - DC load disconnect
+          sup   (13) - Supply fault at the PSE device
+          pdeny (14) - Power Denied"
+    DEFVAL      { none }
+    ::= { aluExtPethPsePortEntry 1 }
+
+    
+aluExtPethPsePortPowerLevel OBJECT-TYPE
+    SYNTAX INTEGER   {
+               none     (1),
+               standard (2),
+               plus     (3)
+          }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "none     (1) The interface does not provide the PoE function.
+         standard (2) The interface provides the standard PoE power level.
+         plus     (3) The interface provides the higher power 'Poe Plus' PSE function"
+    DEFVAL      { none }
+    ::= { aluExtPethPsePortEntry 2 }
+
+aluExtPethPsePortOperStatus OBJECT-TYPE
+    SYNTAX INTEGER   {
+               notApplicable    (1),
+               on               (2),
+               off              (3)
+          }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The operational status of the port PSE."
+    DEFVAL      { off }
+    ::= { aluExtPethPsePortEntry 3 }
+
+pethPsePortEventInfo OBJECT-TYPE
+    SYNTAX OCTET STRING
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The operational status of the port PSE."
+    ::= { tmnxSASPortObjs 14 }
+
+
+--
+-- Virtual port table for loopback
+--
+
+tmnxVirtualPortTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxVirtualPortEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The port table has an entry for each virtual port"
+    ::= { tmnxSASPortObjs 15 }
+
+
+tmnxVirtualPortEntry       OBJECT-TYPE
+    SYNTAX      TmnxVirtualPortEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each row entry represents a virtual port"
+    INDEX   { tmnxChassisIndex,tmnxVirtualPortPortID }
+    ::= { tmnxVirtualPortTable 1 }
+
+TmnxVirtualPortEntry ::=
+    SEQUENCE {
+        tmnxVirtualPortPortID                    TmnxPortID,
+        tmnxVirtualPortInUse                     INTEGER,
+        tmnxVirtualPortSpeed                     INTEGER
+ }
+
+tmnxVirtualPortPortID   OBJECT-TYPE
+    SYNTAX      TmnxPortID
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "tmnxVirtualPortPortID is an index into this table"
+    ::= { tmnxVirtualPortEntry 1 }
+
+tmnxVirtualPortInUse    OBJECT-TYPE
+    SYNTAX        INTEGER {
+                        not-in-use (1), 
+                        mirror  (2), 
+                        macswap (3),
+                        testhead (4)
+                        }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "tmnxVirtualPortInUse describes whether the virtual port is used by an application or not."
+    ::= { tmnxVirtualPortEntry 2 }
+    
+tmnxVirtualPortSpeed    OBJECT-TYPE
+    SYNTAX        INTEGER {
+                         one-gig  (1),
+                         ten-gig  (2)
+                        }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "tmnxVirtualPortSpeed describes the speed of the virtual ports."
+    ::= { tmnxVirtualPortEntry 3 }
+
+--
+-- NOTIFICATIONS
+--
+
+aluExtPethPsePortStatusChange NOTIFICATION-TYPE
+        OBJECTS {
+            pethPsePortDetectionStatus,
+            pethPsePortPowerClassifications,
+            aluExtPethPsePortFaultReason,
+            aluExtPethPsePortOperStatus,
+            tmnxPortNotifyPortId
+        }
+        STATUS  current
+        DESCRIPTION
+            "Generated when there is a change in Power Classification, 
+            Detection Status, Fault Reason, or Oper Status on a PoE port."
+        ::= { tmnxSASPortNotificationObjects 1 }
+ 
+
+--
+-- Conformance Information
+--
+
+tmnxSASPortCompliances OBJECT IDENTIFIER ::= { tmnxSASPortConformance 1 }
+tmnxSASPortGroups      OBJECT IDENTIFIER ::= { tmnxSASPortConformance 2 }
+
+tmnxSASPortV1v0Group OBJECT-GROUP
+    OBJECTS    {
+        tmnxPortUplinkMode,
+        tmnxPortAccessEgressQoSPolicyId,
+        tmnxPortNetworkQoSPolicyId,
+        tmnxPortShgName,
+        portShgRowStatus,
+        portShgInstanceId,
+        portShgDescription,   
+        portShgLastMgmtChange,
+        tmnxSASPortNetIngressFwdInProfPkts,  
+        tmnxSASPortNetIngressFwdOutProfPkts, 
+        tmnxSASPortNetIngressFwdInProfOcts,  
+        tmnxSASPortNetIngressFwdOutProfOcts,
+        tmnxPortEtherEgressMaxBurst,
+        tmnxPortStatsQueue1PktsFwd,
+        tmnxPortStatsQueue2PktsFwd,
+        tmnxPortStatsQueue3PktsFwd,
+        tmnxPortStatsQueue4PktsFwd,
+        tmnxPortStatsQueue5PktsFwd,
+        tmnxPortStatsQueue6PktsFwd,
+        tmnxPortStatsQueue7PktsFwd,
+        tmnxPortStatsQueue8PktsFwd,
+        tmnxPortEtherLoopback
+} 
+       STATUS current
+       DESCRIPTION 
+           " sas group object definition "
+       ::= { tmnxSASPortGroups 1 }
+
+tmnxSASPortV1v1Group OBJECT-GROUP
+    OBJECTS    {
+        tmnxPortAccessEgressQueueStatsFwdPkts,
+        tmnxPortAccessEgressQueueStatsFwdOcts,
+        tmnxPortAccessEgressQueueStatsDroPkts,
+        tmnxPortAccessEgressQueueStatsDroOcts,
+        tmnxPortNetEgressQueueStatsFwdPkts,
+        tmnxPortNetEgressQueueStatsFwdOcts,
+        tmnxPortNetEgressQueueStatsDroPkts,
+        tmnxPortNetEgressQueueStatsDroOcts,
+        tmnxPortNetEgressQueueStatsInProfDroPkts,
+        tmnxPortNetEgressQueueStatsInProfDroOcts,
+        tmnxPortNetEgressQueueStatsOutProfDroPkts,
+        tmnxPortNetEgressQueueStatsOutProfDroOcts
+   }
+       STATUS current
+       DESCRIPTION
+           " sas group object definition "
+       ::= { tmnxSASPortGroups 2 }
+
+tmnxSASPortV2v0Group OBJECT-GROUP
+    OBJECTS    {
+        aluExtDS1PortLineImpedance,
+        tmnxPortEtherEgrSchedMode
+   } 
+       STATUS current
+       DESCRIPTION 
+           " SAS group object definitions for 2.0 release"
+       ::= { tmnxSASPortGroups 3 }
+
+tmnxSASPortV3v0Group OBJECT-GROUP
+    OBJECTS    {
+        tmnxPortEtherClockConfig
+   } 
+       STATUS current
+       DESCRIPTION 
+           " SAS group object definitions for 3.0 release"
+       ::= { tmnxSASPortGroups 6 }
+
+aluPortAcrClkStatsGroup     OBJECT-GROUP
+    OBJECTS {
+                aluLastUpdateTime,
+                aluTotalMinutesIn24Hour,
+                aluCurrent24HourFreqOffsetMeanPpb,
+                aluCurrent24HourFreqOffsetStdDevPpb,
+                aluMaxShortIntervalMinutes,
+                aluTotalShortIntervalMinutes,
+                aluCurrent1MinValidData,
+                aluCurrent1MinPhaseErrorMeanPpb,
+                aluCurrent1MinPhaseErrorStdDevNs,
+                aluCurrent1MinPhaseErrorMeanNs,
+                aluCurrent1MinFreqOffsetMeanPpb,
+                aluCurrent1MinFreqOffsetStdDevPpb,
+                aluIntervalNumber,
+                aluIntervalValidData,
+                aluIntervalUpdateTime,
+                aluIntervalPhaseErrorMeanPpb,
+                aluIntervalPhaseErrorStdDevNs,
+                aluIntervalPhaseErrorMeanNs,
+                aluIntervalFreqOffsetMeanPpb,
+                aluIntervalFreqOffsetStdDevPpb
+            }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects supporting retrieval of the ACR clock statistic
+        on Alcatel-Lucent SAR series systems"
+    ::= { tmnxSASPortGroups 4 }
+
+tmnxSASPortV4v0Group OBJECT-GROUP
+    OBJECTS    {
+        tmnxPortAccessEgressQueueStatsFwdPkts,
+        tmnxPortAccessEgressQueueStatsFwdOcts,
+        tmnxPortAccessEgressQueueStatsDroPkts,
+        tmnxPortAccessEgressQueueStatsDroOcts,
+        tmnxPortNetEgressQueueStatsFwdPkts,
+        tmnxPortNetEgressQueueStatsFwdOcts,
+        tmnxPortNetEgressQueueStatsDroPkts,
+        tmnxPortNetEgressQueueStatsDroOcts,
+        tmnxPortNetEgressQueueStatsInProfDroPkts,
+        tmnxPortNetEgressQueueStatsInProfDroOcts,
+        tmnxPortNetEgressQueueStatsOutProfDroPkts,
+        tmnxPortNetEgressQueueStatsOutProfDroOcts,
+        tmnxPortEtherIpMTU,
+        tmnxPortEtherClockConfig,
+        tmnxPortLoopbckServId,
+        tmnxPortLoopbckSapPortId,   
+        tmnxPortLoopbckSapEncapVal, 
+        tmnxPortLoopbckSrcMacAddr,  
+        tmnxPortLoopbckDstMacAddr,
+        tmnxPortAccEgrSapQosMarking
+   }
+       STATUS current
+       DESCRIPTION
+           " sas group object definition "
+       ::= { tmnxSASPortGroups 5 }
+    
+tmnxSASPortV5v0Group OBJECT-GROUP
+    OBJECTS    {
+        tmnxPortLldpTnlNrstBrdgeDstMac
+   }
+       STATUS current
+       DESCRIPTION
+           " sas 5.0 release, group object definition "
+       ::= { tmnxSASPortGroups 7 }
+
+tmnxSASPortV6v0Group OBJECT-GROUP
+    OBJECTS    {
+         tmnxPortEtherNwAggRateLimit
+   }
+       STATUS current
+       DESCRIPTION
+           " sas 6.0 release, group object definition "
+       ::= { tmnxSASPortGroups 8 }
+       
+-- 
+-- 
+
+END

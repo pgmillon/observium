@@ -2,12 +2,12 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -102,7 +102,7 @@ if ($_SESSION['userlevel'] == 10) // Admin page only
         <table class="table table-rounded table-bordered table-striped">
         <tr><th>Graph Type</th><th style="width: 80px;">Has File</th><th style="width: 80px;">Has Array</th><th style="width: 80px;">Enabled</th></tr>
 <?php
-  foreach (dbFetchRows("SELECT * FROM `device_graphs` WHERE `device_id` = ? ORDER BY `graph`", array($device['device_id'])) as $graph_entry)
+  foreach ($device['graphs'] as $graph_entry)
   {
     echo('<tr><td>'.$graph_entry['graph'].'</td>');
 
@@ -118,10 +118,8 @@ if ($_SESSION['userlevel'] == 10) // Admin page only
     echo('<td>'.print_r($config['graph_types']['device'][$graph_entry['graph']], TRUE).'</td>');
 
     echo('</tr>');
-
   }
 ?>
-
         </table>
       </div>
     <div class="well info_box">

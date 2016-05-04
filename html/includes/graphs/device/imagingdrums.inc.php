@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -30,7 +30,7 @@ foreach ($drums as $drum => $letter)
   $descr = rrdtool_escape("$drum Drum",16);
   $colour = toner2colour($descr);
 
-  $hostname = gethostbyid($device['device_id']);
+  $hostname = get_device_by_device_id($device['device_id']);
 
   $rrd_filename = get_rrd_path($device, "drum-$letter.rrd");
 

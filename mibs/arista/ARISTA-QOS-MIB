@@ -1,0 +1,585 @@
+-- ARISTA-QOS-MIB: Arista MIB module for QoS information
+-- Copyright (c) 2013 Arista Networks, Inc.  All rights reserved.
+
+ARISTA-QOS-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-COMPLIANCE, OBJECT-GROUP      FROM SNMPv2-CONF
+    MODULE-IDENTITY, OBJECT-TYPE,
+    Integer32, Counter64                 FROM SNMPv2-SMI
+    TEXTUAL-CONVENTION, DisplayString    FROM SNMPv2-TC
+    aristaMibs                           FROM ARISTA-SMI-MIB
+    InterfaceIndex                       FROM IF-MIB;
+
+aristaQosMib MODULE-IDENTITY
+    LAST-UPDATED "201408150000Z"
+    ORGANIZATION "Arista Networks, Inc."
+    CONTACT-INFO
+        "Arista Networks, Inc.
+
+         Postal: 5453 Great America Parkway
+                 Santa Clara, CA 95054
+
+         Tel: +1 408 547-5500
+
+         E-mail: snmp@arista.com"
+    DESCRIPTION
+	"**********************************
+                    Overview
+         **********************************
+         This MIB provides read access to Quality of Service (QoS) 
+         configuration and statistics information for Arista 
+         platforms.
+ 
+         Configuration information available through this MIB includes
+	 all class-map, policy-map, and service-policy parameters.  The
+	 definitions of these object types are given below.
+  
+         Statistics available through this MIB include dropped, sent and
+         matched packet counters per traffic class after any configured
+         QoS policies are applied.  
+
+	 **********************************
+                    Definitions
+         **********************************
+	 Class map - A data structure that uses access-control lists
+	 to define a data stream.
+	 
+	 Policy map - A data structure that associates class maps identifying 
+	 specific data streams with actions that control its transmission.
+
+	 Action - A traffic-management action that is applied to traffic
+	 classified as belonging to a particular class. Actions may include
+	 modifying CoS or DSCP fields, assigning to traffic-class queues,
+	 shaping, or filtering."
+
+    REVISION      "201408150000Z"
+    DESCRIPTION   "Updated postal address."
+
+    REVISION      "201405220000Z"
+    DESCRIPTION   "Updated the upper limit for aristaPolicyMapClassIndex."
+
+    REVISION      "201306010000Z"
+    DESCRIPTION   "Initial version of this MIB module."
+
+    ::= { aristaMibs 13 }
+
+AristaQosMapType ::= TEXTUAL-CONVENTION
+    STATUS          current
+    DESCRIPTION
+        "The type of a class or policy map.
+
+         controlPlane 
+           - The map is applicable only on the control plane of the device.
+         dataPlane
+           - The map is applicable only on the data plane of the device."
+    SYNTAX      INTEGER  {
+                   controlPlane(1),
+                   dataPlane(2)
+                }
+
+AristaQosShortId ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT    "255a"
+    STATUS          current
+    DESCRIPTION
+        "Identifier with bounded length, derived from a name that may be
+	 longer.  It includes the first 30 characters of the name.  If
+	 the name is longer than 30 characters, the identifier contains
+	 a hash of the remaining characters in the name, expressed as
+	 decimal digits.
+	 
+	 For example:
+	   - name 'one-two-three':
+	        identifier 'one-two-three'
+	   - name 'one-two-three-four-five-six-seven':
+	        identifier 'one-two-three-four-five-six-se3877954092'"
+    -- Ideally this syntax would be DisplayString (SIZE (1..40)),
+    -- but textual conventions cannot be derived from other textual
+    -- conventions.
+    SYNTAX      OCTET STRING (SIZE (1..40))
+
+aristaQosMibObjects OBJECT IDENTIFIER
+    ::= { aristaQosMib 1 }
+
+aristaQosMibConformance OBJECT IDENTIFIER
+    ::= { aristaQosMib 2 }
+
+-- Start of aristaClassMapTable
+
+aristaClassMapTable  OBJECT-TYPE
+    SYNTAX          SEQUENCE OF AristaClassMapEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     
+	"Lists the class maps configured on the system."
+    ::= { aristaQosMibObjects 1 }
+
+aristaClassMapEntry  OBJECT-TYPE
+    SYNTAX          AristaClassMapEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "A conceptual row in aristaClassMapTable."
+    INDEX           { aristaClassMapId, aristaClassMapType }
+    ::= { aristaClassMapTable 1 }
+
+AristaClassMapEntry ::= SEQUENCE {
+    aristaClassMapId              AristaQosShortId,
+    aristaClassMapType            AristaQosMapType,
+    aristaClassMapName            DisplayString,
+    aristaClassMapMatchCondition  INTEGER
+}
+
+aristaClassMapId  OBJECT-TYPE
+    SYNTAX          AristaQosShortId
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "Bounded-length identifier for a given class map, derived from
+	 the class map's name."
+    ::= { aristaClassMapEntry 1 }
+
+aristaClassMapType  OBJECT-TYPE
+    SYNTAX          AristaQosMapType
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "Type of a given class map."
+    ::= { aristaClassMapEntry 2 }
+
+aristaClassMapName  OBJECT-TYPE
+    SYNTAX          DisplayString (SIZE (0..255))
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "Name of a given class map."
+    ::= { aristaClassMapEntry 3 }
+
+aristaClassMapMatchCondition  OBJECT-TYPE
+    SYNTAX          INTEGER {
+                       matchConditionAny(1),
+                       matchConditionAll(2)
+		    }
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "Indicates how many match criteria traffic must match in order to
+ 	 belong to a class with multiple match critera."
+    ::= { aristaClassMapEntry 4 }
+
+-- Start of aristaClassMapMatchTable
+
+aristaClassMapMatchTable  OBJECT-TYPE
+    SYNTAX          SEQUENCE OF AristaClassMapMatchEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     
+	"Describes the match criteria used to classify traffic as belonging
+         to a class map."
+    ::= { aristaQosMibObjects 2 }
+
+aristaClassMapMatchEntry  OBJECT-TYPE
+    SYNTAX          AristaClassMapMatchEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "A conceptual row in the aristaClassMapMatchTable."
+    INDEX           { aristaClassMapId, aristaClassMapType, 
+                      aristaClassMapMatchIndex }
+    ::= { aristaClassMapMatchTable 1 }
+
+AristaClassMapMatchEntry ::= SEQUENCE {
+    aristaClassMapMatchIndex      Integer32,
+    aristaClassMapMatchType       INTEGER,
+    aristaClassMapMatchName       DisplayString
+}
+
+aristaClassMapMatchIndex  OBJECT-TYPE
+    SYNTAX          Integer32 (1..255)
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This index identifies the position of a match criterion among all the
+	 criteria for a class map."
+    ::= { aristaClassMapMatchEntry 1 }
+
+aristaClassMapMatchType  OBJECT-TYPE
+    SYNTAX          INTEGER {
+    	               ipv4AccessGroup(1),
+	               ipv6AccessGroup(2)
+		    }
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+	"Indicates whether a match criterion of a class map is an IPv4 or an
+	 IPv6 access-control list."
+    ::= { aristaClassMapMatchEntry 2 }
+
+aristaClassMapMatchName  OBJECT-TYPE
+    SYNTAX          DisplayString (SIZE (0..100))
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The name of the access-control list for a match criterion."
+    ::= { aristaClassMapMatchEntry 3 }
+
+-- Start of aristaPolicyMapTable
+
+aristaPolicyMapTable  OBJECT-TYPE
+    SYNTAX          SEQUENCE OF AristaPolicyMapEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     
+        "Lists the policy maps configured on the system."
+    ::= { aristaQosMibObjects 3 }
+
+aristaPolicyMapEntry  OBJECT-TYPE
+    SYNTAX          AristaPolicyMapEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     
+        "A conceptual row in aristaPolicyMapTable."
+    INDEX           { aristaPolicyMapId, aristaPolicyMapType }
+    ::= { aristaPolicyMapTable 1 }
+
+AristaPolicyMapEntry ::= SEQUENCE {
+    aristaPolicyMapId            AristaQosShortId,
+    aristaPolicyMapType          AristaQosMapType,
+    aristaPolicyMapName          DisplayString
+}
+
+aristaPolicyMapId  OBJECT-TYPE
+    SYNTAX          AristaQosShortId
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "Bounded-length identifier for a given policy map, derived from
+	 the policy map's name."
+    ::= { aristaPolicyMapEntry 1 }
+
+aristaPolicyMapType  OBJECT-TYPE
+    SYNTAX          AristaQosMapType
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "Type of a given policy map."
+    ::= { aristaPolicyMapEntry 2 }
+
+aristaPolicyMapName  OBJECT-TYPE
+    SYNTAX          DisplayString (SIZE (0..255))
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "Name of a given policy map."
+    ::= { aristaPolicyMapEntry 3 }
+
+-- Start of aristaPolicyMapClassTable
+
+aristaPolicyMapClassTable  OBJECT-TYPE
+    SYNTAX          SEQUENCE OF AristaPolicyMapClassEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     
+        "Lists the classes associated with a given policy map." 
+    ::= { aristaQosMibObjects 4 }
+
+aristaPolicyMapClassEntry  OBJECT-TYPE
+    SYNTAX          AristaPolicyMapClassEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "A conceptual row in aristaPolicyMapClassTable."
+    INDEX           { aristaPolicyMapId, aristaPolicyMapType, 
+                      aristaPolicyMapClassIndex }
+    ::= { aristaPolicyMapClassTable 1 }
+
+AristaPolicyMapClassEntry ::= SEQUENCE {
+    aristaPolicyMapClassIndex    Integer32,
+    aristaPolicyMapClassId       AristaQosShortId
+}
+
+aristaPolicyMapClassIndex  OBJECT-TYPE
+    SYNTAX          Integer32 (1..2147483647)
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "Determines the sequence in which traffic is matched
+         to classes within a policy map. The class with the smallest
+         aristaPolicyMapClassIndex is given the first preference.
+         Class Index values may not be consecutive."
+    ::= { aristaPolicyMapClassEntry 1 }
+
+aristaPolicyMapClassId  OBJECT-TYPE
+    SYNTAX          AristaQosShortId
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "Identifier of the class map for a given class in a policy map."
+    ::= { aristaPolicyMapClassEntry 2 }
+
+-- Start of aristaPolicyMapActionTable
+
+aristaPolicyMapActionTable  OBJECT-TYPE
+    SYNTAX          SEQUENCE OF AristaPolicyMapActionEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     
+        "Lists the actions that are applied to traffic classified
+	 as belonging to a particular class in a policy map."
+    ::= { aristaQosMibObjects 5 }
+
+aristaPolicyMapActionEntry  OBJECT-TYPE
+    SYNTAX          AristaPolicyMapActionEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "A conceptual row in the aristaPolicyMapActionTable."
+    INDEX           { aristaPolicyMapId, aristaPolicyMapType, 
+                      aristaClassMapId, aristaPolicyMapActionType }
+    ::= { aristaPolicyMapActionTable 1 }
+
+AristaPolicyMapActionEntry ::= SEQUENCE {
+    aristaPolicyMapActionType        INTEGER,
+    aristaPolicyMapActionRateUnit    INTEGER,
+    aristaPolicyMapActionValue       Integer32
+}
+
+aristaPolicyMapActionType  OBJECT-TYPE
+    SYNTAX          INTEGER {
+    	               actionSetShape(1),
+	               actionSetBandwidth(2),
+	               actionSetCos(3),
+	               actionSetDscp(4),
+	               actionSetTc(5)
+                    }
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "Type of a traffic-management action.
+         For example: If the action is 'set cos 5', then
+         the action type is 'actionSetCos'."
+    ::= { aristaPolicyMapActionEntry 1 }
+
+aristaPolicyMapActionRateUnit  OBJECT-TYPE
+    SYNTAX          INTEGER {
+                       rateUnitNone(0),
+                       rateUnitPps(1),
+                       rateUnitKbps(2)
+                    }
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "Indicates the rate unit of shaping/bandwidth actions.
+
+	 rateUnitNone
+	   - This action is not a shaping or bandwidth action.
+         rateUnitPps
+	   - Packets per second
+         rateUnitKbps
+	   - Kilobits per second"
+    ::= { aristaPolicyMapActionEntry 2 }
+
+aristaPolicyMapActionValue  OBJECT-TYPE
+    SYNTAX          Integer32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "Value applied in a traffic-management action.
+	 For example: If the action is 'set cos 5', then
+	 aristaPolicyMapActionValue is 5."
+    ::= { aristaPolicyMapActionEntry 3 }
+
+-- Start of aristaServicePolicyTable
+
+aristaServicePolicyTable  OBJECT-TYPE
+    SYNTAX          SEQUENCE OF AristaServicePolicyEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     
+        "Lists the policy maps currently applied to interfaces."
+    ::= { aristaQosMibObjects 6 }
+
+aristaServicePolicyEntry  OBJECT-TYPE
+    SYNTAX          AristaServicePolicyEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "A conceptual row in the aristaServicePolicyTable."
+    INDEX           { aristaServicePolicyIfIndex, aristaServicePolicyDirection }
+    ::= { aristaServicePolicyTable 1 }
+
+AristaServicePolicyEntry ::= SEQUENCE {
+    aristaServicePolicyIfIndex   InterfaceIndex,
+    aristaServicePolicyDirection INTEGER,
+    aristaServicePolicyMapId     AristaQosShortId,
+    aristaServicePolicyMapType   AristaQosMapType
+}
+
+aristaServicePolicyIfIndex  OBJECT-TYPE
+    SYNTAX          InterfaceIndex
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "The index of interface to which a policy map is applied."
+    REFERENCE       "RFC 2863, ifIndex"
+    ::= { aristaServicePolicyEntry 1 }
+
+aristaServicePolicyDirection  OBJECT-TYPE
+    SYNTAX          INTEGER {
+                       input(1),
+		       output(2)
+		    }
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "The direction of traffic for which the service policy applies.
+	
+	 input
+           - The service policy applies to inbound traffic.
+         output
+	   - The service policy applies to outbound traffic."
+    ::= { aristaServicePolicyEntry 2 }
+
+aristaServicePolicyMapId  OBJECT-TYPE
+    SYNTAX          AristaQosShortId
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "Identifier of the policy map applied to the interface."
+    ::= { aristaServicePolicyEntry 3 }
+
+aristaServicePolicyMapType  OBJECT-TYPE
+    SYNTAX          AristaQosMapType
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "Type of the policy map applied to the interface."
+    ::= { aristaServicePolicyEntry 4 }
+
+-- Start of aristaQosStatsTable
+
+aristaQosStatsTable  OBJECT-TYPE
+    SYNTAX          SEQUENCE OF AristaQosStatsEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     
+	"An entry in this table contains dropped, sent and matched packet
+         counters for a given class of a policy map applied in a given direction.
+	 Counts are aggregated for all interfaces."
+    ::= { aristaQosMibObjects 7 }
+
+aristaQosStatsEntry  OBJECT-TYPE
+    SYNTAX          AristaQosStatsEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION         
+        "A conceptual row in the aristaQosStatsTable."
+    INDEX           { aristaPolicyMapId, aristaPolicyMapType,
+                      aristaClassMapId, aristaServicePolicyDirection }
+    ::= { aristaQosStatsTable 1 }
+
+AristaQosStatsEntry ::= SEQUENCE {
+    aristaQosPktsDropped            Counter64,
+    aristaQosPktsSent               Counter64,
+    aristaQosPktsMatched            Counter64
+}
+
+aristaQosPktsDropped  OBJECT-TYPE
+    SYNTAX          Counter64
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The number of packets dropped by a service policy.
+         This number is zero for classes of type dataPlane."
+    ::= { aristaQosStatsEntry 1 }
+
+aristaQosPktsSent  OBJECT-TYPE
+    SYNTAX          Counter64
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The number of packets classified by a service policy and allowed
+	through."
+    ::= { aristaQosStatsEntry 2 }
+
+aristaQosPktsMatched  OBJECT-TYPE
+    SYNTAX          Counter64
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The number of packets classified by a service policy.
+         Equal to the sum of aristaQosPktsDropped and aristaQosPktsSent."
+    ::= { aristaQosStatsEntry 3 }
+
+-- Compliance, MIB groups
+
+aristaQosMibCompliances OBJECT IDENTIFIER
+   ::= { aristaQosMibConformance 1 }
+
+aristaQosMibGroups OBJECT IDENTIFIER 
+    ::= { aristaQosMibConformance 2 }
+
+aristaQosMibCompliance  MODULE-COMPLIANCE
+    STATUS          current
+    DESCRIPTION     
+        "The compliance statement for Arista switches that
+         support ARISTA-QOS-MIB."
+    MODULE          -- this module
+    MANDATORY-GROUPS {
+                         aristaClassMapGroup,
+                         aristaPolicyMapGroup,
+                         aristaPolicyMapActionGroup,
+                         aristaServicePolicyGroup
+                     }
+    ::= { aristaQosMibCompliances 1 }
+
+aristaClassMapGroup  OBJECT-GROUP
+    OBJECTS         {
+    		         aristaClassMapName,
+                         aristaClassMapMatchCondition,
+                         aristaClassMapMatchType,
+                         aristaClassMapMatchName,
+                         aristaPolicyMapClassId,
+		         aristaQosPktsDropped,
+		         aristaQosPktsMatched,
+		         aristaQosPktsSent
+                    }
+    STATUS       current
+    DESCRIPTION
+        "The collection of objects that represent QoS configuration and
+         statistics information for class maps."
+    ::= { aristaQosMibGroups 1 }
+
+aristaPolicyMapGroup  OBJECT-GROUP
+    OBJECTS         {
+    		         aristaPolicyMapName
+                    }
+    STATUS       current
+    DESCRIPTION
+        "The collection of objects that represent QoS configuration
+         information for policy maps."
+    ::= { aristaQosMibGroups 2 }
+
+aristaPolicyMapActionGroup  OBJECT-GROUP
+    OBJECTS         {
+                         aristaPolicyMapActionRateUnit,
+                         aristaPolicyMapActionValue
+                    }
+    STATUS       current
+    DESCRIPTION
+        "The collection of objects that represent configuration
+         information for QoS actions."
+    ::= { aristaQosMibGroups 3 }
+
+aristaServicePolicyGroup  OBJECT-GROUP
+    OBJECTS         {
+    		         aristaServicePolicyMapId,
+                         aristaServicePolicyMapType
+                    }
+    STATUS       current
+    DESCRIPTION
+        "The collection of objects that represent QoS configuration
+         information for service policies."
+    ::= { aristaQosMibGroups 4 }
+
+END

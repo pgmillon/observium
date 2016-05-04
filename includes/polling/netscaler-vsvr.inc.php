@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -56,7 +56,7 @@ if ($device['os'] == "netscaler")
 
   $sv_db    = dbFetchRows("SELECT * FROM `netscaler_services_vservers` WHERE `device_id` = ?", array($device['device_id']));
   foreach ($sv_db as $sv) { $svs_db[$sv['vsvr_name']][$sv['svc_name']] = $sv; $svs_exist[$sv['sv_id']] = array('vsvr_name' => $sv['vsvr_name'], 'svc_name' => $sv['svc_name']); }
-  if ($debug) { print_vars($svs_db); }
+  if (OBS_DEBUG) { print_vars($svs_db); }
 
   $svc_vsvrs = snmp_walk_parser($device, "vserverServiceEntry", 3, "NS-ROOT-MIB", mib_dirs('citrix'));
   foreach ($svc_vsvrs as $vserver => $svs)
@@ -79,7 +79,7 @@ if ($device['os'] == "netscaler")
     }
   }
 
-    if ($debug) { print_vars($vsvr_exist); }
+    if (OBS_DEBUG && count($vsvr_exist)) { print_vars($vsvr_exist); }
 
   foreach ($svs_exist as $sv_id => $sv)
   {
@@ -116,7 +116,7 @@ if ($device['os'] == "netscaler")
 
   $vsvr_db    = dbFetchRows("SELECT * FROM `netscaler_vservers` WHERE `device_id` = ?", array($device['device_id']));
   foreach ($vsvr_db as $vsvr) { $vsvrs[$vsvr['vsvr_name']] = $vsvr; }
-  if ($debug) { print_vars($vsvrs); }
+  if (OBS_DEBUG) { print_vars($vsvrs); }
 
   foreach ($vsvr_array as $index => $vsvr)
   {
@@ -126,7 +126,6 @@ if ($device['os'] == "netscaler")
       $vsvr['label'] = $vsvr['vsvrFullName'];
       $rrd_file = "netscaler-vsvr-".$vsvr['vsvrName'].".rrd";
       $rrd_file_old = "netscaler-vsvr-".$vsvr['vsvrFullName'].".rrd";
-      if (is_file(get_rrd_path($device, $rrd_file_old))) { rename(get_rrd_path($device, $rrd_file_old), get_rrd_path($device, $rrd_file)); } // CLEANME remove in r6000
     } else {
       $vsvr['label'] = $vsvr['vsvrName'];
     }
@@ -176,14 +175,14 @@ if ($device['os'] == "netscaler")
 
   }
 
-  if ($debug) { print_vars($vsvr_exist); }
+  if (OBS_DEBUG && count($vsvr_exist)) { print_vars($vsvr_exist); }
 
-  foreach ($vsvrs as $db_name => $db_id)
+  foreach ($vsvrs as $db_name => $db_data)
   {
     if (!$vsvr_exist[$db_name])
     {
       echo("-".$db_name);
-      dbDelete('netscaler_vservers', "`vsvr_id` =  ?", array($db_id));
+      dbDelete('netscaler_vservers', "`vsvr_id` =  ?", array($db_data['vsvr_id']));
     }
   }
 
@@ -276,7 +275,7 @@ if ($device['os'] == "netscaler")
 
   $svc_db    = dbFetchRows("SELECT * FROM `netscaler_services` WHERE `device_id` = ?", array($device['device_id']));
   foreach ($svc_db as $svc) { $svcs[$svc['svc_name']] = $svc; }
-  if ($debug) { print_vars($svcs); }
+  if (OBS_DEBUG) { print_vars($svcs); }
 
   foreach ($svc_array as $index => $svc)
   {
@@ -333,7 +332,7 @@ if ($device['os'] == "netscaler")
 
   }
 
-  if ($debug) { print_vars($svc_exist); }
+  if (OBS_DEBUG && count($svc_exist)) { print_vars($svc_exist); }
 
   foreach ($svcs as $db_name => $db_id)
   {

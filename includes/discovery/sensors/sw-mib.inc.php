@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -30,7 +30,7 @@ foreach ($sensor_array as $index => $entry)
     $type    = $sensor_type_map[$entry['swSensorType']];
     $value   = $entry['swSensorValue'];
 
-    // Because I am nice, rename old RRDs - CLEANME remove in future version
+    // Because I am nice, rename old RRDs - CLEANME remove in r7000
     $old_rrd  = $config['rrd_dir'] . '/'.$device['hostname'].'/sensor-'.$type.'--'.$index.'.rrd';
     $new_rrd  = $config['rrd_dir'] . '/'.$device['hostname'].'/sensor-'.$type.'-sw-mib-'.$index.'.rrd';
     if (is_file($old_rrd)) { rename($old_rrd, $new_rrd); print_warning('Moved RRD'); }

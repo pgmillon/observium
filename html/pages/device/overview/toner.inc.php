@@ -1,19 +1,20 @@
 <?php
 
 /**
- * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Observium
+ *
+ *   This file is part of Observium.
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 $graph_type = "toner_usage";
 
-$toners = dbFetchRows("SELECT * FROM `toner` WHERE device_id = ?", array($device['device_id']));
+$toners = dbFetchRows("SELECT * FROM `toner` WHERE `device_id` = ?", array($device['device_id']));
 
 if (count($toners))
 {
@@ -29,10 +30,10 @@ if (count($toners))
 
   foreach ($toners as $toner)
   {
-    $percent  = round($toner['toner_current'], 0);
-    $total = formatStorage($toner['toner_size']);
-    $free = formatStorage($toner['toner_free']);
-    $used = formatStorage($toner['toner_used']);
+    $percent = round($toner['toner_current'], 0);
+    //$total = formatStorage($toner['toner_size']);
+    //$free = formatStorage($toner['toner_free']);
+    //$used = formatStorage($toner['toner_used']);
 
     $background = toner2colour($toner['toner_descr'], $percent);
 
@@ -57,10 +58,11 @@ if (count($toners))
 
     $minigraph =  generate_graph_tag($graph_array);
 
+    $percent_text = ($percent < 0 ? "Unknown" : $percent . "%");
     echo("<tr class=device-overview>
            <td class=strong>".overlib_link($link, $toner['toner_descr'], $overlib_content)."</td>
            <td style='width: 90px;'>".overlib_link($link, $minigraph, $overlib_content)."</td>
-           <td style='width: 200px;'>".overlib_link($link, print_percentage_bar (200, 20, $percent, NULL, "ffffff", $background['left'], $percent . "%", "ffffff", $background['right']), $overlib_content)."</td>
+           <td style='width: 200px;'>".overlib_link($link, print_percentage_bar(200, 20, $percent, NULL, "ffffff", $background['left'], $percent_text, "ffffff", $background['right']), $overlib_content)."</td>
          </tr>");
   }
 

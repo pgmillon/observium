@@ -1,0 +1,287 @@
+-- **********************************************************************
+--
+-- Name:	3Com Remote Poll MIB
+-- 
+-- History  Date        Reason for Change
+--
+-- 1.00     1997       	Issued as 3Com RFC.
+-- 1.01     5 June 98	Clarified desciptions to return badValue.
+--
+-- **********************************************************************
+-- Copyright (c) 3Com Corporation. All Rights Reserved.
+-- **********************************************************************
+
+A3COM0019-RMON-REMOTE-POLL DEFINITIONS ::= BEGIN
+
+
+   IMPORTS
+      remotePoll FROM A3COM0027-RMON-EXTENSIONS
+      DisplayString FROM RFC1213-MIB
+      EntryStatus FROM RMON-MIB
+      OBJECT-TYPE FROM RFC-1212
+      TRAP-TYPE FROM RFC-1215
+      ;
+
+-- -----------------------------------------------------------------------------
+-- RMON Extensions Group.
+-- -----------------------------------------------------------------------------
+remPollTable OBJECT-TYPE
+   SYNTAX   SEQUENCE OF RemPollTableEntry
+   ACCESS   not-accessible
+   STATUS   mandatory
+   DESCRIPTION "This table is used to provide remote device monitoring 
+   facilities.
+   
+   This table allows a list of network devices to be set up and polled regularly 
+   (or only once) by a variety of protocols. The table can be configured to inform 
+   the management station(s) of devices that are not responding to polls or that 
+   have started to respond after a period of silence."
+   ::= {remotePoll 1}
+
+remPollTableEntry OBJECT-TYPE
+   SYNTAX   RemPollTableEntry
+   ACCESS   not-accessible
+   STATUS   mandatory
+   DESCRIPTION "A table used to define device monitoring."
+   INDEX {remPollIndex}
+   ::= {remPollTable 1}
+
+RemPollTableEntry ::= SEQUENCE {
+      remPollIndex      INTEGER,
+      remPollIfIndex    INTEGER,
+      remPollAddress    DisplayString (SIZE(0..50)),
+      remPollProtocol      INTEGER,
+      remPollTimeout    TimeTicks,
+      remPollAttempts      INTEGER,
+      remPollPeriod     INTEGER,
+      remPollLastRequest      TimeTicks,
+      remPollLastReply     TimeTicks,
+      remPollInformation      DisplayString (SIZE(0..255)),
+      remPollSuccessEventIndex      INTEGER,
+      remPollFailureEventIndex      INTEGER,
+      remPollOwner      DisplayString,
+      remPollStatus     EntryStatus
+      }
+
+remPollIndex OBJECT-TYPE
+   SYNTAX   INTEGER (1..65535)
+   ACCESS   not-accessible
+   STATUS   mandatory
+   DESCRIPTION "Unique identifier of a row in the Poll Table.  This 
+   index should be treated in the same way as indices of other RMON tables.
+   
+   The actual number of rows that can be created on any particular device depends 
+   on the memory and processing resources available at the time."
+   ::= {remPollTableEntry 1}
+
+remPollIfIndex OBJECT-TYPE
+   SYNTAX   INTEGER 
+   ACCESS   read-write
+   STATUS   mandatory
+   DESCRIPTION "Identifies the entry in the ifTable which is to be used as 
+   the source of the poll packet.
+   
+   This object may not be modified if the associated remPollStatus object is equal 
+   to valid(1)."
+   ::= {remPollTableEntry 2}
+
+remPollAddress OBJECT-TYPE
+   SYNTAX   DisplayString (SIZE(0..50))
+   ACCESS   read-write
+   STATUS   mandatory
+   DESCRIPTION "This DisplayString is the network address of the device to 
+   monitor. Typically this is an IP, MAC or IPX address. The following formats can 
+   be used. IP nnn.nnn.nnn.nnn         - dotted format
+   MAC   AABBCCDDEEFF         - hex notation
+   IPX   AABBCCDD:AABBCCDDEEFF   - network : node
+   
+   If the format is unrecognised then a badValue error is returned.
+
+   This object may not be modified if the associated remPollStatus object is equal 
+   to valid(1)."
+   ::= {remPollTableEntry 3}
+
+remPollProtocol OBJECT-TYPE
+   SYNTAX   INTEGER  {
+      unknown (1),
+      ip (2),
+      ipx (3),
+      netBIOS (4),
+      appleTalk (5),
+      amp (6),
+      llc(7)
+   }
+   ACCESS   read-write
+   STATUS   mandatory
+   DESCRIPTION "This defines the protocol with which to monitor the device.
+   
+   Writing an address to the remPollAddress field causes a default remPollProtocol 
+   value to be setup. The default value is derived from the format/content of the 
+   address. If the requested protocol is not supported or is not compatible with 
+   the remPollAddress, then an error is returned when an attempt is made to set the 
+   remPollStatus to valid.
+ 
+   If the requested protocol is not supported then a badValue error
+   should be returned. If the requested protocol is not compatible
+   with the remPollAddress then an error is returned when an attempt
+   is made to set the remPollStatus to valid.
+  
+  
+   This object may not be modified if the associated remPollStatus object is equal 
+   to valid(1)."
+   ::= {remPollTableEntry 4}
+
+remPollTimeout OBJECT-TYPE
+   SYNTAX   TimeTicks 
+   ACCESS   read-write
+   STATUS   mandatory
+   DESCRIPTION "The time-out value in hundreds of a second for each request 
+   packet. If a device replies to a request packet within the specified time-out, 
+   then the poll is judged to be successful.
+   
+   This object may not be modified if the associated remPollStatus object is equal 
+   to valid(1)."
+   ::= {remPollTableEntry 6}
+
+remPollAttempts OBJECT-TYPE
+   SYNTAX   INTEGER (1..255)
+   ACCESS   read-write
+   STATUS   mandatory
+   DESCRIPTION "The number of unsuccessful requests necessary before 
+   deciding that the device is definitely not responding.
+   
+   This object may not be modified if the associated remPollStatus object is equal 
+   to valid(1)."
+   ::= {remPollTableEntry 7}
+
+remPollPeriod OBJECT-TYPE
+   SYNTAX   INTEGER (0..65535)
+   ACCESS   read-write
+   STATUS   mandatory
+   DESCRIPTION "The device will be polled every remPollPeriod seconds. The 
+   first poll is sent as soon as the remPollStatus is set to valid(1). To prevent 
+   overlapping polls, the value of remPollPeriod must be greater than 
+   2*remPollTimeout*remPollAttempts - otherwise an error is returned when the row 
+   is set to valid.
+   
+   A poll consists of sending up to remPollAttempts request packets to the device. 
+   A reply to any of the request packets is sufficient to declare the poll 
+   successful (and stop further requests from being sent). A poll is deemed 
+   unsuccessful if no replies have been received after 
+   remPollTimeout*remPollAttempts seconds from the start of the poll. Note: each 
+   request packet must contain some sequence information so that late replies do 
+   not result in a successful poll.
+   
+   The first unsuccessful poll causes a PollFailure event to be generated - further 
+   unsuccessful polls do not generate events. The next successful poll to the 
+   device causes a PollSuccess event to be generated - further successful polls do 
+   not generate events. The pattern then repeats.
+   
+   The value 0 has a special value meaning of only-once When remPollStatus is set 
+   to valid(1), a single poll is started immediately. There are no events 
+   generated. whether the poll has been judged successful or unsuccessful.
+   
+   The results of the poll(s) can be monitored by reading the remPollLastRequest 
+   and remPolLastReply fields.
+   
+   This object may not be modified if the associated remPollStatus object is equal 
+   to valid(1)."
+   ::= {remPollTableEntry 8}
+
+remPollLastRequest OBJECT-TYPE
+   SYNTAX   TimeTicks 
+   ACCESS   read-only
+   STATUS   mandatory
+   DESCRIPTION "This is the value of sysUpTime at which the most recent
+      request packet was sent.
+   
+   To avoid temporary inconsistancies between the values of remPollLastRequest and 
+   remPollLastReply. The value of remPollLastRequest should not be updated until 
+   the end of a poll. At which point (a) remPollLastRequest is updated to the 
+   sysUpTime when the most recent request packet was sent and (b) if the poll was 
+   successful then remPollLastReply is also updated."
+   ::= {remPollTableEntry 9}
+
+remPollLastReply OBJECT-TYPE
+   SYNTAX   TimeTicks 
+   ACCESS   read-only
+   STATUS   mandatory
+   DESCRIPTION "This is the value of sysUpTime at which the most recent
+      reply packet was received. The device was responding at this time.
+      
+   The relationship of sysUpTime, remPollLastRequest and remPollLastReply provide 
+   the following information:
+   
+   (sysUpTime - remPollLastRequest) = time since last request was made. (sysUpTime 
+   - remPollLastReply) = time since device last responded.
+   
+   if( remPollLastReply => remPollLastRequest) then
+      (remPollLastReply - remPollLastRequest) = round trip time of last
+   request else if( remPollLastReply <remPollLastRequest) then
+      there was no reply to the last request - the device is not responding
+   
+      "
+   ::= {remPollTableEntry 10}
+
+remPollInformation OBJECT-TYPE
+   SYNTAX   DisplayString (SIZE(0..255))
+   ACCESS   read-only
+   STATUS   mandatory
+   DESCRIPTION "After each successful poll, this field is updated with some 
+   protocol specific information that was gleaned from the packet exchange. For the 
+   IPX protocol, this string contains the number of router hops made by the poll 
+   response packet. For the IP protocol, this string contains the value of 
+   Time-To-Live from the IP packet header."
+   ::= {remPollTableEntry 11}
+
+remPollSuccessEventIndex OBJECT-TYPE
+   SYNTAX   INTEGER (0..65535)
+   ACCESS   read-write
+   STATUS   mandatory
+   DESCRIPTION "The index of the eventEntry that is used when a
+      successful poll is made after a number of unsuccessful polls.
+      
+   The eventEntry identified by a particular value of this index is the same as 
+   identified by the same value of the eventIndex object.  If there is no 
+   corresponding entry in the eventTable, then no association exists. In 
+   particular, if this value is zero, no associated event will be generated, as 
+   zero is not a valid event index.
+   
+      This object may not be modified if the associated remPollStatus object
+   is equal to valid(1)."
+   ::= {remPollTableEntry 12}
+
+remPollFailureEventIndex OBJECT-TYPE
+   SYNTAX   INTEGER (0..65535)
+   ACCESS   read-write
+   STATUS   mandatory
+   DESCRIPTION "The index of the eventEntry that is used when an
+      unsuccessful poll is made after a number of successful polls.
+   
+   The eventEntry identified by a particular value of this index is the same as 
+   identified by the same value of the eventIndex object.  If there is no 
+   corresponding entry in the eventTable, then no association exists. In 
+   particular, if this value is zero, no associated event will be generated, as 
+   zero is not a valid event index.
+      
+      This object may not be modified if the associated remPollStatus object
+   is equal to valid(1)."
+   ::= {remPollTableEntry 13}
+
+remPollOwner OBJECT-TYPE
+   SYNTAX   DisplayString
+   ACCESS   read-write
+   STATUS   mandatory
+   DESCRIPTION "The RMON OwnerString conventions are used here to help 
+   control the multi-manager situations."
+   ::= {remPollTableEntry 14}
+
+remPollStatus OBJECT-TYPE
+   SYNTAX   EntryStatus
+   ACCESS   read-write
+   STATUS   mandatory
+   DESCRIPTION "This object controls the creation and deletion of entries in 
+   the remPollTable. The RMON EntryStatus conventions are used."
+   ::= {remPollTableEntry 15}
+
+END

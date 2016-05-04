@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage web
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -28,25 +28,36 @@ function print_authlog($vars)
     print_warning('<h4>No authentication entries found!</h4>');
   } else {
     // Entries have been returned. Print the table.
-    $string = "<table class=\"table table-bordered table-striped table-hover table-condensed table-rounded\">
-  <thead>
-    <tr>
-      <th style=\"width: 200px;\">Date</th>
-      <th style=\"width: 200px;\">User</th>
-      <th style=\"width: 200px;\">From</th>
-      <th>Action</th>
-    </tr>
-  </thead>
-  <tbody>";
+    $string = '<table class="table table-bordered table-striped table-hover table-condensed table-rounded">' . PHP_EOL;
+    $cols = array(
+      //'NONE'     => NULL,
+      'date'     => array('Date', 'style="width: 200px;"'),
+      'user'     => 'User',
+      'from'     => 'From',
+      'ua'       => array('User-Agent', 'style="width: 200px;"'),
+      'NONE'     => 'Action',
+    );
+    $string .= get_table_header($cols); //, $vars); // Currently sorting is not available
+    $string .= '<tbody>' . PHP_EOL;
 
     foreach ($authlog['entries'] as $entry)
     {
+      if (strlen($entry['user_agent']) > 1)
+      {
+        $entry['detect_browser'] = detect_browser($entry['user_agent'], TRUE);
+        $entry['user_agent'] = $entry['detect_browser']['browser'];
+        if ($entry['detect_browser']['platform'])
+        {
+          $entry['user_agent'] .= ' ('.$entry['detect_browser']['platform'].')';
+        }
+      }
       if (strstr(strtolower($entry['result']), 'fail', true)) { $class = " class=\"error\""; } else { $class = ""; }
       $string .= '
       <tr'.$class.'>
         <td>'.$entry['datetime'].'</td>
-        <td>'.$entry['user'].'</td>
+        <td>'.escape_html($entry['user']).'</td>
         <td>'.$entry['address'].'</td>
+        <td>'.$entry['user_agent'].'</td>
         <td>'.$entry['result'].'</td>
       </tr>' . PHP_EOL;
     }

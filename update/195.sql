@@ -1,0 +1,4 @@
+ALTER TABLE `slas` CHANGE `sla_nr` `sla_index` INT(11) UNSIGNED NOT NULL, CHANGE `owner` `sla_owner` VARCHAR(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL, CHANGE `tag` `sla_tag` VARCHAR(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL;
+ALTER TABLE `slas` ADD `sla_status` VARCHAR(16) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL AFTER `sla_tag`;
+ALTER TABLE `slas` DROP `status`;
+CREATE TABLE IF NOT EXISTS `slas-state` ( `sla_id` INT(11) NOT NULL , `rtt_value` INT(11) NOT NULL , `rtt_sense` VARCHAR(16) NOT NULL , `rtt_unixtime` INT(11) NOT NULL , `rtt_minimum` INT(11) NULL DEFAULT NULL , `rtt_maximum` INT(11) NULL DEFAULT NULL , `rtt_success` INT(11) NULL DEFAULT NULL , `rtt_loss` INT(11) NULL DEFAULT NULL , PRIMARY KEY (`sla_id`) ) ENGINE = MEMORY CHARACTER SET utf8 COLLATE utf8_general_ci;

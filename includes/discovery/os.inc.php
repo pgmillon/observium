@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -19,7 +19,7 @@ if ($detect_os)
   {
     $type = (isset($config['os'][$os]['type']) ? $config['os'][$os]['type'] : 'unknown'); // Also change $type
     print_warning("Device OS changed: ".$device['os']." -> $os!");
-    log_event('OS changed: '.$device['os'].' -> '.$os, $device, 'system');
+    log_event('OS changed: '.$device['os'].' -> '.$os, $device, 'device', $device['device_id'], 'warning');
     dbUpdate(array('os' => $os), 'devices', '`device_id` = ?', array($device['device_id']));
     $device['os'] = $os; $device['type'] = $type;
   }

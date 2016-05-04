@@ -2,16 +2,16 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-$pagetitle[] = "Locations";
+$page_title[] = "Locations";
 
 if (!$vars['view']) { $vars['view'] = "basic"; }
 
@@ -48,8 +48,9 @@ foreach (get_locations() as $location)
 
   if ($hostalerts) { $alert = '<img src="images/16/flag_red.png" alt="alert" />'; } else { $alert = ""; }
 
-  $value = base64_encode(json_encode(array($location)));
-  $name  = ($location == '' ? '[[UNKNOWN]]' : htmlspecialchars($location));
+  if ($location === '') { $location = OBS_VAR_UNSET; }
+  $value = var_encode($location);
+  $name  = escape_html($location);
   echo('      <tr class="locations">
            <td class="interface" style="width: 300px;">' . generate_link($name, array('page' => 'devices', 'location' => $value)) . '</td>
            <td style="width: 100px;">' . $alert . '</td>

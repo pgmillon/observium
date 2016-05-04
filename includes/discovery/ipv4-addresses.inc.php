@@ -7,11 +7,11 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-global $debug, $cache;
+global $cache;
 
 $device_id = $device['device_id'];
 // Caching ifIndex
@@ -61,7 +61,7 @@ foreach ($oid_data as $ip_address => $entry)
     $ip_data[$ifIndex][$ip_address] = $entry;
   }
 }
-if ($debug && $ip_data) { echo "IP-MIB\n"; print_vars($ip_data); }
+if (OBS_DEBUG && $ip_data) { echo "IP-MIB\n"; print_vars($ip_data); }
 
 if (!count($ip_data))
 {
@@ -94,7 +94,7 @@ if (!count($ip_data))
       }
     }
   }
-  if ($debug && $ip_data) { echo "IP-MIB\n"; print_vars($ip_data); }
+  if (OBS_DEBUG && $ip_data) { echo "IP-MIB\n"; print_vars($ip_data); }
 }
 
 // Caching old IPv4 addresses table

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -33,9 +33,9 @@ foreach ($oids as $index => $entry)
   {
     $descr      = $descr." Status";
     $oid        = ".1.3.6.1.4.1.232.6.2.9.3.1.4.".$index;
-    $condition  = state_string_to_numeric('cpqhlth-state',$entry['cpqHeFltTolPowerSupplyCondition']);
+    $value      = $entry['cpqHeFltTolPowerSupplyCondition'];
 
-    discover_sensor($valid['sensor'], 'state', $device, $oid, 'cpqHeFltTolPwrSupply.'.$index, 'cpqhlth-state', $descr, NULL, $condition, array('entPhysicalClass' => 'power'));
+    discover_sensor($valid['sensor'], 'state', $device, $oid, 'cpqHeFltTolPwrSupply.'.$index, 'cpqhlth-state', $descr, NULL, $value, array('entPhysicalClass' => 'power'));
   }
 }
 
@@ -49,7 +49,7 @@ if ($thermal_status)
 {
   $descr = "Thermal Status";
   $oid   = ".1.3.6.1.4.1.232.6.2.6.1.0";
-  $value = state_string_to_numeric('cpqhlth-state', $thermal_status);
+  $value = $thermal_status;
   discover_sensor($valid['sensor'], 'state', $device, $oid, 'cpqHeThermalCondition.0', 'cpqhlth-state', $descr, NULL, $value, array('entPhysicalClass' => 'temperature'));
 }
 
@@ -57,7 +57,7 @@ if ($system_fan_status)
 {
   $descr = "System Fan Status";
   $oid   = ".1.3.6.1.4.1.232.6.2.6.4.0";
-  $value = state_string_to_numeric('cpqhlth-state', $system_fan_status);
+  $value = $system_fan_status;
   discover_sensor($valid['sensor'], 'state', $device, $oid, 'cpqHeThermalSystemFanStatus.0', 'cpqhlth-state', $descr, NULL, $value, array('entPhysicalClass' => 'fan'));
 }
 
@@ -65,7 +65,7 @@ if ($cpu_fan_status)
 {
   $descr = "CPU Fan Status";
   $oid   = ".1.3.6.1.4.1.232.6.2.6.5.0";
-  $value = state_string_to_numeric('cpqhlth-state', $cpu_fan_status);
+  $value = $cpu_fan_status;
   discover_sensor($valid['sensor'], 'state', $device, $oid, 'cpqHeThermalCpuFanStatus.0', 'cpqhlth-state', $descr, NULL, $value, array('entPhysicalClass' => 'fan'));
 }
 

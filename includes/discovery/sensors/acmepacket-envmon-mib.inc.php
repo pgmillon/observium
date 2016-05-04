@@ -7,17 +7,14 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 echo(" ACMEPACKET-ENVMON-MIB ");
 
 // Temperatures:
-echo(" Temp ");
-
-$oids = array();
-$oids = snmpwalk_cache_multi_oid($device, "apEnvMonTemperatureStatusValue", $oids, "ACMEPACKET-ENVMON-MIB", mib_dirs('acme'));
+$oids = snmpwalk_cache_multi_oid($device, "apEnvMonTemperatureStatusValue", array(), "ACMEPACKET-ENVMON-MIB", mib_dirs('acme'));
 
 foreach ($oids as $index => $entry)
 {
@@ -36,10 +33,7 @@ foreach ($oids as $index => $entry)
 }
 
 // Voltage
-echo(" Voltage ");
-
-$oids = array();
-$oids = snmpwalk_cache_multi_oid($device, "apEnvMonVoltageStatusValue", $oids, "ACMEPACKET-ENVMON-MIB", mib_dirs('acme'));
+$oids = snmpwalk_cache_multi_oid($device, "apEnvMonVoltageStatusValue", array(), "ACMEPACKET-ENVMON-MIB", mib_dirs('acme'));
 
 $scale = si_to_scale('milli');
 foreach ($oids as $index => $entry)
@@ -49,7 +43,7 @@ foreach ($oids as $index => $entry)
   // remove some information from the voltage description
   $descr = preg_replace('/ \(millivolts\)/', '', $descr);
   $oid   = ".1.3.6.1.4.1.9148.3.3.1.2.1.1.4.$index";
-  $value = $entry['apEnvMonVoltageStatusValue'] * $scale;
+  $value = $entry['apEnvMonVoltageStatusValue'];
 
   if (is_numeric($value))
   {
@@ -58,10 +52,7 @@ foreach ($oids as $index => $entry)
 }
 
 // FAN:
-echo(" Fan ");
-
-$oids = array();
-$oids = snmpwalk_cache_multi_oid($device, "apEnvMonFanState", $oids, "ACMEPACKET-ENVMON-MIB", mib_dirs('acme'));
+$oids = snmpwalk_cache_multi_oid($device, "apEnvMonFanState", array(), "ACMEPACKET-ENVMON-MIB", mib_dirs('acme'));
 
 foreach ($oids as $index => $entry)
 {
@@ -70,24 +61,19 @@ foreach ($oids as $index => $entry)
   // remove some information from the voltage description
   $descr = preg_replace('/ [Ss]peed/', '', $descr);
   $oid   = ".1.3.6.1.4.1.9148.3.3.1.4.1.1.5.$index";
-  $value = state_string_to_numeric('acme-env-state', $entry['apEnvMonFanState']);
 
-  discover_sensor($valid['sensor'], 'state', $device, $oid, "apEnvMonFanState.$index", 'acme-env-state', $descr, NULL, $value, array('entPhysicalClass' => 'fan'));
+  discover_sensor($valid['sensor'], 'state', $device, $oid, "apEnvMonFanState.$index", 'acme-env-state', $descr, NULL, $entry['apEnvMonFanState'], array('entPhysicalClass' => 'fan'));
 }
 
 // Power
-echo(" Power ");
-
-$oids = array();
-$oids = snmpwalk_cache_multi_oid($device, "apEnvMonPowerSupplyState", $oids, "ACMEPACKET-ENVMON-MIB", mib_dirs('acme'));
+$oids = snmpwalk_cache_multi_oid($device, "apEnvMonPowerSupplyState", array(), "ACMEPACKET-ENVMON-MIB", mib_dirs('acme'));
 
 foreach ($oids as $index => $entry)
 {
   $descr = trim(snmp_get($device, "apEnvMonPowerSupplyStatusDescr.$index", "-Oqv", "ACMEPACKET-ENVMON-MIB", mib_dirs('acme')),'"');
   $oid   = ".1.3.6.1.4.1.9148.3.3.1.5.1.1.4.$index";
-  $value = state_string_to_numeric('acme-env-state', $entry['apEnvMonPowerSupplyState']);
 
-  discover_sensor($valid['sensor'], 'state', $device, $oid, "apEnvMonPowerSupplyState.$index", 'acme-env-state', $descr, NULL, $value, array('entPhysicalClass' => 'power'));
+  discover_sensor($valid['sensor'], 'state', $device, $oid, "apEnvMonPowerSupplyState.$index", 'acme-env-state', $descr, NULL, $entry['apEnvMonPowerSupplyState'], array('entPhysicalClass' => 'power'));
 }
 
 // EOF

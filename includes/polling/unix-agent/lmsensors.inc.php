@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -36,7 +36,7 @@ if ($agent_data['lmsensors'] != '|')
       {
         case "F":
           $array['class'] = "temperature";
-          $array['scale'] = 5 / 9;
+          $array['scale'] = 5/9;
           break;
         case "C":
           $array['class'] = "temperature";
@@ -66,9 +66,9 @@ if ($agent_data['lmsensors'] != '|')
            break;
         }
       }
-      if ($array['scale'] < 1)
+      if ($array['class'] == "temperature" && $array['scale'] < 1)
       {
-        $array['current'] = f2c($array['current']);
+        //$array['current'] = f2c($array['current']);
         $array['high']    = f2c($array['high']);
         $array['low']     = f2c($array['low']);
       }
@@ -85,6 +85,10 @@ if ($agent_data['lmsensors'] != '|')
   {
     $limits = array('limit_high' => $array['high'], 'limit_low' => $array['low']);
     discover_sensor($valid['sensor'], $array['class'], $device, '', $key, 'lmsensors', $array['descr'], $array['scale'], $array['current'], $limits, 'agent');
+    if ($array['class'] == "temperature" && $array['scale'] < 1)
+    {
+      $array['current'] = f2c($array['current']);
+    }
     $agent_sensors[$array['class']]['lmsensors'][$key] = array('description' => $array['descr'], 'current' => $array['current'], 'index' => $key);
   }
 

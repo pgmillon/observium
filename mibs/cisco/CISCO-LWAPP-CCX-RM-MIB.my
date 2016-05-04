@@ -4,7 +4,7 @@
 -- MIB
 -- December 2005, Devesh Pujari, Bharat Biswal, Prasanna Viswakumar
 --
--- Copyright (c) 2005, 2006 by Cisco Systems, Inc.
+-- Copyright (c) 2005, 2006, 2012 by Cisco Systems, Inc.
 -- All rights reserved.
 -- *******************************************************************
 
@@ -23,9 +23,10 @@ IMPORTS
         TimeInterval,
         TimeStamp
                 FROM SNMPv2-TC
-        cLWlanConfigEntry
+--      cLWlanConfigEntry
+        cLWlanIndex
                 FROM CISCO-LWAPP-WLAN-MIB
-        cLApDot11IfEntry,
+--      cLApDot11IfEntry,
         cLApSysMacAddress,
         cLApDot11IfSlotId 
                 FROM CISCO-LWAPP-AP-MIB
@@ -37,7 +38,7 @@ IMPORTS
 --**********************************************************************
 
 ciscoLwappCcxRmMIB     MODULE-IDENTITY
-        LAST-UPDATED   "200604110000Z"
+        LAST-UPDATED   "201202220000Z"
         ORGANIZATION   "Cisco Systems Inc."
         CONTACT-INFO  
                 "       Cisco Systems,
@@ -168,7 +169,17 @@ ciscoLwappCcxRmMIB     MODULE-IDENTITY
   
                 [2] Draft-obara-capwap-lwapp-00.txt, IETF Light 
                 Weight Access Point Protocol " 
-           
+
+        REVISION      "201202210000Z"
+        DESCRIPTION
+                "Added ciscoLwappCcxRmDot11aConfigGroupVer1,
+                ciscoLwappCcxRmDot11bConfigGroupVer1,
+                and ciscoLwappCcxRmApIfConfigGroupVer1. 
+                Deprecated ciscoLwappCcxRmDot11aConfigGroup,
+                ciscoLwappCcxRmDot11bConfigGroup,
+                and ciscoLwappCcxRmApIfConfigGroup. 
+                Added ciscoLwappCcxRmMIBComplianceVer1 and 
+                deprecated ciscoLwappCcxRmMIBCompliance."
         REVISION      "200604110000Z"
         DESCRIPTION
                 "Initial version of this MIB module. "
@@ -217,6 +228,24 @@ clcrdot11aBeaconInterval OBJECT-TYPE
         SYNTAX     TimeInterval (6000..3240000)
         UNITS      "hundredths-seconds"
         MAX-ACCESS read-write
+        STATUS     deprecated
+        DESCRIPTION
+                "The interval in hundredths of a second, in 
+                which the AP issues radio measurement request 
+                message to client periodically for every SSID. 
+
+                This configuration takes higher precedence than
+                that on the radio interface of the particular AP
+                when clcrAPIfOverrideGlobal is set to 'false'. 
+                clcrdot11aBeaconInterval object is superseded by 
+                clcrdot11aBeaconIntvl."
+        DEFVAL { 6000 }
+        ::= {clcrDot11aConfigGlobal 2} 
+
+clcrdot11aBeaconIntvl OBJECT-TYPE
+        SYNTAX     TimeInterval
+        UNITS      "hundredths-seconds"
+        MAX-ACCESS read-write
         STATUS     current
         DESCRIPTION
                 "The interval in hundredths of a second, in 
@@ -226,8 +255,7 @@ clcrdot11aBeaconInterval OBJECT-TYPE
                 This configuration takes higher precedence than
                 that on the radio interface of the particular AP
                 when clcrAPIfOverrideGlobal is set to 'false'. "
-        DEFVAL { 6000 }
-        ::= {clcrDot11aConfigGlobal 2} 
+        ::= {clcrDot11aConfigGlobal 3} 
    
 --**********************************************************************   
 -- Client Measurement request per 802.11b network
@@ -253,6 +281,24 @@ clcrdot11bBeaconInterval OBJECT-TYPE
         SYNTAX     TimeInterval (6000..3240000)
         UNITS      "hundredths-seconds"
         MAX-ACCESS read-write
+        STATUS     deprecated
+        DESCRIPTION
+                "The interval in hundredths of a second, at 
+                which the AP issues radio measurement request 
+                message to client periodically for every SSID.
+ 
+                This configuration takes higher precedence than
+                that on the radio interface of the particular AP
+                when clcrAPIfOverrideGlobal is set to 'false'. 
+                clcrdot11bBeaconInterval object is superseded by 
+                clcrdot11bBeaconIntvl."
+        DEFVAL { 6000 }
+        ::= {clcrDot11bConfigGlobal 2}
+ 
+clcrdot11bBeaconIntvl OBJECT-TYPE
+        SYNTAX     TimeInterval 
+        UNITS      "hundredths-seconds"
+        MAX-ACCESS read-write
         STATUS     current
         DESCRIPTION
                 "The interval in hundredths of a second, at 
@@ -262,9 +308,7 @@ clcrdot11bBeaconInterval OBJECT-TYPE
                 This configuration takes higher precedence than
                 that on the radio interface of the particular AP
                 when clcrAPIfOverrideGlobal is set to 'false'. "
-        DEFVAL { 6000 }
-        ::= {clcrDot11bConfigGlobal 2} 
-   
+        ::= {clcrDot11bConfigGlobal 3} 
 --**********************************************************************
 -- Ccx configuration on Cisco AP Radio . 
 --**********************************************************************
@@ -295,14 +339,22 @@ clcrAPIfEntry OBJECT-TYPE
                 AP is added to this table when the AP joins the
                 controller and deleted when AP disassociates from the
                 controller. "
-        AUGMENTS { cLApDot11IfEntry } 
+-- The following was converted from AUGMENTS to INDEX to separate
+-- implementation and does not have any external impact
+-- to users of MIB. The version available at mib-police page
+-- will be shipped to the customers. This version is for
+-- INTERNAL USE ONLY.
+--      AUGMENTS { cLApDot11IfEntry } 
+        INDEX { cLApSysMacAddress,
+                cLApDot11IfSlotId }
         ::= { clcrAPIfTable 1 }
 
 ClcrAPIfEntry ::=
         SEQUENCE {
                 clcrAPIfOverrideGlobal  TruthValue, 
                 clcrAPIfBeaconEnabled   TruthValue,
-                clcrAPIfBeaconInterval  TimeInterval
+                clcrAPIfBeaconInterval  TimeInterval,
+                clcrAPIfBeaconIntvl     TimeInterval
         }
 
 clcrAPIfOverrideGlobal OBJECT-TYPE
@@ -350,13 +402,26 @@ clcrAPIfBeaconInterval OBJECT-TYPE
         SYNTAX     TimeInterval (6000..3240000)
         UNITS      "hundredths-seconds"
         MAX-ACCESS read-write
+        STATUS     deprecated
+        DESCRIPTION
+                "The interval at which the AP sends radio measurement
+                request messages to the clients associated through
+                each and every SSID. 
+                clcrAPIfBeaconInterval object is superseded by 
+                clcrAPIfBeaconIntvl."
+        DEFVAL { 6000 }
+        ::= { clcrAPIfEntry 3 }
+
+clcrAPIfBeaconIntvl OBJECT-TYPE
+        SYNTAX     TimeInterval
+        UNITS      "hundredths-seconds"
+        MAX-ACCESS read-write
         STATUS     current
         DESCRIPTION
                 "The interval at which the AP sends radio measurement
                 request messages to the clients associated through
                 each and every SSID. "
-        DEFVAL { 6000 }
-        ::= { clcrAPIfEntry 3 }
+        ::= { clcrAPIfEntry 4 }
    
 --**********************************************************************
 -- * Beacon report from the CCX clients
@@ -463,7 +528,13 @@ clcrWlanEntry OBJECT-TYPE
                 "Each entry represents a conceptual row in this table
                 and provides information about the CCX capabilities
                 of the WLAN. "
-        AUGMENTS { cLWlanConfigEntry }
+-- The following was converted from AUGMENTS to INDEX to separate
+-- implementation and does not have any external impact
+-- to users of MIB. The version available at mib-police page
+-- will be shipped to the customers. This version is for
+-- INTERNAL USE ONLY.
+--      AUGMENTS {cLWlanConfigEntry }
+        INDEX { cLWlanIndex }
         ::= { clcrWlanTable 1 }
 
 ClcrWlanEntry ::=
@@ -511,11 +582,12 @@ ciscoLwappCcxRmMIBGroups OBJECT IDENTIFIER
         ::= { ciscoLwappCcxRmMIBConform 2 }
 
 ciscoLwappCcxRmMIBCompliance MODULE-COMPLIANCE
-        STATUS     current 
+        STATUS     deprecated 
         DESCRIPTION
                 "The compliance statement for the SNMP entities that
                 implement the ciscoLwappCcxRmMIB module."
-        MODULE MANDATORY-GROUPS {
+        MODULE      -- this module
+        MANDATORY-GROUPS {
                 ciscoLwappCcxRmDot11aConfigGroup,
                 ciscoLwappCcxRmDot11bConfigGroup,
                 ciscoLwappCcxRmApIfConfigGroup,
@@ -524,6 +596,20 @@ ciscoLwappCcxRmMIBCompliance MODULE-COMPLIANCE
         }
         ::= { ciscoLwappCcxRmMIBCompliances 1 }
 
+ciscoLwappCcxRmMIBComplianceVer1 MODULE-COMPLIANCE
+    STATUS          current
+    DESCRIPTION
+        "The compliance statement for the SNMP entities that
+        implement the ciscoLwappCcxRmMIB module."
+    MODULE          -- this module
+    MANDATORY-GROUPS {
+                        ciscoLwappCcxRmDot11aConfigGroupVer1,
+                        ciscoLwappCcxRmDot11bConfigGroupVer1,
+                        ciscoLwappCcxRmApIfConfigGroupVer1,
+                        ciscoLwappCcxRmBeaconReportGroup,
+                        ciscoLwappCcxRmD11WlanConfigGroup
+                    }
+    ::= { ciscoLwappCcxRmMIBCompliances 2 }
 
 --**********************************************************************
 --*    Units of conformance  
@@ -534,11 +620,13 @@ ciscoLwappCcxRmDot11aConfigGroup OBJECT-GROUP
                 clcrdot11aBeaconEnabled,
                 clcrdot11aBeaconInterval
         }                
-        STATUS  current
+        STATUS  deprecated
         DESCRIPTION
                 "This collection of objects represent the beacon
                 request and beacon interval parameters for 802.11a
-                networks. "
+                networks.
+                ciscoLwappCcxRmDot11aConfigGroup object is superseded by 
+                ciscoLwappCcxRmDot11aConfigGroupVer1."
         ::= { ciscoLwappCcxRmMIBGroups 1 }
   
 ciscoLwappCcxRmDot11bConfigGroup OBJECT-GROUP
@@ -546,11 +634,13 @@ ciscoLwappCcxRmDot11bConfigGroup OBJECT-GROUP
                 clcrdot11bBeaconEnabled,
                 clcrdot11bBeaconInterval
         }                
-        STATUS     current
+        STATUS     deprecated
         DESCRIPTION
                 "This collection of objects represent the beacon
                 request and beacon interval parameters for 802.11a
-                networks. "
+                networks.
+                ciscoLwappCcxRmDot11bConfigGroup object is superseded by 
+                ciscoLwappCcxRmDot11bConfigGroupVer1."
         ::= { ciscoLwappCcxRmMIBGroups 2 }
   
 ciscoLwappCcxRmApIfConfigGroup OBJECT-GROUP
@@ -559,11 +649,13 @@ ciscoLwappCcxRmApIfConfigGroup OBJECT-GROUP
                 clcrAPIfBeaconEnabled,
                 clcrAPIfBeaconInterval
         }                
-        STATUS  current
+        STATUS  deprecated
         DESCRIPTION
                 "This collection of objects represent the beacon
                 request and beacon interval parameters for the
-                respective 802.11 radio interfaces. "
+                respective 802.11 radio interfaces. 
+                ciscoLwappCcxRmApIfConfigGroup object is superseded by 
+                ciscoLwappCcxRmApIfConfigGroupVer1."
         ::= { ciscoLwappCcxRmMIBGroups 3 }
 
 ciscoLwappCcxRmBeaconReportGroup OBJECT-GROUP
@@ -588,6 +680,43 @@ ciscoLwappCcxRmD11WlanConfigGroup OBJECT-GROUP
                 "This collection of objects represent the CCX 
                 settings on a particular WLAN. "
               ::= { ciscoLwappCcxRmMIBGroups 5 }
+
+ciscoLwappCcxRmDot11aConfigGroupVer1 OBJECT-GROUP
+    OBJECTS         {
+                        clcrdot11aBeaconEnabled,
+                        clcrdot11aBeaconIntvl
+                    }
+    STATUS          current
+    DESCRIPTION
+        "This collection of objects represent the beacon
+        request and beacon interval parameters for 802.11a
+        networks."
+    ::= { ciscoLwappCcxRmMIBGroups 6 }
+
+ciscoLwappCcxRmDot11bConfigGroupVer1 OBJECT-GROUP
+    OBJECTS         {
+                        clcrdot11bBeaconEnabled,
+                        clcrdot11bBeaconIntvl
+                    }
+    STATUS          current
+    DESCRIPTION
+        "This collection of objects represent the beacon
+        request and beacon interval parameters for 802.11b
+        networks."
+    ::= { ciscoLwappCcxRmMIBGroups 7 }
+
+ciscoLwappCcxRmApIfConfigGroupVer1 OBJECT-GROUP
+    OBJECTS         {
+                        clcrAPIfOverrideGlobal,
+                        clcrAPIfBeaconEnabled,
+                        clcrAPIfBeaconIntvl
+                    }
+    STATUS          current
+    DESCRIPTION
+        "This collection of objects represent the beacon
+        request and beacon interval parameters for the
+        respective 802.11 radio interfaces."
+    ::= { ciscoLwappCcxRmMIBGroups 8 }
 
 END
 

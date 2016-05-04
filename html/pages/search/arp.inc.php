@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -71,7 +71,7 @@ $vars['pagination'] = TRUE;
 
 print_arptable($vars);
 
-$pagetitle[] = 'ARP/NDP Search';
+$page_title[] = 'ARP/NDP Search';
 
 ?>
 

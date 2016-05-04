@@ -3,7 +3,7 @@
 --   
 -- February 2010, Dipesh Gorashia
 --   
--- Copyright (c) 2010 by Cisco Systems Inc.
+-- Copyright (c) 2010-2012 by Cisco Systems Inc.
 -- All rights reserved.
 -- *****************************************************************
 
@@ -12,18 +12,26 @@ CISCO-TRUSTSEC-SXP-MIB DEFINITIONS ::= BEGIN
 IMPORTS
     MODULE-IDENTITY,
     OBJECT-TYPE,
-    Unsigned32
+    Unsigned32,
+    Gauge32,
+    NOTIFICATION-TYPE
         FROM SNMPv2-SMI
     MODULE-COMPLIANCE,
-    OBJECT-GROUP
+    OBJECT-GROUP,
+    NOTIFICATION-GROUP
         FROM SNMPv2-CONF
     RowStatus,
     StorageType,
     TruthValue
         FROM SNMPv2-TC
+    SnmpAdminString
+        FROM SNMP-FRAMEWORK-MIB
     InetAddressType,
-    InetAddress
+    InetAddress,
+    InetAddressPrefixLength
         FROM INET-ADDRESS-MIB
+    InterfaceIndexOrZero
+        FROM IF-MIB
     CtsSecurityGroupTag,
     CtsPasswordEncryptionType,
     CtsPassword
@@ -35,7 +43,7 @@ IMPORTS
 
 
 ciscoTrustSecSxpMIB MODULE-IDENTITY
-    LAST-UPDATED    "201011240000Z"
+    LAST-UPDATED    "201204170000Z"
     ORGANIZATION    "Cisco Systems, Inc."
     CONTACT-INFO
             "Cisco Systems
@@ -68,6 +76,25 @@ ciscoTrustSecSxpMIB MODULE-IDENTITY
         traffic on a hop by hop basis.  SXP allows the deployment
         of RBACL, a key component of the TrustSec architecture, in the
         absence of TrustSec capable hardware."
+    REVISION        "201204170000Z"
+    DESCRIPTION
+        "Added following OBJECT-GROUP
+        - ctsxSxpBindingLogGroup
+        - ctsxSxpBindingNotifInfoGroup
+        - ctsxSxpNotifErrMsgGroup
+        - ctsxSxpNodeIdInfoGroup
+        - ctsxSxpSgtMapGroup
+        - ctsxNotifsControlGroup
+        - ctsxNotifsGroup
+        - ctsxSxpGlobalHoldTimeGroup
+        - ctsxSxpConnHoldTimeGroup
+        - ctsxSxpConnCapbilityGroup
+        - ctsxSxpVersionSupportGroup
+        - ctsxSgtMapPeerSeqGroup
+        Added new compliance
+        - ciscoTrustSecSxpMIBCompliance3.
+        Added enumerations three(4) and four(5)
+        for the object ctsxSxpConnVersion."
     REVISION        "201011240000Z"
     DESCRIPTION
         "Added ctsxSxpVersionGroup."
@@ -95,8 +122,14 @@ ctsxSxpConnectionObjects  OBJECT IDENTIFIER
 ctsxSxpSgtObjects  OBJECT IDENTIFIER
     ::= { ciscoTrustSecSxpMIBObjects 3 }
 
+ciscoTrustSecSxpMIBNotifsControl  OBJECT IDENTIFIER
+    ::= { ciscoTrustSecSxpMIBObjects 4 }
 
--- Objects to manage SXP fucntionality of TrustSec
+ciscoTrustSecSxpMIBNotifsOnlyInfo  OBJECT IDENTIFIER
+    ::= { ciscoTrustSecSxpMIBObjects 5 }
+
+
+-- Objects to manage SXP functionality of TrustSec
 
 ctsxSxpEnable OBJECT-TYPE
     SYNTAX          TruthValue
@@ -226,12 +259,169 @@ ctsxSxpReconPeriod OBJECT-TYPE
     STATUS          current
     DESCRIPTION
         "This object specifies the amount of time after which system
-        will initiate removal of IP-SGT mappings for a reconciled
+        will initiate removal of SGT mappings for a reconciled
         connection.
 
-        A value of zero for this object indicates that IP-SGT
+        A value of zero for this object indicates that SGT
         mappings for a reconciled connection will never be deleted." 
     ::= { ctsxSxpGlobalObjects 9 }
+
+ctsxSxpBindingChangesLogEnable OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies if the system will generate system
+        logging messages for SXP binding changes.
+
+        A value of 'false' will prevent system from generating 
+        logging messages for SXP binding changes." 
+    ::= { ctsxSxpGlobalObjects 10 }
+
+ctsxSgtMapExpansionLimit OBJECT-TYPE
+    SYNTAX          Gauge32
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the maximum number of SGT
+        mapping entries that can be expanded on the system.
+
+        Value of zero for this object indicates that SGT mapping
+        expansion functionality is disabled." 
+    ::= { ctsxSxpGlobalObjects 11 }
+
+ctsxSgtMapExpansionCount OBJECT-TYPE
+    SYNTAX          Gauge32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the number of SGT mapping
+        entries currently expanded on the system." 
+    ::= { ctsxSxpGlobalObjects 12 }
+
+ctsxSxpAdminNodeId OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the administrative SXP node ID for
+        this system.
+
+        Setting this object to a non-zero value will clear the values
+        in ctsxSxpNodeIdInterface and ctsxSxpNodeIdIpAddrType.
+
+        This object can be set only if ctsxSxpEnable is 'false'." 
+    ::= { ctsxSxpGlobalObjects 13 }
+
+ctsxSxpNodeIdInterface OBJECT-TYPE
+    SYNTAX          InterfaceIndexOrZero
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the interface to be used to select
+        SXP node ID.
+
+        Setting this object to a non-zero value will clear the values
+        in ctsxSxpAdminNodeId and ctsxSxpNodeIdIpAddrType.
+
+        This object can be set only if ctsxSxpEnable is 'false'." 
+    ::= { ctsxSxpGlobalObjects 14 }
+
+ctsxSxpNodeIdIpAddrType OBJECT-TYPE
+    SYNTAX          InetAddressType
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the type of Internet address to be
+        used to select the SXP node ID." 
+    ::= { ctsxSxpGlobalObjects 15 }
+
+ctsxSxpNodeIdIpAddr OBJECT-TYPE
+    SYNTAX          InetAddress
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the Internet address to be used to
+        select the SXP node ID.
+
+        The type of this address is determined by
+        ctsxSxpOperNodeIdIpAddrType object.
+
+        Setting this object to a non-zero length value will clear the
+        values in ctsxSxpAdminNodeId and ctsxSxpNodeIdInterface.
+
+        This object can be set only if ctsxSxpEnable is 'false'." 
+    ::= { ctsxSxpGlobalObjects 16 }
+
+ctsxSxpOperNodeId OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the operational SXP node ID of
+        the system." 
+    ::= { ctsxSxpGlobalObjects 17 }
+
+ctsxSxpSpeakerMinHoldTime OBJECT-TYPE
+    SYNTAX          Unsigned32 (1..65534)
+    UNITS           "seconds"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the global minimum hold-time for SXP
+        connections in 'speaker' mode." 
+    ::= { ctsxSxpGlobalObjects 18 }
+
+ctsxSxpListenerMinHoldTime OBJECT-TYPE
+    SYNTAX          Unsigned32 (1..65534)
+    UNITS           "seconds"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the global minimum hold-time for
+        SXP connections in 'listener' mode.
+
+        Value of this object must be lesser than
+        ctsxSxpListenerMaxHoldTime." 
+    ::= { ctsxSxpGlobalObjects 19 }
+
+ctsxSxpListenerMaxHoldTime OBJECT-TYPE
+    SYNTAX          Unsigned32 (1..65534)
+    UNITS           "seconds"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the global maximum hold-time for
+        SXP connections in 'listener' mode.
+
+        Value of this object must be greater than
+        ctsxSxpListenerMinHoldTime." 
+    ::= { ctsxSxpGlobalObjects 20 }
+
+ctsxSxpVersionSupport OBJECT-TYPE
+    SYNTAX          INTEGER  {
+                        unknown(1),
+                        one(2),
+                        two(3),
+                        three(4),
+                        four(5)
+                    }
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The highest version of SXP protocol that this device supports.
+
+        'unknown' - The SXP protocol version capability for the
+                    device is unknown. 
+
+        'one'     - The device supports SXP protocol up to version 1.
+
+        'two'     - The device supports SXP protocol up to version 2.
+
+        'three'   - The device supports SXP protocol up to version 3.
+
+        'four'    - The device supports SXP protocol up to version 4." 
+    ::= { ctsxSxpGlobalObjects 21 }
 
 ctsxSxpConnectionTable OBJECT-TYPE
     SYNTAX          SEQUENCE OF CtsxSxpConnectionEntry 
@@ -256,27 +446,32 @@ ctsxSxpConnectionEntry OBJECT-TYPE
     ::= { ctsxSxpConnectionTable 1 }
 
 CtsxSxpConnectionEntry ::= SEQUENCE {
-        ctsxSxpConnVrfName            CiscoVrfName,
-        ctsxSxpConnPeerAddrType       InetAddressType,
-        ctsxSxpConnPeerAddr           InetAddress,
-        ctsxSxpConnSourceAddrType     InetAddressType,
-        ctsxSxpConnSourceAddr         InetAddress,
-        ctsxSxpConnOperSourceAddrType InetAddressType,
-        ctsxSxpConnOperSourceAddr     InetAddress,
-        ctsxSxpConnPasswordUsed       INTEGER,
-        ctsxSxpConnConfigPasswordType CtsPasswordEncryptionType,
-        ctsxSxpConnConfigPassword     CtsPassword,
-        ctsxSxpConnViewPasswordType   CtsPasswordEncryptionType,
-        ctsxSxpConnViewPassword       CtsPassword,
-        ctsxSxpConnModeLocation       INTEGER,
-        ctsxSxpConnMode               INTEGER,
-        ctsxSxpConnInstance           Unsigned32,
-        ctsxSxpConnStatusLastChange   Unsigned32,
-        ctsxSxpConnStatus             INTEGER,
-        ctsxSxpVrfId                  Unsigned32,
-        ctsxSxpConnStorageType        StorageType,
-        ctsxSxpConnRowStatus          RowStatus,
-        ctsxSxpConnVersion            INTEGER
+        ctsxSxpConnVrfName             CiscoVrfName,
+        ctsxSxpConnPeerAddrType        InetAddressType,
+        ctsxSxpConnPeerAddr            InetAddress,
+        ctsxSxpConnSourceAddrType      InetAddressType,
+        ctsxSxpConnSourceAddr          InetAddress,
+        ctsxSxpConnOperSourceAddrType  InetAddressType,
+        ctsxSxpConnOperSourceAddr      InetAddress,
+        ctsxSxpConnPasswordUsed        INTEGER,
+        ctsxSxpConnConfigPasswordType  CtsPasswordEncryptionType,
+        ctsxSxpConnConfigPassword      CtsPassword,
+        ctsxSxpConnViewPasswordType    CtsPasswordEncryptionType,
+        ctsxSxpConnViewPassword        CtsPassword,
+        ctsxSxpConnModeLocation        INTEGER,
+        ctsxSxpConnMode                INTEGER,
+        ctsxSxpConnInstance            Unsigned32,
+        ctsxSxpConnStatusLastChange    Unsigned32,
+        ctsxSxpConnStatus              INTEGER,
+        ctsxSxpVrfId                   Unsigned32,
+        ctsxSxpConnStorageType         StorageType,
+        ctsxSxpConnRowStatus           RowStatus,
+        ctsxSxpConnVersion             INTEGER,
+        ctsxSxpConnSpeakerMinHoldTime  Unsigned32,
+        ctsxSxpConnListenerMinHoldTime Unsigned32,
+        ctsxSxpConnListenerMaxHoldTime Unsigned32,
+        ctsxSxpConnHoldTime            Unsigned32,
+        ctsxSxpConnCapability          BITS
 }
 
 ctsxSxpConnVrfName OBJECT-TYPE
@@ -493,7 +688,7 @@ ctsxSxpConnInstance OBJECT-TYPE
         "This object indicates the instance number associated
         with this SXP connection.
 
-        The instance number is used to identify stale IP-SGT
+        The instance number is used to identify stale SGT
         mappings which need to be removed from the system." 
     ::= { ctsxSxpConnectionEntry 15 }
 
@@ -524,13 +719,13 @@ ctsxSxpConnStatus OBJECT-TYPE
                        enumerations.
 
         'off'        - The SXP connection has been disconnected.
-                       IP-SGT mappings are no longer learnt through SXP
-                       connection in this state. IP-SGT mappings
+                       SGT mappings are no longer learnt through SXP
+                       connection in this state. SGT mappings
                        already learnt through this connection will be
                        deleted.
 
         'on'         - The SXP connection has been successfully
-                       established. IP-SGT mappings are learnt
+                       established. SGT mappings are learnt
                        through this SXP connection.
 
         'pendingOn'  - A request to establish SXP connection has been
@@ -539,11 +734,11 @@ ctsxSxpConnStatus OBJECT-TYPE
         'deleteHoldDown' - The SXP connection is not operational and
                        delete hold-down timer has been started. If the
                        SXP connection does not recover before the
-                       expiration of the hold-down timer, the IP-SGT
+                       expiration of the hold-down timer, the SGT
                        mappings learnt on this connection will be
                        deleted. If the SXP connection recovers
                        before the expiration of the hold-down timer,
-                       the IP-SGT mappings learnt on this connection
+                       the SGT mappings learnt on this connection
                        will not be deleted." 
     ::= { ctsxSxpConnectionEntry 17 }
 
@@ -572,15 +767,19 @@ ctsxSxpConnRowStatus OBJECT-TYPE
         "The status of this conceptual row.
 
         Once a row becomes active, only the value in
-        ctsxSxpConnModeLocation and ctsxSxpConnMode within such row
-        can be modified." 
+        ctsxSxpConnModeLocation, ctsxSxpConnMode
+        ctsxSxpConnSpeakerMinHoldTime, ctsxSxpConnListenerMinHoldTime,
+        and ctsxSxpConnListenerMaxHoldTime within each a row can
+        be modified." 
     ::= { ctsxSxpConnectionEntry 20 }
 
 ctsxSxpConnVersion OBJECT-TYPE
     SYNTAX          INTEGER  {
                         unknown(1),
                         one(2),
-                        two(3)
+                        two(3),
+                        three(4),
+                        four(5)
                     }
     MAX-ACCESS      read-only
     STATUS          current
@@ -590,8 +789,122 @@ ctsxSxpConnVersion OBJECT-TYPE
                        is unknown.
         'one' - Connection is using version 1 of the SXP protocol.
 
-        'two' - Connection is using version 2 of the SXP protocol." 
+        'two' - Connection is using version 2 of the SXP protocol.
+
+        'three' - Connection is using version 3 of the SXP protocol.
+
+        'four' - Connection is using version 4 of the SXP protocol." 
     ::= { ctsxSxpConnectionEntry 21 }
+
+ctsxSxpConnSpeakerMinHoldTime OBJECT-TYPE
+    SYNTAX          Unsigned32 (0 | 1..65534 | 65535)
+    UNITS           "seconds"
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the minimum hold-time for this SXP
+        connection when the device is acting as 'speaker'.
+
+        Setting the object to zero indicates that the global value 
+        ctsxSxpSpeakerMinHoldTime will be used for the connection.
+
+        Setting the object to 65535 indicates that the hold-time
+        functionality has been disabled for the connection. Value of
+        this object must be 65535 if the corresponding instance value
+        of ctsxSxpConnListenerMinHoldTime is 65535.
+
+        Value of this object should be ignored and can not be set
+        if the corresponding instance values of ctsxSxpConnModeLocation
+        is 'local' and ctsSxpConnMode is 'listener' or
+        ctsxSxpConnModeLocation is 'peer' and ctsSxpConnMode is
+        'speaker'."
+    DEFVAL          { 0 } 
+    ::= { ctsxSxpConnectionEntry 22 }
+
+ctsxSxpConnListenerMinHoldTime OBJECT-TYPE
+    SYNTAX          Unsigned32 (0 | 1..65534 | 65535)
+    UNITS           "seconds"
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the minimum hold-time for this SXP
+        connection when the device is acting as 'listener'.
+
+        Value of this object must be lesser than
+        ctsxSxpConnListenerMaxHoldTime.
+
+        Setting the object to zero indicates that the global value
+        ctsxSxpListenerMinHoldTime will be used for the connection.
+        Value of this object must be zero if the value of corresponding
+        instance value of ctsxSxpConnListenerMaxHoldTime is zero.
+
+        Setting the object to 65535 indicates that hold-time
+        functionality has been disabled for the connection. Value of
+        this object must be 65535 if the corresponding instance value
+        of ctsxSxpConnListenerMaxHoldTime is 65535.
+
+        Value of this object should be ignored and can not be set
+        if the corresponding instance value of ctsxSxpConnModeLocation
+        is 'local' and ctsSxpConnMode is 'speaker' or
+        ctsxSxpConnModeLocation is 'peer' and ctsSxpConnMode is
+        'listener'."
+    DEFVAL          { 0 } 
+    ::= { ctsxSxpConnectionEntry 23 }
+
+ctsxSxpConnListenerMaxHoldTime OBJECT-TYPE
+    SYNTAX          Unsigned32 (0 | 1..65534 | 65535)
+    UNITS           "seconds"
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the maximum hold-time for this SXP
+        connection when the device is acting as 'listener'.
+
+        Value of this object must be greater than
+        ctsxSxpConnListenerMinHoldTime.
+
+        Setting the object to zero indicates that the global value
+        ctsxSxpListenerMaxHoldTime will be used for the connection.
+        Value of this object must be zero if the corresponding
+        instance value of ctsxSxpConnListenerMinHoldTime is zero.
+
+        Setting the object to 65535 indicates that hold-time
+        functionality has been disabled for the connection. Value of
+        this object must be 65535 if the corresponding instance value
+        ctsxSxpConnListenerMinHoldTime is 65535.
+
+        Value of this object should be ignored and can not be set
+        if the corresponding instance value of ctsxSxpConnModeLocation
+        is 'local' and ctsSxpConnMode is 'speaker' or
+        ctsxSxpConnModeLocation is 'peer' and ctsSxpConnMode is
+        'listener'."
+    DEFVAL          { 0 } 
+    ::= { ctsxSxpConnectionEntry 24 }
+
+ctsxSxpConnHoldTime OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "seconds"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the hold-time in use for this
+        SXP connection.
+
+        A value of 0 indicates that hold-time functionality has been
+        disabled for this connection." 
+    ::= { ctsxSxpConnectionEntry 25 }
+
+ctsxSxpConnCapability OBJECT-TYPE
+    SYNTAX          BITS {
+                        ipv4(0),
+                        ipv6(1),
+                        subnet(2)
+                    }
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the capability of SXP connection." 
+    ::= { ctsxSxpConnectionEntry 26 }
  
 
 
@@ -600,7 +913,13 @@ ctsxIpSgtMappingTable OBJECT-TYPE
     MAX-ACCESS      not-accessible
     STATUS          current
     DESCRIPTION
-        "A list of IP-SGT mappings learnt by this device."
+        "A list of SGT mappings learnt by this device.
+
+        If the value of ctsxSxpConnVersion is 'three' or above,
+        this table populates entries for all mapping addresses
+        without prefix.
+        Addresses with prefix are not populated in this table.
+        ctsxSxpSgtMapTable should be used in such case."
     ::= { ctsxSxpSgtObjects 1 }
 
 ctsxIpSgtMappingEntry OBJECT-TYPE
@@ -608,14 +927,14 @@ ctsxIpSgtMappingEntry OBJECT-TYPE
     MAX-ACCESS      not-accessible
     STATUS          current
     DESCRIPTION
-        "An entry containing management information about IP-SGT
+        "An entry containing management information about SGT
         mapping learnt by this device.
 
-        An entry will be created for each IP-SGT mappings the device
+        An entry will be created for each SGT mappings the device
         learns via SXP.
 
         An entry will be deleted if SXP connection from where the
-        IP-SGT mappings was learnt is disconnected."
+        SGT mappings was learnt is disconnected."
     INDEX           {
                         ctsxIpSgtMappingVrfId,
                         ctsxIpSgtMappingAddrType,
@@ -642,7 +961,7 @@ ctsxIpSgtMappingVrfId OBJECT-TYPE
     MAX-ACCESS      not-accessible
     STATUS          current
     DESCRIPTION
-        "The VRF number identifying the VRF where this IP-SGT mapping
+        "The VRF number identifying the VRF where this SGT mapping
         was learnt." 
     ::= { ctsxIpSgtMappingEntry 1 }
 
@@ -651,7 +970,7 @@ ctsxIpSgtMappingAddrType OBJECT-TYPE
     MAX-ACCESS      not-accessible
     STATUS          current
     DESCRIPTION
-        "The type of IP address in this IP-SGT mapping." 
+        "The type of IP address in this SGT mapping." 
     ::= { ctsxIpSgtMappingEntry 2 }
 
 ctsxIpSgtMappingAddr OBJECT-TYPE
@@ -659,7 +978,7 @@ ctsxIpSgtMappingAddr OBJECT-TYPE
     MAX-ACCESS      not-accessible
     STATUS          current
     DESCRIPTION
-        "The IP address in this IP-SGT mapping.
+        "The IP address in this SGT mapping.
 
         The type of this address is determined by the value of
         ctsxIpSgtMappingAddrType object." 
@@ -671,7 +990,7 @@ ctsxIpSgtMappingPeerAddrType OBJECT-TYPE
     STATUS          current
     DESCRIPTION
         "The type of IP address of the SXP peer device from where
-        this IP-SGT mapping was learnt." 
+        this SGT mapping was learnt." 
     ::= { ctsxIpSgtMappingEntry 4 }
 
 ctsxIpSgtMappingPeerAddr OBJECT-TYPE
@@ -679,7 +998,7 @@ ctsxIpSgtMappingPeerAddr OBJECT-TYPE
     MAX-ACCESS      not-accessible
     STATUS          current
     DESCRIPTION
-        "The IP address of the peer SXP device from where this IP-SGT
+        "The IP address of the peer SXP device from where this SGT
         mapping was learnt.
 
         The type of this address is determined by the value of
@@ -691,7 +1010,7 @@ ctsxIpSgtMappingSgt OBJECT-TYPE
     MAX-ACCESS      read-only
     STATUS          current
     DESCRIPTION
-        "The Security Group Tag (SGT) in this IP-SGT mapping.
+        "The Security Group Tag (SGT) in this SGT mapping.
 
         ctsxIpSgtMappingAddr represents the IP address associated
         with this SGT." 
@@ -703,9 +1022,9 @@ ctsxIpSgtMappingInstance OBJECT-TYPE
     STATUS          current
     DESCRIPTION
         "This object indicates the instance number of the SXP
-        connection from where this IP-SGT binding was learnt.
+        connection from where this SGT mapping was learnt.
 
-        The instance number is used to determine if an IP-SGT
+        The instance number is used to determine if an SGT
         mapping entry is stale and needs to be removed 
         from the system." 
     ::= { ctsxIpSgtMappingEntry 7 }
@@ -726,14 +1045,525 @@ ctsxIpSgtMappingStatus OBJECT-TYPE
     MAX-ACCESS      read-only
     STATUS          current
     DESCRIPTION
-        "This object indicates the status of this IP-SGT mapping.
+        "This object indicates the status of this SGT mapping.
 
         'other'  - Any other state no covered by below
                    enumerations.
-        'active' - The IP-SGT mapping is currently active." 
+        'active' - The SGT mapping is currently active." 
     ::= { ctsxIpSgtMappingEntry 9 }
  
 
+
+ctsxSxpSgtMapTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF CtsxSxpSgtMapEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "A list of SGT mappings learnt by this device."
+    ::= { ctsxSxpSgtObjects 2 }
+
+ctsxSxpSgtMapEntry OBJECT-TYPE
+    SYNTAX          CtsxSxpSgtMapEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "An entry containing management information about SGT
+        mapping learnt by this device.
+
+        An entry will be created for each of the SGT mappings
+        the device learns via SXP.
+
+        An entry will be deleted if SXP connection from where the
+        SGT mappings was learnt is disconnected."
+    INDEX           {
+                        ctsxSxpSgtMapVrfId,
+                        ctsxSxpSgtMapAddrType,
+                        ctsxSxpSgtMapAddr,
+                        ctsxSxpSgtMapAddrPrefixLength,
+                        ctsxSxpSgtMapPeerAddrType,
+                        ctsxSxpSgtMapPeerAddr
+                    } 
+    ::= { ctsxSxpSgtMapTable 1 }
+
+CtsxSxpSgtMapEntry ::= SEQUENCE {
+        ctsxSxpSgtMapVrfId            Unsigned32,
+        ctsxSxpSgtMapAddrType         InetAddressType,
+        ctsxSxpSgtMapAddr             InetAddress,
+        ctsxSxpSgtMapAddrPrefixLength InetAddressPrefixLength,
+        ctsxSxpSgtMapPeerAddrType     InetAddressType,
+        ctsxSxpSgtMapPeerAddr         InetAddress,
+        ctsxSxpSgtMapSgt              CtsSecurityGroupTag,
+        ctsxSxpSgtMapInstance         Unsigned32,
+        ctsxSxpSgtMapVrfName          CiscoVrfName,
+        ctsxSxpSgtMapPeerSeq          OCTET STRING,
+        ctsxSxpSgtMapStatus           INTEGER
+}
+
+ctsxSxpSgtMapVrfId OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "The VRF number identifying the VRF where this SGT mapping
+        was learnt." 
+    ::= { ctsxSxpSgtMapEntry 1 }
+
+ctsxSxpSgtMapAddrType OBJECT-TYPE
+    SYNTAX          InetAddressType
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "The type of address in this SGT mapping." 
+    ::= { ctsxSxpSgtMapEntry 2 }
+
+ctsxSxpSgtMapAddr OBJECT-TYPE
+    SYNTAX          InetAddress (SIZE  (1..48))
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "The address in this SGT mapping.
+
+        The type of this address is determined by the value of
+        ctsxSxpSgtMapAddrType object." 
+    ::= { ctsxSxpSgtMapEntry 3 }
+
+ctsxSxpSgtMapAddrPrefixLength OBJECT-TYPE
+    SYNTAX          InetAddressPrefixLength
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the length of the prefix associated
+        with ctsxSxpSgtMapAddr.
+
+        This object is always interpreted with the value of
+        ctsxSxpSgtMapAddrType object." 
+    ::= { ctsxSxpSgtMapEntry 4 }
+
+ctsxSxpSgtMapPeerAddrType OBJECT-TYPE
+    SYNTAX          InetAddressType
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "The type of address of the SXP peer device from where
+        this SGT mapping was learnt." 
+    ::= { ctsxSxpSgtMapEntry 5 }
+
+ctsxSxpSgtMapPeerAddr OBJECT-TYPE
+    SYNTAX          InetAddress (SIZE  (1..48))
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "The address of the peer SXP device from where this SGT
+        mapping was learnt.
+
+        The type of this address is determined by the value of
+        ctsxSxpSgtMapPeerAddrType object." 
+    ::= { ctsxSxpSgtMapEntry 6 }
+
+ctsxSxpSgtMapSgt OBJECT-TYPE
+    SYNTAX          CtsSecurityGroupTag
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The Security Group Tag (SGT) in this SGT mapping.
+
+        ctsxSxpSgtMapAddr represents the address associated
+        with this SGT." 
+    ::= { ctsxSxpSgtMapEntry 7 }
+
+ctsxSxpSgtMapInstance OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the instance number of the SXP
+        connection from where this SGT binding was learnt.
+
+        The instance number is used to determine if an SGT
+        mapping entry is stale and needs to be removed 
+        from the system." 
+    ::= { ctsxSxpSgtMapEntry 8 }
+
+ctsxSxpSgtMapVrfName OBJECT-TYPE
+    SYNTAX          CiscoVrfName
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The name of the VRF identified by ctsxEnahncedSgtMapVrfId." 
+    ::= { ctsxSxpSgtMapEntry 9 }
+
+ctsxSxpSgtMapPeerSeq OBJECT-TYPE
+    SYNTAX          OCTET STRING
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The Peer Sequence associated with this SGT
+        mapping entry.
+
+        It is a sequence of node IDs though which SGT 
+        mapping has traversed.
+
+        Each node ID is 4 octets long. The octets 1 to 4
+        represent the first node ID in the sequence, octets
+        5 to 8 represent the second node ID in the sequence
+        and so on." 
+    ::= { ctsxSxpSgtMapEntry 10 }
+
+ctsxSxpSgtMapStatus OBJECT-TYPE
+    SYNTAX          INTEGER  {
+                        other(1),
+                        active(2)
+                    }
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the status of this SGT mapping.
+
+        'other'  - Any other state no covered by below
+                   enumerations.
+        'active' - The SGT mapping is currently active." 
+    ::= { ctsxSxpSgtMapEntry 11 }
+ 
+
+
+-- Notifications Control
+
+ctsxSxpConnSourceAddrErrNotifEnable OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies whether the system generates the
+        ctsxSxpConnSourceAddrErrNotif.
+
+        A value of 'false' will prevent ctsxSxpConnSourceAddrErrNotif
+        notifications from being generated by this system." 
+    ::= { ciscoTrustSecSxpMIBNotifsControl 1 }
+
+ctsxSxpMsgParseErrNotifEnable OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies whether the system generates the
+        ctsxSxpMsgParseErrNotif.
+
+        A value of 'false' will prevent ctsxSxpMsgParseErrNotif
+        notifications from being generated by this system." 
+    ::= { ciscoTrustSecSxpMIBNotifsControl 2 }
+
+ctsxSxpConnConfigErrNotifEnable OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies whether the system generates the
+        ctsxSxpConnConfigErrNotif.
+
+        A value of 'false' will prevent ctsxSxpConnConfigErrNotif
+        notifications from being generated by this system." 
+    ::= { ciscoTrustSecSxpMIBNotifsControl 3 }
+
+ctsxSxpBindingErrNotifEnable OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies whether the system generates the
+        ctsxSxpBindingErrNotif.
+
+        A value of 'false' will prevent ctsxSxpBindingErrNotif
+        notifications from being generated by this system." 
+    ::= { ciscoTrustSecSxpMIBNotifsControl 4 }
+
+ctsxSxpConnUpNotifEnable OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies whether the system generates the
+        ctsxSxpConnUpNotif.
+
+        A value of 'false' will prevent ctsxSxpConnUpNotif
+        notifications from being generated by this system." 
+    ::= { ciscoTrustSecSxpMIBNotifsControl 5 }
+
+ctsxSxpConnDownNotifEnable OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies whether the system generates the
+        ctsxSxpConnDownNotif.
+
+        A value of 'false' will prevent ctsxSxpConnDownNotif
+        notifications from being generated by this system." 
+    ::= { ciscoTrustSecSxpMIBNotifsControl 6 }
+
+ctsxSxpExpansionFailNotifEnable OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies whether the system generates the
+        ctsxSxpExpansionFailNotif.
+
+        A value of 'false' will prevent ctsxSxpExpansionFailNotif
+        notifications from being generated by this system." 
+    ::= { ciscoTrustSecSxpMIBNotifsControl 7 }
+
+ctsxSxpOperNodeIdChangeNotifEnable OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies whether the system generates the
+        ctsxSxpOperNodeIdChangeNotif.
+
+        A value of 'false' will prevent ctsxSxpOperNodeIdChangeNotif
+        notifications from being generated by this system." 
+    ::= { ciscoTrustSecSxpMIBNotifsControl 8 }
+
+ctsxSxpBindingConflictNotifEnable OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies whether the system generates the
+        ctsxSxpBindingConflictNotif.
+
+        A value of 'false' will prevent ctsxSxpBindingConflictNotif
+        notifications from being generated by this system." 
+    ::= { ciscoTrustSecSxpMIBNotifsControl 9 }
+
+ctsxSgtMapExpansionVrf OBJECT-TYPE
+    SYNTAX          CiscoVrfName
+    MAX-ACCESS      accessible-for-notify
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the VRF name for which
+        host SGT bindings cannot be expanded." 
+    ::= { ciscoTrustSecSxpMIBNotifsOnlyInfo 1 }
+
+ctsxSgtMapExpansionAddrType OBJECT-TYPE
+    SYNTAX          InetAddressType
+    MAX-ACCESS      accessible-for-notify
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the type of subnet address for
+        which host SGT binding cannot be expanded." 
+    ::= { ciscoTrustSecSxpMIBNotifsOnlyInfo 2 }
+
+ctsxSgtMapExpansionAddr OBJECT-TYPE
+    SYNTAX          InetAddress
+    MAX-ACCESS      accessible-for-notify
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the subnet address for which
+        host SGT binding cannot be expanded.
+
+        The type of this address is determined by the value of
+        ctsxSgtMapExpansionAddrType object." 
+    ::= { ciscoTrustSecSxpMIBNotifsOnlyInfo 3 }
+
+ctsxSgtMapExpansionAddrPrefixLength OBJECT-TYPE
+    SYNTAX          InetAddressPrefixLength
+    MAX-ACCESS      accessible-for-notify
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the length of the prefix associated
+        with ctsxSgtMapExpansionAddr.
+
+        This object is always interpreted with the value of
+        ctsxSgtMapExpansionAddrType object." 
+    ::= { ciscoTrustSecSxpMIBNotifsOnlyInfo 4 }
+
+ctsxSxpNotifErrMsg OBJECT-TYPE
+    SYNTAX          SnmpAdminString
+    MAX-ACCESS      accessible-for-notify
+    STATUS          current
+    DESCRIPTION
+        "This object indicates error message associated with
+        notifications." 
+    ::= { ciscoTrustSecSxpMIBNotifsOnlyInfo 5 }
+
+ctsxSgtMapConflictingVrfName OBJECT-TYPE
+    SYNTAX          CiscoVrfName
+    MAX-ACCESS      accessible-for-notify
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the VRF name of the SXP connection
+        on which conflicting SGT mapping was received." 
+    ::= { ciscoTrustSecSxpMIBNotifsOnlyInfo 6 }
+
+ctsxSgtMapConflictingAddrType OBJECT-TYPE
+    SYNTAX          InetAddressType
+    MAX-ACCESS      accessible-for-notify
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the type of Internet address
+        in the conflicting SGT mapping." 
+    ::= { ciscoTrustSecSxpMIBNotifsOnlyInfo 7 }
+
+ctsxSgtMapConflictingAddr OBJECT-TYPE
+    SYNTAX          InetAddress
+    MAX-ACCESS      accessible-for-notify
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the Internet address
+        in the conflicting SGT mapping.
+
+        The type of this address is determined by the value of
+        ctsxSgtMapConflictingAddrType object." 
+    ::= { ciscoTrustSecSxpMIBNotifsOnlyInfo 8 }
+
+ctsxSgtMapConflictingOldSgt OBJECT-TYPE
+    SYNTAX          CtsSecurityGroupTag
+    MAX-ACCESS      accessible-for-notify
+    STATUS          current
+    DESCRIPTION
+        "The existing value of Security Group Tag (SGT) in
+        SGT mapping for which conflict has occurred." 
+    ::= { ciscoTrustSecSxpMIBNotifsOnlyInfo 9 }
+
+ctsxSgtMapConflictingNewSgt OBJECT-TYPE
+    SYNTAX          CtsSecurityGroupTag
+    MAX-ACCESS      accessible-for-notify
+    STATUS          current
+    DESCRIPTION
+        "The new value of Security Group Tag (SGT) in
+        SGT mapping that conflicts with the existing SGT." 
+    ::= { ciscoTrustSecSxpMIBNotifsOnlyInfo 10 }
+
+ctsxSxpOldOperNodeId OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      accessible-for-notify
+    STATUS          current
+    DESCRIPTION
+        "The SXP node ID that was in use by this SXP node and
+        now replaced by a new SXP node ID represented by
+        ctsxSxpOperNodeId." 
+    ::= { ciscoTrustSecSxpMIBNotifsOnlyInfo 11 }
+
+-- Notifications
+
+ctsxSxpConnSourceAddrErrNotif NOTIFICATION-TYPE
+    OBJECTS         {
+                        ctsxSxpConnOperSourceAddrType,
+                        ctsxSxpConnOperSourceAddr
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A ctsxSxpConnSourceAddrErrNotif is generated if the
+        system is not able to establish SXP connection using
+        ctsxSxpConnOperSourceAddr."
+   ::= { ciscoTrustSecSxpMIBNotifs 1 }
+
+ctsxSxpMsgParseErrNotif NOTIFICATION-TYPE
+    OBJECTS         {
+                        ctsxSxpConnOperSourceAddrType,
+                        ctsxSxpConnOperSourceAddr,
+                        ctsxSxpNotifErrMsg
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A ctsxSxpMsgParseErrNotif is generated if the system is
+        not able to parse a received SXP message."
+   ::= { ciscoTrustSecSxpMIBNotifs 2 }
+
+ctsxSxpConnConfigErrNotif NOTIFICATION-TYPE
+    OBJECTS         {
+                        ctsxSxpConnOperSourceAddrType,
+                        ctsxSxpConnOperSourceAddr,
+                        ctsxSxpNotifErrMsg
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A ctsxSxpConnConfigErrNotif is generated if the system
+        detects a configuration error for an SXP connection."
+   ::= { ciscoTrustSecSxpMIBNotifs 3 }
+
+ctsxSxpBindingErrNotif NOTIFICATION-TYPE
+    OBJECTS         {
+                        ctsxSxpSgtMapSgt,
+                        ctsxSxpSgtMapInstance,
+                        ctsxSxpSgtMapVrfName,
+                        ctsxSxpNotifErrMsg
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A ctsxSxpBindingErrNotif is generated if the address in the
+        SGT mapping is not found in routing and forwarding table of
+        the system."
+   ::= { ciscoTrustSecSxpMIBNotifs 4 }
+
+ctsxSxpConnUpNotif NOTIFICATION-TYPE
+    OBJECTS         {
+                        ctsxSxpConnOperSourceAddrType,
+                        ctsxSxpConnOperSourceAddr,
+                        ctsxSxpConnInstance,
+                        ctsxSxpConnStatus
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A ctsxSxpConnUpNotif is generated if the ctsxSxpConnStatus
+        for an SXP connection transitioned into 'on' state."
+   ::= { ciscoTrustSecSxpMIBNotifs 5 }
+
+ctsxSxpConnDownNotif NOTIFICATION-TYPE
+    OBJECTS         {
+                        ctsxSxpConnOperSourceAddrType,
+                        ctsxSxpConnOperSourceAddr,
+                        ctsxSxpConnInstance,
+                        ctsxSxpConnStatus
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A ctsxSxpConnDownNotif is generated if ctsxSxpConnStatus
+        for an SXP connection left the 'on' state and transitioned
+        into some other state."
+   ::= { ciscoTrustSecSxpMIBNotifs 6 }
+
+ctsxSxpExpansionFailNotif NOTIFICATION-TYPE
+    OBJECTS         {
+                        ctsxSgtMapExpansionLimit,
+                        ctsxSgtMapExpansionCount,
+                        ctsxSgtMapExpansionVrf,
+                        ctsxSgtMapExpansionAddrType,
+                        ctsxSgtMapExpansionAddr,
+                        ctsxSgtMapExpansionAddrPrefixLength
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A ctsxSxpExpansionFailNotif is generated if the number of
+        expanded SGT maps reaches the configured limit and the received
+        SGT mapping can not be expanded."
+   ::= { ciscoTrustSecSxpMIBNotifs 7 }
+
+ctsxSxpOperNodeIdChangeNotif NOTIFICATION-TYPE
+    OBJECTS         {
+                        ctsxSxpOldOperNodeId,
+                        ctsxSxpOperNodeId
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A ctsxSxpOperNodeIdChangeNotif is generated if the value of
+        ctsxSxpOperNodeId changes."
+   ::= { ciscoTrustSecSxpMIBNotifs 8 }
+
+ctsxSxpBindingConflictNotif NOTIFICATION-TYPE
+    OBJECTS         {
+                        ctsxSgtMapConflictingVrfName,
+                        ctsxSgtMapConflictingAddrType,
+                        ctsxSgtMapConflictingAddr,
+                        ctsxSgtMapConflictingOldSgt,
+                        ctsxSgtMapConflictingNewSgt
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A ctsxSxpBindingConflictNotif is generated if the
+        device receives conflicting SGT mapping information."
+   ::= { ciscoTrustSecSxpMIBNotifs 9 }
 -- Conformance
 
 ciscoTrustSecSxpMIBCompliances  OBJECT IDENTIFIER
@@ -844,7 +1674,7 @@ ciscoTrustSecSxpMIBCompliance MODULE-COMPLIANCE
     ::= { ciscoTrustSecSxpMIBCompliances 1 }
 
 ciscoTrustSecSxpMIBCompliance2 MODULE-COMPLIANCE
-    STATUS          current
+    STATUS          deprecated
     DESCRIPTION
         "The compliance statement for the CISCO-TRUSTSEC-SXP-MIB."
     MODULE          -- this module
@@ -948,6 +1778,251 @@ ciscoTrustSecSxpMIBCompliance2 MODULE-COMPLIANCE
         Support for createAndWait and notInService is not required."
     ::= { ciscoTrustSecSxpMIBCompliances 2 }
 
+ciscoTrustSecSxpMIBCompliance3 MODULE-COMPLIANCE
+    STATUS          current
+    DESCRIPTION
+        "The compliance statement for the CISCO-TRUSTSEC-SXP-MIB."
+    MODULE          -- this module
+    MANDATORY-GROUPS {
+                        ctsxSxpGlobalGroup,
+                        ctsxSxpConnectionGroup
+                    }
+
+    GROUP           ctsxSxpVersionGroup
+    DESCRIPTION
+        "This group is mandatory for platforms which support
+        displaying SXP protocol version."
+
+    GROUP           ctsxSxpBindingLogGroup
+    DESCRIPTION
+        "This group is mandatory for platforms which support
+        controlling logging functionality for SXP bindings."
+
+    GROUP           ctsxSxpBindingNotifInfoGroup
+    DESCRIPTION
+        "This group is mandatory for platforms which support
+        binding expansion functionality in SXP."
+
+    GROUP           ctsxSxpNodeIdInfoGroup
+    DESCRIPTION
+        "This group is mandatory for platforms which support
+        loop detection functionality for SXP."
+
+    GROUP           ctsxIpSgtMappingGroup
+    DESCRIPTION
+        "This group is mandatory for platforms which support
+        SGT mapping functionality but do not support
+        SGT mapping expansion functionality ."
+
+    GROUP           ctsxSxpSgtMapGroup
+    DESCRIPTION
+        "This group is mandatory for platforms which support
+        SGT mapping and SGT mapping expansion functionality in SXP."
+
+    GROUP           ctsxNotifsControlGroup
+    DESCRIPTION
+        "This group is mandatory for platforms which support
+        SXP notifications."
+
+    GROUP           ctsxNotifsGroup
+    DESCRIPTION
+        "This group is mandatory for platforms which support
+        SXP notifications."
+
+    GROUP           ctsxSxpNotifErrMsgGroup
+    DESCRIPTION
+        "This group is mandatory for platforms which support
+        ctsxNotifsGroup."
+
+    GROUP           ctsxSxpGlobalHoldTimeGroup
+    DESCRIPTION
+        "This group is mandatory for platforms which support
+        global hold-time configuration for SXP connections."
+
+    GROUP           ctsxSxpConnHoldTimeGroup
+    DESCRIPTION
+        "This group is mandatory for platforms which support
+        hold-time configuration for individual SXP connections."
+
+    GROUP           ctsxSxpConnCapbilityGroup
+    DESCRIPTION
+        "This group is mandatory for platforms which provide
+        capability information for SXP connections."
+
+    GROUP           ctsxSxpVersionSupportGroup
+    DESCRIPTION
+        "This group is mandatory for platforms which provide
+        version support information for SXP protocol."
+
+    GROUP           ctsxSgtMapPeerSeqGroup
+    DESCRIPTION
+        "This group is mandatory for platforms which provide
+        Peer Sequence information for the SGT mapping."
+
+    OBJECT          ctsxSxpEnable
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSxpConfigDefaultPasswordType
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSxpConfigDefaultPassword
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSxpDefaultSourceAddrType
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSxpDefaultSourceAddr
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSxpRetryPeriod
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSxpReconPeriod
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSxpConnSourceAddrType
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSxpConnSourceAddr
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSxpConnPasswordUsed
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSxpConnConfigPasswordType
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSxpConnConfigPassword
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSxpConnModeLocation
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSxpConnMode
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSxpConnStorageType
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSxpConnRowStatus
+    SYNTAX          INTEGER  {
+                        active(1)
+                    }
+    WRITE-SYNTAX    INTEGER  {
+                        createAndGo(4),
+                        destroy(6)
+                    }
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required.
+        Support for createAndWait and notInService is not required."
+
+    OBJECT          ctsxSxpBindingChangesLogEnable
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSgtMapExpansionLimit
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSxpAdminNodeId
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSxpNodeIdInterface
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSxpNodeIdIpAddrType
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSxpNodeIdIpAddr
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSxpConnSourceAddrErrNotifEnable
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSxpMsgParseErrNotifEnable
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSxpConnConfigErrNotifEnable
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSxpBindingErrNotifEnable
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSxpConnUpNotifEnable
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSxpConnDownNotifEnable
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSxpExpansionFailNotifEnable
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSxpOperNodeIdChangeNotifEnable
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          ctsxSxpBindingConflictNotifEnable
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+    ::= { ciscoTrustSecSxpMIBCompliances 3 }
+
 -- Units of Conformance
 
 ctsxSxpGlobalGroup OBJECT-GROUP
@@ -1004,7 +2079,7 @@ ctsxIpSgtMappingGroup OBJECT-GROUP
     STATUS          current
     DESCRIPTION
         "A collection of objects providing management functionality
-        of IP-SGT mapping for SXP."
+        of SGT mapping for SXP."
     ::= { ciscoTrustSecSxpMIBGroups 3 }
 
 ctsxSxpVersionGroup OBJECT-GROUP
@@ -1014,6 +2089,154 @@ ctsxSxpVersionGroup OBJECT-GROUP
         "A collection of object(s) providing version information
         for SXP."
     ::= { ciscoTrustSecSxpMIBGroups 4 }
+
+ctsxSxpBindingLogGroup OBJECT-GROUP
+    OBJECTS         { ctsxSxpBindingChangesLogEnable }
+    STATUS          current
+    DESCRIPTION
+        "A collection of object(s) providing logging control
+        for SXP binding."
+    ::= { ciscoTrustSecSxpMIBGroups 5 }
+
+ctsxSxpBindingNotifInfoGroup OBJECT-GROUP
+    OBJECTS         {
+                        ctsxSgtMapExpansionVrf,
+                        ctsxSgtMapExpansionAddrType,
+                        ctsxSgtMapExpansionAddr,
+                        ctsxSgtMapExpansionAddrPrefixLength,
+                        ctsxSgtMapConflictingVrfName,
+                        ctsxSgtMapConflictingAddrType,
+                        ctsxSgtMapConflictingAddr,
+                        ctsxSgtMapConflictingOldSgt,
+                        ctsxSgtMapConflictingNewSgt,
+                        ctsxSxpOldOperNodeId
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A collection of object(s) providing variable binding
+        information for SXP notifications."
+    ::= { ciscoTrustSecSxpMIBGroups 6 }
+
+ctsxSxpNotifErrMsgGroup OBJECT-GROUP
+    OBJECTS         { ctsxSxpNotifErrMsg }
+    STATUS          current
+    DESCRIPTION
+        "A collection of object(s) providing detailed error messages
+        for SXP notifications."
+    ::= { ciscoTrustSecSxpMIBGroups 7 }
+
+ctsxSxpNodeIdInfoGroup OBJECT-GROUP
+    OBJECTS         {
+                        ctsxSxpAdminNodeId,
+                        ctsxSxpNodeIdInterface,
+                        ctsxSxpNodeIdIpAddrType,
+                        ctsxSxpNodeIdIpAddr,
+                        ctsxSxpOperNodeId
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A collection of object(s) providing SXP node ID information
+        for the system."
+    ::= { ciscoTrustSecSxpMIBGroups 8 }
+
+ctsxSxpSgtMapGroup OBJECT-GROUP
+    OBJECTS         {
+                        ctsxSxpSgtMapSgt,
+                        ctsxSxpSgtMapInstance,
+                        ctsxSxpSgtMapVrfName,
+                        ctsxSxpSgtMapStatus,
+                        ctsxSgtMapExpansionLimit,
+                        ctsxSgtMapExpansionCount
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A collection of objects providing management functionality
+        of SGT mapping and expansion for SXP."
+    ::= { ciscoTrustSecSxpMIBGroups 9 }
+
+ctsxNotifsControlGroup OBJECT-GROUP
+    OBJECTS         {
+                        ctsxSxpConnSourceAddrErrNotifEnable,
+                        ctsxSxpMsgParseErrNotifEnable,
+                        ctsxSxpConnConfigErrNotifEnable,
+                        ctsxSxpBindingErrNotifEnable,
+                        ctsxSxpConnUpNotifEnable,
+                        ctsxSxpConnDownNotifEnable,
+                        ctsxSxpExpansionFailNotifEnable,
+                        ctsxSxpOperNodeIdChangeNotifEnable,
+                        ctsxSxpBindingConflictNotifEnable
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A collection of objects providing notification control
+        for SXP."
+    ::= { ciscoTrustSecSxpMIBGroups 10 }
+
+ctsxNotifsGroup NOTIFICATION-GROUP
+   NOTIFICATIONS    {
+                        ctsxSxpConnSourceAddrErrNotif,
+                        ctsxSxpMsgParseErrNotif,
+                        ctsxSxpConnConfigErrNotif,
+                        ctsxSxpBindingErrNotif,
+                        ctsxSxpConnUpNotif,
+                        ctsxSxpConnDownNotif,
+                        ctsxSxpExpansionFailNotif,
+                        ctsxSxpOperNodeIdChangeNotif,
+                        ctsxSxpBindingConflictNotif
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A collection of notifications for SXP."
+    ::= { ciscoTrustSecSxpMIBGroups 11 }
+
+ctsxSxpGlobalHoldTimeGroup OBJECT-GROUP
+    OBJECTS         {
+                        ctsxSxpSpeakerMinHoldTime,
+                        ctsxSxpListenerMinHoldTime,
+                        ctsxSxpListenerMaxHoldTime
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A collection of objects providing global
+        hold-time information for SXP connections."
+    ::= { ciscoTrustSecSxpMIBGroups 12 }
+
+ctsxSxpConnHoldTimeGroup OBJECT-GROUP
+    OBJECTS         {
+                        ctsxSxpConnSpeakerMinHoldTime,
+                        ctsxSxpConnListenerMinHoldTime,
+                        ctsxSxpConnListenerMaxHoldTime,
+                        ctsxSxpConnHoldTime
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A collection of objects providing hold-time
+        information for each SXP connection."
+    ::= { ciscoTrustSecSxpMIBGroups 13 }
+
+ctsxSxpConnCapbilityGroup OBJECT-GROUP
+    OBJECTS         { ctsxSxpConnCapability }
+    STATUS          current
+    DESCRIPTION
+        "A collection of object(s) providing capability
+        information for each SXP connection."
+    ::= { ciscoTrustSecSxpMIBGroups 14 }
+
+ctsxSxpVersionSupportGroup OBJECT-GROUP
+    OBJECTS         { ctsxSxpVersionSupport }
+    STATUS          current
+    DESCRIPTION
+        "A collection of object(s) providing SXP version
+        capability information."
+    ::= { ciscoTrustSecSxpMIBGroups 15 }
+
+ctsxSgtMapPeerSeqGroup OBJECT-GROUP
+    OBJECTS         { ctsxSxpSgtMapPeerSeq }
+    STATUS          current
+    DESCRIPTION
+        "A collection of object(s) providing Peer Sequence
+        information."
+    ::= { ciscoTrustSecSxpMIBGroups 16 }
 
 END
 

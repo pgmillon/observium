@@ -9,18 +9,20 @@
  * @package    observium
  * @subpackage snmptraps
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-ini_set('log_errors', 1);
-ini_set('error_reporting', E_ALL);
+chdir(dirname($argv[0]));
+$scriptname = basename($argv[0]);
 
-include("includes/defaults.inc.php");
-include("config.php");
-include("includes/definitions.inc.php");
+include_once("includes/defaults.inc.php");
+include_once("config.php");
+
+$options = getopt("d");
+if (isset($options['d'])) { array_shift($argv); } // for compatability
+
+include_once("includes/definitions.inc.php");
 include("includes/functions.inc.php");
 
 $entry = explode(",", $argv[1]);

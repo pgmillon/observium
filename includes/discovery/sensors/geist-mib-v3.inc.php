@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -147,7 +147,7 @@ foreach ($cache['geist']['ctrl3ChIECTable'] as $index => $entry)
 
     if (is_numeric($value))
     {
-      discover_sensor($valid['sensor'], 'current', $device, $oid, $prefix.'.'.$index, 'geist-mib-v3', $descr, $scale, $value * $scale, $limits); // $scale = 0.1
+      discover_sensor($valid['sensor'], 'current', $device, $oid, $prefix.'.'.$index, 'geist-mib-v3', $descr, $scale, $value, $limits); // $scale = 0.1
     }
 
     // Phase 2
@@ -194,7 +194,7 @@ foreach ($cache['geist']['ctrl3ChIECTable'] as $index => $entry)
 
     if (is_numeric($value))
     {
-      discover_sensor($valid['sensor'], 'current', $device, $oid, $prefix.'.'.$index, 'geist-mib-v3', $descr, $scale, $value * $scale, $limits); // $scale = 0.1
+      discover_sensor($valid['sensor'], 'current', $device, $oid, $prefix.'.'.$index, 'geist-mib-v3', $descr, $scale, $value, $limits); // $scale = 0.1
     }
 
     // Phase 3
@@ -241,7 +241,7 @@ foreach ($cache['geist']['ctrl3ChIECTable'] as $index => $entry)
 
     if (is_numeric($value))
     {
-      discover_sensor($valid['sensor'], 'current', $device, $oid, $prefix.'.'.$index, 'geist-mib-v3', $descr, $scale, $value * $scale, $limits); // $scale = 0.1
+      discover_sensor($valid['sensor'], 'current', $device, $oid, $prefix.'.'.$index, 'geist-mib-v3', $descr, $scale, $value, $limits); // $scale = 0.1
     }
 
     // Total
@@ -519,7 +519,7 @@ foreach ($cache['geist']['climateTable'] as $index => $entry)
 
     if (is_numeric($value))
     {
-      discover_sensor($valid['sensor'], 'current', $device, $oid, $prefix.'.'.$index, 'geist-mib-v3', $descr, $scale, $value * $scale, $limits); // $scale = 0.1
+      discover_sensor($valid['sensor'], 'current', $device, $oid, $prefix.'.'.$index, 'geist-mib-v3', $descr, $scale, $value, $limits); // $scale = 0.1
     }
 
     // Phase 2
@@ -555,7 +555,7 @@ foreach ($cache['geist']['climateTable'] as $index => $entry)
 
     if (is_numeric($value))
     {
-      discover_sensor($valid['sensor'], 'current', $device, $oid, $prefix.'.'.$index, 'geist-mib-v3', $descr, $scale, $value * $scale, $limits); // $scale = 0.1
+      discover_sensor($valid['sensor'], 'current', $device, $oid, $prefix.'.'.$index, 'geist-mib-v3', $descr, $scale, $value, $limits); // $scale = 0.1
     }
 
     // Phase 3
@@ -591,7 +591,7 @@ foreach ($cache['geist']['climateTable'] as $index => $entry)
 
     if (is_numeric($value))
     {
-      discover_sensor($valid['sensor'], 'current', $device, $oid, $prefix.'.'.$index, 'geist-mib-v3', $descr, $scale, $value * $scale, $limits); // $scale = 0.1
+      discover_sensor($valid['sensor'], 'current', $device, $oid, $prefix.'.'.$index, 'geist-mib-v3', $descr, $scale, $value, $limits); // $scale = 0.1
     }
 
     $descr = $entry['climateName'] . " Analog I/O Sensor 1";
@@ -658,7 +658,7 @@ foreach ($cache['geist']['powerDMTable'] as $index => $entry)
 
       if (is_numeric($value))
       {
-        discover_sensor($valid['sensor'], 'current', $device, $oid, $prefix.'.'.$index, 'geist-mib-v3', $descr, $scale, $value * $scale, $limits); // $scale = 0.1
+        discover_sensor($valid['sensor'], 'current', $device, $oid, $prefix.'.'.$index, 'geist-mib-v3', $descr, $scale, $value, $limits); // $scale = 0.1
       }
     }
   }

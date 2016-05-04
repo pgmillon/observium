@@ -6,25 +6,38 @@
  *
  *   This file is part of Observium.
  *
- * @package    observium
- * @subpackage cli
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @package        observium
+ * @subpackage     cli
+ * @author         Adam Armstrong <adama@memetic.org>
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 chdir(dirname($argv[0]));
+$scriptname = basename($argv[0]);
 
 include("includes/defaults.inc.php");
 include("config.php");
+
+$options = getopt("dht");
+if (isset($options['d'])) { array_shift($argv); }
+
 include("includes/definitions.inc.php");
 include("includes/functions.inc.php");
 include("includes/discovery/functions.inc.php");
 
-$scriptname = basename($argv[0]);
+print_message("%g" . OBSERVIUM_PRODUCT . " " . OBSERVIUM_VERSION . "\n%WAdd Device(s)%n\n", 'color');
 
-print_message("%g".OBSERVIUM_PRODUCT." ".OBSERVIUM_VERSION."\n%WAdd Device(s)%n\n", 'color');
+if (OBS_DEBUG) { print_versions(); }
 
+if (isset($options['h'])) { print_help($scriptname); exit; }
+
+$snmp_options = array();
+if (isset($options['t']))
+{
+  $snmp_options['test'] = TRUE;
+  array_shift($argv);
+}
 $added = 0;
 
 if (!empty($argv[1]))
@@ -50,20 +63,20 @@ if (!empty($argv[1]))
 
   foreach ($add_array as $add)
   {
-    $host      = strtolower($add[0]);
-    $community = $add[1];
-    $snmpver   = strtolower($add[2]);
+    $hostname = strtolower($add[0]);
+    $snmp_community = $add[1];
+    $snmp_version = strtolower($add[2]);
 
-    $port = 161;
-    $transport = 'udp';
+    $snmp_port = 161;
+    $snmp_transport = 'udp';
 
-    if ($snmpver == "v3")
+    if ($snmp_version == "v3")
     {
       $config['snmp']['v3'] = $snmp_config_v3; // Restore base SNMP v3 credentials
-      $seclevel = $community;
+      $snmp_v3_seclevel = $snmp_community;
 
       // These values are the same as in defaults.inc.php
-      $v3 = array(
+      $snmp_v3_auth = array(
         'authlevel'  => "noAuthNoPriv",
         'authname'   => "observium",
         'authpass'   => "",
@@ -72,155 +85,179 @@ if (!empty($argv[1]))
         'cryptoalgo' => "AES"
       );
 
-      if ($seclevel == "nanp" || $seclevel == "any" || $seclevel == "noAuthNoPriv")
+      if ($snmp_v3_seclevel == "nanp" || $snmp_v3_seclevel == "any" || $snmp_v3_seclevel == "noAuthNoPriv")
       {
-        $v3['authlevel'] = "noAuthNoPriv";
-        $v3args = array_slice($add, 3);
+        $snmp_v3_auth['authlevel'] = "noAuthNoPriv";
+        $snmp_v3_args = array_slice($add, 3);
 
-        while ($arg = array_shift($v3args))
+        while ($arg = array_shift($snmp_v3_args))
         {
           // parse all remaining args
           if (is_numeric($arg))
           {
-            $port = $arg;
+            $snmp_port = $arg;
           }
-          elseif (preg_match ('/^(' . implode("|",$config['snmp']['transports']) . ')$/', $arg))
+          else if (preg_match('/^(' . implode("|", $config['snmp']['transports']) . ')$/', $arg))
           {
-            $transport = $arg;
-          }
-          else
-          {
-            // should add a sanity check of chars allowed in user
+            $snmp_transport = $arg;
+          } else {
+            // FIXME: should add a sanity check of chars allowed in user
             $user = $arg;
           }
         }
 
-        if ($seclevel != "any") { array_push($config['snmp']['v3'], $v3); }
+        if ($snmp_v3_seclevel != "any")
+        {
+          array_push($config['snmp']['v3'], $snmp_v3_auth);
+        }
       }
-      elseif ($seclevel == "anp" || $seclevel == "authNoPriv")
+      else if ($snmp_v3_seclevel == "anp" || $snmp_v3_seclevel == "authNoPriv")
       {
 
-        $v3['authlevel'] = "authNoPriv";
-        $v3args = array_slice($argv, 4);
-        $v3['authname'] = array_shift($v3args);
-        $v3['authpass'] = array_shift($v3args);
+        $snmp_v3_auth['authlevel'] = "authNoPriv";
+        $snmp_v3_args = array_slice($argv, 4);
+        $snmp_v3_auth['authname'] = array_shift($snmp_v3_args);
+        $snmp_v3_auth['authpass'] = array_shift($snmp_v3_args);
 
-        while ($arg = array_shift($v3args))
+        while ($arg = array_shift($snmp_v3_args))
         {
           // parse all remaining args
           if (is_numeric($arg))
           {
-            $port = $arg;
+            $snmp_port = $arg;
           }
-          elseif (preg_match ('/^(' . implode("|",$config['snmp']['transports']) . ')$/i', $arg))
+          else if (preg_match('/^(' . implode("|", $config['snmp']['transports']) . ')$/i', $arg))
           {
-            $transport = $arg;
+            $snmp_transport = $arg;
           }
-          elseif (preg_match ('/^(sha|md5)$/i', $arg))
+          else if (preg_match('/^(sha|md5)$/i', $arg))
           {
-            $v3['authalgo'] = $arg;
+            $snmp_v3_auth['authalgo'] = $arg;
           }
         }
 
-        array_push($config['snmp']['v3'], $v3);
+        array_push($config['snmp']['v3'], $snmp_v3_auth);
       }
-      elseif ($seclevel == "ap" or $seclevel == "authPriv")
+      else if ($snmp_v3_seclevel == "ap" || $snmp_v3_seclevel == "authPriv")
       {
-        $v3['authlevel'] = "authPriv";
-        $v3args = array_slice($argv, 4);
-        $v3['authname'] = array_shift($v3args);
-        $v3['authpass'] = array_shift($v3args);
-        $v3['cryptopass'] = array_shift($v3args);
+        $snmp_v3_auth['authlevel'] = "authPriv";
+        $snmp_v3_args = array_slice($argv, 4);
+        $snmp_v3_auth['authname'] = array_shift($snmp_v3_args);
+        $snmp_v3_auth['authpass'] = array_shift($snmp_v3_args);
+        $snmp_v3_auth['cryptopass'] = array_shift($snmp_v3_args);
 
-        while ($arg = array_shift($v3args))
+        while ($arg = array_shift($snmp_v3_args))
         {
           // parse all remaining args
           if (is_numeric($arg))
           {
-            $port = $arg;
+            $snmp_port = $arg;
           }
-          elseif (preg_match ('/^(' . implode("|",$config['snmp']['transports']) . ')$/i', $arg))
+          elseif (preg_match('/^(' . implode("|", $config['snmp']['transports']) . ')$/i', $arg))
           {
-            $transport = $arg;
+            $snmp_transport = $arg;
           }
-          elseif (preg_match ('/^(sha|md5)$/i', $arg))
+          elseif (preg_match('/^(sha|md5)$/i', $arg))
           {
-            $v3['authalgo'] = $arg;
+            $snmp_v3_auth['authalgo'] = $arg;
           }
-          elseif (preg_match ('/^(aes|des)$/i', $arg))
+          elseif (preg_match('/^(aes|des)$/i', $arg))
           {
-            $v3['cryptoalgo'] = $arg;
+            $snmp_v3_auth['cryptoalgo'] = $arg;
           }
         }
 
-        array_push($config['snmp']['v3'], $v3);
+        array_push($config['snmp']['v3'], $snmp_v3_auth);
       }
     } else {
       // v1 or v2c
-      $v2args = array_slice($argv, 2);
+      $snmp_v2_args = array_slice($argv, 2);
 
-      while ($arg = array_shift($v2args))
+      while ($arg = array_shift($snmp_v2_args))
       {
         // parse all remaining args
         if (is_numeric($arg))
         {
-          $port = $arg;
+          $snmp_port = $arg;
         }
-        elseif (preg_match ('/(' . implode("|",$config['snmp']['transports']) . ')/i', $arg))
+        elseif (preg_match('/(' . implode("|", $config['snmp']['transports']) . ')/i', $arg))
         {
-          $transport = $arg;
+          $snmp_transport = $arg;
         }
-        elseif (preg_match ('/^(v1|v2c)$/i', $arg))
+        elseif (preg_match('/^(v1|v2c)$/i', $arg))
         {
-          $snmpver = $arg;
+          $snmp_version = $arg;
         }
       }
 
-      $config['snmp']['community'] = ($community ? array($community) : $snmp_config_community);
+      $config['snmp']['community'] = ($snmp_community ? array($snmp_community) : $snmp_config_community);
     }
 
-    print_message("Try to add $host:");
-    if ($snmpver)
+    print_message("Try to add $hostname:");
+    if (in_array($snmp_version, array('v1', 'v2c', 'v3')))
     {
-      $device_id = add_device($host, $snmpver, $port, $transport);
+      // If snmp version passed in arguments, then use the exact version
+      $device_id = add_device($hostname, $snmp_version, $snmp_port, $snmp_transport, $snmp_options);
     } else {
-      $device_id = add_device($host, NULL, $port, $transport);
+      // If snmp version unknown ckeck all possible snmp versions and auth options
+      $device_id = add_device($hostname,          NULL, $snmp_port, $snmp_transport, $snmp_options);
     }
 
     if ($device_id)
     {
-      $device = device_by_id_cache($device_id);
-      print_success("Added device ".$device['hostname']." (".$device_id.").");
+      if (!isset($options['t']))
+      {
+        $device = device_by_id_cache($device_id);
+        print_success("Added device " . $device['hostname'] . " (" . $device_id . ").");
+      } // Else this is device testing, success message already written by add_device()
       $added++;
     }
   }
 }
 
-$count  = count($add_array);
+$count = count($add_array);
 $failed = $count - $added;
 if ($added)
 {
-  print_message("\nDevices added: $added.");
-  if ($failed) { print_message("Devices skipped: $failed."); }
+  print_message("\nDevices success: $added.");
+  if ($failed)
+  {
+    print_message("Devices failed: $failed.");
+  }
 } else {
-  if ($count)  { print_message("Devices skipped: $failed."); }
+  if ($count)
+  {
+    print_message("Devices failed: $failed.");
+  }
+  print_help($scriptname);
+}
+
+function print_help($scriptname)
+{
+  global $config;
+
   print_message("%n
 USAGE:
-$scriptname <hostname> [community] [v1|v2c] [port] [" . implode("|",$config['snmp']['transports']) . "]
-$scriptname <hostname> [any|nanp|anp|ap] [v3] [user] [password] [enckey] [md5|sha] [aes|des] [port] [" . implode("|",$config['snmp']['transports']) . "]
+$scriptname <hostname> [community] [v1|v2c] [port] [" . implode("|", $config['snmp']['transports']) . "]
+$scriptname <hostname> [any|nanp|anp|ap] [v3] [user] [password] [enckey] [md5|sha] [aes|des] [port] [" . implode("|", $config['snmp']['transports']) . "]
 $scriptname <filename>
 
 EXAMPLE:
-%WSNMPv1/2c%n:                    $scriptname <%Whostname%n> [community] [v1|v2c] [port] [" . implode("|",$config['snmp']['transports']) . "]
-%WSNMPv3%n   :         Defaults : $scriptname <%Whostname%n> any v3 [user] [port] [" . implode("|",$config['snmp']['transports']) . "]
-           No Auth, No Priv : $scriptname <%Whostname%n> nanp v3 [user] [port] [" . implode("|",$config['snmp']['transports']) . "]
-              Auth, No Priv : $scriptname <%Whostname%n> anp v3 <user> <password> [md5|sha] [port] [" . implode("|",$config['snmp']['transports']) . "]
-              Auth,    Priv : $scriptname <%Whostname%n> ap v3 <user> <password> <enckey> [md5|sha] [aes|des] [port] [" . implode("|",$config['snmp']['transports']) . "]
+%WSNMPv1/2c%n:                    $scriptname <%Whostname%n> [community] [v1|v2c] [port] [" . implode("|", $config['snmp']['transports']) . "]
+%WSNMPv3%n   :         Defaults : $scriptname <%Whostname%n> any v3 [user] [port] [" . implode("|", $config['snmp']['transports']) . "]
+           No Auth, No Priv : $scriptname <%Whostname%n> nanp v3 [user] [port] [" . implode("|", $config['snmp']['transports']) . "]
+              Auth, No Priv : $scriptname <%Whostname%n> anp v3 <user> <password> [md5|sha] [port] [" . implode("|", $config['snmp']['transports']) . "]
+              Auth,    Priv : $scriptname <%Whostname%n> ap v3 <user> <password> <enckey> [md5|sha] [aes|des] [port] [" . implode("|", $config['snmp']['transports']) . "]
 %WFILE%n     :                    $scriptname <%Wfilename%n>
 
 ADD FROM FILE:
  To add multiple devices, create a file in which each line contains one device with or without options.
- Format for device options, the same as specified in USAGE.", 'color', FALSE);
+ Format for device options, the same as specified in USAGE.
+
+DEBUGGING OPTIONS:
+ -d                                          Enable debugging output.
+ -dd                                         More verbose debugging output.
+ -t                                          Do not add device(s), only test auth options.", 'color', FALSE);
 }
 
 // EOF

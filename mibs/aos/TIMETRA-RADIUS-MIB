@@ -1,0 +1,3137 @@
+TIMETRA-RADIUS-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    Unsigned32, Counter32, Gauge32,
+    MODULE-IDENTITY,
+    OBJECT-TYPE,
+    NOTIFICATION-TYPE
+                                                                FROM SNMPv2-SMI
+
+
+    RowStatus, TEXTUAL-CONVENTION, 
+    TimeStamp, TimeInterval,
+    DisplayString, 
+    TruthValue
+                                                                 FROM SNMPv2-TC
+
+
+    OBJECT-GROUP, 
+    MODULE-COMPLIANCE,
+    NOTIFICATION-GROUP
+                                                               FROM SNMPv2-CONF
+
+    InetAddressType, InetAddress
+                                                         FROM INET-ADDRESS-MIB
+    timetraSRMIBModules, tmnxSRObjs, tmnxSRConfs, 
+    tmnxSRNotifyPrefix
+                                                        FROM TIMETRA-GLOBAL-MIB
+
+    TItemDescription, TNamedItem, TNamedItemOrEmpty,
+    TmnxVRtrID, TmnxVRtrIDOrZero,
+    TmnxAdminState, TmnxEnabledDisabled, TmnxOperState,
+    TmnxSubRadServAlgorithm,
+    TmnxSubRadiusAttrType, 
+    TmnxSubRadiusVendorId,
+    TmnxRadiusServerOperState,
+    TmnxRadiusPendingReqLimit
+                                                            FROM TIMETRA-TC-MIB
+
+    vRtrID, vRtrIfIndex                                          
+                                                          FROM TIMETRA-VRTR-MIB
+
+
+    ;
+timetraRadiusMIBModule    MODULE-IDENTITY
+    LAST-UPDATED    "201202281200Z"
+    ORGANIZATION    "Alcatel-Lucent"
+    CONTACT-INFO
+    "Alcatel-Lucent 7xxx Support
+    Web: http://www.alcatel-lucent.com/wps/portal/Support"
+    DESCRIPTION
+    "This document is the SNMP MIB module to manage and provision
+     RADIUS for the Alcatel-Lucent 7xxx device.
+
+    Copyright 2011-2012 Alcatel-Lucent. All rights reserved.
+    Reproduction of this document is authorized on the condition that
+    the foregoing copyright notice is included.
+
+    This SNMP MIB module (Specification) embodies Alcatel-Lucent's
+    proprietary intellectual property. Alcatel-Lucent retains all title and
+    ownership in the Specification, including any revisions.
+
+    Alcatel-Lucent grants all interested parties a non-exclusive
+    license to use and distribute an unmodified copy of this
+    Specification in connection with management of Alcatel products,
+    and without fee, provided this copyright notice and license appear
+    on all copies.
+
+    This Specification is supplied 'as is', and Alcatel-Lucent
+    makes no warranty, either express or implied, as to the use,
+    operation, condition, or performance of the Specification."
+
+--
+--  Revision History
+--
+
+    REVISION        "201202281200Z"
+    DESCRIPTION     "Rev 10.0                28 Februari 2012 12:00
+                     10.0 release of the TIMETRA-RADIUS-MIB."
+
+    ::= { timetraSRMIBModules 79 }
+
+-- ----------------------------------------------------------------------------
+--  Alcatel-Lucent 7xxx series RADIUS MIB structure
+-- ----------------------------------------------------------------------------
+tmnxRadius                   OBJECT IDENTIFIER ::= { tmnxSRObjs 79 }
+    tmnxRadiusObjs           OBJECT IDENTIFIER ::= { tmnxRadius 1 }
+    tmnxRadiusNotificationObjects OBJECT IDENTIFIER ::= { tmnxRadius 2 }
+
+tmnxRadProxConformance       OBJECT IDENTIFIER ::= { tmnxSRConfs 79 }
+    tmnxRadProxCompliances   OBJECT IDENTIFIER ::= { tmnxRadProxConformance 1 }
+    tmnxRadProxGroups        OBJECT IDENTIFIER ::= { tmnxRadProxConformance 2 }
+
+tmnxRadProxNotifyPrefix      OBJECT IDENTIFIER ::= { tmnxSRNotifyPrefix 79 }
+    tmnxRadProxNotifications OBJECT IDENTIFIER ::= { tmnxRadProxNotifyPrefix 0 }
+
+--
+-- Subtrees
+--
+tmnxRadProxSrvObjs           OBJECT IDENTIFIER ::= { tmnxRadiusObjs 1 }
+tmnxRadSrvObjs               OBJECT IDENTIFIER ::= { tmnxRadiusObjs 2 }
+tmnxRadScriptPlcyObjs        OBJECT IDENTIFIER ::= { tmnxRadiusObjs 3 }
+tmnxRadRouteDownlObjs        OBJECT IDENTIFIER ::= { tmnxRadiusObjs 4 }
+
+-- ----------------------------------------------------------------------------
+--  Textual Conventions
+-- ----------------------------------------------------------------------------
+TmnxAuthSecret ::= TEXTUAL-CONVENTION
+    STATUS  current
+    DESCRIPTION
+       "The TmnxAuthSecret data type contains a shared secret
+        used for authentication."
+    SYNTAX DisplayString (SIZE (0..20))
+
+TmnxRadMatchString ::= TEXTUAL-CONVENTION
+    STATUS  current
+    DESCRIPTION
+        "The data type TmnxRadMatchString specifies a string to be matched.
+         
+         The format is as follows:
+
+        <match-specification> ::= <char-specification>+
+
+        <char-specification>  ::= <ascii-char>
+
+        <ascii-char> refers to a printable ASCII character.
+
+         Examples and usage are supplied with the object definitions."
+    SYNTAX DisplayString (SIZE (0..128))
+
+TmnxRadiusAcctStatusType ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "The data type TmnxRadiusAcctStatusType specifies a set of values from
+         the RADIUS Acct-Status-Type message."
+    SYNTAX      BITS {
+                    start         (0),
+                    stop          (1),
+                    interimUpdate (2),
+                    accountingOn  (3),
+                    accountingOff (4)
+                }
+
+-- ----------------------------------------------------------------------------
+--      The "RADIUS Proxy Server" Group
+-- ----------------------------------------------------------------------------
+
+--
+--      The RADIUS Proxy Server Table
+--
+
+tmnxRadProxSrvTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxRadProxSrvEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+       "The tmnxRadProxSrvTable contains objects to configure 
+        the RADIUS Proxy Servers of this system."
+    ::= { tmnxRadProxSrvObjs 1 }
+
+tmnxRadProxSrvEntry OBJECT-TYPE
+    SYNTAX      TmnxRadProxSrvEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each conceptual row represents information about 
+         a particular RADIUS Proxy Server.
+
+        Entries in this table can be created or deleted via SNMP operations."
+    INDEX { vRtrID,
+            IMPLIED tmnxRadProxSrvName }
+    ::= { tmnxRadProxSrvTable 1 }
+
+TmnxRadProxSrvEntry ::= 
+    SEQUENCE {
+        tmnxRadProxSrvName              TNamedItem,
+        tmnxRadProxSrvLastCh            TimeStamp,
+        tmnxRadProxSrvRowStatus         RowStatus,
+        tmnxRadProxSrvPurpose           BITS,
+        tmnxRadProxSrvAdminState        TmnxAdminState,
+        tmnxRadProxSrvDescription       TItemDescription,
+        tmnxRadProxSrvSecret            TmnxAuthSecret,
+        tmnxRadProxSrvDefAuthSrvPlcy    TNamedItemOrEmpty,
+        tmnxRadProxSrvDefAccSrvPlcy     TNamedItemOrEmpty,
+        tmnxRadProxSrvCaching           TmnxEnabledDisabled,
+        tmnxRadProxSrvCacheKeyPktType   INTEGER,
+        tmnxRadProxSrvCacheKeyAttrType  TmnxSubRadiusAttrType,
+        tmnxRadProxSrvCacheKeyVendorId  TmnxSubRadiusVendorId,
+        tmnxRadProxSrvCacheTimeout      Unsigned32,
+        tmnxRadProxSrvCacheTrackAcct    TmnxRadiusAcctStatusType,
+        tmnxRadProxSrvSendAcctResponse  TruthValue,
+        tmnxRadProxSrvLoadBalanceKey    INTEGER,
+        tmnxRadProxSrvLoadBAttr1        TmnxSubRadiusAttrType,   
+        tmnxRadProxSrvLoadBVendorId1    TmnxSubRadiusVendorId,   
+        tmnxRadProxSrvLoadBAttr2        TmnxSubRadiusAttrType,   
+        tmnxRadProxSrvLoadBVendorId2    TmnxSubRadiusVendorId,   
+        tmnxRadProxSrvLoadBAttr3        TmnxSubRadiusAttrType,   
+        tmnxRadProxSrvLoadBVendorId3    TmnxSubRadiusVendorId,   
+        tmnxRadProxSrvLoadBAttr4        TmnxSubRadiusAttrType,   
+        tmnxRadProxSrvLoadBVendorId4    TmnxSubRadiusVendorId,   
+        tmnxRadProxSrvLoadBAttr5        TmnxSubRadiusAttrType,   
+        tmnxRadProxSrvLoadBVendorId5    TmnxSubRadiusVendorId   
+    }
+
+tmnxRadProxSrvName OBJECT-TYPE
+    SYNTAX      TNamedItem
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvName specifies
+         the name of this RADIUS Proxy server."
+    ::= { tmnxRadProxSrvEntry 1 }
+
+tmnxRadProxSrvLastCh OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvLastCh indicates the sysUpTime at
+         the time of the most recent management-initiated change to this
+         table row."
+    ::= { tmnxRadProxSrvEntry 2 }
+
+tmnxRadProxSrvRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+       "The value of tmnxRadProxSrvRowStatus specifies the row status of this row."
+    ::= { tmnxRadProxSrvEntry 3 }
+
+tmnxRadProxSrvPurpose OBJECT-TYPE
+    SYNTAX      BITS {
+                    accounting (0),
+                    authentication (1)
+                }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvPurpose specifies
+         the purpose of this RADIUS Proxy server.
+         
+         A value for this object must be specified when a conceptual row
+         is created, and it cannot be modified afterwards."
+    ::= { tmnxRadProxSrvEntry 4 }
+
+tmnxRadProxSrvAdminState OBJECT-TYPE
+    SYNTAX      TmnxAdminState
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvAdminState specifies
+         the administrative state of this RADIUS Proxy server."
+    DEFVAL { outOfService }
+    ::= { tmnxRadProxSrvEntry 5 }
+
+tmnxRadProxSrvDescription OBJECT-TYPE
+    SYNTAX      TItemDescription
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvDescription specifies
+         the description of this RADIUS Proxy server."
+    DEFVAL { "" }
+    ::= { tmnxRadProxSrvEntry 6 }
+
+tmnxRadProxSrvSecret OBJECT-TYPE
+    SYNTAX      TmnxAuthSecret
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvSecret specifies the secret key
+         associated with the RADIUS server. 
+         
+         A non-empty value for this object must be provided while the value
+         of the object tmnxRadProxSrvAdminState is equal to 'inService'.
+         
+         Any GET request on this object returns an empty string."
+     DEFVAL { "" }
+    ::= { tmnxRadProxSrvEntry 7 }
+
+tmnxRadProxSrvDefAuthSrvPlcy OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvDefAuthSrvPlcy specifies
+         the name of the default RADIUS Server Policy 
+         associated with this RADIUS Proxy server for authentication purposes.
+         
+         This default policy is used if no policy can be derived from the
+         user name.
+         
+         The value of tmnxRadProxSrvDefAuthSrvPlcy refers to a row in the
+         tmnxRadSrvPlcyTable."
+    DEFVAL { "" }
+    ::= { tmnxRadProxSrvEntry 8 }
+
+tmnxRadProxSrvDefAccSrvPlcy OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvDefAccSrvPlcy specifies
+         the name of the default RADIUS Server Policy 
+         associated with this RADIUS Proxy server for accounting purposes.
+         
+         This default policy is used if no policy can be derived from the
+         user name.
+         
+         The value of tmnxRadProxSrvDefAccSrvPlcy refers to a row in the
+         tmnxRadSrvPlcyTable."
+    DEFVAL { "" }
+    ::= { tmnxRadProxSrvEntry 9 }
+
+tmnxRadProxSrvCaching OBJECT-TYPE
+    SYNTAX      TmnxEnabledDisabled
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvCaching specifies
+         if caching is enabled for this RADIUS Proxy server.
+         
+         While caching is enabled, the attributes of the RADIUS Access-Accept 
+         messages are cached."
+    REFERENCE
+         "RFC 2865 RADIUS section 4.2 Access-Accept."
+    DEFVAL { disabled }
+    ::= { tmnxRadProxSrvEntry 10 }
+
+tmnxRadProxSrvCacheKeyPktType OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    none (0),
+                    accessRequest (1),
+                    accessAccept  (2)
+                }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvCacheKeyPktType specifies
+         the packet type of the RADIUS messages to use to generate the key 
+         for the cache of this RADIUS Proxy server.
+         
+         In order to generate the key associated with a RADIUS Access-Accept
+         message, the system uses the attribute of the type 
+         specified by the value of tmnxRadProxSrvCacheKeyAttrType,
+         within the associated RADIUS message of the type specified by the
+         value of tmnxRadProxSrvCacheKeyPktType."
+    REFERENCE
+        "RFC 2865 RADIUS section 4 Packet Types."
+    DEFVAL { none }
+    ::= { tmnxRadProxSrvEntry 11 }
+
+tmnxRadProxSrvCacheKeyAttrType OBJECT-TYPE
+    SYNTAX      TmnxSubRadiusAttrType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvCacheKeyAttrType specifies
+         the RADIUS attribute type to cache for this RADIUS Proxy server.
+               
+         In order to generate the key associated with a RADIUS Access-Accept
+         or Accept-Request message, the system uses the attribute of the type
+         specified by the value of tmnxRadProxSrvCacheKeyAttrType,
+         within the associated RADIUS message of the type specified by the
+         value of tmnxRadProxSrvCacheKeyPktType.
+         
+         The value zero means that no RADIUS attribute type is specified."
+    REFERENCE
+        "RFC 2865 RADIUS section 5 Attributes."
+    DEFVAL { 0 }
+    ::= { tmnxRadProxSrvEntry 12 }
+
+tmnxRadProxSrvCacheKeyVendorId OBJECT-TYPE
+    SYNTAX      TmnxSubRadiusVendorId
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvCacheKeyVendorId specifies
+         the RADIUS Vendor-Id.
+         
+         If the value of tmnxRadProxSrvCacheKeyVendorId is equal to zero, the
+         attribute type specified by tmnxRadProxSrvCacheKeyAttrType must be
+         used if it appears outside of a Vendor-Specific attribute.
+         
+         If the value of tmnxRadProxSrvCacheKeyVendorId is not equal to zero, the
+         attribute type specified by tmnxRadProxSrvCacheKeyAttrType must be
+         used if it appears as a sub-attribute within a Vendor-Specific attribute 
+         with Vendor-Id equal to the value of tmnxRadProxSrvCacheKeyVendorId."
+    REFERENCE
+        "RFC 2865 RADIUS section 5.25 Vendor-Specific."
+    DEFVAL { 0 }
+    ::= { tmnxRadProxSrvEntry 13 }
+
+tmnxRadProxSrvCacheTimeout OBJECT-TYPE
+    SYNTAX      Unsigned32 (60..3600)
+    UNITS       "seconds"
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvCacheTimeout specifies, in seconds, the
+         timeout after which an entry in the cache will expire."
+    DEFVAL { 300 }
+    ::= { tmnxRadProxSrvEntry 14 }
+
+tmnxRadProxSrvCacheTrackAcct OBJECT-TYPE
+    SYNTAX      TmnxRadiusAcctStatusType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvCacheTrackAcct specifies
+         what RADIUS accounting packets have impact on the cache of
+         this RADIUS Proxy server."
+    REFERENCE
+        "RFC 2139 RADIUS Accounting
+         section 5.1.  Acct-Status-Type."
+    DEFVAL { '0'H }
+    ::= { tmnxRadProxSrvEntry 15 }
+
+tmnxRadProxSrvSendAcctResponse OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvSendAcctResponse specifies
+         if this RADIUS Proxy server itself responds with an
+         Accounting-Response message to each received Accounting-Request 
+         instead of proxying them to a configured RADIUS server."
+    DEFVAL { false }
+    ::= { tmnxRadProxSrvEntry 16 }
+
+tmnxRadProxSrvLoadBalanceKey OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    none (0),
+                    sourceIpUdp (1),
+                    attributes  (2)
+                }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvLoadBalanceKey specifies
+         how to construct the key for load-balancing RADIUS messages
+         between RADIUS servers.
+         
+         The value 'none' specifies that there be no load-balancing.
+         
+         The value 'sourceIpUdp' specifies that the key consists of
+         the source IP address and source UDP port of the RADIUS message.
+         
+         The value 'attributes' specifies that the key is constructed with the
+         attributes in the RADIUS message listed in the objects
+         tmnxRadProxSrvLoadBAttr1 to tmnxRadProxSrvLoadBAttr5."
+    DEFVAL { none }
+    ::= { tmnxRadProxSrvEntry 17 }
+
+tmnxRadProxSrvLoadBAttr1 OBJECT-TYPE
+    SYNTAX      TmnxSubRadiusAttrType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvLoadBAttr1 specifies
+         a RADIUS attribute that must be used
+         to construct the key for load-balancing RADIUS messages
+         between RADIUS servers while the value of the object
+         tmnxRadProxSrvLoadBalanceKey is equal to 'attributes'.
+         
+         While the value of tmnxRadProxSrvLoadBalanceKey is different
+         from 'attributes', the value of tmnxRadProxSrvLoadBAttr1 must 
+         be equal to zero."
+    DEFVAL { 0 }
+    ::= { tmnxRadProxSrvEntry 18 }
+    
+tmnxRadProxSrvLoadBVendorId1 OBJECT-TYPE
+    SYNTAX      TmnxSubRadiusVendorId
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvLoadBVendorId1 specifies
+         the RADIUS Vendor-Id associated with tmnxRadProxSrvLoadBAttr1.
+         
+         If the value of tmnxRadProxSrvLoadBVendorId1 is equal to zero, the
+         attribute type specified by tmnxRadProxSrvLoadBAttr1 must be
+         used if it appears outside of a Vendor-Specific attribute.
+         
+         If the value of tmnxRadProxSrvLoadBVendorId1 is not equal to zero, the
+         attribute type specified by tmnxRadProxSrvLoadBAttr1 must be
+         used if it appears as a sub-attribute within a Vendor-Specific attribute 
+         with Vendor-Id equal to the value of tmnxRadProxSrvLoadBVendorId1."
+    REFERENCE
+        "RFC 2865 RADIUS section 5.25 Vendor-Specific."
+    DEFVAL { 0 }
+    ::= { tmnxRadProxSrvEntry 19 }
+
+tmnxRadProxSrvLoadBAttr2 OBJECT-TYPE
+    SYNTAX      TmnxSubRadiusAttrType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvLoadBAttr2 specifies
+         a RADIUS attribute that must be used
+         to construct the key for load-balancing RADIUS messages
+         between RADIUS servers while the value of the object
+         tmnxRadProxSrvLoadBalanceKey is equal to 'attributes'.
+         
+         While the value of tmnxRadProxSrvLoadBalanceKey is different
+         from 'attributes', the value of tmnxRadProxSrvLoadBAttr2 must 
+         be equal to zero."
+    DEFVAL { 0 }
+    ::= { tmnxRadProxSrvEntry 20 }
+    
+tmnxRadProxSrvLoadBVendorId2 OBJECT-TYPE
+    SYNTAX      TmnxSubRadiusVendorId
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvLoadBVendorId2 specifies
+         the RADIUS Vendor-Id associated with tmnxRadProxSrvLoadBAttr2.
+         
+         If the value of tmnxRadProxSrvLoadBVendorId1 is equal to zero, the
+         attribute type specified by tmnxRadProxSrvLoadBAttr2 must be
+         used if it appears outside of a Vendor-Specific attribute.
+         
+         If the value of tmnxRadProxSrvLoadBVendorId1 is not equal to zero, the
+         attribute type specified by tmnxRadProxSrvLoadBAttr2 must be
+         used if it appears as a sub-attribute within a Vendor-Specific attribute 
+         with Vendor-Id equal to the value of tmnxRadProxSrvLoadBVendorId2."
+    REFERENCE
+        "RFC 2865 RADIUS section 5.25 Vendor-Specific."
+    DEFVAL { 0 }
+    ::= { tmnxRadProxSrvEntry 21 }
+
+tmnxRadProxSrvLoadBAttr3 OBJECT-TYPE
+    SYNTAX      TmnxSubRadiusAttrType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvLoadBAttr3 specifies
+         a RADIUS attribute that must be used
+         to construct the key for load-balancing RADIUS messages
+         between RADIUS servers while the value of the object
+         tmnxRadProxSrvLoadBalanceKey is equal to 'attributes'.
+         
+         While the value of tmnxRadProxSrvLoadBalanceKey is different
+         from 'attributes', the value of tmnxRadProxSrvLoadBAttr3 must 
+         be equal to zero."
+    DEFVAL { 0 }
+    ::= { tmnxRadProxSrvEntry 22 }
+    
+tmnxRadProxSrvLoadBVendorId3 OBJECT-TYPE
+    SYNTAX      TmnxSubRadiusVendorId
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvLoadBVendorId1 specifies
+         the RADIUS Vendor-Id associated with tmnxRadProxSrvLoadBAttr3.
+         
+         If the value of tmnxRadProxSrvLoadBVendorId1 is equal to zero, the
+         attribute type specified by tmnxRadProxSrvLoadBAttr3 must be
+         used if it appears outside of a Vendor-Specific attribute.
+         
+         If the value of tmnxRadProxSrvLoadBVendorId1 is not equal to zero, the
+         attribute type specified by tmnxRadProxSrvLoadBAttr3 must be
+         used if it appears as a sub-attribute within a Vendor-Specific attribute 
+         with Vendor-Id equal to the value of tmnxRadProxSrvLoadBVendorId3."
+    REFERENCE
+        "RFC 2865 RADIUS section 5.25 Vendor-Specific."
+    DEFVAL { 0 }
+    ::= { tmnxRadProxSrvEntry 23 }
+
+tmnxRadProxSrvLoadBAttr4 OBJECT-TYPE
+    SYNTAX      TmnxSubRadiusAttrType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvLoadBAttr4 specifies
+         a RADIUS attribute that must be used
+         to construct the key for load-balancing RADIUS messages
+         between RADIUS servers while the value of the object
+         tmnxRadProxSrvLoadBalanceKey is equal to 'attributes'.
+         
+         While the value of tmnxRadProxSrvLoadBalanceKey is different
+         from 'attributes', the value of tmnxRadProxSrvLoadBAttr4 must 
+         be equal to zero."
+    DEFVAL { 0 }
+    ::= { tmnxRadProxSrvEntry 24 }
+    
+tmnxRadProxSrvLoadBVendorId4 OBJECT-TYPE
+    SYNTAX      TmnxSubRadiusVendorId
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvLoadBVendorId1 specifies
+         the RADIUS Vendor-Id associated with tmnxRadProxSrvLoadBAttr4.
+         
+         If the value of tmnxRadProxSrvLoadBVendorId1 is equal to zero, the
+         attribute type specified by tmnxRadProxSrvLoadBAttr4 must be
+         used if it appears outside of a Vendor-Specific attribute.
+         
+         If the value of tmnxRadProxSrvLoadBVendorId4 is not equal to zero, the
+         attribute type specified by tmnxRadProxSrvLoadBAttr4 must be
+         used if it appears as a sub-attribute within a Vendor-Specific attribute 
+         with Vendor-Id equal to the value of tmnxRadProxSrvLoadBVendorId4."
+    REFERENCE
+        "RFC 2865 RADIUS section 5.25 Vendor-Specific."
+    DEFVAL { 0 }
+    ::= { tmnxRadProxSrvEntry 25 }
+
+tmnxRadProxSrvLoadBAttr5 OBJECT-TYPE
+    SYNTAX      TmnxSubRadiusAttrType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvLoadBAttr5 specifies
+         a RADIUS attribute that must be used
+         to construct the key for load-balancing RADIUS messages
+         between RADIUS servers while the value of the object
+         tmnxRadProxSrvLoadBalanceKey is equal to 'attributes'.
+         
+         While the value of tmnxRadProxSrvLoadBalanceKey is different
+         from 'attributes', the value of tmnxRadProxSrvLoadBAttr5 must 
+         be equal to zero."
+    DEFVAL { 0 }
+    ::= { tmnxRadProxSrvEntry 26 }
+    
+tmnxRadProxSrvLoadBVendorId5 OBJECT-TYPE
+    SYNTAX      TmnxSubRadiusVendorId
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvLoadBVendorId5 specifies
+         the RADIUS Vendor-Id associated with tmnxRadProxSrvLoadBAttr5.
+         
+         If the value of tmnxRadProxSrvLoadBVendorId5 is equal to zero, the
+         attribute type specified by tmnxRadProxSrvLoadBAttr5 must be
+         used if it appears outside of a Vendor-Specific attribute.
+         
+         If the value of tmnxRadProxSrvLoadBVendorId5 is not equal to zero, the
+         attribute type specified by tmnxRadProxSrvLoadBAttr5 must be
+         used if it appears as a sub-attribute within a Vendor-Specific attribute 
+         with Vendor-Id equal to the value of tmnxRadProxSrvLoadBVendorId5."
+    REFERENCE
+        "RFC 2865 RADIUS section 5.25 Vendor-Specific."
+    DEFVAL { 0 }
+    ::= { tmnxRadProxSrvEntry 27 }
+
+
+--
+--      The RADIUS Proxy Server Status Table
+--
+
+tmnxRadPSStatusTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxRadPSStatusEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+       "The tmnxRadPSStatusTable contains statistics about 
+        the RADIUS Proxy Servers of this system."
+    ::= { tmnxRadProxSrvObjs 2 }
+
+tmnxRadPSStatusEntry OBJECT-TYPE
+    SYNTAX      TmnxRadPSStatusEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each conceptual row represents statistics about 
+         a particular RADIUS Proxy Server.
+
+         Rows are created and destroyed automatically by the system."
+    AUGMENTS { tmnxRadProxSrvEntry }
+    ::= { tmnxRadPSStatusTable 1 }
+
+TmnxRadPSStatusEntry ::= 
+    SEQUENCE {
+        tmnxRadPSStatusCacheEntries      Gauge32,
+        tmnxRadPSStatusCacheEntriesReg   Gauge32
+    }
+
+tmnxRadPSStatusCacheEntries OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatusCacheEntries indicates
+         the number of entries in the cache of this RADIUS Proxy Server."
+    ::= { tmnxRadPSStatusEntry 1 }
+
+tmnxRadPSStatusCacheEntriesReg OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatusCacheEntriesReg indicates
+         the number of entries in the cache of this RADIUS Proxy Server.
+         
+         Pending entries have a registered application.
+         
+         An example of an application that could register to a cache entry
+         is Subscriber Management of DHCP clients."
+    ::= { tmnxRadPSStatusEntry 2 }
+
+--
+--      The RADIUS Proxy Server Statistics Table
+--
+
+tmnxRadPSStatsTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxRadPSStatsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+       "The tmnxRadPSStatsTable contains statistics about 
+        the RADIUS Proxy Servers of this system."
+    ::= { tmnxRadProxSrvObjs 3 }
+
+tmnxRadPSStatsEntry OBJECT-TYPE
+    SYNTAX      TmnxRadPSStatsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each conceptual row represents statistics about 
+         a particular RADIUS Proxy Server.
+
+         Rows are created and destroyed automatically by the system."
+    AUGMENTS { tmnxRadProxSrvEntry }
+    ::= { tmnxRadPSStatsTable 1 }
+
+TmnxRadPSStatsEntry ::= 
+    SEQUENCE {
+        tmnxRadPSStatsRxPacket           Counter32,
+        tmnxRadPSStatsRxAuthRequest      Counter32,
+        tmnxRadPSStatsRxAcctRequest      Counter32,
+        tmnxRadPSStatsRxDropped          Counter32,
+        tmnxRadPSStatsRxRetransmit       Counter32,
+        tmnxRadPSStatsRxAdminDown        Counter32,
+        tmnxRadPSStatsRxNoAaaPol         Counter32,
+        tmnxRadPSStatsRxNoLoadBKey       Counter32,
+        tmnxRadPSStatsRxInvLen           Counter32,
+        tmnxRadPSStatsRxInvCode          Counter32,
+        tmnxRadPSStatsRxInvAttr          Counter32,
+        tmnxRadPSStatsRxInvUserName      Counter32,
+        tmnxRadPSStatsRxInvPassword      Counter32,
+        tmnxRadPSStatsRxInvAcctStatusTyp Counter32,
+        tmnxRadPSStatsRxNoAcctStatusTyp  Counter32,
+        tmnxRadPSStatsRxInvAcctAuth      Counter32,
+        tmnxRadPSStatsRxInvMsgAuth       Counter32,
+        tmnxRadPSStatsRxNoMemory         Counter32,
+        tmnxRadPSStatsRxUserOverload     Counter32,
+        tmnxRadPSStatsTxAuthAck          Counter32,
+        tmnxRadPSStatsTxAuthReject       Counter32,
+        tmnxRadPSStatsTxAuthChallenge    Counter32,
+        tmnxRadPSStatsTxAcctResponse     Counter32,
+        tmnxRadPSStatsTxDropped          Counter32,
+        tmnxRadPSStatsTxCacheNoKey       Counter32,
+        tmnxRadPSStatsTxCacheKeyTooLong  Counter32,
+        tmnxRadPSStatsTxCacheAttrTooLong Counter32,
+        tmnxRadPSStatsTxCacheMaxEntries  Counter32,
+        tmnxRadPSStatsTxNoMemory         Counter32,
+        tmnxRadPSStatsTxServerTimeout    Counter32,
+        tmnxRadPSStatsTxServerAuthFail   Counter32,
+        tmnxRadPSStatsTxServerInvCode    Counter32,
+        tmnxRadPSStatsTxServerInvAttr    Counter32,
+        tmnxRadPSStatsTxUserOverload     Counter32,
+        tmnxRadPSStatsTxNoRadiusServer   Counter32,
+        tmnxRadPSStatsTxSendFailure      Counter32
+    }
+
+tmnxRadPSStatsRxPacket OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsRxPacket indicates
+         the number of packets received by this RADIUS Proxy Server."
+    ::= { tmnxRadPSStatsEntry 1 }
+
+tmnxRadPSStatsRxAuthRequest OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsRxAuthRequest indicates
+         the number of Access-Request packets 
+         received by this RADIUS Proxy Server."
+    ::= { tmnxRadPSStatsEntry 2 }
+
+tmnxRadPSStatsRxAcctRequest OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsRxAcctRequest indicates
+         the number of Accounting-Request packets 
+         received by this RADIUS Proxy Server."
+    ::= { tmnxRadPSStatsEntry 3 }
+
+tmnxRadPSStatsRxDropped OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsRxDropped indicates
+         the number of packets received by this RADIUS Proxy Server
+         but dropped."
+    ::= { tmnxRadPSStatsEntry 4 }
+
+tmnxRadPSStatsRxRetransmit OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsRxRetransmit indicates
+         the number of packets received by this RADIUS Proxy Server
+         that were rejected because they are retransmitted."
+    ::= { tmnxRadPSStatsEntry 5 }
+
+tmnxRadPSStatsRxAdminDown OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsRxAdminDown indicates
+         the number of packets received by this RADIUS Proxy Server
+         that were rejected because it is administratively shut down."
+    ::= { tmnxRadPSStatsEntry 6 }
+
+tmnxRadPSStatsRxNoAaaPol OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsRxNoAaaPol indicates
+         the number of packets received by this RADIUS Proxy Server
+         that were rejected because it has no RADIUS server policy 
+         configured for that type of packet."
+    ::= { tmnxRadPSStatsEntry 7 }
+
+tmnxRadPSStatsRxNoLoadBKey OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsRxNoLoadBKey indicates
+         the number of packets received by this RADIUS Proxy Server
+         that were rejected because the selected RADIUS server policy's 
+         algorithm (tmnxRadSrvPlcyAlgorithm) is set to 'hashBased' and 
+         no load balance key (tmnxRadProxSrvLoadBalanceKey) is configured."
+    ::= { tmnxRadPSStatsEntry 8 }
+
+tmnxRadPSStatsRxInvLen OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsRxInvLen indicates
+         the number of packets received by this RADIUS Proxy Server
+         that were rejected because their length was invalid."
+    ::= { tmnxRadPSStatsEntry 9 }
+
+tmnxRadPSStatsRxInvCode OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsRxInvCode indicates
+         the number of packets received by this RADIUS Proxy Server
+         that were rejected because they had an invalid Code field."
+    REFERENCE
+        "RFC 2865 Remote Authentication Dial In User Service (RADIUS)
+         section 3 Packet format."
+    ::= { tmnxRadPSStatsEntry 10 }
+
+tmnxRadPSStatsRxInvAttr OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsRxInvAttr indicates
+         the number of packets received by this RADIUS Proxy Server
+         that were rejected because one of the attributes was
+         incorrectly encoded."
+    REFERENCE
+        "RFC 2865 Remote Authentication Dial In User Service (RADIUS)
+         section 5 Attributes."
+    ::= { tmnxRadPSStatsEntry 11 }
+
+tmnxRadPSStatsRxInvUserName OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsRxInvUserName indicates
+         the number of packets received by this RADIUS Proxy Server
+         that were rejected because they contained an invalid 
+         User-Name attribute."
+    REFERENCE
+        "RFC 2865 Remote Authentication Dial In User Service (RADIUS)
+         section 5.1 User-Name."
+    ::= { tmnxRadPSStatsEntry 12 }
+    
+tmnxRadPSStatsRxInvPassword OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsRxInvPassword indicates
+         the number of packets received by this RADIUS Proxy Server
+         that were rejected because the User-Password attribute could
+         not be decoded."
+    REFERENCE
+        "RFC 2865 Remote Authentication Dial In User Service (RADIUS)
+         section 5.2 User-Password."
+    ::= { tmnxRadPSStatsEntry 13 }
+
+tmnxRadPSStatsRxInvAcctStatusTyp OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsRxInvAcctStatusTyp indicates
+         the number of accounting packets 
+         received by this RADIUS Proxy Server
+         that were rejected because they contained an invalid 
+         Acct-Status-Type attribute."
+    REFERENCE
+        "RFC 2866 RADIUS Accounting
+         section 5.1 Acct-Status-Type."
+    ::= { tmnxRadPSStatsEntry 14 }
+
+tmnxRadPSStatsRxNoAcctStatusTyp OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsRxNoAcctStatusTyp indicates
+         the number of accounting packets 
+         received by this RADIUS Proxy Server
+         that were rejected because they contained no 
+         Acct-Status-Type attribute."
+    REFERENCE
+        "RFC 2866 RADIUS Accounting
+         section 5.1 Acct-Status-Type."
+    ::= { tmnxRadPSStatsEntry 15 } 
+
+tmnxRadPSStatsRxInvAcctAuth OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsRxInvAcctAuth indicates
+         the number of accounting packets 
+         received by this RADIUS Proxy Server
+         that were rejected because they contained an invalid
+         Authenticator field."
+    REFERENCE
+        "RFC 2139 RADIUS Accounting
+         section 3 Request Authenticator."
+    ::= { tmnxRadPSStatsEntry 16 }
+    
+tmnxRadPSStatsRxInvMsgAuth OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsRxInvMsgAuth indicates
+         the number of packets 
+         received by this RADIUS Proxy Server
+         that were rejected because they contained an invalid
+         Message-Authenticator attribute."
+    REFERENCE
+        "RFC 2869 RADIUS Extensions
+         section 5.14 Message-Authenticator."
+    ::= { tmnxRadPSStatsEntry 17 }
+    
+tmnxRadPSStatsRxNoMemory OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsRxNoMemory indicates
+         the number of packets that were rejected by this RADIUS server
+         because there was not enough memory to store them."
+    ::= { tmnxRadPSStatsEntry 18 }
+    
+tmnxRadPSStatsRxUserOverload OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsRxUserOverload indicates
+         the number of packets that were rejected by this RADIUS server
+         because the registered user indicated to be in overload."
+    ::= { tmnxRadPSStatsEntry 19 }
+
+tmnxRadPSStatsTxAuthAck OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsTxAuthAck indicates
+         the number of Access-Accept packets 
+         transmitted by this RADIUS Proxy Server."
+    REFERENCE
+        "RFC 2865 Remote Authentication Dial In User Service (RADIUS)
+         section 4.2 Access-Accept."
+    ::= { tmnxRadPSStatsEntry 20 }
+    
+tmnxRadPSStatsTxAuthReject OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsTxAuthReject indicates
+         the number of Access-Reject packets 
+         transmitted by this RADIUS Proxy Server."
+    REFERENCE
+        "RFC 2865 Remote Authentication Dial In User Service (RADIUS)
+         section 4.3 Access-Reject."
+    ::= { tmnxRadPSStatsEntry 21 }
+    
+tmnxRadPSStatsTxAuthChallenge OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsTxAuthChallenge indicates
+         the number of Access-Challenge packets 
+         transmitted by this RADIUS Proxy Server."
+    REFERENCE
+        "RFC 2865 Remote Authentication Dial In User Service (RADIUS)
+         section 4.4 Access-Challenge."
+    ::= { tmnxRadPSStatsEntry 22 }
+
+tmnxRadPSStatsTxAcctResponse OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsTxAcctResponse indicates
+         the number of Accounting-Response packets 
+         transmitted by this RADIUS Proxy Server."
+    REFERENCE
+        "RFC 2866 RADIUS Accounting
+         section 4.2 Accounting-Response."
+    ::= { tmnxRadPSStatsEntry 23 }
+
+tmnxRadPSStatsTxDropped OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsTxDropped indicates
+         the number of packets dropped by this RADIUS Proxy Server
+         before transmission."
+    ::= { tmnxRadPSStatsEntry 24 }
+
+tmnxRadPSStatsTxCacheNoKey OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsTxCacheNoKey indicates
+         the number of packets that could not be cached
+         by this RADIUS Proxy Server because the key information
+         was not present in the packet."
+    ::= { tmnxRadPSStatsEntry 25 }
+
+tmnxRadPSStatsTxCacheKeyTooLong OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsTxCacheKeyTooLong indicates
+         the number of packets that could not be cached
+         by this RADIUS Proxy Server because the key information
+         present in the packet was too long."
+    ::= { tmnxRadPSStatsEntry 26 }
+
+tmnxRadPSStatsTxCacheAttrTooLong OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsTxCacheAttrTooLong indicates
+         the number of packets that could not be cached
+         by this RADIUS Proxy Server because the total length
+         of the attributes is too long."
+    ::= { tmnxRadPSStatsEntry 27 }
+
+tmnxRadPSStatsTxCacheMaxEntries OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsTxCacheMaxEntries indicates
+         the number of packets that could not be cached
+         by this RADIUS Proxy Server because the limit has been
+         reached."
+    ::= { tmnxRadPSStatsEntry 28 }
+
+tmnxRadPSStatsTxNoMemory OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsTxNoMemory indicates
+         the number of packets that could not be transmitted
+         by this RADIUS Proxy Server because there was not enough
+         memory."
+    ::= { tmnxRadPSStatsEntry 29 }
+
+tmnxRadPSStatsTxServerTimeout OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsTxServerTimeout indicates
+         the number of packets that were dropped because the RADIUS
+         servers have timed out."
+    ::= { tmnxRadPSStatsEntry 30 }
+
+tmnxRadPSStatsTxServerAuthFail OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsTxServerAuthFail indicates
+         the number of packets that were dropped because the RADIUS
+         server replied with a packet which failed authentication
+         (invalid response Authenticator or Message-Authenticator 
+         attribute)."
+    ::= { tmnxRadPSStatsEntry 31 }
+
+tmnxRadPSStatsTxServerInvCode OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsTxServerInvCode indicates
+         the number of packets that were dropped because the RADIUS
+         server replied with a packet with an invalid Code field."
+    ::= { tmnxRadPSStatsEntry 32 }
+
+tmnxRadPSStatsTxServerInvAttr OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsTxServerInvAttr indicates
+         the number of packets that were dropped because the RADIUS
+         server replied with a packet with an invalid attribute."
+    REFERENCE
+        "RFC 2865 Remote Authentication Dial In User Service (RADIUS)
+         section 5 Attributes."
+    ::= { tmnxRadPSStatsEntry 33 }
+
+tmnxRadPSStatsTxUserOverload OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsTxUserOverload indicates
+         the number of packets that were dropped because the registered 
+         user indicated to be in overload."
+    ::= { tmnxRadPSStatsEntry 34 }    
+
+tmnxRadPSStatsTxNoRadiusServer OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsTxNoRadiusServer indicates
+         the number of packets that were dropped by this RADIUS server
+         because the RADIUS server policy has no servers configured."
+    ::= { tmnxRadPSStatsEntry 35 }
+
+tmnxRadPSStatsTxSendFailure OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadPSStatsTxSendFailure indicates
+         the number of packets that were dropped by this RADIUS server
+         because the packet could not get transmitted to one of the
+         servers in the RADIUS server policy."
+    ::= { tmnxRadPSStatsEntry 36 }
+
+--
+--      The RADIUS Proxy Server Interface Table
+--
+
+tmnxRadProxSrvIfTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxRadProxSrvIfEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+       "The tmnxRadProxSrvIfTable contains the interfaces associated with the
+        RADIUS Proxy servers."
+    ::= { tmnxRadProxSrvObjs 4 }
+
+tmnxRadProxSrvIfEntry OBJECT-TYPE
+    SYNTAX      TmnxRadProxSrvIfEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each conceptual row represents an interface
+         associated with a particular RADIUS Proxy server.
+
+         Entries in this table can be created or deleted via SNMP operations.
+         
+         An row in this table can only be created if the value of the object
+         vRtrIfType in the conceptual row in the TIMETRA-VRTR-MIB::vRtrIfTable
+         corresponding with the same vRtrID and vRtrIfIndex, is equal to either
+         'network' or 'serviceIes in the Base router, or 'serviceVprn' in
+         a VPRN router instance."
+    INDEX { vRtrID,
+            tmnxRadProxSrvName,
+            vRtrIfIndex
+          }
+    ::= { tmnxRadProxSrvIfTable 1 }
+
+TmnxRadProxSrvIfEntry ::= 
+    SEQUENCE {
+        tmnxRadProxSrvIfRowStatus    RowStatus,
+        tmnxRadProxSrvIfLastCh       TimeStamp
+    }
+
+tmnxRadProxSrvIfRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+       "The value of tmnxRadProxSrvIfRowStatus specifies 
+        the row status of this row."
+    ::= { tmnxRadProxSrvIfEntry 1 }
+
+tmnxRadProxSrvIfLastCh OBJECT-TYPE
+    SYNTAX          TimeStamp
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvIfLastCh indicates the sysUpTime at
+         the time of the most recent management-initiated change to this
+         table row."
+    ::= { tmnxRadProxSrvIfEntry 2 }
+
+--
+--      The RADIUS Proxy "User-Name"-to-"RADIUS Server Policy" Table
+--
+
+tmnxRadProxUsrToRspTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxRadProxUsrToRspEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+       "The tmnxRadProxUsrToRspTable associates RADIUS Proxy users with
+        RADIUS Server policies, by specifying match criteria for the RADIUS
+        User-Name.
+        
+        The order of evaluation is determined by the numeric index: within the
+        scope of a RADIUS Proxy server, the row with the lowest value of the
+        object tmnxRadProxUsrToRspIndex is evaluated first."
+    ::= { tmnxRadProxSrvObjs 5 }
+
+tmnxRadProxUsrToRspEntry OBJECT-TYPE
+    SYNTAX      TmnxRadProxUsrToRspEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each conceptual row represents a RADIUS User-Name match rule
+         that associates a RADIUS Proxy user with a RADIUS server policy.
+         
+         Entries in this table can be created or deleted via SNMP operations."
+    INDEX { vRtrID,
+            tmnxRadProxSrvName,
+            tmnxRadProxUsrToRspIndex
+          }
+    ::= { tmnxRadProxUsrToRspTable 1 }
+
+TmnxRadProxUsrToRspEntry ::= 
+    SEQUENCE {
+        tmnxRadProxUsrToRspIndex         Unsigned32,
+        tmnxRadProxUsrToRspRowStatus     RowStatus,
+        tmnxRadProxUsrToRspLastCh        TimeStamp,
+        tmnxRadProxUsrToRspMatchString   TmnxRadMatchString,
+        tmnxRadProxUsrToRspAuthSrvPlcy   TNamedItem,
+        tmnxRadProxUsrToRspAccSrvPlcy    TNamedItem
+    }
+
+tmnxRadProxUsrToRspIndex OBJECT-TYPE
+    SYNTAX      Unsigned32 (1..32)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+       "The value of tmnxRadProxUsrToRspIndex specifies 
+        the index of this row."
+    ::= { tmnxRadProxUsrToRspEntry 1 }
+
+tmnxRadProxUsrToRspRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+       "The value of tmnxRadProxUsrToRspRowStatus specifies 
+        the row status of this row."
+    ::= { tmnxRadProxUsrToRspEntry 2 }
+
+tmnxRadProxUsrToRspLastCh OBJECT-TYPE
+    SYNTAX          TimeStamp
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The value of tmnxRadProxUsrToRspLastCh indicates the sysUpTime at
+         the time of the most recent management-initiated change to this
+         table row."
+    ::= { tmnxRadProxUsrToRspEntry 3 }
+
+tmnxRadProxUsrToRspMatchString OBJECT-TYPE
+    SYNTAX      TmnxRadMatchString (SIZE(1..128))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxUsrToRspMatchString specifies
+         the characters to match with the first characters in 
+         the RADIUS User-Name attribute.
+         
+         For example, a value of '20620' matches a RADIUS 
+         User-Name '206200487175230' and '206200486514245', but 
+         not '206010476405285' or '206010476420620'.
+         
+         A value for this object must be specified when the row is created."
+    ::= { tmnxRadProxUsrToRspEntry 4 }
+
+tmnxRadProxUsrToRspAuthSrvPlcy OBJECT-TYPE
+    SYNTAX      TNamedItem
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxUsrToRspAuthSrvPlcy specifies
+         the name of the RADIUS Server Policy 
+         to be used within this RADIUS Proxy server for the authentication 
+         of users that match the value of the 
+         object tmnxRadProxUsrToRspMatchString.
+         
+         The value of tmnxRadProxUsrToRspAuthSrvPlcy refers to a row in the
+         tmnxRadSrvPlcyTable.
+         
+         A value for the object tmnxRadProxUsrToRspAuthSrvPlcy or for
+         the object tmnxRadProxUsrToRspAccSrvPlcy, or both, must be specified 
+         when the row is created."
+
+    ::= { tmnxRadProxUsrToRspEntry 5 }
+
+tmnxRadProxUsrToRspAccSrvPlcy OBJECT-TYPE
+    SYNTAX      TNamedItem
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadProxUsrToRspAccSrvPlcy specifies
+         the name of the RADIUS Server Policy 
+         to be used within this RADIUS Proxy server for the accountin 
+         of users that match the value of the 
+         object tmnxRadProxUsrToRspMatchString.
+         
+         The value of tmnxRadProxUsrToRspAuthSrvPlcy refers to a row in the
+         tmnxRadSrvPlcyTable.
+         
+         A value for the object tmnxRadProxUsrToRspAuthSrvPlcy or for
+         the object tmnxRadProxUsrToRspAccSrvPlcy, or both, must be specified 
+         when the row is created."
+    ::= { tmnxRadProxUsrToRspEntry 6 }
+
+--
+--      The RADIUS Proxy Server Cache Table
+--
+
+tmnxRadProxSrvCacheTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxRadProxSrvCacheEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+       "The tmnxRadProxSrvCacheTable contains a summary of the cache
+        of the RADIUS Proxy servers.
+        
+        The RADIUS Proxy servers can cache the RADIUS Access-Request and 
+        Access-Accept messages and order them, according to 
+        the values of the objects
+            - tmnxRadProxSrvCaching, 
+            - tmnxRadProxSrvCacheKeyPktType,
+            - tmnxRadProxSrvCacheKeyAttrType,
+            - tmnxRadProxSrvCacheKeyVendorId ,
+            - tmnxRadProxSrvCacheTimeout,
+            - tmnxRadProxSrvCacheTrackAcct."
+    ::= { tmnxRadProxSrvObjs 6 }
+
+tmnxRadProxSrvCacheEntry OBJECT-TYPE
+    SYNTAX      TmnxRadProxSrvCacheEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each conceptual row represents a summary of a specific cache entry
+         of a particular RADIUS Proxy server.
+
+         Entries in this table are created and destroyed 
+         automatically by the system."
+    INDEX { vRtrID,
+            tmnxRadProxSrvName,
+            tmnxRadProxSrvCacheKey
+          }
+    ::= { tmnxRadProxSrvCacheTable 1 }
+
+TmnxRadProxSrvCacheEntry ::= 
+    SEQUENCE {
+        tmnxRadProxSrvCacheKey           OCTET STRING,
+        tmnxRadProxSrvCacheAge           TimeInterval,
+        tmnxRadProxSrvCacheTimeLeft      TimeInterval,
+        tmnxRadProxSrvCacheRequestLength Unsigned32,
+        tmnxRadProxSrvCacheAcceptLength  Unsigned32,
+        tmnxRadProxSrvCacheRegistered    TruthValue
+    }
+
+tmnxRadProxSrvCacheKey OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE (1..64))
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+       "The value of tmnxRadProxSrvCacheKey indicates 
+        the key of this cache entry."
+    ::= { tmnxRadProxSrvCacheEntry 1 }
+
+tmnxRadProxSrvCacheAge OBJECT-TYPE
+    SYNTAX          TimeInterval
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvCacheAge indicates
+         the age of this cache entry."
+    ::= { tmnxRadProxSrvCacheEntry 2 }
+
+tmnxRadProxSrvCacheTimeLeft OBJECT-TYPE
+    SYNTAX          TimeInterval
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvCacheTimeLeft indicates
+         the period of time left for this cache entry.
+         
+         A value of zero indicates that this cache entry is not
+         scheduled to expire.
+         
+         An unregistered cache entry is destroyed when its timer
+         expires, while a registered cache entry is reset 
+         when its timer expires."
+    ::= { tmnxRadProxSrvCacheEntry 3 }
+    
+tmnxRadProxSrvCacheRequestLength OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvCacheRequestLength indicates
+         the length of the RADIUS Access-Request packet attribute(s)
+         in the cache."
+    ::= { tmnxRadProxSrvCacheEntry 4 }
+    
+tmnxRadProxSrvCacheAcceptLength OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvCacheRequestLength indicates
+         the length of the RADIUS Access-Accept packet attribute(s)
+         in the cache."
+    ::= { tmnxRadProxSrvCacheEntry 5 }
+
+tmnxRadProxSrvCacheRegistered OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The value of tmnxRadProxSrvCacheRegistered indicates
+         if this cache entry is used by a client of
+         this RADIUS Proxy server."
+    ::= { tmnxRadProxSrvCacheEntry 6 }
+
+--
+--      The RADIUS Server Table
+--
+
+tmnxRadServTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxRadServEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+       "The tmnxRadServTable contains objects to configure 
+        how to access the RADIUS Servers 
+        used by the RADIUS Proxy function of this system."
+    ::= { tmnxRadSrvObjs 1 }
+
+tmnxRadServEntry OBJECT-TYPE
+    SYNTAX      TmnxRadServEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each conceptual row represents information about 
+         a particular RADIUS Server.
+
+        Entries in this table can be created or deleted via SNMP operations."
+    INDEX { vRtrID,
+            IMPLIED tmnxRadServName }
+    ::= { tmnxRadServTable 1 }
+
+TmnxRadServEntry ::= 
+    SEQUENCE {
+        tmnxRadServName                  TNamedItem,
+        tmnxRadServLastCh                TimeStamp,
+        tmnxRadServRowStatus             RowStatus,
+        tmnxRadServAddrType              InetAddressType,
+        tmnxRadServAddr                  InetAddress,
+        tmnxRadServPort                  Unsigned32,
+        tmnxRadServSecret                TmnxAuthSecret,
+        tmnxRadServDescription           TItemDescription,
+        tmnxRadServAcceptCoa             TruthValue,
+        tmnxRadServCoaScriptPlcy         TNamedItemOrEmpty,
+        tmnxRadServPndRqLimit            TmnxRadiusPendingReqLimit
+    }
+
+tmnxRadServName OBJECT-TYPE
+    SYNTAX      TNamedItem
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadServName specifies
+         the name of this RADIUS server."
+    ::= { tmnxRadServEntry 1 }
+
+tmnxRadServLastCh OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadServLastCh indicates the sysUpTime at
+         the time of the most recent management-initiated change to this
+         table row."
+    ::= { tmnxRadServEntry 2 }
+
+tmnxRadServRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+       "The value of tmnxRadServRowStatus specifies
+        the row status of this row."
+    ::= { tmnxRadServEntry 3 }
+
+tmnxRadServAddrType OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadServAddrType specifies the type of
+         address stored in tmnxRadServAddr."
+    ::= { tmnxRadServEntry 4 }
+
+tmnxRadServAddr OBJECT-TYPE
+    SYNTAX      InetAddress (SIZE(4|16))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadServAddr specifies the IP address of
+         the RADIUS server. 
+         
+         A valid unicast IP address must be specified at row creation time."
+    ::= { tmnxRadServEntry 5 }
+
+tmnxRadServPort OBJECT-TYPE
+    SYNTAX      Unsigned32 (1..65535)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadServPort specifies the UDP port
+         number on which to contact the RADIUS server.
+         
+         A value for this object must be specified when the row is created."
+    ::= { tmnxRadServEntry 6 }
+
+tmnxRadServSecret OBJECT-TYPE
+    SYNTAX      TmnxAuthSecret
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadServSecret specifies the secret key
+         associated with the RADIUS server. 
+         
+         A non-empty value for this object must be provided when a conceptual
+         row is created'.
+         
+         Any GET request on this object returns an empty string."
+    ::= { tmnxRadServEntry 7 }
+
+tmnxRadServDescription OBJECT-TYPE
+    SYNTAX      TItemDescription
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+       "The value of tmnxRadServDescription specifies
+        the description of this RADIUS server."
+    DEFVAL { "" }
+    ::= { tmnxRadServEntry 8 }
+
+tmnxRadServAcceptCoa OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadServAcceptCoa specifies 
+         if this RADIUS server is allowed to process 
+         Change of Authorization messages."
+    REFERENCE
+        "RFC 3576 Dynamic Authorization Extensions to RADIUS
+         section 2.2 Change-of-Authorization Messages (CoA)."
+    DEFVAL { false }
+    ::= { tmnxRadServEntry 9 }
+    
+tmnxRadServCoaScriptPlcy OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+       "The value of tmnxRadServCoaScriptPlcy specifies
+        the RADIUS script policy used to change the RADIUS attributes of the
+        Change-of-Authorization messages."
+    REFERENCE
+        "RFC 3576 Dynamic Authorization Extensions to RADIUS
+         section 2.2 Change-of-Authorization Messages (CoA)."
+    DEFVAL { "" }
+    ::= { tmnxRadServEntry 10 }
+
+tmnxRadServPndRqLimit OBJECT-TYPE
+    SYNTAX      TmnxRadiusPendingReqLimit
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadServPndRqLimit specifies the limit
+         of the number of pending RADIUS authentication requests."
+    DEFVAL { 4096 }
+    ::= { tmnxRadServEntry 11 }
+
+--
+--      The RADIUS Servers Policy Table
+--
+
+tmnxRadSrvPlcyTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxRadSrvPlcyEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The tmnxRadSrvPlcyTable allows configuration of 
+         how to access a group of RADIUS servers."
+    ::= { tmnxRadSrvObjs 2 }
+
+tmnxRadSrvPlcyEntry OBJECT-TYPE
+    SYNTAX      TmnxRadSrvPlcyEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each entry represents the configuration
+         for a specific RADIUS servers policy.
+        
+         Entries in this table can be created and deleted via SNMP SET
+         operations to tmnxRadSrvPlcyRowStatus."
+    INDEX { IMPLIED tmnxRadSrvPlcyName }
+    ::= { tmnxRadSrvPlcyTable 1 }
+
+TmnxRadSrvPlcyEntry ::=
+    SEQUENCE {
+        tmnxRadSrvPlcyName               TNamedItem,
+        tmnxRadSrvPlcyRowStatus          RowStatus,
+        tmnxRadSrvPlcyLastCh             TimeStamp,
+        tmnxRadSrvPlcyDescription        TItemDescription,
+        tmnxRadSrvPlcyTimeout            Unsigned32,
+        tmnxRadSrvPlcyRetry              Unsigned32,
+        tmnxRadSrvPlcyDownTime           Unsigned32,
+        tmnxRadSrvPlcyRouter             TmnxVRtrIDOrZero,
+        tmnxRadSrvPlcySrcAddrType        InetAddressType,
+        tmnxRadSrvPlcySrcAddr            InetAddress,
+        tmnxRadSrvPlcyAlgorithm          TmnxSubRadServAlgorithm,
+        tmnxRadSrvPlcyRequestScriptPlcy  TNamedItemOrEmpty,
+        tmnxRadSrvPlcyAcceptScriptPlcy   TNamedItemOrEmpty
+    }
+
+tmnxRadSrvPlcyName OBJECT-TYPE
+    SYNTAX      TNamedItem
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvPlcyName specifies a specific 
+         RADIUS servers policy."
+    ::= { tmnxRadSrvPlcyEntry 1 }
+
+tmnxRadSrvPlcyRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvPlcyRowStatus controls the creation and
+         deletion of rows in the table. An attempt to delete a row that is
+         referred to will fail with an inconsistentValue error."
+    ::= { tmnxRadSrvPlcyEntry 2 }
+
+tmnxRadSrvPlcyLastCh OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvPlcyLastCh indicates the sysUpTime at
+         the time of the most recent management-initiated change to this
+         policy."
+    ::= { tmnxRadSrvPlcyEntry 3 }
+
+tmnxRadSrvPlcyDescription OBJECT-TYPE
+    SYNTAX      TItemDescription
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvPlcyDescription specifies the user provided
+         description of this subscriber RADIUS based accounting policy."
+    DEFVAL { "" }
+    ::= { tmnxRadSrvPlcyEntry 4 }
+
+tmnxRadSrvPlcyTimeout OBJECT-TYPE
+    SYNTAX      Unsigned32 (1..90)
+    UNITS       "seconds"
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxNatApServersTimeout specifies, in seconds, the
+         timeout between retries towards the same RADIUS server."
+    DEFVAL { 5 }
+    ::= { tmnxRadSrvPlcyEntry 100 }
+
+tmnxRadSrvPlcyRetry OBJECT-TYPE
+    SYNTAX      Unsigned32 (1..10)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvPlcyRetry specifies the number of RADIUS
+         requests towards the same RADIUS server."
+    DEFVAL { 3 }
+    ::= { tmnxRadSrvPlcyEntry 101 }
+
+tmnxRadSrvPlcyDownTime OBJECT-TYPE
+    SYNTAX      Unsigned32 (30..900)
+    UNITS       "seconds"
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvPlcyDownTime specifies the hold down 
+         time.
+
+         If a RADIUS authentication server that was detected to be 'outOfService',
+         the system waits for this amount of time before
+         it starts to address that server again."
+    DEFVAL { 30 }
+    ::= { tmnxRadSrvPlcyEntry 102 }
+
+tmnxRadSrvPlcyRouter OBJECT-TYPE
+    SYNTAX      TmnxVRtrIDOrZero
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvPlcyRouter specifies the virtual router
+         instance applicable for the set of configured RADIUS servers
+         tmnxRadServTable." 
+    DEFVAL { 0 }
+    ::= { tmnxRadSrvPlcyEntry 103 }
+
+tmnxRadSrvPlcySrcAddrType OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvPlcySrcAddrType specifies the type of
+         address stored in tmnxRadSrvPlcySrcAddr."
+    DEFVAL { unknown }
+    ::= { tmnxRadSrvPlcyEntry 104 }
+
+tmnxRadSrvPlcySrcAddr OBJECT-TYPE
+    SYNTAX      InetAddress (SIZE(0|4|16))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvPlcySrcAddr specifies 
+         the source addresses while transmitting RADIUS protocol messages
+         to one of the RADIUS servers; it must be a valid unicast address."
+    DEFVAL { ''H }  
+    ::= { tmnxRadSrvPlcyEntry 105 }
+
+tmnxRadSrvPlcyAlgorithm OBJECT-TYPE
+    SYNTAX      TmnxSubRadServAlgorithm
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvPlcyAlgorithm specifies the algorithm
+         used to select a RADIUS server from the list of configured servers
+         tmnxRadServTable."
+    DEFVAL { direct }
+    ::= { tmnxRadSrvPlcyEntry 106 }
+
+tmnxRadSrvPlcyRequestScriptPlcy OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+       "The value of tmnxRadSrvPlcyRequestScriptPlcy specifies
+        the RADIUS script policy used to change the RADIUS attributes of the
+        outgoing Access-Request or Accounting-Request messages."
+    DEFVAL    { "" }
+    ::= { tmnxRadSrvPlcyEntry 107 }
+
+tmnxRadSrvPlcyAcceptScriptPlcy OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+       "The value of tmnxRadSrvPlcyAcceptScriptPlcy specifies
+        the RADIUS script policy used to change the RADIUS attributes of the
+        outgoing Access-Accept messages."
+    DEFVAL    { "" }
+    ::= { tmnxRadSrvPlcyEntry 108 }
+    
+-- --------------------------------------------------------
+-- The RADIUS Servers Policy Server Statistics table
+-- --------------------------------------------------------
+
+tmnxRadSrvPlcyStatsTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxRadSrvPlcyStatsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The tmnxRadSrvPlcyStatsTable presents statistics of
+         RADIUS server policies."
+    ::= { tmnxRadSrvObjs 3 }
+
+tmnxRadSrvPlcyStatsEntry OBJECT-TYPE
+    SYNTAX      TmnxRadSrvPlcyStatsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each row represents statistics about a specific RADIUS server policy. 
+         
+         Rows in this table are created automatically by the system."
+    AUGMENTS { tmnxRadSrvPlcyEntry }
+    ::= { tmnxRadSrvPlcyStatsTable 1 }
+
+TmnxRadSrvPlcyStatsEntry ::=
+    SEQUENCE {
+        tmnxRadSrvPlcyStatsTxRequests   Counter32,
+        tmnxRadSrvPlcyStatsRxResponses  Counter32,
+        tmnxRadSrvPlcyStatsReqTimeout   Counter32,
+        tmnxRadSrvPlcyStatsReqSendFail  Counter32,
+        tmnxRadSrvPlcyStatsReqSendRetry Counter32,
+        tmnxRadSrvPlcyStatsReqRejected  Counter32
+      }
+
+tmnxRadSrvPlcyStatsTxRequests OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvPlcyStatsTxRequests indicates the number of
+         RADIUS request packets transmitted."
+    ::= { tmnxRadSrvPlcyStatsEntry 1 }
+
+tmnxRadSrvPlcyStatsRxResponses OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvPlcyStatsRxResponses indicates the number of
+         RADIUS response packets received."
+    ::= { tmnxRadSrvPlcyStatsEntry 2 }
+
+tmnxRadSrvPlcyStatsReqTimeout OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvPlcyStatsReqTimeout indicates the number of
+         RADIUS requests that have timed out."
+    ::= { tmnxRadSrvPlcyStatsEntry 3 }
+
+tmnxRadSrvPlcyStatsReqSendFail OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvPlcyStatsReqSendFail indicates the number of
+         RADIUS request packets that could not be transmitted."
+    ::= { tmnxRadSrvPlcyStatsEntry 4 }
+
+tmnxRadSrvPlcyStatsReqSendRetry OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvPlcyStatsReqSendRetry indicates the number of
+         times a RADIUS request was retransmitted to a different
+         server."
+    ::= { tmnxRadSrvPlcyStatsEntry 5 }
+
+tmnxRadSrvPlcyStatsReqRejected OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvPlcyStatsReqRejected indicates the number of
+         RADIUS request packets that were not transmitted due to
+         unacceptable configuration."
+    ::= { tmnxRadSrvPlcyStatsEntry 6 }
+
+-- --------------------------------------------------------
+-- The RADIUS Servers Policy Server table
+-- --------------------------------------------------------
+
+tmnxRadSrvPlcySrvTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxRadSrvPlcySrvEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The tmnxRadSrvPlcySrvTable allows the configuration
+         of the association between the RADIUS servers policies
+         and the RADIUS servers."
+    ::= { tmnxRadSrvObjs 4 }
+
+tmnxRadSrvPlcySrvEntry OBJECT-TYPE
+    SYNTAX      TmnxRadSrvPlcySrvEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each entry represents the association between an RADIUS servers policy and
+         a RADIUS server in tmnxRadServTable. 
+         
+         Rows in this table can be created and deleted
+         via SNMP SET operations to tmnxRadSrvPlcySrvRowStatus."
+    INDEX { tmnxRadSrvPlcyName,
+            tmnxRadSrvPlcySrvIndex }
+    ::= { tmnxRadSrvPlcySrvTable 1 }
+
+TmnxRadSrvPlcySrvEntry ::=
+    SEQUENCE {
+        tmnxRadSrvPlcySrvIndex           Unsigned32,
+        tmnxRadSrvPlcySrvRowStatus       RowStatus,
+        tmnxRadSrvPlcySrvLastCh          TimeStamp,
+        tmnxRadSrvPlcySrvName            TNamedItem,
+        tmnxRadSrvPlcySrvOperState       TmnxRadiusServerOperState,
+        tmnxRadSrvPlcySrvOutTime         Counter32,
+        tmnxRadSrvPlcySrvOvrldTime       Counter32
+     }
+
+tmnxRadSrvPlcySrvIndex OBJECT-TYPE
+    SYNTAX      Unsigned32 (1..5)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvPlcySrvIndex specifies the rank order of 
+         the RADIUS server associated with this row."
+   ::= { tmnxRadSrvPlcySrvEntry 1 }
+
+tmnxRadSrvPlcySrvRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvPlcySrvRowStatus controls the creation and
+         deletion of rows in the table."
+    ::= { tmnxRadSrvPlcySrvEntry 2 }
+
+tmnxRadSrvPlcySrvLastCh OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value tmnxRadSrvPlcySrvLastCh indicates the sysUpTime at
+         the time of the most recent management-initiated change to this
+         policy server."
+    ::= { tmnxRadSrvPlcySrvEntry 3 }
+
+tmnxRadSrvPlcySrvName OBJECT-TYPE
+    SYNTAX      TNamedItem
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvPlcySrvName specifies the name of the
+         RADIUS server in the tmnxRadServTable
+         associated with this RADIUS Server policy.
+         
+         The virtual router instance of that RADIUS server is the value of the
+         object tmnxRadSrvPlcyRouter.
+         
+         A row in this table can only be created if a conceptual row
+         with this name and this virtual router instance 
+         exists in the tmnxRadServTable.
+         
+         A value for this object must be specified 
+         when the row is created."
+    ::= { tmnxRadSrvPlcySrvEntry 4 }
+
+tmnxRadSrvPlcySrvOperState OBJECT-TYPE
+    SYNTAX      TmnxRadiusServerOperState
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvPlcySrvOperState indicates the operational
+         state of this policy server."
+    ::= { tmnxRadSrvPlcySrvEntry 5 }
+    
+tmnxRadSrvPlcySrvOutTime OBJECT-TYPE
+    SYNTAX      Counter32
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvPlcySrvOutTime indicates
+         the accumulated time that the value of the 
+         object tmnxRadSrvPlcySrvOperState has been equal to 'outOfService'
+         since this row was created."
+    ::= { tmnxRadSrvPlcySrvEntry 6 }
+
+tmnxRadSrvPlcySrvOvrldTime OBJECT-TYPE
+    SYNTAX      Counter32
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvPlcySrvOvrldTime indicates
+         the accumulated time that the value of the 
+         object tmnxRadSrvPlcySrvOperState has been equal to 'overloaded'
+         since this row was created."
+    ::= { tmnxRadSrvPlcySrvEntry 7 }  
+    
+-- --------------------------------------------------------
+-- The RADIUS Servers Policy Server Statistics table
+-- --------------------------------------------------------
+
+tmnxRadSrvStatsTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxRadSrvStatsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The tmnxRadSrvStatsTable presents statistics of
+         RADIUS-server-policies' RADIUS servers."
+    ::= { tmnxRadSrvObjs 5 }
+
+tmnxRadSrvStatsEntry OBJECT-TYPE
+    SYNTAX      TmnxRadSrvStatsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each row represents statistics about a specific server
+         of a specific RADIUS server policy. 
+         
+         Rows in this table are created automatically by the system."
+    AUGMENTS { tmnxRadSrvPlcySrvEntry }
+    ::= { tmnxRadSrvStatsTable 1 }
+
+TmnxRadSrvStatsEntry ::=
+    SEQUENCE {
+        tmnxRadSrvStatsTxRequests        Counter32,
+        tmnxRadSrvStatsRxResponses       Counter32,
+        tmnxRadSrvStatsReqTimeout        Counter32,
+        tmnxRadSrvStatsReqSendFailure    Counter32,
+        tmnxRadSrvStatsReqOvrldSendFail  Counter32,
+        tmnxRadSrvStatsReqPending        Counter32,
+        tmnxRadSrvStatsRespInvAuth       Counter32,
+        tmnxRadSrvStatsRespInvMsgAuth    Counter32
+     }
+
+tmnxRadSrvStatsTxRequests OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvStatsTxRequests indicates the number of
+         RADIUS request packets transmitted for this server."
+    ::= { tmnxRadSrvStatsEntry 1 }
+
+tmnxRadSrvStatsRxResponses OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvStatsRxResponses indicates the number of
+         RADIUS response packets received from this server."
+    ::= { tmnxRadSrvStatsEntry 2 }
+
+tmnxRadSrvStatsReqTimeout OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvStatsReqTimeout indicates the number of
+         RADIUS requests that have timed out for this server."
+    ::= { tmnxRadSrvStatsEntry 3 }
+
+tmnxRadSrvStatsReqSendFailure OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvStatsReqSendFailure indicates the number of
+         RADIUS request packets that could not be transmitted for this
+         server."
+    ::= { tmnxRadSrvStatsEntry 4 }
+
+tmnxRadSrvStatsReqOvrldSendFail OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvStatsReqOvrldSendFail indicates the number of
+         RADIUS request packets that could not be transmitted 
+         while the RADIUS server was in overload."
+    ::= { tmnxRadSrvStatsEntry 5 }
+
+tmnxRadSrvStatsReqPending OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvStatsReqPending indicates the number of
+         RADIUS requests that are currently pending for this server."
+    ::= { tmnxRadSrvStatsEntry 6 }
+
+tmnxRadSrvStatsRespInvAuth OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvStatsRespInvAuth indicate the number of
+         RADIUS response packets with an invalid Authenticator received
+         from this server."
+    ::= { tmnxRadSrvStatsEntry 7 }
+
+tmnxRadSrvStatsRespInvMsgAuth OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadSrvStatsRespInvMsgAuth indicate the number of
+         RADIUS response packets with an invalid Message-Authenticator
+         attribute received from this server."
+    REFERENCE
+        "RFC 2869 RADIUS Extensions
+         section 5.14 Message-Authenticator."
+    ::= { tmnxRadSrvStatsEntry 8 }
+
+-- --------------------------------------------------------
+-- The RADIUS Script Policy table
+-- --------------------------------------------------------
+
+tmnxRadScriptPlcyTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxRadScriptPlcyEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The tmnxRadScriptPlcyTable allows the configuration
+         of RADIUS Python script policies used to change RADIUS
+         messages."
+    ::= { tmnxRadScriptPlcyObjs 1 }
+
+tmnxRadScriptPlcyEntry OBJECT-TYPE
+    SYNTAX      TmnxRadScriptPlcyEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each entry represents a set of Python scripts used to
+         change RADIUS messages.
+         
+         Rows in this table can be created and deleted
+         via SNMP SET operations to tmnxRadScriptPlcyRowStatus."
+    INDEX { tmnxRadScriptPlcyName }
+    ::= { tmnxRadScriptPlcyTable 1 }
+
+TmnxRadScriptPlcyEntry ::=
+    SEQUENCE {
+        tmnxRadScriptPlcyName            TNamedItem,
+        tmnxRadScriptPlcyRowStatus       RowStatus,
+        tmnxRadScriptPlcyLastCh          TimeStamp,
+        tmnxRadScriptPlcyDescription     TItemDescription,
+        tmnxRadScriptPlcyOnFail          INTEGER,
+        tmnxRadScriptPlcyPriURL          DisplayString,
+        tmnxRadScriptPlcyPriAdminState   TmnxAdminState,
+        tmnxRadScriptPlcyPriOperState    TmnxOperState,
+        tmnxRadScriptPlcySecURL          DisplayString,
+        tmnxRadScriptPlcySecAdminState   TmnxAdminState,
+        tmnxRadScriptPlcySecOperState    TmnxOperState
+     }
+
+tmnxRadScriptPlcyName OBJECT-TYPE
+    SYNTAX      TNamedItem
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadScriptPlcyName specifies the name of this RADIUS
+         script policy."
+   ::= { tmnxRadScriptPlcyEntry 1 }
+
+tmnxRadScriptPlcyRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadScriptPlcyRowStatus controls the creation and
+         deletion of rows in the table."
+    ::= { tmnxRadScriptPlcyEntry 2 }
+
+tmnxRadScriptPlcyLastCh OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value tmnxRadScriptPlcyLastCh indicates the sysUpTime at
+         the time of the most recent management-initiated change to this
+         RADIUS script policy."
+    ::= { tmnxRadScriptPlcyEntry 3 }
+
+tmnxRadScriptPlcyDescription OBJECT-TYPE
+    SYNTAX      TItemDescription
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadScriptPlcyDescription specifies the description of
+         this RADIUS script policy."
+    DEFVAL { "" }
+    ::= { tmnxRadScriptPlcyEntry 4 }
+
+tmnxRadScriptPlcyOnFail OBJECT-TYPE
+    SYNTAX INTEGER {
+           passthrough (1),
+           drop        (2)
+       }
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION
+       "The value of tmnxRadScriptPlcyOnFail specifies the action taken 
+        when Python fails to modify the RADIUS message.
+       
+        When the value is 'passthrough' the packet will be sent out without 
+        any modifications.
+         
+        When the value is 'drop' the packet will be dropped."
+   DEFVAL { drop }
+   ::= { tmnxRadScriptPlcyEntry 5 }
+
+tmnxRadScriptPlcyPriURL OBJECT-TYPE
+   SYNTAX      DisplayString (SIZE (0..180))
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION
+       "The value of tmnxRadScriptPlcyPriURL specifies the URL of the 
+        primary script to change RADIUS attributes of the RADIUS message."
+   DEFVAL { ''H }
+   ::= { tmnxRadScriptPlcyEntry 6 }
+
+tmnxRadScriptPlcyPriAdminState OBJECT-TYPE
+   SYNTAX      TmnxAdminState
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION
+       "The value of tmnxRadScriptPlcyPriAdminState specifies the 
+        administrative state of the primary script to change RADIUS attributes 
+        of the RADIUS message."
+   DEFVAL { outOfService }
+   ::= { tmnxRadScriptPlcyEntry 7 }
+
+tmnxRadScriptPlcyPriOperState OBJECT-TYPE
+   SYNTAX      TmnxOperState
+   MAX-ACCESS  read-only
+   STATUS      current
+   DESCRIPTION
+       "The value of tmnxRadScriptPlcyPriOperState specifies the 
+        operational state of the primary script to change RADIUS attributes 
+        of the RADIUS message."
+   ::= { tmnxRadScriptPlcyEntry 8 }
+
+
+tmnxRadScriptPlcySecURL OBJECT-TYPE
+   SYNTAX      DisplayString (SIZE (0..180))
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION
+       "The value of tmnxRadScriptPlcySecURL specifies the URL of the 
+        secondary script to change RADIUS attributes of the RADIUS message."
+   DEFVAL { ''H }
+   ::= { tmnxRadScriptPlcyEntry 9 }
+
+tmnxRadScriptPlcySecAdminState OBJECT-TYPE
+   SYNTAX      TmnxAdminState
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION
+       "The value of tmnxRadScriptPlcySecAdminState specifies the 
+        administrative state of the secondary script to change RADIUS attributes 
+        of the RADIUS message."
+   DEFVAL { outOfService }
+   ::= { tmnxRadScriptPlcyEntry 10 }
+
+tmnxRadScriptPlcySecOperState OBJECT-TYPE
+   SYNTAX      TmnxOperState
+   MAX-ACCESS  read-only
+   STATUS      current
+   DESCRIPTION
+       "The value of tmnxRadScriptPlcySecOperState specifies the 
+        operational state of the secondary script to change RADIUS attributes 
+        of the RADIUS message."
+   ::= { tmnxRadScriptPlcyEntry 11 }
+
+-- --------------------------------------------------------
+-- The RADIUS Route Downloader table
+-- --------------------------------------------------------
+
+tmnxRadRouteDownlTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxRadRouteDownlEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The tmnxRadRouteDownlTable allows the configuration of
+         RADIUS route downloaders to download a given set of routes
+         from the RADIUS AAA server by periodically sending RADIUS
+         access requests."
+    ::= { tmnxRadRouteDownlObjs 1 }
+
+tmnxRadRouteDownlEntry OBJECT-TYPE
+    SYNTAX      TmnxRadRouteDownlEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each entry represents a RADIUS route downloader instance.
+         
+         Rows in this table can be created and deleted
+         via SNMP SET operations to tmnxRadRouteDownlRowStatus."
+    INDEX { tmnxRadRouteDownlName }
+    ::= { tmnxRadRouteDownlTable 1 }
+
+TmnxRadRouteDownlEntry ::=
+    SEQUENCE {
+        tmnxRadRouteDownlName            TNamedItem,
+        tmnxRadRouteDownlRowStatus       RowStatus,
+        tmnxRadRouteDownlLastCh          TimeStamp,
+        tmnxRadRouteDownlDescription     TItemDescription,
+        tmnxRadRouteDownlAdminState      TmnxAdminState,
+        tmnxRadRouteDownlRadServPlcy     TNamedItemOrEmpty,
+        tmnxRadRouteDownlDownloadIntvl   Unsigned32,
+        tmnxRadRouteDownlMinRetryIntvl   Unsigned32,
+        tmnxRadRouteDownlMaxRetryIntvl   Unsigned32,
+        tmnxRadRouteDownlDefaultMetric   Unsigned32,
+        tmnxRadRouteDownlDefaultTag      Unsigned32,
+        tmnxRadRouteDownlMaxRoutes       Unsigned32,
+        tmnxRadRouteDownlBaseUserName    TNamedItemOrEmpty,
+        tmnxRadRouteDownlPassword        DisplayString
+     }
+
+tmnxRadRouteDownlName OBJECT-TYPE
+    SYNTAX      TNamedItem
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadRouteDownlName specifies the name of this RADIUS
+         route downloader."
+   ::= { tmnxRadRouteDownlEntry 1 }
+
+tmnxRadRouteDownlRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadRouteDownlRowStatus controls the creation and
+         deletion of rows in this table."
+    ::= { tmnxRadRouteDownlEntry 2 }
+
+tmnxRadRouteDownlLastCh OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value tmnxRadRouteDownlLastCh indicates the sysUpTime at
+         the time of the most recent management-initiated change to this
+         table entry."
+    ::= { tmnxRadRouteDownlEntry 3 }
+
+tmnxRadRouteDownlDescription OBJECT-TYPE
+    SYNTAX      TItemDescription
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadRouteDownlDescription specifies the description of
+         this RADIUS route downloader entry."
+    DEFVAL { "" }
+    ::= { tmnxRadRouteDownlEntry 4 }
+
+tmnxRadRouteDownlAdminState OBJECT-TYPE
+   SYNTAX      TmnxAdminState
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION
+       "The value of tmnxRadRouteDownlAdminState specifies the 
+        administrative state of this route downloader entry."
+   DEFVAL { outOfService }
+   ::= { tmnxRadRouteDownlEntry 5 }
+
+tmnxRadRouteDownlRadServPlcy OBJECT-TYPE
+   SYNTAX      TNamedItemOrEmpty
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION
+       "The value of tmnxRadRouteDownlRadServPlcy specifies the 
+        RADIUS server policy defined in tmnxRadSrvPlcyTable."
+   DEFVAL { "" }
+   ::= { tmnxRadRouteDownlEntry 6 }
+
+tmnxRadRouteDownlDownloadIntvl OBJECT-TYPE
+   SYNTAX      Unsigned32 (1..1440)
+   UNITS       "minutes"
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION
+       "The value of tmnxRadRouteDownlDownloadIntvl specifies
+        the time interval, in minutes, between the start of the last
+        route downloader run and the start of the next route downloader run."
+   DEFVAL { 720 }
+   ::= { tmnxRadRouteDownlEntry 7 }
+
+tmnxRadRouteDownlMinRetryIntvl OBJECT-TYPE
+   SYNTAX      Unsigned32 (1..1440)
+   UNITS       "minutes"
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION
+       "The value of tmnxRadRouteDownlMinRetryIntvl specifies
+        the duration, in minutes, of the retry interval. This duration grows
+        exponentially after each sequential failure. The maximum duration
+        is configured in tmnxRadRouteDownlMaxRetryIntvl."
+   DEFVAL { 10 }
+   ::= { tmnxRadRouteDownlEntry 8 }
+
+tmnxRadRouteDownlMaxRetryIntvl OBJECT-TYPE
+   SYNTAX      Unsigned32 (1..1440)
+   UNITS       "minutes"
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION
+       "The value of tmnxRadRouteDownlMaxRetryIntvl specifies
+        the maximum duration, in minutes, of the retry interval. The start value
+        of the retry interval is configured in tmnxRadRouteDownlMinRetryIntvl
+        and this duration grows exponentially after each sequential failure.
+        The value of tmnxRadRouteDownlMaxRetryIntvl specifies the maximum
+        value of this duration."
+   DEFVAL { 20 }
+   ::= { tmnxRadRouteDownlEntry 9 }
+
+tmnxRadRouteDownlDefaultMetric OBJECT-TYPE
+   SYNTAX      Unsigned32 (0..254)
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION
+       "The value of tmnxRadRouteDownlDefaultMetric specifies
+        the default metric of the routes imported."
+   DEFVAL { 2 }
+   ::= { tmnxRadRouteDownlEntry 10 }
+
+tmnxRadRouteDownlDefaultTag OBJECT-TYPE
+   SYNTAX      Unsigned32 (0..4294967295)
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION
+       "The value of tmnxRadRouteDownlDefaultTag specifies
+        the default tag of the routes imported."
+   DEFVAL { 0 }
+   ::= { tmnxRadRouteDownlEntry 11 }
+
+tmnxRadRouteDownlMaxRoutes OBJECT-TYPE
+   SYNTAX      Unsigned32 (1..200000)
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION
+       "The value of tmnxRadRouteDownlMaxRoutes specifies
+        the maximum number of the routes imported."
+   DEFVAL { 200000 }
+   ::= { tmnxRadRouteDownlEntry 12 }
+
+tmnxRadRouteDownlBaseUserName OBJECT-TYPE
+   SYNTAX      TNamedItemOrEmpty
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION
+       "The value of tmnxRadRouteDownlBaseUserName specifies
+        the prefix of the username that is used in the RADIUS access requests.
+        The username used in the RADIUS access requests is a concatenation
+        of this string, the dash character and an increasing integer.
+
+        If the value of this object is the default value then the string
+        configured in tmnxChassisName is used."
+   DEFVAL { "" }
+   ::= { tmnxRadRouteDownlEntry 13 }
+
+tmnxRadRouteDownlPassword OBJECT-TYPE
+   SYNTAX      DisplayString (SIZE (0..32))
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION
+       "The value of tmnxRadRouteDownlPassword specifies
+        the password that is used in the RADIUS access requests.
+
+        The value of this object must be set to a non-empty string
+        when tmnxRadRouteDownlAdminState is set to 'inService (2)'."
+   DEFVAL { "" }
+   ::= { tmnxRadRouteDownlEntry 14 }
+
+-- --------------------------------------------------------
+-- The RADIUS Route Downloader Statistics table
+-- --------------------------------------------------------
+
+tmnxRadRDStatsTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxRadRDStatsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+       "The tmnxRadRDStatsTable contains statistics about 
+        the RADIUS Route Downloaders of this system."
+    ::= { tmnxRadRouteDownlObjs 2 }
+
+tmnxRadRDStatsEntry OBJECT-TYPE
+    SYNTAX      TmnxRadRDStatsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each conceptual row represents statistics about 
+         a particular Route Downloader.
+
+         Rows are created and destroyed automatically by the system."
+    AUGMENTS { tmnxRadRouteDownlEntry }
+    ::= { tmnxRadRDStatsTable 1 }
+
+TmnxRadRDStatsEntry ::= 
+    SEQUENCE {
+        tmnxRadRDStatsRxLastAccessReject TimeStamp,
+        tmnxRadRDStatsRxLastAccessAccept TimeStamp,
+        tmnxRadRDStatsTxLastAccessReq    TimeStamp,
+        tmnxRadRDStatsTxLastAccReqRetry  TimeStamp,
+        tmnxRadRDStatsRemainingDownlTime TimeInterval,
+        tmnxRadRDStatsRemainingRetryTime TimeInterval,
+        tmnxRadRDStatsRoutesReceived     Counter32,
+        tmnxRadRDStatsRxAccessReject     Counter32,
+        tmnxRadRDStatsRxAccessAccept     Counter32,
+        tmnxRadRDStatsRxAccessAcceptDrop Counter32,
+        tmnxRadRDStatsTxAccessRequest    Counter32,
+        tmnxRadRDStatsTxAccessReqRetry   Counter32,
+        tmnxRadRDStatsDownloads          Counter32,
+        tmnxRadRDStatsRtmFailures        Counter32
+    }
+
+tmnxRadRDStatsRxLastAccessReject OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadRDStatsRxLastAccessReject indicates
+         when this Route Downloader last received an Access-Reject packet."
+    ::= { tmnxRadRDStatsEntry 1 }
+
+tmnxRadRDStatsRxLastAccessAccept OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadRDStatsRxLastAccessAccept indicates
+         when this Route Downloader last received an Access-Accept packet."
+    ::= { tmnxRadRDStatsEntry 2 }
+
+tmnxRadRDStatsTxLastAccessReq OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadRDStatsTxLastAccessReq indicates
+         when this Route Downloader last sent an Access-Request packet."
+    ::= { tmnxRadRDStatsEntry 3 }
+
+tmnxRadRDStatsTxLastAccReqRetry OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadRDStatsTxLastAccReqRetry indicates
+         the time of the last Access-Request retry."
+    ::= { tmnxRadRDStatsEntry 4 }
+
+tmnxRadRDStatsRemainingDownlTime OBJECT-TYPE
+    SYNTAX      TimeInterval
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadRDStatsRemainingDownlTime indicates
+         the remaining time before the next download attempt."
+    ::= { tmnxRadRDStatsEntry 5 }
+
+tmnxRadRDStatsRemainingRetryTime OBJECT-TYPE
+    SYNTAX      TimeInterval
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadRDStatsRemainingRetryTime indicates
+         the remaining time before the next download retry."
+    ::= { tmnxRadRDStatsEntry 6 }
+
+tmnxRadRDStatsRoutesReceived OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadRDStatsRoutesReceived indicates
+         the number of routes received in the last completed
+         route download process."
+    ::= { tmnxRadRDStatsEntry 7 }
+
+tmnxRadRDStatsRxAccessReject OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadRDStatsRxAccessReject indicates
+         the number of Access-Reject packets received by this Route Downloader."
+    ::= { tmnxRadRDStatsEntry 8 }
+
+tmnxRadRDStatsRxAccessAccept OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadRDStatsRxAccessReject indicates
+         the number of Access-Accept packets received by this Route Downloader."
+    ::= { tmnxRadRDStatsEntry 9 }
+
+tmnxRadRDStatsRxAccessAcceptDrop OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadRDStatsRxAccessAcceptDrop indicates
+         the number of Access-Accept packets received but dropped
+         by this Route Downloader."
+    ::= { tmnxRadRDStatsEntry 10 }
+
+tmnxRadRDStatsTxAccessRequest OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadRDStatsTxAccessRequest indicates
+         the number of Access-Requests sent by this Route Downloader."
+    ::= { tmnxRadRDStatsEntry 11 }
+
+tmnxRadRDStatsTxAccessReqRetry OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadRDStatsTxAccessReqRetry indicates
+         the number of Access-Requests retries for this Route Downloader."
+    ::= { tmnxRadRDStatsEntry 12 }
+
+tmnxRadRDStatsDownloads OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadRDStatsDownloads indicates
+         the number of downloads started by this Route Downloader."
+    ::= { tmnxRadRDStatsEntry 13 }
+
+tmnxRadRDStatsRtmFailures OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadRDStatsRtmFailures indicates
+         the number of times installing received routes failed
+         for this Route Downloader."
+    ::= { tmnxRadRDStatsEntry 14 }
+
+-- --------------------------------------------------------
+-- Scalar objects
+-- --------------------------------------------------------
+
+tmnxRadProxSrvTableCh OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxRadProxSrvTableCh indicates
+         the value of sysUpTime at the time of the last modification of
+         an entry in the tmnxRadProxSrvTable."
+    ::= { tmnxRadiusObjs 100 }
+
+tmnxRadProxSrvIfTableCh OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxRadProxSrvIfTableCh indicates
+         the value of sysUpTime at the time of the last modification of
+         an entry in the tmnxRadProxSrvIfTable."
+    ::= { tmnxRadiusObjs 101 }
+
+tmnxRadProxUsrToRspTableCh OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxRadProxUsrToRspTableCh indicates
+         the value of sysUpTime at the time of the last modification of
+         an entry in the tmnxRadProxUsrToRspTableCh."
+    ::= { tmnxRadiusObjs 102 }
+
+tmnxRadServTableCh OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxRadServTableCh indicates
+         the value of sysUpTime at the time of the last modification of
+         an entry in the tmnxRadServTable."
+    ::= { tmnxRadiusObjs 120 }
+
+tmnxRadSrvPlcyTableCh OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxRadSrvPlcyTableCh indicates
+         the value of sysUpTime at the time of the last modification of
+         an entry in the tmnxRadSrvPlcyTable."
+    ::= { tmnxRadiusObjs 121 }
+
+tmnxRadSrvPlcySrvTableCh OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxRadSrvPlcySrvTableCh indicates
+         the value of sysUpTime at the time of the last modification of
+         an entry in the tmnxRadSrvPlcySrvTable."
+    ::= { tmnxRadiusObjs 122 }
+
+tmnxRadScriptPlcyTableCh OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxRadScriptPlcyTableCh indicates
+         the value of sysUpTime at the time of the last modification of
+         an entry in the tmnxRadScriptPlcyTable."
+    ::= { tmnxRadiusObjs 123 }
+
+tmnxRadRouteDownlTableCh OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxRadRouteDownlTableCh indicates
+         the value of sysUpTime at the time of the last modification of
+         an entry in the tmnxRadRouteDownlTable."
+    ::= { tmnxRadiusObjs 124 }
+
+-- ----------------------------------------------------------------------------
+--  Notifications
+-- ----------------------------------------------------------------------------
+
+--  Notification objects
+
+tmnxRadiusNotifyAddrType  OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The object tmnxRadiusNotifyAddrType is value that represents 
+         a type of Internet address."
+    ::= { tmnxRadiusNotificationObjects 1 }
+
+tmnxRadiusNotifyAddr  OBJECT-TYPE
+    SYNTAX      InetAddress (SIZE(4|16))
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The object tmnxRadiusNotifyAddr is a generic Internet address."
+    ::= { tmnxRadiusNotificationObjects 2 }
+
+tmnxRadiusAdditionalInfo OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadiusAdditionalInfo is a printable character
+         string which contains information about the reason why the
+         notification was generated."
+    ::= { tmnxRadiusNotificationObjects 3 }
+
+tmnxRadRouteDownlFailedReason OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    parsing-radius-attr-failed (1),
+                    max-routes-reached (2),
+                    rtm-update-failed (3)
+                }
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxRadRouteDownlFailedReason indicates
+         the reason why a route download process failed."
+    ::= { tmnxRadiusNotificationObjects 4 }
+
+--  Notifications
+
+tmnxRadSrvPlcySrvOperStateCh NOTIFICATION-TYPE
+    OBJECTS {
+        tmnxRadiusNotifyAddrType,
+        tmnxRadiusNotifyAddr,
+        tmnxRadSrvPlcySrvOperState
+    }
+    STATUS current
+    DESCRIPTION
+        "[CAUSE] The tmnxRadSrvPlcySrvOperStateCh notification is sent when 
+         the value of the object tmnxRadSrvPlcySrvOperState changes.
+         
+         A RADIUS server is reported as 'outOfService' when the system does
+         not receive timely responses from that server, according to
+         the values of the objects tmnxRadSrvPlcyTimeout and tmnxRadSrvPlcyRetry.
+         
+         It is reported as 'overloaded' when the system crosses the 
+         pending-requests-limit for that server.
+         
+         [EFFECT] While the value of the object tmnxRadSrvPlcySrvOperState is equal
+         to 'outOfService' or 'overloaded', 
+         - the corresponding RADIUS server is out of use;
+         - traffic is sent to other RADIUS server(s) associated with the same
+           policy, depending on the value of the object tmnxRadSrvPlcyAlgorithm.
+         - after the time specified in the object tmnxRadSrvPlcyDownTime has elapsed,
+           the state changes to 'unknown'.
+           
+         While the value of the object tmnxRadSrvPlcySrvOperState is equal
+         to 'unknown', the system sends traffic to the RADIUS server; if it
+         replies timely, the operational state will change to 'inService', 
+         otherwise to 'outOfService'.                     
+         [RECOVERY] The communication with the RADIUS server should recover 
+         after some time.
+         Otherwise, or if it becomes out of use too frequently, 
+         the capacity of the RADIUS server(s) may have to be increased, or
+         the values of the objects mentioned above may have to be adapted."
+    ::= { tmnxRadProxNotifications 1 }
+
+tmnxRadRouteDownloadFailed NOTIFICATION-TYPE
+    OBJECTS {
+        tmnxRadRouteDownlDownloadIntvl,
+        tmnxRadRouteDownlFailedReason,
+        tmnxRadiusAdditionalInfo
+    }
+    STATUS current
+    DESCRIPTION
+        "[CAUSE] The tmnxRadRouteDownloadFailed notification is sent when 
+         a RADIUS route-download process failed.
+         
+         [EFFECT] The route-download process is delayed.
+
+         [RECOVERY] The route-download process restarts after the time
+         defined in tmnxRadRouteDownlDownloadIntvl."
+    ::= { tmnxRadProxNotifications 2 }
+
+-- ----------------------------------------------------------------------------
+--  Conformance Groups
+-- ----------------------------------------------------------------------------
+tmnxRadProxSrvGroup OBJECT-GROUP
+    OBJECTS {
+        tmnxRadProxSrvTableCh,
+        tmnxRadProxSrvLastCh,
+        tmnxRadProxSrvRowStatus,
+        tmnxRadProxSrvPurpose,
+        tmnxRadProxSrvAdminState,
+        tmnxRadProxSrvDescription,
+        tmnxRadProxSrvSecret,
+        tmnxRadProxSrvDefAuthSrvPlcy,
+        tmnxRadProxSrvDefAccSrvPlcy,
+        tmnxRadProxSrvCaching,         
+        tmnxRadProxSrvCacheKeyPktType, 
+        tmnxRadProxSrvCacheKeyAttrType,
+        tmnxRadProxSrvCacheKeyVendorId,
+        tmnxRadProxSrvCacheTimeout,
+        tmnxRadProxSrvCacheTrackAcct,
+        tmnxRadProxSrvSendAcctResponse,
+        tmnxRadProxSrvLoadBalanceKey,
+        tmnxRadProxSrvLoadBAttr1,
+        tmnxRadProxSrvLoadBVendorId1,
+        tmnxRadProxSrvLoadBAttr2,
+        tmnxRadProxSrvLoadBVendorId2,
+        tmnxRadProxSrvLoadBAttr3,
+        tmnxRadProxSrvLoadBVendorId3,
+        tmnxRadProxSrvLoadBAttr4,
+        tmnxRadProxSrvLoadBVendorId4,
+        tmnxRadProxSrvLoadBAttr5,
+        tmnxRadProxSrvLoadBVendorId5,
+        tmnxRadPSStatusCacheEntries,
+        tmnxRadPSStatusCacheEntriesReg,
+        tmnxRadPSStatsRxPacket,
+        tmnxRadPSStatsRxAuthRequest,
+        tmnxRadPSStatsRxAcctRequest,
+        tmnxRadPSStatsRxDropped,
+        tmnxRadPSStatsRxRetransmit,
+        tmnxRadPSStatsRxAdminDown,
+        tmnxRadPSStatsRxNoAaaPol,
+        tmnxRadPSStatsRxNoLoadBKey,
+        tmnxRadPSStatsRxInvLen,
+        tmnxRadPSStatsRxInvCode,
+        tmnxRadPSStatsRxInvAttr,
+        tmnxRadPSStatsRxInvUserName,
+        tmnxRadPSStatsRxInvPassword,
+        tmnxRadPSStatsRxInvAcctStatusTyp,
+        tmnxRadPSStatsRxNoAcctStatusTyp,
+        tmnxRadPSStatsRxInvAcctAuth,
+        tmnxRadPSStatsRxInvMsgAuth,
+        tmnxRadPSStatsRxNoMemory,
+        tmnxRadPSStatsRxUserOverload,
+        tmnxRadPSStatsTxAuthAck,
+        tmnxRadPSStatsTxAuthReject,
+        tmnxRadPSStatsTxAuthChallenge,
+        tmnxRadPSStatsTxAcctResponse,
+        tmnxRadPSStatsTxDropped,
+        tmnxRadPSStatsTxCacheNoKey,
+        tmnxRadPSStatsTxCacheKeyTooLong,
+        tmnxRadPSStatsTxCacheAttrTooLong,
+        tmnxRadPSStatsTxCacheMaxEntries,
+        tmnxRadPSStatsTxNoMemory,
+        tmnxRadPSStatsTxServerTimeout,
+        tmnxRadPSStatsTxServerAuthFail,
+        tmnxRadPSStatsTxServerInvCode,
+        tmnxRadPSStatsTxServerInvAttr,
+        tmnxRadPSStatsTxUserOverload,
+        tmnxRadPSStatsTxNoRadiusServer,
+        tmnxRadPSStatsTxSendFailure,
+        tmnxRadProxSrvIfTableCh,
+        tmnxRadProxSrvIfRowStatus,
+        tmnxRadProxSrvIfLastCh,
+        tmnxRadProxUsrToRspTableCh,
+        tmnxRadProxUsrToRspRowStatus,
+        tmnxRadProxUsrToRspLastCh,
+        tmnxRadProxUsrToRspMatchString,
+        tmnxRadProxUsrToRspAuthSrvPlcy,
+        tmnxRadProxUsrToRspAccSrvPlcy,
+        tmnxRadProxSrvCacheAge,
+        tmnxRadProxSrvCacheTimeLeft,
+        tmnxRadProxSrvCacheRequestLength,
+        tmnxRadProxSrvCacheAcceptLength,
+        tmnxRadProxSrvCacheRegistered,
+        tmnxRadServTableCh,
+        tmnxRadServLastCh,   
+        tmnxRadServRowStatus,
+        tmnxRadServAddrType,
+        tmnxRadServAddr,
+        tmnxRadServPort,
+        tmnxRadServSecret,
+        tmnxRadServDescription,
+        tmnxRadServAcceptCoa,
+        tmnxRadServCoaScriptPlcy,
+        tmnxRadServPndRqLimit
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects providing configuration of RADIUS Proxy servers 
+          on Alcatel-Lucent SROS series systems."
+    ::= { tmnxRadProxGroups 1 }
+
+tmnxRadServGroup   OBJECT-GROUP
+    OBJECTS {
+         tmnxRadSrvPlcyRowStatus,  
+         tmnxRadSrvPlcyLastCh,     
+         tmnxRadSrvPlcyDescription,
+         tmnxRadSrvPlcyTimeout,    
+         tmnxRadSrvPlcyRetry,
+         tmnxRadSrvPlcyDownTime,
+         tmnxRadSrvPlcyRouter,     
+         tmnxRadSrvPlcySrcAddrType,
+         tmnxRadSrvPlcySrcAddr,    
+         tmnxRadSrvPlcyAlgorithm,
+         tmnxRadSrvPlcyStatsTxRequests,
+         tmnxRadSrvPlcyStatsRxResponses,
+         tmnxRadSrvPlcyStatsReqTimeout,
+         tmnxRadSrvPlcyStatsReqSendFail,
+         tmnxRadSrvPlcyStatsReqSendRetry,
+         tmnxRadSrvPlcyStatsReqRejected,
+         tmnxRadSrvPlcySrvRowStatus,      
+         tmnxRadSrvPlcySrvLastCh,
+         tmnxRadSrvPlcySrvName,
+         tmnxRadSrvPlcySrvOperState,
+         tmnxRadSrvPlcySrvOutTime,
+         tmnxRadSrvPlcySrvOvrldTime,
+         tmnxRadSrvStatsTxRequests,
+         tmnxRadSrvStatsRxResponses,
+         tmnxRadSrvStatsReqTimeout,
+         tmnxRadSrvStatsReqSendFailure,
+         tmnxRadSrvStatsReqOvrldSendFail,
+         tmnxRadSrvStatsReqPending,
+         tmnxRadSrvStatsRespInvAuth,
+         tmnxRadSrvStatsRespInvMsgAuth,
+         tmnxRadSrvPlcyTableCh,
+         tmnxRadSrvPlcySrvTableCh,
+         tmnxRadSrvPlcyRequestScriptPlcy,
+         tmnxRadSrvPlcyAcceptScriptPlcy
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects for the
+         management of the RADIUS servers access
+         on Alcatel-Lucent SROS series systems."
+    ::= { tmnxRadProxGroups 2 }
+    
+tmnxRadScriptPlcyGroup OBJECT-GROUP
+    OBJECTS {
+        tmnxRadScriptPlcyTableCh,
+        tmnxRadScriptPlcyRowStatus,
+        tmnxRadScriptPlcyLastCh,
+        tmnxRadScriptPlcyDescription,
+        tmnxRadScriptPlcyOnFail,
+        tmnxRadScriptPlcyPriURL,
+        tmnxRadScriptPlcyPriAdminState,
+        tmnxRadScriptPlcyPriOperState,
+        tmnxRadScriptPlcySecURL,
+        tmnxRadScriptPlcySecAdminState,
+        tmnxRadScriptPlcySecOperState
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects for the
+         management of the RADIUS script policies
+         on Alcatel-Lucent SROS series systems."
+    ::= { tmnxRadProxGroups 3 }
+
+tmnxRadRouteDownlGroup OBJECT-GROUP
+    OBJECTS {
+        tmnxRadRouteDownlTableCh,
+        tmnxRadRouteDownlRowStatus,
+        tmnxRadRouteDownlLastCh,
+        tmnxRadRouteDownlDescription,
+        tmnxRadRouteDownlAdminState,
+        tmnxRadRouteDownlRadServPlcy,
+        tmnxRadRouteDownlDownloadIntvl,
+        tmnxRadRouteDownlMinRetryIntvl,
+        tmnxRadRouteDownlMaxRetryIntvl,
+        tmnxRadRouteDownlDefaultMetric,
+        tmnxRadRouteDownlDefaultTag,
+        tmnxRadRouteDownlMaxRoutes,
+        tmnxRadRouteDownlBaseUserName,
+        tmnxRadRouteDownlPassword,
+        tmnxRadRDStatsRxLastAccessReject,
+        tmnxRadRDStatsRxLastAccessAccept,
+        tmnxRadRDStatsTxLastAccessReq,
+        tmnxRadRDStatsTxLastAccReqRetry,
+        tmnxRadRDStatsRemainingDownlTime,
+        tmnxRadRDStatsRemainingRetryTime,
+        tmnxRadRDStatsRoutesReceived,
+        tmnxRadRDStatsRxAccessReject,
+        tmnxRadRDStatsRxAccessAccept,
+        tmnxRadRDStatsRxAccessAcceptDrop,
+        tmnxRadRDStatsTxAccessRequest,
+        tmnxRadRDStatsTxAccessReqRetry,
+        tmnxRadRDStatsDownloads,
+        tmnxRadRDStatsRtmFailures
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects for the
+         management of the RADIUS route downloaders
+         on Alcatel-Lucent SROS series systems."
+    ::= { tmnxRadProxGroups 4 }
+
+tmnxRadiusNotifyObjsGroup     OBJECT-GROUP
+    OBJECTS {   
+        tmnxRadiusNotifyAddrType,
+        tmnxRadiusNotifyAddr,
+        tmnxRadRouteDownlFailedReason,
+        tmnxRadiusAdditionalInfo
+    }
+    STATUS        current
+    DESCRIPTION
+        "The group of notification objects supporting RADIUS notifications
+         on Alcatel-Lucent SROS series systems."
+    ::= { tmnxRadProxGroups 99 }
+
+-- ----------------------
+-- NOTIFICATION-GROUPS
+-- ----------------------
+
+tmnxRadiusNotifyGroup NOTIFICATION-GROUP
+    NOTIFICATIONS {
+        tmnxRadSrvPlcySrvOperStateCh,
+        tmnxRadRouteDownloadFailed
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of notifications supporting RADIUS
+         on Alcatel-Lucent SROS series systems."
+    ::= { tmnxRadProxGroups 100 }
+
+-- ----------------------------------------------------------------------------
+--  Conformance information
+-- ----------------------------------------------------------------------------
+tmnxRadProxCompliance MODULE-COMPLIANCE
+    STATUS  current
+    DESCRIPTION
+        "The compliance statement for management of RADIUS
+         on Alcatel-Lucent 7xxx series systems."
+    MODULE  -- this module
+        MANDATORY-GROUPS {
+            tmnxRadProxSrvGroup,
+            tmnxRadServGroup,
+            tmnxRadScriptPlcyGroup,
+            tmnxRadRouteDownlGroup
+        }
+    ::= { tmnxRadProxCompliances 1 }
+
+tmnxRadiusNotifyCompliance MODULE-COMPLIANCE
+    STATUS  current
+    DESCRIPTION
+        "The compliance statement for RADIUS notifications
+         on Alcatel-Lucent SROS series systems."
+    MODULE  -- this module
+        MANDATORY-GROUPS {
+            tmnxRadiusNotifyGroup
+        }
+    ::= { tmnxRadProxCompliances 2 }
+
+END
+

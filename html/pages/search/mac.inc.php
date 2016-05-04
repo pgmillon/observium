@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -53,7 +53,7 @@ $vars['pagination'] = TRUE;
 // Print MAC addresses
 print_mac_addresses($vars);
 
-$pagetitle[] = 'MAC addresses';
+$page_title[] = 'MAC addresses';
 
 ?>
 

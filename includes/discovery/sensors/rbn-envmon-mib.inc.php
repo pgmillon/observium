@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -54,7 +54,7 @@ if ($descr_values)
                     'limit_low'  => $desired * $scale * 0.85);
     if ($descr != "" && is_numeric($value))
     {
-      discover_sensor($valid['sensor'], 'voltage', $device, $oid, $index, 'seos', $descr, $scale, $value * $scale, $limits);
+      discover_sensor($valid['sensor'], 'voltage', $device, $oid, $index, 'seos', $descr, $scale, $value, $limits);
     }
   }
 }

@@ -7,11 +7,11 @@ IMPORTS
     DisplayString, MacAddress, RowStatus FROM SNMPv2-TC;
 
     xirrus      MODULE-IDENTITY
-        LAST-UPDATED    "201204111200Z"
+        LAST-UPDATED    "201307301200Z"
         ORGANIZATION    "Xirrus"
         CONTACT-INFO    "support@xirrus.com"
         DESCRIPTION     "Xirrus enterprise MIB tree"
-        REVISION        "201204111200Z"
+        REVISION        "201307301200Z"
         DESCRIPTION     "xirrus mib"
         ::=  { enterprises 21013 }
 
@@ -40,12 +40,17 @@ IMPORTS
     statistics  OBJECT IDENTIFIER ::= { xsArray 24 }
     syslog      OBJECT IDENTIFIER ::= { xsArray 26 }
     system      OBJECT IDENTIFIER ::= { xsArray 28 }
+    tunnel      OBJECT IDENTIFIER ::= { xsArray 29 }
     vlan        OBJECT IDENTIFIER ::= { xsArray 30 }
     cluster     OBJECT IDENTIFIER ::= { xsArray 31 }
     envCtrl     OBJECT IDENTIFIER ::= { xsArray 32 }
+    location    OBJECT IDENTIFIER ::= { xsArray 33 }
     group       OBJECT IDENTIFIER ::= { xsArray 34 }
+    mdm         OBJECT IDENTIFIER ::= { xsArray 35 }
     netflow     OBJECT IDENTIFIER ::= { xsArray 36 }
     wifiTag     OBJECT IDENTIFIER ::= { xsArray 37 }
+    wpr         OBJECT IDENTIFIER ::= { xsArray 38 }
+    oauth       OBJECT IDENTIFIER ::= { xsArray 39 }
 
     traps       OBJECT IDENTIFIER ::= { xsArray 50 }
 
@@ -78,6 +83,31 @@ IMPORTS
     xr1230Array         OBJECT IDENTIFIER ::= { products 125 }
     xr2420Array         OBJECT IDENTIFIER ::= { products 126 }
     xr2430Array         OBJECT IDENTIFIER ::= { products 127 }
+    xr2220Array         OBJECT IDENTIFIER ::= { products 128 }
+    xr2230Array         OBJECT IDENTIFIER ::= { products 129 }
+    xr1120Array         OBJECT IDENTIFIER ::= { products 130 }
+    xr1130Array         OBJECT IDENTIFIER ::= { products 131 }
+    xr1120hArray        OBJECT IDENTIFIER ::= { products 132 }
+    xr1130hArray        OBJECT IDENTIFIER ::= { products 133 }
+    xr520hArray         OBJECT IDENTIFIER ::= { products 134 }
+    xr1230hArray        OBJECT IDENTIFIER ::= { products 135 }
+    xr2420hArray        OBJECT IDENTIFIER ::= { products 136 }
+    xr2430hArray        OBJECT IDENTIFIER ::= { products 137 }
+    xr2220hArray        OBJECT IDENTIFIER ::= { products 138 }
+    xr2230hArray        OBJECT IDENTIFIER ::= { products 139 }
+    xr520Array          OBJECT IDENTIFIER ::= { products 142 }
+    xr530Array          OBJECT IDENTIFIER ::= { products 143 }
+    xr1220hArray        OBJECT IDENTIFIER ::= { products 144 }
+    xr530hArray 	OBJECT IDENTIFIER ::= { products 145 }
+    xr420hArray		OBJECT IDENTIFIER ::= { products 146 }
+    xr430hArray		OBJECT IDENTIFIER ::= { products 147 }
+    xr2425Array		OBJECT IDENTIFIER ::= { products 148 }
+    xr2435Array		OBJECT IDENTIFIER ::= { products 149 }
+    xr2425hArray	OBJECT IDENTIFIER ::= { products 150 }
+    xr2225Array		OBJECT IDENTIFIER ::= { products 151 }
+    xr2235Array		OBJECT IDENTIFIER ::= { products 152 }
+
+
 
 --
 -- ACL
@@ -1107,7 +1137,15 @@ IMPORTS
         filterDstGroup              DisplayString,
         filterLog                   INTEGER,
         filterPackets               Counter64,
-        filterBytes                 Counter64
+        filterBytes                 Counter64,
+        filterApplication           DisplayString,
+        filterLayer                 INTEGER,
+        filterSetDSCP               Integer32,
+        filterTrafficLimit          Integer32,
+        filterTrafficLimitType      INTEGER,
+        filterTimeOn                Integer32,
+        filterTimeOff               Integer32,
+        filterDays                  DisplayString
     }
 
     filterIndex OBJECT-TYPE
@@ -1398,6 +1436,70 @@ IMPORTS
             "The number of bytes that matched the filter"
         ::= { filterEntry 35 }
 
+    filterApplication OBJECT-TYPE
+        SYNTAX          DisplayString(SIZE(0..8))
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Application GUID to filter on"
+        ::= { filterEntry 36 }
+
+    filterLayer OBJECT-TYPE
+        SYNTAX          INTEGER { layer-2(0), layer-3(1) }
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Filter layer"
+        ::= { filterEntry 37 }
+
+    filterSetDSCP OBJECT-TYPE
+        SYNTAX          Integer32(-1..63)
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Modify QoS setting for this filter (0..63), if -1 - do not modify DSCP setting"
+        ::= { filterEntry 38 }
+
+    filterTrafficLimit OBJECT-TYPE
+        SYNTAX          Integer32(10..4000000)
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Filter traffic limit (10 to 1000000 if pps, 10 to 4000000 if Kbps)"
+        ::= { filterEntry 39 }
+
+    filterTrafficLimitType OBJECT-TYPE
+        SYNTAX          INTEGER { none(0), all-pps(1), all-kbps(2), sta-pps(3), sta-kbps(4) }
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Filter traffic limit type"
+        ::= { filterEntry 40 }
+
+    filterTimeOn OBJECT-TYPE
+        SYNTAX          Integer32(-1..1439)
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Time on for this filter in minutes after midnight"
+        ::= { filterEntry 41 }
+
+    filterTimeOff OBJECT-TYPE
+        SYNTAX          Integer32(-1..1439)
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Time off for this filter in minutes after midnight"
+        ::= { filterEntry 42 }
+
+    filterDays OBJECT-TYPE
+        SYNTAX          DisplayString(SIZE(0..100))
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Days of the week the filter is active"
+        ::= { filterEntry 43 }
+
     filterListTable OBJECT-TYPE
         SYNTAX          SEQUENCE OF FilterListEntry
         MAX-ACCESS      not-accessible
@@ -1480,6 +1582,117 @@ IMPORTS
             "Enable or disable stateful filtering"
         ::= { filter 6 }
 
+    filterTrackApps OBJECT-TYPE
+        SYNTAX          INTEGER { disable(0), enable(1) }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Enable or disable application tracking"
+        ::= { filter 7 }
+
+    filterAppTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF FilterAppEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Filter application table for the Array"
+        ::= { filter 8 }
+
+    filterAppEntry OBJECT-TYPE
+        SYNTAX          FilterAppEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Filter application table entry"
+        INDEX       { filterAppIndex }
+        ::= { filterAppTable 1 }
+
+    FilterAppEntry ::= SEQUENCE {
+        filterAppIndex                 Integer32,
+        filterAppGuid                  DisplayString,
+        filterAppCategory              DisplayString,
+        filterAppDescription           DisplayString
+    }
+
+    filterAppIndex OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Filter application table index"
+        ::= { filterAppEntry 1 }
+
+    filterAppGuid OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Filter application global unique identifier"
+        ::= { filterAppEntry 2 }
+
+    filterAppCategory OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Filter application category global unique identifier"
+        ::= { filterAppEntry 3 }
+
+    filterAppDescription OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Filter application description"
+        ::= { filterAppEntry 4 }
+
+    filterAppCatTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF FilterAppCatEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Filter application category table for the Array"
+        ::= { filter 9 }
+
+    filterAppCatEntry OBJECT-TYPE
+        SYNTAX          FilterAppCatEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Filter application category table entry"
+        INDEX       { filterAppCatIndex }
+        ::= { filterAppCatTable 1 }
+
+    FilterAppCatEntry ::= SEQUENCE {
+        filterAppCatIndex                 Integer32,
+        filterAppCatGuid                  DisplayString,
+        filterAppCatDescription           DisplayString
+    }
+
+    filterAppCatIndex OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Filter application category table index"
+        ::= { filterAppCatEntry 1 }
+
+    filterAppCatGuid OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Filter application category global unique identifier"
+        ::= { filterAppCatEntry 2 }
+
+    filterAppCatDescription OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Filter application category description"
+        ::= { filterAppCatEntry 3 }
+
 --
 -- INTERFACE
 --
@@ -1539,7 +1752,8 @@ IMPORTS
         iapResetsBeacon     Counter64,
         iapResetsPhy        Counter64,
         iapResetsMac        Counter64,
-        iapResetsSystem     Counter64
+        iapResetsSystem     Counter64,
+        iapSpatialStreams   INTEGER
     }
 
     iapIndex OBJECT-TYPE
@@ -1592,7 +1806,7 @@ IMPORTS
         ::= { iapEntry 6 }
 
     iapTxPwr OBJECT-TYPE
-        SYNTAX          Integer32(-10..20)
+        SYNTAX          Integer32(-15..20)
         MAX-ACCESS      read-write
         STATUS          current
         DESCRIPTION
@@ -1787,6 +2001,14 @@ IMPORTS
             "Number of system resets"
         ::= { iapEntry 30 }
 
+    iapSpatialStreams OBJECT-TYPE
+        SYNTAX          INTEGER { not-present(0), type-1x1(1), type-2x2(2), type-2x3(3), type-3x3(4) }
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Number of spatial streams on the IAP"
+        ::= { iapEntry 31 }
+
     global      OBJECT IDENTIFIER ::= { iap 2 }
     global11a   OBJECT IDENTIFIER ::= { iap 3 }
     global11bg  OBJECT IDENTIFIER ::= { iap 4 }
@@ -1815,7 +2037,7 @@ IMPORTS
         ::= { global 2 }
 
     globalIAPTxPwr OBJECT-TYPE
-        SYNTAX          Integer32(-10..20)
+        SYNTAX          Integer32(-15..20)
         MAX-ACCESS      read-write
         STATUS          current
         DESCRIPTION
@@ -1831,7 +2053,7 @@ IMPORTS
         ::= { global 4 }
 
     globalIAPBeaconRate OBJECT-TYPE
-        SYNTAX          Integer32(20..1000)
+        SYNTAX          Integer32(100..1000)
         MAX-ACCESS      read-write
         STATUS          current
         DESCRIPTION
@@ -1931,7 +2153,8 @@ IMPORTS
                                   thailand(27), greece(28), israel(29),
                                   south-africa(30), brazil(31), india(32),
                                   singapore(33), malaysia(34), korea(35),
-                                  hong-kong(36), china(37) }
+                                  hong-kong(36), china(37), macao (38), 
+                                  united-states-outdoor (39), united-states-weather-radar (40)  }
         MAX-ACCESS      read-write
         STATUS          current
         DESCRIPTION
@@ -1951,7 +2174,7 @@ IMPORTS
         MAX-ACCESS      read-write
         STATUS          current
         DESCRIPTION
-            "Limit the number of phones that can be associated per IAP"
+            "Limit the number of phones that can be associated per IAP. Note this is not used and essentially deprecated."
         ::= { global 21 }
 
     globalNumStations OBJECT-TYPE
@@ -2020,7 +2243,7 @@ IMPORTS
         ::= { global 30 }
 
     globalMaxStations OBJECT-TYPE
-        SYNTAX          Integer32(1..2000)
+        SYNTAX          Integer32(1..3840)
         MAX-ACCESS      read-write
         STATUS          current
         DESCRIPTION
@@ -2144,7 +2367,7 @@ IMPORTS
         DESCRIPTION
             "Multicast IP address excluded from conversion"
         ::= { globalMulticastExcludeEntry 2 }
-        
+
     globalMulticastExcludeRowStatus OBJECT-TYPE
         SYNTAX          RowStatus
         MAX-ACCESS      read-create
@@ -2215,6 +2438,187 @@ IMPORTS
         DESCRIPTION
             "Time to complete 802.1x authentication (seconds)"
         ::= { global 42 }
+
+    globalIPv6Filter OBJECT-TYPE
+        SYNTAX          INTEGER { disable(0), enable(1) }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Enable/disable IPv6 packet filtering"
+        ::= { global 43 }
+
+    globalMulticastForwardingTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF GlobalMulticastForwardingEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Multicast conversion forwarding list"
+        ::= { global 44 }
+
+    globalMulticastForwardingEntry OBJECT-TYPE
+        SYNTAX          GlobalMulticastForwardingEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Multicast conversion forwarding list entry"
+        INDEX       { globalMulticastForwardingIndex }
+        ::= { globalMulticastForwardingTable 1 }
+
+    GlobalMulticastForwardingEntry ::= SEQUENCE {
+        globalMulticastForwardingIndex         Integer32,
+        globalMulticastForwardingIpAddress     IpAddress,
+        globalMulticastForwardingRowStatus     RowStatus
+    }
+
+    globalMulticastForwardingIndex OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Multicast conversion forwarding list Index"
+        ::= { globalMulticastForwardingEntry 1 }
+
+    globalMulticastForwardingIpAddress OBJECT-TYPE
+        SYNTAX          IpAddress
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Multicast IP address forwarding from conversion"
+        ::= { globalMulticastForwardingEntry 2 }
+
+    globalMulticastForwardingRowStatus OBJECT-TYPE
+        SYNTAX          RowStatus
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Status of the multicast conversion forwarding list row entry"
+        ::= { globalMulticastForwardingEntry 3 }
+
+    globalMulticastForwardingTableReset OBJECT-TYPE
+        SYNTAX          INTEGER { reset(1) }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Reset multicast conversion forwarding list"
+        ::= { global 45 }
+
+    globalMulticastVlanForwardingTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF GlobalMulticastVlanForwardingEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Multicast conversion vlan forwarding list"
+        ::= { global 46 }
+
+    globalMulticastVlanForwardingEntry OBJECT-TYPE
+        SYNTAX          GlobalMulticastVlanForwardingEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Multicast conversion vlan forwarding list entry"
+        INDEX       { globalMulticastVlanForwardingIndex }
+        ::= { globalMulticastVlanForwardingTable 1 }
+
+    GlobalMulticastVlanForwardingEntry ::= SEQUENCE {
+        globalMulticastVlanForwardingIndex         Integer32,
+        globalMulticastVlanForwardingVlanNumber    Integer32,
+        globalMulticastVlanForwardingRowStatus     RowStatus
+    }
+
+    globalMulticastVlanForwardingIndex OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Multicast conversion vlan forwarding list Index"
+        ::= { globalMulticastVlanForwardingEntry 1 }
+
+    globalMulticastVlanForwardingVlanNumber OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Multicast IP vlan forwarding from conversion"
+        ::= { globalMulticastVlanForwardingEntry 2 }
+
+    globalMulticastVlanForwardingRowStatus OBJECT-TYPE
+        SYNTAX          RowStatus
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Status of the multicast conversion vlan forwarding list row entry"
+        ::= { globalMulticastVlanForwardingEntry 3 }
+
+    globalMulticastVlanForwardingTableReset OBJECT-TYPE
+        SYNTAX          INTEGER { reset(1) }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Reset multicast conversion vlan forwarding list"
+        ::= { global 47 }
+
+    globalMulticastDnsFilteringTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF GlobalMulticastDnsFilteringEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Multicast DNS filtering list"
+        ::= { global 48 }
+
+    globalMulticastDnsFilteringEntry OBJECT-TYPE
+        SYNTAX          GlobalMulticastDnsFilteringEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Multicast DNS filtering list entry"
+        INDEX       { globalMulticastDnsFilteringIndex }
+        ::= { globalMulticastDnsFilteringTable 1 }
+
+    GlobalMulticastDnsFilteringEntry ::= SEQUENCE {
+        globalMulticastDnsFilteringIndex         Integer32,
+        globalMulticastDnsFilteringName          DisplayString,
+        globalMulticastDnsFilteringRowStatus     RowStatus
+    }
+
+    globalMulticastDnsFilteringIndex OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Multicast DNS filtering list Index"
+        ::= { globalMulticastDnsFilteringEntry 1 }
+
+    globalMulticastDnsFilteringName OBJECT-TYPE
+        SYNTAX          DisplayString(SIZE(1..24))
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Multicast DNS filtering list"
+        ::= { globalMulticastDnsFilteringEntry 2 }
+
+    globalMulticastDnsFilteringRowStatus OBJECT-TYPE
+        SYNTAX          RowStatus
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Status of the multicast DNS filtering list row entry"
+        ::= { globalMulticastDnsFilteringEntry 3 }
+
+    globalMulticastDnsFilteringTableReset OBJECT-TYPE
+        SYNTAX          INTEGER { reset(1) }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Reset multicast DNS filtering list"
+        ::= { global 49 }
+
+    globalDot11kSupport OBJECT-TYPE
+        SYNTAX          INTEGER { disable(0), enable(1) }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Enable/disable support for 802.11k beacons"
+        ::= { global 50 }
 
 --
 -- INTERFACE IAP GLOBAL LEDS
@@ -2296,7 +2700,7 @@ IMPORTS
         ::= { autoChannel 2 }
 
     autoChannelSchedule OBJECT-TYPE
-        SYNTAX          DisplayString(SIZE(0..32))
+        SYNTAX          DisplayString(SIZE(0..255))
         MAX-ACCESS      read-write
         STATUS          current
         DESCRIPTION
@@ -2686,6 +3090,61 @@ IMPORTS
             "Specify period for rogue AP table entries (in seconds, 0 - all table entries)"
         ::= { rogueDetect 9 }
 
+    rogueDetectAutoBlockWhitelistTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF RogueDetectAutoBlockWhitelistEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Rogue AP Auto Block channel whitelist"
+        ::= { rogueDetect 10 }
+
+    rogueDetectAutoBlockWhitelistEntry OBJECT-TYPE
+        SYNTAX          RogueDetectAutoBlockWhitelistEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Rogue AP Auto Block channel whitelist entry"
+        INDEX       { rogueDetectAutoBlockWhitelistIndex }
+        ::= { rogueDetectAutoBlockWhitelistTable 1 }
+
+    RogueDetectAutoBlockWhitelistEntry ::= SEQUENCE {
+        rogueDetectAutoBlockWhitelistIndex         Integer32,
+        rogueDetectAutoBlockWhitelistChannel       Integer32,
+        rogueDetectAutoBlockWhitelistRowStatus     RowStatus
+    }
+
+    rogueDetectAutoBlockWhitelistIndex OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Rogue AP Auto Block channel whitelist Index"
+        ::= { rogueDetectAutoBlockWhitelistEntry 1 }
+
+    rogueDetectAutoBlockWhitelistChannel OBJECT-TYPE
+        SYNTAX          Integer32(1..255)
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Rogue AP Auto Block channel whitelist channel"
+        ::= { rogueDetectAutoBlockWhitelistEntry 2 }
+
+    rogueDetectAutoBlockWhitelistRowStatus OBJECT-TYPE
+        SYNTAX          RowStatus
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Status of the Rogue AP Auto Block channel whitelist row entry"
+        ::= { rogueDetectAutoBlockWhitelistEntry 3 }
+
+    rogueDetectAutoBlockWhitelistTableReset OBJECT-TYPE
+        SYNTAX          INTEGER { reset(1) }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Reset Rogue AP Auto Block channel whitelist"
+        ::= { rogueDetect 11 }
+
 --
 -- INTERFACE IAP GLOBAL FAST ROAMING
 --
@@ -2825,7 +3284,7 @@ IMPORTS
         ::= { autoCell 3 }
 
     autoCellMinTxPwr OBJECT-TYPE
-        SYNTAX          Integer32(-10..20)
+        SYNTAX          Integer32(-15..20)
         MAX-ACCESS      read-write
         STATUS          current
         DESCRIPTION
@@ -3414,7 +3873,7 @@ IMPORTS
         ::= { global11a 2 }
 
     global11aIAPTxPwr OBJECT-TYPE
-        SYNTAX          Integer32(-10..20)
+        SYNTAX          Integer32(-15..20)
         MAX-ACCESS      read-write
         STATUS          current
         DESCRIPTION
@@ -3490,12 +3949,28 @@ IMPORTS
         ::= { global11a 13 }
 
     global11aIAPAutoCellMinTxPwr OBJECT-TYPE
-        SYNTAX          Integer32(-10..20)
+        SYNTAX          Integer32(-15..20)
         MAX-ACCESS      read-write
         STATUS          current
         DESCRIPTION
             "Set auto cell size minimum Tx power"
         ::= { global11a 14 }
+
+    global11aIAPMaxStations OBJECT-TYPE
+        SYNTAX          Integer32(1..3840)
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Maximum number of associated stations per array"
+        ::= { global11a 15 }
+
+    global11aIAPMaxIapStations OBJECT-TYPE
+        SYNTAX          Integer32(1..240)
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Maximum number of associated stations per IAP"
+        ::= { global11a 16 }
 
 --
 -- INTERFACE IAP GLOBAL 11A RATES
@@ -3638,7 +4113,7 @@ IMPORTS
         ::= { global11bg 2 }
 
     global11bgIAPTxPwr OBJECT-TYPE
-        SYNTAX          Integer32(-10..20)
+        SYNTAX          Integer32(-15..20)
         MAX-ACCESS      read-write
         STATUS          current
         DESCRIPTION
@@ -3746,12 +4221,28 @@ IMPORTS
         ::= { global11bg 17 }
 
     global11bgIAPAutoCellMinTxPwr OBJECT-TYPE
-        SYNTAX          Integer32(-10..20)
+        SYNTAX          Integer32(-15..20)
         MAX-ACCESS      read-write
         STATUS          current
         DESCRIPTION
             "Set auto cell size minimum Tx power"
         ::= { global11bg 18 }
+
+    global11bgIAPMaxStations OBJECT-TYPE
+        SYNTAX          Integer32(1..3840)
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Maximum number of associated stations per array"
+        ::= { global11bg 19 }
+
+    global11bgIAPMaxIapStations OBJECT-TYPE
+        SYNTAX          Integer32(1..240)
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Maximum number of associated stations per IAP"
+        ::= { global11bg 20 }
 
 --
 -- INTERFACE IAP GLOBAL 11BG RATES
@@ -4285,7 +4776,8 @@ IMPORTS
         ethMgmt             INTEGER,
         ethDefault          INTEGER,
         ethPortMode         INTEGER,
-        ethBond             DisplayString
+        ethBond             DisplayString,
+        ethLED              INTEGER
     }
 
     ethIndex OBJECT-TYPE
@@ -4408,6 +4900,14 @@ IMPORTS
         DESCRIPTION
             "Specify bond for this gig eth port"
         ::= { ethEntry 15 }
+
+    ethLED OBJECT-TYPE
+        SYNTAX          INTEGER { disable(0), enable(1) }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Enable/disable LED operation"
+        ::= { ethEntry 16 }
 
     bondTable OBJECT-TYPE
         SYNTAX          SEQUENCE OF BondEntry
@@ -4870,6 +5370,46 @@ IMPORTS
             "Secondary Radius Accounting server secret (encrypted)"
         ::= { radiusServerExternal 24 }
 
+    radiusDASPort OBJECT-TYPE
+        SYNTAX          Integer32(0..65535)
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "RADIUS Dynamic Authorization port"
+        ::= { radiusServerExternal 25 }
+
+    radiusDASTimeWindow OBJECT-TYPE
+        SYNTAX          Integer32(5..10000000)
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "RADIUS Dynamic Authorization time window (in seconds)"
+        ::= { radiusServerExternal 26 }
+
+    radiusDASEventTimestamp OBJECT-TYPE
+        SYNTAX          INTEGER { optional(0), required(1) }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Specify whether Event-Timestamp attribute is required for RADIUS Dynamic Authorization replay protection"
+        ::= { radiusServerExternal 27 }
+
+    radiusCalledStationIdFormat OBJECT-TYPE
+        SYNTAX          INTEGER { bssid-ssid(0), bssid(1) }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Specify Called-Station-Id attribute format used in RADIUS packets"
+        ::= { radiusServerExternal 28 }
+
+    radiusStationMACFormat OBJECT-TYPE
+        SYNTAX          INTEGER { lower(0), upper(1), lower-hyphen(2), upper-hyphen(3) }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Specify station MAC address format used in a User-Name attribute during RADIUS MAC authentication"
+        ::= { radiusServerExternal 29 }
+
 --
 -- RADIUS SERVER INTERNAL
 --
@@ -5121,7 +5661,7 @@ IMPORTS
         ::= { wpa 4 }
 
     wpaPassphrase OBJECT-TYPE
-        SYNTAX          DisplayString(SIZE(8..64))
+        SYNTAX          DisplayString(SIZE(0|8..64))
         MAX-ACCESS      read-write
         STATUS          current
         DESCRIPTION
@@ -5468,7 +6008,9 @@ IMPORTS
         ssidWpaAES                          INTEGER,
         ssidActiveIAPs                      Integer32,
         ssidAclEnable                       INTEGER,
-        ssidFallback                        INTEGER
+        ssidFallback                        INTEGER,
+        ssidTunnel                          DisplayString,
+        ssidMdmAuth                         INTEGER
     }
 
     ssidIndex OBJECT-TYPE
@@ -5632,7 +6174,7 @@ IMPORTS
         ::= { ssidEntry 20 }
 
     ssidWpaPassphrase OBJECT-TYPE
-        SYNTAX          DisplayString(SIZE(8..128))
+        SYNTAX          DisplayString(SIZE(0|8..128))
         MAX-ACCESS      read-create
         STATUS          current
         DESCRIPTION
@@ -5943,6 +6485,22 @@ IMPORTS
             "Define network connectivity fallback mode for this SSID"
         ::= { ssidEntry 59 }
 
+    ssidTunnel OBJECT-TYPE
+        SYNTAX          DisplayString(SIZE(0..20))
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Specify tunnel for bridging SSID data traffic"
+        ::= { ssidEntry 60 }
+
+    ssidMdmAuth OBJECT-TYPE
+        SYNTAX          INTEGER { none(0), airwatch(1) }
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "MDM authentication type used by this SSID"
+        ::= { ssidEntry 61 }
+
     ssidTableReset OBJECT-TYPE
         SYNTAX          INTEGER { reset(1) }
         MAX-ACCESS      read-write
@@ -6118,7 +6676,7 @@ IMPORTS
         ::= { ssidLimitsEntry 15 }
 
     ssidLimitsStationLimit OBJECT-TYPE
-        SYNTAX          Integer32(1..2000)
+        SYNTAX          Integer32(1..3840)
         MAX-ACCESS      read-write
         STATUS          current
         DESCRIPTION
@@ -6304,6 +6862,61 @@ IMPORTS
         DESCRIPTION
             "Custom footer text file for WPR"
         ::= { ssidWprEntry 18 }
+
+    ssidHoneypotWhitelistTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF SsidHoneypotWhitelistEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "SSID honeypot whitelist"
+        ::= { ssid 6 }
+
+    ssidHoneypotWhitelistEntry OBJECT-TYPE
+        SYNTAX          SsidHoneypotWhitelistEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "SSID honeypot whitelist table entry"
+        INDEX       { ssidHoneypotWhitelistIndex }
+        ::= { ssidHoneypotWhitelistTable 1 }
+
+    SsidHoneypotWhitelistEntry ::= SEQUENCE {
+        ssidHoneypotWhitelistIndex          Integer32,
+        ssidHoneypotWhitelistSSID           DisplayString,
+        ssidHoneypotWhitelistRowStatus      RowStatus
+    }
+
+    ssidHoneypotWhitelistIndex OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "SSID honeypot whitelist index"
+        ::= { ssidHoneypotWhitelistEntry 1 }
+
+    ssidHoneypotWhitelistSSID OBJECT-TYPE
+        SYNTAX          DisplayString(SIZE(1..32))
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "SSID name"
+        ::= { ssidHoneypotWhitelistEntry 2 }
+
+    ssidHoneypotWhitelistRowStatus OBJECT-TYPE
+        SYNTAX          RowStatus
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Status of the SSID honeypot whitelist row entry"
+        ::= { ssidHoneypotWhitelistEntry 3 }
+
+    ssidHoneypotWhitelistTableReset OBJECT-TYPE
+        SYNTAX          INTEGER { reset(1) }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Reset SSID honeypot whitelist (clear all entries)"
+        ::= { ssid 7 }
 
 --
 -- STATIONS
@@ -8238,7 +8851,7 @@ IMPORTS
         ::= { stationAssurance 9 }
 
     stationAssuranceDistance OBJECT-TYPE
-        SYNTAX          Integer32(1..999)
+        SYNTAX          Integer32(1..9999)
         MAX-ACCESS      read-write
         STATUS          current
         DESCRIPTION
@@ -12871,6 +13484,574 @@ IMPORTS
             "Noise (in percent)"
         ::= { realtimeMonitorEntry 12 }
 
+    stationAppStatsTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF StationAppStatsEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Table of station application statistics"
+        ::= { statistics 8 }
+
+    stationAppStatsEntry OBJECT-TYPE
+        SYNTAX          StationAppStatsEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Table entry for station application statistics"
+        INDEX       { stationAppStatsIndex }
+        ::= { stationAppStatsTable 1 }
+
+    StationAppStatsEntry ::= SEQUENCE {
+        stationAppStatsIndex               Integer32,
+        stationAppStatsMACAddress          DisplayString,
+        stationAppStatsGuid                DisplayString,
+        stationAppStatsTxPackets           Counter64,
+        stationAppStatsRxPackets           Counter64,
+        stationAppStatsTxBytes             Counter64,
+        stationAppStatsRxBytes             Counter64,
+        stationAppStatsTimePeriod          Counter32
+    }
+
+    stationAppStatsIndex OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Station application statistics index"
+        ::= { stationAppStatsEntry 1 }
+
+    stationAppStatsMACAddress OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "MAC address of the station"
+        ::= { stationAppStatsEntry 2 }
+
+    stationAppStatsGuid OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Global Unique ID of the application"
+        ::= { stationAppStatsEntry 3 }
+
+    stationAppStatsTxPackets OBJECT-TYPE
+        SYNTAX          Counter64
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Packets transmitted"
+        ::= { stationAppStatsEntry 4 }
+
+    stationAppStatsRxPackets OBJECT-TYPE
+        SYNTAX          Counter64
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Packets received"
+        ::= { stationAppStatsEntry 5 }
+
+    stationAppStatsTxBytes OBJECT-TYPE
+        SYNTAX          Counter64
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Bytes transmitted"
+        ::= { stationAppStatsEntry 6 }
+
+    stationAppStatsRxBytes OBJECT-TYPE
+        SYNTAX          Counter64
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Bytes received"
+        ::= { stationAppStatsEntry 7 }
+
+    stationAppStatsTimePeriod OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Time period over which application stats were collected"
+        ::= { stationAppStatsEntry 8 }
+
+    stationAppCatStatsTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF StationAppCatStatsEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Table of station application category statistics"
+        ::= { statistics 9 }
+
+    stationAppCatStatsEntry OBJECT-TYPE
+        SYNTAX          StationAppCatStatsEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Table entry for station application category statistics"
+        INDEX       { stationAppCatStatsIndex }
+        ::= { stationAppCatStatsTable 1 }
+
+    StationAppCatStatsEntry ::= SEQUENCE {
+        stationAppCatStatsIndex               Integer32,
+        stationAppCatStatsMACAddress          DisplayString,
+        stationAppCatStatsGuid                DisplayString,
+        stationAppCatStatsTxPackets           Counter64,
+        stationAppCatStatsRxPackets           Counter64,
+        stationAppCatStatsTxBytes             Counter64,
+        stationAppCatStatsRxBytes             Counter64,
+        stationAppCatStatsTimePeriod          Counter32
+    }
+
+    stationAppCatStatsIndex OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Station application category statistics index"
+        ::= { stationAppCatStatsEntry 1 }
+
+    stationAppCatStatsMACAddress OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "MAC address of the station"
+        ::= { stationAppCatStatsEntry 2 }
+
+    stationAppCatStatsGuid OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Global Unique ID of the application category"
+        ::= { stationAppCatStatsEntry 3 }
+
+    stationAppCatStatsTxPackets OBJECT-TYPE
+        SYNTAX          Counter64
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Packets transmitted"
+        ::= { stationAppCatStatsEntry 4 }
+
+    stationAppCatStatsRxPackets OBJECT-TYPE
+        SYNTAX          Counter64
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Packets received"
+        ::= { stationAppCatStatsEntry 5 }
+
+    stationAppCatStatsTxBytes OBJECT-TYPE
+        SYNTAX          Counter64
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Bytes transmitted"
+        ::= { stationAppCatStatsEntry 6 }
+
+    stationAppCatStatsRxBytes OBJECT-TYPE
+        SYNTAX          Counter64
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Bytes received"
+        ::= { stationAppCatStatsEntry 7 }
+
+    stationAppCatStatsTimePeriod OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Time period over which application category stats were collected"
+        ::= { stationAppCatStatsEntry 8 }
+
+    vlanMgmtAppStatsTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF VlanMgmtAppStatsEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Table of VLAN management application statistics"
+        ::= { statistics 10 }
+
+    vlanMgmtAppStatsEntry OBJECT-TYPE
+        SYNTAX          VlanMgmtAppStatsEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Table entry for VLAN management application statistics"
+        INDEX       { vlanMgmtAppStatsIndex }
+        ::= { vlanMgmtAppStatsTable 1 }
+
+    VlanMgmtAppStatsEntry ::= SEQUENCE {
+        vlanMgmtAppStatsIndex               Integer32,
+        vlanMgmtAppStatsVlan                Integer32,
+        vlanMgmtAppStatsGuid                DisplayString,
+        vlanMgmtAppStatsTxPackets           Counter64,
+        vlanMgmtAppStatsRxPackets           Counter64,
+        vlanMgmtAppStatsTxBytes             Counter64,
+        vlanMgmtAppStatsRxBytes             Counter64,
+        vlanMgmtAppStatsTimePeriod          Counter32
+    }
+
+    vlanMgmtAppStatsIndex OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "VLAN management application statistics index"
+        ::= { vlanMgmtAppStatsEntry 1 }
+
+    vlanMgmtAppStatsVlan OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "VLAN"
+        ::= { vlanMgmtAppStatsEntry 2 }
+
+    vlanMgmtAppStatsGuid OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Global Unique ID of the application"
+        ::= { vlanMgmtAppStatsEntry 3 }
+
+    vlanMgmtAppStatsTxPackets OBJECT-TYPE
+        SYNTAX          Counter64
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Packets transmitted"
+        ::= { vlanMgmtAppStatsEntry 4 }
+
+    vlanMgmtAppStatsRxPackets OBJECT-TYPE
+        SYNTAX          Counter64
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Packets received"
+        ::= { vlanMgmtAppStatsEntry 5 }
+
+    vlanMgmtAppStatsTxBytes OBJECT-TYPE
+        SYNTAX          Counter64
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Bytes transmitted"
+        ::= { vlanMgmtAppStatsEntry 6 }
+
+    vlanMgmtAppStatsRxBytes OBJECT-TYPE
+        SYNTAX          Counter64
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Bytes received"
+        ::= { vlanMgmtAppStatsEntry 7 }
+
+    vlanMgmtAppStatsTimePeriod OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Time period over which management application stats were collected"
+        ::= { vlanMgmtAppStatsEntry 8 }
+
+    vlanMgmtAppCatStatsTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF VlanMgmtAppCatStatsEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Table of VLAN management application category statistics"
+        ::= { statistics 11 }
+
+    vlanMgmtAppCatStatsEntry OBJECT-TYPE
+        SYNTAX          VlanMgmtAppCatStatsEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Table entry for VLAN management application category statistics"
+        INDEX       { vlanMgmtAppCatStatsIndex }
+        ::= { vlanMgmtAppCatStatsTable 1 }
+
+    VlanMgmtAppCatStatsEntry ::= SEQUENCE {
+        vlanMgmtAppCatStatsIndex               Integer32,
+        vlanMgmtAppCatStatsVlan                Integer32,
+        vlanMgmtAppCatStatsGuid                DisplayString,
+        vlanMgmtAppCatStatsTxPackets           Counter64,
+        vlanMgmtAppCatStatsRxPackets           Counter64,
+        vlanMgmtAppCatStatsTxBytes             Counter64,
+        vlanMgmtAppCatStatsRxBytes             Counter64,
+        vlanMgmtAppCatStatsTimePeriod          Counter32
+    }
+
+    vlanMgmtAppCatStatsIndex OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "VLAN management application category statistics index"
+        ::= { vlanMgmtAppCatStatsEntry 1 }
+
+    vlanMgmtAppCatStatsVlan OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "VLAN"
+        ::= { vlanMgmtAppCatStatsEntry 2 }
+
+    vlanMgmtAppCatStatsGuid OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Global Unique ID of the application category"
+        ::= { vlanMgmtAppCatStatsEntry 3 }
+
+    vlanMgmtAppCatStatsTxPackets OBJECT-TYPE
+        SYNTAX          Counter64
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Packets transmitted"
+        ::= { vlanMgmtAppCatStatsEntry 4 }
+
+    vlanMgmtAppCatStatsRxPackets OBJECT-TYPE
+        SYNTAX          Counter64
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Packets received"
+        ::= { vlanMgmtAppCatStatsEntry 5 }
+
+    vlanMgmtAppCatStatsTxBytes OBJECT-TYPE
+        SYNTAX          Counter64
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Bytes transmitted"
+        ::= { vlanMgmtAppCatStatsEntry 6 }
+
+    vlanMgmtAppCatStatsRxBytes OBJECT-TYPE
+        SYNTAX          Counter64
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Bytes received"
+        ::= { vlanMgmtAppCatStatsEntry 7 }
+
+    vlanMgmtAppCatStatsTimePeriod OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Time period over which management application category stats were collected"
+        ::= { vlanMgmtAppCatStatsEntry 8 }
+
+    vlanStaAppStatsTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF VlanStaAppStatsEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Table of VLAN station application statistics"
+        ::= { statistics 12 }
+
+    vlanStaAppStatsEntry OBJECT-TYPE
+        SYNTAX          VlanStaAppStatsEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Table entry for VLAN station application statistics"
+        INDEX       { vlanStaAppStatsIndex }
+        ::= { vlanStaAppStatsTable 1 }
+
+    VlanStaAppStatsEntry ::= SEQUENCE {
+        vlanStaAppStatsIndex               Integer32,
+        vlanStaAppStatsVlan                Integer32,
+        vlanStaAppStatsGuid                DisplayString,
+        vlanStaAppStatsTxPackets           Counter64,
+        vlanStaAppStatsRxPackets           Counter64,
+        vlanStaAppStatsTxBytes             Counter64,
+        vlanStaAppStatsRxBytes             Counter64,
+        vlanStaAppStatsTimePeriod          Counter32
+    }
+
+    vlanStaAppStatsIndex OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "VLAN station application statistics index"
+        ::= { vlanStaAppStatsEntry 1 }
+
+    vlanStaAppStatsVlan OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "VLAN"
+        ::= { vlanStaAppStatsEntry 2 }
+
+    vlanStaAppStatsGuid OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Global Unique ID of the application"
+        ::= { vlanStaAppStatsEntry 3 }
+
+    vlanStaAppStatsTxPackets OBJECT-TYPE
+        SYNTAX          Counter64
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Packets transmitted"
+        ::= { vlanStaAppStatsEntry 4 }
+
+    vlanStaAppStatsRxPackets OBJECT-TYPE
+        SYNTAX          Counter64
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Packets received"
+        ::= { vlanStaAppStatsEntry 5 }
+
+    vlanStaAppStatsTxBytes OBJECT-TYPE
+        SYNTAX          Counter64
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Bytes transmitted"
+        ::= { vlanStaAppStatsEntry 6 }
+
+    vlanStaAppStatsRxBytes OBJECT-TYPE
+        SYNTAX          Counter64
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Bytes received"
+        ::= { vlanStaAppStatsEntry 7 }
+
+    vlanStaAppStatsTimePeriod OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Time period over which station application stats were collected"
+        ::= { vlanStaAppStatsEntry 8 }
+
+    vlanStaAppCatStatsTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF VlanStaAppCatStatsEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Table of VLAN station application category statistics"
+        ::= { statistics 13 }
+
+    vlanStaAppCatStatsEntry OBJECT-TYPE
+        SYNTAX          VlanStaAppCatStatsEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Table entry for VLAN station application category statistics"
+        INDEX       { vlanStaAppCatStatsIndex }
+        ::= { vlanStaAppCatStatsTable 1 }
+
+    VlanStaAppCatStatsEntry ::= SEQUENCE {
+        vlanStaAppCatStatsIndex               Integer32,
+        vlanStaAppCatStatsVlan                Integer32,
+        vlanStaAppCatStatsGuid                DisplayString,
+        vlanStaAppCatStatsTxPackets           Counter64,
+        vlanStaAppCatStatsRxPackets           Counter64,
+        vlanStaAppCatStatsTxBytes             Counter64,
+        vlanStaAppCatStatsRxBytes             Counter64,
+        vlanStaAppCatStatsTimePeriod          Counter32
+    }
+
+    vlanStaAppCatStatsIndex OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "VLAN station application category statistics index"
+        ::= { vlanStaAppCatStatsEntry 1 }
+
+    vlanStaAppCatStatsVlan OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "VLAN"
+        ::= { vlanStaAppCatStatsEntry 2 }
+
+    vlanStaAppCatStatsGuid OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Global Unique ID of the application category"
+        ::= { vlanStaAppCatStatsEntry 3 }
+
+    vlanStaAppCatStatsTxPackets OBJECT-TYPE
+        SYNTAX          Counter64
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Packets transmitted"
+        ::= { vlanStaAppCatStatsEntry 4 }
+
+    vlanStaAppCatStatsRxPackets OBJECT-TYPE
+        SYNTAX          Counter64
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Packets received"
+        ::= { vlanStaAppCatStatsEntry 5 }
+
+    vlanStaAppCatStatsTxBytes OBJECT-TYPE
+        SYNTAX          Counter64
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Bytes transmitted"
+        ::= { vlanStaAppCatStatsEntry 6 }
+
+    vlanStaAppCatStatsRxBytes OBJECT-TYPE
+        SYNTAX          Counter64
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Bytes received"
+        ::= { vlanStaAppCatStatsEntry 7 }
+
+    vlanStaAppCatStatsTimePeriod OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Time period over which station application category stats were collected"
+        ::= { vlanStaAppCatStatsEntry 8 }
+
+    stationAppStatsTablePeriod OBJECT-TYPE
+        SYNTAX          Counter32(0..100000000)
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Specify period for station application statistics table entries (in seconds, 0 - all table entries)"
+        ::= { statistics 14 }
+
+    stationAppStatsTableClear OBJECT-TYPE
+        SYNTAX          INTEGER { reset(1) }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Clear the application statistics table (zero all counts)"
+        ::= { statistics 15 }
+
 --
 -- SYSLOG
 --
@@ -13106,6 +14287,30 @@ IMPORTS
         DESCRIPTION
             "Tertiary syslog server port"
         ::= { syslog 23 }
+
+    syslogStationFormat OBJECT-TYPE
+        SYNTAX          INTEGER { standard(0), key-value(1) }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Station information format in syslog messages"
+        ::=  { syslog 24 }
+
+    syslogTimeFormat OBJECT-TYPE
+        SYNTAX          INTEGER { rfc3164(0), rfc3339(1) }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Time format in syslog messages"
+        ::=  { syslog 25 }
+
+    syslogStationUrlLog OBJECT-TYPE
+        SYNTAX          INTEGER { disable(0), enable(1) }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Enable or disable station URL logging"
+        ::= { syslog 26 }
 
 --
 -- SYSTEM
@@ -13850,6 +15055,195 @@ IMPORTS
             "Xircon port"
         ::= { system 51 }
 
+    systemStpEnable OBJECT-TYPE
+        SYNTAX          INTEGER { disable(0), enable(1) }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Enable/disable Spanning Tree Protocol"
+        ::= { system 52 }
+
+    systemFanSpeed OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "System fan speed (RPM)"
+        ::= { system 53 }
+
+    systemXmsControl OBJECT-TYPE
+        SYNTAX          INTEGER { off(0), on(1) }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Allow all user management or restrict to console and XMS only"
+        ::= { system 54 }
+
+    systemActivation OBJECT-TYPE
+        SYNTAX          INTEGER { disable(0), enable(1) }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Enable/disable array activation"
+        ::= { system 55 }
+
+    systemActivationInterval OBJECT-TYPE
+        SYNTAX          Integer32(1..1000000)
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Array activation polling interval (minutes)"
+        ::= { system 56 }
+
+--
+-- TUNNEL
+--
+
+    tunnelTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF TunnelEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Tunnel table"
+        ::= { tunnel 1 }
+
+    tunnelEntry OBJECT-TYPE
+        SYNTAX          TunnelEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Tunnel table entry"
+        INDEX       { tunnelIndex }
+        ::= { tunnelTable 1 }
+
+    TunnelEntry ::= SEQUENCE {
+        tunnelIndex                 Integer32,
+        tunnelName                  DisplayString,
+        tunnelEnable                INTEGER,
+        tunnelType                  INTEGER,
+        tunnelLocalEndpoint         IpAddress,
+        tunnelPriRemoteEndpoint     IpAddress,
+        tunnelSecRemoteEndpoint     IpAddress,
+        tunnelMTU                   Integer32,
+        tunnelSsids                 Integer32,
+        tunnelDhcpOption            INTEGER,
+        tunnelFailoverInterval      Integer32,
+        tunnelFailoverNumFailures   Integer32,
+        tunnelRowStatus             RowStatus
+    }
+
+    tunnelIndex OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Tunnel table index"
+        ::= { tunnelEntry 1 }
+
+    tunnelName OBJECT-TYPE
+        SYNTAX          DisplayString(SIZE(1..20))
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Tunnel name"
+        ::= { tunnelEntry 2 }
+
+    tunnelEnable OBJECT-TYPE
+        SYNTAX          INTEGER { disable(0), enable(1) }
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Enable or disable tunnel"
+        ::= { tunnelEntry 3 }
+
+    tunnelType OBJECT-TYPE
+        SYNTAX          INTEGER { none(0), gre(1) }
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Tunnel type"
+        ::= { tunnelEntry 4 }
+
+    tunnelLocalEndpoint OBJECT-TYPE
+        SYNTAX          IpAddress
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Tunnel local endpoint"
+        ::= { tunnelEntry 5 }
+
+    tunnelPriRemoteEndpoint OBJECT-TYPE
+        SYNTAX          IpAddress
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Tunnel primary remote endpoint"
+        ::= { tunnelEntry 6 }
+
+    tunnelSecRemoteEndpoint OBJECT-TYPE
+        SYNTAX          IpAddress
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Tunnel secondary remote endpoint"
+        ::= { tunnelEntry 7 }
+
+    tunnelMTU OBJECT-TYPE
+        SYNTAX          Integer32(68..1732)
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Tunnel MTU"
+        ::= { tunnelEntry 8 }
+
+    tunnelSsids OBJECT-TYPE
+        SYNTAX          Integer32(0..65535)
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Define SSIDs for which data traffic should be bridged via this tunnel"
+        ::= { tunnelEntry 9 }
+
+    tunnelDhcpOption OBJECT-TYPE
+        SYNTAX          INTEGER { disable(0), enable(1) }
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Enable or disable insertion of relay agent information option in station DHCP requests"
+        ::= { tunnelEntry 10 }
+
+    tunnelFailoverInterval OBJECT-TYPE
+        SYNTAX          Integer32(5..3600)
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Ping interval for remote endpoint failover mechanism"
+        ::= { tunnelEntry 11 }
+
+    tunnelFailoverNumFailures OBJECT-TYPE
+        SYNTAX          Integer32(3..1000)
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Number of ping failures for remote endpoint failover mechanism"
+        ::= { tunnelEntry 12 }
+
+    tunnelRowStatus OBJECT-TYPE
+        SYNTAX          RowStatus
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Status of the tunnel row entry"
+        ::= { tunnelEntry 13 }
+
+    tunnelTableReset OBJECT-TYPE
+        SYNTAX          INTEGER { reset(1) }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Delete all tunnels"
+        ::= { tunnel 2 }
+
 --
 -- VLAN
 --
@@ -14017,6 +15411,204 @@ IMPORTS
             "Enable/disable fast roaming (at layer 3) for VLAN"
         ::= { vlanEntry 15 }
 
+    spanningTreeTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF SpanningTreeEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Spanning tree state table"
+        ::= { vlan 3 }
+
+    spanningTreeEntry OBJECT-TYPE
+        SYNTAX          SpanningTreeEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Spanning tree table entry"
+        INDEX       { spanningTreeIndex }
+        ::= { spanningTreeTable 1 }
+
+    SpanningTreeEntry ::= SEQUENCE {
+        spanningTreeIndex                   Integer32,
+        spanningTreeVlanName                DisplayString,
+        spanningTreeVlanNumber              Integer32,
+        spanningTreeGigLinkState            DisplayString,
+        spanningTreeWDSClientLink1State     DisplayString,
+        spanningTreeWDSClientLink2State     DisplayString,
+        spanningTreeWDSClientLink3State     DisplayString,
+        spanningTreeWDSClientLink4State     DisplayString,
+        spanningTreeWDSHostLink1State       DisplayString,
+        spanningTreeWDSHostLink2State       DisplayString,
+        spanningTreeWDSHostLink3State       DisplayString,
+        spanningTreeWDSHostLink4State       DisplayString
+    }
+
+    spanningTreeIndex OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Spanning tree table index"
+        ::= { spanningTreeEntry 1 }
+
+    spanningTreeVlanName OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "VLAN name"
+        ::= { spanningTreeEntry 2 }
+
+    spanningTreeVlanNumber OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "VLAN number"
+        ::= { spanningTreeEntry 3 }
+
+    spanningTreeGigLinkState OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Gigabit link state"
+        ::= { spanningTreeEntry 4 }
+
+    spanningTreeWDSClientLink1State OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "WDS client link 1 state"
+        ::= { spanningTreeEntry 5 }
+
+    spanningTreeWDSClientLink2State OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "WDS client link 2 state"
+        ::= { spanningTreeEntry 6 }
+
+    spanningTreeWDSClientLink3State OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "WDS client link 3 state"
+        ::= { spanningTreeEntry 7 }
+
+    spanningTreeWDSClientLink4State OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "WDS client link 4 state"
+        ::= { spanningTreeEntry 8 }
+
+    spanningTreeWDSHostLink1State OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "WDS host link 1 state"
+        ::= { spanningTreeEntry 9 }
+
+    spanningTreeWDSHostLink2State OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "WDS host link 2 state"
+        ::= { spanningTreeEntry 10 }
+
+    spanningTreeWDSHostLink3State OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "WDS host link 3 state"
+        ::= { spanningTreeEntry 11 }
+
+    spanningTreeWDSHostLink4State OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "WDS host link 4 state"
+        ::= { spanningTreeEntry 12 }
+
+    vlanDefaultNumber OBJECT-TYPE
+        SYNTAX          Integer32(0..4095)
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "VLAN number(1-4095) to assign as default, 0 - no VLAN as default"
+        ::= { vlan 4 }
+
+    vlanNativeNumber OBJECT-TYPE
+        SYNTAX          Integer32(0..4095)
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "VLAN number(1-4095) to assign as native, 0 - no VLAN as native"
+        ::= { vlan 5 }
+
+    vlanUndefinedTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF VlanUndefinedEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Table of undefined VLANs detected"
+        ::= { vlan 6 }
+
+    vlanUndefinedEntry OBJECT-TYPE
+        SYNTAX          VlanUndefinedEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Undefined VLAN table entry"
+        INDEX       { vlanUndefinedIndex }
+        ::= { vlanUndefinedTable 1 }
+
+    VlanUndefinedEntry ::= SEQUENCE {
+        vlanUndefinedIndex          Integer32,
+        vlanUndefinedNumber         Integer32
+    }
+
+    vlanUndefinedIndex OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Undefined VLAN table index"
+        ::= { vlanUndefinedEntry 1 }
+
+    vlanUndefinedNumber OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Undefined VLAN number"
+        ::= { vlanUndefinedEntry 2 }
+
+    vlanUndefinedInfo OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Undefined VLANs detected"
+        ::= { vlan 7 }
+
+    vlanUndefinedClear OBJECT-TYPE
+        SYNTAX          INTEGER { clear(1) }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Clear undefined VLAN information"
+        ::= { vlan 8 }
+
 --
 -- CLUSTER
 --
@@ -14181,13 +15773,21 @@ IMPORTS
             "Outdoor enclosure environmental controller heating fan 1 RPM"
         ::= { envCtrl 7 }
 
+    envCtrlHeatRPM2 OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Outdoor enclosure environmental controller heating fan 2 RPM"
+        ::= { envCtrl 8 }
+
     envCtrlArrayOn OBJECT-TYPE
         SYNTAX          INTEGER { off(0), on(1) }
         MAX-ACCESS      read-only
         STATUS          current
         DESCRIPTION
             "Outdoor enclosure environmental controller installed"
-        ::= { envCtrl 8 }
+        ::= { envCtrl 9 }
 
     envCtrlCoolOn OBJECT-TYPE
         SYNTAX          INTEGER { off(0), on(1) }
@@ -14195,7 +15795,7 @@ IMPORTS
         STATUS          current
         DESCRIPTION
             "Outdoor enclosure environmental controller cooling fan on"
-        ::= { envCtrl 9 }
+        ::= { envCtrl 10 }
 
     envCtrlHeatOn OBJECT-TYPE
         SYNTAX          INTEGER { off(0), on(1) }
@@ -14203,7 +15803,7 @@ IMPORTS
         STATUS          current
         DESCRIPTION
             "Outdoor enclosure environmental controller heating fan on"
-        ::= { envCtrl 10 }
+        ::= { envCtrl 11 }
 
     envCtrlSoftwareVersion OBJECT-TYPE
         SYNTAX          DisplayString
@@ -14211,151 +15811,43 @@ IMPORTS
         STATUS          current
         DESCRIPTION
             "Outdoor enclosure environmental controller software version"
-        ::= { envCtrl 11 }
+        ::= { envCtrl 12 }
 
-    spanningTreeTable OBJECT-TYPE
-        SYNTAX          SEQUENCE OF SpanningTreeEntry
-        MAX-ACCESS      not-accessible
-        STATUS          current
-        DESCRIPTION
-            "Spanning tree state table"
-        ::= { vlan 3 }
+--
+-- LOCATION
+--
 
-    spanningTreeEntry OBJECT-TYPE
-        SYNTAX          SpanningTreeEntry
-        MAX-ACCESS      not-accessible
-        STATUS          current
-        DESCRIPTION
-            "Spanning tree table entry"
-        INDEX       { spanningTreeIndex }
-        ::= { spanningTreeTable 1 }
-
-    SpanningTreeEntry ::= SEQUENCE {
-        spanningTreeIndex                   Integer32,
-        spanningTreeVlanName                DisplayString,
-        spanningTreeVlanNumber              Integer32,
-        spanningTreeGigLinkState            DisplayString,
-        spanningTreeWDSClientLink1State     DisplayString,
-        spanningTreeWDSClientLink2State     DisplayString,
-        spanningTreeWDSClientLink3State     DisplayString,
-        spanningTreeWDSClientLink4State     DisplayString,
-        spanningTreeWDSHostLink1State       DisplayString,
-        spanningTreeWDSHostLink2State       DisplayString,
-        spanningTreeWDSHostLink3State       DisplayString,
-        spanningTreeWDSHostLink4State       DisplayString
-    }
-
-    spanningTreeIndex OBJECT-TYPE
-        SYNTAX          Integer32
-        MAX-ACCESS      not-accessible
-        STATUS          current
-        DESCRIPTION
-            "Spanning tree table index"
-        ::= { spanningTreeEntry 1 }
-
-    spanningTreeVlanName OBJECT-TYPE
-        SYNTAX          DisplayString
-        MAX-ACCESS      read-only
-        STATUS          current
-        DESCRIPTION
-            "VLAN name"
-        ::= { spanningTreeEntry 2 }
-
-    spanningTreeVlanNumber OBJECT-TYPE
-        SYNTAX          Integer32
-        MAX-ACCESS      read-only
-        STATUS          current
-        DESCRIPTION
-            "VLAN number"
-        ::= { spanningTreeEntry 3 }
-
-    spanningTreeGigLinkState OBJECT-TYPE
-        SYNTAX          DisplayString
-        MAX-ACCESS      read-only
-        STATUS          current
-        DESCRIPTION
-            "Gigabit link state"
-        ::= { spanningTreeEntry 4 }
-
-    spanningTreeWDSClientLink1State OBJECT-TYPE
-        SYNTAX          DisplayString
-        MAX-ACCESS      read-only
-        STATUS          current
-        DESCRIPTION
-            "WDS client link 1 state"
-        ::= { spanningTreeEntry 5 }
-
-    spanningTreeWDSClientLink2State OBJECT-TYPE
-        SYNTAX          DisplayString
-        MAX-ACCESS      read-only
-        STATUS          current
-        DESCRIPTION
-            "WDS client link 2 state"
-        ::= { spanningTreeEntry 6 }
-
-    spanningTreeWDSClientLink3State OBJECT-TYPE
-        SYNTAX          DisplayString
-        MAX-ACCESS      read-only
-        STATUS          current
-        DESCRIPTION
-            "WDS client link 3 state"
-        ::= { spanningTreeEntry 7 }
-
-    spanningTreeWDSClientLink4State OBJECT-TYPE
-        SYNTAX          DisplayString
-        MAX-ACCESS      read-only
-        STATUS          current
-        DESCRIPTION
-            "WDS client link 4 state"
-        ::= { spanningTreeEntry 8 }
-
-    spanningTreeWDSHostLink1State OBJECT-TYPE
-        SYNTAX          DisplayString
-        MAX-ACCESS      read-only
-        STATUS          current
-        DESCRIPTION
-            "WDS host link 1 state"
-        ::= { spanningTreeEntry 9 }
-
-    spanningTreeWDSHostLink2State OBJECT-TYPE
-        SYNTAX          DisplayString
-        MAX-ACCESS      read-only
-        STATUS          current
-        DESCRIPTION
-            "WDS host link 2 state"
-        ::= { spanningTreeEntry 10 }
-
-    spanningTreeWDSHostLink3State OBJECT-TYPE
-        SYNTAX          DisplayString
-        MAX-ACCESS      read-only
-        STATUS          current
-        DESCRIPTION
-            "WDS host link 3 state"
-        ::= { spanningTreeEntry 11 }
-
-    spanningTreeWDSHostLink4State OBJECT-TYPE
-        SYNTAX          DisplayString
-        MAX-ACCESS      read-only
-        STATUS          current
-        DESCRIPTION
-            "WDS host link 4 state"
-        ::= { spanningTreeEntry 12 }
-
-    vlanDefaultNumber OBJECT-TYPE
-        SYNTAX          Integer32(0..4095)
+    locationReportingOn OBJECT-TYPE
+        SYNTAX          INTEGER { disable(0), enable(1) }
         MAX-ACCESS      read-write
         STATUS          current
         DESCRIPTION
-            "VLAN number(1-4095) to assign as default, 0 - no VLAN as default"
-        ::= { vlan 4 }
+            "Location server reporting enable/disable"
+        ::= { location 1 }
 
-    vlanNativeNumber OBJECT-TYPE
-        SYNTAX          Integer32(0..4095)
+    locationReportingUrl OBJECT-TYPE
+        SYNTAX          DisplayString(SIZE(0..255))
         MAX-ACCESS      read-write
         STATUS          current
         DESCRIPTION
-            "VLAN number(1-4095) to assign as native, 0 - no VLAN as native"
-        ::= { vlan 5 }
+            "Location server URL"
+        ::= { location 2 }
+
+    locationReportingKey OBJECT-TYPE
+        SYNTAX          DisplayString(SIZE(0..49))
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Location server key"
+        ::= { location 3 }
+
+    locationReportingPeriod OBJECT-TYPE
+        SYNTAX          Integer32(15..50000)
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Location server reporting period"
+        ::= { location 4 }
 
 --
 -- GROUP
@@ -14433,7 +15925,7 @@ IMPORTS
         ::= { groupEntry 2 }
 
     groupRadiusFilterID OBJECT-TYPE
-        SYNTAX          DisplayString(SIZE(1..32))
+        SYNTAX          DisplayString(SIZE(0..32))
         MAX-ACCESS      read-create
         STATUS          current
         DESCRIPTION
@@ -14489,7 +15981,7 @@ IMPORTS
         ::= { groupEntry 9 }
 
     groupStationLimit OBJECT-TYPE
-        SYNTAX          Integer32(1..2000)
+        SYNTAX          Integer32(1..3840)
         MAX-ACCESS      read-create
         STATUS          current
         DESCRIPTION
@@ -14705,11 +16197,87 @@ IMPORTS
         ::= { group 2 }
 
 --
+-- MDM
+--
+
+    mdmAirWatchApiURL OBJECT-TYPE
+        SYNTAX          DisplayString(SIZE(0..255))
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "AirWatch API URL"
+        ::= { mdm 1 }
+
+    mdmAirWatchApiKey OBJECT-TYPE
+        SYNTAX          DisplayString(SIZE(0..50))
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "AirWatch API key"
+        ::= { mdm 2 }
+
+    mdmAirWatchApiUsername OBJECT-TYPE
+        SYNTAX          DisplayString(SIZE(0..50))
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "AirWatch API username"
+        ::= { mdm 3 }
+
+    mdmAirWatchApiPassword OBJECT-TYPE
+        SYNTAX          DisplayString(SIZE(0..50))
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "AirWatch API password"
+        ::= { mdm 4 }
+
+    mdmAirWatchApiPasswordEnc OBJECT-TYPE
+        SYNTAX          DisplayString(SIZE(0..100))
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "AirWatch API password (encrypted)"
+        ::= { mdm 5 }
+
+    mdmAirWatchApiTimeout OBJECT-TYPE
+        SYNTAX          Integer32(1..20)
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "AirWatch API timeout (in seconds)"
+        ::= { mdm 6 }
+
+    mdmAirWatchApiPollPeriod OBJECT-TYPE
+        SYNTAX          Integer32(1..3600)
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "AirWatch API poll period (in seconds)"
+        ::= { mdm 7 }
+
+    mdmAirWatchApiAccessError OBJECT-TYPE
+        SYNTAX          INTEGER { block(0), allow(1) }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "AirWatch API access error action"
+        ::= { mdm 8 }
+
+    mdmAirWatchRedirectURL OBJECT-TYPE
+        SYNTAX          DisplayString(SIZE(0..255))
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "AirWatch station redirect URL"
+        ::= { mdm 9 }
+
+--
 -- NETFLOW
 --
 
     netflowEnable OBJECT-TYPE
-        SYNTAX          INTEGER { disable(0), enable(1) }
+        SYNTAX          INTEGER { disable(0), v5(1), v9(2), ipfix(3) }
         MAX-ACCESS      read-write
         STATUS          current
         DESCRIPTION
@@ -14775,6 +16343,269 @@ IMPORTS
         DESCRIPTION
             "WiFi Tag Channel 3"
         ::= { wifiTag 5 }
+
+    wifiTagEkahauServer OBJECT-TYPE
+        SYNTAX          DisplayString(SIZE(0.. 255))
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Ekahau server host name or IP address"
+        ::= { wifiTag 6 }
+
+--
+-- WPR
+--
+
+    wprWhitelistSsidTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF WprWhitelistSsidEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "WPR whitelist per SSID"
+        ::= { wpr 1 }
+
+    wprWhitelistSsidEntry OBJECT-TYPE
+        SYNTAX          WprWhitelistSsidEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "WPR whitelist per SSID table entry"
+        INDEX       { wprWhitelistSsidIndex }
+        ::= { wprWhitelistSsidTable 1 }
+
+    WprWhitelistSsidEntry ::= SEQUENCE {
+        wprWhitelistSsidIndex           Integer32,
+        wprWhitelistSsidDomain          DisplayString,
+        wprWhitelistSsidName            DisplayString,
+        wprWhitelistSsidRowStatus       RowStatus
+    }
+
+    wprWhitelistSsidIndex OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "WPR whitelist per SSID index"
+        ::= { wprWhitelistSsidEntry 1 }
+
+    wprWhitelistSsidDomain OBJECT-TYPE
+        SYNTAX          DisplayString(SIZE(1..255))
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "WPR whitelist domain name"
+        ::= { wprWhitelistSsidEntry 2 }
+
+    wprWhitelistSsidName OBJECT-TYPE
+        SYNTAX          DisplayString(SIZE(1..32))
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "SSID this WPR whitelist domain belongs to"
+        ::= { wprWhitelistSsidEntry 3 }
+
+    wprWhitelistSsidRowStatus OBJECT-TYPE
+        SYNTAX          RowStatus
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Status of the WPR whitelist row entry"
+        ::= { wprWhitelistSsidEntry 4 }
+
+    wprWhitelistGroupTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF WprWhitelistGroupEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "WPR whitelist per user group"
+        ::= { wpr 2 }
+
+    wprWhitelistGroupEntry OBJECT-TYPE
+        SYNTAX          WprWhitelistGroupEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "WPR whitelist per user group table entry"
+        INDEX       { wprWhitelistGroupIndex }
+        ::= { wprWhitelistGroupTable 1 }
+
+    WprWhitelistGroupEntry ::= SEQUENCE {
+        wprWhitelistGroupIndex          Integer32,
+        wprWhitelistGroupDomain         DisplayString,
+        wprWhitelistGroupName           DisplayString,
+        wprWhitelistGroupRowStatus      RowStatus
+    }
+
+    wprWhitelistGroupIndex OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "WPR whitelist per user group index"
+        ::= { wprWhitelistGroupEntry 1 }
+
+    wprWhitelistGroupDomain OBJECT-TYPE
+        SYNTAX          DisplayString(SIZE(1..255))
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "WPR whitelist domain name"
+        ::= { wprWhitelistGroupEntry 2 }
+
+    wprWhitelistGroupName OBJECT-TYPE
+        SYNTAX          DisplayString(SIZE(1..32))
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "User group this WPR whitelist domain belongs to"
+        ::= { wprWhitelistGroupEntry 3 }
+
+    wprWhitelistGroupRowStatus OBJECT-TYPE
+        SYNTAX          RowStatus
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Status of the WPR whitelist row entry"
+        ::= { wprWhitelistGroupEntry 4 }
+
+    wprWhitelistSsidTableReset OBJECT-TYPE
+        SYNTAX          DisplayString(SIZE(1..32))
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Reset WPR whitelist (clear all entries) for given SSID"
+        ::= { wpr 3 }
+
+    wprWhitelistGroupTableReset OBJECT-TYPE
+        SYNTAX          DisplayString(SIZE(1..32))
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Reset WPR whitelist (clear all entries) for given user group"
+        ::= { wpr 4 }
+
+--
+-- OAUTH - Open Authentication
+--
+
+    oauthTokenTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF OauthTokenEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "OAUTH Token table"
+        ::= { oauth 1 }
+
+    oauthTokenEntry OBJECT-TYPE
+        SYNTAX          OauthTokenEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "OAUTH token table entry"
+        INDEX       { oauthTokenIndex }
+        ::= { oauthTokenTable 1 }
+
+    OauthTokenEntry ::= SEQUENCE {
+        oauthTokenIndex         Integer32,
+        oauthTokenId            DisplayString,
+        oauthTokenClientId      DisplayString,
+        oauthTokenGrantType     DisplayString,
+        oauthTokenExpiration    Counter32,
+        oauthTokenUserAgent     DisplayString,
+        oauthTokenScope         DisplayString,
+        oauthTokenCode          DisplayString,
+        oauthTokenType          DisplayString,
+        oauthTokenRowStatus     RowStatus
+    }
+
+    oauthTokenIndex OBJECT-TYPE
+        SYNTAX          Integer32
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "OAUTH Token index"
+        ::= { oauthTokenEntry 1 }
+
+
+    oauthTokenId OBJECT-TYPE
+        SYNTAX          DisplayString(SIZE(1..50))
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "OAUTH Token Id"
+        ::= { oauthTokenEntry 2 }
+
+    oauthTokenClientId OBJECT-TYPE
+        SYNTAX          DisplayString(SIZE(1..50))
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "OAUTH Token Client ID"
+        ::= { oauthTokenEntry 3 }
+
+    oauthTokenGrantType OBJECT-TYPE
+        SYNTAX          DisplayString(SIZE(1..50))
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "OAUTH Token Grant Type"
+        ::= { oauthTokenEntry 4 }
+
+    oauthTokenExpiration OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "OAUTH Token Expiration"
+        ::= { oauthTokenEntry 5 }
+
+    oauthTokenUserAgent OBJECT-TYPE
+        SYNTAX          DisplayString(SIZE(1..50))
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "OAUTH Token User Agent"
+        ::= { oauthTokenEntry 6 }
+
+    oauthTokenScope OBJECT-TYPE
+        SYNTAX          DisplayString(SIZE(1..50))
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "OAUTH Token Scope"
+        ::= { oauthTokenEntry 7 }
+
+    oauthTokenCode OBJECT-TYPE
+        SYNTAX          DisplayString(SIZE(1..50))
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "OAUTH Token Code"
+        ::= { oauthTokenEntry 8 }
+
+    oauthTokenType OBJECT-TYPE
+        SYNTAX          DisplayString(SIZE(1..50))
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "OAUTH Token Type"
+        ::= { oauthTokenEntry 9 }
+
+    oauthTokenRowStatus OBJECT-TYPE
+        SYNTAX          RowStatus
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Status of the OAUTH Token row entry"
+        ::= { oauthTokenEntry 10 }
+
+    oauthTableReset OBJECT-TYPE
+        SYNTAX          INTEGER { reset(1) }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Reset OAUTH table (clear all entries)"
+        ::= { oauth 2 }
 
 --
 -- TRAPS
@@ -14900,6 +16731,12 @@ IMPORTS
         DESCRIPTION
             "Flash partition corrupt"
         ::= { generalTraps 12 }
+
+    licenseUpdate NOTIFICATION-TYPE
+        STATUS          current
+        DESCRIPTION
+            "License updated"
+        ::= { generalTraps 13 }
 
 --
 -- TRAPS ENVIRONMENTAL CONTROLLER

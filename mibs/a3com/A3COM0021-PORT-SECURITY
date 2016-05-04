@@ -1,0 +1,294 @@
+-- **********************************************************************
+--
+-- Name:        3Com Port Security MIB
+-- 
+-- History  Date        Reason for Change
+--
+-- 1.00     1997        Issued as 3Com RFC.
+-- 1.01     25 Jan 99   Added secureViolation4 TRAP
+-- 1.02     29 Oct 99	Added disablePortTemporarily(4) to the
+--                      secureIntrusionAction object.
+--
+-- **********************************************************************
+-- Copyright 3Com Technologies Limited. (1996-1999)
+-- **********************************************************************
+
+A3COM0021-PORT-SECURITY DEFINITIONS ::= BEGIN
+
+
+   IMPORTS
+      securePort FROM A3COM0004-GENERIC
+      OBJECT-TYPE FROM RFC-1212
+      TRAP-TYPE FROM RFC-1215
+      rptrPortAdminStatus FROM SNMP-REPEATER-MIB
+      ;
+
+securePortTable OBJECT-TYPE
+   SYNTAX   SEQUENCE OF SecurePortEntry
+   ACCESS   not-accessible
+   STATUS   mandatory
+   DESCRIPTION "This table defines the security status of each secure port. 
+   Each port can have a number of authorised MAC addresses, and these are stored in 
+   the secureAddressTable."
+   ::= {securePort 1}
+
+securePortEntry OBJECT-TYPE
+   SYNTAX   SecurePortEntry
+   ACCESS   not-accessible
+   STATUS   mandatory
+   DESCRIPTION "There is a row in this table for each secure port, and 
+   allows repeater ports to be configured for security on a per port basis. It is 
+   indexed using the objects secureSlotIndex and securePortIndex."
+   INDEX {secureSlotIndex,securePortIndex}
+   ::= {securePortTable 1}
+
+SecurePortEntry ::= SEQUENCE {
+      secureSlotIndex      INTEGER,
+      securePortIndex      INTEGER,
+      securePortMode    INTEGER,
+      secureNeedToKnowMode    INTEGER,
+      secureIntrusionAction      INTEGER,
+      secureNumberAddresses      INTEGER,
+      secureNumberAddressesStored      INTEGER,
+      secureMaximumAddresses     INTEGER
+      }
+
+secureSlotIndex OBJECT-TYPE
+   SYNTAX   INTEGER (1..1024)
+   ACCESS   read-only
+   STATUS   mandatory
+   DESCRIPTION "The slot or unit number of the secure port. This is the 
+   first index into the securePortTable."
+   ::= {securePortEntry 1}
+
+securePortIndex OBJECT-TYPE
+   SYNTAX   INTEGER (1..1024)
+   ACCESS   read-only
+   STATUS   mandatory
+   DESCRIPTION "The port number of the secure port. This is the second index 
+   into the securePortTable."
+   ::= {securePortEntry 2}
+
+securePortMode OBJECT-TYPE
+   SYNTAX   INTEGER  {
+      noRestrictions (1),
+      continuousLearning (2),
+      autoLearn (3),
+      secure (4)
+   }
+   ACCESS   read-write
+   STATUS   mandatory
+   DESCRIPTION "Determines the learning and security modes of the port. See 
+   secureNeedToKnowMode and secureIntrusionAction to configure Need To Know and 
+   Intrusion Action on each port.
+   
+   (When in a learning mode, secureNumberAddresses determines the maximum number of 
+   addresses that can be learned on the port. This is set by the user.)
+   
+   noRestrictions(1)    All learning and security are disabled.
+   
+   continuousLearning(2)   Addresses are learned continually. If more
+            addresses are learned than are permitted on the
+            port, then one of the older entries will be aged
+            out. Need To Know and Intrusion Action depends on
+            secureNeedToKnowMode and secureIntrusionAction
+            respectively.
+   
+   autoLearn(3)      All addresses for this port are deleted, and then
+            addresses are learned up to the number permitted.
+            securePortMode is then set to secure. Need To
+            Know and Intrusion Action depends on
+            secureNeedToKnowMode and secureIntrusionAction
+            respectively.
+   
+   secure(4)      Learning is disabled. Need To Know and Intrusion
+            Action depends on secureNeedToKnowMode and
+            secureIntrusionAction respectively.
+   
+   The secureAddressLearned trap is sent whenever a station has been learned. The 
+   secureViolation trap is sent whenever a packet is received from an unauthorised station."
+   ::= {securePortEntry 3}
+
+secureNeedToKnowMode OBJECT-TYPE
+   SYNTAX   INTEGER  {
+      notAvailable (1),
+      disabled (2),
+      needToKnowOnly (3),
+      needToKnowWithBroadcastsAllowed (4),
+      needToKnowWithMulticastsAllowed (5),
+      permanentNeedToKnowOnly (6),
+      permanentNeedToKnowWithBroadcastsAllowed (7),
+      permanentNeedToKnowWithMulticastsAllowed (8)
+   }
+   ACCESS   read-write
+   STATUS   mandatory
+   DESCRIPTION "Attribute to determine which frames are to be forwarded to 
+   this port intact.
+   
+   1 - Need To Know is not available. 2 - All frames. 3 - Frames addressed to the 
+   authorised devices only. 4 - Frames addressed to the authorised devices,
+            plus all broadcast frames.
+   5 - Frames addressed to the authorised devices,
+            plus all broadcast and multicast frames.
+   6 - As 3 and cannot be changed. 7 - As 4 and cannot be changed. 8 - As 5 and 
+   cannot be changed.
+   
+   If this object returns 1,6,7 or 8, it means that the Need To Know configuration 
+   cannot be changed, and any attempt to write to this object will cause an error."
+   ::= {securePortEntry 4}
+
+secureIntrusionAction OBJECT-TYPE
+   SYNTAX   INTEGER  {
+      notAvailable (1),
+      noAction (2),
+      disablePort (3),
+      disablePortTemporarily (4)
+   }
+   ACCESS   read-write
+   STATUS   mandatory
+   DESCRIPTION "Attribute to determine the action if an unauthorised device 
+   tranmsits on this port."
+   ::= {securePortEntry 5}
+
+--
+-- The following 3 objects are used to allow multiple MAC addresses to be 
+-- assigned to the port.
+secureNumberAddresses OBJECT-TYPE
+   SYNTAX   INTEGER 
+   ACCESS   read-write
+   STATUS   mandatory
+   DESCRIPTION "The maximum number of addresses that the port can learn or 
+   store. Reducing this number may cause some addresses to be deleted. This value 
+   is set by the user and cannot be automatically changed by the agent.
+   
+   The following relationship must be preserved.
+      secureNumberAddressesStored <= secureNumberAddresses <=
+   secureMaximumAddresses
+   "
+   ::= {securePortEntry 6}
+
+secureNumberAddressesStored OBJECT-TYPE
+   SYNTAX   INTEGER 
+   ACCESS   read-only
+   STATUS   mandatory
+   DESCRIPTION "The number of addresses that are currently in the 
+   AddressTable for this port. If this object has the same value as 
+   secureNumberAddresses, then no more addresses can be authorised on this port.
+   
+   The following relationship must allows be preserved.
+      secureNumberAddressesStored <= secureNumberAddresses <=
+   secureMaximumAddresses
+   "
+   ::= {securePortEntry 7}
+
+secureMaximumAddresses OBJECT-TYPE
+   SYNTAX   INTEGER 
+   ACCESS   read-only
+   STATUS   mandatory
+   DESCRIPTION "This indicates the maximum value that secureNumberAddresses 
+   can be set to. It is dependent on the resources available so may change, eg. if 
+   resources are shared between ports, then this value can both increase and 
+   decrease. This object must be read before setting secureNumberAddresses.
+   
+   The following relationship must allows be preserved. secureNumberAddressesStored 
+   <= secureNumberAddresses <= secureMaximumAddresses
+   "
+   ::= {securePortEntry 8}
+
+--
+-- SECURE ADDRESS TABLE
+--
+secureAddressTable OBJECT-TYPE
+   SYNTAX   SEQUENCE OF SecureAddressEntry
+   ACCESS   not-accessible
+   STATUS   mandatory
+   DESCRIPTION "This table which stores the MAC addresses assigned to each 
+   port. Addresses will normally defined as authorised, and describe the devices 
+   which are permitted to transmit and receive on the corresponding port.  This 
+   table can be written to by the agent as well as the management station."
+   ::= {securePort 2}
+
+secureAddressEntry OBJECT-TYPE
+   SYNTAX   SecureAddressEntry
+   ACCESS   not-accessible
+   STATUS   mandatory
+   DESCRIPTION "This table allows multiple addresses to be assigned to each 
+   secure port.  It is indexed using the objects secureAddrSlotIndex, 
+   secureAddrPortIndex and secureAddrMAC."
+   INDEX {secureAddrSlotIndex,secureAddrPortIndex,secureAddrMAC}
+   ::= {secureAddressTable 1}
+
+SecureAddressEntry ::= SEQUENCE {
+      secureAddrSlotIndex     INTEGER,
+      secureAddrPortIndex     INTEGER,
+      secureAddrMAC     OCTET STRING,
+      secureAddrRowStatus     INTEGER
+      }
+
+secureAddrSlotIndex OBJECT-TYPE
+   SYNTAX   INTEGER (1..1024)
+   ACCESS   read-only
+   STATUS   mandatory
+   DESCRIPTION "The slot or unit number of the secure port.  This is the 
+   first index into the secureAddressTable."
+   ::= {secureAddressEntry 1}
+
+secureAddrPortIndex OBJECT-TYPE
+   SYNTAX   INTEGER (1..1024)
+   ACCESS   read-only
+   STATUS   mandatory
+   DESCRIPTION "The port number of the secure port.  This is the second 
+   index into the secureAddressTable."
+   ::= {secureAddressEntry 2}
+
+secureAddrMAC OBJECT-TYPE
+   SYNTAX   OCTET STRING  (SIZE(6))
+   ACCESS   read-only
+   STATUS   mandatory
+   DESCRIPTION "The MAC address of a station assigned to this port.  This is 
+   the third index into the secureAddressTable."
+   ::= {secureAddressEntry 3}
+
+secureAddrRowStatus OBJECT-TYPE
+   SYNTAX   INTEGER  {
+      active (1),
+      notInService (2),
+      notReady (3),
+      createAndGo (4),
+      createAndWait (5),
+      destroy (6)
+   }
+   ACCESS   read-write
+   STATUS   mandatory
+   DESCRIPTION "This manages the creation and deletion or rows, and shows 
+   the current status of the indexed MAC address.  This object has the following 
+   values.
+   
+   1 - The indexed MAC address is authorised on this port. 2 - The indexed MAC 
+   address is not authorised on this port. 3 - Not applicable. (This value 
+   indicates an incomplete row.) 4 - Assign a new MAC address to the port and 
+   authorise immediately. 5 - Assign a new MAC address to the port, but do not 
+   authorise until active(1) is written to this object. 6 - Delete this entry.
+   
+   When creating a new entry, index a new row and use createAndGo(4) or 
+   createAndWait(5). Some hardware will not allow the address to be unauthorised, 
+   and will automatically switch the row to active(1). When reading this object, 
+   only active(1) and notInService(2) will be returned.
+   
+   Only the values active(1) and destroy(6) will be allowed for an existing row, or 
+   createAndGo(4) and createAndWait(5) for a new row."
+   ::= {secureAddressEntry 4}
+
+---
+--- SECURITY TABLE 'STOP' OBJECT
+---
+secureStop OBJECT-TYPE
+   SYNTAX   INTEGER 
+   ACCESS   read-only
+   STATUS   mandatory
+   DESCRIPTION "A MIB object to speed up access to the security tables. When 
+   performing a get-next through the table, this object is accessed as soon as the 
+   table is passed and allows the management to quickly determine the end of the table."
+   ::= {securePort 3}
+
+END

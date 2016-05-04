@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -16,7 +16,7 @@
 echo(" NETBOTZV2-MIB ");
 
 $oids = snmp_walk($device, ".1.3.6.1.4.1.5528.100.4.1.1.1.4", "-Osqn", "");
-if ($debug) { echo($oids."\n"); }
+
 $oids = trim($oids);
 if ($oids)
 {
@@ -38,7 +38,7 @@ if ($oids)
 }
 
 $oids = snmp_walk($device, ".1.3.6.1.4.1.5528.100.4.1.2.1.4", "-Osqn", "");
-if ($debug) { echo($oids."\n"); }
+
 $oids = trim($oids);
 if ($oids)
 {

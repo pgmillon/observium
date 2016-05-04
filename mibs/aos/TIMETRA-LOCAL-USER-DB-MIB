@@ -1,0 +1,4777 @@
+TIMETRA-LOCAL-USER-DB-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    Unsigned32, MODULE-IDENTITY, OBJECT-TYPE
+                                                    FROM SNMPv2-SMI
+
+    MODULE-COMPLIANCE, OBJECT-GROUP                 FROM SNMPv2-CONF
+
+    RowStatus, TimeStamp, TruthValue,
+    TEXTUAL-CONVENTION, MacAddress,
+    DisplayString                                   FROM SNMPv2-TC
+
+    InetAddressPrefixLength,
+    InetAddressType, InetAddress
+                                                    FROM INET-ADDRESS-MIB
+
+    timetraSRMIBModules, tmnxSRObjs,
+    tmnxSRNotifyPrefix, tmnxSRConfs                 FROM TIMETRA-GLOBAL-MIB
+
+    TmnxFilterProfileStringOrEmpty,
+    TmnxAdminState,
+    TNamedItem, TNamedItemOrEmpty, TmnxServId,
+    TItemDescription, TmnxAncpStringOrZero,
+    TmnxDhcpOptionType, TmnxSubIdentStringOrEmpty,
+    TmnxSlaProfileStringOrEmpty,
+    TmnxSubProfileStringOrEmpty,
+    TmnxPppoeUserNameOrEmpty,
+    TmnxActionType, TmnxPppoePadoDelay,
+    TPolicyStatementNameOrEmpty,
+    TmnxSubAleOffsetMode, TmnxSubAleOffset,
+    TmnxMacSpecification
+                                                    FROM TIMETRA-TC-MIB
+
+    TmnxL2tpTunnelGroupNameOrEmpty                  FROM TIMETRA-L2TP-MIB
+    
+    TIPFilterIdOrEmpty                              FROM TIMETRA-FILTER-MIB
+    ;
+
+timetraLocalUserDbMIBModule MODULE-IDENTITY
+        LAST-UPDATED "201102010000Z"
+        ORGANIZATION "Alcatel-Lucent"
+        CONTACT-INFO
+            "Alcatel-Lucent SROS Support
+             Web: http://support.alcatel-lucent.com"
+    DESCRIPTION
+        "This document is the SNMP MIB module to manage and provision
+         the local user database for the Alcatel-Lucent SROS device.
+
+         Copyright 2008-2012 Alcatel-Lucent. All rights reserved.
+         Reproduction of this document is authorized on the condition that
+         the foregoing copyright notice is included.
+
+         This SNMP MIB module (Specification) embodies Alcatel-Lucent's
+         proprietary intellectual property.  Alcatel-Lucent retains
+         all title and ownership in the Specification, including any
+         revisions.
+
+         Alcatel-Lucent grants all interested parties a non-exclusive
+         license to use and distribute an unmodified copy of this
+         Specification in connection with management of Alcatel-Lucent
+         products, and without fee, provided this copyright notice and
+         license appear on all copies.
+
+         This Specification is supplied 'as is', and Alcatel-Lucent
+         makes no warranty, either express or implied, as to the use,
+         operation, condition, or performance of the Specification."
+
+    REVISION     "1102010000Z"
+    DESCRIPTION  "Rev 9.0                01 Feb 2011 00:00
+                  9.0 release of the TIMETRA-LOCAL-USER-DB-MIB."
+
+    REVISION     "0902280000Z"
+    DESCRIPTION  "Rev 7.0                28 Feb 2009 00:00
+                  7.0 release of the TIMETRA-LOCAL-USER-DB-MIB."
+
+    REVISION     "0807010000Z"
+    DESCRIPTION  "Rev 6.1                01 Jul 2008 00:00
+                  6.1 release of the TIMETRA-LOCAL-USER-DB-MIB."
+
+    REVISION     "0801010000Z"
+    DESCRIPTION  "Rev 0.1                01 Jan 2008 00:00
+                  Initial version of the TIMETRA-LOCAL-USER-DB-MIB."
+
+        ::= { timetraSRMIBModules 51 }
+
+-- ----------------------------------------------------------------------------
+--  MIB structure
+-- ----------------------------------------------------------------------------
+tmnxLocalUserDb                  OBJECT IDENTIFIER ::= { tmnxSRObjs 51 }
+    tmnxLocalUserDbObjs          OBJECT IDENTIFIER ::= { tmnxLocalUserDb 1 }
+
+tmnxLocalUserDbNotifyPrefix      OBJECT IDENTIFIER ::= { tmnxSRNotifyPrefix 51 }
+    tmnxLocalUserDbNotifications OBJECT IDENTIFIER ::= { tmnxLocalUserDbNotifyPrefix 0 }
+
+tmnxLocalUserDbConformance       OBJECT IDENTIFIER ::= { tmnxSRConfs 51 }
+    tmnxLocalUserDbCompliances   OBJECT IDENTIFIER ::= { tmnxLocalUserDbConformance 1 }
+    tmnxLocalUserDbGroups        OBJECT IDENTIFIER ::= { tmnxLocalUserDbConformance 2 }
+
+-- ----------------------------------------------------------------------------
+--  Textual Conventions
+-- ----------------------------------------------------------------------------
+TmnxLocUsrDbUserNameFormat ::= TEXTUAL-CONVENTION
+    STATUS  current
+    DESCRIPTION
+        "The data type TmnxLocUsrDbUserNameFormat represents how the username
+         is specified:
+         - 'none       (0)': no username is specified
+         - 'full       (1)': both the host part and domain part are specified,
+                             example: joe@alcatel-lucent.com
+         - 'hostOnly   (2)': only the host part of the username is specified,
+                             example: joe
+         - 'domainOnly (3)': only the domain part of the username is specified,
+                             example: alcatel-lucent.com"
+    SYNTAX  INTEGER {
+                none (0),
+                full (1),
+                hostOnly (2),
+                domainOnly (3)
+            }
+
+TmnxLocUsrDbPasswordType ::= TEXTUAL-CONVENTION
+    STATUS  current
+    DESCRIPTION
+        "The data type TmnxLocUsrDbPasswordType represents what type of
+         password is specified:
+         - 'none   (0)': no password is specified
+         - 'ignore (1)': the password is ignored
+         - 'pap    (2)': password for PAP (Password Authentication Protocol)
+         - 'chap   (3)': password for CHAP (Challenge-Handshake Authentication
+                         Protocol) is specified"
+    SYNTAX  INTEGER {
+                none (0),
+                ignore (1),
+                pap (2),
+                chap (3)
+            }
+
+TmnxLocUsrDbMatchTypePppoe ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "The data type TmnxLocUsrDbMatchTypePppoe represents the type of
+         matching done to identify a PPPoE user.
+
+         The match type refers to one of these objects in the
+         tmnxLocUsrDbPppoeTable:
+
+         match type    | object
+         --------------------------------------------
+         circuitId     | tmnxLocUsrDbPppoeCircuitId
+         macAddr       | tmnxLocUsrDbPppoeMacAddress
+         remoteId      | tmnxLocUsrDbPppoeRemoteId
+         userName      | tmnxLocUsrDbPppoeUserName
+         serviceName   | tmnxLocUsrDbPppoeServiceName
+         sapId         | tmnxLocUsrDbPppoeSapId"
+
+    SYNTAX  INTEGER {
+                none          (0),
+                circuitId     (1),
+                macAddr       (2),
+                remoteId      (3),
+                userName      (4),
+                serviceName   (5),
+                sapId         (6)
+            }
+
+TmnxLocUsrDbMatchTypeDhcp ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "The data type TmnxLocUsrDbMatchTypeDhcp represents the type of matching
+         done to identify a DHCP host.
+
+         The match type refers to one of these objects in the
+         tmnxLocUsrDbDhcpTable:
+
+         match type    | object
+         --------------------------------------------
+         circuitId     | tmnxLocUsrDbDhcpCircuitId
+         macAddr       | tmnxLocUsrDbDhcpMacAddress
+         remoteId      | tmnxLocUsrDbDhcpRemoteId
+         sapId         | tmnxLocUsrDbDhcpSapId
+         serviceId     | tmnxLocUsrDbDhcpServiceId
+         string        | tmnxLocUsrDbDhcpString
+         systemId      | tmnxLocUsrDbDhcpSystemId
+         option60      | tmnxLocUsrDbDhcpOption60"
+
+    SYNTAX  INTEGER {
+                none          (0),
+                circuitId     (1),
+                macAddr       (2),
+                remoteId      (3),
+                sapId         (4),
+                serviceId     (5),
+                string        (6),
+                systemId      (7),
+                option60      (8)
+            }
+
+TmnxLocUsrDbHostType ::= TEXTUAL-CONVENTION
+    STATUS  current
+    DESCRIPTION
+        "The data type TmnxLocUsrDbHostType represents the usage type of
+         a local user database host template:
+         - 'any': any host can use this template; this type of host template
+                  is also referred to as 'generic';
+         - 'dhcp': only DHCP hosts can use this template;
+         - 'ppp': only PPP hosts can use this template."
+    SYNTAX  INTEGER {
+                any  (0),
+                dhcp (1),
+                ppp  (2)
+            }
+
+TmnxLocUsrDbHostApplications ::= TEXTUAL-CONVENTION
+    STATUS  current
+    DESCRIPTION
+        "The data type TmnxLocUsrDbHostApplications represents the usage types 
+         allowed for a particular local user database host template of type 'any':
+         - 'dhcp': DHCP hosts can use this template;
+         - 'ppp': PPP hosts can use this template."
+    SYNTAX  BITS {
+                bitDHCP (0),
+                bitPPP  (1)
+            }
+
+TmnxLocUsrDbUnmatchedReason ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "The data type TmnxLocUsrDbUnmatchedReason denotates
+         why this host was unmatched.
+
+         - noMatchTypes : This host has no objects configured to match against.
+         - duplicate    : Another host was already matched with the same values
+                          of the objects to match against.
+         - genError     : The system failed to try the match."
+
+    SYNTAX  INTEGER {
+                noMatchTypes  (1),
+                duplicate     (2),
+                genError      (3)
+            }
+
+TmnxLocUsrDbDataFormat ::= TEXTUAL-CONVENTION
+    STATUS  current
+    DESCRIPTION
+        "The data type TmnxLocUsrDbDataFormat represents how the input data
+         is specified:
+         - 'ascii (2)': the data contains seven-bit ASCII characters
+         - 'hex   (3)': the data contains octets. It must be displayed in
+                        hexadecimal format because it contains non-printable
+                        characters."
+
+    SYNTAX  INTEGER {
+                ascii (2),
+                hex   (3)
+            }
+
+TmnxLocUsrDbMaskString ::= TEXTUAL-CONVENTION
+    STATUS  current
+    DESCRIPTION
+        "The TmnxLocUsrDbMaskString data type contains a a substring 
+         that is stripped off the start or the end of an incoming string
+         before it is matched.
+
+         This string can only contain printable ASCII characters.
+         Character '*' is a wildcard that matches any substring; it can be
+         escaped by character '\'."
+    SYNTAX DisplayString (SIZE(0..127))
+
+TmnxLudbDataFormat ::= TEXTUAL-CONVENTION
+    STATUS  current
+    DESCRIPTION
+     "The data type TmnxLudbDataFormat represents how the input data
+      is specified:
+      - 'none  (1) : the format is unknown or not applicable
+      - 'ascii (2)': the data contains seven-bit ASCII characters
+      - 'hex   (3)': the data contains octets. It must be displayed in
+                     hexadecimal format because it contains non-printable
+                     characters."
+    
+    SYNTAX  INTEGER {
+             none  (1),
+             ascii (2),
+             hex   (3)
+         }
+
+-- --------------------------------------------------------
+--  tmnxLocalUserDbTable
+-- --------------------------------------------------------
+tmnxLocalUserDbTableLastChange OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocalUserDbTableLastChange indicates
+         the value of sysUpTime at the time of the last modification of
+         an entry in the tmnxLocalUserDbTable."
+    ::= { tmnxLocalUserDbObjs 1 }
+
+tmnxLocalUserDbTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxLocalUserDbEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The table tmnxLocalUserDbTable contains objects to configure
+         the local user database.
+
+         The local database is used for authentication by either
+         PPPoE (TIMETRA-PPPOE-MIB::tmnxPppoeIesIfPapChapUserDb) or a local
+         DHCP server (TIMETRA-DHCP-SERVER-MIB::tmnxDhcpServerCfgUserDatabase)."
+    ::= { tmnxLocalUserDbObjs 2 }
+
+tmnxLocalUserDbEntry OBJECT-TYPE
+    SYNTAX      TmnxLocalUserDbEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each row represents a local user database.
+
+         Entries in this table can be created or deleted via SNMP operations."
+    INDEX { IMPLIED tmnxLocUsrDbUserDatabaseName }
+    ::= { tmnxLocalUserDbTable 1 }
+
+TmnxLocalUserDbEntry ::= SEQUENCE {
+    tmnxLocUsrDbUserDatabaseName     TNamedItem,
+    tmnxLocUsrDbRowStatus            RowStatus,
+    tmnxLocUsrDbLastChangeTime       TimeStamp,
+    tmnxLocUsrDbAdminState           TmnxAdminState,
+    tmnxLocUsrDbDescription          TItemDescription,
+    tmnxLocUsrDbMatchTypeDhcp1       TmnxLocUsrDbMatchTypeDhcp,
+    tmnxLocUsrDbMatchTypeDhcp2       TmnxLocUsrDbMatchTypeDhcp,
+    tmnxLocUsrDbMatchTypeDhcp3       TmnxLocUsrDbMatchTypeDhcp,
+    tmnxLocUsrDbMatchTypeDhcp4       TmnxLocUsrDbMatchTypeDhcp,
+    tmnxLocUsrDbMatchTypePppoe1      TmnxLocUsrDbMatchTypePppoe,
+    tmnxLocUsrDbMatchTypePppoe2      TmnxLocUsrDbMatchTypePppoe,
+    tmnxLocUsrDbMatchTypePppoe3      TmnxLocUsrDbMatchTypePppoe,
+    tmnxLocUsrDbPppoeCIdMaskPreStr   TmnxLocUsrDbMaskString,
+    tmnxLocUsrDbPppoeCIdMaskPreNum   Unsigned32,
+    tmnxLocUsrDbPppoeCIdMaskSufStr   TmnxLocUsrDbMaskString,
+    tmnxLocUsrDbPppoeCIdMaskSufNum   Unsigned32,
+    tmnxLocUsrDbDhcpCIdMaskPreStr    TmnxLocUsrDbMaskString,
+    tmnxLocUsrDbDhcpCIdMaskPreNum    Unsigned32,
+    tmnxLocUsrDbDhcpCIdMaskSufStr    TmnxLocUsrDbMaskString,
+    tmnxLocUsrDbDhcpCIdMaskSufNum    Unsigned32,
+    tmnxLocUsrDbHostCount            Unsigned32
+}
+
+tmnxLocUsrDbUserDatabaseName OBJECT-TYPE
+    SYNTAX      TNamedItem
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbUserDatabaseName specifies
+         the name of this local user database."
+    ::= { tmnxLocalUserDbEntry 1 }
+
+tmnxLocUsrDbRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxLocUsrDbRowStatus specifies the row status of
+         this row."
+    ::= { tmnxLocalUserDbEntry 2 }
+
+tmnxLocUsrDbLastChangeTime OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbLastChangeTime indicates
+         the sysUpTime at the time of the last modification of this entry."
+    ::= { tmnxLocalUserDbEntry 3 }
+
+tmnxLocUsrDbAdminState OBJECT-TYPE
+    SYNTAX      TmnxAdminState
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbAdminState specifies
+         the administrative state of the tmnxLocalUserDbEntry."
+    DEFVAL { outOfService }
+    ::= { tmnxLocalUserDbEntry 4 }
+
+tmnxLocUsrDbDescription OBJECT-TYPE
+    SYNTAX      TItemDescription
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDescription specifies
+         a user provided description for this local user database."
+    DEFVAL { "" }
+    ::= { tmnxLocalUserDbEntry 5 }
+
+tmnxLocUsrDbMatchTypeDhcp1 OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbMatchTypeDhcp
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbMatchTypeDhcp1 specifies
+         the type of the first user match criterion.
+
+         The purpose of a user match criterion is to identify a DHCP host.
+         The order of the user match criteria in the
+         tmnxLocalUserDbEntry specifies the evaluation order.
+
+         The match type specifies which of the index objects in the
+         tmnxLocUsrDbDhcpTable must be used as the user match criterion.
+
+         The values of the objects tmnxLocUsrDbMatchTypeDhcp1,2,3,4 must
+         be set consistently, such that, if the value of
+         tmnxLocUsrDbMatchTypeDhcp1 is equal to 'none', all subsequent
+         tmnxLocUsrDbMatchTypeDhcp2,3,4 objects are also equal  to 'none'.
+
+         The value of the object tmnxLocUsrDbMatchTypeDhcp1 can only be
+         modified while the value of tmnxLocUsrDbAdminState is equal to
+         'outOfService'."
+    DEFVAL { none }
+    ::= { tmnxLocalUserDbEntry 6 }
+
+tmnxLocUsrDbMatchTypeDhcp2 OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbMatchTypeDhcp
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbMatchTypeDhcp2 specifies
+         the type of the second user match criterion.
+
+         The value of the object tmnxLocUsrDbMatchTypeDhcp2 can only be
+         modified while the value of tmnxLocUsrDbAdminState is equal to
+         'outOfService'."
+    DEFVAL { none }
+    ::= { tmnxLocalUserDbEntry 7 }
+
+tmnxLocUsrDbMatchTypeDhcp3 OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbMatchTypeDhcp
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbMatchTypeDhcp3 specifies
+         the type of the third user match criterion.
+
+         The value of the object tmnxLocUsrDbMatchTypeDhcp3 can only be
+         modified while the value of tmnxLocUsrDbAdminState is equal to
+         'outOfService'."
+    DEFVAL { none }
+    ::= { tmnxLocalUserDbEntry 8 }
+
+tmnxLocUsrDbMatchTypeDhcp4 OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbMatchTypeDhcp
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbMatchTypeDhcp4 specifies
+         the type of the fourth user match criterion.
+
+         The value of the object tmnxLocUsrDbMatchTypeDhcp4 can only be
+         modified while the value of tmnxLocUsrDbAdminState is equal to
+         'outOfService'."
+    DEFVAL { none }
+    ::= { tmnxLocalUserDbEntry 9 }
+
+tmnxLocUsrDbMatchTypePppoe1 OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbMatchTypePppoe
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbMatchTypePppoe1 specifies
+         the type of the first user match criterion.
+
+         The purpose of a user match criterion is to identify a PPPoE user.
+         The order of the user match criteria in the tmnxLocalUserDbEntry
+         specifies the evaluation order.
+
+         The match type specifies which of the index objects in the
+         tmnxLocUsrDbPppoeTable must be used as the user match criterion.
+
+         The values of the objects tmnxLocUsrDbMatchTypePppoe1,2,3 must
+         be set consistently, such that, if the value of
+         tmnxLocUsrDbMatchTypePppoe1 is equal to 'none', all subsequent
+         tmnxLocUsrDbMatchTypePppoe2,3 objects are also equal  to 'none'.
+
+         The value of the object tmnxLocUsrDbMatchTypePppoe1 can only be
+         modified while the value of tmnxLocUsrDbAdminState is equal to
+         'outOfService'."
+    DEFVAL { none }
+    ::= { tmnxLocalUserDbEntry 10 }
+
+tmnxLocUsrDbMatchTypePppoe2 OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbMatchTypePppoe
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbMatchTypePppoe2 specifies
+         the type of the second user match criterion.
+
+         The value of the object tmnxLocUsrDbMatchTypePppoe2 can only be
+         modified while the value of tmnxLocUsrDbAdminState is equal to
+         'outOfService'."
+    DEFVAL { none }
+    ::= { tmnxLocalUserDbEntry 11 }
+
+tmnxLocUsrDbMatchTypePppoe3 OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbMatchTypePppoe
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbMatchTypePppoe3 specifies
+         the type of the third user match criterion.
+
+         The value of the object tmnxLocUsrDbMatchTypePppoe3 can only be
+         modified while the value of tmnxLocUsrDbAdminState is equal to
+         'outOfService'."
+    DEFVAL { none }
+    ::= { tmnxLocalUserDbEntry 12 }
+
+tmnxLocUsrDbPppoeCIdMaskPreStr OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbMaskString
+    MAX-ACCESS  read-create
+    STATUS      obsolete
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeCIdMaskPreStr specifies
+         a substring that is stripped of the start of the incoming circuitId
+         before it is matched against the value configured in
+         tmnxLocUsrDbPppoeCircuitId.
+
+         This string can only contain printable ASCII characters.
+         Character '*' is a wildcard that matches any substring. It can be
+         escaped by character '\'."
+    DEFVAL { "" }
+    ::= { tmnxLocalUserDbEntry 13 }
+
+tmnxLocUsrDbPppoeCIdMaskPreNum OBJECT-TYPE
+    SYNTAX      Unsigned32 (0..127)
+    MAX-ACCESS  read-create
+    STATUS      obsolete
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeCIdMaskPreNum specifies
+         the number of characters to remove from the start of the incoming
+         circuitId before it is matched against the value configured in
+         tmnxLocUsrDbPppoeCircuitId."
+    DEFVAL { 0 }
+    ::= { tmnxLocalUserDbEntry 14 }
+
+tmnxLocUsrDbPppoeCIdMaskSufStr OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbMaskString
+    MAX-ACCESS  read-create
+    STATUS      obsolete
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeCIdMaskSufStr specifies
+         a substring that is stripped of the end of the incoming circuitId
+         before it is matched against the value configured in
+         tmnxLocUsrDbPppoeCircuitId.
+
+         This string can only contain printable ASCII characters.
+         Character '*' is a wildcard that matches any substring. It can be
+         escaped by character '\'."
+    DEFVAL { "" }
+    ::= { tmnxLocalUserDbEntry 15 }
+
+tmnxLocUsrDbPppoeCIdMaskSufNum OBJECT-TYPE
+    SYNTAX      Unsigned32 (0..127)
+    MAX-ACCESS  read-create
+    STATUS      obsolete
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeCIdMaskSufNum specifies
+         the number of characters to remove from the end of the incoming
+         circuitId before it is matched against the value configured in
+         tmnxLocUsrDbPppoeCircuitId."
+    DEFVAL { 0 }
+    ::= { tmnxLocalUserDbEntry 16 }
+
+tmnxLocUsrDbDhcpCIdMaskPreStr OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbMaskString
+    MAX-ACCESS  read-create
+    STATUS      obsolete
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpCIdMaskPreStr specifies
+         a substring that is stripped of the start of the incoming circuitId
+         before it is matched against the value configured in
+         tmnxLocUsrDbDhcpCircuitId.
+
+         This string can only contain printable ASCII characters.
+         Character '*' is a wildcard that matches any substring. It can be
+         escaped by character '\'."
+    DEFVAL { "" }
+    ::= { tmnxLocalUserDbEntry 17 }
+
+tmnxLocUsrDbDhcpCIdMaskPreNum OBJECT-TYPE
+    SYNTAX      Unsigned32 (0..127)
+    MAX-ACCESS  read-create
+    STATUS      obsolete
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpCIdMaskPreNum specifies
+         the number of characters to remove from the start of the incoming
+         circuitId before it is matched against the value configured in
+         tmnxLocUsrDbDhcpCircuitId."
+    DEFVAL { 0 }
+    ::= { tmnxLocalUserDbEntry 18 }
+
+tmnxLocUsrDbDhcpCIdMaskSufStr OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbMaskString
+    MAX-ACCESS  read-create
+    STATUS      obsolete
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpCIdMaskSufStr specifies
+         a substring that is stripped of the end of the incoming circuitId
+         before it is matched against the value configured in
+         tmnxLocUsrDbDhcpCircuitId.
+
+         This string can only contain printable ASCII characters.
+         Character '*' is a wildcard that matches any substring. It can be
+         escaped by character '\'."
+    DEFVAL { "" }
+    ::= { tmnxLocalUserDbEntry 19 }
+
+tmnxLocUsrDbDhcpCIdMaskSufNum OBJECT-TYPE
+    SYNTAX      Unsigned32 (0..127)
+    MAX-ACCESS  read-create
+    STATUS      obsolete
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpCIdMaskSufNum specifies
+         the number of characters to remove from the end of the incoming
+         circuitId before it is matched against the value configured in
+         tmnxLocUsrDbDhcpCircuitId."
+    DEFVAL { 0 }
+    ::= { tmnxLocalUserDbEntry 20 }
+
+tmnxLocUsrDbHostCount OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbHostCount indicates
+         how many host there are configured in this local user database."
+    ::= { tmnxLocalUserDbEntry 21 }
+
+-- --------------------------------------------------------
+--  tmnxLocUsrDbPppoeTable
+-- --------------------------------------------------------
+tmnxLocUsrDbPppoeTableLastChange OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeTableLastChange indicates
+         the value of sysUpTime at the time of the last modification of
+         an entry in the tmnxLocUsrDbPppoeTable."
+    ::= { tmnxLocalUserDbObjs 3 }
+
+tmnxLocUsrDbPppoeTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxLocUsrDbPppoeEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The table tmnxLocUsrDbPppoeTable contains objects to configure PPPoE
+         hosts."
+    ::= { tmnxLocalUserDbObjs 4 }
+
+tmnxLocUsrDbPppoeEntry OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbPppoeEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each row represents a (set of) host.
+
+         Entries in this table can be created or deleted via SNMP operations."
+    INDEX { tmnxLocUsrDbUserDatabaseName,
+            tmnxLocUsrDbPppoeHostName }
+    ::= { tmnxLocUsrDbPppoeTable 1 }
+
+TmnxLocUsrDbPppoeEntry ::= SEQUENCE {
+    tmnxLocUsrDbPppoeHostName        DisplayString,
+    tmnxLocUsrDbPppoeRowStatus       RowStatus,
+    tmnxLocUsrDbPppoeLastChangeTime  TimeStamp,
+    tmnxLocUsrDbPppoeAdminState      TmnxAdminState,
+    tmnxLocUsrDbPppoeMacAddress      MacAddress,
+    tmnxLocUsrDbPppoeCircuitIdFmt    TmnxLocUsrDbDataFormat,
+    tmnxLocUsrDbPppoeCircuitId       OCTET STRING,
+    tmnxLocUsrDbPppoeRemoteId        OCTET STRING,
+    tmnxLocUsrDbPppoeUserNameFormat  TmnxLocUsrDbUserNameFormat,
+    tmnxLocUsrDbPppoeUserName        TmnxPppoeUserNameOrEmpty,
+    tmnxLocUsrDbPppoePasswordType    TmnxLocUsrDbPasswordType,
+    tmnxLocUsrDbPppoePassword        OCTET STRING,
+    tmnxLocUsrDbPppoeAddrType        InetAddressType,
+    tmnxLocUsrDbPppoeAddress         InetAddress,
+    tmnxLocUsrDbPppoePool            TNamedItemOrEmpty,
+    tmnxLocUsrDbPppoeUseGiAddress    TruthValue,
+    tmnxLocUsrDbPppoeIdStringOptNum  Unsigned32,
+    tmnxLocUsrDbPppoeSubscriberId    TmnxSubIdentStringOrEmpty,
+    tmnxLocUsrDbPppoeSlaProfString   TmnxSlaProfileStringOrEmpty,
+    tmnxLocUsrDbPppoeSubProfString   TmnxSubProfileStringOrEmpty,
+    tmnxLocUsrDbPppoeAppProfString   DisplayString,
+    tmnxLocUsrDbPppoeAncpString      TmnxAncpStringOrZero,
+    tmnxLocUsrDbPppoeInterDestId     TNamedItemOrEmpty,
+    tmnxLocUsrDbPppoeUseClientPool   TruthValue,
+    tmnxLocUsrDbPppoePadoDelay       TmnxPppoePadoDelay,
+    tmnxLocUsrDbPppoeServiceName     DisplayString,
+    tmnxLocUsrDbPppoeL2tpTunnelGroup TmnxL2tpTunnelGroupNameOrEmpty,
+    tmnxLocUsrDbPppoeAuthPolicy      TNamedItemOrEmpty,
+    tmnxLocUsrDbPppoeRetailerSvcId   TmnxServId,
+    tmnxLocUsrDbPppoeCategoryMapName TNamedItemOrEmpty,
+    tmnxLocUsrDbPppoeDefMsapPolicy   TPolicyStatementNameOrEmpty,
+    tmnxLocUsrDbPppoeDefMsapService  TmnxServId,
+    tmnxLocUsrDbPppoeDefMsapGroupIf  TNamedItemOrEmpty,
+    tmnxLocUsrDbPppoeRemoteIdFmt     TmnxLocUsrDbDataFormat,
+    tmnxLocUsrDbPppoeL2tpSvcId       TmnxServId,
+    tmnxLocUsrDbPppoeService         TmnxServId,
+    tmnxLocUsrDbPppoeInterface       TNamedItemOrEmpty,
+    tmnxLocUsrDbPppoePrefixLength    InetAddressPrefixLength,
+    tmnxLocUsrDbPppoeFltrProfString  TmnxFilterProfileStringOrEmpty,
+    tmnxLocUsrDbPppoeSapId           DisplayString,
+    tmnxLocUsrDbPppoeIngIpv4FltrId   TIPFilterIdOrEmpty,
+    tmnxLocUsrDbPppoeEgrIpv4FltrId   TIPFilterIdOrEmpty,
+    tmnxLocUsrDbPppoeIngIpv6FltrId   TIPFilterIdOrEmpty,
+    tmnxLocUsrDbPppoeEgrIpv6FltrId   TIPFilterIdOrEmpty,
+    tmnxLocUsrDbPppoeUseGiAddrScope  INTEGER
+}
+
+tmnxLocUsrDbPppoeHostName OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE(1..32))
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeHostName specifies
+         the name of this host or set of hosts.
+
+         To identify the hosts, the PPPoE parameters are matched against
+         the values of these objects:
+         tmnxLocUsrDbPppoeMacAddress, tmnxLocUsrDbPppoeCircuitId,
+         tmnxLocUsrDbPppoeRemoteId, tmnxLocUsrDbPppoeUserName,
+         tmnxLocUsrDbPppoeServiceName and tmnxLocUsrDbPppoeSapId."
+    ::= { tmnxLocUsrDbPppoeEntry 1 }
+
+tmnxLocUsrDbPppoeRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeRowStatus specifies
+         the row status of this entry."
+    ::= { tmnxLocUsrDbPppoeEntry 2 }
+
+tmnxLocUsrDbPppoeLastChangeTime OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeLastChangeTime indicates
+         the sysUpTime at the time of the last modification of this entry."
+    ::= { tmnxLocUsrDbPppoeEntry 3 }
+
+tmnxLocUsrDbPppoeAdminState OBJECT-TYPE
+    SYNTAX      TmnxAdminState
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeAdminState specifies
+         the administrative state of the tmnxLocUsrDbPppoeEntry."
+    DEFVAL { outOfService }
+    ::= { tmnxLocUsrDbPppoeEntry 4 }
+
+tmnxLocUsrDbPppoeMacAddress OBJECT-TYPE
+    SYNTAX      MacAddress
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeMacAddress specifies
+         the MAC address to match against.
+
+         If the value of this object is set to all zeros, then it is not used."
+    DEFVAL { '000000000000'H }
+    ::= { tmnxLocUsrDbPppoeEntry 5 }
+
+tmnxLocUsrDbPppoeCircuitIdFmt OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbDataFormat
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeCircuitIdFmt specifies
+         how the value of tmnxLocUsrDbPppoeCircuitId must be formatted."
+    DEFVAL { ascii }
+    ::= { tmnxLocUsrDbPppoeEntry 6 }
+
+tmnxLocUsrDbPppoeCircuitId OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(0..127))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeCircuitId specifies
+         the circuit Id to match against.
+
+         If the value of this object is the empty string, then it is not used."
+    DEFVAL { ''H }
+    ::= { tmnxLocUsrDbPppoeEntry 7 }
+
+tmnxLocUsrDbPppoeRemoteId OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(0..255))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeRemoteId specifies
+         the remote Id to match against.
+
+         If the value of this object is the empty string, then it is not used."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbPppoeEntry 8 }
+
+tmnxLocUsrDbPppoeUserNameFormat OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbUserNameFormat
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeUserNameFormat specifies
+         the format of tmnxLocUsrDbPppoeUserName."
+    DEFVAL { none }
+    ::= { tmnxLocUsrDbPppoeEntry 9 }
+
+tmnxLocUsrDbPppoeUserName OBJECT-TYPE
+    SYNTAX      TmnxPppoeUserNameOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeUserName specifies
+         the PPPoE username to match against.
+
+         If the value of this object is the empty string, then it is not used.
+         In that case, tmnxLocUsrDbPppoeUserNameFormat must be 'none (0)'."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbPppoeEntry 10 }
+
+tmnxLocUsrDbPppoePasswordType OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbPasswordType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoePasswordType specifies
+         the type of tmnxLocUsrDbPppoePassword."
+    DEFVAL { none }
+    ::= { tmnxLocUsrDbPppoeEntry 11 }
+
+tmnxLocUsrDbPppoePassword OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(0..32))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoePassword specifies
+         the password of this host.
+
+         This object can only be set if tmnxLocUsrDbPppoeUserName is not an
+         empty string.
+
+         If the value of this object is not an empty string, then the value
+         of tmnxLocUsrDbPppoePasswordType must be either 'pap(2)' or 'chap(3)'.
+         
+         This object will always return an empty string on a read."
+    DEFVAL { ''H }
+    ::= { tmnxLocUsrDbPppoeEntry 12 }
+
+tmnxLocUsrDbPppoeAddrType OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeAddrType specifies
+         the type of tmnxLocUsrDbPppoeAddress."
+    DEFVAL { unknown }
+    ::= { tmnxLocUsrDbPppoeEntry 13 }
+
+tmnxLocUsrDbPppoeAddress OBJECT-TYPE
+    SYNTAX      InetAddress (SIZE(0|4|16))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeAddress specifies
+         the IP address of this host.
+
+         This object can only be configured if object tmnxLocUsrDbPppoePool
+         contains the empty string and object tmnxLocUsrDbPppoeUseGiAddress
+         is 'false(2)'."
+    DEFVAL { ''H }
+    ::= { tmnxLocUsrDbPppoeEntry 14 }
+
+tmnxLocUsrDbPppoePool OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoePool specifies
+         the IP address pool which is used to search for an IP address for this
+         host.
+
+         This object can only be configured if object tmnxLocUsrDbPppoeAddrType
+         is 'unknown(0)' and the values of the objects 
+         tmnxLocUsrDbPppoeUseGiAddress and tmnxLocUsrDbPppoeUseClientPool 
+         are 'false (2)'."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbPppoeEntry 15 }
+
+tmnxLocUsrDbPppoeUseGiAddress OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeUseGiAddress specifies
+         whether the GI address is used to search for an IP address for this
+         host.
+
+         If the value of this object is set to 'true(1)', then the Gateway IP
+         address is used.
+
+         This object can only be set to 'true(1)' when the value of
+         tmnxLocUsrDbPppoeAddrType is 'unknown(0)' and tmnxLocUsrDbPppoePool
+         contains the empty string."
+    DEFVAL { false }
+    ::= { tmnxLocUsrDbPppoeEntry 16 }
+
+tmnxLocUsrDbPppoeIdStringOptNum OBJECT-TYPE
+    SYNTAX      Unsigned32 (0..254)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeIdStringOptNum specifies
+         the option number that the DHCP server uses to send the identification
+         strings to the PPPoE client.
+
+         If the value of this object is 0, then no identification strings will
+         be sent."
+    DEFVAL { 0 }
+    ::= { tmnxLocUsrDbPppoeEntry 17 }
+
+tmnxLocUsrDbPppoeSubscriberId OBJECT-TYPE
+    SYNTAX      TmnxSubIdentStringOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeSubscriberId specifies
+         the subscriber Id which is encoded in the identification strings."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbPppoeEntry 18 }
+
+tmnxLocUsrDbPppoeSlaProfString OBJECT-TYPE
+    SYNTAX      TmnxSlaProfileStringOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeSlaProfString specifies
+         the SLA profile string which is encoded in the identification strings."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbPppoeEntry 19 }
+
+tmnxLocUsrDbPppoeSubProfString OBJECT-TYPE
+    SYNTAX      TmnxSubProfileStringOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeSubProfString specifies
+         the subscriber profile string which is encoded in the identification
+         strings."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbPppoeEntry 20 }
+
+tmnxLocUsrDbPppoeAppProfString OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE (0..16))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeAppProfString specifies
+         the application profile string which is encoded in the identification
+         strings."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbPppoeEntry 21 }
+
+tmnxLocUsrDbPppoeAncpString OBJECT-TYPE
+    SYNTAX      TmnxAncpStringOrZero
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeAncpString specifies
+         the ANCP string which is encoded in the identification strings."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbPppoeEntry 22 }
+
+tmnxLocUsrDbPppoeInterDestId OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeInterDestId specifies
+         the intermediate destination identifier which is encoded in the
+         identification strings."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbPppoeEntry 23 }
+
+tmnxLocUsrDbPppoeUseClientPool OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeUseClientPool specifies
+         if the IP address pool used to search for an IP address for this
+         host is to be indicated by the vendor-specific sub-option 13
+         of the DHCP option 82.
+
+         If the value of this object is set to 'true (1)', the IP address pool
+         indicated by the sub-option 13 is used.
+
+         This object can only be set to 'true (1)' when the value of
+         tmnxLocUsrDbPppoeAddrType is 'unknown (0)' and tmnxLocUsrDbPppoePool
+         contains the empty string."
+    DEFVAL { false }
+    ::= { tmnxLocUsrDbPppoeEntry 24 }
+
+tmnxLocUsrDbPppoePadoDelay OBJECT-TYPE
+    SYNTAX      TmnxPppoePadoDelay
+    UNITS       "deci-seconds"
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoePadoDelay specifies
+         the delay timeout before sending a PADO (PPPoE Active Discovery
+         Offer)."
+    DEFVAL { 0 }
+    ::= { tmnxLocUsrDbPppoeEntry 25 }
+
+tmnxLocUsrDbPppoeServiceName OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE(0..255))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeServiceName specifies
+         the PPPoE service name to match against.
+
+         If the value of this object is the empty string, then it is not used."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbPppoeEntry 26 }
+
+tmnxLocUsrDbPppoeL2tpTunnelGroup OBJECT-TYPE
+    SYNTAX      TmnxL2tpTunnelGroupNameOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeL2tpTunnelGroup specifies
+         the tunnel group to use to setup an L2TP tunnel/session.
+
+         If the value of this object is the empty string, no L2TP
+         tunneling will be done."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbPppoeEntry 27 }
+
+tmnxLocUsrDbPppoeAuthPolicy OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeAuthPolicy specifies the
+         RADIUS authentication policy to use to authenticate the PPPoE host."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbPppoeEntry 28 }
+
+tmnxLocUsrDbPppoeRetailerSvcId OBJECT-TYPE
+    SYNTAX      TmnxServId
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeRetailerSvcId specifies the
+         retailer service Id for this host."
+    DEFVAL { 0 }
+    ::= { tmnxLocUsrDbPppoeEntry 29 }
+
+tmnxLocUsrDbPppoeCategoryMapName OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeCategoryMapName
+         specifies the name of the category map used when credit control
+         is active for this host."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbPppoeEntry 30 }
+
+tmnxLocUsrDbPppoeDefMsapPolicy OBJECT-TYPE
+    SYNTAX      TPolicyStatementNameOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeDefMsapPolicy
+         specifies the default Managed SAP policy to use to create
+         Managed SAPs when the response from the Radius server does not 
+         specify a Managed SAP policy."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbPppoeEntry 31 }
+
+tmnxLocUsrDbPppoeDefMsapService OBJECT-TYPE
+    SYNTAX      TmnxServId
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeDefMsapService
+         specifies the service ID of the service where Managed SAP's 
+         are created when there is no Radius server available, or the Radius
+         server does not specify the service ID.
+         
+         While the value of sapTlsDefMsapService is equal to zero,
+         no Managed SAP's are created when there is no Radius server-specified 
+         service ID available."
+    DEFVAL { 0 }
+    ::= { tmnxLocUsrDbPppoeEntry 32 }
+
+tmnxLocUsrDbPppoeDefMsapGroupIf OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeDefMsapService
+         specifies the name of the group interface where Managed SAP's are 
+         created when there is no Radius server available, or the Radius
+         server does not specify the group interface.
+
+         While the value of sapTlsDefMsapGroupIf is the empty string, 
+         no Managed SAP's are created when there is no Radius server-specified 
+         group interface available."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbPppoeEntry 33 }
+
+tmnxLocUsrDbPppoeRemoteIdFmt OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbDataFormat
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeRemoteIdFmt specifies
+         how the value of tmnxLocUsrDbPppoeRemoteIdFmt must be formatted."
+    DEFVAL { ascii }
+    ::= { tmnxLocUsrDbPppoeEntry 34 }
+
+tmnxLocUsrDbPppoeL2tpSvcId OBJECT-TYPE
+    SYNTAX      TmnxServId
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeL2tpSvcId specifies the
+         service ID of the service from where to take the tunnel group
+         (tmnxLocUsrDbPppoeL2tpTunnelGroup) to use to setup an L2TP LAC
+         tunnel/session.
+
+         If the value of this object is 0, L2TP tunneling will be done from
+         the base router context."
+    DEFVAL { 0 }
+    ::= { tmnxLocUsrDbPppoeEntry 35 }
+    
+tmnxLocUsrDbPppoeService OBJECT-TYPE
+    SYNTAX      TmnxServId
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeService
+         specifies the service ID of the service where the PPP sessions are 
+         established."
+    DEFVAL { 0 }
+    ::= { tmnxLocUsrDbPppoeEntry 36 }
+
+tmnxLocUsrDbPppoeInterface OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeInterface
+         specifies the name of the group interface where the PPP sessions are 
+         established"
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbPppoeEntry 37 }
+
+tmnxLocUsrDbPppoePrefixLength OBJECT-TYPE
+    SYNTAX      InetAddressPrefixLength
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoePrefixLength
+         specifies the prefix length of tmnxLocUsrDbPppoeAddress.
+         
+         The value of the object tmnxLocUsrDbPppoePrefixLength is only
+         relevant if the value of the object tmnxLocUsrDbPppoeAddrType is not 
+         'unknown'; 
+         if the value of the object tmnxLocUsrDbPppoeAddrType is equal to 
+         'unknown', the value of tmnxLocUsrDbPppoePrefixLength is ignored."
+    DEFVAL { 32 }
+    ::= { tmnxLocUsrDbPppoeEntry 38 }
+
+tmnxLocUsrDbPppoeFltrProfString OBJECT-TYPE
+    SYNTAX      TmnxFilterProfileStringOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeFltrProfString specifies
+         the filter profile string which is encoded in the identification
+         strings."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbPppoeEntry 39 }
+    
+tmnxLocUsrDbPppoeSapId OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE(0..255))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeSapId specifies
+         the sapId to match against.
+
+         If the value of this object is the empty string, then it is not used."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbPppoeEntry 40 }
+
+tmnxLocUsrDbPppoeIngIpv4FltrId OBJECT-TYPE
+    SYNTAX      TIPFilterIdOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeIngIpv4FltrId specifies
+         the ingress ipv4 filter-id to be applied to this host.
+
+         If the value of this object is '0', then the filter as specified
+         in the applicable SLA-profile will be applied.
+         
+         If the value of this object is '-1', then no filter will be applied
+         to this host, irrespective of the value specified in the applicable 
+         SLA-profile.
+         
+         If any value between 1 and 65535 is specified this value will be used
+         as filter-id for this host irrespective of the value specified in the
+         applicable SLA-profile"
+    DEFVAL { 0 }
+    ::= { tmnxLocUsrDbPppoeEntry 41 }
+
+tmnxLocUsrDbPppoeEgrIpv4FltrId OBJECT-TYPE
+    SYNTAX      TIPFilterIdOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeEgrIpv4FltrId specifies
+         the egress ipv4 filter-id to be applied to this host.
+
+         If the value of this object is '0', then the filter as specified
+         in the applicable SLA-profile will be applied.
+         
+         If the value of this object is '-1', then no filter will be applied
+         to this host, irrespective of the value specified in the applicable 
+         SLA-profile.
+         
+         If any value between 1 and 65535 is specified this value will be used
+         as filter-id for this host irrespective of the value specified in the
+         applicable SLA-profile"
+    DEFVAL { 0 }
+    ::= { tmnxLocUsrDbPppoeEntry 42 }
+
+tmnxLocUsrDbPppoeIngIpv6FltrId OBJECT-TYPE
+    SYNTAX      TIPFilterIdOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeIngIpv6FltrId specifies
+         the egress ipv4 filter-id to be applied to this host.
+
+         If the value of this object is '0', then the filter as specified
+         in the applicable SLA-profile will be applied.
+         
+         If the value of this object is '-1', then no filter will be applied
+         to this host, irrespective of the value specified in the applicable 
+         SLA-profile.
+         
+         If any value between 1 and 65535 is specified this value will be used
+         as filter-id for this host irrespective of the value specified in the
+         applicable SLA-profile"
+    DEFVAL { 0 }
+    ::= { tmnxLocUsrDbPppoeEntry 43 }
+
+tmnxLocUsrDbPppoeEgrIpv6FltrId OBJECT-TYPE
+    SYNTAX      TIPFilterIdOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeEgrIpv6FltrId specifies
+         the egress ipv4 filter-id to be applied to this host.
+
+         If the value of this object is '0', then the filter as specified
+         in the applicable SLA-profile will be applied.
+         
+         If the value of this object is '-1', then no filter will be applied
+         to this host, irrespective of the value specified in the applicable 
+         SLA-profile.
+         
+         If any value between 1 and 65535 is specified this value will be used
+         as filter-id for this host irrespective of the value specified in the
+         applicable SLA-profile"
+    DEFVAL { 0 }
+    ::= { tmnxLocUsrDbPppoeEntry 44 }
+
+tmnxLocUsrDbPppoeUseGiAddrScope OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    subnet  (0),
+                    pool    (1)
+                }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxLocUsrDbPppoeUseGiAddrScope specifies
+         whether the GI address selects a single subnet or a pool.
+
+         The value of this object is only meaningful when the value of
+         tmnxLocUsrDbPppoeUseGiAddress is set to 'true(1)'."
+    DEFVAL { subnet }
+    ::= { tmnxLocUsrDbPppoeEntry 45 }
+
+-- --------------------------------------------------------
+--  tmnxLocUsrDbPppoeUnmatchedTable
+-- --------------------------------------------------------
+tmnxLocUsrDbPppoeUnmatchedTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxLocUsrDbPppoeUnmatchedEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The table tmnxLocUsrDbPppoeUnmatchedTable contains information
+         about unmatched PPPoE hosts."
+    ::= { tmnxLocalUserDbObjs 5 }
+
+tmnxLocUsrDbPppoeUnmatchedEntry OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbPppoeUnmatchedEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each row represents a host (or set of hosts) that is unmatched.
+
+         Objects tmnxLocUsrDbMatchTypePppoe1, tmnxLocUsrDbMatchTypePppoe2
+         and tmnxLocUsrDbMatchTypePppoe3 specify wich objects in the
+         tmnxLocUsrDbPppoeTable are used to match the PPPoE parameters against.
+
+         This table has entries for each host in the tmnxLocUsrDbPppoeTable
+         that:
+         - has no objects configured that correspond with the match types, or
+         - has identical values configured for the objects that correspond
+           with the match types, as another DHCP host.
+
+         Entries in this table cannot be created or deleted via SNMP
+         operations."
+    INDEX { tmnxLocUsrDbUserDatabaseName,
+            tmnxLocUsrDbPppoeHostName }
+    ::= { tmnxLocUsrDbPppoeUnmatchedTable 1 }
+
+TmnxLocUsrDbPppoeUnmatchedEntry ::= SEQUENCE {
+    tmnxLocUsrDbPppoeUnMacAddress    MacAddress,
+    tmnxLocUsrDbPppoeUnCircuitId     OCTET STRING,
+    tmnxLocUsrDbPppoeUnRemoteId      OCTET STRING,
+    tmnxLocUsrDbPppoeUnUserNameFmt   TmnxLocUsrDbUserNameFormat,
+    tmnxLocUsrDbPppoeUnUserName      TmnxPppoeUserNameOrEmpty,
+    tmnxLocUsrDbPppoeUnmatchedReason TmnxLocUsrDbUnmatchedReason,
+    tmnxLocUsrDbPppoeUnDuplicateHost DisplayString,
+    tmnxLocUsrDbPppoeUnServiceName   DisplayString,
+    tmnxLocUsrDbPppoeUnSapId         DisplayString
+}
+
+tmnxLocUsrDbPppoeUnMacAddress OBJECT-TYPE
+    SYNTAX      MacAddress
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeUnMacAddress indicates
+         the MAC address of the unmatched host."
+    ::= { tmnxLocUsrDbPppoeUnmatchedEntry 1 }
+
+tmnxLocUsrDbPppoeUnCircuitId OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(0..127))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeUnCircuitId indicates
+         the circuit Id of the unmatched host."
+    ::= { tmnxLocUsrDbPppoeUnmatchedEntry 2 }
+
+tmnxLocUsrDbPppoeUnRemoteId OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(0..255))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeUnRemoteId indicates
+         the remote Id of the unmatched host."
+    ::= { tmnxLocUsrDbPppoeUnmatchedEntry 3 }
+
+tmnxLocUsrDbPppoeUnUserNameFmt OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbUserNameFormat
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeUnUserNameFmt indicates
+         the format of tmnxLocUsrDbPppoeUnUserName."
+    ::= { tmnxLocUsrDbPppoeUnmatchedEntry 4 }
+
+tmnxLocUsrDbPppoeUnUserName OBJECT-TYPE
+    SYNTAX      TmnxPppoeUserNameOrEmpty
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeUnUserName indicates
+         the PPPoE username of the unmatched host."
+    ::= { tmnxLocUsrDbPppoeUnmatchedEntry 5 }
+
+tmnxLocUsrDbPppoeUnmatchedReason OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbUnmatchedReason
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeUnmatchedReason indicates
+         why this host is not matched."
+    ::= { tmnxLocUsrDbPppoeUnmatchedEntry 6 }
+
+tmnxLocUsrDbPppoeUnDuplicateHost OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE(0..32))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeUnDuplicateHost indicates
+         the name of the host that is already matched and that has the same
+         values, configured for the objects that correspond with the match
+         types, as this unmatched host.
+
+         This value of this object is the empty string, unless the value of
+         tmnxLocUsrDbPppoeUnmatchedReason is 'duplicate (2)'."
+    ::= { tmnxLocUsrDbPppoeUnmatchedEntry 7 }
+
+tmnxLocUsrDbPppoeUnServiceName OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE(0..255))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeUnServiceName indicates
+         the PPPoE service name of the unmatched host."
+    ::= { tmnxLocUsrDbPppoeUnmatchedEntry 8 }
+
+tmnxLocUsrDbPppoeUnSapId OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE(0..255))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeUnSapId indicates
+         the sapId of the unmatched host."
+    ::= { tmnxLocUsrDbPppoeUnmatchedEntry 9 }
+
+-- --------------------------------------------------------
+--  tmnxLocUsrDbPppoeOptionTable
+-- --------------------------------------------------------
+tmnxLocUsrDbPppoeOptionTbleLstCh OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeOptionTbleLstCh indicates
+         the value of sysUpTime at the time of the last modification of
+         an entry in the tmnxLocUsrDbPppoeOptionTable."
+    ::= { tmnxLocalUserDbObjs 6 }
+
+tmnxLocUsrDbPppoeOptionTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxLocUsrDbPppoeOptionEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The table tmnxLocUsrDbPppoeOptionTable contains objects to configure
+         the DHCP options of each PPPoE host."
+    ::= { tmnxLocalUserDbObjs 7 }
+
+tmnxLocUsrDbPppoeOptionEntry OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbPppoeOptionEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each row represents a DHCP option that is encoded in the DHCP reply
+         message of this PPPoE host.
+
+         Entries in this table can be created or deleted via SNMP operations."
+    INDEX { tmnxLocUsrDbUserDatabaseName,
+            tmnxLocUsrDbPppoeHostName,
+            tmnxLocUsrDbPppoeOptionNumber }
+    ::= { tmnxLocUsrDbPppoeOptionTable 1 }
+
+TmnxLocUsrDbPppoeOptionEntry ::= SEQUENCE {
+    tmnxLocUsrDbPppoeOptionNumber    Unsigned32,
+    tmnxLocUsrDbPppoeOptionRowStatus RowStatus,
+    tmnxLocUsrDbPppoeOptionLstChngTm TimeStamp,
+    tmnxLocUsrDbPppoeOptionType      TmnxDhcpOptionType,
+    tmnxLocUsrDbPppoeOptionValue     OCTET STRING
+}
+
+tmnxLocUsrDbPppoeOptionNumber OBJECT-TYPE
+    SYNTAX      Unsigned32 (1..254)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeOptionNumber specifies
+         the number of this DHCP option."
+    REFERENCE
+        "RFC 2132"
+    ::= { tmnxLocUsrDbPppoeOptionEntry 1 }
+
+tmnxLocUsrDbPppoeOptionRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeOptionRowStatus specifies
+         the row status of this row.
+
+         Objects tmnxLocUsrDbPppoeOptionType and tmnxLocUsrDbPppoeOptionValue
+         must be set when creating a new row."
+    ::= { tmnxLocUsrDbPppoeOptionEntry 2 }
+
+tmnxLocUsrDbPppoeOptionLstChngTm OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeOptionLstChngTm indicates
+         the sysUpTime at the time of the last modification of this entry."
+    ::= { tmnxLocUsrDbPppoeOptionEntry 3 }
+
+tmnxLocUsrDbPppoeOptionType OBJECT-TYPE
+    SYNTAX      TmnxDhcpOptionType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeOptionType specifies
+         how the value of this option in stored in
+         tmnxLocUsrDbPppoeOptionValue.
+
+         This object is mandatory at creation time."
+    ::= { tmnxLocUsrDbPppoeOptionEntry 4 }
+
+tmnxLocUsrDbPppoeOptionValue OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE (0..127))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeOptionValue specifies
+         the value of this option.
+
+         This object is mandatory at creation time. A zero length value is only
+         allowed when the value of tmnxLocUsrDbPppoeOptionType is 'hex (3)'."
+    ::= { tmnxLocUsrDbPppoeOptionEntry 5 }
+
+-- --------------------------------------------------------
+--  tmnxLocUsrDbDhcpTable
+-- --------------------------------------------------------
+tmnxLocUsrDbDhcpTableLastChange OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpTableLastChange indicates
+         the value of sysUpTime at the time of the last modification of
+         an entry in the tmnxLocUsrDbDhcpTable."
+    ::= { tmnxLocalUserDbObjs 8 }
+
+tmnxLocUsrDbDhcpTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxLocUsrDbDhcpEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The table tmnxLocUsrDbDhcpTable contains objects to configure DHCP
+         hosts."
+    ::= { tmnxLocalUserDbObjs 9 }
+
+tmnxLocUsrDbDhcpEntry OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbDhcpEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each row represents a (set of) host.
+
+         Entries in this table can be created or deleted via SNMP operations."
+    INDEX { tmnxLocUsrDbUserDatabaseName,
+            tmnxLocUsrDbDhcpHostName }
+    ::= { tmnxLocUsrDbDhcpTable 1 }
+
+TmnxLocUsrDbDhcpEntry ::= SEQUENCE {
+    tmnxLocUsrDbDhcpHostName        DisplayString,
+    tmnxLocUsrDbDhcpRowStatus       RowStatus,
+    tmnxLocUsrDbDhcpLastChangeTime  TimeStamp,
+    tmnxLocUsrDbDhcpAdminState      TmnxAdminState,
+    tmnxLocUsrDbDhcpMacAddress      MacAddress,
+    tmnxLocUsrDbDhcpCircuitIdFmt    TmnxLocUsrDbDataFormat,
+    tmnxLocUsrDbDhcpCircuitId       OCTET STRING,
+    tmnxLocUsrDbDhcpRemoteId        OCTET STRING,
+    tmnxLocUsrDbDhcpSystemId        DisplayString,
+    tmnxLocUsrDbDhcpServiceId       TmnxServId,
+    tmnxLocUsrDbDhcpSapId           DisplayString,
+    tmnxLocUsrDbDhcpString          DisplayString,
+    tmnxLocUsrDbDhcpOption60        OCTET STRING,
+    tmnxLocUsrDbDhcpAddrType        InetAddressType,
+    tmnxLocUsrDbDhcpAddress         InetAddress,
+    tmnxLocUsrDbDhcpPool            TNamedItemOrEmpty,
+    tmnxLocUsrDbDhcpUseGiAddress    TruthValue,
+    tmnxLocUsrDbDhcpIdStringOptNum  Unsigned32,
+    tmnxLocUsrDbDhcpSubscriberId    TmnxSubIdentStringOrEmpty,
+    tmnxLocUsrDbDhcpSlaProfString   TmnxSlaProfileStringOrEmpty,
+    tmnxLocUsrDbDhcpSubProfString   TmnxSubProfileStringOrEmpty,
+    tmnxLocUsrDbDhcpAppProfString   DisplayString,
+    tmnxLocUsrDbDhcpAncpString      TmnxAncpStringOrZero,
+    tmnxLocUsrDbDhcpInterDestId     TNamedItemOrEmpty,
+    tmnxLocUsrDbDhcpAuthPolicy      TNamedItemOrEmpty,
+    tmnxLocUsrDbDhcpServerAddrType  InetAddressType,
+    tmnxLocUsrDbDhcpServerAddress   InetAddress,
+    tmnxLocUsrDbDhcpAuthDomainName  DisplayString,
+    tmnxLocUsrDbDhcpCategoryMapName TNamedItemOrEmpty,
+    tmnxLocUsrDbDhcpOption60Fmt     TmnxLocUsrDbDataFormat,
+    tmnxLocUsrDbDhcpUseClientPool   TruthValue,
+    tmnxLocUsrDbDhcpDefMsapPolicy   TPolicyStatementNameOrEmpty,
+    tmnxLocUsrDbDhcpDefMsapService  TmnxServId,
+    tmnxLocUsrDbDhcpDefMsapGroupIf  TNamedItemOrEmpty,
+    tmnxLocUsrDbDhcpRetailerSvcId   TmnxServId,
+    tmnxLocUsrDbDhcpRemoteIdFmt     TmnxLocUsrDbDataFormat,
+    tmnxLocUsrDbDhcpIpv6Addr        InetAddress,
+    tmnxLocUsrDbDhcpIpv6Pfx         InetAddress,
+    tmnxLocUsrDbDhcpIpv6PfxLen      InetAddressPrefixLength,
+    tmnxLocUsrDbDhcpIpv6WanAddrPool TNamedItemOrEmpty,
+    tmnxLocUsrDbDhcpIpv6DelPfxPool  TNamedItemOrEmpty,
+    tmnxLocUsrDbDhcpFltrProfString  TmnxFilterProfileStringOrEmpty,
+    tmnxLocUsrDbDhcpIngIpv4FltrId   TIPFilterIdOrEmpty,
+    tmnxLocUsrDbDhcpEgrIpv4FltrId   TIPFilterIdOrEmpty,
+    tmnxLocUsrDbDhcpIngIpv6FltrId   TIPFilterIdOrEmpty,
+    tmnxLocUsrDbDhcpEgrIpv6FltrId   TIPFilterIdOrEmpty,
+    tmnxLocUsrDbDhcpUseGiAddrScope  INTEGER
+}
+
+tmnxLocUsrDbDhcpHostName OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE(1..32))
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpHostName specifies
+         the name of this host or set of hosts.
+
+         To identify the hosts, the DHCP parameters are matched against the
+         values of these objects:
+         tmnxLocUsrDbDhcpMacAddress, tmnxLocUsrDbDhcpCircuitId,
+         tmnxLocUsrDbDhcpRemoteId, tmnxLocUsrDbDhcpSystemId,
+         tmnxLocUsrDbDhcpServiceId, tmnxLocUsrDbDhcpSapId,
+         tmnxLocUsrDbDhcpString and tmnxLocUsrDbDhcpOption60."
+    ::= { tmnxLocUsrDbDhcpEntry 1 }
+
+tmnxLocUsrDbDhcpRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpRowStatus specifies
+         the row status of this entry."
+    ::= { tmnxLocUsrDbDhcpEntry 2 }
+
+tmnxLocUsrDbDhcpLastChangeTime OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpLastChangeTime indicates
+         the sysUpTime at the time of the last modification of this entry."
+    ::= { tmnxLocUsrDbDhcpEntry 3 }
+
+tmnxLocUsrDbDhcpAdminState OBJECT-TYPE
+    SYNTAX      TmnxAdminState
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpAdminState specifies
+         the administrative state of the tmnxLocUsrDbDhcpEntry."
+    DEFVAL { outOfService }
+    ::= { tmnxLocUsrDbDhcpEntry 4 }
+
+tmnxLocUsrDbDhcpMacAddress OBJECT-TYPE
+    SYNTAX      MacAddress
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpMacAddress specifies
+         the MAC address to match against.
+
+         If the value of this object is set to all zeros, then it is not used."
+    DEFVAL { '000000000000'H }
+    ::= { tmnxLocUsrDbDhcpEntry 5 }
+
+tmnxLocUsrDbDhcpCircuitIdFmt OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbDataFormat
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpCircuitIdFmt specifies
+         how the value of the value of tmnxLocUsrDbDhcpCircuitId must be
+         formatted."
+    DEFVAL { ascii }
+    ::= { tmnxLocUsrDbDhcpEntry 6 }
+
+tmnxLocUsrDbDhcpCircuitId OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(0..127))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpCircuitId specifies
+         the circuit Id from option 82 to match against.
+
+         If the value of this object is the empty string, then it is not used."
+    DEFVAL { ''H }
+    ::= { tmnxLocUsrDbDhcpEntry 7 }
+
+tmnxLocUsrDbDhcpRemoteId OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(0..255))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpRemoteId specifies
+         the remote Id from option 82 to match against.
+
+         If the value of this object is the empty string, then it is not used."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbDhcpEntry 8 }
+
+tmnxLocUsrDbDhcpSystemId OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE(0..255))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpSystemId specifies
+         the system Id from the Alcatel-Lucent vendor specific sub-option in 
+         option 82 to match against.
+
+         If the value of this object is the empty string, then it is not used."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbDhcpEntry 9 }
+
+tmnxLocUsrDbDhcpServiceId OBJECT-TYPE
+    SYNTAX      TmnxServId
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpServiceId specifies
+         the service Id from the Alcatel-Lucent vendor specific sub-option in 
+         option 82 to match against.
+
+         If the value of this object is 0, then it is not used."
+    DEFVAL { 0 }
+    ::= { tmnxLocUsrDbDhcpEntry 10 }
+
+tmnxLocUsrDbDhcpSapId OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE(0..255))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpSapId specifies
+         the sapId from the Alcatel-Lucent vendor specific sub-option in 
+         option 82 to match against.
+
+         If the value of this object is the empty string, then it is not used."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbDhcpEntry 11 }
+
+tmnxLocUsrDbDhcpString OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE(0..255))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpString specifies
+         the string from the Alcatel-Lucent vendor specific sub-option in 
+         option 82 to match against.
+
+         If the value of this object is the empty string, then it is not used."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbDhcpEntry 12 }
+
+tmnxLocUsrDbDhcpOption60 OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(0..32))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpOption60 specifies
+         the Vendor-Identifying Vendor Option to match against. Option 60
+         is encoded as Type - Length - Value. The Value portion of Option 60
+         in the received DHCP request is used to match against
+         tmnxLocUsrDbDhcpOption60.
+
+         If the value of this object is the empty string, then it is not used."
+    REFERENCE
+        "RFC 3925"
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbDhcpEntry 13 }
+
+tmnxLocUsrDbDhcpAddrType OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpAddrType specifies
+         the type of tmnxLocUsrDbDhcpAddress."
+    DEFVAL { unknown }
+    ::= { tmnxLocUsrDbDhcpEntry 14 }
+
+tmnxLocUsrDbDhcpAddress OBJECT-TYPE
+    SYNTAX      InetAddress (SIZE(0|4|16))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpAddress specifies
+         the IP address of this host.
+
+         This object can only be configured if object tmnxLocUsrDbDhcpPool
+         contains the empty string and object tmnxLocUsrDbDhcpUseGiAddress
+         is 'false(2)'."
+    DEFVAL { ''H }
+    ::= { tmnxLocUsrDbDhcpEntry 15 }
+
+tmnxLocUsrDbDhcpPool OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpPool specifies
+         the IP address pool which is used to search for an IP address for this
+         host.
+
+         This object can only be configured if the value of 
+         tmnxLocUsrDbDhcpAddrType is 'unknown(0)' and the values of
+         tmnxLocUsrDbDhcpUseGiAddress and tmnxLocUsrDbDhcpUseClientPool are
+         'false(2)'."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbDhcpEntry 16 }
+
+tmnxLocUsrDbDhcpUseGiAddress OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpUseGiAddress specifies
+         whether the GI address is used to search for an IP address for this
+         host.
+
+         If the value of this object is set to 'true(1)', then the Gateway IP
+         address is used.
+
+         This object can only be set to 'true(1)' when the value of
+         tmnxLocUsrDbDhcpAddrType is 'unknown(0)' and tmnxLocUsrDbDhcpPool
+         contains the empty string."
+    DEFVAL { false }
+    ::= { tmnxLocUsrDbDhcpEntry 17 }
+
+tmnxLocUsrDbDhcpIdStringOptNum OBJECT-TYPE
+    SYNTAX      Unsigned32 (0..254)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpIdStringOptNum specifies
+         the option number that the DHCP server uses to send the identification
+         strings to the DHCP client.
+
+         If the value of this object is 0, then no identification strings will
+         be sent."
+    DEFVAL { 0 }
+    ::= { tmnxLocUsrDbDhcpEntry 18 }
+
+tmnxLocUsrDbDhcpSubscriberId OBJECT-TYPE
+    SYNTAX      TmnxSubIdentStringOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpSubscriberId specifies
+         the subscriber Id which is encoded in the identification strings."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbDhcpEntry 19 }
+
+tmnxLocUsrDbDhcpSlaProfString OBJECT-TYPE
+    SYNTAX      TmnxSlaProfileStringOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpSlaProfString specifies
+         the SLA profile string which is encoded in the identification strings."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbDhcpEntry 20 }
+
+tmnxLocUsrDbDhcpSubProfString OBJECT-TYPE
+    SYNTAX      TmnxSubProfileStringOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpSubProfString specifies
+         the subscriber profile string which is encoded in the identification
+         strings."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbDhcpEntry 21 }
+
+tmnxLocUsrDbDhcpAppProfString OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE (0..16))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpAppProfString specifies
+         the application profile string which is encoded in the identification
+         strings."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbDhcpEntry 22 }
+
+tmnxLocUsrDbDhcpAncpString OBJECT-TYPE
+    SYNTAX      TmnxAncpStringOrZero
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpAncpString specifies
+         the ANCP string which is encoded in the identification strings."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbDhcpEntry 23 }
+
+tmnxLocUsrDbDhcpInterDestId OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpInterDestId specifies
+         the intermediate destination identifier which is encoded in the
+         identification strings."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbDhcpEntry 24 }
+
+tmnxLocUsrDbDhcpAuthPolicy OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpAuthPolicy specifies the
+         RADIUS authentication policy to use to authenticate the DHCP host."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbDhcpEntry 25 }
+
+tmnxLocUsrDbDhcpServerAddrType OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpServerAddrType specifies
+         the type of tmnxLocUsrDbDhcpServerAddress."
+    DEFVAL { unknown }
+    ::= { tmnxLocUsrDbDhcpEntry 26 }
+
+tmnxLocUsrDbDhcpServerAddress OBJECT-TYPE
+    SYNTAX      InetAddress (SIZE(0|4|16))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpServerAddress specifies
+         the address of the DHCP server to relay to."
+    DEFVAL { ''H }
+    ::= { tmnxLocUsrDbDhcpEntry 27 }
+
+tmnxLocUsrDbDhcpAuthDomainName OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE (0..32))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpAuthDomainName specifies the
+         domain name to use when RADIUS authentication is applicable."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbDhcpEntry 28 }
+
+tmnxLocUsrDbDhcpCategoryMapName OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpCategoryMapName
+         specifies the name of the category map used when credit control
+         is active for this host."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbDhcpEntry 29 }
+
+tmnxLocUsrDbDhcpOption60Fmt OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbDataFormat
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpOption60Fmt specifies
+         how the value of the value of tmnxLocUsrDbDhcpOption60 must be
+         formatted."
+    DEFVAL { hex }
+    ::= { tmnxLocUsrDbDhcpEntry 30 }
+
+tmnxLocUsrDbDhcpUseClientPool OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpUseClientPool specifies
+         if the IP address pool used to search for an IP address for this
+         host is to be indicated by the vendor-specific sub-option 13
+         of the DHCP option 82.
+
+         If the value of this object is set to 'true (1)', the IP address pool
+         indicated by the sub-option 13 is used.
+
+         This object can only be set to 'true (1)' when the value of
+         tmnxLocUsrDbDhcpAddrType is 'unknown (0)' and tmnxLocUsrDbDhcpPool
+         contains the empty string."
+    DEFVAL { false }
+    ::= { tmnxLocUsrDbDhcpEntry 31 }
+
+tmnxLocUsrDbDhcpDefMsapPolicy OBJECT-TYPE
+    SYNTAX      TPolicyStatementNameOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpDefMsapPolicy specifies
+         the default Managed SAP policy to use to create Managed SAPs 
+         when the response from the Radius server does not specify 
+         a Managed SAP policy."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbDhcpEntry 32 }
+
+tmnxLocUsrDbDhcpDefMsapService OBJECT-TYPE
+    SYNTAX      TmnxServId
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpDefMsapService specifies
+         specifies the service ID of the service where Managed SAP's 
+         are created when there is no Radius server available, or the Radius
+         server does not specify the service ID.
+         
+         While the value of sapTlsDefMsapService is equal to zero,
+         no Managed SAP's are created when there is no Radius server-specified 
+         service ID available."
+    DEFVAL { 0 }
+    ::= { tmnxLocUsrDbDhcpEntry 33 }
+
+tmnxLocUsrDbDhcpDefMsapGroupIf OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpDefMsapGroupIf specifies
+         the name of the group interface where Managed SAP's are 
+         created when there is no Radius server available, or the Radius
+         server does not specify the group interface.
+
+         While the value of sapTlsDefMsapGroupIf is the empty string, 
+         no Managed SAP's are created when there is no Radius server-specified 
+         group interface available."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbDhcpEntry 34 }
+
+tmnxLocUsrDbDhcpRetailerSvcId OBJECT-TYPE
+    SYNTAX      TmnxServId
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpRetailerSvcId specifies the
+         retailer service Id for this host."
+    DEFVAL { 0 }
+    ::= { tmnxLocUsrDbDhcpEntry 35 }
+
+tmnxLocUsrDbDhcpRemoteIdFmt OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbDataFormat
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpRemoteIdFmt specifies
+         how the value of the value of tmnxLocUsrDbDhcpRemoteId must be
+         formatted."
+    DEFVAL { ascii }
+    ::= { tmnxLocUsrDbDhcpEntry 36 }
+
+tmnxLocUsrDbDhcpIpv6Addr OBJECT-TYPE
+    SYNTAX      InetAddress (SIZE(16))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpIpv6Addr specifies
+         the IPv6 non temporary address of this host.
+    
+         A value of 0::0 means that the address is not configured."
+    DEFVAL { '00000000000000000000000000000000'H }
+    ::= { tmnxLocUsrDbDhcpEntry 37 }
+
+tmnxLocUsrDbDhcpIpv6Pfx OBJECT-TYPE
+    SYNTAX      InetAddress (SIZE(16))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpIpv6Pfx specifies
+         the IPv6 prefix of this host.
+    
+         A value of 0::0 means that the prefix-address is not configured.
+    
+         The value of tmnxLocUsrDbDhcpIpv6Pfx must be set together with
+         the value of tmnxLocUsrDbDhcpIpv6PfxLen."
+    DEFVAL { '00000000000000000000000000000000'H }
+    ::= { tmnxLocUsrDbDhcpEntry 38 }
+
+tmnxLocUsrDbDhcpIpv6PfxLen OBJECT-TYPE
+    SYNTAX      InetAddressPrefixLength (0|48..64)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION 
+        "The value of tmnxLocUsrDbDhcpIpv6PfxLen indicates
+         the length of the prefix-address stored in tmnxLocUsrDbDhcpIpv6Pfx.
+    
+         A value of 0 means that tmnxLocUsrDbDhcpIpv6Pfx is not configured.
+    
+         The value of tmnxLocUsrDbDhcpIpv6PfxLen must be set together with
+         the value of tmnxLocUsrDbDhcpIpv6Pfx."
+    ::= { tmnxLocUsrDbDhcpEntry 39 }
+
+tmnxLocUsrDbDhcpIpv6WanAddrPool OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxLocUsrDbDhcpIpv6WanAddrPool specifies
+         the IPv6 address pool which is used to search for an IPv6 address for this
+         host."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbDhcpEntry 40 }
+
+tmnxLocUsrDbDhcpIpv6DelPfxPool OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION 
+        "The value of tmnxLocUsrDbDhcpIpv6DelPfxPool specifies
+         the IPv6 address pool which is used to search for an IPv6 prefix for this
+         host."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbDhcpEntry 41 }
+
+tmnxLocUsrDbDhcpFltrProfString OBJECT-TYPE
+    SYNTAX      TmnxFilterProfileStringOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpFltrProfString specifies
+         the filter profile string which is encoded in the identification
+         strings."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbDhcpEntry 42 }
+
+tmnxLocUsrDbDhcpIngIpv4FltrId OBJECT-TYPE
+    SYNTAX      TIPFilterIdOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpIngIpv4FltrId specifies
+         the ingress ipv4 filter-id to be applied to this host.
+
+         If the value of this object is '0', then the filter as specified
+         in the applicable SLA-profile will be applied.
+         
+         If the value of this object is '-1', then no filter will be applied
+         to this host, irrespective of the value specified in the applicable 
+         SLA-profile.
+         
+         If any value between 1 and 65535 is specified this value will be used
+         as filter-id for this host irrespective of the value specified in the
+         applicable SLA-profile"
+    DEFVAL { 0 }
+    ::= { tmnxLocUsrDbDhcpEntry 43 }
+
+tmnxLocUsrDbDhcpEgrIpv4FltrId OBJECT-TYPE
+    SYNTAX      TIPFilterIdOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpEgrIpv4FltrId specifies
+         the egress ipv4 filter-id to be applied to this host.
+
+         If the value of this object is '0', then the filter as specified
+         in the applicable SLA-profile will be applied.
+         
+         If the value of this object is '-1', then no filter will be applied
+         to this host, irrespective of the value specified in the applicable 
+         SLA-profile.
+         
+         If any value between 1 and 65535 is specified this value will be used
+         as filter-id for this host irrespective of the value specified in the
+         applicable SLA-profile"
+    DEFVAL { 0 }
+    ::= { tmnxLocUsrDbDhcpEntry 44 }
+
+tmnxLocUsrDbDhcpIngIpv6FltrId OBJECT-TYPE
+    SYNTAX      TIPFilterIdOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpIngIpv6FltrId specifies
+         the ingress ipv6 filter-id to be applied to this host.
+
+         If the value of this object is '0', then the filter as specified
+         in the applicable SLA-profile will be applied.
+         
+         If the value of this object is '-1', then no filter will be applied
+         to this host, irrespective of the value specified in the applicable 
+         SLA-profile.
+         
+         If any value between 1 and 65535 is specified this value will be used
+         as filter-id for this host irrespective of the value specified in the
+         applicable SLA-profile"
+    DEFVAL { 0 }
+    ::= { tmnxLocUsrDbDhcpEntry 45 }
+
+tmnxLocUsrDbDhcpEgrIpv6FltrId OBJECT-TYPE
+    SYNTAX      TIPFilterIdOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpEgrIpv6FltrId specifies
+         the egress ipv6 filter-id to be applied to this host.
+
+         If the value of this object is '0', then the filter as specified
+         in the applicable SLA-profile will be applied.
+         
+         If the value of this object is '-1', then no filter will be applied
+         to this host, irrespective of the value specified in the applicable 
+         SLA-profile.
+         
+         If any value between 1 and 65535 is specified this value will be used
+         as filter-id for this host irrespective of the value specified in the
+         applicable SLA-profile"
+    DEFVAL { 0 }
+    ::= { tmnxLocUsrDbDhcpEntry 46 }
+
+tmnxLocUsrDbDhcpUseGiAddrScope OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    subnet  (0),
+                    pool    (1)
+                }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxLocUsrDbDhcpUseGiAddrScope specifies
+         whether the GI address selects a single subnet or a pool.
+
+         The value of this object is only meaningful when the value of
+         tmnxLocUsrDbDhcpUseGiAddress is set to 'true(1)'."
+    DEFVAL { subnet }
+    ::= { tmnxLocUsrDbDhcpEntry 47 }
+
+-- --------------------------------------------------------
+--  tmnxLocUsrDbDhcpUnmatchedTable
+-- --------------------------------------------------------
+tmnxLocUsrDbDhcpUnmatchedTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxLocUsrDbDhcpUnmatchedEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The table tmnxLocUsrDbDhcpUnmatchedTable contains information
+         about unmatched DHCP hosts."
+    ::= { tmnxLocalUserDbObjs 10 }
+
+tmnxLocUsrDbDhcpUnmatchedEntry OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbDhcpUnmatchedEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each row represents a host (or set of hosts) that is unmatched.
+
+         Objects tmnxLocUsrDbMatchTypeDhcp1, tmnxLocUsrDbMatchTypeDhcp2,
+         tmnxLocUsrDbMatchTypeDhcp3 and tmnxLocUsrDbMatchTypeDhcp4 specify
+         wich objects in the tmnxLocUsrDbDhcpTable are used to match
+         the DHCP parameters against.
+
+         This table has entries for each host in the tmnxLocUsrDbDhcpTable
+         that:
+         - has no objects configured that correspond with the match types, or
+         - has identical values configured for the objects that correspond
+           with the match types, as another PPPoE host.
+
+         Entries in this table cannot be created or deleted via SNMP
+         operations."
+    INDEX { tmnxLocUsrDbUserDatabaseName,
+            tmnxLocUsrDbDhcpHostName }
+    ::= { tmnxLocUsrDbDhcpUnmatchedTable 1 }
+
+TmnxLocUsrDbDhcpUnmatchedEntry ::= SEQUENCE {
+    tmnxLocUsrDbDhcpUnMacAddress    MacAddress,
+    tmnxLocUsrDbDhcpUnCircuitId     OCTET STRING,
+    tmnxLocUsrDbDhcpUnRemoteId      OCTET STRING,
+    tmnxLocUsrDbDhcpUnSystemId      DisplayString,
+    tmnxLocUsrDbDhcpUnServiceId     TmnxServId,
+    tmnxLocUsrDbDhcpUnSapId         DisplayString,
+    tmnxLocUsrDbDhcpUnString        DisplayString,
+    tmnxLocUsrDbDhcpUnOption60      OCTET STRING,
+    tmnxLocUsrDbDhcpUnmatchedReason TmnxLocUsrDbUnmatchedReason,
+    tmnxLocUsrDbDhcpUnDuplicateHost DisplayString
+}
+
+tmnxLocUsrDbDhcpUnMacAddress OBJECT-TYPE
+    SYNTAX      MacAddress
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpUnMacAddress indicates
+         the MAC address of the unmatched host."
+    ::= { tmnxLocUsrDbDhcpUnmatchedEntry 1 }
+
+tmnxLocUsrDbDhcpUnCircuitId OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(0..127))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpUnCircuitId indicates
+         the circuit Id from option 82 of the unmatched host."
+    ::= { tmnxLocUsrDbDhcpUnmatchedEntry 2 }
+
+tmnxLocUsrDbDhcpUnRemoteId OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(0..255))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpUnRemoteId indicates
+         the remote Id from option 82 of the unmatched host."
+    ::= { tmnxLocUsrDbDhcpUnmatchedEntry 3 }
+
+tmnxLocUsrDbDhcpUnSystemId OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE(0..255))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpUnSystemId indicates
+         the system Id from the Alcatel-Lucenet vendor specific sub-option in 
+         option 82 of the unmatched host."
+    ::= { tmnxLocUsrDbDhcpUnmatchedEntry 4 }
+
+tmnxLocUsrDbDhcpUnServiceId OBJECT-TYPE
+    SYNTAX      TmnxServId
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpUnServiceId indicates
+         the service Id from the Alcatel-Lucent vendor specific sub-option 
+         in option 82 of the unmatched host."
+    ::= { tmnxLocUsrDbDhcpUnmatchedEntry 5 }
+
+tmnxLocUsrDbDhcpUnSapId OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE(0..255))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpUnSapId indicates
+         the sapId from the Alcatel-Lucent vendor specific sub-option in 
+         option 82 of the unmatched host."
+    ::= { tmnxLocUsrDbDhcpUnmatchedEntry 6 }
+
+tmnxLocUsrDbDhcpUnString OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE(0..255))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpUnString indicates
+         the string from the Alcatel-Lucent vendor specific sub-option in 
+         option 82 of the unmatched host."
+    ::= { tmnxLocUsrDbDhcpUnmatchedEntry 7 }
+
+tmnxLocUsrDbDhcpUnOption60 OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(0..32))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpUnOption60 indicates
+         the option 60 of the unmatched host."
+    ::= { tmnxLocUsrDbDhcpUnmatchedEntry 8 }
+
+tmnxLocUsrDbDhcpUnmatchedReason OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbUnmatchedReason
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpUnmatchedReason indicates
+         why this host is not matched."
+    ::= { tmnxLocUsrDbDhcpUnmatchedEntry 9 }
+
+tmnxLocUsrDbDhcpUnDuplicateHost OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE(0..32))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpUnDuplicateHost indicates
+         the name of the host that is already matched and that has the same
+         values, configured for the objects that correspond with the match
+         types, as this unmatched host.
+
+         This value of this object is the empty string, unless the value of
+         tmnxLocUsrDbDhcpUnmatchedReason is 'duplicate (2)'."
+    ::= { tmnxLocUsrDbDhcpUnmatchedEntry 10 }
+
+-- --------------------------------------------------------
+--  tmnxLocUsrDbDhcpOptionTable
+-- --------------------------------------------------------
+tmnxLocUsrDbDhcpOptionTableLstCh OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpOptionTableLstCh indicates
+         the value of sysUpTime at the time of the last modification of
+         an entry in the tmnxLocUsrDbDhcpOptionTable."
+    ::= { tmnxLocalUserDbObjs 11 }
+
+tmnxLocUsrDbDhcpOptionTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxLocUsrDbDhcpOptionEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The table tmnxLocUsrDbDhcpOptionTable contains objects to configure
+         the DHCP options of each DHCP host."
+    ::= { tmnxLocalUserDbObjs 12 }
+
+tmnxLocUsrDbDhcpOptionEntry OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbDhcpOptionEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each row represents a DHCP option that is encoded in the DHCP reply
+         message of this DHCP host.
+
+         Entries in this table can be created or deleted via SNMP operations."
+    INDEX { tmnxLocUsrDbUserDatabaseName,
+            tmnxLocUsrDbDhcpHostName,
+            tmnxLocUsrDbDhcpOptionNumber }
+    ::= { tmnxLocUsrDbDhcpOptionTable 1 }
+
+TmnxLocUsrDbDhcpOptionEntry ::= SEQUENCE {
+    tmnxLocUsrDbDhcpOptionNumber     Unsigned32,
+    tmnxLocUsrDbDhcpOptionRowStatus  RowStatus,
+    tmnxLocUsrDbDhcpOptionLastChngTm TimeStamp,
+    tmnxLocUsrDbDhcpOptionType       TmnxDhcpOptionType,
+    tmnxLocUsrDbDhcpOptionValue      OCTET STRING
+}
+
+tmnxLocUsrDbDhcpOptionNumber OBJECT-TYPE
+    SYNTAX      Unsigned32 (1..254)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpOptionNumber specifies
+         the number of this DHCP option."
+    REFERENCE
+        "RFC 2132"
+    ::= { tmnxLocUsrDbDhcpOptionEntry 1 }
+
+tmnxLocUsrDbDhcpOptionRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpOptionRowStatus specifies
+         the row status of this row.
+
+         Objects tmnxLocUsrDbDhcpOptionType and tmnxLocUsrDbDhcpOptionValue
+         must be set when creating a new row."
+    ::= { tmnxLocUsrDbDhcpOptionEntry 2 }
+
+tmnxLocUsrDbDhcpOptionLastChngTm OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpOptionLastChngTm indicates
+         the sysUpTime at the time of the last modification of this entry."
+    ::= { tmnxLocUsrDbDhcpOptionEntry 3 }
+
+tmnxLocUsrDbDhcpOptionType OBJECT-TYPE
+    SYNTAX      TmnxDhcpOptionType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpOptionType specifies
+         how the value of this option in stored in
+         tmnxLocUsrDbDhcpOptionValue.
+
+         This object is mandatory at creation time."
+    ::= { tmnxLocUsrDbDhcpOptionEntry 4 }
+
+tmnxLocUsrDbDhcpOptionValue OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE (0..127))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpOptionValue specifies
+         the value of this option.
+
+         This object is mandatory at creation time. A zero length value is only
+         allowed when the value of tmnxLocUsrDbDhcpOptionType is 'hex (3)'."
+    ::= { tmnxLocUsrDbDhcpOptionEntry 5 }
+
+-- --------------------------------------------------------
+--  tmnxLocUsrDbPppoeAuthTool
+-- --------------------------------------------------------
+tmnxLocUsrDbPppoeAuthTool OBJECT IDENTIFIER ::= { tmnxLocalUserDbObjs 13 }
+
+-- The tmnxLocUsrDbPppoeAuthTool object allows to simulate the
+-- authentication of a PPPoE user in a given User Database.
+--
+-- The local user database name and the username to be authenticated must
+-- be written in the objects tmnxLocUsrDbPppoeAuthDbName and
+-- tmnxLocUsrDbPppoeAuthUsrName, respectively. Optionally the password to
+-- verify can be written in the object tmnxLocUsrDbPppoeAuthPwd.
+-- Writing the value 'doAction (1)' in the object tmnxLocUsrDbPppoeAuthenticate
+-- triggers an attempt to match the username to a PPPoE user in the
+-- tmnxLocUsrDbPppoeTable.
+--
+-- If such a match is found, the value of the object
+-- tmnxLocUsrDbPppoeAuthSuccessful equals 'true (1)' and the value of
+-- tmnxLocUsrDbPppoeAuthHostName identifies the PPPoE user in the
+-- tmnxLocUsrDbPppoeTable.
+--
+tmnxLocUsrDbPppoeAuthDbName OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeAuthDbName specifies
+         the name of the local user database in which to perform the match."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbPppoeAuthTool 1 }
+
+tmnxLocUsrDbPppoeAuthUsrName OBJECT-TYPE
+    SYNTAX      TmnxPppoeUserNameOrEmpty
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeAuthUsrName specifies
+         the username to match."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbPppoeAuthTool 2 }
+
+tmnxLocUsrDbPppoeAuthPwd OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE (0..32))
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeAuthPwd indicates
+         the password to match for the given username. This is optional.
+
+         This object will always return an empty string on a read."
+    ::= { tmnxLocUsrDbPppoeAuthTool 3 }
+
+tmnxLocUsrDbPppoeAuthenticate OBJECT-TYPE
+    SYNTAX      TmnxActionType
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Setting this object to 'doAction (1)' triggers 
+         an attempt to match the tmnxLocUsrDbPppoeAuthUsrName to a PPPoE user 
+         in the tmnxLocUsrDbPppoeTable. If a user is found and the value of
+         tmnxLocUsrDbPppoeAuthPwd is not the empty string, the password will be
+         verified.
+
+         Reading this object returns the value 'notApplicable'."
+    DEFVAL { notApplicable }
+    ::= { tmnxLocUsrDbPppoeAuthTool 4 }
+
+tmnxLocUsrDbPppoeAuthSuccessful OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeAuthSuccessful indicates
+         whether the authentication was successful.
+
+         If the value of the object equals 'true (1)', then the value of
+         tmnxLocUsrDbPppoeAuthHostName identifies the PPPoE user in the 
+         tmnxLocUsrDbPppoeTable."
+    ::= { tmnxLocUsrDbPppoeAuthTool 5 }
+
+tmnxLocUsrDbPppoeAuthErrorMsg OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE (0..255))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeAuthErrorMsg indicates
+         the reason of failure, in case the value of the object
+         tmnxLocUsrDbPppoeAuthSuccessful is equal to 'false (2)'.
+         
+         If the value of the object tmnxLocUsrDbPppoeAuthSuccessful is equal to
+         'true (1)', this object contains an empty string."
+    ::= { tmnxLocUsrDbPppoeAuthTool 6 }
+
+tmnxLocUsrDbPppoeAuthTime OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeAuthTime indicates
+         the value of sysUpTime at the last time that the object 
+         tmnxLocUsrDbPppoeAuthSuccessful was written by the system."
+    ::= { tmnxLocUsrDbPppoeAuthTool 7 }
+
+tmnxLocUsrDbPppoeAuthHostName OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE(0..32))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeAuthHostName indicates
+         the name of this host or set of hosts."
+    ::= { tmnxLocUsrDbPppoeAuthTool 8 }
+
+tmnxLocUsrDbPppoeAuthMacAddress OBJECT-TYPE
+    SYNTAX      MacAddress
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeAuthMacAddress specifies
+         the MAC address to match against.
+
+         If the value of this object is set to all zeros, then it is not used."
+    DEFVAL { '000000000000'H }
+    ::= { tmnxLocUsrDbPppoeAuthTool 9 }
+
+tmnxLocUsrDbPppoeAuthRemoteId OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(0..255))
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeAuthRemoteId specifies
+         the remote Id to match against.
+
+         If the value of this object is the empty string, then it is not used."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbPppoeAuthTool 10 }
+
+tmnxLocUsrDbPppoeAuthCircuitIdFmt OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbDataFormat
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeAuthCircuitIdFmt specifies
+         how the value of tmnxLocUsrDbPppoeCircuitId must be formatted."
+    DEFVAL { ascii }
+    ::= { tmnxLocUsrDbPppoeAuthTool 11 }
+
+tmnxLocUsrDbPppoeAuthCircuitId OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(0..127))
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeAuthCircuitId specifies
+         the circuit Id to match against.
+
+         If the value of this object is the empty string, then it is not used."
+    DEFVAL { ''H }
+    ::= { tmnxLocUsrDbPppoeAuthTool 12 }
+
+tmnxLocUsrDbPppoeAuthServiceName OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE(0..255))
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeAuthServiceName specifies
+         the PPPoE service name to match against.
+
+         If the value of this object is the empty string, then it is not used."
+    DEFVAL { "" }
+    ::= { tmnxLocUsrDbPppoeAuthTool 13 }
+
+tmnxLocUsrDbPppoeAuthRemoteIdFmt OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbDataFormat
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeAuthRemoteIdFmt specifies
+         how the value of tmnxLocUsrDbPppoeRemoteId must be formatted."
+    DEFVAL { ascii }
+    ::= { tmnxLocUsrDbPppoeAuthTool 14 }
+
+tmnxLocUsrDbPppoeAuthSapId OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE(0..255))
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeAuthSapId specifies
+         the sapId to match against.
+
+         If the value of this object is the empty string, then it is not used."
+    DEFVAL { "" }
+::= { tmnxLocUsrDbPppoeAuthTool 15 }
+
+-- --------------------------------------------------------
+--  tmnxLocUsrDbDhcpMaskTable
+-- --------------------------------------------------------
+tmnxLocUsrDbDhcpMaskTableLstCh OBJECT-TYPE
+   SYNTAX      TimeStamp
+   MAX-ACCESS  read-only
+   STATUS      current
+   DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpMaskTableLstCh indicates the
+         value of sysUpTime at the time of the last modification of an entry
+         in the tmnxLocUsrDbDhcpMaskTable."
+   ::= { tmnxLocalUserDbObjs 14 }
+
+tmnxLocUsrDbDhcpMaskTable OBJECT-TYPE
+   SYNTAX      SEQUENCE OF TmnxLocUsrDbDhcpMaskEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+        "The table tmnxLocUsrDbDhcpMaskTable contains objects to configure
+         local user database masking for DHCP hosts."
+   ::= { tmnxLocalUserDbObjs 15 }
+
+tmnxLocUsrDbDhcpMaskEntry OBJECT-TYPE
+   SYNTAX      TmnxLocUsrDbDhcpMaskEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+        "Each row represents a local user database mask.
+
+         Entries in this table can be created or deleted via SNMP operations.
+        
+         An incoming string of the type that corresponds to the value of the
+         tmnxLocUsrDbDhcpMaskMatchType index of this conceptual row 
+         is matched with the object in the tmnxLocUsrDbDhcpTable  
+         that corresponds to the values of the  
+         tmnxLocUsrDbUserDatabaseName and tmnxLocUsrDbDhcpMaskMatchType 
+         indices in this conceptual row:
+
+         match type    | object
+         --------------------------------------------
+         circuitId     | tmnxLocUsrDbDhcpCircuitId
+         macAddr       | tmnxLocUsrDbDhcpMacAddress
+         remoteId      | tmnxLocUsrDbDhcpRemoteId
+         sapId         | tmnxLocUsrDbDhcpSapId
+         serviceId     | tmnxLocUsrDbDhcpServiceId
+         string        | tmnxLocUsrDbDhcpString
+         systemId      | tmnxLocUsrDbDhcpSystemId
+         option60      | tmnxLocUsrDbDhcpOption60"
+
+   INDEX { tmnxLocUsrDbUserDatabaseName,
+           tmnxLocUsrDbDhcpMaskMatchType }
+   ::= { tmnxLocUsrDbDhcpMaskTable 1 }
+
+TmnxLocUsrDbDhcpMaskEntry ::= SEQUENCE {
+   tmnxLocUsrDbDhcpMaskMatchType TmnxLocUsrDbMatchTypeDhcp,
+   tmnxLocUsrDbDhcpMaskRowStatus RowStatus,
+   tmnxLocUsrDbDhcpMaskPreStr    TmnxLocUsrDbMaskString,
+   tmnxLocUsrDbDhcpMaskPreNum    Unsigned32,
+   tmnxLocUsrDbDhcpMaskSufStr    TmnxLocUsrDbMaskString,
+   tmnxLocUsrDbDhcpMaskSufNum    Unsigned32
+}
+
+tmnxLocUsrDbDhcpMaskMatchType OBJECT-TYPE
+   SYNTAX      TmnxLocUsrDbMatchTypeDhcp
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+       "xxx"
+   ::= { tmnxLocUsrDbDhcpMaskEntry 1 }
+
+tmnxLocUsrDbDhcpMaskRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpMaskRowStatus specifies
+         the row status of this entry."
+    ::= { tmnxLocUsrDbDhcpMaskEntry 2 }
+
+tmnxLocUsrDbDhcpMaskPreStr OBJECT-TYPE
+   SYNTAX      TmnxLocUsrDbMaskString
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpMaskPreStr specifies
+         a substring that is stripped off the start of the incoming string
+         before it is matched against the value configured in the corresponding
+         object in the tmnxLocUsrDbDhcpTable.
+
+         This string can only contain printable ASCII characters.
+         Character '*' is a wildcard that matches any substring; it can be
+         escaped by character '\'.
+         
+         At least one of the values of tmnxLocUsrDbDhcpMaskPreNum and
+         tmnxLocUsrDbDhcpMaskPreStr must be equal to the default value."
+   DEFVAL { "" }
+   ::= { tmnxLocUsrDbDhcpMaskEntry 3 }
+
+tmnxLocUsrDbDhcpMaskPreNum OBJECT-TYPE
+   SYNTAX      Unsigned32 (0..127)
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpMaskPreNum specifies
+         the number of characters to remove from the start of the incoming
+         string before it is matched against the value configured in the 
+         corresponding object in the tmnxLocUsrDbDhcpTable.
+         
+         At least one of the values of tmnxLocUsrDbDhcpMaskPreNum and
+         tmnxLocUsrDbDhcpMaskPreStr must be equal to the default value."
+   DEFVAL { 0 }
+   ::= { tmnxLocUsrDbDhcpMaskEntry 4 }
+
+tmnxLocUsrDbDhcpMaskSufStr OBJECT-TYPE
+   SYNTAX      TmnxLocUsrDbMaskString
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpMaskSufStr specifies
+         a substring that is stripped off the end of the incoming string
+         before it is matched against the value configured in the 
+         corresponding object in the tmnxLocUsrDbDhcpTable.
+
+         This string can only contain printable ASCII characters.
+         Character '*' is a wildcard that matches any substring; it can be
+         escaped by character '\'.
+         
+         At least one of the values of tmnxLocUsrDbDhcpMaskSufNum and
+         tmnxLocUsrDbDhcpMaskSufStr must be equal to the default value."
+   DEFVAL { "" }
+   ::= { tmnxLocUsrDbDhcpMaskEntry 5 }
+
+tmnxLocUsrDbDhcpMaskSufNum OBJECT-TYPE
+   SYNTAX      Unsigned32 (0..127)
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION
+        "The value of the object tmnxLocUsrDbDhcpMaskSufNum specifies
+         the number of characters to remove from the end of the incoming
+         string before it is matched against the value configured in the 
+         corresponding object in the tmnxLocUsrDbDhcpTable.
+         
+         At least one of the values of tmnxLocUsrDbDhcpMaskSufNum and
+         tmnxLocUsrDbDhcpMaskSufStr must be equal to the default value."
+   DEFVAL { 0 }
+   ::= { tmnxLocUsrDbDhcpMaskEntry 6 }
+
+-- --------------------------------------------------------
+--  tmnxLocUsrDbPppoeMaskTable
+-- --------------------------------------------------------
+tmnxLocUsrDbPppoeMaskTableLstCh OBJECT-TYPE
+   SYNTAX      TimeStamp
+   MAX-ACCESS  read-only
+   STATUS      current
+   DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeMaskTableLstCh indicates the
+         value of sysUpTime at the time of the last modification of an entry
+         in the tmnxLocUsrDbPppoeMaskTable."
+   ::= { tmnxLocalUserDbObjs 16 }
+
+tmnxLocUsrDbPppoeMaskTable OBJECT-TYPE
+   SYNTAX      SEQUENCE OF TmnxLocUsrDbPppoeMaskEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+        "The table tmnxLocUsrDbPppoeMaskTable contains objects to configure
+         local user database masking for PPPoE hosts."
+   ::= { tmnxLocalUserDbObjs 17 }
+
+tmnxLocUsrDbPppoeMaskEntry OBJECT-TYPE
+   SYNTAX      TmnxLocUsrDbPppoeMaskEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+        "Each row represents a local user database mask.
+
+         Entries in this table can be created or deleted via SNMP operations.
+        
+         An incoming string of the type that corresponds to the value of the
+         tmnxLocUsrDbPppoeMaskMatchType index of this conceptual row 
+         is matched with the object in the tmnxLocUsrDbPppoeTable  
+         that corresponds to the values of the  
+         tmnxLocUsrDbUserDatabaseName and tmnxLocUsrDbPppoeMaskMatchType 
+         indices in this conceptual row:
+
+         match type    | object
+         --------------------------------------------
+         circuitId     | tmnxLocUsrDbPppoeCircuitId
+         macAddr       | tmnxLocUsrDbPppoeMacAddress
+         remoteId      | tmnxLocUsrDbPppoeRemoteId
+         userName      | tmnxLocUsrDbPppoeUserName
+         serviceName   | tmnxLocUsrDbPppoeServiceName
+         sapId         | tmnxLocUsrDbPppoeSapId"
+
+   INDEX { tmnxLocUsrDbUserDatabaseName,
+           tmnxLocUsrDbPppoeMaskMatchType }
+   ::= { tmnxLocUsrDbPppoeMaskTable 1 }
+
+TmnxLocUsrDbPppoeMaskEntry ::= SEQUENCE {
+   tmnxLocUsrDbPppoeMaskMatchType TmnxLocUsrDbMatchTypePppoe,
+   tmnxLocUsrDbPppoeMaskRowStatus RowStatus,
+   tmnxLocUsrDbPppoeMaskPreStr    TmnxLocUsrDbMaskString,
+   tmnxLocUsrDbPppoeMaskPreNum    Unsigned32,
+   tmnxLocUsrDbPppoeMaskSufStr    TmnxLocUsrDbMaskString,
+   tmnxLocUsrDbPppoeMaskSufNum    Unsigned32
+}
+
+tmnxLocUsrDbPppoeMaskMatchType OBJECT-TYPE
+   SYNTAX      TmnxLocUsrDbMatchTypePppoe
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+       "xxx"
+   ::= { tmnxLocUsrDbPppoeMaskEntry 1 }
+
+tmnxLocUsrDbPppoeMaskRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeMaskRowStatus specifies
+         the row status of this entry."
+    ::= { tmnxLocUsrDbPppoeMaskEntry 2 }
+
+tmnxLocUsrDbPppoeMaskPreStr OBJECT-TYPE
+   SYNTAX      TmnxLocUsrDbMaskString
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeMaskPreStr specifies
+         a substring that is stripped off the start of the incoming string
+         before it is matched against the value configured in the corresponding
+         object in the tmnxLocUsrDbPppoeTable.
+
+         This string can only contain printable ASCII characters.
+         Character '*' is a wildcard that matches any substring; it can be
+         escaped by character '\'.
+         
+         At least one of the values of tmnxLocUsrDbPppoeMaskPreNum and
+         tmnxLocUsrDbPppoeMaskPreStr must be equal to the default value."
+   DEFVAL { "" }
+   ::= { tmnxLocUsrDbPppoeMaskEntry 3 }
+
+tmnxLocUsrDbPppoeMaskPreNum OBJECT-TYPE
+   SYNTAX      Unsigned32 (0..127)
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeMaskPreNum specifies
+         the number of characters to remove from the start of the incoming
+         string before it is matched against the value configured in the 
+         corresponding object in the tmnxLocUsrDbPppoeTable.
+         
+         At least one of the values of tmnxLocUsrDbPppoeMaskPreNum and
+         tmnxLocUsrDbPppoeMaskPreStr must be equal to the default value."
+   DEFVAL { 0 }
+   ::= { tmnxLocUsrDbPppoeMaskEntry 4 }
+
+tmnxLocUsrDbPppoeMaskSufStr OBJECT-TYPE
+   SYNTAX      TmnxLocUsrDbMaskString
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeMaskSufStr specifies
+         a substring that is stripped of the end of the incoming string
+         before it is matched against the value configured in the 
+         corresponding object in the tmnxLocUsrDbPppoeTable.
+
+         This string can only contain printable ASCII characters.
+         Character '*' is a wildcard that matches any substring; it can be
+         escaped by character '\'.
+         
+         At least one of the values of tmnxLocUsrDbPppoeMaskSufNum and
+         tmnxLocUsrDbPppoeMaskSufStr must be equal to the default value."
+   DEFVAL { "" }
+   ::= { tmnxLocUsrDbPppoeMaskEntry 5 }
+
+tmnxLocUsrDbPppoeMaskSufNum OBJECT-TYPE
+   SYNTAX      Unsigned32 (0..127)
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION
+        "The value of the object tmnxLocUsrDbPppoeMaskSufNum specifies
+         the number of characters to remove from the end of the incoming
+         string before it is matched against the value configured in the 
+         corresponding object in the tmnxLocUsrDbPppoeTable.
+         
+         At least one of the values of tmnxLocUsrDbPppoeMaskSufNum and
+         tmnxLocUsrDbPppoeMaskSufStr must be equal to the default value."
+   DEFVAL { 0 }
+   ::= { tmnxLocUsrDbPppoeMaskEntry 6 }
+
+-- --------------------------------------------------------
+--  tmnxLudbHostTable
+-- --------------------------------------------------------
+tmnxLudbHostTableLastChange OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostTableLastChange indicates
+         the value of sysUpTime at the time of the last modification of
+         an entry in the tmnxLudbHostTable."
+    ::= { tmnxLocalUserDbObjs 20 }
+
+tmnxLudbHostTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxLudbHostEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The table tmnxLudbHostTable contains objects to configure 
+         local user database host templates."
+    ::= { tmnxLocalUserDbObjs 21 }
+
+tmnxLudbHostEntry OBJECT-TYPE
+    SYNTAX      TmnxLudbHostEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each conceptual row represents a local user database host template.
+
+         Entries in this table can be created or deleted via SNMP operations."
+    INDEX { tmnxLocUsrDbUserDatabaseName,
+            tmnxLudbHostType,
+            tmnxLudbHostName }
+    ::= { tmnxLudbHostTable 1 }
+
+TmnxLudbHostEntry ::= SEQUENCE {
+--  any type of host:
+    tmnxLudbHostType                 TmnxLocUsrDbHostType,
+    tmnxLudbHostName                 DisplayString,
+    tmnxLudbHostRowStatus            RowStatus,
+    tmnxLudbHostLastChangeTime       TimeStamp,
+    tmnxLudbHostApplications         TmnxLocUsrDbHostApplications,
+    tmnxLudbHostAdminState           TmnxAdminState,
+    tmnxLudbHostMacAddress           MacAddress,
+    tmnxLudbHostCircuitIdFmt         TmnxLocUsrDbDataFormat,
+    tmnxLudbHostCircuitId            OCTET STRING,
+    tmnxLudbHostRemoteIdFmt          TmnxLocUsrDbDataFormat,
+    tmnxLudbHostRemoteId             OCTET STRING,
+    tmnxLudbHostAddrType             InetAddressType,
+    tmnxLudbHostAddress              InetAddress,
+    tmnxLudbHostPool                 TNamedItemOrEmpty,
+    tmnxLudbHostUseGiAddress         TruthValue,
+    tmnxLudbHostIdStringOptNum       Unsigned32,
+    tmnxLudbHostSubscriberId         TmnxSubIdentStringOrEmpty,
+    tmnxLudbHostSlaProfString        TmnxSlaProfileStringOrEmpty,
+    tmnxLudbHostFltrProfString       TmnxFilterProfileStringOrEmpty,
+    tmnxLudbHostSubProfString        TmnxSubProfileStringOrEmpty,
+    tmnxLudbHostAppProfString        DisplayString,
+    tmnxLudbHostAncpString           TmnxAncpStringOrZero,
+    tmnxLudbHostInterDestId          TNamedItemOrEmpty,
+    tmnxLudbHostUseClientPool        TruthValue,
+    tmnxLudbHostAuthPolicy           TNamedItemOrEmpty,
+    tmnxLudbHostRetailerSvcId        TmnxServId,
+    tmnxLudbHostCategoryMapName      TNamedItemOrEmpty,
+    tmnxLudbHostDefMsapPolicy        TPolicyStatementNameOrEmpty,
+    tmnxLudbHostDefMsapService       TmnxServId,
+    tmnxLudbHostDefMsapGroupIf       TNamedItemOrEmpty,
+    tmnxLudbHostSystemId             DisplayString,    
+    tmnxLudbHostServiceId            TmnxServId,
+    tmnxLudbHostSapId                DisplayString,
+    tmnxLudbHostString               DisplayString,
+    tmnxLudbHostIpv6Addr             InetAddress,
+    tmnxLudbHostIpv6Pfx              InetAddress,
+    tmnxLudbHostIpv6PfxLen           InetAddressPrefixLength,
+    tmnxLudbHostAuthDomainName       DisplayString,
+--  DHCP type host:
+    tmnxLudbHostDhcpOption60Fmt      TmnxLudbDataFormat,
+    tmnxLudbHostDhcpOption60         OCTET STRING,
+    tmnxLudbHostDhcpRelayAddrType    InetAddressType,
+    tmnxLudbHostDhcpRelayAddress     InetAddress,
+--  PPP type host:  
+    tmnxLudbHostPppUserNameFormat    TmnxLocUsrDbUserNameFormat,
+    tmnxLudbHostPppUserName          TmnxPppoeUserNameOrEmpty,
+    tmnxLudbHostPppPasswordType      TmnxLocUsrDbPasswordType,
+    tmnxLudbHostPppPassword          OCTET STRING,
+    tmnxLudbHostPppServiceName       DisplayString,
+    tmnxLudbHostPppL2tpTunnelGroup   TmnxL2tpTunnelGroupNameOrEmpty,
+    tmnxLudbHostPppL2tpSvcId         TmnxServId,
+    tmnxLudbHostPppService           TmnxServId,
+    tmnxLudbHostPppInterface         TNamedItemOrEmpty,
+    tmnxLudbHostPppoePadoDelay       TmnxPppoePadoDelay
+    }
+
+tmnxLudbHostType OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbHostType
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostType specifies
+         the type of actual host this local user database host template
+         is intended for."
+    ::= { tmnxLudbHostEntry 1 }
+
+tmnxLudbHostName OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE(1..32))
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostName specifies
+         the host name of this local user database host template."
+    ::= { tmnxLudbHostEntry 2 }
+
+tmnxLudbHostRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostRowStatus specifies
+         the row status of this entry."
+    ::= { tmnxLudbHostEntry 3 }
+
+tmnxLudbHostLastChangeTime OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostLastChangeTime indicates
+         the sysUpTime at the time of the last modification of this entry."
+    ::= { tmnxLudbHostEntry 4 }
+
+tmnxLudbHostApplications OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbHostApplications
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostApplications specifies
+         the types of actual host this local user database host template
+         is intended for if it is a generic host template.
+         
+         The value of this object is not relevant unless the value of the object
+         tmnxLudbHostType is equal to 'any'."
+    ::= { tmnxLudbHostEntry 5 }
+
+tmnxLudbHostAdminState OBJECT-TYPE
+    SYNTAX      TmnxAdminState
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostAdminState specifies
+         the administrative state of the tmnxLudbHostEntry."
+    DEFVAL { outOfService }
+    ::= { tmnxLudbHostEntry 10 }
+
+tmnxLudbHostMacAddress OBJECT-TYPE
+    SYNTAX      MacAddress
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostMacAddress specifies
+         the MAC address to match against.
+
+         If the value of this object is set to all zeros, then it is not used."
+    DEFVAL { '000000000000'H }
+    ::= { tmnxLudbHostEntry 11 }
+
+tmnxLudbHostCircuitIdFmt OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbDataFormat
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostCircuitIdFmt specifies
+         how the value of tmnxLudbHostCircuitId must be formatted."
+    DEFVAL { ascii }
+    ::= { tmnxLudbHostEntry 12 }
+
+tmnxLudbHostCircuitId OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(0..127))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostCircuitId specifies
+         the circuit Id to match against.
+
+         If the value of this object is the empty string, then it is not used."
+    DEFVAL { ''H }
+    ::= { tmnxLudbHostEntry 13 }
+
+tmnxLudbHostRemoteIdFmt OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbDataFormat
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostRemoteIdFmt specifies
+         how the value of tmnxLudbHostRemoteIdFmt must be formatted."
+    DEFVAL { ascii }
+    ::= { tmnxLudbHostEntry 14 }
+
+tmnxLudbHostRemoteId OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(0..255))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostRemoteId specifies
+         the remote Id to match against.
+
+         If the value of this object is the empty string, then it is not used."
+    DEFVAL { "" }
+    ::= { tmnxLudbHostEntry 15 }
+
+tmnxLudbHostAddrType OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostAddrType specifies
+         the type of tmnxLudbHostAddress."
+    DEFVAL { unknown }
+    ::= { tmnxLudbHostEntry 16 }
+
+tmnxLudbHostAddress OBJECT-TYPE
+    SYNTAX      InetAddress (SIZE(0|4|16))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostAddress specifies
+         the IP address of this host.
+
+         This object can only be configured if object tmnxLudbHostPool
+         contains the empty string and object tmnxLudbHostUseGiAddress
+         is 'false(2)'."
+    DEFVAL { ''H }
+    ::= { tmnxLudbHostEntry 17 }
+
+tmnxLudbHostPool OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostPool specifies
+         the IP address pool which is used to search for an IP address for this
+         host.
+
+         This object can only be configured if object tmnxLudbHostAddrType
+         is 'unknown(0)' and the values of the objects 
+         tmnxLudbHostUseGiAddress and tmnxLudbHostUseClientPool 
+         are 'false (2)'.
+         
+         This object is applicable if it is the local DHCP server that queries
+         the local user database."
+    DEFVAL { "" }
+    ::= { tmnxLudbHostEntry 18 }
+
+tmnxLudbHostUseGiAddress OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostUseGiAddress specifies
+         whether the GI address is used to search for an IP address for this
+         host.
+
+         If the value of this object is set to 'true(1)', then the Gateway IP
+         address is used.
+
+         This object can only be set to 'true(1)' when the value of
+         tmnxLudbHostAddrType is 'unknown(0)' and tmnxLudbHostPool
+         contains the empty string."
+    DEFVAL { false }
+    ::= { tmnxLudbHostEntry 19 }
+
+tmnxLudbHostIdStringOptNum OBJECT-TYPE
+    SYNTAX      Unsigned32 (0..254)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostIdStringOptNum specifies
+         the option number that the DHCP server uses to send the identification
+         strings.
+
+         If the value of this object is 0, then no identification strings will
+         be sent.
+         
+         This object is applicable if it is the local DHCP server that queries
+         the local user database, regardless of the type of host template."
+    DEFVAL { 0 }
+    ::= { tmnxLudbHostEntry 20 }
+
+tmnxLudbHostSubscriberId OBJECT-TYPE
+    SYNTAX      TmnxSubIdentStringOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostSubscriberId specifies
+         the subscriber Id which is encoded in the identification strings."
+    DEFVAL { "" }
+    ::= { tmnxLudbHostEntry 21 }
+
+tmnxLudbHostSlaProfString OBJECT-TYPE
+    SYNTAX      TmnxSlaProfileStringOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostSlaProfString specifies
+         the SLA profile string which is encoded in the identification strings."
+    DEFVAL { "" }
+    ::= { tmnxLudbHostEntry 22 }
+
+tmnxLudbHostFltrProfString OBJECT-TYPE
+    SYNTAX      TmnxFilterProfileStringOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostFltrProfString specifies
+         the filter profile string which is encoded in the identification
+         strings."
+    DEFVAL { "" }
+    ::= { tmnxLudbHostEntry 23 }
+
+tmnxLudbHostSubProfString OBJECT-TYPE
+    SYNTAX      TmnxSubProfileStringOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostSubProfString specifies
+         the subscriber profile string which is encoded in the identification
+         strings."
+    DEFVAL { "" }
+    ::= { tmnxLudbHostEntry 24 }
+
+tmnxLudbHostAppProfString OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE (0..16))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostAppProfString specifies
+         the application profile string which is encoded in the identification
+         strings."
+    DEFVAL { "" }
+    ::= { tmnxLudbHostEntry 25 }
+
+tmnxLudbHostAncpString OBJECT-TYPE
+    SYNTAX      TmnxAncpStringOrZero
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostAncpString specifies
+         the ANCP string which is encoded in the identification strings."
+    DEFVAL { "" }
+    ::= { tmnxLudbHostEntry 26 }
+
+tmnxLudbHostInterDestId OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostInterDestId specifies
+         the intermediate destination identifier which is encoded in the
+         identification strings."
+    DEFVAL { "" }
+    ::= { tmnxLudbHostEntry 27 }
+
+tmnxLudbHostUseClientPool OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostUseClientPool specifies
+         if the IP address pool used to search for an IP address for this
+         host is to be indicated by the vendor-specific sub-option 13
+         of the DHCP option 82.
+
+         If the value of this object is set to 'true (1)', the IP address pool
+         indicated by the sub-option 13 is used.
+
+         This object can only be set to 'true (1)' when the value of
+         tmnxLudbHostAddrType is 'unknown (0)' and tmnxLudbHostPool
+         contains the empty string."
+    DEFVAL { false }
+    ::= { tmnxLudbHostEntry 28 }
+
+tmnxLudbHostAuthPolicy OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostAuthPolicy specifies the
+         RADIUS authentication policy to use to authenticate the host."
+    DEFVAL { "" }
+    ::= { tmnxLudbHostEntry 29 }
+
+tmnxLudbHostRetailerSvcId OBJECT-TYPE
+    SYNTAX      TmnxServId
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostRetailerSvcId specifies the
+         retailer service Id for this host."
+    DEFVAL { 0 }
+    ::= { tmnxLudbHostEntry 30 }
+
+tmnxLudbHostCategoryMapName OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostCategoryMapName
+         specifies the name of the category map used when credit control
+         is active for this host."
+    DEFVAL { "" }
+    ::= { tmnxLudbHostEntry 31 }
+
+tmnxLudbHostDefMsapPolicy OBJECT-TYPE
+    SYNTAX      TPolicyStatementNameOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostDefMsapPolicy
+         specifies the default Managed SAP policy to use to create
+         Managed SAPs.
+         
+         While the values of both this object and sapTlsDefMsapPolicy
+         are empty, no Managed SAP's are created. 
+         
+         This object is applicable in case of RADIUS fallback."
+    DEFVAL { "" }
+    ::= { tmnxLudbHostEntry 32 }
+
+tmnxLudbHostDefMsapService OBJECT-TYPE
+    SYNTAX      TmnxServId
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostDefMsapService
+         specifies the service ID of the service where Managed SAP's 
+         are created.
+         
+         While the values of both this object and sapTlsDefMsapService 
+         are equal to zero, no Managed SAP's are created.
+         
+         This object is applicable in case of RADIUS fallback."
+    DEFVAL { 0 }
+    ::= { tmnxLudbHostEntry 33 }
+
+tmnxLudbHostDefMsapGroupIf OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostDefMsapService
+         specifies the name of the group interface where Managed SAP's are 
+         created.
+
+         While the values of both this object and sapTlsDefMsapGroupIf 
+         are empty, no Managed SAP's are created.
+         
+         This object is applicable in case of RADIUS fallback."
+    DEFVAL { "" }
+    ::= { tmnxLudbHostEntry 34 }
+
+tmnxLudbHostSystemId OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE(0..255))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostSystemId specifies
+         the system Id from the Alcatel-Lucent vendor specific sub-option in 
+         option 82 to match against.
+
+         If the value of this object is the empty string, then it is not used."
+    DEFVAL { "" }
+    ::= { tmnxLudbHostEntry 35 }
+
+tmnxLudbHostServiceId OBJECT-TYPE
+    SYNTAX      TmnxServId
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostServiceId specifies
+         the service ID to match against.
+         
+         If it is the local DHCP server that queries the local user database,
+         it uses the Alcatel-Lucent vendor specific sub-option in option 82.
+         
+         If the value of this object is 0, then it is not used."
+    DEFVAL { 0 }
+    ::= { tmnxLudbHostEntry 36 }
+
+tmnxLudbHostSapId OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE(0..255))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostSapId specifies
+         the SAP ID to match against.
+         
+         If it is the local DHCP server that queries the local user database,
+         it uses the Alcatel-Lucent vendor specific sub-option in option 82.
+
+         If the value of this object is the empty string, then it is not used."
+    DEFVAL { "" }
+    ::= { tmnxLudbHostEntry 37 }
+
+tmnxLudbHostString OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE(0..255))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostString specifies
+         the string to match against.
+         
+         If it is the local DHCP server that queries the local user database,
+         it uses the Alcatel-Lucent vendor specific sub-option in option 82.
+         
+         If the value of this object is the empty string, then it is not used."
+    DEFVAL { "" }
+    ::= { tmnxLudbHostEntry 38 }
+
+tmnxLudbHostIpv6Addr OBJECT-TYPE
+    SYNTAX      InetAddress (SIZE(0|16))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostIpv6Addr specifies
+         the IPv6 address to assign to the hosts of this local user database
+         host template."
+    DEFVAL { ''H }
+    ::= { tmnxLudbHostEntry 39 }
+
+tmnxLudbHostIpv6Pfx OBJECT-TYPE
+    SYNTAX      InetAddress (SIZE(0|16))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostIpv6Pfx specifies
+         the IPv6 prefix to assign to the hosts of this 
+         local user database host template."
+    DEFVAL { ''H }
+    ::= { tmnxLudbHostEntry 40 }
+
+tmnxLudbHostIpv6PfxLen OBJECT-TYPE
+    SYNTAX      InetAddressPrefixLength (0|48..64)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION 
+        "The value of the object tmnxLudbHostIpv6Pfx specifies
+         the IPv6 prefix length to assign to the hosts of this 
+         local user database host template.
+         
+         The value zero means that the IPv6 prefix is not configured."
+    ::= { tmnxLudbHostEntry 41 }
+
+tmnxLudbHostAuthDomainName OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE (0..32))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostAuthDomainName specifies the
+         domain name to use when RADIUS authentication is applicable."
+    DEFVAL { "" }
+    ::= { tmnxLudbHostEntry 42 }
+
+tmnxLudbHostDhcpOption60Fmt OBJECT-TYPE
+    SYNTAX      TmnxLudbDataFormat
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostDhcpOption60Fmt specifies
+         how the value of the value of tmnxLudbHostDhcpOption60 must be
+         formatted."
+    DEFVAL { hex }
+    ::= { tmnxLudbHostEntry 100 }
+
+tmnxLudbHostDhcpOption60 OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(0..32))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostDhcpOption60 specifies
+         the Vendor-Identifying Vendor Option to match against. Option 60
+         is encoded as Type - Length - Value. The Value portion of Option 60
+         in the received DHCP request is used to match against
+         tmnxLudbHostDhcpOption60.
+
+         If the value of this object is the empty string, then it is not used."
+    REFERENCE
+        "RFC 3925"
+    DEFVAL { "" }
+    ::= { tmnxLudbHostEntry 101 }
+
+tmnxLudbHostDhcpRelayAddrType OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostDhcpRelayAddrType specifies
+         the type of tmnxLudbHostDhcpRelayAddress."
+    DEFVAL { unknown }
+    ::= { tmnxLudbHostEntry 102 }
+
+tmnxLudbHostDhcpRelayAddress OBJECT-TYPE
+    SYNTAX      InetAddress (SIZE(0|4|16))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostDhcpRelayAddress specifies
+         the address of the DHCP server to relay to."
+    DEFVAL { ''H }
+    ::= { tmnxLudbHostEntry 103 }
+
+tmnxLudbHostPppUserNameFormat OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbUserNameFormat
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostPppUserNameFormat specifies
+         the format of tmnxLudbHostPppUserName."
+    DEFVAL { none }
+    ::= { tmnxLudbHostEntry 200 }
+
+tmnxLudbHostPppUserName OBJECT-TYPE
+    SYNTAX      TmnxPppoeUserNameOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostPppUserName specifies
+         the PPPoE username to match against.
+
+         If the value of this object is the empty string, then it is not used.
+         In that case, tmnxLudbHostPppUserNameFormat must be 'none (0)'."
+    DEFVAL { "" }
+    ::= { tmnxLudbHostEntry 201 }
+
+tmnxLudbHostPppPasswordType OBJECT-TYPE
+    SYNTAX      TmnxLocUsrDbPasswordType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostPppPasswordType specifies
+         the type of tmnxLudbHostPppPassword."
+    DEFVAL { none }
+    ::= { tmnxLudbHostEntry 202 }
+
+tmnxLudbHostPppPassword OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(0..32))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostPppPassword specifies
+         the password of this host.
+
+         This object can only be set if tmnxLudbHostPppUserName is not an
+         empty string.
+
+         If the value of this object is not an empty string, then the value
+         of tmnxLudbHostPppPasswordType must be either 'pap(2)' or 'chap(3)'.
+         
+         This object will always return an empty string on a read."
+    DEFVAL { ''H }
+    ::= { tmnxLudbHostEntry 203 }
+
+tmnxLudbHostPppServiceName OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE(0..255))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostPppServiceName specifies
+         the PPPoE service name to match against.
+
+         If the value of this object is the empty string, then it is not used."
+    DEFVAL { "" }
+    ::= { tmnxLudbHostEntry 204 }
+
+tmnxLudbHostPppL2tpTunnelGroup OBJECT-TYPE
+    SYNTAX      TmnxL2tpTunnelGroupNameOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostPppL2tpTunnelGroup specifies
+         the tunnel group to use to setup an L2TP tunnel/session.
+
+         If the value of this object is the empty string, no L2TP
+         tunneling will be done."
+    DEFVAL { "" }
+    ::= { tmnxLudbHostEntry 205 }
+
+tmnxLudbHostPppL2tpSvcId OBJECT-TYPE
+    SYNTAX      TmnxServId
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostPppL2tpSvcId specifies the
+         service ID of the service from where to take the tunnel group
+         (tmnxLudbHostPppL2tpTunnelGroup) to use to setup an L2TP LAC
+         tunnel/session.
+
+         If the value of this object is 0, L2TP tunneling will be done from
+         the base router context."
+    DEFVAL { 0 }
+    ::= { tmnxLudbHostEntry 206 }
+    
+tmnxLudbHostPppService OBJECT-TYPE
+    SYNTAX      TmnxServId
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostPppService
+         specifies the service ID of the service where the PPP sessions are 
+         established."
+    DEFVAL { 0 }
+    ::= { tmnxLudbHostEntry 207 }
+
+tmnxLudbHostPppInterface OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostPppInterface
+         specifies the name of the group interface where the PPP sessions are 
+         established"
+    DEFVAL { "" }
+    ::= { tmnxLudbHostEntry 208 }
+
+tmnxLudbHostPppoePadoDelay OBJECT-TYPE
+    SYNTAX      TmnxPppoePadoDelay
+    UNITS       "deci-seconds"
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbHostPppoePadoDelay specifies
+         the delay timeout before sending a PADO (PPPoE Active Discovery
+         Offer)."
+    DEFVAL { 0 }
+    ::= { tmnxLudbHostEntry 290 }
+
+-- --------------------------------------------------------
+--  tmnxLudbPppAleTable
+-- --------------------------------------------------------
+tmnxLudbPppAleTableLastChange OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbPppAleTableLastChange indicates
+         the value of sysUpTime at the time of the last modification of
+         an entry in the tmnxLudbPppAleTable."
+    ::= { tmnxLocalUserDbObjs 22 }
+
+tmnxLudbPppAleTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxLudbPppAleEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The table tmnxLudbPppAleTable contains objects to configure 
+         information related to the Access Loop Encapsulation of PPP
+         hosts."
+    ::= { tmnxLocalUserDbObjs 23 }
+
+tmnxLudbPppAleEntry OBJECT-TYPE
+    SYNTAX      TmnxLudbPppAleEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each row represents a template for PPP hosts.
+
+         Rows in this table can be created or deleted via SNMP operations.
+         
+         A row in this table can only be created while a row exists in the
+         tmnxLocUsrDbPppoeTable with the same index."
+    INDEX { tmnxLocUsrDbUserDatabaseName,
+            tmnxLocUsrDbPppoeHostName }
+    ::= { tmnxLudbPppAleTable 1 }
+
+TmnxLudbPppAleEntry ::= SEQUENCE {
+    tmnxLudbPppAleRowStatus       RowStatus,
+    tmnxLudbPppAleLastChangeTime  TimeStamp,
+    tmnxLudbPppAleEncapOffsetMode TmnxSubAleOffsetMode,
+    tmnxLudbPppAleEncapOffset     TmnxSubAleOffset,
+    tmnxLudbPppAleRateDown        Unsigned32
+}
+
+tmnxLudbPppAleRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbPppAleRowStatus specifies
+         the row status of this entry."
+    ::= { tmnxLudbPppAleEntry 1 }
+
+tmnxLudbPppAleLastChangeTime OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbPppAleLastChangeTime indicates
+         the sysUpTime at the time of the last modification of this entry."
+        ::= { tmnxLudbPppAleEntry 2 }
+
+tmnxLudbPppAleEncapOffsetMode OBJECT-TYPE
+    SYNTAX      TmnxSubAleOffsetMode 
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxLudbPppAleEncapOffset specifies how
+         the fixed packet offset will be derived.
+
+         The tmnxLudbPppAleEncapOffset is used to convey the 
+         information about the Access Loop Encapsulation type 
+         for this host.
+
+         The value 'none (0)' specifies that no adjustments are configured
+         in this template.
+
+         The value 'auto (1)' specifies that the adjustments be done according
+         to the value of the object tmnxLudbPppAleEncapOffset."
+    DEFVAL { none }
+    ::= { tmnxLudbPppAleEntry 3 }
+
+tmnxLudbPppAleEncapOffset OBJECT-TYPE
+    SYNTAX      TmnxSubAleOffset
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxLudbPppAleEncapOffset specifies
+         the fixed packet offset.
+
+         The tmnxLudbPppAleEncapOffset is used to convey the 
+         information about the Access Loop Encapsulation type 
+         for this host.
+
+         If the value of the object tmnxLudbPppAleEncapOffsetMode is equal to
+         'none', the offset is ignored.
+
+         If the value of the object tmnxLudbPppAleEncapOffsetMode is equal to
+         'auto', the offset is used."
+    DEFVAL { none }
+    ::= { tmnxLudbPppAleEntry 4 }
+
+tmnxLudbPppAleRateDown OBJECT-TYPE
+    SYNTAX      Unsigned32 (0..100000)
+    UNITS       "kbps"
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxLudbPppAleRateDown specifies 
+         the last mile link downstram rate 
+         needed for proper (shaping) rate calculations 
+         and interleaving delay in the access loop.
+         
+         The value zero means that no speed is configured in this template."
+    DEFVAL { 0 }
+    ::= { tmnxLudbPppAleEntry 6 }
+
+-- --------------------------------------------------------
+--  tmnxLudbRadproxCacheTable
+-- --------------------------------------------------------
+tmnxLudbRadproxCacheTableLastCh OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbRadproxCacheTableLastCh indicates
+         the value of sysUpTime at the time of the last modification of
+         an entry in the tmnxLudbRadproxCacheTable."
+    ::= { tmnxLocalUserDbObjs 24 }
+
+tmnxLudbRadproxCacheTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxLudbRadproxCacheEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The table tmnxLudbRadproxCacheTable contains objects to configure 
+         information related to the RADIUS Proxy cache for DHCP hosts."
+    ::= { tmnxLocalUserDbObjs 25 }
+
+tmnxLudbRadproxCacheEntry OBJECT-TYPE
+    SYNTAX      TmnxLudbRadproxCacheEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each row represents RADIUS Proxy cache information for a specific host.
+
+         A row in this table is present for each row in the 
+         tmnxLocUsrDbDhcpTable."
+    AUGMENTS {tmnxLocUsrDbDhcpEntry}
+    ::= { tmnxLudbRadproxCacheTable 1 }
+
+TmnxLudbRadproxCacheEntry ::= SEQUENCE {
+    tmnxLudbRadproxCacheLastCh       TimeStamp,
+    tmnxLudbRadproxCacheService      TmnxServId,
+    tmnxLudbRadproxCacheServer       TNamedItemOrEmpty,
+    tmnxLudbRadproxCacheMatchType    INTEGER,
+    tmnxLudbRadproxCacheMatchOption  Unsigned32,
+    tmnxLudbRadproxCacheFailAction   INTEGER,
+    tmnxLudbRadproxCacheMacFormat    TmnxMacSpecification
+}
+
+tmnxLudbRadproxCacheLastCh OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the object tmnxLudbRadproxCacheLastCh indicates
+         the sysUpTime at the time of the last modification of this entry."
+        ::= { tmnxLudbRadproxCacheEntry 1 }
+
+tmnxLudbRadproxCacheService OBJECT-TYPE
+    SYNTAX      TmnxServId 
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxLudbRadproxCacheService specifies the VPRN service
+         instance ID of the RADIUS Proxy server whose cache
+         this row is referring to.
+         
+         The value zero means either 
+         - that the RADIUS Proxy server is not specified 
+          (tmnxLudbRadproxCacheServer is empty), or
+         - that the RADIUS Proxy server is in the Base router instance 
+          (tmnxLudbRadproxCacheServer not empty)."
+    DEFVAL { 0 }
+    ::= { tmnxLudbRadproxCacheEntry 2 }
+
+tmnxLudbRadproxCacheServer OBJECT-TYPE
+    SYNTAX      TNamedItemOrEmpty
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxLudbRadproxCacheServer specifies 
+         the RADIUS Proxy server whose cache this row is referring to."
+    DEFVAL { "" }
+    ::= { tmnxLudbRadproxCacheEntry 3 }
+
+tmnxLudbRadproxCacheMatchType OBJECT-TYPE
+    SYNTAX      INTEGER {
+                   mac                              (1),
+                   circuitId                        (2),
+                   remoteId                         (3),
+                   option                           (4)
+                }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxLudbRadproxCacheMatchType specifies 
+         how to find a match for a DHCP host in the cache of a RADIUS Proxy
+         server.
+         
+         If the value of tmnxLudbRadproxCacheMatchType is equal to 'mac', the
+         MAC address of the DHCP host is used as lookup key in the RADIUS Proxy
+         cache.
+
+         If the value of tmnxLudbRadproxCacheMatchType is equal to 'circuitId',
+         the option-82 circuit-id sub-option of the DHCP host is used as lookup
+         key in the RADIUS Proxy cache.
+
+         If the value of tmnxLudbRadproxCacheMatchType is equal to 'remoteId',
+         the option-82 remote-id sub-option of the DHCP host is used as lookup
+         key in the RADIUS Proxy cache.
+
+         If the value of tmnxLudbRadproxCacheMatchType is equal to 'option',
+         the value of the object tmnxLudbRadproxCacheMatchOption is used as
+         a lookup key in the RADIUS Proxy cache.
+         
+         In all cases, the cache in the corresponding RADIUS Proxy server
+         must be configured accordingly."
+    DEFVAL { mac }
+    ::= { tmnxLudbRadproxCacheEntry 4 }
+
+tmnxLudbRadproxCacheMatchOption OBJECT-TYPE
+    SYNTAX      Unsigned32 (0|1..254)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxLudbRadproxCacheMatchOption specifies 
+         in what DHCP option to retrieve the value to be used 
+         as lookup key in the RADIUS Proxy cache.
+         
+         The value of tmnxLudbRadproxCacheMatchOption is only relevant
+         if the value of tmnxLudbRadproxCacheMatchType is equal to 'option'.
+         
+         The value zero means that this object is not configured."
+    DEFVAL { 0 }
+    ::= { tmnxLudbRadproxCacheEntry 5 }
+
+tmnxLudbRadproxCacheFailAction OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    continue                         (1),
+                    drop                             (2)
+                }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxLudbRadproxCacheFailAction specifies 
+         the action to take when no match is found in the cache."
+    DEFVAL { drop }
+    ::= { tmnxLudbRadproxCacheEntry 6 }
+
+tmnxLudbRadproxCacheMacFormat OBJECT-TYPE
+    SYNTAX      TmnxMacSpecification (SIZE (2..7))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxLudbRadproxCacheMacFormat specifies how a MAC
+         address is represented.         
+             
+         This is only used while the value of tmnxLudbRadproxCacheMatchType is
+         equal to 'mac'.
+         
+         Examples:
+         
+         'ab:'               00:0c:f1:99:85:b8  Alcatel-Lucent SROS style
+         'XY-'               00-0C-F1-99-85-B8  IEEE canonical style 
+         'mmmm.'             0002.03aa.abff     Cisco style."
+    DEFVAL { "aa:" }
+    ::= { tmnxLudbRadproxCacheEntry 7 }
+        
+-- --------------------------------------------------------
+--  Notification Objects
+-- --------------------------------------------------------
+
+-- --------------------------------------------------------
+--  Notifications
+-- --------------------------------------------------------
+
+-- ----------------------------------------------------------------------------
+--  Conformance Groups
+-- ----------------------------------------------------------------------------
+tmnxLocalUserDbGroup OBJECT-GROUP
+    OBJECTS {
+        tmnxLocalUserDbTableLastChange,
+        tmnxLocUsrDbRowStatus,
+        tmnxLocUsrDbLastChangeTime,
+        tmnxLocUsrDbAdminState,
+        tmnxLocUsrDbDescription,
+        tmnxLocUsrDbMatchTypeDhcp1,
+        tmnxLocUsrDbMatchTypeDhcp2,
+        tmnxLocUsrDbMatchTypeDhcp3,
+        tmnxLocUsrDbMatchTypeDhcp4,
+        tmnxLocUsrDbMatchTypePppoe1,
+        tmnxLocUsrDbMatchTypePppoe2,
+        tmnxLocUsrDbMatchTypePppoe3,
+        tmnxLocUsrDbPppoeCIdMaskPreStr,
+        tmnxLocUsrDbPppoeCIdMaskPreNum,
+        tmnxLocUsrDbPppoeCIdMaskSufStr,
+        tmnxLocUsrDbPppoeCIdMaskSufNum,
+        tmnxLocUsrDbDhcpCIdMaskPreStr,
+        tmnxLocUsrDbDhcpCIdMaskPreNum,
+        tmnxLocUsrDbDhcpCIdMaskSufStr,
+        tmnxLocUsrDbDhcpCIdMaskSufNum,
+        tmnxLocUsrDbHostCount
+            }
+    STATUS      obsolete
+    DESCRIPTION
+        "The group of objects supporting local user database capability
+         on Alcatel-Lucent SROS series systems."
+    ::= { tmnxLocalUserDbGroups 1 }
+
+tmnxLocalUserDbPppoeGroup OBJECT-GROUP
+    OBJECTS {
+        tmnxLocUsrDbPppoeTableLastChange,
+        tmnxLocUsrDbPppoeRowStatus,
+        tmnxLocUsrDbPppoeLastChangeTime,
+        tmnxLocUsrDbPppoeAdminState,
+        tmnxLocUsrDbPppoeMacAddress,
+        tmnxLocUsrDbPppoeCircuitId,
+        tmnxLocUsrDbPppoeCircuitIdFmt,
+        tmnxLocUsrDbPppoeRemoteId,
+        tmnxLocUsrDbPppoeUserNameFormat,
+        tmnxLocUsrDbPppoeUserName,
+        tmnxLocUsrDbPppoePasswordType,
+        tmnxLocUsrDbPppoePassword,
+        tmnxLocUsrDbPppoeAddrType,
+        tmnxLocUsrDbPppoeAddress,
+        tmnxLocUsrDbPppoePool,
+        tmnxLocUsrDbPppoeUseGiAddress,
+        tmnxLocUsrDbPppoeIdStringOptNum,
+        tmnxLocUsrDbPppoeSubscriberId,
+        tmnxLocUsrDbPppoeSlaProfString,
+        tmnxLocUsrDbPppoeSubProfString,
+        tmnxLocUsrDbPppoeAppProfString,
+        tmnxLocUsrDbPppoeAncpString,
+        tmnxLocUsrDbPppoeInterDestId,
+        tmnxLocUsrDbPppoeUnMacAddress,
+        tmnxLocUsrDbPppoeUnCircuitId,
+        tmnxLocUsrDbPppoeUnRemoteId,
+        tmnxLocUsrDbPppoeUnUserNameFmt,
+        tmnxLocUsrDbPppoeUnUserName,
+        tmnxLocUsrDbPppoeUnmatchedReason,
+        tmnxLocUsrDbDhcpUnDuplicateHost,
+        tmnxLocUsrDbPppoeUnDuplicateHost,
+        tmnxLocUsrDbPppoeOptionTbleLstCh,
+        tmnxLocUsrDbPppoeOptionRowStatus,
+        tmnxLocUsrDbPppoeOptionLstChngTm,
+        tmnxLocUsrDbPppoeOptionType,
+        tmnxLocUsrDbPppoeOptionValue
+            }
+    STATUS      obsolete
+    DESCRIPTION
+        "The group of objects supporting local user databases for PPPoE hosts
+         on Alcatel-Lucent SROS series systems."
+    ::= { tmnxLocalUserDbGroups 2 }
+
+tmnxLocalUserDbDhcpGroup OBJECT-GROUP
+    OBJECTS {
+        tmnxLocUsrDbDhcpTableLastChange,
+        tmnxLocUsrDbDhcpRowStatus,
+        tmnxLocUsrDbDhcpLastChangeTime,
+        tmnxLocUsrDbDhcpAdminState,
+        tmnxLocUsrDbDhcpMacAddress,
+        tmnxLocUsrDbDhcpCircuitIdFmt,
+        tmnxLocUsrDbDhcpCircuitId,
+        tmnxLocUsrDbDhcpRemoteId,
+        tmnxLocUsrDbDhcpSystemId,
+        tmnxLocUsrDbDhcpServiceId,
+        tmnxLocUsrDbDhcpSapId,
+        tmnxLocUsrDbDhcpString,
+        tmnxLocUsrDbDhcpOption60,
+        tmnxLocUsrDbDhcpAddrType,
+        tmnxLocUsrDbDhcpAddress,
+        tmnxLocUsrDbDhcpPool,
+        tmnxLocUsrDbDhcpUseGiAddress,
+        tmnxLocUsrDbDhcpIdStringOptNum,
+        tmnxLocUsrDbDhcpSubscriberId,
+        tmnxLocUsrDbDhcpSlaProfString,
+        tmnxLocUsrDbDhcpSubProfString,
+        tmnxLocUsrDbDhcpAppProfString,
+        tmnxLocUsrDbDhcpAncpString,
+        tmnxLocUsrDbDhcpInterDestId,
+        tmnxLocUsrDbDhcpUnMacAddress,
+        tmnxLocUsrDbDhcpUnCircuitId,
+        tmnxLocUsrDbDhcpUnRemoteId,
+        tmnxLocUsrDbDhcpUnSystemId,
+        tmnxLocUsrDbDhcpUnServiceId,
+        tmnxLocUsrDbDhcpUnSapId,
+        tmnxLocUsrDbDhcpUnString,
+        tmnxLocUsrDbDhcpUnOption60,
+        tmnxLocUsrDbDhcpUnmatchedReason,
+        tmnxLocUsrDbDhcpOptionTableLstCh,
+        tmnxLocUsrDbDhcpOptionRowStatus,
+        tmnxLocUsrDbDhcpOptionLastChngTm,
+        tmnxLocUsrDbDhcpOptionType,
+        tmnxLocUsrDbDhcpOptionValue
+            }
+    STATUS      obsolete
+    DESCRIPTION
+        "The group of objects supporting local user databases for DHCP hosts
+         on Alcatel-Lucent SROS series systems."
+    ::= { tmnxLocalUserDbGroups 3 }
+
+tmnxLocalUserDbToolsGroup OBJECT-GROUP
+    OBJECTS {
+        tmnxLocUsrDbPppoeAuthDbName,
+        tmnxLocUsrDbPppoeAuthUsrName,
+        tmnxLocUsrDbPppoeAuthPwd,
+        tmnxLocUsrDbPppoeAuthenticate,
+        tmnxLocUsrDbPppoeAuthSuccessful,
+        tmnxLocUsrDbPppoeAuthErrorMsg,
+        tmnxLocUsrDbPppoeAuthTime,
+        tmnxLocUsrDbPppoeAuthHostName
+            }
+    STATUS      obsolete
+    DESCRIPTION
+        "The group of objects supporting local user database capability
+         on Alcatel-Lucent SROS series systems."
+    ::= { tmnxLocalUserDbGroups 4 }
+
+tmnxLocalUserDbPppoeV6v1Group OBJECT-GROUP
+    OBJECTS {
+        tmnxLocUsrDbPppoeTableLastChange,
+        tmnxLocUsrDbPppoeRowStatus,
+        tmnxLocUsrDbPppoeLastChangeTime,
+        tmnxLocUsrDbPppoeAdminState,
+        tmnxLocUsrDbPppoeMacAddress,
+        tmnxLocUsrDbPppoeCircuitId,
+        tmnxLocUsrDbPppoeCircuitIdFmt,
+        tmnxLocUsrDbPppoeRemoteId,
+        tmnxLocUsrDbPppoeUserNameFormat,
+        tmnxLocUsrDbPppoeUserName,
+        tmnxLocUsrDbPppoePasswordType,
+        tmnxLocUsrDbPppoePassword,
+        tmnxLocUsrDbPppoeAddrType,
+        tmnxLocUsrDbPppoeAddress,
+        tmnxLocUsrDbPppoePool,
+        tmnxLocUsrDbPppoeUseGiAddress,
+        tmnxLocUsrDbPppoeIdStringOptNum,
+        tmnxLocUsrDbPppoeSubscriberId,
+        tmnxLocUsrDbPppoeSlaProfString,
+        tmnxLocUsrDbPppoeSubProfString,
+        tmnxLocUsrDbPppoeAppProfString,
+        tmnxLocUsrDbPppoeAncpString,
+        tmnxLocUsrDbPppoeInterDestId,
+        tmnxLocUsrDbPppoeUseClientPool,
+        tmnxLocUsrDbPppoeUnMacAddress,
+        tmnxLocUsrDbPppoeUnCircuitId,
+        tmnxLocUsrDbPppoeUnRemoteId,
+        tmnxLocUsrDbPppoeUnUserNameFmt,
+        tmnxLocUsrDbPppoeUnUserName,
+        tmnxLocUsrDbPppoeUnmatchedReason,
+        tmnxLocUsrDbDhcpUnDuplicateHost,
+        tmnxLocUsrDbPppoeUnDuplicateHost,
+        tmnxLocUsrDbPppoeOptionTbleLstCh,
+        tmnxLocUsrDbPppoeOptionRowStatus,
+        tmnxLocUsrDbPppoeOptionLstChngTm,
+        tmnxLocUsrDbPppoeOptionType,
+        tmnxLocUsrDbPppoeOptionValue
+            }
+    STATUS      obsolete
+    DESCRIPTION
+        "The group of objects supporting local user databases for PPPoE hosts
+         on Alcatel-Lucent SROS series systems release 6.1."
+    ::= { tmnxLocalUserDbGroups 5 }
+
+tmnxLocalUserDbPppoeV7v0Group OBJECT-GROUP
+    OBJECTS {
+        tmnxLocUsrDbPppoeTableLastChange,
+        tmnxLocUsrDbPppoeRowStatus,
+        tmnxLocUsrDbPppoeLastChangeTime,
+        tmnxLocUsrDbPppoeAdminState,
+        tmnxLocUsrDbPppoeMacAddress,
+        tmnxLocUsrDbPppoeCircuitId,
+        tmnxLocUsrDbPppoeCircuitIdFmt,
+        tmnxLocUsrDbPppoeRemoteId,
+        tmnxLocUsrDbPppoeUserNameFormat,
+        tmnxLocUsrDbPppoeUserName,
+        tmnxLocUsrDbPppoePasswordType,
+        tmnxLocUsrDbPppoePassword,
+        tmnxLocUsrDbPppoeAddrType,
+        tmnxLocUsrDbPppoeAddress,
+        tmnxLocUsrDbPppoePool,
+        tmnxLocUsrDbPppoeUseGiAddress,
+        tmnxLocUsrDbPppoeIdStringOptNum,
+        tmnxLocUsrDbPppoeSubscriberId,
+        tmnxLocUsrDbPppoeSlaProfString,
+        tmnxLocUsrDbPppoeSubProfString,
+        tmnxLocUsrDbPppoeAppProfString,
+        tmnxLocUsrDbPppoeAncpString,
+        tmnxLocUsrDbPppoeInterDestId,
+        tmnxLocUsrDbPppoeUseClientPool,
+        tmnxLocUsrDbPppoePadoDelay,
+        tmnxLocUsrDbPppoeServiceName,
+        tmnxLocUsrDbPppoeL2tpTunnelGroup,
+        tmnxLocUsrDbPppoeAuthPolicy,
+        tmnxLocUsrDbPppoeRetailerSvcId,
+        tmnxLocUsrDbPppoeCategoryMapName,
+        tmnxLocUsrDbPppoeUnMacAddress,
+        tmnxLocUsrDbPppoeUnCircuitId,
+        tmnxLocUsrDbPppoeUnRemoteId,
+        tmnxLocUsrDbPppoeUnUserNameFmt,
+        tmnxLocUsrDbPppoeUnUserName,
+        tmnxLocUsrDbPppoeUnmatchedReason,
+        tmnxLocUsrDbDhcpUnDuplicateHost,
+        tmnxLocUsrDbPppoeUnDuplicateHost,
+        tmnxLocUsrDbPppoeUnServiceName,
+        tmnxLocUsrDbPppoeOptionTbleLstCh,
+        tmnxLocUsrDbPppoeOptionRowStatus,
+        tmnxLocUsrDbPppoeOptionLstChngTm,
+        tmnxLocUsrDbPppoeOptionType,
+        tmnxLocUsrDbPppoeOptionValue,
+        tmnxLocUsrDbPppoeMaskTableLstCh,
+        tmnxLocUsrDbPppoeMaskRowStatus,
+        tmnxLocUsrDbPppoeMaskPreStr,
+        tmnxLocUsrDbPppoeMaskPreNum,
+        tmnxLocUsrDbPppoeMaskSufStr,
+        tmnxLocUsrDbPppoeMaskSufNum
+            }
+    STATUS      obsolete
+    DESCRIPTION
+        "The group of objects supporting local user databases for PPPoE hosts
+         on Alcatel-Lucent SROX series systems release 7.0."
+    ::= { tmnxLocalUserDbGroups 6 }
+
+tmnxLocalUserDbDhcpV7v0Group OBJECT-GROUP
+    OBJECTS {
+        tmnxLocUsrDbDhcpTableLastChange,
+        tmnxLocUsrDbDhcpRowStatus,
+        tmnxLocUsrDbDhcpLastChangeTime,
+        tmnxLocUsrDbDhcpAdminState,
+        tmnxLocUsrDbDhcpMacAddress,
+        tmnxLocUsrDbDhcpCircuitIdFmt,
+        tmnxLocUsrDbDhcpCircuitId,
+        tmnxLocUsrDbDhcpRemoteId,
+        tmnxLocUsrDbDhcpSystemId,
+        tmnxLocUsrDbDhcpServiceId,
+        tmnxLocUsrDbDhcpSapId,
+        tmnxLocUsrDbDhcpString,
+        tmnxLocUsrDbDhcpOption60,
+        tmnxLocUsrDbDhcpAddrType,
+        tmnxLocUsrDbDhcpAddress,
+        tmnxLocUsrDbDhcpPool,
+        tmnxLocUsrDbDhcpUseGiAddress,
+        tmnxLocUsrDbDhcpIdStringOptNum,
+        tmnxLocUsrDbDhcpSubscriberId,
+        tmnxLocUsrDbDhcpSlaProfString,
+        tmnxLocUsrDbDhcpSubProfString,
+        tmnxLocUsrDbDhcpAppProfString,
+        tmnxLocUsrDbDhcpAncpString,
+        tmnxLocUsrDbDhcpInterDestId,
+        tmnxLocUsrDbDhcpAuthPolicy,
+        tmnxLocUsrDbDhcpServerAddrType,
+        tmnxLocUsrDbDhcpServerAddress,
+        tmnxLocUsrDbDhcpAuthDomainName,
+        tmnxLocUsrDbDhcpCategoryMapName,
+        tmnxLocUsrDbDhcpOption60Fmt,
+        tmnxLocUsrDbDhcpUseClientPool,
+        tmnxLocUsrDbDhcpUnMacAddress,
+        tmnxLocUsrDbDhcpUnCircuitId,
+        tmnxLocUsrDbDhcpUnRemoteId,
+        tmnxLocUsrDbDhcpUnSystemId,
+        tmnxLocUsrDbDhcpUnServiceId,
+        tmnxLocUsrDbDhcpUnSapId,
+        tmnxLocUsrDbDhcpUnString,
+        tmnxLocUsrDbDhcpUnOption60,
+        tmnxLocUsrDbDhcpUnmatchedReason,
+        tmnxLocUsrDbDhcpOptionTableLstCh,
+        tmnxLocUsrDbDhcpOptionRowStatus,
+        tmnxLocUsrDbDhcpOptionLastChngTm,
+        tmnxLocUsrDbDhcpOptionType,
+        tmnxLocUsrDbDhcpOptionValue,
+        tmnxLocUsrDbDhcpMaskTableLstCh,
+        tmnxLocUsrDbDhcpMaskRowStatus,
+        tmnxLocUsrDbDhcpMaskPreStr,
+        tmnxLocUsrDbDhcpMaskPreNum,
+        tmnxLocUsrDbDhcpMaskSufStr,
+        tmnxLocUsrDbDhcpMaskSufNum
+            }
+    STATUS      obsolete
+    DESCRIPTION
+        "The group of objects supporting local user databases for DHCP hosts
+         on Alcatel-Lucent SROS series systems release 7.0."
+    ::= { tmnxLocalUserDbGroups 7 }
+
+tmnxLocalUserDbV7v0Group OBJECT-GROUP
+    OBJECTS {
+        tmnxLocalUserDbTableLastChange,
+        tmnxLocUsrDbRowStatus,
+        tmnxLocUsrDbLastChangeTime,
+        tmnxLocUsrDbAdminState,
+        tmnxLocUsrDbDescription,
+        tmnxLocUsrDbMatchTypeDhcp1,
+        tmnxLocUsrDbMatchTypeDhcp2,
+        tmnxLocUsrDbMatchTypeDhcp3,
+        tmnxLocUsrDbMatchTypeDhcp4,
+        tmnxLocUsrDbMatchTypePppoe1,
+        tmnxLocUsrDbMatchTypePppoe2,
+        tmnxLocUsrDbMatchTypePppoe3,
+        tmnxLocUsrDbHostCount
+            }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects supporting local user database capability
+         on Alcatel-Lucent SROS series systems release 7.0."
+    ::= { tmnxLocalUserDbGroups 8 }
+
+tmnxLocalUserDbObsoleteGroup OBJECT-GROUP
+    OBJECTS {
+        tmnxLocUsrDbPppoeCIdMaskPreStr,
+        tmnxLocUsrDbPppoeCIdMaskPreNum,
+        tmnxLocUsrDbPppoeCIdMaskSufStr,
+        tmnxLocUsrDbPppoeCIdMaskSufNum,
+        tmnxLocUsrDbDhcpCIdMaskPreStr,
+        tmnxLocUsrDbDhcpCIdMaskPreNum,
+        tmnxLocUsrDbDhcpCIdMaskSufStr,
+        tmnxLocUsrDbDhcpCIdMaskSufNum
+            }
+    STATUS      current
+    DESCRIPTION
+        "The group of obsolete objects."
+    ::= { tmnxLocalUserDbGroups 9 }
+
+tmnxLocalUserDbToolsV7v0Group OBJECT-GROUP
+    OBJECTS {
+        tmnxLocUsrDbPppoeAuthDbName,
+        tmnxLocUsrDbPppoeAuthUsrName,
+        tmnxLocUsrDbPppoeAuthPwd,
+        tmnxLocUsrDbPppoeAuthenticate,
+        tmnxLocUsrDbPppoeAuthSuccessful,
+        tmnxLocUsrDbPppoeAuthErrorMsg,
+        tmnxLocUsrDbPppoeAuthTime,
+        tmnxLocUsrDbPppoeAuthHostName,
+        tmnxLocUsrDbPppoeAuthMacAddress,
+        tmnxLocUsrDbPppoeAuthRemoteId,
+        tmnxLocUsrDbPppoeAuthCircuitIdFmt,
+        tmnxLocUsrDbPppoeAuthCircuitId,
+        tmnxLocUsrDbPppoeAuthServiceName
+            }
+    STATUS obsolete
+    DESCRIPTION
+        "The group of objects supporting local user database capability
+         on Alcatel-Lucent SROS series systems."
+    ::= { tmnxLocalUserDbGroups 10 }
+
+tmnxLocalUserDbRadiusFllbckGroup OBJECT-GROUP
+    OBJECTS {
+        tmnxLocUsrDbPppoeDefMsapPolicy,
+        tmnxLocUsrDbPppoeDefMsapService,
+        tmnxLocUsrDbPppoeDefMsapGroupIf,
+        tmnxLocUsrDbDhcpDefMsapPolicy,
+        tmnxLocUsrDbDhcpDefMsapService,
+        tmnxLocUsrDbDhcpDefMsapGroupIf,
+        tmnxLocUsrDbDhcpRetailerSvcId
+            }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects supporting management of
+         RADIUS fallback capabilities for local user databases
+         on Alcatel-Lucent SROS series systems."
+    ::= { tmnxLocalUserDbGroups 11 }
+
+tmnxLocalUserDbDhcpV8v0Group OBJECT-GROUP
+    OBJECTS {
+        tmnxLocUsrDbDhcpTableLastChange,
+        tmnxLocUsrDbDhcpRowStatus,
+        tmnxLocUsrDbDhcpLastChangeTime,
+        tmnxLocUsrDbDhcpAdminState,
+        tmnxLocUsrDbDhcpMacAddress,
+        tmnxLocUsrDbDhcpCircuitIdFmt,
+        tmnxLocUsrDbDhcpCircuitId,
+        tmnxLocUsrDbDhcpRemoteId,
+        tmnxLocUsrDbDhcpSystemId,
+        tmnxLocUsrDbDhcpServiceId,
+        tmnxLocUsrDbDhcpSapId,
+        tmnxLocUsrDbDhcpString,
+        tmnxLocUsrDbDhcpOption60,
+        tmnxLocUsrDbDhcpAddrType,
+        tmnxLocUsrDbDhcpAddress,
+        tmnxLocUsrDbDhcpPool,
+        tmnxLocUsrDbDhcpUseGiAddress,
+        tmnxLocUsrDbDhcpIdStringOptNum,
+        tmnxLocUsrDbDhcpSubscriberId,
+        tmnxLocUsrDbDhcpSlaProfString,
+        tmnxLocUsrDbDhcpSubProfString,
+        tmnxLocUsrDbDhcpAppProfString,
+        tmnxLocUsrDbDhcpAncpString,
+        tmnxLocUsrDbDhcpInterDestId,
+        tmnxLocUsrDbDhcpAuthPolicy,
+        tmnxLocUsrDbDhcpServerAddrType,
+        tmnxLocUsrDbDhcpServerAddress,
+        tmnxLocUsrDbDhcpAuthDomainName,
+        tmnxLocUsrDbDhcpCategoryMapName,
+        tmnxLocUsrDbDhcpOption60Fmt,
+        tmnxLocUsrDbDhcpUseClientPool,
+        tmnxLocUsrDbDhcpUnMacAddress,
+        tmnxLocUsrDbDhcpUnCircuitId,
+        tmnxLocUsrDbDhcpUnRemoteId,
+        tmnxLocUsrDbDhcpUnSystemId,
+        tmnxLocUsrDbDhcpUnServiceId,
+        tmnxLocUsrDbDhcpUnSapId,
+        tmnxLocUsrDbDhcpUnString,
+        tmnxLocUsrDbDhcpUnOption60,
+        tmnxLocUsrDbDhcpUnmatchedReason,
+        tmnxLocUsrDbDhcpOptionTableLstCh,
+        tmnxLocUsrDbDhcpOptionRowStatus,
+        tmnxLocUsrDbDhcpOptionLastChngTm,
+        tmnxLocUsrDbDhcpOptionType,
+        tmnxLocUsrDbDhcpOptionValue,
+        tmnxLocUsrDbDhcpMaskTableLstCh,
+        tmnxLocUsrDbDhcpMaskRowStatus,
+        tmnxLocUsrDbDhcpMaskPreStr,
+        tmnxLocUsrDbDhcpMaskPreNum,
+        tmnxLocUsrDbDhcpMaskSufStr,
+        tmnxLocUsrDbDhcpMaskSufNum,
+        tmnxLocUsrDbDhcpRemoteIdFmt,
+        tmnxLocUsrDbDhcpIpv6Addr,
+        tmnxLocUsrDbDhcpIpv6Pfx,
+        tmnxLocUsrDbDhcpIpv6PfxLen
+            }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects supporting local user databases for DHCP hosts
+         on Alcatel-Lucent SROS series systems release 8.0."
+    ::= { tmnxLocalUserDbGroups 12 }
+
+tmnxLocalUserDbPppoeV8v0Group OBJECT-GROUP
+    OBJECTS {
+        tmnxLocUsrDbPppoeTableLastChange,
+        tmnxLocUsrDbPppoeRowStatus,
+        tmnxLocUsrDbPppoeLastChangeTime,
+        tmnxLocUsrDbPppoeAdminState,
+        tmnxLocUsrDbPppoeMacAddress,
+        tmnxLocUsrDbPppoeCircuitId,
+        tmnxLocUsrDbPppoeCircuitIdFmt,
+        tmnxLocUsrDbPppoeRemoteId,
+        tmnxLocUsrDbPppoeUserNameFormat,
+        tmnxLocUsrDbPppoeUserName,
+        tmnxLocUsrDbPppoePasswordType,
+        tmnxLocUsrDbPppoePassword,
+        tmnxLocUsrDbPppoeAddrType,
+        tmnxLocUsrDbPppoeAddress,
+        tmnxLocUsrDbPppoePool,
+        tmnxLocUsrDbPppoeUseGiAddress,
+        tmnxLocUsrDbPppoeIdStringOptNum,
+        tmnxLocUsrDbPppoeSubscriberId,
+        tmnxLocUsrDbPppoeSlaProfString,
+        tmnxLocUsrDbPppoeSubProfString,
+        tmnxLocUsrDbPppoeAppProfString,
+        tmnxLocUsrDbPppoeAncpString,
+        tmnxLocUsrDbPppoeInterDestId,
+        tmnxLocUsrDbPppoeUseClientPool,
+        tmnxLocUsrDbPppoePadoDelay,
+        tmnxLocUsrDbPppoeServiceName,
+        tmnxLocUsrDbPppoeL2tpTunnelGroup,
+        tmnxLocUsrDbPppoeAuthPolicy,
+        tmnxLocUsrDbPppoeRetailerSvcId,
+        tmnxLocUsrDbPppoeCategoryMapName,
+        tmnxLocUsrDbPppoeUnMacAddress,
+        tmnxLocUsrDbPppoeUnCircuitId,
+        tmnxLocUsrDbPppoeUnRemoteId,
+        tmnxLocUsrDbPppoeUnUserNameFmt,
+        tmnxLocUsrDbPppoeUnUserName,
+        tmnxLocUsrDbPppoeUnmatchedReason,
+        tmnxLocUsrDbDhcpUnDuplicateHost,
+        tmnxLocUsrDbPppoeUnDuplicateHost,
+        tmnxLocUsrDbPppoeUnServiceName,
+        tmnxLocUsrDbPppoeOptionTbleLstCh,
+        tmnxLocUsrDbPppoeOptionRowStatus,
+        tmnxLocUsrDbPppoeOptionLstChngTm,
+        tmnxLocUsrDbPppoeOptionType,
+        tmnxLocUsrDbPppoeOptionValue,
+        tmnxLocUsrDbPppoeMaskTableLstCh,
+        tmnxLocUsrDbPppoeMaskRowStatus,
+        tmnxLocUsrDbPppoeMaskPreStr,
+        tmnxLocUsrDbPppoeMaskPreNum,
+        tmnxLocUsrDbPppoeMaskSufStr,
+        tmnxLocUsrDbPppoeMaskSufNum,
+        tmnxLocUsrDbPppoeRemoteIdFmt,
+        tmnxLocUsrDbPppoeL2tpSvcId,
+        tmnxLocUsrDbPppoeService,
+        tmnxLocUsrDbPppoeInterface
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects supporting local user databases for PPPoE hosts
+         on Alcatel-Lucent SROS series systems release 8.0."
+    ::= { tmnxLocalUserDbGroups 13 }
+
+    tmnxLocalUserDbToolsV8v0Group OBJECT-GROUP
+    OBJECTS
+    {
+        tmnxLocUsrDbPppoeAuthDbName,
+        tmnxLocUsrDbPppoeAuthUsrName,
+        tmnxLocUsrDbPppoeAuthPwd,
+        tmnxLocUsrDbPppoeAuthenticate,
+        tmnxLocUsrDbPppoeAuthSuccessful,
+        tmnxLocUsrDbPppoeAuthErrorMsg,
+        tmnxLocUsrDbPppoeAuthTime,
+        tmnxLocUsrDbPppoeAuthHostName,
+        tmnxLocUsrDbPppoeAuthMacAddress,
+        tmnxLocUsrDbPppoeAuthRemoteId,
+        tmnxLocUsrDbPppoeAuthCircuitIdFmt,
+        tmnxLocUsrDbPppoeAuthCircuitId,
+        tmnxLocUsrDbPppoeAuthServiceName,
+        tmnxLocUsrDbPppoeAuthRemoteIdFmt
+    }
+    STATUS current
+    DESCRIPTION
+        "The group of objects supporting local user database capability
+         on Alcatel-Lucent SROS series systems release 8.0."
+    ::= { tmnxLocalUserDbGroups 14}
+
+tmnxLocalUserDbHostGroup OBJECT-GROUP
+    OBJECTS {
+        tmnxLudbHostTableLastChange,           
+        tmnxLudbHostRowStatus,            
+        tmnxLudbHostLastChangeTime,       
+        tmnxLudbHostAdminState,
+        tmnxLudbHostApplications,           
+        tmnxLudbHostMacAddress,           
+        tmnxLudbHostCircuitIdFmt,         
+        tmnxLudbHostCircuitId,            
+        tmnxLudbHostRemoteIdFmt,          
+        tmnxLudbHostRemoteId,             
+        tmnxLudbHostAddrType,             
+        tmnxLudbHostAddress,              
+        tmnxLudbHostPool,                 
+        tmnxLudbHostUseGiAddress,         
+        tmnxLudbHostIdStringOptNum,       
+        tmnxLudbHostSubscriberId,         
+        tmnxLudbHostSlaProfString,              
+        tmnxLudbHostSubProfString,        
+        tmnxLudbHostAppProfString,        
+        tmnxLudbHostAncpString,           
+        tmnxLudbHostInterDestId,          
+        tmnxLudbHostUseClientPool,        
+        tmnxLudbHostAuthPolicy,           
+        tmnxLudbHostRetailerSvcId,        
+        tmnxLudbHostCategoryMapName,      
+        tmnxLudbHostDefMsapPolicy,        
+        tmnxLudbHostDefMsapService,       
+        tmnxLudbHostDefMsapGroupIf,
+        tmnxLudbHostSystemId,
+        tmnxLudbHostServiceId,            
+        tmnxLudbHostSapId,                
+        tmnxLudbHostString,               
+        tmnxLudbHostIpv6Addr,         
+        tmnxLudbHostIpv6Pfx,          
+        tmnxLudbHostIpv6PfxLen,   
+        tmnxLudbHostAuthDomainName,   
+-- DHCP type host:                  
+        tmnxLudbHostDhcpOption60Fmt,      
+        tmnxLudbHostDhcpOption60,         
+        tmnxLudbHostDhcpRelayAddrType,    
+        tmnxLudbHostDhcpRelayAddress,     
+-- PPP type host:                   
+        tmnxLudbHostPppUserNameFormat,  
+        tmnxLudbHostPppUserName,        
+        tmnxLudbHostPppPasswordType,    
+        tmnxLudbHostPppPassword,        
+        tmnxLudbHostPppServiceName,     
+        tmnxLudbHostPppL2tpTunnelGroup, 
+        tmnxLudbHostPppL2tpSvcId,       
+        tmnxLudbHostPppService,         
+        tmnxLudbHostPppInterface,       
+        tmnxLudbHostPppoePadoDelay -- PPPoE       
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects supporting configuration of local user database
+         host templates on Alcatel-Lucent SROS series systems."
+    ::= { tmnxLocalUserDbGroups 20 }
+
+tmnxLocalUserDbPppoeV9v0Group OBJECT-GROUP
+    OBJECTS {
+        tmnxLocUsrDbPppoePrefixLength,
+        tmnxLocUsrDbPppoeFltrProfString,
+        tmnxLocUsrDbPppoeSapId,
+        tmnxLocUsrDbPppoeUnSapId,
+        tmnxLocUsrDbPppoeAuthSapId,
+        tmnxLocUsrDbPppoeIngIpv4FltrId,
+        tmnxLocUsrDbPppoeEgrIpv4FltrId,
+        tmnxLocUsrDbPppoeIngIpv6FltrId,
+        tmnxLocUsrDbPppoeEgrIpv6FltrId,
+        tmnxLocUsrDbPppoeUseGiAddrScope
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects supporting local user databases for PPPoE hosts
+         on Alcatel-Lucent SROS series systems added in release 9.0."
+    ::= { tmnxLocalUserDbGroups 21 }
+
+tmnxLocalUserDbDhcpV9v0Group OBJECT-GROUP
+    OBJECTS {
+        tmnxLocUsrDbDhcpIpv6WanAddrPool,
+        tmnxLocUsrDbDhcpIpv6DelPfxPool,
+        tmnxLocUsrDbDhcpFltrProfString,
+        tmnxLocUsrDbDhcpIngIpv4FltrId,
+        tmnxLocUsrDbDhcpEgrIpv4FltrId,
+        tmnxLocUsrDbDhcpIngIpv6FltrId,
+        tmnxLocUsrDbDhcpEgrIpv6FltrId,
+        tmnxLocUsrDbDhcpUseGiAddrScope
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects supporting local user databases for DHCP hosts
+         on Alcatel-Lucent SROS series systems release 9.0."
+    ::= { tmnxLocalUserDbGroups 22 }
+
+tmnxLocalUserDbFltrProfGroup OBJECT-GROUP
+    OBJECTS {
+        tmnxLudbHostFltrProfString
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects supporting configuration of local user database
+         filter profiles on Alcatel-Lucent SROS series systems."
+    ::= { tmnxLocalUserDbGroups 23 }
+    
+tmnxLudbPppHostGroup OBJECT-GROUP
+    OBJECTS {
+        tmnxLudbPppAleTableLastChange,
+        tmnxLudbPppAleRowStatus,
+        tmnxLudbPppAleLastChangeTime,
+        tmnxLudbPppAleEncapOffsetMode,
+        tmnxLudbPppAleEncapOffset,
+        tmnxLudbPppAleRateDown
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects supporting local user databases for PPP hosts
+         on Alcatel-Lucent SROS series systems."
+    ::= { tmnxLocalUserDbGroups 24 }
+
+tmnxLudbRadproxGroup OBJECT-GROUP
+    OBJECTS {
+        tmnxLudbRadproxCacheTableLastCh,
+        tmnxLudbRadproxCacheLastCh,     
+        tmnxLudbRadproxCacheService,     
+        tmnxLudbRadproxCacheServer,     
+        tmnxLudbRadproxCacheMatchType, 
+        tmnxLudbRadproxCacheMatchOption,
+        tmnxLudbRadproxCacheMacFormat,
+        tmnxLudbRadproxCacheFailAction 
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects supporting RADIUS Proxy cache lookup for local
+         user database hosts on Alcatel-Lucent SROS series systems."
+    ::= { tmnxLocalUserDbGroups 25 }
+
+-- ----------------------------------------------------------------------------
+--  Conformance information
+-- ----------------------------------------------------------------------------
+tmnxLocalUserDbCompliance MODULE-COMPLIANCE
+    STATUS  obsolete
+    DESCRIPTION
+        "The compliance statement for management of local user database
+         on Alcatel-Lucent SROS series systems."
+    MODULE  -- this module
+        MANDATORY-GROUPS {
+            tmnxLocalUserDbGroup,
+            tmnxLocalUserDbPppoeGroup,
+            tmnxLocalUserDbDhcpGroup,
+            tmnxLocalUserDbToolsGroup
+        }
+    ::= { tmnxLocalUserDbCompliances 1 }
+
+tmnxLocalUserDbV6v1Compliance MODULE-COMPLIANCE
+    STATUS  obsolete
+    DESCRIPTION
+        "The compliance statement for management of local user database
+         on Alcatel-Lucent SROS series systems."
+    MODULE  -- this module
+        MANDATORY-GROUPS {
+            tmnxLocalUserDbGroup,
+            tmnxLocalUserDbPppoeV6v1Group,
+            tmnxLocalUserDbDhcpGroup,
+            tmnxLocalUserDbToolsGroup
+        }
+    ::= { tmnxLocalUserDbCompliances 2 }
+
+tmnxLocalUserDbV7v0Compliance MODULE-COMPLIANCE
+    STATUS  obsolete
+    DESCRIPTION
+        "The compliance statement for management of local user database
+         on Alcatel-Lucent SROS series systems."
+    MODULE  -- this module
+        MANDATORY-GROUPS {
+            tmnxLocalUserDbV7v0Group,
+            tmnxLocalUserDbPppoeV7v0Group,
+            tmnxLocalUserDbDhcpV7v0Group,
+            tmnxLocalUserDbToolsV7v0Group,
+            tmnxLocalUserDbObsoleteGroup
+        }
+    ::= { tmnxLocalUserDbCompliances 3 }
+
+tmnxLocalUserDbV8v0Compliance MODULE-COMPLIANCE
+    STATUS  current
+    DESCRIPTION
+        "The compliance statement for management of local user database
+         on Alcatel-Lucent SROS series systems."
+    MODULE  -- this module
+        MANDATORY-GROUPS {
+            tmnxLocalUserDbV7v0Group,
+            tmnxLocalUserDbPppoeV8v0Group,
+            tmnxLocalUserDbDhcpV8v0Group,
+            tmnxLocalUserDbToolsV8v0Group,
+            tmnxLocalUserDbRadiusFllbckGroup,
+            tmnxLocalUserDbObsoleteGroup
+        }
+    ::= { tmnxLocalUserDbCompliances 4 }
+
+tmnxLocalUserDbV9v0Compliance MODULE-COMPLIANCE
+    STATUS  obsolete
+    DESCRIPTION
+        "The compliance statement for management of local user database
+         on Alcatel-Lucent SROS series systems."
+    MODULE  -- this module
+        MANDATORY-GROUPS {
+            tmnxLocalUserDbV7v0Group,
+            tmnxLocalUserDbPppoeV8v0Group,
+            tmnxLocalUserDbPppoeV9v0Group,
+            tmnxLocalUserDbDhcpV8v0Group,
+            tmnxLocalUserDbDhcpV9v0Group,
+            tmnxLocalUserDbHostGroup,
+            tmnxLocalUserDbToolsV8v0Group,
+            tmnxLocalUserDbRadiusFllbckGroup,
+            tmnxLocalUserDbObsoleteGroup,
+            tmnxLocalUserDbFltrProfGroup
+        }
+    ::= { tmnxLocalUserDbCompliances 5 }
+
+tmnxLocalUserDbV10v0Compliance MODULE-COMPLIANCE
+    STATUS  current
+    DESCRIPTION
+        "The compliance statement for management of local user database
+         on Alcatel-Lucent SROS series systems."
+    MODULE  -- this module
+        MANDATORY-GROUPS {
+            tmnxLocalUserDbV7v0Group,
+            tmnxLocalUserDbPppoeV8v0Group,
+            tmnxLocalUserDbPppoeV9v0Group,
+            tmnxLocalUserDbDhcpV8v0Group,
+            tmnxLocalUserDbDhcpV9v0Group,
+            tmnxLocalUserDbHostGroup,
+            tmnxLocalUserDbToolsV8v0Group,
+            tmnxLocalUserDbRadiusFllbckGroup,
+            tmnxLocalUserDbObsoleteGroup,
+            tmnxLocalUserDbFltrProfGroup,
+            tmnxLudbPppHostGroup,
+            tmnxLudbRadproxGroup
+        }
+    ::= { tmnxLocalUserDbCompliances 6 }
+END
+

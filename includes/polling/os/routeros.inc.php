@@ -7,14 +7,25 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-$version = trim(snmp_get($device, "1.3.6.1.4.1.14988.1.1.4.4.0", "-OQv", "", ""),'"');
-$features = "Level " . trim(snmp_get($device, "1.3.6.1.4.1.14988.1.1.4.3.0", "-OQv", "", ""),'"');
+$version  = snmp_get($device, "mtxrLicVersion.0", "-OQv", "MIKROTIK-MIB");
+$features = "Level " . snmp_get($device, "mtxrLicLevel.0", "-OQv", "MIKROTIK-MIB");
+$serial   = snmp_get($device, "mtxrLicSoftwareId.0", "-OQv", "MIKROTIK-MIB");
 
-// Some RouterOS versions return simply "router" as sysDescr. Others (newer?) Return "RouterOS <model number>"
-if(strstr($poll_device['sysDescr'], "RouterOS")) { $hardware = substr($poll_device['sysDescr'], 9); }
+if (preg_match('/^RouterOS (.*)/', $poll_device['sysDescr'], $matches))
+{
+  // RouterOS RB450G
+  // RouterOS CCR1036-12G-4S
+  // RouterOS x86 
+  $hardware = $matches[1];
+}
+else if ($poll_device['sysDescr'] != 'router')
+{
+  // RB260GS
+  $hardware = $poll_device['sysDescr'];
+}
 
 // EOF

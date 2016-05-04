@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -28,7 +28,7 @@ $regexp = '/
 /x';
 
 $oids = snmp_walk($device, ".1.3.6.1.4.1.22626.1.5.2", "-OsqnU", "");
-#if ($debug) { echo($oids."\n"); }
+
 if ($oids)
 {
   $out = array();
@@ -68,7 +68,7 @@ if ($oids)
       $limits = array('limit_high' => trim($sensor['limit_high'], ' "'),
                       'limit_low'  => trim($sensor['limit_low'], ' "'));
 
-      discover_sensor($valid['sensor'], 'temperature', $device, $temperature_oid, $temperature_id, 'cometsystem-p85xx', $descr, $scale, $temperature * $scale, $limits);
+      discover_sensor($valid['sensor'], 'temperature', $device, $temperature_oid, $temperature_id, 'cometsystem-p85xx', $descr, $scale, $temperature, $limits);
     }
   }
 }

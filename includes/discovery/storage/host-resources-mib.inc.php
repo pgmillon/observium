@@ -7,22 +7,25 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-// CLEANME rename code can go in r6000
-
-// Note. $cache_storage['ucd-snmp-mib'] - is cached 'UCD-SNMP-MIB::dskEntry' (see ucd-snmp-mib.inc.php in current directory)
+// Note. $cache_discovery['ucd-snmp-mib'] - is cached 'UCD-SNMP-MIB::dskEntry' (see ucd-snmp-mib.inc.php in current directory)
 
 $mib = 'HOST-RESOURCES-MIB';
-$cache_storage['host-resources-mib'] = snmpwalk_cache_oid($device, "hrStorageEntry", array(), 'HOST-RESOURCES-MIB:HOST-RESOURCES-TYPES', mib_dirs());
 
-if ((bool)$cache_storage['host-resources-mib'])
+if (!isset($cache_discovery['host-resources-mib']))
 {
-  echo(" $mib: ");
+  $cache_discovery['host-resources-mib'] = snmpwalk_cache_oid($device, "hrStorageEntry", NULL, "HOST-RESOURCES-MIB:HOST-RESOURCES-TYPES", mib_dirs());
+  if (OBS_DEBUG && count($cache_discovery['host-resources-mib'])) { print_vars($cache_discovery['host-resources-mib']); }
+}
 
-  foreach ($cache_storage['host-resources-mib'] as $index => $storage)
+if (count($cache_discovery['host-resources-mib']))
+{
+  echo(" $mib ");
+
+  foreach ($cache_discovery['host-resources-mib'] as $index => $storage)
   {
     $hc = 0;
     $mib = 'HOST-RESOURCES-MIB';
@@ -64,7 +67,7 @@ if ((bool)$cache_storage['host-resources-mib'])
       $path = rewrite_storage($descr);
 
       // Find index from 'UCD-SNMP-MIB::dskTable'
-      foreach ($cache_storage['ucd-snmp-mib'] as $dsk)
+      foreach ($cache_discovery['ucd-snmp-mib'] as $dsk)
       {
         if ($dsk['dskPath'] === $path)
         {
@@ -87,11 +90,6 @@ if ((bool)$cache_storage['host-resources-mib'])
               $size   = $dsk['size'];
               $used   = $dsk['dskUsedHigh']  * 4294967296 + $dsk['dskUsedLow'];
               $used  *= $units;
-
-              // Additional - rename old hrdevice RRDs if present
-              $old_rrd  = $config['rrd_dir'] . "/" . $device['hostname'] . "/" . safename("storage-host-resources-mib-" . safename($storage['hrStorageDescr']) . ".rrd");
-              $new_rrd  = $config['rrd_dir'] . "/" . $device['hostname'] . "/" . safename("storage-ucd-snmp-mib-" . safename($descr) . ".rrd");
-              if (is_file($old_rrd) && !is_file($new_rrd)) { rename($old_rrd, $new_rrd); print_debug("RRD RENAMED ($descr)"); }
             }
           }
           break;
@@ -107,13 +105,13 @@ if ((bool)$cache_storage['host-resources-mib'])
     unset($deny, $fstype, $descr, $size, $used, $units, $path, $dsk, $hc);
   }
 }
-elseif ((bool)$cache_storage['ucd-snmp-mib'])
+else if (count($cache_discovery['ucd-snmp-mib']))
 {
   // Discover 'UCD-SNMP-MIB' if 'HOST-RESOURCES-MIB' empty.
   $mib = 'UCD-SNMP-MIB';
-  echo(" $mib: ");
+  echo(" $mib ");
 
-  foreach ($cache_storage['ucd-snmp-mib'] as $index => $dsk)
+  foreach ($cache_discovery['ucd-snmp-mib'] as $index => $dsk)
   {
     $hc = 0;
     $fstype = $dsk['dskDevice'];

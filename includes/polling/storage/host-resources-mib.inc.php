@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -15,8 +15,8 @@
 
 if (!is_array($cache_storage['host-resources-mib']))
 {
-  $cache_storage['host-resources-mib'] = snmpwalk_cache_oid($device, "hrStorageEntry", NULL, "HOST-RESOURCES-MIB", mib_dirs());
-  if ($debug && count($cache_storage['host-resources-mib'])) { print_vars($cache_storage['host-resources-mib']); }
+  $cache_storage['host-resources-mib'] = snmpwalk_cache_oid($device, "hrStorageEntry", NULL, "HOST-RESOURCES-MIB:HOST-RESOURCES-TYPES", mib_dirs());
+  if (OBS_DEBUG && count($cache_storage['host-resources-mib'])) { print_vars($cache_storage['host-resources-mib']); }
 }
 
 $entry = $cache_storage['host-resources-mib'][$storage['storage_index']];

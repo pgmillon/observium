@@ -10,14 +10,16 @@ CISCO-LWAPP-DOWNLOAD-MIB DEFINITIONS ::= BEGIN
 
 IMPORTS 
         MODULE-IDENTITY, 
-        OBJECT-TYPE
+        OBJECT-TYPE,
+        Unsigned32
 		FROM SNMPv2-SMI
         MODULE-COMPLIANCE, 
         OBJECT-GROUP
                 FROM SNMPv2-CONF
         TruthValue,
         RowStatus,
-        DateAndTime
+        DateAndTime,
+        TimeInterval
                 FROM SNMPv2-TC  
 	SnmpAdminString
 		FROM SNMP-FRAMEWORK-MIB
@@ -117,7 +119,13 @@ CLDLApBootEntry ::=
                 cldlAPPrimaryVersion	SnmpAdminString,
                 cldlAPBackupVersion	SnmpAdminString,
                 cldlAPSwapImage		TruthValue,
-                cldlApDownloadImage	INTEGER
+                cldlApDownloadImage	INTEGER,
+                cldlPreDownloadVersion 	SnmpAdminString,
+                cldlPreDownloadStatus 	INTEGER,
+                cldlPreDownloadNextRetryTime TimeInterval,
+                cldlPreDownloadRetryCount Unsigned32,
+                cldlPredownloadImageUpgradeRole INTEGER,
+				cldlAPSoftwareName   SnmpAdminString 
         }
 
 cldlAPName OBJECT-TYPE
@@ -158,16 +166,87 @@ cldlAPSwapImage OBJECT-TYPE
 cldlApDownloadImage OBJECT-TYPE
         SYNTAX     INTEGER{
                         primary(1),
-                        backup(2)
+                        backup(2),
+                        abort(3)
                    } 
         MAX-ACCESS read-write 
         STATUS     current
         DESCRIPTION
                 "This object is used to configure the image.
                  primary : Downloads primary image from the controller.
-                 backup  : Downloads backup image from the controller."    
+                 backup  : Downloads backup image from the controller.    
+                 abort : Aborts active predownload of the image on the controller."
         DEFVAL {backup}
         ::= { cldlApBootEntry 5 }
+
+cldlPreDownloadVersion OBJECT-TYPE
+          SYNTAX     SnmpAdminString
+          MAX-ACCESS read-only
+          STATUS     current
+          DESCRIPTION
+                  "This object represents the predownloaded version of the AP."
+          ::= { cldlApBootEntry 6 }
+ 
+cldlPreDownloadStatus OBJECT-TYPE
+          SYNTAX     INTEGER{
+                 none(1),
+                 intiated(2),
+                 preDownloading(3),
+                 completed(4),
+                 failed(5),
+                 notSupported(6)
+          }
+          MAX-ACCESS read-only
+          STATUS     current
+          DESCRIPTION
+                  "This object represents the status of the predownloaded image of the AP."
+          ::= { cldlApBootEntry 7 }
+
+cldlPreDownloadNextRetryTime  OBJECT-TYPE
+           SYNTAX     TimeInterval
+           MAX-ACCESS read-only
+	   STATUS     current
+	   DESCRIPTION
+		"This object represents the next retry time for 
+		downloading the AP image from the WLC."
+	      ::= { cldlApBootEntry 8 } 
+
+cldlPreDownloadRetryCount OBJECT-TYPE
+	   SYNTAX      Unsigned32
+	   MAX-ACCESS read-only
+	   STATUS      current
+	   DESCRIPTION
+		"This object represents the number of retry count
+		before the AP image downloaded from the WLC."
+	     ::= { cldlApBootEntry 9 }
+
+cldlPredownloadImageUpgradeRole OBJECT-TYPE
+    SYNTAX    INTEGER {
+                  masterCentral(1),
+                  masterLocal(2),
+                  slaveCentral(3),
+                  slaveLocal(4),
+                  unknown(5)
+              }
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+                "The Efficient AP image upgrade role for the AP.
+                 masterCentral - Master AP downloading image from controller.
+                 masterLocal - Master AP downloading image from another master.
+                 slaveCentral - Slave AP downloading image from controller.
+                 slaveLocal - Slave AP downloading image from master."
+        ::= { cldlApBootEntry 10 }
+
+cldlAPSoftwareName  OBJECT-TYPE
+    SYNTAX           SnmpAdminString
+	MAX-ACCESS       read-only
+	STATUS           current
+	DESCRIPTION
+	    "This object represents the software name of the AP."
+    ::= { cldlApBootEntry 11 }		
+                                    
+
 
 --********************************************************************
 --*    Controller Reset Options. 
@@ -281,9 +360,23 @@ cldlResetAlertTime OBJECT-TYPE
     DESCRIPTION
         "This object is used to specify the number of seconds 
         before the scheduled reset at which the trap message 
-        will be generated."
+        will be generated.
+        Trap will not be generated if schedule reset time is
+        less than the ResetAlert time."
     ::= { cldlResetEntry 7 }
 
+cldlResetBootImage OBJECT-TYPE
+        SYNTAX     INTEGER{
+                        primary(1),
+                        backup(2)
+                   } 
+        MAX-ACCESS read-write
+        STATUS     current
+        DESCRIPTION
+            "This object used to select the image
+             to be loaded after reset."
+        DEFVAL {primary}
+        ::= { ciscoLwappDLReset 2 }
 
 --********************************************************************
 -- *  Notifications
@@ -341,7 +434,8 @@ ciscoLwappDLApGroup OBJECT-GROUP
                         cldlAPPrimaryVersion,
                         cldlAPBackupVersion,
                         cldlAPSwapImage,
-                        cldlApDownloadImage
+                        cldlApDownloadImage,
+						cldlAPSoftwareName
                     }
     STATUS          current
     DESCRIPTION

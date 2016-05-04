@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -82,11 +82,10 @@ foreach ($cache['megaraid']['pd'] as $index => $pd)
     discover_sensor($valid['sensor'], 'temperature', $device, $oid, "pdTemperature.$index", 'lsi-megaraid-sas-mib', $descr, 1, $value);
   }
 
-  $value = state_string_to_numeric('lsi-megaraid-sas-pd-state', $pd['pdState']);
+  $value = $pd['pdState'];
   $oid   = ".1.3.6.1.4.1.3582.4.1.4.2.1.2.1.10.$index";
 
-  // FIXME possibly wrong value being used for discovery? is corrected after a poll.
-  if ($value != '')
+  if ($value !== '')
   {
     discover_sensor($valid['sensor'], 'state', $device, $oid, "pdState.$index", 'lsi-megaraid-sas-pd-state', $descr, 1, $value);
   }
@@ -115,7 +114,7 @@ foreach ($cache['megaraid']['psu'] as $index => $psu)
   }
   $descr = $encl . " Power Supply " . (++$lsi_counter['psu'][$psu['enclosureId-EPST']]);
 
-  $value = state_string_to_numeric('lsi-megaraid-sas-sensor-state', $psu['powerSupplyStatus']);
+  $value = $psu['powerSupplyStatus'];
   $oid   = ".1.3.6.1.4.1.3582.4.1.5.5.1.3.$index";
 
   discover_sensor($valid['sensor'], 'state', $device, $oid, "powerSupplyStatus.$index", 'lsi-megaraid-sas-sensor-state', $descr, 1, $value);
@@ -150,7 +149,7 @@ foreach ($cache['megaraid']['temp'] as $index => $temp)
   }
   $descr = $encl . " Temperature sensor " . (++$lsi_counter['temp'][$temp['enclosureId-ETST']]);
 
-  $value = state_string_to_numeric('lsi-megaraid-sas-sensor-state', $temp['tempSensorStatus']);
+  $value = $temp['tempSensorStatus'];
   $oid   = ".1.3.6.1.4.1.3582.4.1.5.6.1.3.$index";
 
   discover_sensor($valid['sensor'], 'state', $device, $oid, "tempSensorStatus.$index", 'lsi-megaraid-sas-sensor-state', $descr, 1, $value);
@@ -182,7 +181,7 @@ foreach ($cache['megaraid']['fan'] as $index => $fan)
   }
   $descr = $encl . " Fan " . (++$lsi_counter['fan'][$fan['enclosureId']]);
 
-  $value = state_string_to_numeric('lsi-megaraid-sas-sensor-state', $fan['fanStatus']);
+  $value = $fan['fanStatus'];
   $oid   = ".1.3.6.1.4.1.3582.4.1.5.3.1.3.$index";
 
   discover_sensor($valid['sensor'], 'state', $device, $oid, "fanStatus.$index", 'lsi-megaraid-sas-sensor-state', $descr, 1, $value);

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -15,8 +15,8 @@
 
 if ($_SESSION['userlevel'] >= "5" || $auth)
 {
-  $id = mres($vars['id']);
-  $title = "Customer :: ".mres($vars['id']);
+  $id = $vars['id'];
+  $title = "Customer :: ". escape_html($vars['id']);
   $auth = TRUE;
 }
 

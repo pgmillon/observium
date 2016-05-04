@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -36,7 +36,7 @@ foreach ($obsd_array as $index => $entry)
     $index = $entry['sensorIndex'];
     $oid = "1.3.6.1.4.1.30155.2.1.2.1.5.$index";
 
-    discover_sensor($valid['sensor'], $type, $device, $oid, "sensorEntry.$index", "openbsd", $descr, $scale, $value * $scale);
+    discover_sensor($valid['sensor'], $type, $device, $oid, "sensorEntry.$index", "openbsd", $descr, $scale, $value);
   }
 }
 

@@ -7,43 +7,43 @@
  *
  * @package    observium
  * @subpackage map
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-    $where  = ' WHERE 1 ';
-    $where .= generate_query_permitted(array('device'), array('ignored' => TRUE));
-    //Detect map center
-    if (!is_numeric($config['frontpage']['map']['center']['lat']) || !is_numeric($config['frontpage']['map']['center']['lng']))
-    {
-      $map_center = dbFetchRow('SELECT MAX(`location_lon`) AS `lng_max`, MIN(`location_lon`) AS `lng_min`,
-                               MAX(`location_lat`) AS `lat_max`, MIN(`location_lat`) AS `lat_min`
-                               FROM `devices` '.$where);
-      $map_center['lat'] = ($map_center['lat_max'] + $map_center['lat_min']) / 2;
-      $map_center['lng'] = ($map_center['lng_max'] + $map_center['lng_min']) / 2;
-      $config['frontpage']['map']['center']['lat'] = $map_center['lat'];
-      $config['frontpage']['map']['center']['lng'] = $map_center['lng'];
+  $where  = ' WHERE 1 ';
+  $where .= generate_query_permitted(array('device'), array('hide_ignored' => TRUE));
+  //Detect map center
+  if (!is_numeric($config['frontpage']['map']['center']['lat']) || !is_numeric($config['frontpage']['map']['center']['lng']))
+  {
+    $map_center = dbFetchRow('SELECT MAX(`location_lon`) AS `lng_max`, MIN(`location_lon`) AS `lng_min`,
+                             MAX(`location_lat`) AS `lat_max`, MIN(`location_lat`) AS `lat_min`
+                             FROM `devices_locations` '.$where);
+    $map_center['lat'] = ($map_center['lat_max'] + $map_center['lat_min']) / 2;
+    $map_center['lng'] = ($map_center['lng_max'] + $map_center['lng_min']) / 2;
+    $config['frontpage']['map']['center']['lat'] = $map_center['lat'];
+    $config['frontpage']['map']['center']['lng'] = $map_center['lng'];
 
-      //Also auto-zoom
-      if (!is_numeric($config['frontpage']['map']['zoom']))
+    //Also auto-zoom
+    if (!is_numeric($config['frontpage']['map']['zoom']))
+    {
+      $map_center['lat_size'] = abs($map_center['lat_max'] - $map_center['lat_min']);
+      $map_center['lng_size'] = abs($map_center['lng_max'] - $map_center['lng_min']);
+      $l_max = max($map_center['lng_size'], $map_center['lat_size'] * 2);
+      // This is the magic array (2: min zoom, 10: max zoom).
+      foreach (array(1 => 10, 2 => 9, 4 => 8, 6 => 7, 15 => 5, 45 => 4, 90 => 3, 360 => 2) as $g => $z)
       {
-        $map_center['lat_size'] = abs($map_center['lat_max'] - $map_center['lat_min']);
-        $map_center['lng_size'] = abs($map_center['lng_max'] - $map_center['lng_min']);
-        $l_max = max($map_center['lng_size'], $map_center['lat_size'] * 2);
-        // This is the magic array (2: min zoom, 10: max zoom).
-        foreach (array(1 => 10, 2 => 9, 4 => 8, 6 => 7, 15 => 5, 45 => 4, 90 => 3, 360 => 2) as $g => $z)
+        if ($l_max <= $g)
         {
-          if ($l_max <= $g)
-          {
-            $config['frontpage']['map']['zoom'] = $z;
-            break;
-          }
+          $config['frontpage']['map']['zoom'] = $z;
+          break;
         }
       }
-      /// r($map_center);
-    } else {
-      if (!is_numeric($config['frontpage']['map']['zoom'])) { $config['frontpage']['map']['zoom'] = 4; }
-    } ?>
+    }
+    //r($map_center);
+  } else {
+    if (!is_numeric($config['frontpage']['map']['zoom'])) { $config['frontpage']['map']['zoom'] = 4; }
+  } ?>
 
   <script type='text/javascript' src='//www.google.com/jsapi'></script>
   <script type="text/javascript" src="js/google/markerclusterer.js"></script>
@@ -73,10 +73,17 @@
     $locations = array();
     foreach ($GLOBALS['cache']['devices']['id'] as $device)
     {
-      if ($device["status"] == "0" && $device["ignore"] == "0" && $device["disabled"] == "0") {
-        $locations[$device['location_lat']][$device['location_lon']]["down_hosts"][] = $device;
-      } elseif ($device["status"] == "1") {
-        $locations[$device['location_lat']][$device['location_lon']]["up_hosts"][] = $device;
+      if (!$config['web_show_disabled'] && $device["disabled"]) { continue; }
+      $lat = (is_numeric($device['location_lat']) ? $device['location_lat'] : $config['geocoding']['default']['lat']);
+      $lon = (is_numeric($device['location_lon']) ? $device['location_lon'] : $config['geocoding']['default']['lon']);
+      if ($device["status"] == "0")
+      {
+        if ($device["ignore"] == "0")
+        {
+          $locations[$lat][$lon]["down_hosts"][] = $device;
+        }
+      } else {
+        $locations[$lat][$lon]["up_hosts"][] = $device;
       }
     }
 
@@ -92,19 +99,21 @@
         $location_name = "";
         if ($num_down > 0)
         {
-          $location_name = ($lon['down_hosts'][0]['location'] == '' ? '[[UNKNOWN]]' : strtr(htmlspecialchars($lon['down_hosts'][0]['location']), "'", "`"));
+          $location_name = ($lon['down_hosts'][0]['location'] === '' ? OBS_VAR_UNSET : $lon['down_hosts'][0]['location']);
           $location_url  = generate_location_url($lon['down_hosts'][0]['location']);
           $tooltip .= "\\n\\nDown hosts:";
 
           foreach ($lon["down_hosts"] as $down_host) {
-            $tooltip .= "\\n" . $down_host['hostname'];
+            $tooltip .= "\\n" . escape_html($down_host['hostname']);
           }
         }
         elseif ($num_up > 0)
         {
-          $location_name = ($lon['up_hosts'][0]['location'] == '' ? '[[UNKNOWN]]' : strtr(htmlspecialchars($lon['up_hosts'][0]['location']), "'", "`"));
+          $location_name = ($lon['up_hosts'][0]['location'] === '' ? OBS_VAR_UNSET : $lon['up_hosts'][0]['location']);
           $location_url  = generate_location_url($lon['up_hosts'][0]['location']);
         }
+        // Google Map JS not allowed chars: ', \
+        $location_name = strtr(escape_html($location_name), "'\\", "`/");
 
         echo "[$la, $lo, $num_up, $num_down, \"$tooltip\", '$location_name', '$location_url'],\n      ";
       }
@@ -220,3 +229,6 @@
   google.maps.event.addDomListener(window, 'load', initialize);
 
   </script>
+<?php
+
+// EOF

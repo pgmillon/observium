@@ -1,0 +1,1156 @@
+-- ======================================================================
+--	CHANGE LOG
+--
+--  02/04/99 - hkabbara
+--  1. Add vlanIPX8022SNAPProtocol to A3ComVlanType and A3ComVlanLayer3Type.
+--  2. Update a3ComVlanProtocolTable Description.
+--
+--  09/24/98 - tmeiczin
+--  1. Renamed to 3cVlan.mib
+--  2. Fixed Syntax Error
+
+--  06/23/98 - hkabbara
+--  1. Add a Vlan variable A3ComVlanModeType to identify the Vlan Type
+--     Open, Closed.
+--  2. changed MIB revision to 1-0-7 for tracking purposes.
+--
+--  03/22/98 - hkbbara
+--  1. Remove a Vlan variable A3ComVlanModeType to identify the Vlan Type
+--     Open, Closed, and remove a3ComVlanIfModeType.
+--  2. changed MIB revision to 1-0-6 for tracking purposes.
+--
+--  10/20/97 - hkabbara
+--  1. Update A3ComVlanType and A3ComVlanLayer3Type with IPX-II, IPX-802.2
+--     and IPX-802.3 which are subset of IPX protocol.  The frame used for
+--     each selection is different from the other by a part taking out from
+--     the IPX protocol frame.
+--  2. changed MIB revision to 1-0-5 for tracking purposes.
+--
+--  10/07/97 - hkabbara
+--  1. Update A3ComVlanLayer3Type.  Take out ISO and NetBeui and add 
+--     SNA protocol.
+--  2. changed MIB revision to 1-0-4 for tracking purposes.
+--
+--  09/02/97 - hkabbara
+--  1. Add a Vlan variable A3ComVlanModeType to identify the Vlan Type
+--     Open, Closed.
+--  2. changed MIB revision to 1-0-3 for tracking purposes.
+--
+--  07/10/97 - hkabbara
+--  1. Added a new table to accomodate the ability to have multiple
+--     protocols per VLAN.
+--  2. changed MIB revision to 1-0-2 for tracking purposes.
+--
+--  6/5/97 - jscano
+--  1. Added Revision 1-0-1 to MIB for tracking purposes
+--  2. Combined the encaps.mib into the original vlan.mib
+--  3. Updated preamble comments to accomodate both vlan and encaps xfaces
+--     and added general clarifying comments to MIB.
+--
+--	10/20/96 - jscano
+--	1.	Added vlanSesionLayer type to vlan interface.
+--	2.	Added vlanNetBeui type to vlan interface.
+-- ======================================================================
+--
+--	Interpretation of the Interface Table for VLANs and encapsulation
+--  interfaces:
+-- 
+--	OBJECT              VALUE/USE
+--
+--	ifIndex             Same interpretation as RFC1573.  A unique value,
+--					 	greater than zero for each VLAN interface.
+--
+--	ifDescr             Same interpretation as RFC1573.  A textual string
+--						containing information anout the interface.  This
+--						string should include the name of the manufacturer,
+--						the product name, the version of the software, and that
+--						the interface is a vlan.  Example: "3COM LANPlex 2500,
+--						version 8.1, VLAN"
+--
+--	ifType              propVirtual(53)
+--
+--	ifMtu               Equivalent to the least common denominator MTU of the
+--						set of ports in the VLAN.  For example, if the VLAN
+--	                    contains one ethernet port, then the value of this
+--						object is 1518.  If the VLAN contains all FDDI ports,
+--						the value of this object is 4500.  If a vlan contains
+--						a mix of ethernet and FDDI ports, the value of this
+--						object is 1518.
+--
+--	ifSpeed				The value of this object is zero, as defined by RFC1573
+--						for sub-layers that have no concept of bandwidth.             
+--
+--	ifPhysAddress		The value of this object is always equal to a null octet
+--						string.
+--
+--	ifAdminStatus       Always equal to up(1).  SetRequest-PDUs fail.
+--
+--	ifOperStatus       	The value of this object is equal to up(1) if the
+--						ifOperStatus of at least one port in in the set of ports
+--						stacked below the VLAN layer is up(1).  The value of this 
+--						object is down(2) if the ifOperStatus of all ports stacked
+--						below the vlan layer is down(2).  The value of this
+--						object is down(2) if there are no ports stacked below the
+--						the vlan sublayer.
+--
+--	ifLastChange       	Same interpretation as RFC1573.  The value of sysUpTime
+--						at the time the interface entered its current operational
+--						state.  If the current state was entered prior to the 
+--						last re-initialization of the local network management
+--						subsystem, then this object contains a zero value.
+--	 
+--	ifInOctets			These objects  return NO_SUCH_NAME on reads and writes. 
+--	ifInUcastPkts		This approach is more desireable than returning zero
+--	ifInNUcastPkts		on reads because NMS's cannot differentiate between
+--	ifInDiscards		returning a zero for non-support vs returning a real
+--	ifInErrors			zero value for the counter.  Inability to distinguish
+--	ifInUnknownProtos	between these two cases would essentially prevent
+--	ifOutOctets			future implementation of these objects, therefore NO_SUCH_NAME
+--	ifOutUcastPkts		is returned to indicate no-support.  Future implementations
+--	ifOutNUcastPkts		may choose to return real values for these counters.
+--	ifOutDiscards							"
+--	ifOutErrors								"
+--	ifLinkUpDownTrapEnable					"
+--	ifConnectorPresent						"
+--	ifHighSpeed								"
+--	ifName									"
+--
+--	ifOutQLen			Deprecated in RFC1573.  Set to zero if present.
+--	ifSpecific			Deprecated in RFC1573.  Set to { 0.0 } if present. 
+--
+--	linkUp TRAP			Not supported for the vlan sublayer
+--	linkDown TRAP		Not supported for the vlan sublayer
+--
+-- ======================================================================
+
+
+	GENERIC-3COM-VLAN-MIB-1-0-7 DEFINITIONS ::= BEGIN
+
+	IMPORTS
+		enterprises, IpAddress	FROM RFC1155-SMI
+--		RowStatus				FROM SNMPv2-TC
+		DisplayString			FROM RFC1213-MIB
+		OBJECT-TYPE				FROM RFC-1212;
+
+-- The Following was removed to allow compiling with SunNet Manager
+--                RowStatus
+--                        FROM SNMPv2-TC;
+
+                RowStatus ::= INTEGER {
+
+                -- the following two values are states:
+                -- these values may be read or written
+                active(1),
+                notInService(2),
+
+                -- the following value is a state:
+                -- this value may be read, but not written
+                notReady(3),
+
+                -- the following three values are
+                -- actions: these values may be written,
+                --   but are never read
+                createAndGo(4),
+                createAndWait(5),
+                destroy(6)
+                }
+
+	a3Com	OBJECT IDENTIFIER ::= { enterprises 43 }
+	generic OBJECT IDENTIFIER ::= { a3Com 10 }
+	genExperimental  OBJECT IDENTIFIER ::= { generic 1 }
+
+	genVirtual OBJECT IDENTIFIER ::= { genExperimental 14 }
+
+	--
+	-- Structure of MIB
+	--
+	-- The objects are arranged into the following groups:
+	--
+	-- 3Com Generic VLAN MIB Groups 
+	--
+	a3ComVlanGroup			OBJECT IDENTIFIER ::= { genVirtual 1 }
+	a3ComVlanProtocolsGroup	OBJECT IDENTIFIER ::= { genVirtual 2 }
+	a3ComVirtualGroup		OBJECT IDENTIFIER ::= { genVirtual 3 }
+    a3ComEncapsulationGroup	OBJECT IDENTIFIER ::= { genVirtual 4 }
+	--
+	-- 3COM Vlan Type Textual Convention
+	--
+	--	vlanLayer2(1) = The globally identified VLAN interface is protocol
+	--		independent and based on port grouping.  The configuration of
+	--		port grouping is controlled through the ifStackTable.
+	--
+	--	vlanUnspecifiedProtocols(2)	= The globally identified VLAN interface is
+	--		known as Explicit Unspecified Protocols.  The forwarding behavior
+	--		of this type of VLAN interface is defined as follows: 
+	--
+	--		On devices that support layer 3 VLAN interfaces, there is an
+	--		Implicit Unspecified Protocols VLAN interface defined (See
+	--		diagram 1 below).  The flooding behavior of the Implicit
+	--		Unspecified Protocols VLAN interface is to forward all 
+	--		broadcast/multicast/unknown DA frames to all non-source
+	--		ports.
+	--
+	--		DIAGRAM 1: Implicit Unspecified Protocols VLAN Interface
+	--
+	--		+===============================+
+	--		| 	Implicit Unspecified VLAN	|
+	--		+===============================+
+	--		+===+===+===+===+===+===+===+===+
+	--		| 1	| 2	| 3	| 4	| 5	| 6 | 7	| 8	| <=== Ports
+	--		+===+===+===+===+===+===+===+===+
+	--		  ^				  
+	--		  |				  
+	--		Any protocol frame sourced on port 1 is flooded to ports 2-8		 
+	--
+	--		To change the above flooding behavior, an NMS can configure
+	--		an Explicit Unspecified Protocols for a single port or
+	--		a group of ports by using vlanUnspecifiedProtocols(2) (See
+	--		Diagram 2).
+	--
+	--		DIAGRAM 2: Explicit Unspecified Protocols VLAN Interface
+	--
+	--		  +=== Explicit Unspecified Protocols VLAN
+	--		  |
+	--		  V	
+	--		+===+===========================+
+	--		|	| Implicit Unspecified VLAN	|
+	--		+===+===========================+
+	--		+===+===+===+===+===+===+===+===+
+	--		| 1	| 2	| 3	| 4	| 5	| 6 | 7	| 8	| <=== Ports
+	--		+===+===+===+===+===+===+===+===+
+	--		  ^				  
+	--		  |				  
+	--		Any protocol frame sourced on port 1 is now dropped
+	--
+	--		When a protocol sensitive vlans is configured, the explicit
+	--		unspecified protocol can be used to control the flooding of all  
+	--		other protocols.  For example:
+	--
+	--		DIAGRAM 3: IP VLAN Interface
+	--
+	--		+===========+
+	--		| IP VLAN	|
+	--		+===========+===================+
+	--		| 	Implicit Unspecified VLAN	|
+	--		+===============================+
+	--		+===+===+===+===+===+===+===+===+
+	--		| 1	| 2	| 3	| 4	| 5	| 6 | 7	| 8	| <=== Ports
+	--		+===+===+===+===+===+===+===+===+
+	--		  ^				  
+	--		  |				  
+	--		Any non-IP broadcast/multicast/unknown DA frame sourced on
+	--		port 1 is flooded to ports 2-8		 
+	--	
+	--		To drop all non-IP broadcast/multicast/unknown DA frames at the
+	--		source port, the following Explicit Unspecified VLANs should be configured:
+	--
+	--		DIAGRAM 4: IP VLAN Interface with Default VLANs A, B, C
+	--
+	--		+===========+
+	--		| IP VLAN	|
+	--		+===========+===================+
+	--		| A	| B	| C	| Implicit Unspecified VLAN|
+	--		+===============================+
+	--		+===+===+===+===+===+===+===+===+
+	--		| 1	| 2	| 3	| 4	| 5	| 6 | 7	| 8	| <=== Ports
+	--		+===+===+===+===+===+===+===+===+
+	--		  ^   ^   ^				  
+	--		  |	  |   |				  
+	--		Any non-IP broadcast/multicast/unknown DA frame sourced on
+	--		either ports 1, 2, or 3, is dropped at the port and is not
+	--		flooded.
+	--
+	--	vlanIPProtocol(3)
+	--	vlanIPXProtocol(4)
+	--	vlanAppleTalkProtocol(5)
+	--	vlanXNSProtocol(6)
+	--	vlanISOProtocol(7)
+	--	vlanDECNetProtocol(8)
+	--	vlanNetBIOSProtocol(9)
+	--	vlanSNAProtocol(10),
+	--	vlanVINESProtocol(11)
+	--	vlanX25Protocol(12)
+	--	vlanIGMPProtocol(13)  = The globally identified VLAN interface is OSI
+	--		layer three sensitive.  Flooding domains are configurable by port
+	--		and by protocol in the above set of protocols.
+	--
+	--	vlanSessionLayer(14)
+    --  vlanNetBeui(15)
+    --  vlanLayeredProtocols(16),
+    --  vlanIPXIIProtocol(17),
+    --  vlanIPX8022Protocol(18),
+    --  vlanIPX8023Protocol(19),
+    --  vlanIPX8022SNAPProtocol(20)"
+
+	A3ComVlanType ::= INTEGER {
+		vlanLayer2(1),
+		vlanUnspecifiedProtocols(2),
+		vlanIPProtocol(3),
+		vlanIPXProtocol(4),
+		vlanAppleTalkProtocol(5),
+		vlanXNSProtocol(6),
+		vlanISOProtocol(7),
+		vlanDECNetProtocol(8),
+		vlanNetBIOSProtocol(9),
+		vlanSNAProtocol(10),
+		vlanVINESProtocol(11),
+		vlanX25Protocol(12),
+		vlanIGMPProtocol(13),
+		vlanSessionLayer(14),
+		vlanNetBeui(15),
+        vlanLayeredProtocols(16),
+        vlanIPXIIProtocol(17),
+        vlanIPX8022Protocol(18),
+        vlanIPX8023Protocol(19),
+        vlanIPX8022SNAPProtocol(20)              
+	}
+
+    A3ComVlanLayer3Type ::= INTEGER {
+        vlanIPProtocol(1),
+        vlanIPXProtocol(2),
+        vlanAppleTalkProtocol(3),
+        vlanXNSProtocol(4),
+        vlanSNAProtocol(5),
+        vlanDECNetProtocol(6),
+        vlanNetBIOSProtocol(7),
+        vlanVINESProtocol(8),
+        vlanX25Protocol(9),
+        vlanIPXIIProtocol(10),
+        vlanIPX8022Protocol(11),
+        vlanIPX8023Protocol(12),
+        vlanIPX8022SNAPProtocol(13)
+    }            
+
+    -- USEDEFAULT VLANs: uses the bridge Vlan Mode value.  The bridge Vlan
+    -- Mode can be set to : OPEN, CLOSED or MIXED.
+    --
+    -- OPEN VLANs: have no requirements about relationship between the bridge
+    -- port that a frame was received upon and the bridge port(s) that it is transmitted
+    -- on.  All open VLANs within the bridge will share the same address table.
+    --
+    -- CLOSED VLANs: require that the bridge port that a frame is received on is the
+    -- same VLAN interface as the bridge port(s) that a frame is transmitted on.  Each
+    -- closed VLAN within the bridge will have its own address table.
+    --
+
+    A3ComVlanModeType ::= INTEGER {
+        vlanUseDefault(1),
+        vlanOpen(2),
+        vlanClosed(3)
+    }
+
+	--
+	-- All groups in this MIB are optional.  Support for a 
+	-- particular group is dependent upon the capabilities
+	-- of the network device.
+	--
+	-- The VLAN Group
+	--
+	--		The VLAN mapping group contains objects for
+	--		identifying VLANs within a device, and for mapping
+	--		these VLANs to a global identifier.  It consists of the
+	--		the a3ComVlanGlobalMappingTable and the a3ComVlanIfTable.
+	--
+	-- The VLAN Protocols Group
+	--
+	--		The VLAN Protocols group contains protocol parameters for
+	--		VLAN interfaces based on protocols above layer 2 in the OSI
+	--		reference module.  It consists of the a3ComVlanIpTable.
+	--		In the future, other protocol groups will be defined as
+	--		capabilities are added.
+	--
+	-- The Virtual Group
+	--
+	--		The virtual group contains the a3ComNextVirtIfIndex object.
+	--		In the future, other groups and object will be added as
+	--		capabilities are added.
+    --
+    -- The Encapsulation Group
+	--
+	--	The Encapsulation Group contains objects for identifying
+	--	and configuring encapsulation entries within a device.
+	--	It consists of the a3ComVlanEncapsIfTable.
+	--
+	--
+	-- The 3COM VLAN Global Mapping Table
+	--
+	-- This table is implemented by all 3Com network devices that  
+	-- support interfaces to globally identified VLANs.
+	--
+
+    a3ComVlanGlobalMappingTable OBJECT-TYPE
+		SYNTAX  SEQUENCE OF A3ComVlanGlobalMappingEntry
+		ACCESS  not-accessible
+		STATUS  mandatory
+		DESCRIPTION
+			"This table lists VLAN interfaces that are globally
+			identified.  A single entry exists in this list for each
+			VLAN interface in the system that is bound to a global
+			identifier."
+		::= { a3ComVlanGroup 1 }
+
+	a3ComVlanGlobalMappingEntry OBJECT-TYPE
+		SYNTAX  A3ComVlanGlobalMappingEntry
+		ACCESS  not-accessible
+		STATUS  mandatory
+		DESCRIPTION
+			"An individual VLAN interface global mapping entry.
+			Entries in this table are created by setting the
+			a3ComVlanIfGlobalIdentifier object in the
+			a3ComVlanIfTable to a non-zero value."
+		INDEX { a3ComVlanGlobalMappingIdentifier }
+		::= { a3ComVlanGlobalMappingTable 1 }
+
+	A3ComVlanGlobalMappingEntry ::=
+		SEQUENCE {
+			a3ComVlanGlobalMappingIdentifier
+				INTEGER (0..65535),
+			a3ComVlanGlobalMappingIfIndex
+				INTEGER
+		}
+
+    a3ComVlanGlobalMappingIdentifier OBJECT-TYPE
+        SYNTAX  INTEGER (0..65535)
+        ACCESS	not-accessible 
+        STATUS  mandatory
+        DESCRIPTION
+            "An index into the a3ComVlanGlobalMappingTable and an
+			administratively assigned global VLAN identifier.  The
+			value of this object globally identifies the VLAN interface.
+			For VLAN interfaces, on different network devices, which are
+			part of the same globally identified VLAN, the value of this
+			object will be the same."
+        ::= { a3ComVlanGlobalMappingEntry 1 }
+
+	a3ComVlanGlobalMappingIfIndex OBJECT-TYPE
+		SYNTAX  INTEGER
+		ACCESS  read-only
+		STATUS  mandatory
+		DESCRIPTION
+			"The value of a3ComVlanIfIndex for the VLAN interface in the
+			a3ComVlanIfTable, which is bound to the global identifier
+			specified by this entry."
+		::= { a3ComVlanGlobalMappingEntry 2 }
+
+	--
+	-- The 3COM VLAN Interface Table
+	--
+	-- This table is implemented by all 3Com network devices that  
+	-- support VLAN interfaces.
+	--
+
+    a3ComVlanIfTable OBJECT-TYPE
+		SYNTAX  SEQUENCE OF A3ComVlanIfEntry
+		ACCESS  not-accessible
+		STATUS  mandatory
+		DESCRIPTION
+			"This table lists VLAN interfaces that exist within
+			a device.  A single entry exists in this list for each
+			VLAN interface in the system.  A VLAN interface may
+			be created, destroyed and/or mapped to a globally 
+			identified vlan."
+		::= { a3ComVlanGroup 2 }
+
+	a3ComVlanIfEntry OBJECT-TYPE
+		SYNTAX  A3ComVlanIfEntry
+		ACCESS  not-accessible
+		STATUS  mandatory
+		DESCRIPTION
+			"An individual VLAN interface entry.  When an NMS wishes
+			to create a new entry in this table, it must obtain a 
+			non-zero index from the a3ComNextAvailableVirtIfIndex
+			object.  Row creation in this table will fail if the
+			chosen index value does not match the current value 
+			returned from the a3ComNextAvailableVirtIfIndex object."
+		INDEX { a3ComVlanIfIndex }
+		::= { a3ComVlanIfTable 1 }
+
+	A3ComVlanIfEntry ::=
+		SEQUENCE {
+			a3ComVlanIfIndex
+				INTEGER,
+			a3ComVlanIfDescr
+				DisplayString,
+			a3ComVlanIfType
+				A3ComVlanType,
+			a3ComVlanIfGlobalIdentifier
+				INTEGER,
+			a3ComVlanIfInfo
+				OCTET STRING,
+			a3ComVlanIfStatus
+				RowStatus,
+            a3ComVlanIfModeType
+                A3ComVlanModeType
+		}
+
+    a3ComVlanIfIndex OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS 	not-accessible 
+        STATUS  mandatory
+        DESCRIPTION
+            "The index value of this row and the vlan's ifIndex in the
+			ifTable.  The NMS obtains the index value for this row by
+			reading the a3ComNextAvailableVirtIfIndex object."
+        ::= { a3ComVlanIfEntry 1 }
+
+	a3ComVlanIfDescr OBJECT-TYPE
+		SYNTAX	DisplayString (SIZE(0..80))
+		ACCESS	read-write
+		STATUS	mandatory
+		DESCRIPTION
+			"This is a description of the VLAN interface."
+		::= { a3ComVlanIfEntry 2 }
+
+    a3ComVlanIfType OBJECT-TYPE
+        SYNTAX 	A3ComVlanType
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+			"The VLAN interface type."
+        ::= { a3ComVlanIfEntry 3 }
+
+    a3ComVlanIfGlobalIdentifier OBJECT-TYPE
+        SYNTAX  INTEGER (0..65535)
+        ACCESS	read-write 
+        STATUS  mandatory
+        DESCRIPTION
+			"An administratively assigned global VLAN identifier.  For
+			VLAN interfaces, on different network devices, which are
+			part of the same globally identified VLAN, the value of this
+			object will be the same.  
+
+			The binding between a global identifier and a VLAN 
+			interface can be created or removed.  To create a binding
+			an NMS must write a non-zero value to this object.  To
+			delete a binding, the NMS must write a zero to this
+			object."
+		::= { a3ComVlanIfEntry 4 }
+
+	a3ComVlanIfInfo OBJECT-TYPE
+		SYNTAX	OCTET STRING
+		ACCESS	read-only
+		STATUS	mandatory
+		DESCRIPTION
+			"A TLV encoded information string for the VLAN interface.
+			 The information contained within this string corresponds
+			 to VLAN information not contained within this table, but
+			 contained elsewhere within this MIB module.  The purpose
+			 of this string is to provide an NMS with a quick read 
+			 mechanism of all related VLAN interface information.
+			
+			 The encoding rules are defined according to:
+
+				tag		=	2 bytes
+				length	=	2 bytes
+				value	=	n bytes
+
+			The following tags are defined:
+
+			TAG		OBJECT					DESCRIPTION
+			1		a3ComIpVlanIpNetAddress	IP Network Address of IP VLAN 	
+			2		a3ComIpVlanIpNetMask	IP Network Mask of IP VLAN"
+		::= { a3ComVlanIfEntry 5 }
+
+    a3ComVlanIfStatus OBJECT-TYPE
+        SYNTAX  RowStatus
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "The status column for this VLAN interface. 
+			 This OBJECT can be set to:
+
+            	active(1)
+				createAndGo(4)
+            	createAndWait(5)
+            	destroy(6)
+
+            The following values may be read:
+            	active(1)
+				notInService(2)
+           		notReady(3).
+			
+			Setting this object to createAndGo(4) causes the agent
+			to attempt to create and commit the row based on 
+			the contents of the objects in the row.  If all necessary
+			information is present in the row and the values are
+			acceptible to the agent, the agent will change the 
+			status to active(1).  If any of the necessary objects  
+			are not available, the agent will reject the creation
+			request.	
+
+			Setting this object to createAndWait(5) causes a row in
+			in this table to be created.  The agent sets the
+			status to notInService(2) if all of the information is
+			present in the row and the values are acceptible to the
+			agent; otherwise, the agent sets the status to
+			notReady(3).
+
+			Setting this object to active(1) is only valid when
+			the current status is active(1) or notInService(2).  
+
+			When the state of the row transitions to active(1), the
+			agent creates the corresponding row in the ifTable..
+
+			Setting this object to destroy(6) will remove the corresponding
+			VLAN interface, remove the entry in this table, and the
+			corresponding entries in the a3ComVlanGlobalMappingTable
+			and the ifTable.
+
+			In order for a set of this object to destroy(6) to succeed,
+			all dependencies on this row must have been removed.  These
+			will include any stacking dependencies in the ifStackTable and
+			any protocol specific tables dependencies."
+        ::= { a3ComVlanIfEntry 6 }
+
+
+    a3ComVlanIfModeType OBJECT-TYPE
+        SYNTAX A3ComVlanModeType
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+           " The VLAN mode type for this interface.
+                  This object can be set to:
+
+                           usedefault(1)
+                           open(2)
+                           closed(3)
+
+              UseDefault Vlans: uses the bridge Vlan Mode value.  The bridge Vlan Mode
+              Value can be set to : Open, Closed or Mixed.
+
+              Open VLANs: have no requirements about relationship between the bridge
+              port that a frame was received upon and the bridge port(s) that it is transmitted
+              on.  All open VLANs within the bridge will share the same address table.
+
+
+              Closed VLANs: require that the bridge port that a frame is received on is the
+              same VLAN interface as the bridge port(s) that a frame is transmitted on.  Each
+              closed VLAN within the bridge will have its own address table."
+
+        ::= { a3ComVlanIfEntry 7 }
+
+
+	--
+    --  The IP VLAN Interface Information Table
+	--
+	--	The IP VLAN Interface Information table is supported by 
+	--	network devices that support IP VLAN interfaces. 
+	--
+	--	A row must be created in this table for each IP
+	--	VLAN interface that shares 1 or more ports with
+	--	with another IP VLAN interface.   Entries in this
+	--	table must be created before the entries in the ifStack
+	-- 	Table, which cause the overlap.  The index used is the
+	--	same index as that used to create the IP VLAN interface
+	--	in the a3ComVlanIfTable.  The NMS must remove entries 
+	--	in this table, prior to removing the corresponding entry
+	--	in the a3ComVlanIfTable.
+	--
+	--	The information in this table is used to convey additional 
+	--  layer 3 information necessary to support overlapping
+	--	IP VLAN Interfaces.  If an NMS does not wish to 
+	--  configure overlapping IP VLAN interfaces, then
+	--	the information in this table is not needed.
+	--
+	--	Below is an example of a non-overlapping IP VLAN
+	--  interface: 
+	--
+	--		+===============+
+	--		|	IP VLAN 1	|
+	--		+===============+
+	--						+===============+
+	--						|	IP VLAN 2	|
+	--						+===============+
+	--		+===+===+===+===+===+===+===+===+
+	--		| 1	| 2	| 3	| 4	| 5	| 6 | 7	| 8	| <=== Ports
+	--		+===+===+===+===+===+===+===+===+
+	--	Non-Overlapping IP VLAN Interfaces
+	--
+	--	Below is an example of an overlapping IP VLAN 
+	--	interface.  The IP VLAN Interface Information table 
+	-- 	must be setup before this configuration is supported.  
+	--	The agent will fail sets to the ifStack table that
+	--	produce overlapping IP VLAN interfaces if the
+	--	VLAN interfaces do not have completed entries in 
+	--	the IP VLAN Interface Information table.
+	-- 
+	--			+===============+
+	--			|	IP VLAN 1	|
+	--			+===============+
+	--					+===============+
+	--					|	IP VLAN 2	|
+	--					+===============+
+	--		+===+===+===+===+===+===+===+===+
+	--		| 1	| 2	| 3	| 4	| 5	| 6 | 7	| 8	| <=== Ports
+	--		+===+===+===+===+===+===+===+===+
+	--	Overlapping IP VLAN Interfaces
+	--	
+
+	a3ComIpVlanTable OBJECT-TYPE
+		SYNTAX  SEQUENCE OF A3ComIpVlanEntry
+		ACCESS  not-accessible
+		STATUS  mandatory
+		DESCRIPTION
+			"A list of IP VLAN interface information
+			entries.  Entries in this table are related
+			to entries in the a3ComVlanIfTable by using the
+			same index."
+		::= { a3ComVlanProtocolsGroup 1 }
+
+	a3ComIpVlanEntry OBJECT-TYPE
+		SYNTAX  A3ComIpVlanEntry
+		ACCESS  not-accessible
+		STATUS  mandatory
+		DESCRIPTION
+			"A a3ComIpVlanEntry contains layer 3
+			information about a particular IP VLAN
+			interface.  Note entries in this table
+			cannot be deleted until the entries in
+			the ifStackTable that produce overlap
+			are removed."
+		INDEX	{ a3ComVlanIfIndex }
+		::= { a3ComIpVlanTable 1 }
+
+	A3ComIpVlanEntry ::=
+		SEQUENCE {
+			a3ComIpVlanIpNetAddress
+				IpAddress,
+			a3ComIpVlanIpNetMask
+				IpAddress,
+			a3ComIpVlanStatus
+				RowStatus	
+		}
+
+	a3ComIpVlanIpNetAddress OBJECT-TYPE
+		SYNTAX  IpAddress 
+		ACCESS  read-write
+		STATUS  mandatory
+		DESCRIPTION
+			"The IP network number for the IP VLAN interface defined
+			in the a3ComVlanIfTable identified with the same index.
+			The IpNetAdress and the IpNetMask must be set and the
+			the row creation process completed by a NMS before
+			overlapping rows in the ifStackTable can be created.
+			Sets to the ifStackTable that produce overlapping IP
+			IP VLAN interfaces will fail if this object is not
+			set."
+		::= { a3ComIpVlanEntry 1 }
+
+	a3ComIpVlanIpNetMask OBJECT-TYPE
+		SYNTAX  IpAddress 
+		ACCESS  read-write
+		STATUS  mandatory
+		DESCRIPTION
+			"The IP network mask corresponding to the IP Network
+			address defined by a3ComIpVlanIpNetAddress.  The
+			IpNetAdress and the IpNetMask must be set and the
+			row creation process completed by a NMS before 
+			overlapping rows in the ifStackTable can be created.
+			Sets to the ifStackTable that produce overlapping
+			IP VLAN interfaces will fail if this object is not
+			set."
+		::= { a3ComIpVlanEntry 2 }
+
+	a3ComIpVlanStatus OBJECT-TYPE
+		SYNTAX  RowStatus
+		ACCESS  read-write
+		STATUS  mandatory
+		DESCRIPTION
+			"The status column for this IP VLAN entry.
+			This object can be set to:
+
+            	active(1)
+				createAndGo(4)
+            	createAndWait(5)
+            	destroy(6)
+
+            The following values may be read:
+            	active(1)
+				notInService(2)
+           		notReady(3).
+	
+
+			Setting this object to createAndGo(4) causes the agent
+			to attempt to create and commit the row based on 
+			the contents of the objects in the row.  If all necessary
+			information is present in the row and the values are
+			acceptible to the agent, the agent will change the 
+			status to active(1).  If any of the necessary objects  
+			are not available, the agent will reject the row 
+			creation request.
+
+			Setting this object to createAndWait(5) causes a row in
+			in this table to be created.  The agent sets the
+			status to notInService(2) if all of the information is
+			present in the row and the values are acceptible to the
+			agent; otherwise, the agent sets the status to
+			notReady(3).
+
+			Setting this object to active(1) is only valid when
+			the current status is active(1) or notInService(2).
+
+			When the status changes to active(1), the agent applies the
+			IP parmeters to the IP VLAN interface identified by the
+			corresponding value of the a3ComIpVlanIndex object.
+
+			Setting this object to destroy(6) will remove the IP
+			parmeters from the IP VLAN interface and remove the
+			entry from this table.
+
+			Setting this object to destroy(6) will remove the layer 3
+			information from the IP VLAN interface and will remove the
+			row from this table.  Note that this action cannot be
+			performed if there are ifStackTable entries that result in
+			overlapping IP VLAN interfaces.  Note that these
+			dependencies must be removed first."
+		::= { a3ComIpVlanEntry 3 }
+
+        --
+        -- The 3COM VLAN Protocol Table
+        -- 
+        -- This table is implemented by all 3Com network devices that  
+        -- support:
+        --          1- Protocol based vlan interfaces
+        --          2- More than one layer 3 protocol per vlan interface
+        --
+        -- Entries in this table are created by an NMS when more than one
+        -- layer 3 protocol per VLAN interface is desired.  The a3ComVlanType
+        -- of the corresponding vlan interface entry in the A3ComVlanTable
+        -- must be set to vlanLayeredProtocols(16).
+
+        a3ComVlanProtocolTable OBJECT-TYPE
+            SYNTAX  SEQUENCE OF A3ComVlanProtocolEntry
+            ACCESS  not-accessible
+            STATUS  mandatory
+            DESCRIPTION
+                "This table lists the configured protocols per Vlan.  A
+                 single entry exists in this list for each protocol
+                 configured on a VLAN interface.  The a3ComVlanIfType
+                 object in a3ComVlanIfTable has to be set to 
+                 vlanLayeredProtocols in order to use this table."
+            ::= { a3ComVlanProtocolsGroup 2 }
+
+        a3ComVlanProtocolEntry OBJECT-TYPE
+            SYNTAX  A3ComVlanProtocolEntry
+            ACCESS  not-accessible
+            STATUS  mandatory
+            DESCRIPTION
+                "A a3ComVlanProtocolEntry contains a single VLAN to protocol
+                 entry."
+            INDEX { a3ComVlanProtocolIfIndex, a3ComVlanProtocolIndex }
+            ::= { a3ComVlanProtocolTable 1 }
+
+        A3ComVlanProtocolEntry ::=
+            SEQUENCE {
+                a3ComVlanProtocolIfIndex
+                    INTEGER,
+                a3ComVlanProtocolIndex
+                    A3ComVlanLayer3Type,
+                a3ComVlanProtocolStatus
+                    RowStatus
+            }
+
+        a3ComVlanProtocolIfIndex OBJECT-TYPE
+            SYNTAX  INTEGER
+            ACCESS  not-accessible
+            STATUS  mandatory
+            DESCRIPTION
+                 "The first indice of this row and the vlan's ifIndex in the
+                  ifTable.  The value of this object is the same as the
+                  corresponding a3ComVlanIfIndex in the a3ComVlanTable."
+            ::= { a3ComVlanProtocolEntry 1 }
+
+        a3ComVlanProtocolIndex OBJECT-TYPE
+            SYNTAX  A3ComVlanLayer3Type
+            ACCESS  not-accessible
+            STATUS  mandatory
+            DESCRIPTION
+                "The second indice of this row, which identifies one of
+                 possible many protocols associated with the VLAN interface
+                 identified by this entries first indice.  The values are
+                 based on the layer 3 protocols specified in A3ComVlanType"
+            ::= { a3ComVlanProtocolEntry 2 }
+
+        a3ComVlanProtocolStatus OBJECT-TYPE
+            SYNTAX  RowStatus
+            ACCESS  read-write
+            STATUS  mandatory
+            DESCRIPTION
+                "The status column for this VLAN interface. 
+                 This OBJECT can be set to:
+
+                    active(1)
+                    createAndGo(4)
+                    createAndWait(5)
+                    destroy(6)
+
+                 The following values may be read:
+                    active(1)
+                    notInService(2)
+                    notReady(3).
+			
+                    Setting this object to createAndGo(4) causes the agent
+                    to attempt to create and commit the row based on 
+                    the contents of the objects in the row.  If all necessary
+                    information is present in the row and the values are
+                    acceptible to the agent, the agent will change the 
+                    status to active(1).  If any of the necessary objects  
+                    are not available, the agent will reject the creation
+                    request. 
+
+                    Setting this object to createAndWait(5) causes a row
+                    in this table to be created.  The agent sets the
+                    status to notInService(2) if all of the information is
+                    present in the row and the values are acceptable to the
+                    agent; otherwise, the agent sets the status to
+                    notReady(3).
+
+                    Setting this object to active(1) is only valid when
+                    the current status is active(1) or notInService(2).
+
+                    Row creation to this table is only possible when a
+                    corresponding VLAN entry has been created in the
+                    a3ComVlanTable with an a3ComVlanType set to 
+                    vlanLayeredProtocols(16).
+
+                    Setting this object to destroy(6) will remove the
+                    corresponding VLAN interface to protocol mapping."
+        ::= { a3ComVlanProtocolEntry 3 }
+
+
+	-- The 3Com VLAN Encapsulation Interface Table
+	--
+	-- VLAN Encapsulation refers to the ability to multiplex
+	-- several VLANs over a single network segment by explicitly
+	-- labeling eack packet with a tag that identifies the packet's
+	-- VLAN membership.
+	--
+	-- There exist at least 2 tagging algorithms: a 3Com proprietary tagging 
+	-- scheme developped by PDD ("VLT tagging"), a standard tagging scheme
+	-- under development in IEEE ("802.1q tagging").  Within a given device
+	-- (i.e., within a givin agents purview), both tagging schemes may be
+	-- in use simultaneously, possibly for different segments associated 
+	-- with the same VLAN.  Even when only a single tagging scheme is in use, a
+	-- a single VLAN may be represented with different tags when traffic is 
+	-- transmitted/received through different (tagging) ports.  Some ports
+	-- support tagging, some don't.  For ports that support tagging, they may 
+	-- sometimes operate in tagging mode, sometime not in tagging mode.  
+	-- (Conceivably, one could also have ports that handle a mixture of tagged 
+	-- and untagged traffic.)
+	--
+	-- The encapsulation interface will be creatable by the NMS using a table
+	-- similar to the a3ComVlanIfTable.  This table will allow the NMS to define 
+	-- certain attributes of the encapsulation including an encapsulation 
+	-- algorithm and a tag value.  Using the ifStack table, an encapsulation
+	-- interface may be stacked underneath a VLAN interface and on top of port(s).
+	-- 
+	-- Example ifTable Stacking:
+	--
+	--		+=======================+=======================+
+	--		|     VLAN Xface 9      |       VLAN Xface 11   |
+	--		+=======================+=======================+
+	--		+=======================+
+	--		|      ENCAPS Xface 10  |
+	--		+=======================+
+	--		+=====+=====+=====+=====+=====+=====+=====+=====+
+	--		|  1  |  2  |  3  |  4  |  5  |  6  |  7  |  8  |<=== Ports
+	--		+=====+=====+=====+=====+=====+=====+=====+=====+
+	--
+	-- ifStackTable Instances:
+	--		ifStackHigher	ifStackLower
+	--                   0               9
+	--                   0               11
+	--                   1               0
+	--                   2               0
+	--                   3               0
+	--                   4               0
+	--                   9               10
+	--                  10               1
+	--                  10               2
+	--                  10               3
+	--                  10               4
+	--                  11               5
+	--                  11               6
+	--                  11               7
+	--                  11               8
+	--
+	-- A stack that contains a VLAN, encapsulation and a port interface, specifies:
+	--
+	-- * For packets received through the given port that use the given encapsulation
+	--   scheme and contain the given tag, those packets are members of the given VLAN.
+	--
+	-- * For unencapsulated packets from the given VLAN that are to be transmitted out
+	--   the given port, those packets must first be encapsulated using the given
+	--   encapsulation algorithm and tag.
+	-- 
+	-- This table is implemented by all 3Com network devices that  
+	-- support the encapsulation of multiple VLANs over a single interface.
+	--
+
+	A3ComVlanEncapsType ::= INTEGER { 
+		vlanEncaps3ComProprietaryVLT(1),
+		vlanEncaps8021q(2),
+		vlanEncapsPre8021qONcore(3)
+	}
+
+
+	a3ComVlanEncapsIfTable OBJECT-TYPE
+		SYNTAX  SEQUENCE OF A3ComVlanEncapsIfEntry
+		ACCESS  not-accessible
+		STATUS  mandatory
+		DESCRIPTION
+			"This table lists VLAN encapsulation interfaces that
+			exist within a device.  A single entry exists in this
+			list for each VLAN encapsulation interface in the
+			system.  A VLAN encapsulation interface may be created
+			or destroyed."
+		::= { a3ComEncapsulationGroup 1 }
+
+	a3ComVlanEncapsIfEntry OBJECT-TYPE
+		SYNTAX  A3ComVlanEncapsIfEntry
+		ACCESS  not-accessible
+		STATUS  mandatory
+		DESCRIPTION
+			"An individual VLAN encapsulation interface entry. 
+			When an NMS wishes to create a new entry in this table,
+			it must obtain a non-zero index from the
+			a3ComNextAvailableVirtIfIndex object.  Row creation in
+			this table will fail if the chosen index value does
+			not match the current value returned from the
+			a3ComNextAvailableVirtIfIndex object."
+		INDEX { a3ComVlanEncapsIfIndex }
+		::= { a3ComVlanEncapsIfTable 1 }
+
+	A3ComVlanEncapsIfEntry ::=
+		SEQUENCE {
+			a3ComVlanEncapsIfIndex
+				INTEGER,
+			a3ComVlanEncapsIfType
+				A3ComVlanEncapsType,
+			a3ComVlanEncapsIfTag
+				INTEGER,
+			a3ComVlanEncapsIfStatus
+				RowStatus
+		}
+
+	a3ComVlanEncapsIfIndex OBJECT-TYPE
+		SYNTAX  INTEGER
+		ACCESS 	not-accessible
+		STATUS  mandatory
+		DESCRIPTION
+			"The index value of this row and the encapsulation
+			interface's ifIndex in the ifTable.  The NMS obtains
+			the index value used for creating a row in this table
+			by reading the a3ComNextAvailableVirtIfIndex object."
+        ::= { a3ComVlanEncapsIfEntry 1 }
+
+	a3ComVlanEncapsIfType OBJECT-TYPE
+		SYNTAX	A3ComVlanEncapsType
+		ACCESS	read-write
+		STATUS	mandatory
+		DESCRIPTION
+			"The encapsulation algorithm used when encapsulating
+			packets transmitted, or de-encapsulating packets
+			received through this interface."
+	::= { a3ComVlanEncapsIfEntry 2 }
+
+	a3ComVlanEncapsIfTag OBJECT-TYPE
+		SYNTAX 	INTEGER
+		ACCESS  read-write
+		STATUS  mandatory
+		DESCRIPTION
+			"The tag used when encapsulating packets transmitted,
+			or de-encapsulating packets received through this
+			interface."
+        ::= { a3ComVlanEncapsIfEntry 3 }
+
+	a3ComVlanEncapsIfStatus OBJECT-TYPE
+		SYNTAX  RowStatus
+		ACCESS  read-write
+		STATUS  mandatory
+		DESCRIPTION
+			"The row status for this VLAN encapsulation interface. 
+
+			 This OBJECT can be set to:
+
+				active(1)
+				createAndGo(4)
+				createAndWait(5)
+				destroy(6)
+
+			The following values may be read:
+				active(1)
+				notReady(3).
+			
+			In order for a row to become active, the NMS must set
+			a3ComVlanEncapsIfTagType and a3ComVlanEncapsIfTag to
+			some valid and consistent values.  
+
+			Setting this object to createAndGo(4) causes the agent
+			to attempt to create and commit the row based on the
+			contents of the objects in the row. If all necessary
+			information is present in the row, the agent will
+			create the row and change the status to active(1).  If
+			any of the necessary objects are not available, or
+			specify an invalid configuration, the row will not be
+			created and the agent will return an appropriate error.
+
+			Setting this object to createAndWait(5) causes a row in
+			in this table to be created.  If all necessary objects
+			in the row have been assigned values and specify a valid
+			configuration, the status of the row will be set to
+			notInService(2); otherwise, the status will be set to
+			notReady(3).  
+
+			This object may only be set to createAndGo(4) or
+			createAndWait(5) if it does not exist.
+
+			Setting this object to active(1) when the status is
+			notInService(2) causes the agent to commit the
+			row.  Setting this object to active(1) when its value
+			is already active(1) is a no-op.
+
+			Setting this object to destroy(6) will remove the
+			corresponding VLAN encapsulation interface, remote the
+			entry in this table, and remove the corresponding entry
+			in the ifTable.
+
+			In order for a set of this object to destroy(6) to
+			succeed, all dependencies on this row must have been
+			removed.  These will include any references to this
+			interface in the ifStackTable."
+        ::= { a3ComVlanEncapsIfEntry 4 }
+
+	--
+	-- The a3ComNextAvailableVirtIfIndex
+	--
+
+	a3ComNextAvailableVirtIfIndex OBJECT-TYPE
+		SYNTAX	INTEGER
+		ACCESS	read-only
+		STATUS	mandatory
+		DESCRIPTION
+			"The value of the next available virtual ifIndex.  This
+			 object is used by an NMS to select an index value 
+			 for row-creation in tables indexed by ifIndex.  The 
+			 current value of this object is changed to a new
+			 value when the current value is written to an agent's
+			 table, that is indexed by ifIndex.  Row creation
+			 using the current value of this object, allocates
+			 a virtual ifIndex.  Note the following:
+			
+			 1. A newly created row does not have to be active(1)
+				for the agent to allocate the virtual ifIndex.
+
+			 2. Race conditions between multiple NMS's end when
+				a row is created.  Rows are deemed created when
+				a setRequest is successfully committed (i.e.
+				the errorStats is noError(0)).
+
+			3.	An agent that exhausts its supply of virual
+				ifIndex values returns zero as the value of this
+				object.  This can be used by an NMS as an indication
+				to deleted unused rows and reboot the device."
+		::= { a3ComVirtualGroup 1 }
+			 
+END

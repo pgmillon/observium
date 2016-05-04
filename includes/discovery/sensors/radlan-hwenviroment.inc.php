@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -24,7 +24,7 @@ foreach ($oids as $index => $entry)
 {
   $descr = ucfirst($entry['rlEnvMonFanStatusDescr']);
   $oid   = ".1.3.6.1.4.1.89.83.1.1.1.3.".$index;
-  $value = state_string_to_numeric('radlan-hwenvironment-state',$entry['rlEnvMonFanState']);
+  $value = $entry['rlEnvMonFanState'];
 
   if ($entry['rlEnvMonFanState'] != 'notPresent')
   {
@@ -45,7 +45,7 @@ foreach ($oids as $index => $entry)
 {
   $descr = ucfirst($entry['rlEnvMonSupplyStatusDescr']);
   $oid   = ".1.3.6.1.4.1.89.83.1.2.1.3.".$index;
-  $value = state_string_to_numeric('radlan-hwenvironment-state',$entry['rlEnvMonSupplyState']);
+  $value = $entry['rlEnvMonSupplyState'];
 
   if ($entry['rlEnvMonSupplyState'] != 'notPresent')
   {

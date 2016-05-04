@@ -2,12 +2,12 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -26,8 +26,7 @@
 
 unset($search, $devices_array, $types);
 
-$where = ' WHERE 1 ';
-$where .= generate_query_permitted();
+$where = ' WHERE 1 ' . generate_query_permitted();
 
 //Device field
 foreach ($cache['devices']['hostname'] as $hostname => $device_id)
@@ -38,7 +37,7 @@ foreach ($cache['devices']['hostname'] as $hostname => $device_id)
 $search[] = array('type'    => 'multiselect',
                   'name'    => 'Devices',
                   'id'      => 'device_id',
-                  'width'   => '160px',
+                  'width'   => '125px',
                   'value'   => $vars['device_id'],
                   'values'  => $devices_array);
 
@@ -52,32 +51,49 @@ if (isset($vars['device_id']))
 $search[] = array('type'    => 'text',
                   'name'    => 'Message',
                   'id'      => 'message',
+                  'width'   => '150px',
+                  'placeholder' => 'Message',
                   'value'   => $vars['message']);
 
-//Types field
-$types['system'] = 'System';
-foreach (dbFetchRows('SELECT `type` FROM `eventlog` ' . $where . ' GROUP BY `type` ORDER BY `type`') as $data)
+//Severity field
+foreach (dbFetchColumn('SELECT DISTINCT `severity` FROM `eventlog`' . $where) as $severity)
 {
-  $type = $data['type'];
+  $severities[$severity] = ucfirst($config['syslog']['priorities'][$severity]['name']);
+}
+krsort($severities);
+$search[] = array('type'    => 'multiselect',
+                  'name'    => 'Severities',
+                  'id'      => 'severity',
+                  'width'   => '110px',
+                  'subtext' => TRUE,
+                  'value'   => $vars['severity'],
+                  'values'  => $severities);
+
+//Types field
+$types['device'] = 'Device';
+foreach (dbFetchColumn('SELECT DISTINCT `entity_type` FROM `eventlog` IGNORE INDEX (`type`)' . // Use index 'type_device' for speedup
+                       $where) as $type)
+{
+  //$type = $data['type'];
   $types[$type] = ucfirst($type);
 }
 $search[] = array('type'    => 'multiselect',
                   'name'    => 'Types',
                   'id'      => 'type',
-                  'width'   => '160px',
+                  'width'   => '100px',
                   'value'   => $vars['type'],
                   'values'  => $types);
 
 // Newline
-$search[] = array('type'    => 'newline',
-                  'hr'      => TRUE);
+//$search[] = array('type'    => 'newline',
+//                  'hr'      => TRUE);
 
 // Datetime field
 $search[] = array('type'    => 'datetime',
                   'id'      => 'timestamp',
                   'presets' => TRUE,
-                  'min'     => dbFetchCell('SELECT MIN(`timestamp`) FROM `eventlog` '. $where),
-                  'max'     => dbFetchCell('SELECT MAX(`timestamp`) FROM `eventlog` '. $where),
+                  'min'     => dbFetchCell('SELECT `timestamp` FROM `eventlog`' . $where . ' ORDER BY `timestamp` LIMIT 0,1;'),
+                  'max'     => dbFetchCell('SELECT `timestamp` FROM `eventlog`' . $where . ' ORDER BY `timestamp` DESC LIMIT 0,1;'),
                   'from'    => $vars['timestamp_from'],
                   'to'      => $vars['timestamp_to']);
 
@@ -89,7 +105,7 @@ $vars['pagination'] = TRUE;
 // Print events
 print_events($vars);
 
-$pagetitle[] = 'Eventlog';
+$page_title[] = 'Eventlog';
 
 ?>
 

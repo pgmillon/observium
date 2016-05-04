@@ -2,12 +2,12 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -67,7 +67,7 @@ if (check_extension_exists('mcrypt'))
 <?php
 if (isset($auth_message))
 {
-  echo('<div class="controls" style="font-weight: bold; color: #cc0000; padding-top: 25px;">' . $auth_message . '</div');
+  echo('<div class="controls" style="font-weight: bold; color: #cc0000; padding-top: 25px;">' . escape_html($auth_message) . '</div');
 }
 ?>
             </fieldset>
@@ -83,7 +83,7 @@ if (isset($auth_message))
 
 if (isset($config['login_message']))
 {
-  echo('<div class=row><div class="col-md-6 col-md-offset-3"><div style="margin-top: 10px;text-align: center; font-weight: bold; color: #cc0000;">'.$config['login_message'].'</div></div></div>');
+  echo('<div class=row><div class="col-md-6 col-md-offset-3"><div style="margin-top: 10px;text-align: center; font-weight: bold; color: #cc0000;">'.escape_html($config['login_message']).'</div></div></div>');
 }
 ?>
 <script type="text/javascript">

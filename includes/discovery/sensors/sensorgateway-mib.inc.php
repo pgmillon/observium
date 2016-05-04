@@ -7,14 +7,14 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 echo(" SensorGateway ");
 
 $oids = snmp_walk($device, ".1.3.6.1.4.1.17095.3", "-Osqn");
-if ($debug) { echo($oids."\n"); }
+
 $oids = trim($oids);
 if ($oids)
 {

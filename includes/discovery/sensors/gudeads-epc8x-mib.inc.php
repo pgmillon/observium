@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -29,7 +29,7 @@ foreach ($cache['epc8x'] as $index => $entry)
 
   if ($value != '' && $value != -9999)
   {
-    discover_sensor($valid['sensor'], 'temperature', $device, $oid, 'epc8TempSensor.'.$index, 'epc8x', $descr, $scale, $value * $scale);
+    discover_sensor($valid['sensor'], 'temperature', $device, $oid, 'epc8TempSensor.'.$index, 'epc8x', $descr, $scale, $value);
   }
 
   $oid   = ".1.3.6.1.4.1.28507.1.1.3.2.1.3.$index";
@@ -38,7 +38,7 @@ foreach ($cache['epc8x'] as $index => $entry)
 
   if ($value != '' && $value != -9999)
   {
-    discover_sensor($valid['sensor'], 'humidity', $device, $oid, 'epc8HygroSensor.'.$index, 'epc8x', $descr, $scale, $value * $scale);
+    discover_sensor($valid['sensor'], 'humidity', $device, $oid, 'epc8HygroSensor.'.$index, 'epc8x', $descr, $scale, $value);
   }
 }
 
@@ -51,7 +51,7 @@ $scale = 0.001;
 
 if ($value != '' && $value != -9999)
 {
-  discover_sensor($valid['sensor'], 'current', $device, $oid, 'epc8Irms.0', 'epc8x', $descr, $scale, $value * $scale);
+  discover_sensor($valid['sensor'], 'current', $device, $oid, 'epc8Irms.0', 'epc8x', $descr, $scale, $value);
 }
 
 // EOF

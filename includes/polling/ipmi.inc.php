@@ -7,11 +7,11 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-global $debug, $ipmi_sensors;
+global $ipmi_sensors;
 
 include_once("includes/polling/functions.inc.php");
 
@@ -38,21 +38,12 @@ if ($ipmi['host'] = get_dev_attrib($device,'ipmi_hostname'))
     $remote = " -I " . escapeshellarg($ipmi['interface']) . " -p " . $ipmi['port'] . " -H " . escapeshellarg($ipmi['host']) . " -L " . escapeshellarg($ipmi['userlevel']) . " -U " . escapeshellarg($ipmi['user']) . " -P " . escapeshellarg($ipmi['password']);
   }
 
-  $ipmi_start = utime();
-
   $results = external_exec($config['ipmitool'] . $remote . " sensor 2>/dev/null");
-
-  $ipmi_end = utime(); $ipmi_time = round(($ipmi_end - $ipmi_start) * 1000);
-
-  echo('(' . $ipmi_time . 'ms) ');
 
   $ipmi_sensors = parse_ipmitool_sensor($device, $results);
 }
 
-if ($debug)
-{
-  print_vars($ipmi_sensors);
-}
+if (OBS_DEBUG) { print_vars($ipmi_sensors); }
 
 foreach ($config['ipmi_unit'] as $type)
 {

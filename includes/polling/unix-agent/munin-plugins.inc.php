@@ -7,15 +7,19 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
+
+// Init to avoid PHP warnings
+$plugins    = array();
+$plugins_ds = array();
 
 // Plugins
 if (!empty($agent_data['munin']))
 {
   echo("Munin Plugins:");
-  if ($debug) { print_vars($agent_data['munin']); }
+  if (OBS_DEBUG) { print_vars($agent_data['munin']); }
 
   // Build cache of plugins we already know about
 
@@ -32,7 +36,6 @@ if (!empty($agent_data['munin']))
 
   $old_plugins_rrd_dir = $host_rrd . "/plugins";
   $plugins_rrd_dir = $host_rrd . "/munin";
-  if (is_dir($old_plugins_rrd_dir) && !is_dir($plugins_rrd_dir)) { rename($old_plugins_dir, $plugins_dir); } // CLEANME Remove rename in r6000
   if (!is_dir($plugins_rrd_dir)) { mkdir($plugins_rrd_dir); echo("Created directory : $plugins_rrd_dir\n"); }
   $plugin = array();
   foreach ($agent_data['munin'] AS $plugin_type => $plugin_data)
@@ -43,7 +46,7 @@ if (!empty($agent_data['munin']))
     $plugin_rrd = "munin/".$plugin_type;
     $plugin_uniq = $plugin_type."_";
 
-    if ($debug) { echo("\n[$plugin_data]\n"); }
+    if (OBS_DEBUG > 1) { echo("\n[$plugin_data]\n"); }
 
     foreach (explode("\n", $plugin_data) as $line)
     {

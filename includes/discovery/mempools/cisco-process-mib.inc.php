@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -22,7 +22,7 @@ if (!isset($valid['mempool']['cisco-enhanced-mempool-mib']) && !isset($valid['me
   $mempool_array = snmpwalk_cache_oid($device, 'cpmCPUMemoryFree', $mempool_array, $mib, mib_dirs('cisco'));
   $mempool_array = snmpwalk_cache_oid($device, 'cpmCPUTotalPhysicalIndex', $mempool_array, $mib, mib_dirs('cisco'));
 
-  if ($debug) { print_vars($mempool_array); }
+  if (OBS_DEBUG > 1) { print_vars($mempool_array); }
 
   foreach ($mempool_array as $index => $entry)
   {

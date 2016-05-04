@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -24,7 +24,7 @@ if (is_array($mempool_array))
 {
   $mempool_array = snmpwalk_cache_oid($device, "chStackUnitSysType", $mempool_array, $mib, mib_dirs('force10'));
   $total_array   = snmpwalk_cache_oid($device, "chSysProcessorMemSize", NULL, $mib, mib_dirs('force10'));
-  if ($debug && count($total_array)) { print_vars($total_array); }
+  if (OBS_DEBUG > 1 && count($total_array)) { print_vars($total_array); }
   foreach ($mempool_array as $index => $entry)
   {
     if (is_numeric($entry['chStackUnitMemUsageUtil']))

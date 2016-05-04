@@ -1,0 +1,463 @@
+MPLS-FRR-ONE2ONE-STD-MIB DEFINITIONS ::= BEGIN
+
+ IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, mib-2,
+    Integer32, Gauge32
+       FROM SNMPv2-SMI                            -- [RFC2578]
+    MODULE-COMPLIANCE, OBJECT-GROUP
+       FROM SNMPv2-CONF                           -- [RFC2580]
+    TruthValue
+       FROM SNMPv2-TC                             -- [RFC2579]
+    MplsTunnelIndex, MplsTunnelInstanceIndex,
+    MplsLsrIdentifier
+       FROM MPLS-TC-STD-MIB                       -- [RFC3811]
+    InetAddressType, InetAddress
+
+       FROM INET-ADDRESS-MIB                      -- [RFC4001]
+    mplsFrrGeneralScalarGroup, mplsFrrGeneralTunnelARHopGroup,
+    mplsFrrGeneralConstraintsGroup
+       FROM MPLS-FRR-GENERAL-STD-MIB
+    ;
+
+ mplsFrrOne2OneMIB MODULE-IDENTITY
+    LAST-UPDATED
+       "201111030000Z" -- 03 Nov 2011 00:00:00 GMT
+    ORGANIZATION
+       "Multiprotocol Label Switching (MPLS) Working Group"
+    CONTACT-INFO
+         "
+                  Riza Cetin
+           Email: riza.cetin@alcatel.be
+
+                  Thomas D. Nadeau
+           Email: thomas.nadeau@ca.com
+
+                  A S Kiran Koushik
+           Email: kkoushik@cisco.com
+
+                  Stefaan De Cnodder
+           Email: Stefaan.de_cnodder@alcatel.be
+
+                  Der-Hwa Gan
+           Email: dhg@juniper.net
+         "
+    DESCRIPTION
+      "Copyright (c) 2011 IETF Trust and the persons
+       identified as authors of the code.  All rights
+       reserved.
+
+       Redistribution and use in source and binary forms,
+       with or without modification, is permitted pursuant
+       to, and subject to the license terms contained in,
+       the Simplified BSD License set forth in Section 4.c
+       of the IETF Trust's Legal Provisions Relating to
+       IETF Documents
+       (http://trustee.ietf.org/license-info).
+
+       This MIB module contains object definitions for the
+       MPLS Traffic Engineering one-to-one backup method for
+       Fast Reroute as defined in RFC 4090."
+
+ -- Revision history.
+    REVISION
+      "201111030000Z" -- 03 Nov 2011 00:00:00 GMT
+    DESCRIPTION
+      "Initial version.  Published as RFC 6445."
+    ::= { mib-2 203 }
+
+ -- Top-level components of this MIB module
+
+ mplsFrrOne2OneObjects OBJECT IDENTIFIER
+                         ::= { mplsFrrOne2OneMIB 1 }
+ mplsFrrOne2OneConformance   OBJECT IDENTIFIER
+                         ::= { mplsFrrOne2OneMIB 2 }
+
+ -- Scalar objects defined for the one-to-one style of FRR
+
+ mplsFrrIncomingDetourLSPs OBJECT-TYPE
+    SYNTAX        Integer32 (0..2147483647)
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+      "The number of detour LSPs entering the device."
+    ::= { mplsFrrOne2OneObjects 1 }
+
+ mplsFrrOutgoingDetourLSPs OBJECT-TYPE
+    SYNTAX        Integer32 (0..2147483647)
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+      "The number of detour LSPs leaving the device."
+    ::= { mplsFrrOne2OneObjects 2 }
+
+ mplsFrrOne2OneDetourOriginating OBJECT-TYPE
+    SYNTAX        Integer32(0..2147483647)
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+      "The number of detour LSPs originating at this PLR."
+    ::= { mplsFrrOne2OneObjects 3 }
+
+ mplsFrrActiveProtectedLSPs OBJECT-TYPE
+    SYNTAX        Gauge32
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+      "Indicates the number of LSPs currently protected by
+       the FRR feature where this device acts as the PLR
+       for those LSPs."
+    ::= { mplsFrrOne2OneObjects 4 }
+
+ --
+
+ -- One-to-One specific tables
+ --
+ -- Tables in this section pertain only to the one-to-one
+ -- style of FRR.
+ --
+
+ -- MPLS Fast-Reroute Point of Local Repair table
+
+ mplsFrrOne2OnePlrTable  OBJECT-TYPE
+    SYNTAX        SEQUENCE OF MplsFrrOne2OnePlrEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+      "This table shows a list of protected TE tunnels with
+       the corresponding protecting tunnel, as well as the PLR
+       where the protecting tunnel that initiated the detour
+       LSPs traverses this node."
+    ::= { mplsFrrOne2OneObjects 5 }
+
+ mplsFrrOne2OnePlrEntry  OBJECT-TYPE
+    SYNTAX        MplsFrrOne2OnePlrEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+      "An entry in this table represents a protected tunnel LSP
+       together with its detour tunnel instance.  An entry in
+       this table is only created by an SNMP engine as instructed
+       by an MPLS signaling protocol.
+
+       The entries of this table are present in all LSRs on the
+       path of the detour LSP.
+
+       The objects mplsFrrOne2OnePlrSenderAddrType and
+       mplsFrrOne2OnePlrSenderAddr can be modified after the row
+       is created.
+
+       The objects mplsFrrOne2OnePlrTunnelIndex,
+       mplsFrrOne2OnePlrTunnelDetourInstance,
+       mplsFrrOne2OnePlrTunnelIngressLSRId,
+       and mplsFrrOne2OnePlrTunnelEgressLSRId have the same
+       values as the objects mplsTunnelIndex, mplsTunnelInstance,
+       mplsTunnelIngressLSRId, and mplsTunnelEgressLSRId of the
+       detour tunnel instance created in the mplsTunnelTable
+       (MPLS-TE-STD-MIB).
+
+       The entries in this table will be deleted when the
+       corresponding entries in the mplsTunnelTable are deleted."
+    INDEX { mplsFrrOne2OnePlrTunnelIndex,     -- from MPLS-TE-STD-MIB
+
+            mplsFrrOne2OnePlrTunnelDetourInstance,-- mplsTunnelTable
+            mplsFrrOne2OnePlrTunnelIngressLSRId,-- Tunnels must exist
+            mplsFrrOne2OnePlrTunnelEgressLSRId,  -- a priori
+            mplsFrrOne2OnePlrId    }
+    ::= { mplsFrrOne2OnePlrTable 1 }
+
+ MplsFrrOne2OnePlrEntry ::= SEQUENCE {
+     mplsFrrOne2OnePlrTunnelIndex           MplsTunnelIndex,
+     mplsFrrOne2OnePlrTunnelDetourInstance  MplsTunnelInstanceIndex,
+     mplsFrrOne2OnePlrTunnelIngressLSRId    MplsLsrIdentifier,
+     mplsFrrOne2OnePlrTunnelEgressLSRId     MplsLsrIdentifier,
+     mplsFrrOne2OnePlrId                    MplsLsrIdentifier,
+     mplsFrrOne2OnePlrSenderAddrType        InetAddressType,
+     mplsFrrOne2OnePlrSenderAddr            InetAddress,
+     mplsFrrOne2OnePlrAvoidNodeAddrType     InetAddressType,
+     mplsFrrOne2OnePlrAvoidNodeAddr         InetAddress
+ }
+
+ mplsFrrOne2OnePlrTunnelIndex OBJECT-TYPE
+    SYNTAX        MplsTunnelIndex
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+      "Uniquely identifies a tunnel between a pair of LSRs
+       from the mplsTunnelEntry."
+    ::= { mplsFrrOne2OnePlrEntry 1 }
+
+ mplsFrrOne2OnePlrTunnelDetourInstance OBJECT-TYPE
+    SYNTAX        MplsTunnelInstanceIndex
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+      "Uniquely identifies a detour instance of a tunnel from
+       the mplsTunnelEntry.
+
+      - lower 16 bits : protected tunnel instance
+      - higher 16 bits: detour instance"
+    ::= { mplsFrrOne2OnePlrEntry 2 }
+
+ mplsFrrOne2OnePlrTunnelIngressLSRId OBJECT-TYPE
+    SYNTAX        MplsLsrIdentifier
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+      "The purpose of this object is to uniquely identify a
+       tunnel within a network.  When the MPLS signaling
+       protocol is rsvp(2), this object SHOULD contain the
+       same value as the Extended Tunnel ID field in the
+
+       SESSION object.  When the MPLS signaling protocol
+       is crldp(3), this object SHOULD contain the same
+       value as the Ingress LSR Router ID field in the
+       LSPID TLV object.
+
+       This value represents the head-end of the protected
+       tunnel instance."
+    REFERENCE
+      "Section 4.7 of RFC 3209."
+    ::= { mplsFrrOne2OnePlrEntry 3 }
+
+ mplsFrrOne2OnePlrTunnelEgressLSRId OBJECT-TYPE
+    SYNTAX        MplsLsrIdentifier
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+      "Specifies the egress LSR ID of the protected tunnel instance."
+    ::= { mplsFrrOne2OnePlrEntry 4 }
+
+ mplsFrrOne2OnePlrId OBJECT-TYPE
+    SYNTAX        MplsLsrIdentifier
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+      "This value represents the PLR that has initiated a detour LSP
+       to protect a tunnel instance.
+
+       This value is signaled via the DETOUR object defined in
+       MPLS RSVP."
+    REFERENCE
+      "Section 4.2 of RFC 4090."
+    ::= { mplsFrrOne2OnePlrEntry 5 }
+
+ mplsFrrOne2OnePlrSenderAddrType OBJECT-TYPE
+    SYNTAX        InetAddressType
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+      "Denotes the address type of this detour instance's sender
+       address."
+    DEFVAL        { ipv4 }
+    ::= { mplsFrrOne2OnePlrEntry 6 }
+
+ mplsFrrOne2OnePlrSenderAddr OBJECT-TYPE
+    SYNTAX        InetAddress
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+      "The IP address of the PLR that has initiated the detour LSP.
+       The type of this address is determined by the value of the
+       mplsFrrOne2OnePlrSenderAddrType object."
+    ::= { mplsFrrOne2OnePlrEntry 7 }
+
+ mplsFrrOne2OnePlrAvoidNodeAddrType OBJECT-TYPE
+    SYNTAX        InetAddressType
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+      "Denotes the address type of the node that this PLR tries to
+       avoid."
+    DEFVAL        { ipv4 }
+    ::= { mplsFrrOne2OnePlrEntry 8 }
+
+ mplsFrrOne2OnePlrAvoidNodeAddr OBJECT-TYPE
+    SYNTAX        InetAddress
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+      "The IP address of the node that this PLR tries to avoid.
+       The type of this address is determined by the value of the
+       mplsFrrOne2OnePlrAvoidNodeAddrType object.
+
+       This value is signaled via the DETOUR object defined in
+       MPLS RSVP."
+    REFERENCE
+      "Section 4.2 of RFC 4090."
+    ::= { mplsFrrOne2OnePlrEntry 9 }
+
+ -- MPLS One-to-One Fast-Reroute Detour table
+
+ mplsFrrOne2OneDetourTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF MplsFrrOne2OneDetourEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+      "This table shows detour LSPs."
+    ::= { mplsFrrOne2OneObjects 6 }
+
+ mplsFrrOne2OneDetourEntry OBJECT-TYPE
+    SYNTAX        MplsFrrOne2OneDetourEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+      "An entry in this table represents a detour.  An entry in this
+       table is only created by an SNMP engine as instructed by an
+
+       MPLS signaling protocol."
+    INDEX {
+            mplsFrrOne2OnePlrTunnelIndex,     -- from MPLS-TE-STD-MIB
+            mplsFrrOne2OnePlrTunnelDetourInstance, -- mplsTunnelTable
+            mplsFrrOne2OnePlrTunnelIngressLSRId,-- Tunnels must exist
+            mplsFrrOne2OnePlrTunnelEgressLSRId    -- a priori
+       }
+    ::= { mplsFrrOne2OneDetourTable 1 }
+
+ MplsFrrOne2OneDetourEntry ::= SEQUENCE {
+       mplsFrrOne2OneDetourActive             TruthValue,
+       mplsFrrOne2OneDetourMergedStatus       INTEGER,
+       mplsFrrOne2OneDetourMergedDetourInst   MplsTunnelInstanceIndex
+ }
+
+ mplsFrrOne2OneDetourActive OBJECT-TYPE
+    SYNTAX        TruthValue
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+      "Indicates whether or not the main LSP has switched over to
+       this detour LSP.
+
+       If the value of this object is 'true', then it means that
+       the main LSP has switched over to this detour LSP.  Otherwise,
+       it contains a value of 'false'.
+       This is only relevant for detours originated by this node."
+    ::= { mplsFrrOne2OneDetourEntry 1 }
+
+ mplsFrrOne2OneDetourMergedStatus OBJECT-TYPE
+    SYNTAX        INTEGER { notMerged(1),
+                            mergedWithProtectedTunnel(2),
+                            mergedWithDetour(3)
+                          }
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+      "This value represents whether or not this detour is merged.
+       This value is set to notMerged(1) if this detour is not
+       merged.
+
+       This value is set to mergedWithProtectedTunnel(2) if
+       this detour is merged with the protected tunnel.  This value
+       is mergedWithDetour(3) if this detour is merged
+       with another detour protecting the same tunnel."
+    ::= { mplsFrrOne2OneDetourEntry 2 }
+
+ mplsFrrOne2OneDetourMergedDetourInst OBJECT-TYPE
+    SYNTAX        MplsTunnelInstanceIndex
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+      "This value represents the mplsTunnelInstance of the detour
+       with which this detour is merged.  This object is only valid
+       when mplsFrrOne2OneDetourMergedStatus is set to
+       mergedWithDetour(3).
+
+       - lower 16 bits : protected tunnel instance
+       - higher 16 bits: detour instance"
+    ::= { mplsFrrOne2OneDetourEntry 3 }
+
+ -- Module Conformance Statement
+
+ mplsFrrOne2OneCompliances
+    OBJECT IDENTIFIER ::= {mplsFrrOne2OneConformance 1 }
+
+ mplsFrrOne2OneGroups
+    OBJECT IDENTIFIER ::= {mplsFrrOne2OneConformance 2 }
+
+ mplsFrrOne2OneModuleFullCompliance MODULE-COMPLIANCE
+    STATUS current
+    DESCRIPTION
+      "Compliance statements for SNMP engines that support the
+       MPLS-FRR-ONE2ONE-STD-MIB module."
+
+   MODULE MPLS-FRR-GENERAL-STD-MIB -- MPLS FRR Generic MIB
+      MANDATORY-GROUPS {
+                          mplsFrrGeneralScalarGroup,
+                          mplsFrrGeneralTunnelARHopGroup,
+                          mplsFrrGeneralConstraintsGroup
+      }
+
+    MODULE -- this module
+        MANDATORY-GROUPS {
+                          mplsFrrOne2OneScalarsGroup,
+                          mplsFrrOne2OnePLRDetourGroup,
+                          mplsFrrOne2OnePlrGroup
+                         }
+    ::= { mplsFrrOne2OneCompliances 1 }
+
+ mplsFrrOne2OneModuleReadOnlyCompliance MODULE-COMPLIANCE
+    STATUS current
+    DESCRIPTION
+      "Compliance statements for SNMP engines that support the
+
+       MPLS-FRR-ONE2ONE-STD-MIB module."
+    MODULE
+        MANDATORY-GROUPS {
+                          mplsFrrOne2OneScalarsGroup,
+                          mplsFrrOne2OnePLRDetourGroup,
+                          mplsFrrOne2OnePlrGroup
+                         }
+    -- mplsFrrOne2OnePlrTable
+
+    OBJECT        mplsFrrOne2OnePlrSenderAddrType
+    MIN-ACCESS    read-only
+    DESCRIPTION
+      "Write access is not required."
+
+    OBJECT        mplsFrrOne2OnePlrSenderAddr
+    MIN-ACCESS    read-only
+    DESCRIPTION
+      "Write access is not required."
+    ::= { mplsFrrOne2OneCompliances 2 }
+
+ -- Units of conformance
+
+ mplsFrrOne2OneScalarsGroup OBJECT-GROUP
+    OBJECTS {
+             mplsFrrIncomingDetourLSPs,
+             mplsFrrOutgoingDetourLSPs,
+             mplsFrrOne2OneDetourOriginating,
+             mplsFrrActiveProtectedLSPs
+            }
+    STATUS        current
+    DESCRIPTION
+      "Objects that are required for general One-to-One PLR
+       information."
+    ::= { mplsFrrOne2OneGroups 1 }
+
+ mplsFrrOne2OnePLRDetourGroup OBJECT-GROUP
+    OBJECTS {
+             mplsFrrOne2OneDetourActive,
+             mplsFrrOne2OneDetourMergedStatus,
+             mplsFrrOne2OneDetourMergedDetourInst
+            }
+    STATUS        current
+    DESCRIPTION
+      "Objects that are required to present the detour LSP
+       information at the detour ingress, transit, and egress
+       LSRs."
+    ::= { mplsFrrOne2OneGroups 2 }
+
+ mplsFrrOne2OnePlrGroup OBJECT-GROUP
+    OBJECTS {
+        mplsFrrOne2OnePlrSenderAddrType,
+        mplsFrrOne2OnePlrSenderAddr,
+        mplsFrrOne2OnePlrAvoidNodeAddrType,
+        mplsFrrOne2OnePlrAvoidNodeAddr
+       }
+    STATUS        current
+    DESCRIPTION
+      "Objects that are required to represent the FRR
+       One-to-One PLR information."
+    ::= { mplsFrrOne2OneGroups 3 }
+
+END

@@ -7,13 +7,13 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 if ($config['enable_vrfs'])
 {
-  if ($device['os_group'] == "cisco" || $device['os'] == "junos" || $device['os'] == "ironware")
+  if ($device['os_group'] == "cisco" || $device['os'] == "junos" || $device['os'] == "ironware" || $device['os'] == "zxr10")
   {
     unset($vrf_count);
 
@@ -49,11 +49,10 @@ if ($config['enable_vrfs'])
       $ports_oid = ".1.3.6.1.2.1.10.166.11.1.2.1.1.2";
     }
 
-    if ($debug)
-    {
-      echo("\n[DEBUG]\nUsing $vpnmib\n[/DEBUG]\n");
-      echo("\n[DEBUG OIDS]\n$rds\n[/DEBUG]\n");
-    }
+
+    print_debug("\n[DEBUG]\nUsing $vpnmib\n[/DEBUG]" .
+                "\n[DEBUG OIDS]\n$rds\n[/DEBUG]");
+
     $rds = trim($rds);
 
     $descrs = snmp_walk($device, $descrs_oid, "-Osqn", $vpnmib, NULL);

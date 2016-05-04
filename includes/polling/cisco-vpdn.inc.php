@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -19,9 +19,10 @@
 #CISCO-VPDN-MGMT-MIB::cvpdnSystemDeniedUsersTotal.l2tp = Counter32: 0 attempts
 #CISCO-VPDN-MGMT-MIB::cvpdnSystemClearSessions.0 = INTEGER: none(1)
 
-if ($device['os_group'] == "cisco")
+// FIXME. Candidate for migrate to graphs module with table_collect()
+if (is_device_mib($device, 'CISCO-VPDN-MGMT-MIB'))
 {
-  $data = snmpwalk_cache_oid($device, "cvpdnSystemEntry", NULL, "CISCO-VPDN-MGMT-MIB");
+  $data = snmpwalk_cache_oid($device, "cvpdnSystemEntry", NULL, "CISCO-VPDN-MGMT-MIB", mib_dirs('cisco'));
 
   foreach ($data as $type => $vpdn)
   {

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage web
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -132,6 +132,7 @@ function print_inventory($vars)
     $string .= '    <td>' . $entry['entPhysicalModelName'] . '</td>' . PHP_EOL;
     $string .= '    <td>' . $entry['entPhysicalSerialNum'] . '</td>' . PHP_EOL;
     $string .= '  </tr>' . PHP_EOL;
+
   }
 
   $string .= '  </tbody>' . PHP_EOL;
@@ -140,8 +141,33 @@ function print_inventory($vars)
   // Print pagination header
   if ($pagination) { $string = pagination($vars, $count) . $string . pagination($vars, $count); }
 
+  $entries_allowed = array('entPhysical_id', 'device_id', 'entPhysicalIndex', 'entPhysicalDescr',
+                           'entPhysicalClass','entPhysicalName','entPhysicalHardwareRev','entPhysicalFirmwareRev',
+                           'entPhysicalSoftwareRev','entPhysicalAlias','entPhysicalAssetID','entPhysicalIsFRU',
+                           'entPhysicalModelName','entPhysicalVendorType','entPhysicalSerialNum','entPhysicalContainedIn',
+                           'entPhysicalParentRelPos','entPhysicalMfgName');
+
+
+  foreach($entries as $entry)
+  {
+    $entries_cleaned[$entry['entPhysical_id']] = array_intersect_key($entry, array_flip($entries_allowed));
+  }
+
   // Print Inventories
-  echo $string;
+  switch($vars['format'])
+  {
+    case "csv":
+
+      echo(implode($entry, ", "));
+      echo("\n");
+
+      break;
+    default:
+      echo $string;
+      break;
+  }
+
+
 }
 
 /**

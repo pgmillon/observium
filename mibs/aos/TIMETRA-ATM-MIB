@@ -1,0 +1,3767 @@
+TIMETRA-ATM-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+        Integer32, MODULE-IDENTITY,
+        OBJECT-TYPE, Counter32, Counter64,
+        Unsigned32, NOTIFICATION-TYPE                FROM SNMPv2-SMI
+
+        RowStatus, TimeStamp, TEXTUAL-CONVENTION     FROM SNMPv2-TC
+
+        MODULE-COMPLIANCE, OBJECT-GROUP, 
+        NOTIFICATION-GROUP                           FROM SNMPv2-CONF
+
+        ifIndex                                      FROM IF-MIB
+
+        atmInterfaceConfEntry, atmVclEntry, 
+        atmVclVpi, atmVclVci, aal5VccEntry,
+        atmVplEntry, atmVplVpi,
+        atmInterfaceTCAlarmState,
+        atmInterfaceDs3PlcpAlarmState,
+        atmInterfaceCurrentMaxVpiBits,
+        atmInterfaceCurrentMaxVciBits,
+        atmInterfaceMaxActiveVpiBits,
+        atmInterfaceMaxActiveVciBits,
+        atmInterfaceConfVccs,
+        atmInterfaceConfVpcs,
+        atmInterfaceTCEntry                          FROM ATM-MIB
+
+        AtmVpIdentifier, AtmVcIdentifier,
+        AtmConnKind, AtmConnCastType, 
+        AtmTrafficDescrParamIndex, 
+        AtmVorXAdminStatus, AtmVorXOperStatus,
+        AtmVorXLastChange                            FROM ATM-TC-MIB
+
+        timetraSRMIBModules, tmnxSRObjs,
+        tmnxSRNotifyPrefix, tmnxSRConfs              FROM TIMETRA-GLOBAL-MIB
+
+        tmnxChassisIndex, tmnxCardSlotNum,
+        tmnxMDASlotNum                               FROM TIMETRA-CHASSIS-MIB
+
+        tmnxConnProfId                               FROM TIMETRA-CONN-PROF-MIB;
+
+timetraATMMIBModule MODULE-IDENTITY
+        LAST-UPDATED "201102010000Z"
+        ORGANIZATION "Alcatel-Lucent"
+        CONTACT-INFO
+            "Alcatel-Lucent SROS Support
+             Web: http://support.alcatel-lucent.com "
+        DESCRIPTION
+        "This document is the SNMP MIB module to manage and provision ATM 
+        functionality for the Alcatel-Lucent SROS device. This includes 
+        extensions to the AToM MIB defined in RFC 2515 to allow statistics 
+        retrieval as well as extensions to the ILMI link attributes. 
+
+        Copyright 2003-2011 Alcatel-Lucent. All rights reserved.
+        Reproduction of this document is authorized on the condition that
+        the foregoing copyright notice is included.
+
+        This SNMP MIB module (Specification) embodies Alcatel-Lucent's
+        proprietary intellectual property.  Alcatel-Lucent retains
+        all title and ownership in the Specification, including any
+        revisions.
+
+        Alcatel-Lucent grants all interested parties a non-exclusive
+        license to use and distribute an unmodified copy of this
+        Specification in connection with management of Alcatel-Lucent
+        products, and without fee, provided this copyright notice and
+        license appear on all copies.
+
+        This Specification is supplied 'as is', and Alcatel-Lucent
+        makes no warranty, either express or implied, as to the use,
+        operation, condition, or performance of the Specification."
+--
+--  Revision History
+--
+        REVISION        "1102010000Z"
+        DESCRIPTION     "Rev 9.0                1 Feb 2011 00:00
+                         9.0 release of the TIMETRA-ATM-MIB."
+
+        REVISION        "0902280000Z"
+        DESCRIPTION     "Rev 7.0                28 Feb 2009 00:00
+                         7.0 release of the TIMETRA-ATM-MIB."
+
+        REVISION        "0603160000Z"   
+        DESCRIPTION     "Rev 4.0                16 Mar 2006 00:00
+                         4.0 release of the TIMETRA-ATM-MIB."
+
+        REVISION        "0508310000Z"   
+        DESCRIPTION     "Rev 3.0                31 Aug 2005 00:00
+                         3.0 release of the TIMETRA-ATM-MIB."
+
+        REVISION        "0501240000Z"   
+        DESCRIPTION     "Rev 2.1                24 Jan 2005 00:00
+                         2.1 release of the TIMETRA-ATM-MIB."
+
+        REVISION        "0310280000Z"
+        DESCRIPTION     "Rev 0.1                28 Oct 2003 00:00
+                         Initial version of the TIMETRA-ATM-MIB."
+                         
+        ::= { timetraSRMIBModules 27 }
+
+--%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+--
+--  Alcatel-Lucent SROS series ATM extensions
+--
+
+tAtmObjs               OBJECT IDENTIFIER ::= { tmnxSRObjs 27 }
+tAtmMIBConformance     OBJECT IDENTIFIER ::= { tmnxSRConfs 27 }
+tAtmMdaObjs            OBJECT IDENTIFIER ::= { tAtmObjs 1 }
+tAtmIntfObjs           OBJECT IDENTIFIER ::= { tAtmObjs 2 }
+tAtmVclObjs            OBJECT IDENTIFIER ::= { tAtmObjs 3 }
+tAal5VccObjs           OBJECT IDENTIFIER ::= { tAtmObjs 4 }
+tAtmTrafficDescObjs    OBJECT IDENTIFIER ::= { tAtmObjs 5 }
+tAtmVplObjs            OBJECT IDENTIFIER ::= { tAtmObjs 6 }
+tAtmVtlObjs            OBJECT IDENTIFIER ::= { tAtmObjs 7 }
+tAtmCellVclObjs        OBJECT IDENTIFIER ::= { tAtmObjs 8 }
+tAtmSystemObjs         OBJECT IDENTIFIER ::= { tAtmObjs 9 }
+tAtmIlmiLinkObjs       OBJECT IDENTIFIER ::= { tAtmObjs 10 }
+tAtmTCSublayerObjs     OBJECT IDENTIFIER ::= { tAtmObjs 11 }
+tAtmCpObjs             OBJECT IDENTIFIER ::= { tAtmObjs 12 }
+
+tmnxAtmNotifyPrefix    OBJECT IDENTIFIER ::= { tmnxSRNotifyPrefix 27 } 
+    tAtmNotifications      OBJECT IDENTIFIER ::= { tmnxAtmNotifyPrefix 0 } 
+
+
+-- --------------------------------------------------------------------
+--
+--      TIMETRA-ATM-MIB Textual Conventions
+--
+
+AtmConnectionOwner ::= TEXTUAL-CONVENTION
+    STATUS          current
+    DESCRIPTION     "This texual convention identifies the system entity
+                     that owns a specific ATM connection."
+    SYNTAX          INTEGER {
+                        sap (1),
+                        ilmi (2)
+                    }                        
+
+AtmOamStatus    ::= TEXTUAL-CONVENTION
+    STATUS          current
+    DESCRIPTION     "This texual convention indicates the OAM operational
+                     status of ATM connections.  Ete indicates end to end 
+                     connection. Ais denotes alarm indication signal and Rdi 
+                     is for remote defect indication.  Loc indicates the 
+                     alarm was due to loss of continuity."
+    SYNTAX          INTEGER {
+                        up (1),
+                        eteAis (2),
+                        eteRdi (3),
+                        eteAisLoc (4)
+                    }      
+
+AtmIlmiStatus    ::= TEXTUAL-CONVENTION
+    STATUS          current
+    DESCRIPTION     "This textual convention indicates the ILMI status of 
+                     the VCL or VPL.  If through ILMI an operational condition 
+                     or misconfiguration has been detected, tAtmVclInfoIlmiStatus 
+                     or tAtmVplInfoIlmiStatus will reflect this condition."
+    SYNTAX           INTEGER {
+                        undefined (0),
+                        ok (1),
+                        vpiOrVciRangeConflict (2)
+                     }   
+
+AtmLlid          ::= TEXTUAL-CONVENTION
+    STATUS           current
+    DESCRIPTION      "This texual convention is the 16 octets that 
+                      identifies the system Loopback location Id (LLID). As 
+                      required by the ATM OAM Loopback capability. This 
+                      texual convention is defined in ITU-T standard I.610."
+    SYNTAX           OCTET STRING (SIZE(16))
+
+AtmIlmiLinkUniType ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "AtmIlmiLinkUniType is an enumerated integer whose value indicates
+         ATM UNI type."
+    SYNTAX  INTEGER {
+                undefined (0),
+                public (1),
+                private (2)
+            }
+
+AtmIlmiLinkDeviceType ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "AtmIlmiLinkDeviceType is an enumerated integer whose value indicates
+         the advertised device type."
+    SYNTAX  INTEGER {
+                undefined(0),
+                user(1),
+                node(2)
+            }
+
+AtmIlmiLinkVersion ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "AtmIlmiLinkVersion is an enumerated integer whose value
+         indicates the ILMI version of either `3.0', `3.1' or `4.0' 
+         that is advertised by IME."
+
+    SYNTAX  INTEGER {
+                undefined(0),
+                version3point1(1),
+                version4point0(2),
+                version3point0(3)
+            }
+
+AtmIlmiLinkImeType ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "AtmIlmiLinkImeType is an enumerated integer whose value
+         indicates the ILMI IME type of either `User-Side' or
+         `Network-Side'."
+    SYNTAX  INTEGER {
+                userside(1),
+                networkside(2)
+            }
+
+--
+--
+-- Alcatel-Lucent SROS series ATM MDA Statistics Table
+--
+tAtmMdaInfoTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TAtmMdaInfoEntry
+    MAX-ACCESS  not-accessible
+    STATUS      obsolete
+    DESCRIPTION   
+        "The tAtmMdaInfoTable contains ATM MDA status information.
+
+         This table is obsoleted in release 3.0."
+    ::= { tAtmMdaObjs 1 }
+    
+tAtmMdaInfoEntry  OBJECT-TYPE
+        SYNTAX          TAtmMdaInfoEntry
+        MAX-ACCESS      not-accessible  
+        STATUS          obsolete
+        DESCRIPTION
+            "An entry in the tAtmMdaInfoEntry containing status
+             information applicable to an ATM MDA.
+
+             This entry is obsoleted in release 3.0."
+        INDEX   { tmnxChassisIndex, tmnxCardSlotNum, tmnxMDASlotNum }  
+        ::= { tAtmMdaInfoTable 1 }
+
+    TAtmMdaInfoEntry ::=
+        SEQUENCE {
+          tAtmMdaMaxSupportedVpcs                   INTEGER,
+          tAtmMdaMaxSupportedVccs                   INTEGER,
+          tAtmMdaConfiguredVpcs                     INTEGER,
+          tAtmMdaConfiguredVccs                     INTEGER
+        }
+           
+    tAtmMdaMaxSupportedVpcs OBJECT-TYPE
+        SYNTAX       INTEGER 
+        MAX-ACCESS   read-only
+        STATUS       obsolete
+        DESCRIPTION
+           "The value of tAtmMdaMaxSupportedVpcs indicates the 
+            maximum number of ATM VPCs that can be configured 
+            on this MDA.
+
+            This object is obsoleted in release 3.0."
+    ::= { tAtmMdaInfoEntry 1 }
+
+    tAtmMdaMaxSupportedVccs OBJECT-TYPE
+        SYNTAX       INTEGER 
+        MAX-ACCESS   read-only
+        STATUS       obsolete
+        DESCRIPTION
+           "The value of tAtmMdaMaxSupportedVccs indicates the 
+            maximum number of ATM VCCs that can be configured 
+            on this MDA.
+
+            This object is obsoleted in release 3.0."
+    ::= { tAtmMdaInfoEntry 2 }
+
+    tAtmMdaConfiguredVpcs OBJECT-TYPE
+        SYNTAX       INTEGER 
+        MAX-ACCESS   read-only
+        STATUS       obsolete
+        DESCRIPTION
+           "The value of tAtmMdaConfiguredVpcs indicates the number 
+            of ATM VPCs that have been configured on this MDA.
+
+            This object is obsoleted in release 3.0."
+    ::= { tAtmMdaInfoEntry 3 }
+
+    tAtmMdaConfiguredVccs OBJECT-TYPE
+        SYNTAX       INTEGER 
+        MAX-ACCESS   read-only
+        STATUS       obsolete
+        DESCRIPTION
+           "The value of tAtmMdaConfiguredVccs indicates the number
+            of ATM VCCs that have been configured on this MDA.
+
+            This object is obsoleted in release 3.0."
+    ::= { tAtmMdaInfoEntry 4 }
+
+--
+-- Alcatel-Lucent SROS series ATM Interface Configuration Table
+--
+--  Augmententation of atmInterfaceConfTable in ATM-MIB
+--
+--  The tAtmIntfConfTable is an augmentation of the atmInterfaceConfTable.
+--  Use of AUGMENTS clause implies a one-to-one dependent relationship between
+--  the base table, atmInterfaceConfTable, and the augmenting table, 
+--  tAtmIntfConfTable. This in effect extends the atmInterfaceConfTable
+--  with additional columns.  Creation (or deletion) of a row in the
+--  atmInterfaceConfTable results in the same fate for the row in the
+--  tAtmIntfConfTable
+
+tAtmIntfConfTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TAtmIntfConfEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION   
+        "The tAtmIntfConfTable contains ATM interface configuration 
+         and status not included in the AToM MIB definition in RFC 2515."
+    ::= { tAtmIntfObjs 1 }
+
+    tAtmIntfConfEntry  OBJECT-TYPE
+        SYNTAX          TAtmIntfConfEntry
+        MAX-ACCESS      not-accessible  
+        STATUS          current
+        DESCRIPTION
+            "An entry in the tAtmIntfConfEntry containing additional 
+             configuration and status information applicable to an ATM 
+             interface."
+        AUGMENTS { atmInterfaceConfEntry }
+    ::= { tAtmIntfConfTable 1 }
+
+    TAtmIntfConfEntry ::=
+        SEQUENCE {
+            tAtmIntfCurrentMaxVpcs              INTEGER,
+            tAtmIntfCurrentMaxVccs              INTEGER,
+            tAtmIntfTotalIngrCbrBandwidth       Unsigned32,
+            tAtmIntfTotalIngrRtVbrBandwidth     Unsigned32,
+            tAtmIntfTotalIngrNrtVbrBandwidth    Unsigned32,
+            tAtmIntfTotalIngrUbrBandwidth       Unsigned32,
+            tAtmIntfTotalEgrCbrBandwidth        Unsigned32,
+            tAtmIntfTotalEgrRtVbrBandwidth      Unsigned32,
+            tAtmIntfTotalEgrNrtVbrBandwidth     Unsigned32,
+            tAtmIntfTotalEgrUbrBandwidth        Unsigned32,
+            tAtmIntfBandwidth                   Unsigned32,
+            tAtmIntfShapedBandwidth             Unsigned32,
+            tAtmIntfLastUnknVpi                 AtmVpIdentifier,
+            tAtmIntfLastUnknVci                 AtmVcIdentifier,
+            tAtmIntfOperStatus                  INTEGER,
+            tAtmIntfConfVtcs                    INTEGER,
+            tAtmIntfConfIfcs                    INTEGER            
+        }
+
+    tAtmIntfCurrentMaxVpcs OBJECT-TYPE
+        SYNTAX         INTEGER  (0..1024)
+        MAX-ACCESS     read-only
+        STATUS         current 
+        DESCRIPTION
+           "The value of tAtmIntfCurrentMaxVpcs indicates 
+            the maximum number of VPCs that may be currently
+            configured on this ATM interface. 
+            The value is the minimum of atmInterfaceMaxVpcs, 
+            and the atmInterfaceMaxVpcs of the interface's 
+            UNI/NNI peer as negotiated by ILMI.
+
+            If the interface does not negotiate with its peer
+            to determine the number of VPCs that can be
+            configured on the interface, then the value of
+            this object must equal atmInterfaceMaxVpcs."
+    ::= { tAtmIntfConfEntry 1 }
+
+    tAtmIntfCurrentMaxVccs OBJECT-TYPE
+        SYNTAX         INTEGER  (0..65536)
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+           "The value of tAtmIntfCurrentMaxVccs indicates
+            the maximum number of VCCs that may be currently
+            supported on this ATM interface.
+            The value is the minimum of atmInterfaceMaxVccs,
+            and the atmInterfaceMaxVccs of the interface's
+            UNI/NNI peer as negotiated by ILMI.
+
+            If the interface does not negotiate with its peer
+            to determine the number of VCCs that can be
+            configured on the interface, then the value of
+            this object must equal atmInterfaceMaxVccs."
+    ::= { tAtmIntfConfEntry 2 }
+
+    tAtmIntfTotalIngrCbrBandwidth OBJECT-TYPE
+        SYNTAX       Unsigned32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIntfTotalIngrCbrBandwidth
+            indicates the total Cbr bandwidth consumed on this 
+            interface in the ingress direction."
+    ::= { tAtmIntfConfEntry 3 }
+    
+    tAtmIntfTotalIngrRtVbrBandwidth OBJECT-TYPE
+        SYNTAX       Unsigned32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIntfTotalIngrRtVbrBandwidth
+            indicates the total rtVbr bandwidth consumed on this 
+            interface in the ingress direction."
+    ::= { tAtmIntfConfEntry 4 }
+    
+    tAtmIntfTotalIngrNrtVbrBandwidth OBJECT-TYPE
+        SYNTAX       Unsigned32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIntfTotalIngrNrtVbrBandwidth
+            indicates the total nrtVbr bandwidth consumed on this 
+            interface in the ingress direction."
+    ::= { tAtmIntfConfEntry 5 }
+    
+    tAtmIntfTotalIngrUbrBandwidth OBJECT-TYPE
+        SYNTAX       Unsigned32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIntfTotalIngrUbrBandwidth
+            indicates the total Ubr bandwidth consumed on this 
+            interface in the ingress direction."
+    ::= { tAtmIntfConfEntry 6 }
+
+      tAtmIntfTotalEgrCbrBandwidth OBJECT-TYPE
+        SYNTAX       Unsigned32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIntfTotalEgrCbrBandwidth
+            indicates the total Cbr bandwidth consumed on this 
+            interface in the egress direction."
+    ::= { tAtmIntfConfEntry 7 }
+    
+    tAtmIntfTotalEgrRtVbrBandwidth OBJECT-TYPE
+        SYNTAX       Unsigned32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIntfTotalEgrRtVbrBandwidth
+            indicates tje total rtVbr bandwidth consumed on this 
+            interface in the egress direction."
+    ::= { tAtmIntfConfEntry 8 }
+    
+    tAtmIntfTotalEgrNrtVbrBandwidth OBJECT-TYPE
+        SYNTAX       Unsigned32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIntfTotalEgrNrtVbrBandwidth
+            indicates the total nrtVbr bandwidth consumed on this 
+            interface in the egress direction."
+    ::= { tAtmIntfConfEntry 9 }
+    
+    tAtmIntfTotalEgrUbrBandwidth OBJECT-TYPE
+        SYNTAX       Unsigned32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIntfTotalEgrUbrBandwidth
+            indicates the total Ubr bandwidth consumed on this 
+            interface in the egress direction."
+    ::= { tAtmIntfConfEntry 10 }
+
+    tAtmIntfBandwidth OBJECT-TYPE
+        SYNTAX       Unsigned32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIntfBandwidth indicates the 
+            total ATM link bandwidth accepted on this interface."
+    ::= { tAtmIntfConfEntry 11 }
+
+    tAtmIntfShapedBandwidth OBJECT-TYPE
+        SYNTAX       Unsigned32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIntfShapedBandwidth indicates 
+            the total shaped bandwidth consumed on this 
+            interface in the egress direction."
+    ::= { tAtmIntfConfEntry 12 }
+
+    tAtmIntfLastUnknVpi OBJECT-TYPE
+        SYNTAX       AtmVpIdentifier
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIntfLastUnknVpi indicates
+            the last unknown Vpi that was received on
+            this interface."
+    ::= { tAtmIntfConfEntry 13 }
+
+    tAtmIntfLastUnknVci OBJECT-TYPE
+        SYNTAX       AtmVcIdentifier
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIntfLastUnknVci indicates the 
+            last unknown vci that was received on this interface."
+    ::= { tAtmIntfConfEntry 14 }
+    
+    tAtmIntfOperStatus OBJECT-TYPE
+        SYNTAX         INTEGER {
+                           up(1),
+                           lowerLayerDown(2)
+                       }
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+           "The value of tAtmIntfOperStatus 
+            indicates the status of the ATM interface.
+            If the SONET-PATH layer and TC Sublayer are
+            operationally up, the ATM Interface is 
+            considered up. If the SONET-PATH layer and/or
+            TC Sublayer is down, the ATM Interface is set
+            to lowerLayerDown."
+    ::= { tAtmIntfConfEntry 15 }
+
+    tAtmIntfConfVtcs  OBJECT-TYPE
+        SYNTAX         INTEGER  (0..1024)
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+           "The value of tAtmIntfConfVtcs indicates the
+            number of VTCs currently in use at this ATM interface."
+    ::= { tAtmIntfConfEntry 16 }
+
+    tAtmIntfConfIfcs  OBJECT-TYPE
+        SYNTAX         INTEGER  (0..1)
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+           "The value of tAtmIntfConfIfcs indicates the 
+            number of IFCs currently in use at this ATM interface."
+    ::= { tAtmIntfConfEntry 17 }    
+
+--
+-- Alcatel-Lucent SROS series ATM Interface Stats Table
+--
+-- The following table maps specific parameters of the ifTable 
+-- for the ATM Layer.
+-- Note that the ifTable returns these values for the 
+-- ifType of SONET where the physical, ATM and AAL5 layer
+-- are mixed.
+-- The follwing mapping can be applied:
+-- ifInOctets      - tAtmIntfStatsTotalBytesRxd
+-- ifOutOctets     - tAtmIntfStatsTotalBytesTxd
+-- ifUnknProtos    - tAtmIntfStatsTotalUnknCellsDrp
+-- ifInErr         - tAtmTCSublayerHecErrors
+
+tAtmIntfStatsTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TAtmIntfStatsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION   
+        "The tAtmIntfStatsTable contains ATM interface stats  
+         at the ATM Layer."
+    ::= { tAtmIntfObjs 2 }
+    
+tAtmIntfStatsEntry  OBJECT-TYPE
+        SYNTAX          TAtmIntfStatsEntry
+        MAX-ACCESS      not-accessible  
+        STATUS          current
+        DESCRIPTION
+            "An entry in the tAtmIntfStatsEntry containing statistics 
+             information applicable to an ATM interface."
+        INDEX { ifIndex }
+        ::= { tAtmIntfStatsTable 1 }
+
+    TAtmIntfStatsEntry ::=
+        SEQUENCE {
+          tAtmIntfStatsTotalCellsRxd            Counter64,
+          tAtmIntfStatsTotalCellsTxd            Counter64,
+          tAtmIntfStatsTotalBytesRxd            Counter64,
+          tAtmIntfStatsTotalBytesTxd            Counter64,
+          tAtmIntfStatsTotalUnknCellsDrp        Counter32,
+          tAtmIntfStatsTotalHecErr              Counter32,
+          tAtmIntfStatsTotalHecErrFixed         Counter32
+        }
+           
+    tAtmIntfStatsTotalCellsRxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIntfStatsTotalCellsRxd indicates 
+            the number of valid ATM cells received by the ATM 
+            interface including both CLP=0 and CLP=1 cells.  
+            If traffic policing is implemented, then cells 
+            are counted prior to the application of traffic 
+            policing."
+    ::= { tAtmIntfStatsEntry 1 }
+
+    tAtmIntfStatsTotalCellsTxd OBJECT-TYPE
+        SYNTAX       Counter64
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIntfStatsTotalCellsTxd indicates 
+            the number of valid ATM cells transmitted by the ATM
+            interface including both CLP=0 and CLP=1 cells."
+    ::= { tAtmIntfStatsEntry 2 }
+
+    tAtmIntfStatsTotalBytesRxd OBJECT-TYPE
+        SYNTAX       Counter64
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIntfStatsTotalBytesRxd 
+            indicates the number of bytes received on this
+            interface. This is the number of 
+            tAtmIntfStatsTotalCellsRxd multiplied by 53."
+    ::= { tAtmIntfStatsEntry 3 }
+    
+    tAtmIntfStatsTotalBytesTxd OBJECT-TYPE
+        SYNTAX       Counter64
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION        
+           "The value of tAtmIntfStatsTotalBytesTxd 
+            indicates the number of bytes transmitted 
+            on this interface. This is the number of 
+            tAtmIntfStatsTotalCellsTxd multiplied by 53."
+    ::= { tAtmIntfStatsEntry 4 }
+     
+    tAtmIntfStatsTotalUnknCellsDrp OBJECT-TYPE
+        SYNTAX       Counter32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIntfStatsTotalUnknCellsDrp
+            indicates the number of cells dropped due to an 
+            unknown VPI/VCI."
+    ::= { tAtmIntfStatsEntry 5 } 
+     
+     tAtmIntfStatsTotalHecErr OBJECT-TYPE
+        SYNTAX       Counter32
+        MAX-ACCESS   read-only
+        STATUS       obsolete
+        DESCRIPTION
+           "The value of tAtmIntfStatsTotalHecErr
+            indicates the number of cells with uncorrectable 
+            HEC Errors on this interface."
+    ::= { tAtmIntfStatsEntry 6 }
+    
+     tAtmIntfStatsTotalHecErrFixed OBJECT-TYPE
+        SYNTAX       Counter32
+        MAX-ACCESS   read-only
+        STATUS       obsolete
+        DESCRIPTION
+           "The value of tAtmIntfStatsTotalHecErrFixed
+            indicates the number of cells with correctable HEC
+            Errors on this interface."
+    ::= { tAtmIntfStatsEntry 7 }
+
+--
+-- Alcatel-Lucent SROS series ATM Interface AAL5 Stats Table
+--
+-- The following table maps specific parameters of the ifTable 
+-- for the AAL5 Layer.
+-- Note that the ifTable returns these values for the 
+-- ifType of SONET where the physical, ATM and AAL5 layer
+-- are mixed.
+-- The follwing mapping can be applied:
+-- ifInUcastPkts      - tAtmIntfAal5StatsTotalPktsRxd
+-- ifOutUcastPkts     - tAtmIntfAal5StatsTotalPktsTxd
+-- ifInDiscards       - tAtmIntfAal5StatsTotalPktsDrpRxd
+-- ifOutDiscards      - tAtmIntfAal5StatsTotalPktsDrpTxd
+
+tAtmIntfAal5StatsTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TAtmIntfAal5StatsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION   
+        "The tAtmIntfAal5StatsTable contains ATM interface stats  
+         at the AAL5 Layer."
+    ::= { tAtmIntfObjs 3 }
+    
+tAtmIntfAal5StatsEntry  OBJECT-TYPE
+        SYNTAX          TAtmIntfAal5StatsEntry
+        MAX-ACCESS      not-accessible  
+        STATUS          current
+        DESCRIPTION
+            "An entry in the tAtmIntfAal5StatsEntry containing statistics 
+             information applicable to an ATM interface at the AAL5 Layer."
+        INDEX { ifIndex }
+        ::= { tAtmIntfAal5StatsTable 1 }
+
+    TAtmIntfAal5StatsEntry ::=
+        SEQUENCE {
+          tAtmIntfAal5StatsTotalPktsRxd         Counter64,
+          tAtmIntfAal5StatsTotalPktsTxd         Counter64,
+          tAtmIntfAal5StatsTotalPktsDrpRxd      Counter64,
+          tAtmIntfAal5StatsTotalPktsDrpTxd      Counter64,
+          tAtmIntfAal5StatsTotalCrc32Err        Counter64          
+        }
+        
+    tAtmIntfAal5StatsTotalPktsRxd OBJECT-TYPE
+        SYNTAX       Counter64
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIntfAal5StatsTotalPktsRxd 
+            indicates the number of AAL5 PDUs that are received 
+            by the ATM interface."
+    ::= { tAtmIntfAal5StatsEntry 1 }
+    
+    tAtmIntfAal5StatsTotalPktsTxd OBJECT-TYPE
+        SYNTAX       Counter64
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIntfAal5StatsTotalPktsTxd 
+            indicates the number of AAL5 PDUs that are transmitted
+            by the ATM interface."
+    ::= { tAtmIntfAal5StatsEntry 2 }
+
+    tAtmIntfAal5StatsTotalPktsDrpRxd OBJECT-TYPE
+        SYNTAX       Counter64
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIntfAal5StatsTotalPktsDrpRxd 
+            indicates the number of AAL5 PDUs dropped by the 
+            ATM interface in the receive direction. This count does
+            not include crc32 Errors or oversized SDU discards"
+    ::= { tAtmIntfAal5StatsEntry 3 }
+    
+    tAtmIntfAal5StatsTotalPktsDrpTxd OBJECT-TYPE
+        SYNTAX       Counter64
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIntfAal5StatsTotalPktsDrpTxd 
+            indicates the number of AAL5 PDUs dropped in the 
+            transmit direction. This count does
+            not include crc32 Errors or oversized SDU discards."
+    ::= { tAtmIntfAal5StatsEntry 4 }
+
+    tAtmIntfAal5StatsTotalCrc32Err OBJECT-TYPE
+        SYNTAX       Counter64
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIntfAal5StatsTotalCrc32Err
+            indicates the number of Errors detected by the 32 
+            bit cyclic redundancy check."
+    ::= { tAtmIntfAal5StatsEntry 5 }    
+
+--
+-- Alcatel-Lucent SROS series ATM Interface Connection Info Table
+--
+-- The following table contains configuration and status information for 
+-- ATM interface-Level Connections (IFCs). Interface-Level Connections
+-- is a connection at port level, such that the entire port is reserved
+-- for this connection. The term 'port' refers to either a physical
+-- port, or a channel on a channelized port.
+
+tAtmIfcInfoTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TAtmIfcInfoEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION   
+        "The tAtmIfcInfoTable contains configuration and status information 
+        for ATM interface-level connections."
+    ::= { tAtmIntfObjs 4 }
+    
+tAtmIfcInfoEntry  OBJECT-TYPE
+        SYNTAX          TAtmIfcInfoEntry
+        MAX-ACCESS      not-accessible  
+        STATUS          current
+        DESCRIPTION
+            "An entry in the tAtmIfcInfoTable containing configuration and 
+             status information applicable to ATM interface-level 
+             connections."
+        INDEX { ifIndex }
+        ::= { tAtmIfcInfoTable 1 }
+
+    TAtmIfcInfoEntry ::=
+        SEQUENCE {
+            tAtmIfcAdminStatus                  AtmVorXAdminStatus,
+            tAtmIfcOperStatus                   AtmVorXOperStatus,
+            tAtmIfcLastChange                   AtmVorXLastChange,
+            tAtmIfcReceiveTrafficDescrIndex     AtmTrafficDescrParamIndex,
+            tAtmIfcTransmitTrafficDescrIndex    AtmTrafficDescrParamIndex,
+            tAtmIfcRowStatus                    RowStatus,            
+            tAtmIfcCastType                     AtmConnCastType,
+            tAtmIfcConnKind                     AtmConnKind,        
+            tAtmIfcInfoOwner                    AtmConnectionOwner                
+        }
+
+    tAtmIfcAdminStatus  OBJECT-TYPE
+        SYNTAX          AtmVorXAdminStatus
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+           "tAtmIfcAdminStatus specifies the desired administrative state 
+            of the IFC."
+        ::= { tAtmIfcInfoEntry 1 }
+
+    tAtmIfcOperStatus   OBJECT-TYPE
+        SYNTAX          AtmVorXOperStatus
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+           "tAtmIfcOperStatus indicates the current operational status of 
+            the IFC."
+        ::= { tAtmIfcInfoEntry 2 }
+
+    tAtmIfcLastChange   OBJECT-TYPE
+        SYNTAX          AtmVorXLastChange
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+           "tAtmIfcLastChange indicates the value of sysUpTime at the 
+            time this IFC entered its current operational state."
+        ::= { tAtmIfcInfoEntry 3 }
+
+    tAtmIfcReceiveTrafficDescrIndex  OBJECT-TYPE
+        SYNTAX          AtmTrafficDescrParamIndex
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+           "tAtmIfcReceiveTrafficDescrIndex identifies the row
+            in the atmTrafficDescrParamTable which
+            applies to the receive direction of the IFC."
+        ::= { tAtmIfcInfoEntry 4 }
+
+    tAtmIfcTransmitTrafficDescrIndex  OBJECT-TYPE
+        SYNTAX          AtmTrafficDescrParamIndex
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+           "tAtmIfcTransmitTrafficDescrIndex identifies the row
+            in the atmTrafficDescrParamTable which
+            applies to the transmit direction of the IFC."
+        ::= { tAtmIfcInfoEntry 5 }
+
+    tAtmIfcRowStatus    OBJECT-TYPE
+        SYNTAX          RowStatus
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+           "tAtmIfcRowStatus indicates the current RowStatus of the IFC.
+            Entries in the tAtmIfcInfoTable are created as a result of
+            the creation of another system entity (such as a SAP). 
+            Since entries in this table can not be created directly,
+            tAtmIfcRowStatus is read-only and will always be 'active'
+            if the row exists."
+        ::= { tAtmIfcInfoEntry 6 }        
+
+    tAtmIfcCastType     OBJECT-TYPE
+        SYNTAX          AtmConnCastType
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+           "tAtmIfcCastType indicates the connection topology type."
+        ::= { tAtmIfcInfoEntry 7 }
+
+    tAtmIfcConnKind     OBJECT-TYPE
+        SYNTAX          AtmConnKind
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+           "The value of tAtmIfcConnKind indicates the use of call control."
+        ::= { tAtmIfcInfoEntry 8 }
+
+    tAtmIfcInfoOwner OBJECT-TYPE
+        SYNTAX       AtmConnectionOwner
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIfcInfoOwner indicates which application
+            caused the creation of the ATM interface-level connection."
+        ::= { tAtmIfcInfoEntry 9 }   
+
+--
+--  Alcatel-Lucent SROS series ATM IFC Statistics Table
+--
+
+tAtmIfcStatisticsTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TAtmIfcStatisticsEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The tAtmIfcStatisticsTable is used to gather cell-level 
+         statistics on a particular IFC entry."
+    ::= { tAtmIntfObjs 5 }
+    
+    tAtmIfcStatisticsEntry OBJECT-TYPE
+        SYNTAX        TAtmIfcStatisticsEntry
+        MAX-ACCESS    not-accessible
+        STATUS        current
+        DESCRIPTION 
+            "An entry in the tAtmIfcStatisticsTable containing statistics 
+             information applicable to a particular IFC entry."
+        INDEX  { ifIndex }
+        ::= { tAtmIfcStatisticsTable 1 }
+    
+    TAtmIfcStatisticsEntry ::=
+        SEQUENCE {
+           tAtmIfcStatsTotalCellsRxd       Counter64,
+           tAtmIfcStatsTotalClp0CellsRxd   Counter64,
+           tAtmIfcStatsTotalCellsTxd       Counter64,
+           tAtmIfcStatsTotalClp0CellsTxd   Counter64,
+           tAtmIfcStatsTotalBytesRxd       Counter64,           
+           tAtmIfcStatsTotalBytesTxd       Counter64,
+           tAtmIfcStatsDrpCellsRxd         Counter32,
+           tAtmIfcStatsDrpClp0CellsRxd     Counter32,
+           tAtmIfcStatsDrpClp0CellsTxd     Counter32,
+           tAtmIfcStatsTagCells            Counter32
+        }
+
+    tAtmIfcStatsTotalCellsRxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIfcStatsTotalCellsRxd indicates the 
+            number of valid ATM cells received by the 
+            IFC including both CLP=0 and CLP=1 cells.  
+            If traffic policing is implemented, then cells are counted 
+            prior to the application of traffic policing."
+        ::= { tAtmIfcStatisticsEntry 1 }      
+
+    tAtmIfcStatsTotalClp0CellsRxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIfcStatsTotalClp0CellsRxd indicates the 
+            number of valid ATM CLP=0 cells received by the IFC.
+            If traffic policing is implemented, then cells are counted 
+            prior to the application of traffic policing."
+        ::= { tAtmIfcStatisticsEntry 2 } 
+        
+    tAtmIfcStatsTotalCellsTxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIfcStatsTotalCellsTxd indicates the 
+            number of valid ATM cells transmitted by the 
+            IFC including both CLP=0 and CLP=1 cells.  
+            If traffic policing is implemented, then cells are counted 
+            prior to the application of traffic policing."
+        ::= { tAtmIfcStatisticsEntry 3 }    
+
+    tAtmIfcStatsTotalClp0CellsTxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIfcStatsTotalClp0CellsTxd indicates the 
+            number of valid ATM CLP=0 cells transmitted by the IFC.
+            If traffic policing is implemented, then cells are counted 
+            prior to the application of traffic policing."
+        ::= { tAtmIfcStatisticsEntry 4 }
+
+    tAtmIfcStatsTotalBytesRxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIfcStatsTotalBytesRxd indicates the number of 
+            bytes received by this IFC. This is the number of 
+            tAtmIfcStatsTotalCellsRxd multiplied by 53."
+        ::= { tAtmIfcStatisticsEntry 5 }
+
+    tAtmIfcStatsTotalBytesTxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIfcStatsTotalBytesTxd indicates the number of 
+            bytes transmitted by this IFC. This is the number of 
+            tAtmIfcStatsTotalCellsTxd multiplied by 53."
+        ::= { tAtmIfcStatisticsEntry 6 } 
+
+    tAtmIfcStatsDrpCellsRxd OBJECT-TYPE
+        SYNTAX       Counter32 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIfcStatsDrpCellsRxd indicates the 
+            number of all policer cells discards (CLP=0+1) of the IFC. 
+            This excludes any buffer management discards (if 
+            applicable)." 
+        ::= { tAtmIfcStatisticsEntry 7 } 
+
+    tAtmIfcStatsDrpClp0CellsRxd OBJECT-TYPE
+        SYNTAX       Counter32 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIfcStatsDrpClp0CellsRxd indicates the 
+            number of all policer CLP=0 cells discards of the IFC. This 
+            excludes any buffer management discards (if applicable)." 
+        ::= { tAtmIfcStatisticsEntry 8 } 
+
+    tAtmIfcStatsDrpClp0CellsTxd OBJECT-TYPE
+        SYNTAX       Counter32 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIfcStatsDrpClp0CellsTxd indicates the 
+            number of all CLP=0 cells discards of this IFC. This includes 
+            both discards due to buffer management and policer."
+        ::= { tAtmIfcStatisticsEntry 9 } 
+
+    tAtmIfcStatsTagCells OBJECT-TYPE
+        SYNTAX       Counter32 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIfcStatsTagCells indicates the 
+            number of tagged CLP=0 cells of the IFC. The egress may or 
+            may not discard these cells."
+        ::= { tAtmIfcStatisticsEntry 10 }
+
+--
+--  Alcatel-Lucent SROS series ATM VCL Info Table
+--
+--  Augmententation of atmVclTable in ATM-MIB
+--
+--  The tAtmVclInfoTable is an augmentation of the atmVclTable.
+--  Use of AUGMENTS clause implies a one-to-one dependent relationship between
+--  the base table, atmVclTable, and the augmenting table, tAtmVclInfoTable. 
+--  This in effect extends the atmVclTable with additional columns.  
+--  Creation (or deletion) of a row in the atmVclTable results in the same 
+--  fate for the row in the tAtmVclInfoTable
+
+tAtmVclInfoTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TAtmVclInfoEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The tAtmVclInfoTable is used to display non-configuration
+         information on a particular VCL entry in the RFC 2515 AToM MIB."
+    ::= { tAtmVclObjs 1 }
+    
+    tAtmVclInfoEntry OBJECT-TYPE
+        SYNTAX        TAtmVclInfoEntry
+        MAX-ACCESS    not-accessible
+        STATUS        current
+        DESCRIPTION 
+            "An entry in the tAtmVclInfoTable containing non-configuration
+             information applicable to a particular VCL entry in the 
+             AToM MIB."
+        AUGMENTS { atmVclEntry }
+        ::= { tAtmVclInfoTable 1 }
+    
+    TAtmVclInfoEntry ::=
+        SEQUENCE {
+           tAtmVclInfoOwner         AtmConnectionOwner,
+           tAtmVclInfoOamStatus     AtmOamStatus,
+           tAtmVclInfoIlmiStatus    AtmIlmiStatus,           
+           tAtmVclInfoRxTrafficDescrIdOvr
+                                    AtmTrafficDescrParamIndex,
+           tAtmVclInfoTxTrafficDescrIdOvr
+                                    AtmTrafficDescrParamIndex
+       }
+
+    tAtmVclInfoOwner OBJECT-TYPE
+        SYNTAX       AtmConnectionOwner
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVclInfoOwner indicates which application
+            caused the creation of the ATM VCL."
+        ::= { tAtmVclInfoEntry 1 }   
+
+    tAtmVclInfoOamStatus OBJECT-TYPE
+        SYNTAX       AtmOamStatus
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVclInfoOamStatus indicates the OAM operational
+            status of the VCL."
+        ::= { tAtmVclInfoEntry 2 }   
+
+    tAtmVclInfoIlmiStatus OBJECT-TYPE
+        SYNTAX       AtmIlmiStatus   
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVclInfoIlmiStatus indicates the ILMI status of 
+            the VCL. "
+        ::= { tAtmVclInfoEntry 3 }    
+
+    tAtmVclInfoRxTrafficDescrIdOvr OBJECT-TYPE
+        SYNTAX       AtmTrafficDescrParamIndex(0|1..1000)
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION  "This object indicates the index of the ATM 
+                      ingress traffic descriptor override.
+                      
+                      This override value is given by an AAA server 
+                      such as a RADIUS server.
+                      
+                      The value zero indicates that no override is given."
+        ::= { tAtmVclInfoEntry 4 }
+
+    tAtmVclInfoTxTrafficDescrIdOvr OBJECT-TYPE
+        SYNTAX       AtmTrafficDescrParamIndex(0|1..1000)
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION  "This object indicates the index of the ATM 
+                      egress traffic descriptor override.
+                      
+                      This override value is given by an AAA server 
+                      such as a RADIUS server.
+                      
+                      The value zero indicates that no override is given."
+        ::= { tAtmVclInfoEntry 5 }
+
+--
+--  Alcatel-Lucent SROS series ATM VCL Statistics Table
+--
+
+tAtmVclStatisticsTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TAtmVclStatisticsEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The tAtmVclStatisticsTable is used to gather cell-level 
+         statistics on a particular VCL entry in the RFC 2515 AToM MIB."
+    ::= { tAtmVclObjs 2 }
+    
+    tAtmVclStatisticsEntry OBJECT-TYPE
+        SYNTAX        TAtmVclStatisticsEntry
+        MAX-ACCESS    not-accessible
+        STATUS        current
+        DESCRIPTION 
+            "An entry in the tAtmVclStatisticsTable containing statistics 
+             information applicable to a particular VCL entry in the 
+             AToM MIB."
+        INDEX  { ifIndex, atmVclVpi, atmVclVci }
+        ::= { tAtmVclStatisticsTable 1 }
+    
+    TAtmVclStatisticsEntry ::=
+        SEQUENCE {
+           tAtmVclStatsTotalCellsRxd Counter64,
+           tAtmVclStatsTotalCellsTxd Counter64,
+           tAtmVclStatsTotalBytesRxd Counter64,
+           tAtmVclStatsTotalBytesTxd Counter64
+           
+        }
+
+    tAtmVclStatsTotalCellsRxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVclStatsTotalCellsRxd indicates the 
+            number of valid ATM cells received by the 
+            VCL including both CLP=0 and CLP=1 cells.  
+            If traffic policing is implemented, then cells are counted 
+            prior to the application of traffic policing."
+        ::= { tAtmVclStatisticsEntry 1 }      
+
+    tAtmVclStatsTotalCellsTxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVclStatsTotalCellsTxd indicates the 
+            number of valid ATM cells transmitted by the 
+            VCL including both CLP=0 and CLP=1 cells.  
+            If traffic policing is implemented, then cells are counted 
+            prior to the application of traffic policing."
+        ::= { tAtmVclStatisticsEntry 2 }    
+
+    tAtmVclStatsTotalBytesRxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVclStatsTotalBytesRxd indicates the number of 
+            bytes received by this Vcl. This is the number of 
+            tAtmVclStatsTotalCellsRxd multiplied by 53."
+        ::= { tAtmVclStatisticsEntry 3 }
+
+    tAtmVclStatsTotalBytesTxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVclStatsTotalBytesTxd indicates the number of 
+            bytes transmitted by this Vcl. This is the number of 
+            tAtmVclStatsTotalCellsTxd multiplied by 53."
+        ::= { tAtmVclStatisticsEntry 4 } 
+        
+tAtmOamVclStatisticsTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TAtmOamVclStatisticsEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The tAtmOamVclStatisticsTable is used to gather oam 
+         statistics on a particular VCL entry in the RFC 2515 AToM MIB."
+    ::= { tAtmVclObjs 3 }
+    
+    tAtmOamVclStatisticsEntry OBJECT-TYPE
+        SYNTAX        TAtmOamVclStatisticsEntry
+        MAX-ACCESS    not-accessible
+        STATUS        current
+        DESCRIPTION 
+            "An entry in the tAtmVclStatisticsTable containing statistics 
+             information applicable to a particular VCL entry in the 
+             AToM MIB."
+        AUGMENTS  { atmVclEntry }
+        ::= { tAtmOamVclStatisticsTable 1 }
+    
+    TAtmOamVclStatisticsEntry ::=
+        SEQUENCE {
+           tAtmOamVclStatsAISCellsTxd      Counter32,
+           tAtmOamVclStatsRDICellsTxd      Counter32,
+           tAtmOamVclStatsLoopbackCellsTxd Counter32,
+           tAtmOamVclStatsAISCellsRxd      Counter32,
+           tAtmOamVclStatsRDICellsRxd      Counter32,
+           tAtmOamVclStatsLoopbackCellsRxd Counter32,
+           tAtmOamVclStatsCrc10Err         Counter32,
+           tAtmOamVclStatsOtherCellsRxd    Counter32
+        }
+     
+   tAtmOamVclStatsAISCellsTxd OBJECT-TYPE
+        SYNTAX       Counter32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmOamVclStatsAISCellsTxd indicates the 
+            number of AIS cells transmitted on this VC for 
+            both end to end and segment."
+        ::= { tAtmOamVclStatisticsEntry 1 }      
+   
+   tAtmOamVclStatsRDICellsTxd OBJECT-TYPE
+        SYNTAX       Counter32 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmOamVclStatsRDICellsTxd indicates the 
+            number of RDI cells transmitted on this VC for 
+            both end to end and segment."
+        ::= { tAtmOamVclStatisticsEntry 2 }         
+        
+   tAtmOamVclStatsLoopbackCellsTxd OBJECT-TYPE
+        SYNTAX       Counter32 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmOamVclStatsLoopbackCellsTxd indicates
+            the number of loopback requests and responses transmitted 
+            on this VC for both end to end and segment."
+        ::= { tAtmOamVclStatisticsEntry 3 }  
+
+   tAtmOamVclStatsAISCellsRxd OBJECT-TYPE
+        SYNTAX       Counter32 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmOamVclStatsAISCellsRxd indicates the 
+            number of AIS cells received on this VC for 
+            both end to end and segment."
+        ::= { tAtmOamVclStatisticsEntry 4 }      
+   
+   tAtmOamVclStatsRDICellsRxd OBJECT-TYPE
+        SYNTAX       Counter32 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmOamVclStatsRDICellsRxd indicates the 
+            number of RDI cells received on this VC for 
+            both end to end and segment."
+        ::= { tAtmOamVclStatisticsEntry 5 }         
+        
+   tAtmOamVclStatsLoopbackCellsRxd OBJECT-TYPE
+        SYNTAX       Counter32 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmOamVclStatsLoopbackCellsRxd indicates
+            the number of loopback requests and responses received 
+            on this VC for both end to end and segment."
+        ::= { tAtmOamVclStatisticsEntry 6 }  
+   
+   tAtmOamVclStatsCrc10Err OBJECT-TYPE
+        SYNTAX       Counter32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmOamVclStatsCrc10Err indicates 
+            the number of oam cells discarded with CRC 10 Errors."
+        ::= { tAtmOamVclStatisticsEntry 7 }  
+
+   tAtmOamVclStatsOtherCellsRxd OBJECT-TYPE
+        SYNTAX       Counter32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "This value of tAtmOamVclStatsOtherCellsRxd indicates 
+            the number of oam cells that are received but not 
+            identified."
+        ::= { tAtmOamVclStatisticsEntry 8 }  
+           
+--
+--  Alcatel-Lucent SROS series AAL-5 VCC Statistics Table
+--
+tAal5VccStatisticsTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TAal5VccStatisticsEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "tAal5VccStatisticsTable is used to gather AAL5-level statistics 
+         on a particular AAL5 VCC entry in the RFC 2515 AToM MIB."
+    ::= { tAal5VccObjs 1 }
+    
+    tAal5VccStatisticsEntry OBJECT-TYPE
+        SYNTAX        TAal5VccStatisticsEntry
+        MAX-ACCESS    not-accessible
+        STATUS        current
+        DESCRIPTION 
+            "An entry in the tAal5VccStatisticsTable containing statistics 
+             information applicable to a particular AAL5 VCC entry in the 
+             AToM MIB."
+        AUGMENTS { aal5VccEntry }
+        ::= { tAal5VccStatisticsTable 1 }
+
+    TAal5VccStatisticsEntry ::=
+        SEQUENCE {
+            tAal5VccStatsPacketsRxd          Counter64,
+            tAal5VccStatsPacketsTxd          Counter64,
+            tAal5VccStatsDrpPacketsRxd       Counter64,
+            tAal5VccStatsDrpPacketsTxd       Counter64
+        }    
+
+    tAal5VccStatsPacketsRxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAal5VccStatsPacketsRxd indicates the 
+            number of valid AAL-5 SDUs and AAL-5 SDUs with 
+            CRC-32 errors received by the AAL-5 VCC."
+        ::= { tAal5VccStatisticsEntry 1 } 
+
+    tAal5VccStatsPacketsTxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAal5VccStatsPacketsTxd indicates the number of 
+            AAL-5 SDUs transmitted by the AAL-5 VCC."
+        ::= { tAal5VccStatisticsEntry 2 }
+        
+    tAal5VccStatsDrpPacketsRxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAal5VccStatsDrpPacketsRxd indicates the number 
+            of dropped AAL-5 SDUs that have been received on the AAL-5 VCC."
+        ::= { tAal5VccStatisticsEntry 3 }         
+
+    tAal5VccStatsDrpPacketsTxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAal5VccStatsDrpPacketsTxd indicates the number 
+            of dropped AAL-5 SDUs that would have been transmitted on the 
+            AAL-5 VCC."
+        ::= { tAal5VccStatisticsEntry 4 }  
+
+--
+--  Alcatel-Lucent SROS series ATM Cell VCC Statistics Table
+--
+tAtmCellVclStatisticsTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TAtmCellVclStatisticsEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "tAtmCellVclStatisticsTable is used to gather cell-level statistics 
+         on a particular VCC entry in the RFC 2515 AToM MIB."
+    ::= { tAtmCellVclObjs 1 }
+    
+    tAtmCellVclStatisticsEntry OBJECT-TYPE
+        SYNTAX        TAtmCellVclStatisticsEntry
+        MAX-ACCESS    not-accessible
+        STATUS        current
+        DESCRIPTION 
+            "An entry in the tAtmCellVclStatisticsTable containing statistics 
+             information applicable to a particular VCL entry 
+             in the AToM MIB."
+        AUGMENTS { atmVclEntry }
+        ::= { tAtmCellVclStatisticsTable 1 }
+
+    TAtmCellVclStatisticsEntry ::=
+        SEQUENCE {
+            tAtmCellVclStatsClp0CellsRxd        Counter64,
+            tAtmCellVclStatsClp0CellsTxd        Counter64,
+            tAtmCellVclStatsDrpCellsRxd         Counter32,
+            tAtmCellVclStatsDrpClp0CellsRxd     Counter32,
+            tAtmCellVclStatsDrpClp0CellsTxd     Counter32,
+            tAtmCellVclStatsTagCells            Counter32
+        }
+
+    tAtmCellVclStatsClp0CellsRxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmCellVclStatsClp0CellsRxd indicates the 
+            number of valid ATM CLP=0 cells received by the VCL."
+        ::= { tAtmCellVclStatisticsEntry 1 } 
+
+    tAtmCellVclStatsClp0CellsTxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmCellVclStatsClp0CellsTxd indicates the 
+            number of valid ATM CLP=0 cells transmitted by the VCL."
+        ::= { tAtmCellVclStatisticsEntry 2 }
+
+    tAtmCellVclStatsDrpCellsRxd OBJECT-TYPE
+        SYNTAX       Counter32 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmCellVclStatsDrpCellsRxd indicates the 
+            number of all policer cells discards (CLP=0+1) of the VCL. 
+            This excludes any buffer management discards (if 
+            applicable)." 
+        ::= { tAtmCellVclStatisticsEntry 3 } 
+
+    tAtmCellVclStatsDrpClp0CellsRxd OBJECT-TYPE
+        SYNTAX       Counter32 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmCellVclStatsDrpClp0CellsRxd indicates the 
+            number of all policer CLP=0 cells discards of the VCL. This 
+            excludes any buffer management discards (if applicable)." 
+        ::= { tAtmCellVclStatisticsEntry 4 } 
+
+    tAtmCellVclStatsDrpClp0CellsTxd OBJECT-TYPE
+        SYNTAX       Counter32 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmCellVclStatsDrpClp0CellsTxd indicates the 
+            number of all CLP=0 cells discards of this VCL. This includes 
+            both discards due to buffer management and policer."
+        ::= { tAtmCellVclStatisticsEntry 5 } 
+
+    tAtmCellVclStatsTagCells OBJECT-TYPE
+        SYNTAX       Counter32 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmCellVclStatsTagCells indicates the 
+            number of tagged CLP=0 cells of the VCL. The egress may or 
+            may not discard these cells."
+        ::= { tAtmCellVclStatisticsEntry 6 } 
+
+--
+--  Alcatel-Lucent SROS series ATM VPL Info Table
+--
+--  Augmententation of atmVplTable in ATM-MIB
+--
+--  The tAtmVplInfoTable is an augmentation of the atmVplTable.
+--  Use of AUGMENTS clause implies a one-to-one dependent relationship between
+--  the base table, atmVplTable, and the augmenting table, tAtmVplInfoTable. 
+--  This in effect extends the atmVplTable with additional columns.  
+--  Creation (or deletion) of a row in the atmVplTable results in the same 
+--  fate for the row in the tAtmVplInfoTable
+
+tAtmVplInfoTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TAtmVplInfoEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The tAtmVplInfoTable is used to display non-configuration
+         information on a particular VPL entry in the RFC 2515 AToM MIB."
+    ::= { tAtmVplObjs 1 }
+    
+    tAtmVplInfoEntry OBJECT-TYPE
+        SYNTAX        TAtmVplInfoEntry
+        MAX-ACCESS    not-accessible
+        STATUS        current
+        DESCRIPTION 
+            "An entry in the tAtmVplInfoTable containing non-configuration
+             information applicable to a particular VPL entry in the 
+             AToM MIB."
+        AUGMENTS { atmVplEntry }
+        ::= { tAtmVplInfoTable 1 }
+    
+    TAtmVplInfoEntry ::=
+        SEQUENCE {
+           tAtmVplInfoOwner         AtmConnectionOwner,
+           tAtmVplInfoOamStatus     AtmOamStatus,
+           tAtmVplInfoIlmiStatus    AtmIlmiStatus
+        }
+
+    tAtmVplInfoOwner OBJECT-TYPE
+        SYNTAX       AtmConnectionOwner
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVplInfoOwner indicates which application
+            caused the creation of the ATM VPL."
+        ::= { tAtmVplInfoEntry 1 }   
+
+    tAtmVplInfoOamStatus OBJECT-TYPE
+        SYNTAX       AtmOamStatus
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVplInfoOamStatus indicates the OAM operational
+            status of the VPL."
+        ::= { tAtmVplInfoEntry 2 }   
+
+    tAtmVplInfoIlmiStatus OBJECT-TYPE
+        SYNTAX       AtmIlmiStatus   
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVplInfoIlmiStatus indicates the ILMI status of 
+            the VPL. "
+        ::= { tAtmVplInfoEntry 3 }    
+
+--
+--  Alcatel-Lucent SROS series ATM VPL Statistics Table
+--
+
+tAtmVplStatisticsTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TAtmVplStatisticsEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The tAtmVplStatisticsTable is used to gather cell-level 
+         statistics on a particular VPL entry in the RFC 2515 AToM MIB."
+    ::= { tAtmVplObjs 2 }
+    
+    tAtmVplStatisticsEntry OBJECT-TYPE
+        SYNTAX        TAtmVplStatisticsEntry
+        MAX-ACCESS    not-accessible
+        STATUS        current
+        DESCRIPTION 
+            "An entry in the tAtmVplStatisticsTable containing statistics 
+             information applicable to a particular VPL entry in the 
+             AToM MIB."
+        INDEX  { ifIndex, atmVplVpi}
+        ::= { tAtmVplStatisticsTable 1 }
+    
+    TAtmVplStatisticsEntry ::=
+        SEQUENCE {
+           tAtmVplStatsTotalCellsRxd       Counter64,
+           tAtmVplStatsTotalClp0CellsRxd   Counter64,
+           tAtmVplStatsTotalCellsTxd       Counter64,
+           tAtmVplStatsTotalClp0CellsTxd   Counter64,
+           tAtmVplStatsTotalBytesRxd       Counter64,           
+           tAtmVplStatsTotalBytesTxd       Counter64,
+           tAtmVplStatsDrpCellsRxd         Counter32,
+           tAtmVplStatsDrpClp0CellsRxd     Counter32,
+           tAtmVplStatsDrpClp0CellsTxd     Counter32,
+           tAtmVplStatsTagCells            Counter32
+        }
+
+    tAtmVplStatsTotalCellsRxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVplStatsTotalCellsRxd indicates the 
+            number of valid ATM cells received by the 
+            VPL including both CLP=0 and CLP=1 cells.  
+            If traffic policing is implemented, then cells are counted 
+            prior to the application of traffic policing."
+        ::= { tAtmVplStatisticsEntry 1 }      
+
+    tAtmVplStatsTotalClp0CellsRxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVplStatsTotalClp0CellsRxd indicates the 
+            number of valid ATM CLP=0 cells received by the VPL.
+            If traffic policing is implemented, then cells are counted 
+            prior to the application of traffic policing."
+        ::= { tAtmVplStatisticsEntry 2 } 
+        
+    tAtmVplStatsTotalCellsTxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVplStatsTotalCellsTxd indicates the 
+            number of valid ATM cells transmitted by the 
+            VPL including both CLP=0 and CLP=1 cells.  
+            If traffic policing is implemented, then cells are counted 
+            prior to the application of traffic policing."
+        ::= { tAtmVplStatisticsEntry 3 }    
+
+    tAtmVplStatsTotalClp0CellsTxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVplStatsTotalClp0CellsTxd indicates the 
+            number of valid ATM CLP=0 cells transmitted by the VPL.
+            If traffic policing is implemented, then cells are counted 
+            prior to the application of traffic policing."
+        ::= { tAtmVplStatisticsEntry 4 }
+
+    tAtmVplStatsTotalBytesRxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVplStatsTotalBytesRxd indicates the number of 
+            bytes received by this VPL. This is the number of 
+            tAtmVplStatsTotalCellsRxd multiplied by 53."
+        ::= { tAtmVplStatisticsEntry 5 }
+
+    tAtmVplStatsTotalBytesTxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVplStatsTotalBytesTxd indicates the number of 
+            bytes transmitted by this VPL. This is the number of 
+            tAtmVplStatsTotalCellsTxd multiplied by 53."
+        ::= { tAtmVplStatisticsEntry 6 } 
+
+    tAtmVplStatsDrpCellsRxd OBJECT-TYPE
+        SYNTAX       Counter32 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVplStatsDrpCellsRxd indicates the 
+            number of all policer cells discards (CLP=0+1) of the VPL. 
+            This excludes any buffer management discards (if 
+            applicable)." 
+        ::= { tAtmVplStatisticsEntry 7 } 
+
+    tAtmVplStatsDrpClp0CellsRxd OBJECT-TYPE
+        SYNTAX       Counter32 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVplStatsDrpClp0CellsRxd indicates the 
+            number of all policer CLP=0 cells discards of the VPL. This 
+            excludes any buffer management discards (if applicable)." 
+        ::= { tAtmVplStatisticsEntry 8 } 
+
+    tAtmVplStatsDrpClp0CellsTxd OBJECT-TYPE
+        SYNTAX       Counter32 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVplStatsDrpClp0CellsTxd indicates the 
+            number of all CLP=0 cells discards of this VPL. This includes 
+            both discards due to buffer management and policer."
+        ::= { tAtmVplStatisticsEntry 9 } 
+
+    tAtmVplStatsTagCells OBJECT-TYPE
+        SYNTAX       Counter32 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVplStatsTagCells indicates the 
+            number of tagged CLP=0 cells of the VPL. The egress may or 
+            may not discard these cells."
+        ::= { tAtmVplStatisticsEntry 10 }
+
+tAtmOamVplStatisticsTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TAtmOamVplStatisticsEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The tAtmOamVplStatisticsTable is used to gather oam 
+         statistics on a particular VPL entry in the RFC 2515 AToM MIB."
+    ::= { tAtmVplObjs 3 }
+    
+    tAtmOamVplStatisticsEntry OBJECT-TYPE
+        SYNTAX        TAtmOamVplStatisticsEntry
+        MAX-ACCESS    not-accessible
+        STATUS        current
+        DESCRIPTION 
+            "An entry in the tAtmVplStatisticsTable containing statistics 
+             information applicable to a particular VPL entry in the 
+             AToM MIB."
+        INDEX  { ifIndex, atmVplVpi}
+        ::= { tAtmOamVplStatisticsTable 1 }
+    
+    TAtmOamVplStatisticsEntry ::=
+        SEQUENCE {
+           tAtmOamVplStatsAISCellsTxd      Counter32,
+           tAtmOamVplStatsRDICellsTxd      Counter32,
+           tAtmOamVplStatsLoopbackCellsTxd Counter32,
+           tAtmOamVplStatsAISCellsRxd      Counter32,
+           tAtmOamVplStatsRDICellsRxd      Counter32,
+           tAtmOamVplStatsLoopbackCellsRxd Counter32,
+           tAtmOamVplStatsCrc10Errors      Counter32,
+           tAtmOamVplStatsOtherCellsRxd    Counter32
+        }
+     
+   tAtmOamVplStatsAISCellsTxd OBJECT-TYPE
+        SYNTAX       Counter32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmOamVplStatsAISCellsTxd indicates the 
+            number of AIS cells transmitted on this VPL for 
+            both end to end and segment."
+        ::= { tAtmOamVplStatisticsEntry 1 }      
+   
+   tAtmOamVplStatsRDICellsTxd OBJECT-TYPE
+        SYNTAX       Counter32 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmOamVplStatsRDICellsTxd indicates the 
+            number of RDI cells transmitted on this VPL for 
+            both end to end and segment."
+        ::= { tAtmOamVplStatisticsEntry 2 }         
+        
+   tAtmOamVplStatsLoopbackCellsTxd OBJECT-TYPE
+        SYNTAX       Counter32 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmOamVplStatsLoopbackCellsTxd indicates
+            the number of loopback requests and responses transmitted 
+            on this VPL for both end to end and segment."
+        ::= { tAtmOamVplStatisticsEntry 3 }  
+
+   tAtmOamVplStatsAISCellsRxd OBJECT-TYPE
+        SYNTAX       Counter32 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmOamVplStatsAISCellsRxd indicates the 
+            number of AIS cells received on this VPL for 
+            both end to end and segment."
+        ::= { tAtmOamVplStatisticsEntry 4 }      
+   
+   tAtmOamVplStatsRDICellsRxd OBJECT-TYPE
+        SYNTAX       Counter32 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmOamVplStatsRDICellsRxd indicates the 
+            number of RDI cells received on this VPL for 
+            both end to end and segment."
+        ::= { tAtmOamVplStatisticsEntry 5 }         
+        
+   tAtmOamVplStatsLoopbackCellsRxd OBJECT-TYPE
+        SYNTAX       Counter32 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmOamVplStatsLoopbackCellsRxd indicates
+            the number of loopback requests and responses received 
+            on this VPL for both end to end and segment."
+        ::= { tAtmOamVplStatisticsEntry 6 }  
+   
+   tAtmOamVplStatsCrc10Errors OBJECT-TYPE
+        SYNTAX       Counter32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmOamVplStatsCrc10Errors indicates 
+            the number of OAM cells discarded on this VPL with CRC 10 
+            errors."
+        ::= { tAtmOamVplStatisticsEntry 7 }  
+
+   tAtmOamVplStatsOtherCellsRxd OBJECT-TYPE
+        SYNTAX       Counter32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "This value of tAtmOamVplStatsOtherCellsRxd indicates 
+            the number of OAM cells that are received on this VPL but not 
+            identified."
+        ::= { tAtmOamVplStatisticsEntry 8 }   
+
+--
+--  Alcatel-Lucent SROS series ATM VTL Info Table
+--
+--  A Virtual Trunk (VT) connection is a range of Virtual Paths (VPs). 
+
+tAtmVtlInfoTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TAtmVtlInfoEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The tAtmVtlInfoTable is used to display non-configuration
+         information on a particular VTL entry."
+    ::= { tAtmVtlObjs 1 }
+    
+    tAtmVtlInfoEntry OBJECT-TYPE
+        SYNTAX        TAtmVtlInfoEntry
+        MAX-ACCESS    not-accessible
+        STATUS        current
+        DESCRIPTION 
+            "An entry in the tAtmVtlInfoTable containing non-configuration
+             information applicable to a particular VTL entry."
+        INDEX  { ifIndex, tAtmVtlStartVpi, tAtmVtlEndVpi }
+        ::= { tAtmVtlInfoTable 1 }
+    
+    TAtmVtlInfoEntry ::=
+        SEQUENCE {
+           tAtmVtlStartVpi                  AtmVpIdentifier,
+           tAtmVtlEndVpi                    AtmVpIdentifier,
+           tAtmVtlAdminStatus               AtmVorXAdminStatus,
+           tAtmVtlOperStatus                AtmVorXOperStatus,
+           tAtmVtlLastChange                AtmVorXLastChange,
+           tAtmVtlReceiveTrafficDescrIndex  AtmTrafficDescrParamIndex,
+           tAtmVtlTransmitTrafficDescrIndex AtmTrafficDescrParamIndex,
+           tAtmVtlRowStatus                 RowStatus,
+           tAtmVtlCastType                  AtmConnCastType,
+           tAtmVtlConnKind                  AtmConnKind,
+           tAtmVtlInfoOwner                 AtmConnectionOwner
+        }
+        
+    tAtmVtlStartVpi    OBJECT-TYPE
+        SYNTAX         AtmVpIdentifier
+        MAX-ACCESS     not-accessible
+        STATUS         current
+        DESCRIPTION
+           "The starting VPI value of the VTL."
+        ::= { tAtmVtlInfoEntry 1 }        
+
+    tAtmVtlEndVpi      OBJECT-TYPE
+        SYNTAX         AtmVpIdentifier
+        MAX-ACCESS     not-accessible
+        STATUS         current
+        DESCRIPTION
+           "The ending VPI value of the VTL."
+        ::= { tAtmVtlInfoEntry 2 }          
+
+    tAtmVtlAdminStatus  OBJECT-TYPE
+        SYNTAX          AtmVorXAdminStatus
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+           "tAtmVtlAdminStatus specifies the desired
+            administrative state of the VTL."
+        ::= { tAtmVtlInfoEntry 3 }
+
+    tAtmVtlOperStatus   OBJECT-TYPE
+        SYNTAX          AtmVorXOperStatus
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+           "tAtmVtlOperStatus indicates the current operational status of 
+            the VTL."
+        ::= { tAtmVtlInfoEntry 4 }
+
+    tAtmVtlLastChange   OBJECT-TYPE
+        SYNTAX          AtmVorXLastChange
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+           "tAtmVtlLastChange indicates the value of sysUpTime at the 
+            time this VTL entered its current operational state."
+        ::= { tAtmVtlInfoEntry 5 }
+
+    tAtmVtlReceiveTrafficDescrIndex  OBJECT-TYPE
+        SYNTAX          AtmTrafficDescrParamIndex
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+           "tAtmVtlReceiveTrafficDescrIndex identifies the row
+            in the atmTrafficDescrParamTable which
+            applies to the receive direction of the VTL."
+        ::= { tAtmVtlInfoEntry 6 }
+
+    tAtmVtlTransmitTrafficDescrIndex  OBJECT-TYPE
+        SYNTAX          AtmTrafficDescrParamIndex
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+           "tAtmVtlTransmitTrafficDescrIndex identifies the row
+            in the atmTrafficDescrParamTable which
+            applies to the transmit direction of the VTL."
+        ::= { tAtmVtlInfoEntry 7 }
+
+    tAtmVtlRowStatus    OBJECT-TYPE
+        SYNTAX          RowStatus
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+           "tAtmVtlRowStatus indicates the current RowStatus of the VTL.
+            Entries in the tAtmVtlInfoTable are created as a result of
+            the creation of another system entity (such as a SAP). 
+            Since entries in this table can not be created directly
+            tAtmVtlRowStatus is read-only and will always be 'active'
+            if the row exists."
+        ::= { tAtmVtlInfoEntry 8 }  
+
+    tAtmVtlCastType     OBJECT-TYPE
+        SYNTAX          AtmConnCastType
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+           "tAtmVtlCastType indicates the connection topology type."
+        DEFVAL { p2p }
+        ::= { tAtmVtlInfoEntry 9 }
+
+    tAtmVtlConnKind     OBJECT-TYPE
+        SYNTAX          AtmConnKind
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+           "tAtmVtlConnKind indicates the use of call control."
+        ::= { tAtmVtlInfoEntry 10 }
+
+    tAtmVtlInfoOwner    OBJECT-TYPE
+        SYNTAX          AtmConnectionOwner
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "The value of tAtmVtlInfoOwner indicates which application
+             caused the creation of the ATM VTL."
+        ::= { tAtmVtlInfoEntry 11 }   
+
+--
+--  Alcatel-Lucent SROS series ATM VTL Statistics Table
+--
+
+tAtmVtlStatisticsTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TAtmVtlStatisticsEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The tAtmVtlStatisticsTable is used to gather cell-level 
+         statistics on a particular VTL entry."
+    ::= { tAtmVtlObjs 2 }
+    
+    tAtmVtlStatisticsEntry OBJECT-TYPE
+        SYNTAX        TAtmVtlStatisticsEntry
+        MAX-ACCESS    not-accessible
+        STATUS        current
+        DESCRIPTION 
+            "An entry in the tAtmVtlStatisticsTable containing statistics 
+             information applicable to a particular VTL entry."
+        INDEX  { ifIndex, tAtmVtlStartVpi, tAtmVtlEndVpi }
+        ::= { tAtmVtlStatisticsTable 1 }
+    
+    TAtmVtlStatisticsEntry ::=
+        SEQUENCE {
+           tAtmVtlStatsTotalCellsRxd       Counter64,
+           tAtmVtlStatsTotalClp0CellsRxd   Counter64,
+           tAtmVtlStatsTotalCellsTxd       Counter64,
+           tAtmVtlStatsTotalClp0CellsTxd   Counter64,
+           tAtmVtlStatsTotalBytesRxd       Counter64,           
+           tAtmVtlStatsTotalBytesTxd       Counter64,
+           tAtmVtlStatsDrpCellsRxd         Counter32,
+           tAtmVtlStatsDrpClp0CellsRxd     Counter32,
+           tAtmVtlStatsDrpClp0CellsTxd     Counter32,
+           tAtmVtlStatsTagCells            Counter32
+        }
+
+    tAtmVtlStatsTotalCellsRxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVtlStatsTotalCellsRxd indicates the 
+            number of valid ATM cells received by the 
+            VTL including both CLP=0 and CLP=1 cells.  
+            If traffic policing is implemented, then cells are counted 
+            prior to the application of traffic policing."
+        ::= { tAtmVtlStatisticsEntry 1 }      
+
+    tAtmVtlStatsTotalClp0CellsRxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVtlStatsTotalClp0CellsRxd indicates the 
+            number of valid ATM CLP=0 cells received by the VTL.
+            If traffic policing is implemented, then cells are counted 
+            prior to the application of traffic policing."
+        ::= { tAtmVtlStatisticsEntry 2 } 
+        
+    tAtmVtlStatsTotalCellsTxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVtlStatsTotalCellsTxd indicates the 
+            number of valid ATM cells transmitted by the 
+            VTL including both CLP=0 and CLP=1 cells.  
+            If traffic policing is implemented, then cells are counted 
+            prior to the application of traffic policing."
+        ::= { tAtmVtlStatisticsEntry 3 }    
+
+    tAtmVtlStatsTotalClp0CellsTxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVtlStatsTotalClp0CellsTxd indicates the 
+            number of valid ATM CLP=0 cells transmitted by the VTL.
+            If traffic policing is implemented, then cells are counted 
+            prior to the application of traffic policing."
+        ::= { tAtmVtlStatisticsEntry 4 }
+
+    tAtmVtlStatsTotalBytesRxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVtlStatsTotalBytesRxd indicates the number of 
+            bytes received by this VTL. This is the number of 
+            tAtmVtlStatsTotalCellsRxd multiplied by 53."
+        ::= { tAtmVtlStatisticsEntry 5 }
+
+    tAtmVtlStatsTotalBytesTxd OBJECT-TYPE
+        SYNTAX       Counter64 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVtlStatsTotalBytesTxd indicates the number of 
+            bytes transmitted by this VTL. This is the number of 
+            tAtmVtlStatsTotalCellsTxd multiplied by 53."
+        ::= { tAtmVtlStatisticsEntry 6 } 
+
+    tAtmVtlStatsDrpCellsRxd OBJECT-TYPE
+        SYNTAX       Counter32 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVtlStatsDrpCellsRxd indicates the 
+            number of all policer cells discards (CLP=0+1) of the VTL. 
+            This excludes any buffer management discards (if 
+            applicable)." 
+        ::= { tAtmVtlStatisticsEntry 7 } 
+
+    tAtmVtlStatsDrpClp0CellsRxd OBJECT-TYPE
+        SYNTAX       Counter32 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVtlStatsDrpClp0CellsRxd indicates the 
+            number of all policer CLP=0 cells discards of the VTL. This 
+            excludes any buffer management discards (if applicable)." 
+        ::= { tAtmVtlStatisticsEntry 8 } 
+
+    tAtmVtlStatsDrpClp0CellsTxd OBJECT-TYPE
+        SYNTAX       Counter32 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVtlStatsDrpClp0CellsTxd indicates the 
+            number of all CLP=0 cells discards of this VTL. This includes 
+            both discards due to buffer management and policer."
+        ::= { tAtmVtlStatisticsEntry 9 } 
+
+    tAtmVtlStatsTagCells OBJECT-TYPE
+        SYNTAX       Counter32 
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmVtlStatsTagCells indicates the 
+            number of tagged CLP=0 cells of the VTL. The egress may or 
+            may not discard these cells."
+        ::= { tAtmVtlStatisticsEntry 10 }
+
+--
+--  Alcatel-Lucent SROS series ATM System Configuration Objects
+--       
+tAtmSysLlid        OBJECT-TYPE
+    SYNTAX         AtmLlid 
+    MAX-ACCESS     read-create 
+    STATUS         current
+    DESCRIPTION
+        "The ATM LLID is the Loopback location ID that uniquely
+         identifies the system for the ATM OAM Loopback purposes."
+    DEFVAL         { '01000000000000000000000000000000'H }
+    ::= { tAtmSystemObjs 1 }        
+
+tAtmSysOamRetryUp  OBJECT-TYPE
+    SYNTAX         INTEGER  (0..10)   
+    MAX-ACCESS     read-create 
+    STATUS         current
+    DESCRIPTION
+        "The value of tAtmSysOamRetryUp specifies the number of consecutive
+         OAM loopback attempts that must succeed after the periodic attempt 
+         before the endpoint will transition from the eteAisLoc state to up.
+         A value of 0 means that the endpoint will transition to the up
+         state immediately if the periodic loopback attempt succeeds."
+    DEFVAL         { 2 }
+    ::= { tAtmSystemObjs 2 }
+
+tAtmSysOamRetryDown  OBJECT-TYPE
+    SYNTAX         INTEGER  (0..10)   
+    MAX-ACCESS     read-create 
+    STATUS         current
+    DESCRIPTION
+        "The value of tAtmSysOamRetryDown specifies the number of consecutive
+         OAM loopback attempts that must fail after the periodic attempt 
+         before the endpoint will transition from the up state to eteAisLoc.
+         A value of 0 means that the endpoint will transition to the eteAisLoc 
+         state immediately if the periodic loopback attempt fails."
+    DEFVAL         { 4 }
+    ::= { tAtmSystemObjs 3 }
+
+tAtmSysOamLoopbackPeriod OBJECT-TYPE
+    SYNTAX         INTEGER  (1..40)   
+    UNITS          "seconds"
+    MAX-ACCESS     read-create 
+    STATUS         current
+    DESCRIPTION
+        "The value of tAtmSysOamLoopbackPeriod specifies the number of 
+         seconds between periodic loopback attempts on an ATM endpoint 
+         that has periodic loopback enabled."
+    DEFVAL         { 10 }
+    ::= { tAtmSystemObjs 4 }
+
+
+--
+--  Alcatel-Lucent SROS series ATM ILMI Link Table
+--
+--  The tAtmIlmiLinkTable is used to store the ILMI link configuration 
+--  Once a row in this table has been created, the tAtmIlmiLinkVpi and
+--  tAtmIlmiLinkVci objects cannot be modified.  As well, the value of
+--  tAtmIlmiLinkVci must be non-zero. VCI value of 3 and 4 is reserved 
+--  for OAM purposes.
+--
+
+tAtmIlmiLinkTable OBJECT-TYPE
+    SYNTAX       SEQUENCE OF TAtmIlmiLinkEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "The tAtmIlmiLinkTable is used to configure ILMI Link attributes."
+    ::= { tAtmIlmiLinkObjs 1 }
+
+    tAtmIlmiLinkEntry  OBJECT-TYPE
+        SYNTAX              TAtmIlmiLinkEntry
+        MAX-ACCESS          not-accessible
+        STATUS              current
+        DESCRIPTION         
+            "An entry in the tAtmIlmiLinkTable containing additional 
+             management information applicable to a particular ILMI link 
+             on an ATM interface"
+        INDEX { ifIndex }
+        ::= { tAtmIlmiLinkTable 1 }
+
+    TAtmIlmiLinkEntry ::=
+        SEQUENCE {
+            tAtmIlmiLinkRowStatus                   RowStatus,
+            tAtmIlmiLinkLastChanged                 TimeStamp,
+            tAtmIlmiLinkAdminStatus                 INTEGER,
+            tAtmIlmiLinkOperStatus                  INTEGER,
+            tAtmIlmiLinkVpi                         AtmVpIdentifier,
+            tAtmIlmiLinkVci                         AtmVcIdentifier,
+            tAtmIlmiLinkFsmState                    INTEGER,
+            tAtmIlmiLinkReceiveTrafficDescrIndex    AtmTrafficDescrParamIndex,
+            tAtmIlmiLinkTransmitTrafficDescrIndex   AtmTrafficDescrParamIndex,
+            tAtmIlmiLinkEstablishConPollIntvl       Integer32,
+            tAtmIlmiLinkCheckConPollIntvl           Integer32,
+            tAtmIlmiLinkConPollInactFactor          Integer32,
+            tAtmIlmiLinkUniType                     AtmIlmiLinkUniType,
+            tAtmIlmiLinkDeviceType                  AtmIlmiLinkDeviceType,
+            tAtmIlmiLinkVersion                     AtmIlmiLinkVersion,
+            tAtmIlmiLinkImeType                     AtmIlmiLinkImeType,
+            tAtmIlmiLinkNegotiatedVersion           AtmIlmiLinkVersion,
+            tAtmIlmiLinkNegotiatedImeType           AtmIlmiLinkImeType,
+            tAtmIlmiLinkNeighborIfIdentifier        INTEGER,
+            tAtmIlmiLinkNeighborSystemIdentifier    OCTET STRING,
+            tAtmIlmiLinkNeighborUniType             AtmIlmiLinkUniType,
+            tAtmIlmiLinkNeighborDeviceType          AtmIlmiLinkDeviceType,
+            tAtmIlmiLinkNeighborVersion             AtmIlmiLinkVersion,
+            tAtmIlmiLinkNeighborMaxVpcs             INTEGER,
+            tAtmIlmiLinkNeighborMaxVccs             INTEGER,
+            tAtmIlmiLinkNeighborMaxVpiBits          INTEGER,
+            tAtmIlmiLinkNeighborMaxVciBits          INTEGER
+        }
+ 
+    tAtmIlmiLinkRowStatus     OBJECT-TYPE
+        SYNTAX         RowStatus
+        MAX-ACCESS     read-create
+        STATUS         current
+        DESCRIPTION
+            "tAtmIlmiLinkRowStatus is used to create, delete or
+             modify a row in this table. "
+        ::= { tAtmIlmiLinkEntry 1 }
+
+        tAtmIlmiLinkLastChanged OBJECT-TYPE
+        SYNTAX     TimeStamp
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+                "The value of tAtmIlmiLinkLastChanged indicates 
+                 the sysUpTime value when this row was last modified."
+        ::= { tAtmIlmiLinkEntry 2 }
+
+    tAtmIlmiLinkAdminStatus OBJECT-TYPE
+        SYNTAX       INTEGER {
+                              enabled (1),
+                              disabled (2)
+                              }
+        MAX-ACCESS   read-create
+        STATUS       current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkAdminStatus specifies the 
+             administrative status for the ILMI Link."
+        DEFVAL { disabled }
+        ::= { tAtmIlmiLinkEntry 3 }
+
+    tAtmIlmiLinkOperStatus OBJECT-TYPE
+        SYNTAX       INTEGER {
+                              up (1),
+                              down (2)
+                              }
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkOperStatus indicates the
+             operational status of the ILMI Link."
+        ::= { tAtmIlmiLinkEntry 4 }
+
+    tAtmIlmiLinkVpi   OBJECT-TYPE
+        SYNTAX        AtmVpIdentifier
+        MAX-ACCESS    read-create
+        STATUS        current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkVpi specifies the VPI value 
+             of the ILMI link.  Once this row has been created, 
+             this value cannot be modified."
+        DEFVAL { 0 }
+        ::= { tAtmIlmiLinkEntry 5 }
+
+    tAtmIlmiLinkVci   OBJECT-TYPE
+        SYNTAX        AtmVcIdentifier
+        MAX-ACCESS    read-create
+        STATUS        current
+        DESCRIPTION
+           "The value of tAtmIlmiLinkVci specifies the VCI value 
+            of the ILMI link.  This value cannot be zero.  
+            Once this row has been created, this value cannot
+            be modified."
+        DEFVAL { 16 }
+        ::= { tAtmIlmiLinkEntry 6 }
+
+    tAtmIlmiLinkFsmState    OBJECT-TYPE
+        SYNTAX       INTEGER { stopped(1),
+                               linkFailing(2),
+                               establishing(3),
+                               configuring(4),
+                               retrievingNetworkPrefixes(5),
+                               registeringNetworkPrefixes(6),
+                               retrievingAddresses(7),
+                               registeringAddresses(8),
+                               verifying(9) }
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIlmiLinkFsmState indicates the state 
+            of the ILMI Finite State Machine associated
+            with this interface."
+
+        REFERENCE
+           "ATM Forum, Integrated Local Management Interface
+            (ILMI) Specification, Version 4.0, af-ilmi-0065.000,
+            September 1996, Appendix 1"
+        ::= { tAtmIlmiLinkEntry 7 }
+
+    tAtmIlmiLinkReceiveTrafficDescrIndex  OBJECT-TYPE
+        SYNTAX         AtmTrafficDescrParamIndex
+        MAX-ACCESS     read-create
+        STATUS         current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkReceiveTrafficDescrIndex
+             specifies the value of the atmTrafficDescrParamIndex index  
+             for the row of the ATM Traffic Descriptor Table 
+             which applies to the receive direction of this ILMI link.
+             This value cannot be zero."
+        DEFVAL { 1 }
+        ::= { tAtmIlmiLinkEntry 8 }
+
+    tAtmIlmiLinkTransmitTrafficDescrIndex  OBJECT-TYPE
+        SYNTAX         AtmTrafficDescrParamIndex
+        MAX-ACCESS     read-create
+        STATUS         current
+        DESCRIPTION
+           "The value of tAtmIlmiLinkTransmitTrafficDescrIndex
+            specifies the value of the atmTrafficDescrParamIndex index
+            for  the row of the ATM Traffic Descriptor Table which applies
+            to the transmit direction of this ILMI link.
+            This value cannot be zero."
+        DEFVAL { 1 }
+        ::= { tAtmIlmiLinkEntry 9 }
+
+    tAtmIlmiLinkEstablishConPollIntvl    OBJECT-TYPE
+        SYNTAX       Integer32 (0..255)
+        UNITS        "seconds"
+        MAX-ACCESS   read-create
+        STATUS       current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkEstablishConPollIntvl specifies
+             the amount of time S, in seconds,  between successive 
+             transmissions of ILMI messages on this interface for the 
+             purpose of detecting the establishment of ILMI connectivity."
+        REFERENCE
+            "ATM Forum, Integrated Local Management Interface
+             (ILMI) Specification, Version 4.0, af-ilmi-0065.000,
+             September 1996, Section 8.3.1"
+        DEFVAL { 1 }
+        ::= { tAtmIlmiLinkEntry 10 }
+
+    tAtmIlmiLinkCheckConPollIntvl    OBJECT-TYPE
+        SYNTAX       Integer32 (1..255)
+        UNITS        "seconds"
+        MAX-ACCESS   read-create
+        STATUS       current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkCheckConPollIntvl specifies
+             the amount of time T, in seconds, between successive 
+             transmissions of ILMI messages on this interface for the 
+             purpose of detecting loss of ILMI connectivity.  
+             The distinguished value zero disables ILMI connectivity 
+             procedures on this interface."
+        REFERENCE
+            "ATM Forum, Integrated Local Management Interface
+             (ILMI) Specification, Version 4.0, af-ilmi-0065.000,
+             September 1996, Section 8.3.1"
+        DEFVAL { 5 }
+        ::= { tAtmIlmiLinkEntry 11 }
+
+    tAtmIlmiLinkConPollInactFactor    OBJECT-TYPE
+        SYNTAX       Integer32 (1..255)
+        MAX-ACCESS   read-create
+        STATUS       current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkConPollInactFactor specifies the
+             number K of consecutive polls on this interface for which no
+             ILMI response message is received before ILMI connectivity is
+             declared lost."
+        REFERENCE
+            "ATM Forum, Integrated Local Management Interface
+             (ILMI) Specification, Version 4.0, af-ilmi-0065.000,
+             September 1996, Section 8.3.1"
+        DEFVAL { 4 }
+        ::= { tAtmIlmiLinkEntry 12 }
+
+    tAtmIlmiLinkUniType    OBJECT-TYPE
+        SYNTAX           AtmIlmiLinkUniType
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkUniType indicates the UNI 
+             type of either `public' or `private' to be
+             advertised by ILMI from this end of the interface."
+        REFERENCE
+            "ATM Forum, Integrated Local Management Interface
+             (ILMI) Specification, Version 4.0, af-ilmi-0065.000,
+             September 1996, Section 8.3.4.1"
+        ::= { tAtmIlmiLinkEntry 13 }
+
+    tAtmIlmiLinkDeviceType    OBJECT-TYPE
+        SYNTAX       AtmIlmiLinkDeviceType
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkDeviceType indicates the 
+             device type of either `user' or `node' to be
+             advertised by ILMI from this end of the interface."
+        REFERENCE
+            "ATM Forum, Integrated Local Management Interface
+             (ILMI) Specification, Version 4.0, af-ilmi-0065.000,
+             September 1996, Section 8.3.4.1"
+        ::= { tAtmIlmiLinkEntry 14 }
+
+    tAtmIlmiLinkVersion    OBJECT-TYPE
+        SYNTAX       AtmIlmiLinkVersion
+        MAX-ACCESS   read-create
+        STATUS       current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkVersion specifies the ILMI 
+             version of either `3.1' or `4.0' to be advertised 
+             by ILMI from this end of the interface. The configuration
+             of version `3.0' is not allowed."
+        REFERENCE
+            "ATM Forum, Integrated Local Management Interface
+             (ILMI) Specification, Version 4.0, af-ilmi-0065.000,
+             September 1996, Section 8.2.3.13"
+        DEFVAL { version4point0 }
+        ::= { tAtmIlmiLinkEntry 15 }
+
+    tAtmIlmiLinkImeType    OBJECT-TYPE
+        SYNTAX       AtmIlmiLinkImeType
+        MAX-ACCESS   read-create
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIlmiLinkImeType specifies the configured 
+            IME type of either `User-Side' or `Network-Side'."
+        REFERENCE
+           "ATM Forum, Integrated Local Management Interface
+            (ILMI) Specification, Version 4.0, af-ilmi-0065.000,
+            September 1996, Section 8.3.4.1"
+        DEFVAL { userside }
+        ::= { tAtmIlmiLinkEntry 16 }
+
+    tAtmIlmiLinkNegotiatedVersion    OBJECT-TYPE
+        SYNTAX       AtmIlmiLinkVersion
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkNegotiatedVersion specifies 
+             the ILMI version of either `3.0', `3.1' or `4.0' 
+             negotiated with peer IME."
+        REFERENCE
+            "ATM Forum, Integrated Local Management Interface
+             (ILMI) Specification, Version 4.0, af-ilmi-0065.000,
+             September 1996, Section 8.2.3.13"
+        ::= { tAtmIlmiLinkEntry 17 }
+ 
+    tAtmIlmiLinkNegotiatedImeType    OBJECT-TYPE
+        SYNTAX       AtmIlmiLinkImeType
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmIlmiLinkNegotiatedImeType specifies the resulting
+            IME type of either `User-Side' or `Network-Side' based on 
+            local and remote UNI type and device type."
+        REFERENCE
+           "ATM Forum, Integrated Local Management Interface
+            (ILMI) Specification, Version 4.0, af-ilmi-0065.000,
+            September 1996, Section 8.3.4.1"
+        ::= { tAtmIlmiLinkEntry 18 }
+
+    tAtmIlmiLinkNeighborIfIdentifier  OBJECT-TYPE
+        SYNTAX       INTEGER  (0..2147483647)
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkNeighborIfIdentifier indicates
+             the interface identifier advertised by the peer IME.
+             A value of 0 indicates that the value has not been
+             received from the peer IME."
+        REFERENCE
+           "ATM Forum, Integrated Local Management Interface
+            (ILMI) Specification, Version 4.0, af-ilmi-0065.000,
+            September 1996, Section 8.3.1"
+        DEFVAL { 0 }
+        ::= { tAtmIlmiLinkEntry 19 }
+
+    tAtmIlmiLinkNeighborSystemIdentifier  OBJECT-TYPE
+        SYNTAX       OCTET STRING  (SIZE (6))
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkNeighborSystemIdentifier indicates
+             The system identifier advertised by the peer IME.
+             A value of `0' indicates that the value has not been
+             received from the peer IME."
+        REFERENCE
+           "ATM Forum, Integrated Local Management Interface
+            (ILMI) Specification, Version 4.0, af-ilmi-0065.000,
+            September 1996, Section 8.3.1"
+        DEFVAL { '00000000000000'H }
+        ::= { tAtmIlmiLinkEntry 20 }
+
+    tAtmIlmiLinkNeighborUniType    OBJECT-TYPE
+        SYNTAX       AtmIlmiLinkUniType
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkNeighborUniType indicates the
+             UNI type of either `public' or `private' that is
+             advertised by the peer IME.  A value of `undefined' 
+             indicates that the value has not been received from the
+             peer IME."
+        REFERENCE
+           "ATM Forum, Integrated Local Management Interface
+            (ILMI) Specification, Version 4.0, af-ilmi-0065.000,
+            September 1996, Section 8.3.4.1"
+        DEFVAL { undefined }
+        ::= { tAtmIlmiLinkEntry 21 }
+
+    tAtmIlmiLinkNeighborDeviceType    OBJECT-TYPE
+        SYNTAX       AtmIlmiLinkDeviceType
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkNeighborDeviceType indicates 
+             the device type of either `user' or `node' that
+             is advertised by the peer IME.  A value of `undefined' 
+             indicates that the value has not been received from the
+             peer IME."
+        REFERENCE
+           "ATM Forum, Integrated Local Management Interface
+            (ILMI) Specification, Version 4.0, af-ilmi-0065.000,
+            September 1996, Section 8.3.4.1"
+        DEFVAL { undefined }
+        ::= { tAtmIlmiLinkEntry 22 }
+
+    tAtmIlmiLinkNeighborVersion    OBJECT-TYPE
+        SYNTAX       AtmIlmiLinkVersion
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkNeighborVersion indicates the 
+             ILMI version of either `3.0', `3.1' or `4.0' that
+             is advertised by the peer IME.  A value of `undefined' 
+             indicates that the value has not been received from the
+             peer IME."
+        REFERENCE
+           "ATM Forum, Integrated Local Management Interface
+            (ILMI) Specification, Version 4.0, af-ilmi-0065.000,
+            September 1996, Section 8.2.3.13"
+        DEFVAL { undefined }
+        ::= { tAtmIlmiLinkEntry 23 }
+
+    tAtmIlmiLinkNeighborMaxVpcs OBJECT-TYPE
+        SYNTAX         INTEGER  (0..4096)
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+           "The value of tAtmIlmiLinkNeighborMaxVpcs indicates the
+            maximum number of VPCs that can be supported by the neighbor.
+            If the interface does not negotiate with its peer
+            to determine the number of VPCs that can be
+            configured on the interface, then the value of
+            this object must equal 0."
+        REFERENCE
+           "ATM Forum, Integrated Local Management Interface
+            (ILMI) Specification, Version 4.0, af-ilmi-0065.000,
+            September 1996, Section 8.2.3.4"
+        DEFVAL { 0 }
+        ::= { tAtmIlmiLinkEntry 24 }
+
+     tAtmIlmiLinkNeighborMaxVccs OBJECT-TYPE
+        SYNTAX         INTEGER  (0..65536)
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+           "The value of tAtmIlmiLinkNeighborMaxVccs indicates the
+            maximum number of VCCs that can be supported by the neighbor.
+            If the interface does not negotiate with its peer
+            to determine the number of VCCs that can be
+            configured on the interface, then the value of
+            this object must equal 0."
+        REFERENCE
+           "ATM Forum, Integrated Local Management Interface
+            (ILMI) Specification, Version 4.0, af-ilmi-0065.000,
+            September 1996, Section 8.2.3.5"
+        DEFVAL { 0 }
+        ::= { tAtmIlmiLinkEntry 25 }
+
+    tAtmIlmiLinkNeighborMaxVpiBits OBJECT-TYPE
+        SYNTAX         INTEGER  (0..12)
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+           "The value of tAtmIlmiLinkNeighborMaxVpiBits indicates
+            the maximum number of VPI bits that can be supported
+            by the neighbor.
+            If the interface does not negotiate with its peer
+            to determine the number of VPI bits that can be
+            configured on the interface, then the value of
+            this object must equal 0."
+        REFERENCE
+           "ATM Forum, Integrated Local Management Interface
+            (ILMI) Specification, Version 4.0, af-ilmi-0065.000,
+            September 1996, Section 8.2.3.2"
+        DEFVAL { 0 }
+        ::= { tAtmIlmiLinkEntry 26 }
+
+     tAtmIlmiLinkNeighborMaxVciBits OBJECT-TYPE
+        SYNTAX         INTEGER  (0..16)
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+           "The value of tAtmIlmiLinkNeighborMaxVciBits indicates
+            the maximum number of VCI bits that can be supported
+            by the neighbor.
+            If the interface does not negotiate with its peer
+            to determine the number of VCI bits that can be
+            configured on the interface, then the value of
+            this object must equal 0."
+        REFERENCE
+           "ATM Forum, Integrated Local Management Interface
+            (ILMI) Specification, Version 4.0, af-ilmi-0065.000,
+            September 1996, Section 8.2.3.3"
+        DEFVAL { 0 }
+        ::= { tAtmIlmiLinkEntry 27 }
+
+
+--
+--  Alcatel-Lucent SROS series ATM ILMI Link Statistics Table
+--
+--  The tAtmIlmiLinkTable is used to store the ILMI link statistics. 
+--  All the objects in this table are read only.
+--
+
+tAtmIlmiLinkStatisticsTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TAtmIlmiLinkStatisticsEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The tAtmIlmiLinkStatisticsTable is used to gather statistics on a 
+         particular ILMI Link."
+
+    ::= { tAtmIlmiLinkObjs 2 }
+
+    tAtmIlmiLinkStatisticsEntry   OBJECT-TYPE
+        SYNTAX        TAtmIlmiLinkStatisticsEntry
+        MAX-ACCESS    not-accessible
+        STATUS        current
+        DESCRIPTION         
+            "An entry in the tAtmIlmiLinkStatisticsTable containing 
+             statistics information applicable to a particular ILMI 
+             link on an ATM interface."
+        INDEX { ifIndex }
+        ::= { tAtmIlmiLinkStatisticsTable 1 }
+
+    TAtmIlmiLinkStatisticsEntry ::=
+        SEQUENCE {
+            tAtmIlmiLinkOutPdus                           Counter32,
+            tAtmIlmiLinkOutGetRequestPdus                 Counter32,
+            tAtmIlmiLinkOutGetNextRequestPdus             Counter32,
+            tAtmIlmiLinkOutSetRequestPdus                 Counter32,
+            tAtmIlmiLinkOutGetResponsePdus                Counter32,
+            tAtmIlmiLinkOutTrapPdus                       Counter32,
+            tAtmIlmiLinkOutTooBigErrors                   Counter32,
+            tAtmIlmiLinkOutNoSuchNameErrors               Counter32,
+            tAtmIlmiLinkOutBadValueErrors                 Counter32,
+            tAtmIlmiLinkOutReadOnlyErrors                 Counter32,
+            tAtmIlmiLinkOutGeneralErrors                  Counter32,
+            tAtmIlmiLinkInPdus                            Counter32,
+            tAtmIlmiLinkInGetRequestPdus                  Counter32,
+            tAtmIlmiLinkInGetNextRequestPdus              Counter32,
+            tAtmIlmiLinkInSetRequestPdus                  Counter32,
+            tAtmIlmiLinkInGetResponsePdus                 Counter32,
+            tAtmIlmiLinkInTrapPdus                        Counter32,
+            tAtmIlmiLinkInTooBigErrors                    Counter32,
+            tAtmIlmiLinkInNoSuchNameErrors                Counter32,
+            tAtmIlmiLinkInBadValueErrors                  Counter32,
+            tAtmIlmiLinkInReadOnlyErrors                  Counter32,
+            tAtmIlmiLinkInGeneralErrors                   Counter32,
+            tAtmIlmiLinkInInvalidSnmpVersionPdus          Counter32,
+            tAtmIlmiLinkInInvalidSnmpCommunityStringPdus  Counter32,
+            tAtmIlmiLinkInInvalidSnmpFormatPdus           Counter32
+        }
+       
+    tAtmIlmiLinkOutPdus    OBJECT-TYPE
+        SYNTAX         Counter32
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkOutPdus indicates the total 
+             number SNMP PDUs sent on this ILMI link."
+        ::= { tAtmIlmiLinkStatisticsEntry 1 }
+
+    tAtmIlmiLinkOutGetRequestPdus   OBJECT-TYPE
+        SYNTAX         Counter32
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkOutGetRequestPdus indicates 
+             the total number GetRequest SNMP PDUs sent on this
+             ILMI link."
+        ::= { tAtmIlmiLinkStatisticsEntry 2 }
+ 
+    tAtmIlmiLinkOutGetNextRequestPdus   OBJECT-TYPE
+        SYNTAX         Counter32
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkOutGetNextRequestPdus indicates
+             the total number GetNextRequest SNMP PDUs sent on this
+             ILMI link."
+        ::= { tAtmIlmiLinkStatisticsEntry 3 }
+
+    tAtmIlmiLinkOutSetRequestPdus   OBJECT-TYPE
+        SYNTAX         Counter32
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkOutSetRequestPdus indicates
+             the total number 'SetRequest' SNMP PDUs sent on this
+             ILMI link."
+        ::= { tAtmIlmiLinkStatisticsEntry 4 }
+
+    tAtmIlmiLinkOutGetResponsePdus   OBJECT-TYPE
+        SYNTAX         Counter32
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkOutGetResponsePdus indicates
+             the total number GetResponse SNMP PDUs sent on this
+             ILMI link in response to GetRequest, GetNextRequest
+             and 'SetRequests' received."
+        ::= { tAtmIlmiLinkStatisticsEntry 5 }
+             
+    tAtmIlmiLinkOutTrapPdus   OBJECT-TYPE
+        SYNTAX         Counter32
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkOutTrapPdus indicates
+             the total number Trap SNMP PDUs sent on this ILMI link."
+        ::= { tAtmIlmiLinkStatisticsEntry 6 }
+
+    tAtmIlmiLinkOutTooBigErrors   OBJECT-TYPE
+        SYNTAX         Counter32
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkOutTooBigErrors indicates
+             the total number SNMP `TooBig' error messages sent on
+             this ILMI link."
+        ::= { tAtmIlmiLinkStatisticsEntry 7 }
+
+    tAtmIlmiLinkOutNoSuchNameErrors   OBJECT-TYPE
+        SYNTAX         Counter32
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkOutNoSuchNameErrors indicates
+             the total number SNMP `NoSuchName' error messages sent on
+             this ILMI link."
+        ::= { tAtmIlmiLinkStatisticsEntry 8 }
+    
+    tAtmIlmiLinkOutBadValueErrors   OBJECT-TYPE
+        SYNTAX         Counter32
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkOutBadValueErrors indicates
+             the total number SNMP `BadValue' error messages sent on
+             this ILMI link."
+        ::= { tAtmIlmiLinkStatisticsEntry 9 }
+     
+     tAtmIlmiLinkOutReadOnlyErrors   OBJECT-TYPE
+        SYNTAX         Counter32
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkOutReadOnlyErrors indicates
+             the total number SNMP `ReadOnly' error messages sent on
+             this ILMI link."
+        ::= { tAtmIlmiLinkStatisticsEntry 10 }
+ 
+     tAtmIlmiLinkOutGeneralErrors   OBJECT-TYPE
+        SYNTAX         Counter32
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkOutGeneralErrors indicates
+             the total number SNMP `General' error messages sent on
+             this ILMI link."
+        ::= { tAtmIlmiLinkStatisticsEntry 11 }
+
+    tAtmIlmiLinkInPdus    OBJECT-TYPE
+        SYNTAX         Counter32
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkInPdus indicates
+             the total number SNMP PDUs received on this ILMI link."
+        ::= { tAtmIlmiLinkStatisticsEntry 12 }
+
+    tAtmIlmiLinkInGetRequestPdus   OBJECT-TYPE
+        SYNTAX         Counter32
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkInGetRequestPdus indicates
+             the total number GetRequest SNMP PDUs received on this
+             ILMI link."
+        ::= { tAtmIlmiLinkStatisticsEntry 13 }
+ 
+    tAtmIlmiLinkInGetNextRequestPdus   OBJECT-TYPE
+        SYNTAX         Counter32
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkInGetNextRequestPdus indicates
+             the total number 'GetNextRequest' SNMP PDUs received on
+             this ILMI link."
+        ::= { tAtmIlmiLinkStatisticsEntry 14 }
+
+    tAtmIlmiLinkInSetRequestPdus   OBJECT-TYPE
+        SYNTAX         Counter32
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkInSetRequestPdus indicates
+             the total number 'SetRequest' SNMP PDUs received on
+             this ILMI link."
+        ::= { tAtmIlmiLinkStatisticsEntry 15 }
+
+    tAtmIlmiLinkInGetResponsePdus   OBJECT-TYPE
+        SYNTAX         Counter32
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkInGetResponsePdus indicates
+             the total number 'GetResponse' SNMP PDUs received on this
+             ILMI link in response to 'GetRequest', 'GetNextRequest' and
+             'SetRequests' sent."
+        ::= { tAtmIlmiLinkStatisticsEntry 16 }
+             
+    tAtmIlmiLinkInTrapPdus   OBJECT-TYPE
+        SYNTAX         Counter32
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkInTrapPdus indicates the
+             total number Trap SNMP PDUs received on this ILMI link."
+        ::= { tAtmIlmiLinkStatisticsEntry 17 }
+
+    tAtmIlmiLinkInTooBigErrors   OBJECT-TYPE
+        SYNTAX         Counter32
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkInTooBigErrors indicates
+             the total number SNMP `TooBig' error messages received on
+             this ILMI link."
+        ::= { tAtmIlmiLinkStatisticsEntry 18 }
+
+    tAtmIlmiLinkInNoSuchNameErrors   OBJECT-TYPE
+        SYNTAX         Counter32
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkInNoSuchNameErrors indicates
+             the total number SNMP `NoSuchName' error messages received on
+             this ILMI link."
+        ::= { tAtmIlmiLinkStatisticsEntry 19 }
+    
+    tAtmIlmiLinkInBadValueErrors   OBJECT-TYPE
+        SYNTAX         Counter32
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkInBadValueErrors indicates
+             the total number SNMP `BadValue' error messages received on
+             this ILMI link."
+        ::= { tAtmIlmiLinkStatisticsEntry 20 }
+     
+     tAtmIlmiLinkInReadOnlyErrors   OBJECT-TYPE
+        SYNTAX         Counter32
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkInReadOnlyErrors indicates
+             the total number SNMP `ReadOnly' error messages received on
+             this ILMI link."
+        ::= { tAtmIlmiLinkStatisticsEntry 21 }
+ 
+     tAtmIlmiLinkInGeneralErrors   OBJECT-TYPE
+        SYNTAX         Counter32
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkInGeneralErrors indicates
+             the total number SNMP `General' error messages received on
+             this ILMI link."
+        ::= { tAtmIlmiLinkStatisticsEntry 22 }
+
+     tAtmIlmiLinkInInvalidSnmpVersionPdus   OBJECT-TYPE
+        SYNTAX         Counter32
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkInInvalidSnmpVersionPdus indicates
+             the total number SNMP PDUs received with invalid version on
+             this ILMI link."
+        ::= { tAtmIlmiLinkStatisticsEntry 23 }
+
+     tAtmIlmiLinkInInvalidSnmpCommunityStringPdus   OBJECT-TYPE
+        SYNTAX         Counter32
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkInInvalidSnmpCommunityStringPdus
+             indicates the total number SNMP PDUs received with invalid 
+             community string on this ILMI link."
+        ::= { tAtmIlmiLinkStatisticsEntry 24 }
+
+     tAtmIlmiLinkInInvalidSnmpFormatPdus   OBJECT-TYPE
+        SYNTAX         Counter32
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+            "The value of tAtmIlmiLinkInInvalidSnmpFormatPdus indicates
+             the total number SNMP PDUs received with invalid ASN.1 format
+             on this ILMI link."
+        ::= { tAtmIlmiLinkStatisticsEntry 25 }
+
+--
+--  Alcatel-Lucent SROS series ATM TC Sublayer Table
+--
+--  The tAtmTCSublayerTable is used to retrive information about the  
+--  Transmission Convergence Sublayer of an interface.
+--
+
+tAtmTCSublayerTable OBJECT-TYPE
+    SYNTAX       SEQUENCE OF TAtmTCSublayerEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "The tAtmTCSublayerTable contains the Transmission Convergence
+        Sublayer data."
+    ::= { tAtmTCSublayerObjs 1 }
+
+tAtmTCSublayerEntry  OBJECT-TYPE
+    SYNTAX              TAtmTCSublayerEntry
+    MAX-ACCESS          not-accessible
+    STATUS              current
+    DESCRIPTION         
+        "An entry in the tAtmTCSublayerEntry containing additional 
+         management information about the Transmission Covergence
+         Sublayer."
+    AUGMENTS { atmInterfaceTCEntry }
+    ::= { tAtmTCSublayerTable 1 }
+
+    TAtmTCSublayerEntry ::=
+        SEQUENCE {
+            tAtmTCSublayerHecErrors         Counter32,
+            tAtmTCSublayerHecErrorsFixed    Counter32
+        }
+ 
+    tAtmTCSublayerHecErrors     OBJECT-TYPE
+        SYNTAX         Counter32
+        MAX-ACCESS     read-only
+        STATUS         current
+        DESCRIPTION
+            "The value of tAtmTCSublayerHecErrors 
+            indicates the number of cells with uncorrectable 
+            HEC Errors on this interface."
+        ::= { tAtmTCSublayerEntry 1 }
+    
+    tAtmTCSublayerHecErrorsFixed OBJECT-TYPE
+        SYNTAX       Counter32
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmTCSublayerHecErrorsFixed
+            indicates the number of cells with correctable HEC
+            Errors on this interface."
+        ::= { tAtmTCSublayerEntry 2 }
+
+--
+--  Alcatel-Lucent SROS series ATM Connection Profile Statistics Table
+--
+
+tAtmCpStatisticsTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TAtmCpStatisticsEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The tAtmCpStatisticsTable is used to gather statistics on connection
+         profiles assigned to interfaces."
+    ::= { tAtmCpObjs 1 }
+
+    tAtmCpStatisticsEntry OBJECT-TYPE
+        SYNTAX        TAtmCpStatisticsEntry
+        MAX-ACCESS    not-accessible
+        STATUS        current
+        DESCRIPTION
+            "An entry in the tAtmCpStatisticsTable contains statistics
+             information applicable to a particular connection profile assigned
+             to a particular interface."
+        INDEX  { ifIndex, tmnxConnProfId }
+        ::= { tAtmCpStatisticsTable 1 }
+
+    TAtmCpStatisticsEntry ::=
+        SEQUENCE {
+           tAtmCpStatsTotalCellsRxd    Counter64,
+           tAtmCpStatsTotalCellsRxdLo  Counter32,
+           tAtmCpStatsTotalCellsRxdHi  Counter32,
+           tAtmCpStatsTotalCellsTxd    Counter64,
+           tAtmCpStatsTotalCellsTxdLo  Counter32,
+           tAtmCpStatsTotalCellsTxdHi  Counter32,
+           tAtmCpStatsClp0CellsRxd     Counter64,
+           tAtmCpStatsClp0CellsRxdLo   Counter32,
+           tAtmCpStatsClp0CellsRxdHi   Counter32,
+           tAtmCpStatsClp0CellsTxd     Counter64,
+           tAtmCpStatsClp0CellsTxdLo   Counter32,
+           tAtmCpStatsClp0CellsTxdHi   Counter32,
+           tAtmCpStatsDrpCellsRxd      Counter32,
+           tAtmCpStatsDrpClp0CellsRxd  Counter32,
+           tAtmCpStatsDrpClp0CellsTxd  Counter32,
+           tAtmCpStatsTagCells         Counter32
+        }
+
+    tAtmCpStatsTotalCellsRxd OBJECT-TYPE
+        SYNTAX       Counter64
+        UNITS        "cells"
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmCpStatsTotalCellsRxd indicates the
+            number of valid ATM cells received by the connection profile.
+            If traffic policing is implemented, then cells are counted
+            prior to the application of traffic policing. To obtain the byte
+            count multiply tAtmCpStatsTotalCellsRxd by 53."
+        ::= { tAtmCpStatisticsEntry 1 }
+
+    tAtmCpStatsTotalCellsRxdLo OBJECT-TYPE
+        SYNTAX       Counter32
+        UNITS        "cells"
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmCpStatsTotalCellsRxdLo indicates the
+            lower 32-bits of tAtmCpStatsTotalCellsRxd."
+        ::= { tAtmCpStatisticsEntry 2 }
+
+    tAtmCpStatsTotalCellsRxdHi OBJECT-TYPE
+        SYNTAX       Counter32
+        UNITS        "cells"
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmCpStatsTotalCellsRxdHi indicates the
+            upper 32-bits of tAtmCpStatsTotalCellsRxd."
+        ::= { tAtmCpStatisticsEntry 3 }
+
+    tAtmCpStatsTotalCellsTxd OBJECT-TYPE
+        SYNTAX       Counter64
+        UNITS        "cells"
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmCpStatsTotalCellsTxd indicates the
+            number of valid ATM cells transmitted by the connection profile.
+            If traffic policing is implemented, then cells are counted
+            prior to the application of traffic policing. To obtain the byte
+            count multiply tAtmCpStatsTotalCellsTxd by 53."
+        ::= { tAtmCpStatisticsEntry 4 }
+
+    tAtmCpStatsTotalCellsTxdLo OBJECT-TYPE
+        SYNTAX       Counter32
+        UNITS        "cells"
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmCpStatsTotalCellsTxdLo indicates the
+            lower 32-bits of tAtmCpStatsTotalCellsTxd."
+        ::= { tAtmCpStatisticsEntry 5 }
+
+    tAtmCpStatsTotalCellsTxdHi OBJECT-TYPE
+        SYNTAX       Counter32
+        UNITS        "cells"
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmCpStatsTotalCellsTxdHi indicates the
+            upper 32-bits of tAtmCpStatsTotalCellsTxd."
+        ::= { tAtmCpStatisticsEntry 6 }
+
+    tAtmCpStatsClp0CellsRxd OBJECT-TYPE
+        SYNTAX       Counter64
+        UNITS        "cells"
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmCpStatsClp0CellsRxd indicates the
+            number of valid ATM CLP=0 cells received by the connection profile."
+        ::= { tAtmCpStatisticsEntry 7 }
+
+    tAtmCpStatsClp0CellsRxdLo OBJECT-TYPE
+        SYNTAX       Counter32
+        UNITS        "cells"
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmCpStatsClp0CellsRxdLo indicates the
+            lower 32-bits of tAtmCpStatsClp0CellsRxd."
+        ::= { tAtmCpStatisticsEntry 8 }
+
+    tAtmCpStatsClp0CellsRxdHi OBJECT-TYPE
+        SYNTAX       Counter32
+        UNITS        "cells"
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmCpStatsClp0CellsRxdHi indicates the
+            upper 32-bits of tAtmCpStatsClp0CellsRxd."
+        ::= { tAtmCpStatisticsEntry 9 }
+
+    tAtmCpStatsClp0CellsTxd OBJECT-TYPE
+        SYNTAX       Counter64
+        UNITS        "cells"
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmCpStatsClp0CellsTxd indicates the
+            number of valid ATM CLP=0 cells transmitted by the connection
+            profile."
+        ::= { tAtmCpStatisticsEntry 10 }
+
+    tAtmCpStatsClp0CellsTxdLo OBJECT-TYPE
+        SYNTAX       Counter32
+        UNITS        "cells"
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmCpStatsClp0CellsTxdLo indicates the
+            lower 32-bits of tAtmCpStatsClp0CellsTxd."
+        ::= { tAtmCpStatisticsEntry 11 }
+
+    tAtmCpStatsClp0CellsTxdHi OBJECT-TYPE
+        SYNTAX       Counter32
+        UNITS        "cells"
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmCpStatsClp0CellsTxdHi indicates the
+            upper 32-bits of tAtmCpStatsClp0CellsTxd."
+        ::= { tAtmCpStatisticsEntry 12 }
+
+    tAtmCpStatsDrpCellsRxd OBJECT-TYPE
+        SYNTAX       Counter32
+        UNITS        "cells"
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmCpStatsDrpCellsRxd indicates the
+            number of all policer cells discards (CLP=0+1) of the connection
+            profile. This excludes any buffer management discards (if
+            applicable)."
+        ::= { tAtmCpStatisticsEntry 13 }
+
+    tAtmCpStatsDrpClp0CellsRxd OBJECT-TYPE
+        SYNTAX       Counter32
+        UNITS        "cells"
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmCpStatsDrpClp0CellsRxd indicates the
+            number of all policer CLP=0 cells discards of the connection
+            profile. This excludes any buffer management discards (if
+            applicable)."
+        ::= { tAtmCpStatisticsEntry 14 }
+
+    tAtmCpStatsDrpClp0CellsTxd OBJECT-TYPE
+        SYNTAX       Counter32
+        UNITS        "cells"
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmCpStatsDrpClp0CellsTxd indicates the
+            number of all CLP=0 cells discards of this connection profile. This
+            includes both discards due to buffer management and policer."
+        ::= { tAtmCpStatisticsEntry 15 }
+
+    tAtmCpStatsTagCells OBJECT-TYPE
+        SYNTAX       Counter32
+        UNITS        "cells"
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+           "The value of tAtmCpStatsTagCells indicates the number of
+            tagged CLP=0 cells of the connection profile. The egress may or may
+            not discard these cells."
+        ::= { tAtmCpStatisticsEntry 16 }
+
+--
+--  Alcatel-Lucent SROS series ATM Notifications
+--
+
+tAtmTcSubLayerDown NOTIFICATION-TYPE
+    OBJECTS {
+        atmInterfaceTCAlarmState
+    }
+    STATUS  current
+    DESCRIPTION
+        "The tAtmTcSubLayerDown notification is generated 
+         when the ATM interface indicates that the 
+         TC Sublayer is currently in the 
+         Loss of Cell Delineation (LCD) defect 
+         maintenance state."
+    ::= { tAtmNotifications 1 }
+
+tAtmTcSubLayerClear NOTIFICATION-TYPE
+    OBJECTS {
+        atmInterfaceTCAlarmState
+    }
+    STATUS  current
+    DESCRIPTION
+        "The tAtmTcSubLayerClear notification is generated 
+         when the ATM interface indicates that the 
+         TC Sublayer is currently not in the 
+         Loss of Cell Delineation (LCD) defect 
+         maintenance state."
+    ::= { tAtmNotifications 2 }
+
+tAtmPlcpSubLayerDown NOTIFICATION-TYPE
+    OBJECTS {
+        atmInterfaceDs3PlcpAlarmState
+    }
+    STATUS  current
+    DESCRIPTION
+        "The tAtmPlcpSubLayerDown notification is generated 
+         when the ATM interface indicates that PLCP is
+         currently in the far end alarm or incoming LOF
+         defect maintenance state."
+    ::= { tAtmNotifications 3 }
+
+tAtmPlcpSubLayerClear NOTIFICATION-TYPE
+    OBJECTS {
+        atmInterfaceDs3PlcpAlarmState
+    }
+    STATUS  current
+    DESCRIPTION
+        "The tAtmPlcpSubLayerClear notification is generated 
+         when the ATM interface indicates that PLCP is
+         currently not in the far end alarm or incoming LOF
+         defect maintenance state."
+    ::= { tAtmNotifications 4 }
+
+tAtmEpOutOfPeerVpiOrVciRange NOTIFICATION-TYPE
+    OBJECTS {
+        atmInterfaceCurrentMaxVpiBits,
+        atmInterfaceCurrentMaxVciBits,
+        atmInterfaceMaxActiveVpiBits,
+        atmInterfaceMaxActiveVciBits
+    }
+    STATUS          current
+    DESCRIPTION     "The tAtmEpOutOfPeerVpiOrVciRange notification 
+                     is sent whenever an ILMI link becomes 
+                     operationally up and ATM EPs are configured on 
+                     the ILMI-managed interface that are outside the 
+                     VPI or VCI range allowed by the peer."
+    ::= { tAtmNotifications 5 }
+
+tAtmMaxPeerVccsExceeded NOTIFICATION-TYPE
+    OBJECTS {
+        tAtmIntfCurrentMaxVccs,
+        atmInterfaceConfVccs
+    }
+    STATUS          current
+    DESCRIPTION     "The tAtmMaxPeerVccsExceeded notification is sent 
+                     whenever an ILMI link becomes operationally up 
+                     and there are more ATM VCLs configured on the 
+                     ILMI-managed interface than are supported by the 
+                     peer."
+    ::= { tAtmNotifications 6 }
+
+tAtmMaxPeerVpcsExceeded NOTIFICATION-TYPE
+    OBJECTS {
+        tAtmIntfCurrentMaxVpcs,
+        atmInterfaceConfVpcs
+    }
+    STATUS          current
+    DESCRIPTION     "The tAtmMaxPeerVpcsExceeded notification is sent 
+                     whenever an ILMI link becomes operationally up 
+                     and there are more ATM VPLs configured on the 
+                     ILMI-managed interface than are supported by the 
+                     peer."
+    ::= { tAtmNotifications 7 }
+
+tAtmIlmiLinkStatusChange NOTIFICATION-TYPE
+    OBJECTS {
+        tAtmIlmiLinkAdminStatus,
+        tAtmIlmiLinkOperStatus,
+        tAtmIlmiLinkVpi,
+        tAtmIlmiLinkVci
+    }
+    STATUS          current
+    DESCRIPTION     "The tAtmIlmiLinkStatusChange notification is sent 
+                     whenever a status change occurs on an ILMI link. 
+                     This includes changes to the ILMI link's administrative
+                     status and the ILMI link's operational status."
+    ::= { tAtmNotifications 8 }
+
+--
+-- Conformance Information
+--
+tmnxAtmMIBCompliances OBJECT IDENTIFIER ::= { tAtmMIBConformance 1 }
+tmnxAtmMIBGroups      OBJECT IDENTIFIER ::= { tAtmMIBConformance 2 }
+
+-- compliance statements
+
+-- tAtmMIBCompliance  MODULE-COMPLIANCE
+--    ::= { tmnxAtmMIBCompliances 1 }
+
+-- tAtmMIBV3v0Compliance  MODULE-COMPLIANCE
+--    ::= { tmnxAtmMIBCompliances 2 }
+
+tAtmMIBV4v0Compliance  MODULE-COMPLIANCE
+    STATUS  obsolete
+    DESCRIPTION
+            "The compliance statement for revision 4.0 of TIMETRA-ATM-MIB."
+    MODULE  -- this module
+        MANDATORY-GROUPS { 
+            tmnxAtmIntfConfV4v0Group,
+            tmnxAtmIntfStatsV4v0Group,
+            tmnxAtmIfcInfoGroup,
+            tmnxAtmVclInfoGroup,
+            tmnxAtmVclStatisticsGroup,
+            tmnxAtmAal5VccStatisticsGroup,
+            tmnxAtmCellVclStatisticsGroup,
+            tmnxAtmVplInfoGroup,
+            tmnxAtmVplStatisticsGroup,
+            tmnxAtmVtlInfoGroup,
+            tmnxAtmVtlStatisticsGroup,
+            tmnxAtmIfcStatisticsGroup,
+            tmnxAtmSysConfV4v0Group,
+            tmnxAtmIlmiLinkGroup,
+            tmnxAtmIlmiStatisticsGroup,
+            tmnxAtmTCSublayerGroup,
+            tmnxAtmNotificationsR4r0Group
+        }
+    ::= { tmnxAtmMIBCompliances 3 }
+
+tAtmMIBV9v0Compliance  MODULE-COMPLIANCE
+    STATUS  current
+    DESCRIPTION
+            "The compliance statement for revision 9.0 of TIMETRA-ATM-MIB."
+    MODULE  -- this module
+        MANDATORY-GROUPS { 
+            tmnxAtmIntfConfV4v0Group,
+            tmnxAtmIntfStatsV4v0Group,
+            tmnxAtmIfcInfoGroup,
+            tmnxAtmVclInfoGroup,
+            tmnxAtmVclInfoGroupV9v0,
+            tmnxAtmVclStatisticsGroup,
+            tmnxAtmAal5VccStatisticsGroup,
+            tmnxAtmCellVclStatisticsGroup,
+            tmnxAtmVplInfoGroup,
+            tmnxAtmVplStatisticsGroup,
+            tmnxAtmVtlInfoGroup,
+            tmnxAtmVtlStatisticsGroup,
+            tmnxAtmIfcStatisticsGroup,
+            tmnxAtmSysConfV4v0Group,
+            tmnxAtmIlmiLinkGroup,
+            tmnxAtmIlmiStatisticsGroup,
+            tmnxAtmTCSublayerGroup,
+            tmnxAtmNotificationsR4r0Group,
+            tmnxAtmCpStatisticsGroup
+        }
+    ::= { tmnxAtmMIBCompliances 4 }
+
+-- units of conformance
+
+-- tmnxAtmMdaInfoGroup           OBJECT-GROUP
+--    ::= { tmnxAtmMIBGroups 1 }
+
+-- tmnxAtmIntfConfGroup      OBJECT-GROUP
+--    ::= { tmnxAtmMIBGroups 2 }
+
+-- tmnxAtmIntfStatsGroup      OBJECT-GROUP
+--    ::= { tmnxAtmMIBGroups 3 }
+
+tmnxAtmVclInfoGroup      OBJECT-GROUP
+    OBJECTS   {
+           tAtmVclInfoOwner,
+           tAtmVclInfoOamStatus,
+           tAtmVclInfoIlmiStatus
+    }
+    STATUS    current
+    DESCRIPTION
+        "The group of objects providing for management access of ATM VCL
+         status information on Alcatel-Lucent SROS series systems."
+    ::= { tmnxAtmMIBGroups 6 }
+
+tmnxAtmVclStatisticsGroup      OBJECT-GROUP
+    OBJECTS   {
+           tAtmVclStatsTotalCellsRxd,
+           tAtmVclStatsTotalCellsTxd,
+           tAtmVclStatsTotalBytesTxd,
+           tAtmVclStatsTotalBytesRxd,
+           tAtmOamVclStatsAISCellsTxd,      
+           tAtmOamVclStatsRDICellsTxd,      
+           tAtmOamVclStatsLoopbackCellsTxd, 
+           tAtmOamVclStatsAISCellsRxd,      
+           tAtmOamVclStatsRDICellsRxd,      
+           tAtmOamVclStatsLoopbackCellsRxd, 
+           tAtmOamVclStatsCrc10Err,
+           tAtmOamVclStatsOtherCellsRxd
+    }
+    STATUS    current
+    DESCRIPTION
+        "The group of objects providing for management access of ATM VCL
+         statistics on Alcatel-Lucent SROS series systems."
+    ::= { tmnxAtmMIBGroups 7 }
+
+tmnxAtmAal5VccStatisticsGroup      OBJECT-GROUP
+    OBJECTS   {
+            tAal5VccStatsPacketsRxd,
+            tAal5VccStatsPacketsTxd,
+            tAal5VccStatsDrpPacketsRxd,
+            tAal5VccStatsDrpPacketsTxd 
+    }
+    STATUS    current
+    DESCRIPTION
+        "The group of objects providing for management access of AAL-5
+         VCC statistics on Alcatel-Lucent SROS series systems."
+    ::= { tmnxAtmMIBGroups 8 }       
+
+tmnxAtmCellVclStatisticsGroup      OBJECT-GROUP
+    OBJECTS   {
+            tAtmCellVclStatsClp0CellsRxd,
+            tAtmCellVclStatsClp0CellsTxd,
+            tAtmCellVclStatsDrpCellsRxd,
+            tAtmCellVclStatsDrpClp0CellsRxd,
+            tAtmCellVclStatsDrpClp0CellsTxd,
+            tAtmCellVclStatsTagCells
+    }
+    STATUS    current
+    DESCRIPTION
+        "The group of objects providing for management access of cell mode
+         VCC statistics on Alcatel-Lucent SROS series systems."
+    ::= { tmnxAtmMIBGroups 9 }       
+
+-- tmnxAtmNotificationsGroup      NOTIFICATION-GROUP
+--    ::= { tmnxAtmMIBGroups 10 }  
+
+tmnxAtmVplInfoGroup      OBJECT-GROUP
+    OBJECTS   {
+           tAtmVplInfoOwner,
+           tAtmVplInfoOamStatus,
+           tAtmVplInfoIlmiStatus
+    }
+    STATUS    current
+    DESCRIPTION
+        "The group of objects providing for management access of ATM VPL
+         status information on Alcatel-Lucent SROS series systems."
+    ::= { tmnxAtmMIBGroups 11 }
+
+tmnxAtmVplStatisticsGroup      OBJECT-GROUP
+    OBJECTS   {
+           tAtmVplStatsTotalCellsRxd,
+           tAtmVplStatsTotalClp0CellsRxd,
+           tAtmVplStatsTotalCellsTxd,
+           tAtmVplStatsTotalClp0CellsTxd,
+           tAtmVplStatsTotalBytesTxd,
+           tAtmVplStatsTotalBytesRxd,           
+           tAtmVplStatsDrpCellsRxd,
+           tAtmVplStatsDrpClp0CellsRxd,
+           tAtmVplStatsDrpClp0CellsTxd,
+           tAtmVplStatsTagCells,           
+           tAtmOamVplStatsAISCellsTxd,      
+           tAtmOamVplStatsRDICellsTxd,      
+           tAtmOamVplStatsLoopbackCellsTxd, 
+           tAtmOamVplStatsAISCellsRxd,      
+           tAtmOamVplStatsRDICellsRxd,      
+           tAtmOamVplStatsLoopbackCellsRxd, 
+           tAtmOamVplStatsCrc10Errors,
+           tAtmOamVplStatsOtherCellsRxd
+    }
+    STATUS    current
+    DESCRIPTION
+        "The group of objects providing for management access of ATM VPL
+         statistics on Alcatel-Lucent SROS series systems."
+    ::= { tmnxAtmMIBGroups 12 }
+
+tmnxAtmVtlInfoGroup      OBJECT-GROUP
+    OBJECTS   {
+           tAtmVtlAdminStatus,
+           tAtmVtlOperStatus,
+           tAtmVtlLastChange,
+           tAtmVtlReceiveTrafficDescrIndex,
+           tAtmVtlTransmitTrafficDescrIndex,
+           tAtmVtlRowStatus,
+           tAtmVtlCastType,
+           tAtmVtlConnKind,
+           tAtmVtlInfoOwner           
+    }
+    STATUS    current
+    DESCRIPTION
+        "The group of objects providing for management access of ATM VTL
+         status information on Alcatel-Lucent SROS series systems."
+    ::= { tmnxAtmMIBGroups 13 }
+
+tmnxAtmVtlStatisticsGroup      OBJECT-GROUP
+    OBJECTS   {
+           tAtmVtlStatsTotalCellsRxd,
+           tAtmVtlStatsTotalClp0CellsRxd,
+           tAtmVtlStatsTotalCellsTxd,
+           tAtmVtlStatsTotalClp0CellsTxd,
+           tAtmVtlStatsTotalBytesTxd,
+           tAtmVtlStatsTotalBytesRxd,           
+           tAtmVtlStatsDrpCellsRxd,
+           tAtmVtlStatsDrpClp0CellsRxd,
+           tAtmVtlStatsDrpClp0CellsTxd,
+           tAtmVtlStatsTagCells
+    }
+    STATUS    current
+    DESCRIPTION
+        "The group of objects providing for management access of ATM VTL
+         statistics on Alcatel-Lucent SROS series systems."
+    ::= { tmnxAtmMIBGroups 14 }
+
+tmnxAtmIfcInfoGroup      OBJECT-GROUP
+    OBJECTS   {
+           tAtmIfcAdminStatus,
+           tAtmIfcOperStatus,
+           tAtmIfcLastChange,
+           tAtmIfcReceiveTrafficDescrIndex,
+           tAtmIfcTransmitTrafficDescrIndex,
+           tAtmIfcRowStatus,
+           tAtmIfcCastType,
+           tAtmIfcConnKind,
+           tAtmIfcInfoOwner           
+    }
+    STATUS    current
+    DESCRIPTION
+        "The group of objects providing for management access of ATM IFC
+         status information on Alcatel-Lucent SROS series systems."
+    ::= { tmnxAtmMIBGroups 15 }
+
+tmnxAtmIfcStatisticsGroup      OBJECT-GROUP
+    OBJECTS   {
+           tAtmIfcStatsTotalCellsRxd,
+           tAtmIfcStatsTotalClp0CellsRxd,
+           tAtmIfcStatsTotalCellsTxd,
+           tAtmIfcStatsTotalClp0CellsTxd,
+           tAtmIfcStatsTotalBytesTxd,
+           tAtmIfcStatsTotalBytesRxd,           
+           tAtmIfcStatsDrpCellsRxd,
+           tAtmIfcStatsDrpClp0CellsRxd,
+           tAtmIfcStatsDrpClp0CellsTxd,
+           tAtmIfcStatsTagCells
+    }
+    STATUS    current
+    DESCRIPTION
+        "The group of objects providing for management access of ATM IFC 
+         statistics on Alcatel-Lucent SROS series systems."
+    ::= { tmnxAtmMIBGroups 16 }
+
+tmnxAtmObsoleteV3v0Group           OBJECT-GROUP
+    OBJECTS  {
+          tAtmMdaMaxSupportedVpcs,
+          tAtmMdaMaxSupportedVccs,
+          tAtmMdaConfiguredVpcs,
+          tAtmMdaConfiguredVccs
+--          tAtmIntfCurrentMaxVpcs,
+--          tAtmIntfCurrentMaxVccs
+        }
+    STATUS    current
+    DESCRIPTION
+        "The group of objects providing made obsolete in the 3.0 release"
+    ::= { tmnxAtmMIBGroups 17 }
+
+-- tmnxAtmIntfConfV3v0Group      OBJECT-GROUP
+--    ::= { tmnxAtmMIBGroups 18 }
+
+-- tmnxAtmSysConfGroup      OBJECT-GROUP
+--    ::= { tmnxAtmMIBGroups 19 }
+
+tmnxAtmIlmiLinkGroup           OBJECT-GROUP
+    OBJECTS   {
+        tAtmIlmiLinkRowStatus,
+        tAtmIlmiLinkLastChanged,
+        tAtmIlmiLinkAdminStatus,
+        tAtmIlmiLinkOperStatus,
+        tAtmIlmiLinkVpi,
+        tAtmIlmiLinkVci,
+        tAtmIlmiLinkFsmState,
+        tAtmIlmiLinkReceiveTrafficDescrIndex,
+        tAtmIlmiLinkTransmitTrafficDescrIndex,
+        tAtmIlmiLinkEstablishConPollIntvl,
+        tAtmIlmiLinkCheckConPollIntvl,
+        tAtmIlmiLinkConPollInactFactor,
+        tAtmIlmiLinkUniType,
+        tAtmIlmiLinkDeviceType,
+        tAtmIlmiLinkVersion,
+        tAtmIlmiLinkImeType,
+        tAtmIlmiLinkNegotiatedVersion,
+        tAtmIlmiLinkNegotiatedImeType,
+        tAtmIlmiLinkNeighborIfIdentifier,
+        tAtmIlmiLinkNeighborSystemIdentifier,
+        tAtmIlmiLinkNeighborUniType,
+        tAtmIlmiLinkNeighborDeviceType,
+        tAtmIlmiLinkNeighborVersion,
+        tAtmIlmiLinkNeighborMaxVpcs,
+        tAtmIlmiLinkNeighborMaxVccs,
+        tAtmIlmiLinkNeighborMaxVpiBits,
+        tAtmIlmiLinkNeighborMaxVciBits
+    }
+    STATUS    current
+    DESCRIPTION
+        "The group of objects providing for management of each ILMI
+         link on Alcatel-Lucent SROS series systems."
+    ::= { tmnxAtmMIBGroups 20 }
+
+tmnxAtmIlmiStatisticsGroup           OBJECT-GROUP
+    OBJECTS   {
+        tAtmIlmiLinkOutPdus,
+        tAtmIlmiLinkOutGetRequestPdus,
+        tAtmIlmiLinkOutGetNextRequestPdus,
+        tAtmIlmiLinkOutSetRequestPdus,
+        tAtmIlmiLinkOutGetResponsePdus,
+        tAtmIlmiLinkOutTrapPdus,
+        tAtmIlmiLinkOutTooBigErrors,
+        tAtmIlmiLinkOutNoSuchNameErrors,
+        tAtmIlmiLinkOutBadValueErrors,
+        tAtmIlmiLinkOutReadOnlyErrors,
+        tAtmIlmiLinkOutGeneralErrors,
+        tAtmIlmiLinkInPdus,
+        tAtmIlmiLinkInGetRequestPdus,
+        tAtmIlmiLinkInGetNextRequestPdus,
+        tAtmIlmiLinkInSetRequestPdus,
+        tAtmIlmiLinkInGetResponsePdus,
+        tAtmIlmiLinkInTrapPdus,
+        tAtmIlmiLinkInTooBigErrors,
+        tAtmIlmiLinkInNoSuchNameErrors,
+        tAtmIlmiLinkInBadValueErrors,
+        tAtmIlmiLinkInReadOnlyErrors,
+        tAtmIlmiLinkInGeneralErrors,
+        tAtmIlmiLinkInInvalidSnmpVersionPdus,
+        tAtmIlmiLinkInInvalidSnmpCommunityStringPdus,
+        tAtmIlmiLinkInInvalidSnmpFormatPdus 
+    }
+    STATUS    current
+    DESCRIPTION
+        "The group of objects providing for management access of ILMI
+         statistics on Alcatel-Lucent SROS series systems."
+    ::= { tmnxAtmMIBGroups 21 }
+
+tmnxAtmNotificationsR4r0Group      NOTIFICATION-GROUP
+    NOTIFICATIONS {
+       tAtmTcSubLayerDown,
+       tAtmTcSubLayerClear,
+       tAtmPlcpSubLayerDown,
+       tAtmPlcpSubLayerClear,
+       tAtmEpOutOfPeerVpiOrVciRange,
+       tAtmMaxPeerVccsExceeded,
+       tAtmMaxPeerVpcsExceeded,
+       tAtmIlmiLinkStatusChange       
+    }
+    STATUS    current
+    DESCRIPTION
+        "The group of notifications providing for indications of ATM-related
+         events on Alcatel-Lucent SROS series systems."
+    ::= { tmnxAtmMIBGroups 22 }  
+
+tmnxAtmIntfConfV4v0Group      OBJECT-GROUP
+    OBJECTS   {
+        tAtmIntfCurrentMaxVpcs,
+        tAtmIntfCurrentMaxVccs,
+        tAtmIntfTotalIngrCbrBandwidth,
+        tAtmIntfTotalIngrRtVbrBandwidth,
+        tAtmIntfTotalIngrNrtVbrBandwidth,
+        tAtmIntfTotalIngrUbrBandwidth,
+        tAtmIntfTotalEgrCbrBandwidth,
+        tAtmIntfTotalEgrRtVbrBandwidth,
+        tAtmIntfTotalEgrNrtVbrBandwidth,
+        tAtmIntfTotalEgrUbrBandwidth,
+        tAtmIntfBandwidth,      
+        tAtmIntfShapedBandwidth,
+        tAtmIntfLastUnknVpi,
+        tAtmIntfLastUnknVci,    
+        tAtmIntfOperStatus,
+        tAtmIntfConfVtcs,
+        tAtmIntfConfIfcs
+    }
+    STATUS    current
+    DESCRIPTION
+        "The group of objects providing for management of each ATM interface
+         on Alcatel-Lucent SROS series systems release 4.0."
+    ::= { tmnxAtmMIBGroups 23 }
+
+tmnxAtmSysConfV4v0Group      OBJECT-GROUP
+    OBJECTS   {
+           tAtmSysLlid,
+           tAtmSysOamRetryUp,
+           tAtmSysOamRetryDown,
+           tAtmSysOamLoopbackPeriod
+    }
+    STATUS    current
+    DESCRIPTION
+        "The group of objects providing for management access of ATM system 
+         level configurations on Alcatel-Lucent SROS series systems release 4.0."
+    ::= { tmnxAtmMIBGroups 24 }
+
+tmnxAtmIntfStatsV4v0Group      OBJECT-GROUP
+    OBJECTS   {
+          tAtmIntfStatsTotalCellsRxd,            
+          tAtmIntfStatsTotalCellsTxd,            
+          tAtmIntfStatsTotalBytesRxd,            
+          tAtmIntfStatsTotalBytesTxd,                    
+          tAtmIntfStatsTotalUnknCellsDrp, 
+          tAtmIntfAal5StatsTotalPktsRxd,       
+          tAtmIntfAal5StatsTotalPktsTxd,       
+          tAtmIntfAal5StatsTotalPktsDrpRxd,
+          tAtmIntfAal5StatsTotalPktsDrpTxd,
+          tAtmIntfAal5StatsTotalCrc32Err          
+    }
+    STATUS    current
+    DESCRIPTION
+        "The group of objects providing for management access of ATM 
+         interface statistics on Alcatel-Lucent SROS series systems release 4.0."
+    ::= { tmnxAtmMIBGroups 25 }
+        
+tmnxAtmTCSublayerGroup      OBJECT-GROUP
+    OBJECTS   {
+           tAtmTCSublayerHecErrors,
+           tAtmTCSublayerHecErrorsFixed
+    }
+    STATUS    current
+    DESCRIPTION
+        "The group of objects providing for management access of an ATM TC 
+         Sublayer on Alcatel-Lucent SROS series systems."
+    ::= { tmnxAtmMIBGroups 26 }
+
+tmnxAtmObsoleteV4v0Group           OBJECT-GROUP
+    OBJECTS  {
+          tAtmIntfStatsTotalHecErr,
+          tAtmIntfStatsTotalHecErrFixed
+        }
+    STATUS    current
+    DESCRIPTION
+        "The group of objects providing made obsolete in the 4.0 release"
+    ::= { tmnxAtmMIBGroups 27 }
+
+tmnxAtmCpStatisticsGroup      OBJECT-GROUP
+    OBJECTS   {
+           tAtmCpStatsTotalCellsRxd,
+           tAtmCpStatsTotalCellsRxdLo,
+           tAtmCpStatsTotalCellsRxdHi,
+           tAtmCpStatsTotalCellsTxd,
+           tAtmCpStatsTotalCellsTxdLo,
+           tAtmCpStatsTotalCellsTxdHi,
+           tAtmCpStatsClp0CellsRxd,
+           tAtmCpStatsClp0CellsRxdLo,
+           tAtmCpStatsClp0CellsRxdHi,
+           tAtmCpStatsClp0CellsTxd,
+           tAtmCpStatsClp0CellsTxdLo,
+           tAtmCpStatsClp0CellsTxdHi,
+           tAtmCpStatsDrpCellsRxd,
+           tAtmCpStatsDrpClp0CellsRxd,
+           tAtmCpStatsDrpClp0CellsTxd,
+           tAtmCpStatsTagCells
+    }
+    STATUS    current
+    DESCRIPTION
+        "The group of objects providing for management access of ATM CP
+         statistics on Alcatel-Lucent SROS series systems."
+    ::= { tmnxAtmMIBGroups 28 }
+
+tmnxAtmVclInfoGroupV9v0      OBJECT-GROUP
+    OBJECTS   {
+           tAtmVclInfoRxTrafficDescrIdOvr,
+           tAtmVclInfoTxTrafficDescrIdOvr
+    }
+    STATUS    current
+    DESCRIPTION
+        "The group of objects providing for management access of ATM VCL
+         status information that were added in release 9.0 
+         of Alcatel-Lucent SROS series systems."
+    ::= { tmnxAtmMIBGroups 29 }
+
+END
+

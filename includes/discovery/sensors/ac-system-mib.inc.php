@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -31,11 +31,10 @@ foreach ($oids as $index => $entry)
 {
   $descr = "Fan Tray $index";
   $oid   = ".1.3.6.1.4.1.5003.9.10.10.4.22.1.6.$index";
-  $value = state_string_to_numeric($sensor_state_type, $entry['acSysFanTraySeverity']);
 
   if ($entry['acSysFanTrayExistence'] != 'missing')
   {
-    discover_sensor($valid['sensor'], 'state', $device, $oid, "acSysFanTray.$index", $sensor_state_type, $descr, NULL, $value, array('entPhysicalClass' => 'fan'));
+    discover_sensor($valid['sensor'], 'state', $device, $oid, "acSysFanTray.$index", $sensor_state_type, $descr, NULL, $entry['acSysFanTraySeverity'], array('entPhysicalClass' => 'fan'));
   }
 }
 
@@ -57,11 +56,10 @@ foreach ($oids as $index => $entry)
 {
   $descr = "Power Supply $index";
   $oid   = ".1.3.6.1.4.1.5003.9.10.10.4.23.1.6.$index";
-  $value = state_string_to_numeric($sensor_state_type, $entry['acSysPowerSupplySeverity']);
 
   if ($entry['acSysPowerSupplyExistence'] != 'missing')
   {
-    discover_sensor($valid['sensor'], 'state', $device, $oid, "acSysPowerSupply.$index", $sensor_state_type, $descr, NULL, $value, array('entPhysicalClass' => 'power'));
+    discover_sensor($valid['sensor'], 'state', $device, $oid, "acSysPowerSupply.$index", $sensor_state_type, $descr, NULL, $entry['acSysPowerSupplySeverity'], array('entPhysicalClass' => 'power'));
   }
 }
 
@@ -88,7 +86,7 @@ foreach ($oids as $index => $entry)
   $oid   = ".1.3.6.1.4.1.5003.9.10.10.4.21.1.11.$index";
   $value = $entry['acSysModuleTemperature'];
 
-  if ($entry['acSysModulePresence'] != 'missing' && stripos($entry['acSysModuleType'], 'sA') !== 0 && $value != -1)
+  if ($entry['acSysModulePresence'] != 'missing' && stripos($entry['acSysModuleType'], 'sA') !== 0 && $value > 0)
   {
     discover_sensor($valid['sensor'], 'temperature', $device, $oid, "acSysModuleTemperature.$index", $sensor_type, $descr, 1, $value, array('limit_high' => 60));
   }

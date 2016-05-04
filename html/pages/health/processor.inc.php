@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -83,7 +83,7 @@ foreach ($processors as $proc)
 
   $link = generate_url(array("page" => "device", "device" => $proc['device_id'], "tab" => "health", "metric" => 'processor'));
 
-  $overlib_content = generate_overlib_content($graph_array, $proc['hostname'] ." - " . htmlentities($text_descr), NULL);
+  $overlib_content = generate_overlib_content($graph_array, $proc['hostname'] ." - " . $text_descr);
 
   $graph_array['width'] = 80; $graph_array['height'] = 20; $graph_array['bg'] = 'ffffff00'; # the 00 at the end makes the area transparent.
   $graph_array['from'] = $config['time']['day'];

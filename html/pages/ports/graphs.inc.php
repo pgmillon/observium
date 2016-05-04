@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -25,66 +25,75 @@ foreach ($ports as $port)
 
   if ($port['in_errors'] > 0 || $port['out_errors'] > 0)
   {
-    $error_img = generate_port_link($port,"<img src='images/16/chart_curve_error.png' alt='Interface Errors' border=0>",errors);
+    $error_img = generate_port_link($port, "<img src='images/16/chart_curve_error.png' alt='Interface Errors' border=0>", 'errors');
 
-  } else { $error_img = ""; }
+  } else {
+    $error_img = '';
+  }
 
-    humanize_port($port);
+  humanize_port($port);
 
-    $graph_type = "port_" . $vars['graph'];
+  $graph_type = "port_" . $vars['graph'];
 
-    $graph_array           = array();
+  $graph_array           = array();
 
-    if ($_SESSION['widescreen'])
+  if ($_SESSION['widescreen'])
+  {
+    if ($_SESSION['big_graphs'])
     {
-      if ($_SESSION['big_graphs'])
-      {
-        $width_div = 585;
-        $width = 507;
-        $height = 149;
-        $height_div = 220;
-      } else {
-        $width_div=349;
-        $width=275;
-        $height = 109;
-        $height_div = 180;
-      }
+      $width_div = 585;
+      $width = 507;
+      $height = 149;
+      $height_div = 220;
     } else {
-      if ($_SESSION['big_graphs'])
-      {
-        $width_div = 611;
-        $width = 528;
-        $height = 159;
-        $height_div = 218;
-      } else {
-        $width_div=303;
-        $width=226;
-        $height = 102;
-        $height_div = 158;
-      }
+      $width_div=349;
+      $width=275;
+      $height = 109;
+      $height_div = 180;
     }
+  } else {
+    if ($_SESSION['big_graphs'])
+    {
+      $width_div = 611;
+      $width = 528;
+      $height = 159;
+      $height_div = 218;
+    } else {
+      $width_div=303;
+      $width=226;
+      $height = 102;
+      $height_div = 158;
+    }
+  }
 
-    $graph_array['height'] = 100;
-    $graph_array['width']  = 210;
-    $graph_array['to']     = $config['time']['now'];
-    $graph_array['id']     = $port['port_id'];
-    $graph_array['type']   = $graph_type;
-    $graph_array['from']   = $config['time']['day'];
-    $graph_array['legend'] = "no";
+  if(isset($vars['from']) && is_numeric($vars['from']) && isset($vars['to']) && is_numeric($vars['to']))
+  {
+    $graph_array['from'] = $vars['from'];
+    $graph_array['to'] = $vars['to'];
+  } else {
+    $graph_array['from'] = $config['time']['day'];
+    $graph_array['to'] = $config['time']['now'];
+  }
 
-    $link_array = $graph_array;
-    $link_array['page'] = "graphs";
-    unset($link_array['height'], $link_array['width'], $link_array['legend']);
-    $link = generate_url($link_array);
-    $overlib_content = generate_overlib_content($graph_array, $port['hostname'] . " - " . rewrite_ifname($port['label']));
-    $graph_array['title']  = "yes";
-    $graph_array['width'] = $width;
-    $graph_array['height'] = $height;
-    $graph =  generate_graph_tag($graph_array);
+  $graph_array['height'] = 100;
+  $graph_array['width']  = 210;
+  $graph_array['id']     = $port['port_id'];
+  $graph_array['type']   = $graph_type;
+  $graph_array['legend'] = "no";
 
-    echo("<div style='display: block; padding: 1px; margin: 2px; min-width: ".$width_div."px; max-width:".$width_div."px; min-height:".$height_div."px; max-height:".$height_div."; text-align: center; float: left; background-color: #f5f5f5;'>");
-    echo(overlib_link($link, $graph, $overlib_content));
-    echo("</div>");
+  $link_array = $graph_array;
+  $link_array['page'] = "graphs";
+  unset($link_array['height'], $link_array['width'], $link_array['legend']);
+  $link = generate_url($link_array);
+  $overlib_content = generate_overlib_content($graph_array, $port['hostname'] . ' - ' . rewrite_ifname($port['label'], FALSE));
+  $graph_array['title']  = "yes";
+  $graph_array['width']  = $width;
+  $graph_array['height'] = $height;
+  $graph =  generate_graph_tag($graph_array);
+
+  echo("<div style='display: block; padding: 1px; margin: 2px; min-width: ".$width_div."px; max-width:".$width_div."px; min-height:".$height_div."px; max-height:".$height_div."; text-align: center; float: left; background-color: #f5f5f5;'>");
+  echo(overlib_link($link, $graph, $overlib_content));
+  echo("</div>");
 
 #    echo("<div style='display: block; padding: 1px; margin: 2px; min-width: 393px; max-width:393px; min-height:180px; max-height:180px; text-align: center; float: left; background-color: #f5f5f5;'>
 #    <a href='".generate_port_url($port)."/' onmouseover=\"return overlib('\
@@ -95,4 +104,5 @@ foreach ($ports as $port)
 #    </a>
 #    </div>");
 }
-?>
+
+// EOF

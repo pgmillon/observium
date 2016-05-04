@@ -2,12 +2,12 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -154,8 +154,7 @@ if ($vars['view'] == 'minigraphs')
   if ($vars['view'] == "details") { $port_details = 1; }
 
   if ($vars['view'] == "graphs") { $table_class = "table-striped-two"; } else { $table_class = "table-striped"; }
-  echo('<table class="table table-hover table-bordered table-condensed table-rounded '.$table_class.'"
-             style="vertical-align: middle; margin-top: 5px; margin-bottom: 10px;">');
+  echo('<table class="table table-hover table-bordered table-condensed table-rounded '.$table_class.'">');
 
   echo('  <thead>');
   echo('<tr>');
@@ -174,7 +173,12 @@ if ($vars['view'] == 'minigraphs')
 
   foreach ($cols as $sort => $col)
   {
-    if ($col == NULL)
+
+    if ($sort == "state")
+    {
+        echo('<th class="state-marker"></th>');
+    }
+    elseif ($col == NULL)
     {
       echo('<th></th>');
     }
@@ -248,7 +252,7 @@ if ($vars['view'] == 'minigraphs')
   echo("</table>");
 }
 
-$pagetitle[] = "Ports";
+$page_title[] = "Ports";
 
 unset($ports_has_ext, $where, $ext_tables, $ports_vlan_cache);
 

@@ -1,0 +1,2739 @@
+-- TIMETRA Multicast Source Discovery Protocol Management Information Base
+
+TIMETRA-MSDP-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE,
+    Unsigned32, Gauge32, Counter32, Integer32
+        FROM SNMPv2-SMI
+
+    MODULE-COMPLIANCE, OBJECT-GROUP, NOTIFICATION-GROUP
+        FROM SNMPv2-CONF
+
+    RowStatus, TruthValue, TimeInterval, TimeStamp
+        FROM SNMPv2-TC
+
+    timetraSRMIBModules, tmnxSRObjs, tmnxSRNotifyPrefix,
+    tmnxSRConfs
+        FROM TIMETRA-GLOBAL-MIB
+
+    TPolicyStatementNameOrEmpty,TmnxAdminState,
+    TNamedItem, TNamedItemOrEmpty
+        FROM TIMETRA-TC-MIB
+
+    InetAddressType, InetAddress, InetAddressPrefixLength
+        FROM INET-ADDRESS-MIB;
+
+timetraMsdpMIBModule   MODULE-IDENTITY
+        LAST-UPDATED    "201108010000Z"
+        ORGANIZATION    "Alcatel-Lucent"
+        CONTACT-INFO    
+            "Alcatel-Lucent SROS Support
+             Web: http://support.alcatel-lucent.com"
+        DESCRIPTION
+        "This is the SNMP MIB module to manage and provision MSDP
+         protocol on Alcatel SROS equipment. The Multicast Source Discovery 
+         Protocol (MSDP) is used to connect multicast routing domains. It 
+         typically runs on the same router as the Protocol Independent 
+         Multicast (PIM) sparse-mode rendezvous point (RP). Each MSDP 
+         router establishes adjacencies with internal and external MSDP 
+         peers similar to the Border Gateway Protocol (BGP). These peer 
+         routers inform each other about active sources within the domain.
+         When they detect active sources, the routers can send PIM 
+         sparse-mode explicit join messages to the active source.
+
+         Copyright 2006-2011 Alcatel-Lucent. All rights reserved.
+         Reproduction of this document is authorized on the condition that
+         the foregoing copyright notice is included.
+
+         This SNMP MIB module (Specification) embodies Alcatel-Lucent's
+         proprietary intellectual property.  Alcatel-Lucent retains
+         all title and ownership in the Specification, including any
+         revisions.
+
+         Alcatel-Lucent grants all interested parties a non-exclusive
+         license to use and distribute an unmodified copy of this
+         Specification in connection with management of Alcatel-Lucent
+         products, and without fee, provided this copyright notice and
+         license appear on all copies.
+
+         This Specification is supplied 'as is', and Alcatel-Lucent
+         makes no warranty, either express or implied, as to the use,
+         operation, condition, or performance of the Specification."
+
+--
+--  Revision History
+--
+        REVISION        "201108010000Z"
+        DESCRIPTION     "Rev 10.0               1 Aug 2011 00:00
+                         10.0 release of the TIMETRA-MSDP-MIB."
+
+        REVISION        "0902280000Z"
+        DESCRIPTION     "Rev 7.0                28 Feb 2009 00:00
+                         7.0 release of the TIMETRA-MSDP-MIB."
+
+        REVISION        "200608010000Z"
+        DESCRIPTION     "Rev 0.1                1 Aug 2006 00:00
+                         Initial version of the TIMETRA-MSDP-MIB."
+
+        ::= { timetraSRMIBModules 43 }
+
+--%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+--
+--  Alcatel 7xx0 SR series multicast source distribution protocol objects
+--
+
+tmnxMsdpObjects             OBJECT IDENTIFIER ::= { tmnxSRObjs 43 }
+tmnxMsdpGlobals             OBJECT IDENTIFIER ::= { tmnxMsdpObjects 1 }
+tmnxMsdpConformance       OBJECT IDENTIFIER ::= { tmnxSRConfs 43 }
+tmnxMsdpCompliances OBJECT IDENTIFIER ::= { tmnxMsdpConformance 1 }
+tmnxMsdpGroups       OBJECT IDENTIFIER ::= { tmnxMsdpConformance 2 }
+
+tmnxMsdpNotifyPrefix OBJECT IDENTIFIER ::= { tmnxSRNotifyPrefix 43 }
+    tmnxMsdpNotifications OBJECT IDENTIFIER ::= { tmnxMsdpNotifyPrefix 0 }
+
+-- ------------------------------------------------
+-- mib objects
+-- ------------------------------------------------
+ 
+tmnxMsdpMaxActiveSources OBJECT-TYPE
+    SYNTAX     Integer32  (-1|0..1000000)
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpMaxActiveSources specifies the maximum 
+       number of source active messages that will be accepted by MSDP. This
+       effectively controls the number of source active messages that can 
+       be stored on the system. 
+
+       By default, no limit is placed on the number of source active 
+       messages and this is specified by the value '-1'.  A value of
+       0 means that no source active messages will be accepted."
+    DEFVAL { -1 }
+    ::= { tmnxMsdpGlobals 1 }
+
+tmnxMsdpMsgRcvRate OBJECT-TYPE
+    SYNTAX     Unsigned32 (0|10..10000)
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpMsgRcvRate specifies the  number of  MSDP 
+       messages (including source active messages) that are read from the
+       TCP session per tmnxMsdpMsgRcvRateTime seconds.
+
+       By default, no MSDP messages are read from the TCP session 
+       and this is specified by the value 0.
+
+       Once the number of MSDP packets defined in tmnxMsdpMsgRcvRateThd
+       have been processed the rate of all other MSDP packets is rate 
+       limited by no longer accepting messages from the TCP session until
+       tmnxMsdpMsgRcvRateTime seconds have elapsed."
+    DEFVAL { 0 }
+    ::= { tmnxMsdpGlobals 2 }
+
+tmnxMsdpMsgRcvRateTime OBJECT-TYPE
+    SYNTAX     Unsigned32 (0|1..600)
+    UNITS      "seconds"
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpMsgRcvRateTime specifies the time in seconds 
+       that together with tmnxMsdpMsgRcvRate defines the number of  MSDP 
+       messages (including source active messages) that are read from the
+       TCP session within the configured number of seconds.
+
+       By default, no MSDP messages are read from the TCP session 
+       and this is specified by the value 0.
+
+       Once the number of MSDP packets defined in tmnxMsdpMsgRcvRateThd
+       have been processed the rate of all other MSDP packets is rate 
+       limited by no longer accepting messages from the TCP session until 
+       tmnxMsdpMsgRcvRateTime seconds have elapsed."
+    DEFVAL { 0 }
+    ::= { tmnxMsdpGlobals 3 }
+
+tmnxMsdpMsgRcvRateThd OBJECT-TYPE
+    SYNTAX     Gauge32 (0|1..1000000)
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpMsgRcvRateThd specifies the number of 
+       MSDP messages that can be processed before tmnxMsdpMsgRcvRate is 
+       set. This is useful during system startup and initialization. 
+
+       By default, no MSDP messages are read from the TCP session 
+       and this is specified by the value 0.
+
+       Once the number of MSDP packets defined in tmnxMsdpMsgRcvRateThd
+       have been processed the rate of all other MSDP packets is rate 
+       limited by no longer accepting messages from the TCP session until
+       tmnxMsdpMsgRcvRateTime seconds have elapsed."
+    DEFVAL { 0 }
+    ::= { tmnxMsdpGlobals 4 }
+
+tmnxMsdpDataEncapsulation OBJECT-TYPE
+    SYNTAX     TruthValue
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpDataEncapsulation is used to configure a 
+       rendezvous point (RP) using MSDP to encapsulate multicast data 
+       received in MSDP register messages inside forwarded MSDP 
+       source-active messages.
+
+       By default data encapsulation is enabled."
+    DEFVAL { true }
+    ::= { tmnxMsdpGlobals 5 }
+
+tmnxMsdpAdminState OBJECT-TYPE
+    SYNTAX     TmnxAdminState
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpAdminState specifies the desired administrative
+       state for MSDP. When MSDP is 'outOfService' the operational state of
+       MSDP as well as the operational state of other entities under it, 
+       like peer or peer group is also disabled.  
+
+       By default, state of MSDP is 'inService'."
+    DEFVAL { inService }
+    ::= { tmnxMsdpGlobals 6 }
+
+tmnxMsdpExportPolicy1 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpExportPolicy1 specifies the export policy to
+       export Source Active (SA) state from the SA list into MSDP.  
+       A maximum of five policy names can be specified.  
+       tmnxMsdpExportPolicy1 specifies policy number 1 at the 
+       protocol level. 
+
+       By default no export policies are applied and all SA entries are 
+       announced."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpGlobals 7 }
+
+tmnxMsdpExportPolicy2 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpExportPolicy2 specifies the export policy to
+       export Source Active (SA) state from the SA list into MSDP.  
+       tmnxMsdpExportPolicy2 specifies policy number 2 at the protocol 
+       level. 
+
+       By default no export policies are applied and all SA entries are 
+       announced."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpGlobals 8 }
+
+tmnxMsdpExportPolicy3 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpExportPolicy3 specifies the export policy to 
+       export Source Active (SA) state from the SA list into MSDP.  
+       tmnxMsdpExportPolicy3 specifies policy number 3 at the protocol level. 
+
+       By default no export policies are applied and all SA entries are 
+       announced."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpGlobals 9 }
+
+tmnxMsdpExportPolicy4 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpExportPolicy4 specifies the export policy to 
+       export Source Active (SA) state from the SA list into MSDP.  
+       tmnxMsdpExportPolicy4 specifies policy number 4 at the protocol level. 
+
+       By default no export policies are applied and all SA entries are 
+       announced."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpGlobals 10 }
+
+tmnxMsdpExportPolicy5 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpExportPolicy5 specifies the export policy to 
+       export Source Active (SA) state from the SA list into MSDP.  
+       tmnxMsdpExportPolicy1 specifies policy number 5 at the protocol level. 
+
+       By default no export policies are applied and all SA entries are 
+       announced."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpGlobals 11 }
+
+tmnxMsdpImportPolicy1 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpImportPolicy1 specifies the import policy to 
+       import Source Active (SA) state from the SA list into MSDP.  A 
+       maximum of five policy names can be specified.  
+       tmnxMsdpImportPolicy1 specifies policy number 1 at the protocol level. 
+
+       By default no import policies are applied and all SA entries are 
+       announced."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpGlobals 12 }
+
+tmnxMsdpImportPolicy2 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpImportPolicy2 specifies the import policy to 
+       import Source Active (SA) state from the SA list into MSDP.  
+       tmnxMsdpImportPolicy2 specifies policy number 2 at the protocol level. 
+
+       By default no import policies are applied and all SA entries are 
+       announced."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpGlobals 13 }
+
+tmnxMsdpImportPolicy3 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpImportPolicy3 specifies the import policy to 
+       import Source Active (SA) state from the SA list into MSDP.  
+       tmnxMsdpImportPolicy3 specifies policy number 3 at the protocol level. 
+
+       By default no import policies are applied and all SA entries are 
+       announced."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpGlobals 14 }
+
+tmnxMsdpImportPolicy4 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpImportPolicy4 specifies the import policy to 
+       import Source Active (SA) state from the SA list into MSDP.   
+       tmnxMsdpImportPolicy4 specifies policy number 4 at the protocol level. 
+
+       By default no import policies are applied and all SA entries are 
+       announced."    
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpGlobals 15 }
+
+tmnxMsdpImportPolicy5 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpImportPolicy5 specifies the import policy to 
+       import Source Active (SA) state from the SA list into MSDP.   
+       tmnxMsdpImportPolicy5 specifies policy number 5 at the protocol 
+       level. 
+
+       By default no import policies are applied and all SA entries are 
+       announced."    
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpGlobals 16 }
+
+tmnxMsdpLocalAddressType OBJECT-TYPE
+     SYNTAX     InetAddressType
+     MAX-ACCESS read-create
+     STATUS     current
+     DESCRIPTION
+       "The value of tmnxMsdpLocalAddressType indicates the type of 
+        tmnxMsdpLocalAddress."
+     DEFVAL { unknown }  
+     ::= { tmnxMsdpGlobals 17 }   
+
+tmnxMsdpLocalAddress OBJECT-TYPE
+    SYNTAX     InetAddress(SIZE (0|4|16))
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpLocalAddress is used to configure the local 
+       end of a MSDP session. In order for MSDP to function at least one 
+       peer must be configured.  When configuring a peer,  the local end 
+       of the MSDP session must be configured.  This address is used to 
+       validate incoming connections to the peer and to establish 
+       connections to the remote peer.
+      
+       By default no local address is configured."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpGlobals 18 }
+
+tmnxMsdpStatusPeerCount   OBJECT-TYPE
+   SYNTAX       Gauge32
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+       "The value of tmnxMsdpStatusPeerCount indicates the number  
+        of configured peers."
+   ::= { tmnxMsdpGlobals 19 }
+
+tmnxMsdpStatusPeersEstablished   OBJECT-TYPE
+   SYNTAX       Gauge32
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+       "The value of tmnxMsdpStatusPeersEstablished indicates the number  
+        of peers in established state"
+   ::= { tmnxMsdpGlobals 20 }
+
+tmnxMsdpStatusSACount   OBJECT-TYPE
+   SYNTAX       Gauge32
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+       "The value of tmnxMsdpStatusSACount indicates the number of source
+        active configured in cache. "
+   ::= { tmnxMsdpGlobals 21 }
+
+tmnxMsdpStatusLastTimeUp OBJECT-TYPE
+    SYNTAX       TimeStamp
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpStatusLastTimeUp indicates the last time the 
+         protocol was enabled."
+    ::= { tmnxMsdpGlobals 22 }
+
+tmnxMsdpStatusActSrcLimExceeded OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpStatusActSrcLimExceeded indicates the number
+         of times the global active source limit has been exceeded"
+    ::= { tmnxMsdpGlobals 23 }
+
+tmnxMsdpRpfLookupSequence OBJECT-TYPE
+    SYNTAX      INTEGER {
+                          mucastRouteTable (0),
+                          ucastRouteTable (1),
+                          both (2)
+                }
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+        "tmnxMsdpRpfLookupSequence is used to configure the sequence of 
+        route tables that MSDP uses for finding a Reverse Path Forwarding(RPF)
+        interface for a particular multicast route.
+
+        'mucastRouteTable' is the unicast route table to be used only by 
+        multicast protocols(MSDP) which will contain routes submitted by 
+        multi-protocol BGP, ISIS and OSPF. 
+
+        'ucastRouteTable' is the regular unicast route table which will contain
+        routes submitted by all the unicast routing protocols. By default, 
+        only the 'ucastRouteTable' is looked up by MSDP for calculating RPF 
+        interface towards the source/rendezvous point. However the operator can
+        specify the following:
+        a) Use unicast route table only
+        b) Use multicast unicast route table only or
+        c) Use both the route tables.
+
+        In case of (c), MSDP will always lookup first in the 'mucastRouteTable'
+        and if there is a route, it will use it. If MSDP does not find a 
+        route in the first lookup, it will try to find it in the 
+        'ucastRouteTable'."
+    DEFVAL { ucastRouteTable }
+    ::= { tmnxMsdpGlobals 24 }
+
+tmnxMsdpSACacheLifetime OBJECT-TYPE
+    SYNTAX     Unsigned32 (90..600)
+    UNITS      "seconds"
+    MAX-ACCESS read-write
+    STATUS     current
+    DESCRIPTION
+       "The value of tmnxMsdpSACacheLifetime specifies lifetime given to 
+        SA cache entries in seconds when created or refreshed. 
+
+        This object does not measure time per se; instead, it is the
+        delta from the time at which an SA message is received at
+        which it should be expired if not refreshed. (i.e., it is
+        the value of tmnxMsdpSrcActiveExpiryTime immediately after
+        receiving an SA message applying to that row.)"
+    DEFVAL { 90 }
+    ::= { tmnxMsdpGlobals 25 }
+
+tmnxMsdpSARejectExportPolicy OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpSARejectExportPolicy indicates number of 
+         SA messages that were not sent due to export policy."
+    ::= { tmnxMsdpGlobals 26 }
+
+tmnxMsdpSARejectImportPolicy OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpSARejectImportPolicy indicates number of 
+         SA messages that were rejected due to import policy."
+    ::= { tmnxMsdpGlobals 27 }
+
+--
+-- The MSDP Peer table
+--
+tmnxMsdpPeerTable OBJECT-TYPE
+    SYNTAX     SEQUENCE OF TmnxMsdpPeerEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+      "The tmnxMsdpPeerTable table provides information on the properties 
+       of a MSDP peer."
+    ::= { tmnxMsdpObjects 2 }
+
+tmnxMsdpPeerEntry OBJECT-TYPE
+    SYNTAX     TmnxMsdpPeerEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+      "tmnxMsdpPeerEntry represents a row entry in tmnxMsdpPeerTable for a
+       MSDP peer.
+
+       Entries can be created and deleted via SNMP SET operations through 
+       tmnxMsdpPeerRowStatus. "
+    INDEX    { tmnxMsdpPeerAddressType, 
+               tmnxMsdpPeerAddress 
+             }
+    ::= { tmnxMsdpPeerTable 1 }
+
+TmnxMsdpPeerEntry ::= SEQUENCE {
+         tmnxMsdpPeerAddressType              InetAddressType,
+         tmnxMsdpPeerAddress                  InetAddress,
+         tmnxMsdpPeerRowStatus                RowStatus,
+         tmnxMsdpPeerMaxActiveSources         Integer32, 
+         tmnxMsdpPeerMsgRcvRate               Unsigned32,
+         tmnxMsdpPeerMsgRcvRateTime           Unsigned32,
+         tmnxMsdpPeerMsgRcvRateThd            Gauge32,
+         tmnxMsdpPeerAuthKey                  OCTET STRING,
+         tmnxMsdpPeerAuthKeyEncrypted         TruthValue,
+         tmnxMsdpPeerDefaultPeer              TruthValue,
+         tmnxMsdpPeerAdminState               TmnxAdminState,
+         tmnxMsdpPeerExportPolicy1            TPolicyStatementNameOrEmpty,
+         tmnxMsdpPeerExportPolicy2            TPolicyStatementNameOrEmpty,
+         tmnxMsdpPeerExportPolicy3            TPolicyStatementNameOrEmpty,
+         tmnxMsdpPeerExportPolicy4            TPolicyStatementNameOrEmpty,
+         tmnxMsdpPeerExportPolicy5            TPolicyStatementNameOrEmpty,
+         tmnxMsdpPeerImportPolicy1            TPolicyStatementNameOrEmpty,
+         tmnxMsdpPeerImportPolicy2            TPolicyStatementNameOrEmpty,
+         tmnxMsdpPeerImportPolicy3            TPolicyStatementNameOrEmpty,
+         tmnxMsdpPeerImportPolicy4            TPolicyStatementNameOrEmpty,
+         tmnxMsdpPeerImportPolicy5            TPolicyStatementNameOrEmpty,
+         tmnxMsdpPeerLocalAddressType         InetAddressType,
+         tmnxMsdpPeerLocalAddress             InetAddress,
+         tmnxMsdpPeerState                    INTEGER,
+         tmnxMsdpPeerLastUpOrDown             TimeStamp,
+         tmnxMsdpPeerConRetry                 Counter32,
+         tmnxMsdpPeerStateTimer               Unsigned32,
+         tmnxMsdpPeerTimeout                  Unsigned32,
+         tmnxMsdpPeerSAAccepted               Gauge32,
+         tmnxMsdpPeerSARecvd                  Gauge32,
+         tmnxMsdpPeerLastASLimit              TimeStamp        
+         }
+
+tmnxMsdpPeerAddressType OBJECT-TYPE
+    SYNTAX     InetAddressType
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerAddressType indicates the type of 
+       tmnxMsdpPeerAddress."
+    ::= { tmnxMsdpPeerEntry 1 }    
+
+tmnxMsdpPeerAddress OBJECT-TYPE
+    SYNTAX     InetAddress(SIZE (0|4|16))
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerAddress indicates the address of the MSDP 
+       peer."
+    ::= { tmnxMsdpPeerEntry 2 }    
+
+tmnxMsdpPeerRowStatus  OBJECT-TYPE
+    SYNTAX     RowStatus
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "tmnxMsdpPeerRowStatus is the object used for creating and deleting 
+       row entries in this table."
+    ::= { tmnxMsdpPeerEntry 3 }        
+
+tmnxMsdpPeerMaxActiveSources OBJECT-TYPE
+    SYNTAX     Integer32  (-1|0..1000000)
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerMaxActiveSources specifies the maximum 
+       number of source active messages that will be accepted by MSDP.  
+       This effectively controls the number of active sources that
+       can be stored on the system. 
+
+       By default, no limit is placed on the number of source active 
+       messages and this is specified by the value '-1'.  A value of
+       0 means that no source active messages will be accepted."
+    DEFVAL { -1 }
+    ::= { tmnxMsdpPeerEntry 4 }
+
+tmnxMsdpPeerMsgRcvRate OBJECT-TYPE
+    SYNTAX     Unsigned32 (0|10..10000)
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerMsgRcvRate specifies the  number of  MSDP
+       messages (including source active messages) that are read from the
+       TCP session per tmnxMsdpPeerMsgRcvRateTime seconds.
+      
+       By default, no MSDP messages are read from the TCP session 
+       and this is specified by the value 0.
+
+       Once the number of MSDP packets defined in tmnxMsdpPeerMsgRcvRateThd 
+       have been processed the rate of all other MSDP packets is rate 
+       limited by no longer accepting messages from the TCP session until 
+       tmnxMsdpPeerMsgRcvRateTime seconds have elapsed."
+    DEFVAL { 0 }
+    ::= { tmnxMsdpPeerEntry 5 }
+
+tmnxMsdpPeerMsgRcvRateTime OBJECT-TYPE
+    SYNTAX     Unsigned32 (0|1..600)
+    UNITS      "seconds"
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerMsgRcvRateTime specifies the time in seconds
+       that together with tmnxMsdpPeerMsgRcvRate defines the number of 
+       MSDP messages (including source active messages) that are read from
+       the TCP session within the configured number of seconds.
+
+       By default, no MSDP messages are read from the TCP session 
+       and this is specified by the value 0.
+
+       Once the number of MSDP packets defined in tmnxMsdpPeerMsgRcvRateThd
+       have been processed the rate of all other MSDP packets is rate 
+       limited by no longer accepting messages from the TCP session until 
+       tmnxMsdpPeerMsgRcvRateTime seconds have elapsed."
+    DEFVAL { 0 }
+    ::= { tmnxMsdpPeerEntry 6 }
+
+tmnxMsdpPeerMsgRcvRateThd OBJECT-TYPE
+    SYNTAX     Gauge32 (0|1..1000000)
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerMsgRcvRateThd specifies the number of 
+       MSDP messages that can be processed before tmnxMsdpPeerMsgRcvRate is 
+       set.  This is useful during system startup and initialization. 
+
+       By default, no MSDP messages are read from the TCP session 
+       and this is specified by the value 0.
+
+       Once the number of MSDP packets defined in 
+       tmnxMsdpPeerMsgRcvRateThd have been processed the rate of all 
+       other MSDP packets is rate limited by no longer accepting messages
+       from the TCP session until tmnxMsdpPeerMsgRcvRateTime seconds have 
+       elapsed."
+    DEFVAL { 0 }
+    ::= { tmnxMsdpPeerEntry 7 }
+    
+tmnxMsdpPeerAuthKey OBJECT-TYPE 
+    SYNTAX      OCTET STRING (SIZE (0..256)) 
+    MAX-ACCESS  read-create 
+    STATUS      current 
+    DESCRIPTION 
+      "The value of tmnxMsdpPeerAuthKey specifies the authentication 
+       key to be used for a specific MSDP peering session.  Authentication 
+       is done using the MD-5 message based digest protocol.  Authentication 
+       cannot be configured globally and can be applied per peer only.  
+       The authentication key can be any combination of letters or numbers.
+       Note that the string may contain embedded nulls.
+
+       By default, all MSDP messages are accepted and the MD5 signature 
+       option authentication key is disabled"
+    DEFVAL { ''H }    
+    ::= { tmnxMsdpPeerEntry 8 } 
+
+tmnxMsdpPeerAuthKeyEncrypted  OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+      "When the value of tmnxMsdpPeerAuthKeyEncrypted is 'true', the
+       password specified by tmnxMsdpPeerAuthKey is in the encrypted
+       form.
+
+       When the value of tmnxMsdpPeerAuthKeyEncrypted is 'false', the
+       password specified by tmnxMsdpPeerAuthKey is in plain text.
+
+       tmnxMsdpPeerAuthKey and tmnxMsdpPeerAuthKeyEncrypted, which indicates
+       whether or not the password string is encrypted, must be set
+       together in the same SNMP request PDU or else the set request
+       will fail with an inconsistentValue error."
+    DEFVAL { true }
+    ::= { tmnxMsdpPeerEntry 9 }
+
+tmnxMsdpPeerDefaultPeer OBJECT-TYPE
+    SYNTAX     TruthValue
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerDefaultPeer is used to configure a peer as
+       the default Msdp peer due to which all source-active messages 
+       from the peer will be accepted without the usual 
+       peer-reverse-path-forwarding (RPF) check."           
+    DEFVAL { false }
+    ::= { tmnxMsdpPeerEntry 10 }
+
+tmnxMsdpPeerAdminState OBJECT-TYPE
+    SYNTAX     TmnxAdminState
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerAdminState specifies the desired administrative
+       state for a MSDP peer. When a MSDP peer is 'outOfService' the 
+       operational state of MSDP as well as the operational state of other
+       entities under it, like peer group is also disabled.  
+
+       By default, the state of a MSDP peer is 'inService'."
+    DEFVAL { inService }
+    ::= { tmnxMsdpPeerEntry 11 }
+
+tmnxMsdpPeerExportPolicy1 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerExportPolicy1 specifies the export policy 
+       to export Source Active (SA) state from the SA list into MSDP.  
+       A maximum of five policy names can be specified. 
+       tmnxMsdpPeerExportPolicy1 specifies policy number 1 at the protocol
+       level. 
+
+       By default no export policies are applied and all SA entries are 
+       announced."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerEntry 12 }
+
+tmnxMsdpPeerExportPolicy2 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerExportPolicy2 specifies the export policy 
+       to export Source Active (SA) state from the SA list into MSDP.  
+       tmnxMsdpPeerExportPolicy2 specifies policy number 2 at the protocol
+       level. 
+
+       By default no export policies are applied and all SA entries are 
+       announced."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerEntry 13 }
+
+tmnxMsdpPeerExportPolicy3 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerExportPolicy3 specifies the export policy 
+       to export Source Active (SA) state from the SA list into MSDP.  
+       tmnxMsdpPeerExportPolicy3 specifies policy number 3 at the protocol 
+       level. 
+
+       By default no export policies are applied and all SA entries are 
+       announced."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerEntry 14 }
+
+tmnxMsdpPeerExportPolicy4 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerExportPolicy4 specifies the export policy 
+       to export Source Active (SA) state from the SA list into MSDP.  
+       tmnxMsdpPeerExportPolicy4 specifies policy number 4 at the protocol
+       level. 
+
+       By default no export policies are applied and all SA entries are 
+       announced."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerEntry 15 }
+
+tmnxMsdpPeerExportPolicy5 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerExportPolicy5 specifies the export policy 
+       to export Source Active (SA) state from the SA list into MSDP. 
+       tmnxMsdpPeerExportPolicy1 specifies policy number 5 at the protocol
+       level. 
+
+       By default no export policies are applied and all SA entries are 
+       announced."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerEntry 16 }
+
+tmnxMsdpPeerImportPolicy1 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerImportPolicy1 specifies the import policy 
+       to import Source Active (SA) state from the SA list into MSDP.  A 
+       maximum of five policy names can be specified.  
+       tmnxMsdpPeerImportPolicy1 specifies policy number 1 at the protocol
+       level. 
+
+       By default no import policies are applied and all SA entries are 
+       announced."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerEntry 17 }
+
+tmnxMsdpPeerImportPolicy2 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerImportPolicy2 specifies the import policy
+       to import Source Active (SA) state from the SA list into MSDP. 
+       tmnxMsdpPeerImportPolicy2 specifies policy number 2 at the protocol
+       level. 
+
+       By default no import policies are applied and all SA entries are 
+       announced."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerEntry 18 }
+
+tmnxMsdpPeerImportPolicy3 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerImportPolicy3 specifies the import policy 
+       to import Source Active (SA) state from the SA list into MSDP.  
+       tmnxMsdpPeerImportPolicy3 specifies policy number 3 at the protocol
+       level. 
+
+       By default no import policies are applied and all SA entries are 
+       announced."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerEntry 19 }
+
+tmnxMsdpPeerImportPolicy4 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerImportPolicy4 specifies the import policy 
+       to import Source Active (SA) state from the SA list into MSDP.  
+       tmnxMsdpPeerImportPolicy4 specifies policy number 4 at the protocol
+       level. 
+
+       By default no import policies are applied and all SA entries are 
+       announced."    
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerEntry 20 }
+
+tmnxMsdpPeerImportPolicy5 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerImportPolicy5 specifies the import policy 
+       to import Source Active (SA) state from the SA list into MSDP.  
+       tmnxMsdpPeerImportPolicy5 specifies policy number 5 at the protocol
+       level. 
+
+       By default no import policies are applied and all SA entries are 
+       announced."  
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerEntry 21 }
+
+tmnxMsdpPeerLocalAddressType OBJECT-TYPE
+    SYNTAX     InetAddressType
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerLocalAddressType is used to configure the 
+       type of tmnxMsdpPeerLocalAddress."
+    DEFVAL { unknown }     
+    ::= { tmnxMsdpPeerEntry 22 }
+
+tmnxMsdpPeerLocalAddress OBJECT-TYPE
+    SYNTAX     InetAddress(SIZE (0|4|16))
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerLocalAddress is used to configure the 
+       local end of a MSDP session. In order for MSDP to function at least
+       one peer must be configured.  When configuring a peer,  the local 
+       end of the MSDP session must be configured.  This address is used 
+       to validate incoming connections to the peer and to establish 
+       connections to the remote peer.
+       
+       By default no local address is configured."
+    DEFVAL { ''H }  -- the empty string
+    ::= { tmnxMsdpPeerEntry 23 }
+
+tmnxMsdpPeerState OBJECT-TYPE
+    SYNTAX       INTEGER {
+                   listen (0),
+                   established (1),
+                   inactive (2),
+                   disabled (3),
+                   connecting (4)
+                 }
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerState indicates the status of the 
+         connection."
+    ::= { tmnxMsdpPeerEntry 24 }
+
+tmnxMsdpPeerLastUpOrDown OBJECT-TYPE
+    SYNTAX       TimeStamp
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerLastUpOrDown indicates the time at 
+         which the most recent peer-state change occurred."
+    ::= { tmnxMsdpPeerEntry 25 }
+
+tmnxMsdpPeerConRetry OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerConRetry indicates number 
+         of peer connection retry attempts."
+    ::= { tmnxMsdpPeerEntry 26 }
+
+tmnxMsdpPeerStateTimer OBJECT-TYPE
+    SYNTAX       Unsigned32
+    UNITS        "seconds"
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerStateTimer indicates the 
+         number of seconds to wait before another message is sent to
+         a peer."
+    ::= { tmnxMsdpPeerEntry 27 }
+
+tmnxMsdpPeerTimeout OBJECT-TYPE
+    SYNTAX       Unsigned32
+    UNITS        "seconds"
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerTimeout indicates the number 
+         of seconds to wait for a response from the peer before declaring 
+         the peer unavailable."
+    ::= { tmnxMsdpPeerEntry 28 }
+
+tmnxMsdpPeerSAAccepted OBJECT-TYPE
+    SYNTAX       Gauge32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerSAAccepted indicates the number of 
+         entries in the source-active cache accepted from the peer."
+    ::= { tmnxMsdpPeerEntry 29 }
+
+tmnxMsdpPeerSARecvd OBJECT-TYPE
+    SYNTAX       Gauge32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerSARecvd indicates the number of 
+         entries in the source-active cache received by the peer."
+    ::= { tmnxMsdpPeerEntry 30 }
+
+tmnxMsdpPeerLastASLimit OBJECT-TYPE
+    SYNTAX       TimeStamp
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerLastASLimit indicates the time
+         that the last active source limit was triggered."
+    ::= { tmnxMsdpPeerEntry 31 }
+
+tmnxMsdpPeerGroupTable OBJECT-TYPE
+    SYNTAX     SEQUENCE OF TmnxMsdpPeerGroupEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+      "The tmnxMsdpPeerGroupTable provides a listing of all MSDP Peer 
+       Groups."
+    ::= { tmnxMsdpObjects 3 }
+
+tmnxMsdpPeerGroupEntry OBJECT-TYPE
+    SYNTAX     TmnxMsdpPeerGroupEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+      "tmnxMsdpPeerGroupEntry represents a MSDP Peer Group. Entries can be
+       created and deleted via SNMP SET operations."
+    INDEX   { tmnxMsdpPeerGroupName }
+    ::= { tmnxMsdpPeerGroupTable 1 }
+
+TmnxMsdpPeerGroupEntry ::= SEQUENCE {
+        tmnxMsdpPeerGroupName                 TNamedItem,
+        tmnxMsdpPeerGroupRowStatus            RowStatus,
+        tmnxMsdpPeerGroupMsgRcvRate           Unsigned32,
+        tmnxMsdpPeerGroupMsgRcvRateTime       Unsigned32,
+        tmnxMsdpPeerGroupMsgRcvRateThd        Gauge32,
+        tmnxMsdpPeerGroupAdminState           TmnxAdminState,
+        tmnxMsdpPeerGroupExportPolicy1        TPolicyStatementNameOrEmpty,
+        tmnxMsdpPeerGroupExportPolicy2        TPolicyStatementNameOrEmpty,
+        tmnxMsdpPeerGroupExportPolicy3        TPolicyStatementNameOrEmpty,
+        tmnxMsdpPeerGroupExportPolicy4        TPolicyStatementNameOrEmpty,
+        tmnxMsdpPeerGroupExportPolicy5        TPolicyStatementNameOrEmpty,
+        tmnxMsdpPeerGroupImportPolicy1        TPolicyStatementNameOrEmpty,
+        tmnxMsdpPeerGroupImportPolicy2        TPolicyStatementNameOrEmpty,
+        tmnxMsdpPeerGroupImportPolicy3        TPolicyStatementNameOrEmpty,
+        tmnxMsdpPeerGroupImportPolicy4        TPolicyStatementNameOrEmpty,
+        tmnxMsdpPeerGroupImportPolicy5        TPolicyStatementNameOrEmpty,
+        tmnxMsdpPeerGroupLocalAddrType        InetAddressType,
+        tmnxMsdpPeerGroupLocalAddress         InetAddress,
+        tmnxMsdpPeerGroupMode                 INTEGER,
+        tmnxMsdpPeerGroupMaxActSources        Integer32,
+        tmnxMsdpPeerGroupActMsgsExMax         Counter32,
+        tmnxMsdpPeerGrpSARejExpPolicy         Counter32,
+        tmnxMsdpPeerGrpSARejImpPolicy         Counter32
+   }
+
+tmnxMsdpPeerGroupName OBJECT-TYPE
+    SYNTAX     TNamedItem
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerGroupName indicates the peer group name."
+    ::= { tmnxMsdpPeerGroupEntry 1 }
+
+tmnxMsdpPeerGroupRowStatus  OBJECT-TYPE
+    SYNTAX     RowStatus
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "tmnxMsdpPeerGroupRowStatus is the object used for creating and deleting 
+       row entries in this table."
+    ::= { tmnxMsdpPeerGroupEntry 2 }      
+    
+tmnxMsdpPeerGroupMsgRcvRate OBJECT-TYPE
+    SYNTAX     Unsigned32 (0|10..10000)
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGroupMsgRcvRate specifies the  number of 
+       MSDP messages (including source active messages) that are read from
+       the TCP session per tmnxMsdpMsgRcvRateTime seconds
+
+       By default, no MSDP messages are read from the TCP session 
+       and this is specified by the value 0.
+
+       Once the number of MSDP packets defined in tmnxMsdpMsgRcvRateThd
+       have been processed the rate of all other MSDP packets is rate 
+       limited by no longer accepting messages from the TCP session until 
+       tmnxMsdpMsgRcvRateTime seconds have elapsed."
+    DEFVAL { 0 }
+    ::= { tmnxMsdpPeerGroupEntry 3 }
+
+tmnxMsdpPeerGroupMsgRcvRateTime OBJECT-TYPE
+    SYNTAX     Unsigned32 (0|1..600)
+    UNITS      "seconds"
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGroupMsgRcvRateTime specifies the maximum 
+       number of source active messages that will be accepted by MSDP.
+       This effectively controls the number of source active messages that can be
+       stored on the system. By default, no MSDP messages are read from the
+       TCP session and this is specified by the value 0.
+
+       Once the number of MSDP packets defined in 
+       tmnxMsdpPeerGroupMsgRcvRateThd have been processed the rate of all 
+       other MSDP packets is rate limited by no longer accepting messages 
+       from the TCP session until tmnxMsdpPeerGroupMsgRcvRateTime seconds have 
+       elapsed."
+    DEFVAL { 0 }
+    ::= { tmnxMsdpPeerGroupEntry 4 }
+
+tmnxMsdpPeerGroupMsgRcvRateThd OBJECT-TYPE
+    SYNTAX     Gauge32 (0|1..1000000)
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGroupMsgRcvRateThd specifies the 
+       number of MSDP messages that can be processed before 
+       tmnxMsdpPeerGroupMsgRcvRate is set.  This is useful during system 
+       startup and initialization. 
+
+       By default, no MSDP messages are read from the TCP session and this
+       is specified by the value 0.
+
+       Once the number of MSDP packets defined in tmnxMsdpPeerGroupMsgRcvRateThd 
+       have been processed the rate of all other MSDP packets is rate 
+       limited by no longer accepting messages from the TCP session until
+       tmnxMsdpPeerGroupMsgRcvRateTime seconds have elapsed."
+    DEFVAL { 0 }
+    ::= { tmnxMsdpPeerGroupEntry 5 }
+
+tmnxMsdpPeerGroupAdminState OBJECT-TYPE
+    SYNTAX     TmnxAdminState
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGroupAdminState specifies the desired 
+       administrative state for a MSDP peer group. When 
+       tmnxMsdpPeerGroupAdminState is 'outOfService' the 
+       operational state of the MSDP peer group as well as the operational
+       state of other entities under it, like other peers is also disabled.  
+
+       By default, the state of a MSDP peer group is 'inService'."
+    DEFVAL { inService }
+    ::= { tmnxMsdpPeerGroupEntry 6 }
+
+tmnxMsdpPeerGroupExportPolicy1 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGroupExportPolicy1 specifies the export
+       policy number 1 at peer group level."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerGroupEntry 7 }
+
+tmnxMsdpPeerGroupExportPolicy2 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGroupExportPolicy2 specifies the export
+       policy number 2 at peer group protocol level."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerGroupEntry 8 }
+
+tmnxMsdpPeerGroupExportPolicy3 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGroupExportPolicy3 specifies the export 
+       policy number 3 at peer group protocol level."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerGroupEntry 9 }
+
+tmnxMsdpPeerGroupExportPolicy4 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGroupExportPolicy4 specifies the export 
+       policy number 4 at peer group protocol level."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerGroupEntry 10}
+
+tmnxMsdpPeerGroupExportPolicy5 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGroupExportPolicy5 specifies the export 
+       policy number 5 at peer group protocol level."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerGroupEntry 11 }
+
+tmnxMsdpPeerGroupImportPolicy1 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGroupImportPolicy1 specifies the import 
+       policy number 1  at peer group level."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerGroupEntry 12 }
+
+tmnxMsdpPeerGroupImportPolicy2 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGroupImportPolicy2 specifies the import 
+       policy number 2 at peer group level."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerGroupEntry 13 }
+
+tmnxMsdpPeerGroupImportPolicy3 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGroupImportPolicy3 specifies the import 
+       policy number 3 at peer group level."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerGroupEntry 14 }
+
+tmnxMsdpPeerGroupImportPolicy4 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGroupImportPolicy4 specifies the import 
+       policy number 4 at peer group level."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerGroupEntry 15 }
+
+tmnxMsdpPeerGroupImportPolicy5 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGroupImportPolicy5 specifies the import 
+       policy number 5 at peer group level."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerGroupEntry 16 }
+
+tmnxMsdpPeerGroupLocalAddrType OBJECT-TYPE
+    SYNTAX     InetAddressType
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGroupLocalAddrType is used to configure the 
+       type of tmnxMsdpPeerGroupLocalAddress."
+    DEFVAL { unknown }
+    ::= { tmnxMsdpPeerGroupEntry 17 }
+
+tmnxMsdpPeerGroupLocalAddress OBJECT-TYPE
+    SYNTAX     InetAddress(SIZE (0|4|16))
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGroupLocalAddress is used to configure the 
+       local end of a MSDP session. In order for MSDP to function at least
+       one peer must be configured.  When configuring a peer,  the local 
+       end of the MSDP session must be configured.  This address is used 
+       to validate incoming connections to the peer and to establish 
+       connections to the remote peer.
+       
+       By default no local address is configured."
+    DEFVAL { ''H }  -- the empty string
+    ::= { tmnxMsdpPeerGroupEntry 18 }
+
+tmnxMsdpPeerGroupMode  OBJECT-TYPE
+    SYNTAX     INTEGER{
+                      standard (1),
+                      mesh-group (2)
+                      }                     
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGroupMode is used to configure groups of 
+       peers in a full mesh topology.
+  
+       MSDP peers can be grouped in a full-mesh topology that prevents
+       excessive flooding of source-active messages to neighboring peers. 
+       When operating in meshed mode, source-active messages received from
+       a mesh group member are always accepted but are not flooded to other
+       members of the same mesh group.  As a result, these source-active 
+       messages are only flooded to non-mesh group peers or members of 
+       other mesh groups.
+
+       By default 'standard' (non-meshed) mode is used."
+    DEFVAL { standard }
+    ::= { tmnxMsdpPeerGroupEntry 19}
+
+tmnxMsdpPeerGroupMaxActSources OBJECT-TYPE
+    SYNTAX     Integer32  (-1|0..1000000)
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGroupMaxActSources specifies the 
+       maximum number of source active messages that will be accepted by 
+       this MSDP peer group.  This effectively controls the number of 
+       active sources that can be stored on the system. 
+
+       By default, no limit is placed on the number of source active
+       messages and this is specified by the value '-1'.  A value of
+       0 means that no source active messages will be accepted."
+    DEFVAL { -1 }
+    ::= { tmnxMsdpPeerGroupEntry 20 }
+
+tmnxMsdpPeerGroupActMsgsExMax OBJECT-TYPE
+    SYNTAX     Counter32
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGroupActMsgsExMax indicates the number of 
+       source active messages received from this group that exceeded the 
+       established maximum number."
+    ::= { tmnxMsdpPeerGroupEntry 21 }
+
+tmnxMsdpPeerGrpSARejExpPolicy OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerGrpSARejExpPolicy indicates the number of 
+         source active messages received from this group that were were not
+         sent due to export policy."
+    ::= { tmnxMsdpPeerGroupEntry 22 }
+
+tmnxMsdpPeerGrpSARejImpPolicy OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerGrpSARejImpPolicy indicates the number of 
+         source active messages received from this group that were rejected
+         due to import policy."
+    ::= { tmnxMsdpPeerGroupEntry 23 }
+
+
+tmnxMsdpPeerGrpPeerTable OBJECT-TYPE
+    SYNTAX     SEQUENCE OF TmnxMsdpPeerGrpPeerEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+      "The tmnxMsdpPeerGrpPeerTable table provides a listing of all 
+       peers under MSDP Peer Groups."
+    ::= { tmnxMsdpObjects 4 }
+
+tmnxMsdpPeerGrpPeerEntry OBJECT-TYPE
+    SYNTAX     TmnxMsdpPeerGrpPeerEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+      "An entry representing a peer in an MSDP Peer Group.
+       Entries can be created and deleted via SNMP SET operations."
+    INDEX   { tmnxMsdpPeerGroupName, 
+              tmnxMsdpPeerGrpPeerAddressType, 
+              tmnxMsdpPeerGrpPeerAddress 
+            }
+    ::= { tmnxMsdpPeerGrpPeerTable 1 }
+
+TmnxMsdpPeerGrpPeerEntry ::= SEQUENCE {
+       tmnxMsdpPeerGrpPeerAddressType         InetAddressType,
+       tmnxMsdpPeerGrpPeerAddress             InetAddress,
+       tmnxMsdpPeerGrpPeerRowStatus           RowStatus,
+       tmnxMsdpPeerGrpPeerMaxActSrcs          Integer32, 
+       tmnxMsdpPeerGrpPeerMsgRcvRt            Unsigned32,
+       tmnxMsdpPeerGrpPeerMsgRcvRtTime        Unsigned32,
+       tmnxMsdpPeerGrpPeerMsgRcvRtThd         Gauge32,
+       tmnxMsdpPeerGrpPeerAuthKey             OCTET STRING,
+       tmnxMsdpPeerGrpPeerAKeyEncrypt         TruthValue,
+       tmnxMsdpPeerGrpPeerDefaultPeer         TruthValue,
+       tmnxMsdpPeerGrpPeerAdminState          TmnxAdminState,
+       tmnxMsdpPeerGrpPeerExportPolicy1       TPolicyStatementNameOrEmpty,
+       tmnxMsdpPeerGrpPeerExportPolicy2       TPolicyStatementNameOrEmpty,
+       tmnxMsdpPeerGrpPeerExportPolicy3       TPolicyStatementNameOrEmpty,
+       tmnxMsdpPeerGrpPeerExportPolicy4       TPolicyStatementNameOrEmpty,
+       tmnxMsdpPeerGrpPeerExportPolicy5       TPolicyStatementNameOrEmpty,
+       tmnxMsdpPeerGrpPeerImportPolicy1       TPolicyStatementNameOrEmpty,
+       tmnxMsdpPeerGrpPeerImportPolicy2       TPolicyStatementNameOrEmpty,
+       tmnxMsdpPeerGrpPeerImportPolicy3       TPolicyStatementNameOrEmpty,
+       tmnxMsdpPeerGrpPeerImportPolicy4       TPolicyStatementNameOrEmpty,
+       tmnxMsdpPeerGrpPeerImportPolicy5       TPolicyStatementNameOrEmpty,
+       tmnxMsdpPeerGrpPeerLocAddrType         InetAddressType,
+       tmnxMsdpPeerGrpPeerLocalAddress        InetAddress,
+       tmnxMsdpPeerGrpPeerState               INTEGER,
+       tmnxMsdpPeerGrpPeerLastUpOrDown        TimeStamp,
+       tmnxMsdpPeerGrpPeerConRetry            Counter32,
+       tmnxMsdpPeerGrpPeerStateTimer          Unsigned32,
+       tmnxMsdpPeerGrpPeerTimeout             Unsigned32,
+       tmnxMsdpPeerGrpPeerSAAccepted          Gauge32,
+       tmnxMsdpPeerGrpPeerSARecvd             Gauge32,
+       tmnxMsdpPeerGrpPeerLastASLimit         TimeStamp        
+        }
+
+tmnxMsdpPeerGrpPeerAddressType OBJECT-TYPE
+    SYNTAX     InetAddressType
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGrpPeerAddressType indicates the type of
+       address of the MSDP peer."
+    ::= { tmnxMsdpPeerGrpPeerEntry 1 }    
+
+tmnxMsdpPeerGrpPeerAddress OBJECT-TYPE
+    SYNTAX     InetAddress(SIZE (0|4|16))
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGrpPeerAddress indicates the address of 
+       the MSDP peer."
+    ::= { tmnxMsdpPeerGrpPeerEntry 2 }    
+
+tmnxMsdpPeerGrpPeerRowStatus  OBJECT-TYPE
+    SYNTAX     RowStatus
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "tmnxMsdpPeerGrpPeerRowStatus is the object used for creating and deleting
+       row entries in this table."
+    ::= { tmnxMsdpPeerGrpPeerEntry 3 }    
+    
+tmnxMsdpPeerGrpPeerMaxActSrcs OBJECT-TYPE
+    SYNTAX     Integer32  (-1|0..1000000)
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGrpPeerMaxActSrcs specifies the 
+       maximum number of source active messages that will be accepted by 
+       MSDP peer group peer. This effectively controls the number of active
+       sources that can be stored on the system. 
+
+       By default, no limit is placed on the number of source active messages
+       and this is specified by the value '-1'.  A value of
+       0 means that no source active messages will be accepted."
+    DEFVAL { -1 }
+    ::= { tmnxMsdpPeerGrpPeerEntry 4 }
+
+tmnxMsdpPeerGrpPeerMsgRcvRt OBJECT-TYPE
+    SYNTAX     Unsigned32 (0|10..10000)
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGrpPeerMsgRcvRt specifies the  number
+       of MSDP messages (including source active messages) that are read 
+       from the TCP session per tmnxMsdpPeerGrpPeerMsgRcvRtTime seconds.
+      
+       By default, no MSDP messages are read from the TCP session 
+       and this is specified by the value 0.
+
+       Once the number of MSDP packets defined in 
+       tmnxMsdpPeerGrpPeerMsgRcvRtThd have been processed the rate of all 
+       other MSDP packets is rate limited by no longer accepting messages 
+       from the TCP session until tmnxMsdpPeerGrpPeerMsgRcvRtTime seconds have 
+       elapsed."
+    DEFVAL { 0 }
+    ::= { tmnxMsdpPeerGrpPeerEntry 5 }
+
+tmnxMsdpPeerGrpPeerMsgRcvRtTime OBJECT-TYPE
+    SYNTAX     Unsigned32 (0|1..600)
+    UNITS      "seconds"
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGrpPeerMsgRcvRtTime specifies the time
+       in seconds that together with tmnxMsdpPeerGrpPeerMsgRcvRt 
+       defines the number of  MSDP messages (including source active 
+       messages) that are read from the TCP session within the configured
+       number of seconds.
+
+       By default, no MSDP messages are read from the TCP session 
+       and this is specified by the value 0.
+
+       Once the number of MSDP packets defined in tmnxMsdpPeerGrpPeerMsgRcvRtThd
+       have been processed the rate of all other MSDP packets is rate 
+       limited by no longer accepting messages from the TCP session until 
+       tmnxMsdpPeerGrpPeerMsgRcvRtTime seconds have elapsed."
+    DEFVAL { 0 }
+    ::= { tmnxMsdpPeerGrpPeerEntry 6 }
+
+tmnxMsdpPeerGrpPeerMsgRcvRtThd OBJECT-TYPE
+    SYNTAX     Gauge32 (0|1..1000000)
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGrpPeerMsgRcvRtThd specifies the number of 
+       MSDP messages that can be processed before tmnxMsdpPeerGrpPeerMsgRcvRt
+       is set.
+       This is useful during system startup and initialization. 
+
+       By default, no MSDP messages are read from the TCP session 
+       and this is specified by the value 0.
+
+       Once the number of MSDP packets defined in tmnxMsdpPeerGrpPeerMsgRcvRtThd
+       have been processed the rate of all other MSDP packets is rate 
+       limited by no longer accepting messages from the TCP session until 
+       tmnxMsdpPeerGrpPeerMsgRcvRtTime seconds have elapsed."
+    DEFVAL { 0 }
+    ::= { tmnxMsdpPeerGrpPeerEntry 7 }
+    
+tmnxMsdpPeerGrpPeerAuthKey OBJECT-TYPE 
+    SYNTAX      OCTET STRING (SIZE (0..256)) 
+    MAX-ACCESS  read-create 
+    STATUS      current 
+    DESCRIPTION 
+      "The value of tmnxMsdpPeerGrpPeerAuthKey specifies the 
+       authentication key to be used for a specific MSDP peer group peering
+       session.  Authentication is done using the MD-5 message based digest
+       protocol.  Authentication cannot be configured globally and can be 
+       applied per peer only.  The authentication key can be any 
+       combination of letters or numbers.  Note that the string may 
+       contain embedded nulls.
+
+       By default all MSDP messages are accepted and the MD5 signature 
+       option authentication key is disabled"
+    DEFVAL { ''H }    
+    ::= { tmnxMsdpPeerGrpPeerEntry 8 } 
+
+tmnxMsdpPeerGrpPeerAKeyEncrypt  OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "When the value of tmnxMsdpPeerGrpPeerAKeyEncrypt is 'true', the
+         password specified by tmnxMsdpPeerGrpPeerAuthKey is in the encrypted
+         form.
+
+         When the value of tmnxMsdpPeerGrpPeerAKeyEncrypt is 'false', the
+         password specified by tmnxMsdpPeerGrpPeerAuthKey is in plain text.
+
+         tmnxMsdpPeerGrpPeerAuthKey and tmnxMsdpPeerGrpPeerAKeyEncrypt, 
+         which indicates whether or not the password string is encrypted,
+         must be set together in the same SNMP request PDU or else the set
+         request will fail with an inconsistentValue error."
+    DEFVAL { true }
+    ::= { tmnxMsdpPeerGrpPeerEntry 9 }
+
+tmnxMsdpPeerGrpPeerDefaultPeer OBJECT-TYPE
+    SYNTAX     TruthValue
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGrpPeerDefaultPeer is used to configure
+       a peer as the default MSDP peer due to which all source-active
+       messages from the peer will be accepted without the usual 
+       peer-reverse-path-forwarding (RPF) check."           
+    DEFVAL { false }
+    ::= { tmnxMsdpPeerGrpPeerEntry 10 }
+
+tmnxMsdpPeerGrpPeerAdminState OBJECT-TYPE
+    SYNTAX     TmnxAdminState
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGrpPeerAdminState specifies the desired
+       administrative state for a peer under a MSDP peer group. When 
+       tmnxMsdpPeerGrpPeerAdminState is 'outOfService' the 
+       operational state of the MSDP peer is disabled.  
+
+       By default, tmnxMsdpPeerGrpPeerAdminState is 'inService'."
+    DEFVAL { inService }
+    ::= { tmnxMsdpPeerGrpPeerEntry 11 }
+
+tmnxMsdpPeerGrpPeerExportPolicy1 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGrpPeerExportPolicy1 specifies the export
+       policy to export Source Active (SA) state from the SA list into MSDP.
+       A maximum of five policy names can be specified. 
+       tmnxMsdpPeerGrpPeerExportPolicy1 specifies policy number 1 at the
+       protocol level. 
+
+       By default no export policies are applied and all SA entries are 
+       announced."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerGrpPeerEntry 12 }
+
+tmnxMsdpPeerGrpPeerExportPolicy2 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGrpPeerExportPolicy2 specifies the export
+       policy to export Source Active (SA) state from the SA list into MSDP.
+       tmnxMsdpPeerGrpPeerExportPolicy2 specifies policy number 2 at the 
+       protocol level. 
+
+       By default no export policies are applied and all SA entries are 
+       announced."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerGrpPeerEntry 13 }
+
+tmnxMsdpPeerGrpPeerExportPolicy3 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGrpPeerExportPolicy3 specifies the export
+       policy to export Source Active (SA) state from the SA list into MSDP.
+       tmnxMsdpPeerGrpPeerExportPolicy3 specifies policy number 3 at the
+       protocol level. 
+
+       By default no export policies are applied and all SA entries are 
+       announced."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerGrpPeerEntry 14 }
+
+tmnxMsdpPeerGrpPeerExportPolicy4 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGrpPeerExportPolicy4 specifies the export
+       policy to export Source Active (SA) state from the SA list into MSDP.
+       tmnxMsdpPeerGrpPeerExportPolicy4 specifies policy number 4 at the
+       protocol level. 
+
+       By default no export policies are applied and all SA entries are
+       announced."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerGrpPeerEntry 15 }
+
+tmnxMsdpPeerGrpPeerExportPolicy5 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGrpPeerExportPolicy5 specifies the export
+       policy to export Source Active (SA) state from the SA list into MSDP.
+       tmnxMsdpPeerGrpPeerExportPolicy1 specifies policy number 5 at the
+       protocol level. 
+
+       By default no export policies are applied and all SA entries are 
+       announced."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerGrpPeerEntry 16 }
+
+tmnxMsdpPeerGrpPeerImportPolicy1 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGrpPeerImportPolicy1 specifies the import
+       policy to import Source Active (SA) state from the SA list into MSDP.
+       A maximum of five policy names can be specified. 
+       tmnxMsdpPeerGrpPeerImportPolicy1 specifies policy number 1 at the
+       protocol level. 
+
+       By default no import policies are applied and all SA entries are 
+       announced."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerGrpPeerEntry 17 }
+
+tmnxMsdpPeerGrpPeerImportPolicy2 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGrpPeerImportPolicy2 specifies the import
+       policy to import Source Active (SA) state from the SA list into MSDP.
+       tmnxMsdpPeerGrpPeerImportPolicy2 specifies policy number 2 at the
+       protocol level. 
+
+       By default no import policies are applied and all SA entries are 
+       announced."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerGrpPeerEntry 18 }
+
+tmnxMsdpPeerGrpPeerImportPolicy3 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGrpPeerImportPolicy3 specifies the import
+       policy to import Source Active (SA) state from the SA list into MSDP.
+       tmnxMsdpPeerGrpPeerImportPolicy3 specifies policy number 3 at the 
+       protocol level. 
+
+       By default no import policies are applied and all SA entries are 
+       announced."
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerGrpPeerEntry 19 }
+
+tmnxMsdpPeerGrpPeerImportPolicy4 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGrpPeerImportPolicy4 specifies the import
+       policy to import Source Active (SA) state from the SA list into MSDP.
+       tmnxMsdpPeerGrpPeerImportPolicy4 specifies policy number 4 at the
+       protocol level. 
+
+       By default no import policies are applied and all SA entries are 
+       announced."    
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerGrpPeerEntry 20 }
+
+tmnxMsdpPeerGrpPeerImportPolicy5 OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGrpPeerImportPolicy5 specifies the import
+       policy to import Source Active (SA) state from the SA list into MSDP.  
+       tmnxMsdpPeerGrpPeerImportPolicy5 specifies policy number 5 at the
+       protocol level. 
+
+       By default no import policies are applied and all SA entries are 
+       announced."    
+    DEFVAL { ''H }   -- the empty string
+    ::= { tmnxMsdpPeerGrpPeerEntry 21 }
+
+tmnxMsdpPeerGrpPeerLocAddrType OBJECT-TYPE
+    SYNTAX     InetAddressType
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGrpPeerLocAddrType indicates the type of
+       tmnxMsdpPeerGrpPeerLocalAddress."
+    DEFVAL { unknown }
+    ::= { tmnxMsdpPeerGrpPeerEntry 22 } 
+
+tmnxMsdpPeerGrpPeerLocalAddress OBJECT-TYPE
+    SYNTAX     InetAddress(SIZE (0|4|16))
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpPeerGrpPeerLocalAddress is used to configure
+       the local end of a MSDP session. In order for MSDP to function at 
+       least one peer must be configured.  When configuring a peer, the 
+       local end of the MSDP session must be configured.  This address is 
+       used to validate incoming connections to the peer and to establish 
+       connections to the remote peer.
+
+       By default no local address is configured."
+    DEFVAL { ''H }  -- the empty string
+    ::= { tmnxMsdpPeerGrpPeerEntry 23 }
+
+tmnxMsdpPeerGrpPeerState OBJECT-TYPE
+    SYNTAX       INTEGER {
+                   listen (0),
+                   established (1),
+                   inactive (2),
+                   disabled (3),
+                   connecting (4)
+                 }
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerGrpPeerState indicates the status of the 
+         connection."
+    ::= { tmnxMsdpPeerGrpPeerEntry 24 }
+
+tmnxMsdpPeerGrpPeerLastUpOrDown OBJECT-TYPE
+    SYNTAX       TimeStamp
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerGrpPeerLastUpOrDown indicates the time at 
+         which the most recent peer-state change occurred."
+    ::= { tmnxMsdpPeerGrpPeerEntry 25 }
+
+tmnxMsdpPeerGrpPeerConRetry OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerGrpPeerConRetry indicates number 
+         of peer connection retry attempts."
+    ::= { tmnxMsdpPeerGrpPeerEntry 26 }
+
+tmnxMsdpPeerGrpPeerStateTimer OBJECT-TYPE
+    SYNTAX       Unsigned32
+    UNITS        "seconds"
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerGrpPeerStateTimer indicates the 
+         number of seconds to wait before another message is sent to
+         a peer."
+    ::= { tmnxMsdpPeerGrpPeerEntry 27 }
+
+tmnxMsdpPeerGrpPeerTimeout OBJECT-TYPE
+    SYNTAX       Unsigned32
+    UNITS        "seconds"
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerGrpPeerTimeout indicates the number 
+         of seconds to wait for a response from the peer before declaring 
+         the peer unavailable."
+    ::= { tmnxMsdpPeerGrpPeerEntry 28 }
+
+tmnxMsdpPeerGrpPeerSAAccepted OBJECT-TYPE
+    SYNTAX       Gauge32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerGrpPeerSAAccepted indicates the number of 
+         entries in the source-active cache accepted from the peer."
+    ::= { tmnxMsdpPeerGrpPeerEntry 29 }
+
+tmnxMsdpPeerGrpPeerSARecvd OBJECT-TYPE
+    SYNTAX       Gauge32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerGrpPeerSARecvd indicates the number of 
+         entries in the source-active cache received by the peer."
+    ::= { tmnxMsdpPeerGrpPeerEntry 30 }
+
+tmnxMsdpPeerGrpPeerLastASLimit OBJECT-TYPE
+    SYNTAX       TimeStamp
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerGrpPeerLastASLimit indicates the time
+         that the last active source limit was triggered."
+    ::= { tmnxMsdpPeerGrpPeerEntry 31 }    
+
+tmnxMsdpSourceTable OBJECT-TYPE
+    SYNTAX     SEQUENCE OF TmnxMsdpSourceEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+      "The tmnxMsdpSourceTable provides a listing of all MSDP Source
+       configuration."
+    ::= { tmnxMsdpObjects 5 }
+
+tmnxMsdpSourceEntry OBJECT-TYPE
+    SYNTAX     TmnxMsdpSourceEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+      "An tmnxMsdpSourceEntry represents a MSDP Source configuration.
+
+       Entries can be created and deleted via SNMP SET operations."
+    INDEX { tmnxMsdpSourcePrefixType, 
+            tmnxMsdpSourcePrefix, 
+            tmnxMsdpSourceMask 
+           }
+    ::= { tmnxMsdpSourceTable 1 }
+
+TmnxMsdpSourceEntry ::= SEQUENCE {
+        tmnxMsdpSourcePrefixType           InetAddressType,
+        tmnxMsdpSourcePrefix               InetAddress,
+        tmnxMsdpSourceMask                 InetAddressPrefixLength,
+        tmnxMsdpSourceRowStatus            RowStatus,
+        tmnxMsdpSourceMaxActiveSources     Integer32,
+        tmnxMsdpSourceDiscMethod           INTEGER,
+        tmnxMsdpSourceSrcActMsgsExMax      Counter32, 
+        tmnxMsdpSourceLastExEventTime      TimeStamp
+       }
+
+tmnxMsdpSourcePrefixType OBJECT-TYPE
+    SYNTAX     InetAddressType
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpSourcePrefixType indicates the type of
+       tmnxMsdpSourcePrefix."
+    ::= { tmnxMsdpSourceEntry 1 } 
+
+tmnxMsdpSourcePrefix OBJECT-TYPE
+    SYNTAX      InetAddress(SIZE (0|4|16))
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "The value of tmnxMsdpSourcePrefix indicates the IP address of the 
+       sources from which the source active messages would be accepted." 
+    ::= { tmnxMsdpSourceEntry 2 }
+
+tmnxMsdpSourceMask OBJECT-TYPE
+    SYNTAX      InetAddressPrefixLength
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "The value of tmnxMsdpSourceMask indicates the mask to be used along
+       with tmnxMsdpSourcePrefix to obtain the range of addresses from 
+       which the router can accept source active messages. "
+    ::= { tmnxMsdpSourceEntry 3 }
+
+tmnxMsdpSourceRowStatus  OBJECT-TYPE
+    SYNTAX     RowStatus
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "tmnxMsdpSourceRowStatus is the object used for creating and deleting 
+       row entries in this table."
+    ::= { tmnxMsdpSourceEntry 4 }    
+
+tmnxMsdpSourceMaxActiveSources OBJECT-TYPE
+    SYNTAX     Integer32  (-1|0..1000000)
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpSourceMaxActiveSources specifies the maximum 
+       number of source active messages that will be accepted by MSDP.  
+       This effectively controls the number of active sources that can be
+       stored on the system. 
+
+       By default, no limit is placed on the number of source active messages
+       and this is specified by the value '-1'.  A value of
+       0 means that no source active messages will be accepted."
+    DEFVAL { -1 }
+    ::= { tmnxMsdpSourceEntry 5 }
+
+tmnxMsdpSourceDiscMethod OBJECT-TYPE
+    SYNTAX     INTEGER {
+                      dynamic (0),
+                      configured (1)
+               }
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpSourceDiscMethod indicates the discovery 
+       method for this multicast source. If the source entry was created 
+       by an user, the value of this field is 'configured'. If the source 
+       was created dynamically, the value is 'dynamic'"
+    ::= { tmnxMsdpSourceEntry 6 }
+
+tmnxMsdpSourceSrcActMsgsExMax OBJECT-TYPE
+    SYNTAX     Counter32
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpSourceSrcActMsgsExMax indicates the number of 
+       source active messages received from this source that exceeded the 
+       established maximum number."
+    ::= { tmnxMsdpSourceEntry 7 }
+
+tmnxMsdpSourceLastExEventTime OBJECT-TYPE
+    SYNTAX     TimeStamp
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+      "The value of tmnxMsdpSourceLastExEventTime indicates the time the 
+       last exceed event was triggered."
+    ::= { tmnxMsdpSourceEntry 8 }
+
+tmnxMsdpSrcActiveTable OBJECT-TYPE
+    SYNTAX     SEQUENCE OF TmnxMsdpSrcActiveEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+           "The tmnxMsdpSrcActiveTable table stores the MSDP Source Active(SA)
+            advertisements currently in the MSDP speaker's cache."
+    ::= { tmnxMsdpObjects 6 }
+
+tmnxMsdpSrcActiveEntry OBJECT-TYPE
+    SYNTAX     TmnxMsdpSrcActiveEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+           "An entry representing an MSDP SA advertisement.  The INDEX to
+            this table includes msdpSACacheOriginRP for diagnosing 
+            incorrect MSDP advertisements; normally a Source and Group 
+            pair would be unique.
+
+            This is a read-only table."
+    INDEX      { tmnxMsdpSrcActiveGroupAddrType,
+                 tmnxMsdpSrcActiveGroupAddr,
+                 tmnxMsdpSrcActiveSourceAddrType,
+                 tmnxMsdpSrcActiveSourceAddr, 
+                 tmnxMsdpSrcActiveOriginRPType,
+                 tmnxMsdpSrcActiveOriginRP
+                  }
+    ::= { tmnxMsdpSrcActiveTable 1 }
+
+TmnxMsdpSrcActiveEntry ::= SEQUENCE {        
+        tmnxMsdpSrcActiveGroupAddrType       InetAddressType,
+        tmnxMsdpSrcActiveGroupAddr           InetAddress,
+        tmnxMsdpSrcActiveSourceAddrType      InetAddressType,
+        tmnxMsdpSrcActiveSourceAddr          InetAddress,
+        tmnxMsdpSrcActiveOriginRPType        InetAddressType,
+        tmnxMsdpSrcActiveOriginRP            InetAddress,
+        tmnxMsdpSrcActivePrLearnFrType       InetAddressType,
+        tmnxMsdpSrcActivePeerLearntFrom      InetAddress,
+        tmnxMsdpSrcActiveRPFPeerType         InetAddressType,
+        tmnxMsdpSrcActiveRPFPeer             InetAddress,
+        tmnxMsdpSrcActiveUpTime              TimeInterval,
+        tmnxMsdpSrcActiveExpiryTime          TimeInterval
+        }
+
+tmnxMsdpSrcActiveGroupAddrType OBJECT-TYPE
+    SYNTAX     InetAddressType
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of tmnxMsdpSrcActiveGroupAddrType indicates the
+         address type of tmnxMsdpSrcActiveGroupAddr."
+    ::= { tmnxMsdpSrcActiveEntry 1 }
+
+tmnxMsdpSrcActiveGroupAddr OBJECT-TYPE
+    SYNTAX     InetAddress(SIZE (0|4|16))
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of tmnxMsdpSrcActiveGroupAddr indicates the group address
+         of the Source Active entry."
+    ::= { tmnxMsdpSrcActiveEntry 2 }
+
+tmnxMsdpSrcActiveSourceAddrType OBJECT-TYPE
+    SYNTAX     InetAddressType
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of tmnxMsdpSrcActiveSourceAddrType indicates the
+         address type of tmnxMsdpSrcActiveSourceAddr."
+    ::= { tmnxMsdpSrcActiveEntry 3 }
+
+tmnxMsdpSrcActiveSourceAddr OBJECT-TYPE
+    SYNTAX     InetAddress(SIZE (0|4|16))
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of tmnxMsdpSrcActiveSourceAddr indicates the source 
+         address of the Source Active entry."
+    ::= { tmnxMsdpSrcActiveEntry 4 }
+
+tmnxMsdpSrcActiveOriginRPType OBJECT-TYPE
+    SYNTAX     InetAddressType
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of tmnxMsdpSrcActiveOriginRPType indicates the
+         address type of tmnxMsdpSrcActiveOriginRP."
+    ::= { tmnxMsdpSrcActiveEntry 5 }
+
+tmnxMsdpSrcActiveOriginRP OBJECT-TYPE
+    SYNTAX     InetAddress(SIZE (0|4|16))
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of tmnxMsdpSrcActiveOriginRP indicates the origin RP 
+         address of the Source Active entry."
+    ::= { tmnxMsdpSrcActiveEntry 6 }
+
+tmnxMsdpSrcActivePrLearnFrType OBJECT-TYPE
+    SYNTAX     InetAddressType
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The value of tmnxMsdpSrcActivePrLearnFrType indicates the
+         address type of tmnxMsdpSrcActivePeerLearntFrom."
+    ::= { tmnxMsdpSrcActiveEntry 7 }
+
+tmnxMsdpSrcActivePeerLearntFrom OBJECT-TYPE
+    SYNTAX     InetAddress(SIZE (0|4|16))
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The value of tmnxMsdpSrcActivePeerLearntFrom indicates the peer 
+         from which this Source Active entry was last accepted."
+    ::= { tmnxMsdpSrcActiveEntry 8 }
+
+tmnxMsdpSrcActiveRPFPeerType OBJECT-TYPE
+    SYNTAX     InetAddressType
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The value of tmnxMsdpSrcActiveRPFPeerType indicates the
+         address type of tmnxMsdpSrcActiveRPFPeer."
+    ::= { tmnxMsdpSrcActiveEntry 9 }
+
+tmnxMsdpSrcActiveRPFPeer OBJECT-TYPE
+    SYNTAX     InetAddress(SIZE (0|4|16))
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The value of tmnxMsdpSrcActiveRPFPeer indicates the peer from which
+         an SA message corresponding to this cache entry would be accepted
+         (i.e. the RPF peer for tmnxMsdpSrcActiveOriginRP).  This may be 
+         different than tmnxMsdpSrcActivePeerLearntFrom if this entry was
+         created by an MSDP SA-Response."
+    ::= { tmnxMsdpSrcActiveEntry 10 }
+
+tmnxMsdpSrcActiveUpTime OBJECT-TYPE
+    SYNTAX     TimeInterval
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The value of tmnxMsdpSrcActiveUpTime indicates the time since 
+         this entry was first placed in the Source Active (SA) cache.
+
+         It is the difference between the time that the entry was first 
+         placed in the SA cache and the current time."
+    ::= { tmnxMsdpSrcActiveEntry 11 }
+
+tmnxMsdpSrcActiveExpiryTime OBJECT-TYPE
+    SYNTAX     TimeInterval
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The value of tmnxMsdpSrcActiveExpiryTime indicates the time 
+         remaining before this entry will expire from the Source Active
+         (SA) cache.
+
+         It is difference between the current time and the time that the
+         entry will expire."
+    ::= { tmnxMsdpSrcActiveEntry 12 }
+
+tmnxMsdpPeerStatsTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF TmnxMsdpPeerStatsEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "The  table tmnxMsdpPeerStatsTable is the statistics information 
+         related to a MSDP peer." 
+    ::= { tmnxMsdpObjects 7 }
+
+tmnxMsdpPeerStatsEntry OBJECT-TYPE
+    SYNTAX          TmnxMsdpPeerStatsEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "tmnxMsdpPeerStatsEntry is an entry (conceptual row) in the
+         tmnxMsdpPeerStatsTable. Each entry represents a MSDP peer related
+         statistics information."
+    AUGMENTS { tmnxMsdpPeerEntry }
+    ::= { tmnxMsdpPeerStatsTable 1 }
+
+TmnxMsdpPeerStatsEntry ::= SEQUENCE {
+    tmnxMsdpPeerStatsActSrcLimExcd          Counter32,
+    tmnxMsdpPeerStatsLastStChange           TimeInterval,
+    tmnxMsdpPeerStatsLastMsgPeer            TimeInterval,
+    tmnxMsdpPeerStatsRPFFailures            Counter32,
+    tmnxMsdpPeerStatsRemoteCloses           Counter32,
+    tmnxMsdpPeerStatsPeerTimeouts           Counter32,
+    tmnxMsdpPeerStatsSAMsgsSent             Counter32,
+    tmnxMsdpPeerStatsSAMsgsRecvd            Counter32,
+    tmnxMsdpPeerStatsSAReqMsgsSent          Counter32,
+    tmnxMsdpPeerStatsSAReqMsgsRecvd         Counter32,
+    tmnxMsdpPeerStatsSAResMsgsSent          Counter32,
+    tmnxMsdpPeerStatsSAResMsgsRecvd         Counter32,
+    tmnxMsdpPeerStatsKAMsgsSent             Counter32,
+    tmnxMsdpPeerStatsKAMsgsRecvd            Counter32,
+    tmnxMsdpPeerStatsUnknMsgsRecvd          Counter32,
+    tmnxMsdpPeerStatsErrorMsgsRecvd         Counter32,
+    tmnxMsdpPeerStatsSALearnt               Gauge32,
+    tmnxMsdpPeerStatsSARejExpPolicy         Counter32,
+    tmnxMsdpPeerStatsSARejImpPolicy         Counter32,
+    tmnxMsdpPeerStatsResvMsgsRecvd          Counter32
+}
+
+tmnxMsdpPeerStatsActSrcLimExcd OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerStatsActSrcLimExcd indicates the number
+         of times the global active source limit has been exceeded by this
+         peer instance."
+    ::= { tmnxMsdpPeerStatsEntry 1 }
+
+tmnxMsdpPeerStatsLastStChange OBJECT-TYPE
+    SYNTAX       TimeInterval
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerStatsLastStChange indicates how long 
+         ago the peer state changed."
+    ::= { tmnxMsdpPeerStatsEntry 2 }
+
+tmnxMsdpPeerStatsLastMsgPeer OBJECT-TYPE
+    SYNTAX       TimeInterval
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerStatsLastMsgPeer indicates how long 
+         ago the last message was received from this peer instance."
+    ::= { tmnxMsdpPeerStatsEntry 3 }
+
+tmnxMsdpPeerStatsRPFFailures OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerStatsRPFFailures indicates number of 
+         reverse path forwarding (RPF) failures."
+    ::= { tmnxMsdpPeerStatsEntry 4 }
+
+tmnxMsdpPeerStatsRemoteCloses OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerStatsRemoteCloses indicates the number 
+         of times the remote peer closed."
+    ::= { tmnxMsdpPeerStatsEntry 5 }
+
+tmnxMsdpPeerStatsPeerTimeouts OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerStatsPeerTimeouts indicates the number
+         of peer timeouts."
+    ::= { tmnxMsdpPeerStatsEntry 6 }
+
+tmnxMsdpPeerStatsSAMsgsSent OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerStatsSAMsgsSent indicates the number of 
+         source-active messages sent."
+    ::= { tmnxMsdpPeerStatsEntry 7 }
+
+tmnxMsdpPeerStatsSAMsgsRecvd OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerStatsSAMsgsRecvd indicates the number of
+         source-active messages received."
+    ::= { tmnxMsdpPeerStatsEntry 8 }
+
+tmnxMsdpPeerStatsSAReqMsgsSent OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerStatsSAReqMsgsSent indicates the number 
+         of source-active request messages sent."
+    ::= { tmnxMsdpPeerStatsEntry 9 }
+
+tmnxMsdpPeerStatsSAReqMsgsRecvd OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerStatsSAReqMsgsRecvd indicates the number
+         of source-active request messages received."
+    ::= { tmnxMsdpPeerStatsEntry 10 }
+
+tmnxMsdpPeerStatsSAResMsgsSent OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerStatsSAResMsgsSent indicates the number 
+         of source-active response messages sent."
+    ::= { tmnxMsdpPeerStatsEntry 11 }
+
+tmnxMsdpPeerStatsSAResMsgsRecvd OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerStatsSAResMsgsRecvd indicates the number  
+         of source-active response messages received."
+    ::= { tmnxMsdpPeerStatsEntry 12 }
+
+tmnxMsdpPeerStatsKAMsgsSent OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerStatsKAMsgsSent indicates the number  
+         of keep-alive messages sent."
+    ::= { tmnxMsdpPeerStatsEntry 13 }
+
+tmnxMsdpPeerStatsKAMsgsRecvd OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerStatsKAMsgsRecvd indicates the number  
+         of keep-alive messages received."
+    ::= { tmnxMsdpPeerStatsEntry 14 }
+
+tmnxMsdpPeerStatsUnknMsgsRecvd OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerStatsUnknMsgsRecvd indicates the 
+         number of unknown messages received."
+    ::= { tmnxMsdpPeerStatsEntry 15 }
+
+tmnxMsdpPeerStatsErrorMsgsRecvd OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerStatsErrorMsgsRecvd indicates number of 
+         error messages received."
+    ::= { tmnxMsdpPeerStatsEntry 16 }
+
+tmnxMsdpPeerStatsSALearnt OBJECT-TYPE
+    SYNTAX       Gauge32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+    "The value of tmnxMsdpPeerStatsSALearnt indicates the number 
+     of unique source active entries in the cache learned from the peer."
+    ::= { tmnxMsdpPeerStatsEntry 17 }
+
+tmnxMsdpPeerStatsSARejExpPolicy OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerStatsSARejExpPolicy indicates the number of 
+         source active messages from the peer that were not sent due to 
+         export policy."
+    ::= { tmnxMsdpPeerStatsEntry 18 }
+
+tmnxMsdpPeerStatsSARejImpPolicy OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerStatsSARejImpPolicy indicates the number of 
+         source active messages from the peer that were rejected due to 
+         import policy."
+    ::= { tmnxMsdpPeerStatsEntry 19 }
+
+tmnxMsdpPeerStatsResvMsgsRecvd OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of tmnxMsdpPeerStatsResvMsgsRecvd indicates the 
+         number of MSDP messages received with type 'Reserved'."
+    ::= { tmnxMsdpPeerStatsEntry 20 }
+
+tmnxMsdpSrcActRejTable OBJECT-TYPE
+    SYNTAX     SEQUENCE OF TmnxMsdpSrcActRejEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+           "The tmnxMsdpSrcActRejTable table stores the MSDP Source Active(SA)
+            advertisements rejected from the MSDP speaker's cache."
+    ::= { tmnxMsdpObjects 8 }
+
+tmnxMsdpSrcActRejEntry OBJECT-TYPE
+    SYNTAX     TmnxMsdpSrcActRejEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+           "An entry representing an MSDP SA advertisement that is rejected.
+
+            This is a read-only table."
+    INDEX   {    tmnxMsdpSrcActRejPeerGroupName,
+                 tmnxMsdpSrcActRejGroupAddrType,
+                 tmnxMsdpSrcActRejGroupAddr,
+                 tmnxMsdpSrcActRejSourceAddrType,
+                 tmnxMsdpSrcActRejSourceAddr,
+                 tmnxMsdpSrcActRejOriginRPType,
+                 tmnxMsdpSrcActRejOriginRP,
+                 tmnxMsdpSrcActRejPeerAddrType,
+                 tmnxMsdpSrcActRejPeerAddr
+            }
+    ::= { tmnxMsdpSrcActRejTable 1 }
+
+TmnxMsdpSrcActRejEntry ::= SEQUENCE {
+        tmnxMsdpSrcActRejPeerGroupName       TNamedItemOrEmpty,
+        tmnxMsdpSrcActRejGroupAddrType       InetAddressType,
+        tmnxMsdpSrcActRejGroupAddr           InetAddress,
+        tmnxMsdpSrcActRejSourceAddrType      InetAddressType,
+        tmnxMsdpSrcActRejSourceAddr          InetAddress,
+        tmnxMsdpSrcActRejOriginRPType        InetAddressType,
+        tmnxMsdpSrcActRejOriginRP            InetAddress,
+        tmnxMsdpSrcActRejPeerAddrType        InetAddressType,
+        tmnxMsdpSrcActRejPeerAddr            InetAddress,
+        tmnxMsdpSrcActRejFailureReason       INTEGER
+        }
+
+tmnxMsdpSrcActRejPeerGroupName OBJECT-TYPE
+    SYNTAX     TNamedItemOrEmpty
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of tmnxMsdpSrcActRejPeerGroupName indicates
+         the peer group name of the Source Active entry that is rejected."
+    ::= { tmnxMsdpSrcActRejEntry 1 }
+
+tmnxMsdpSrcActRejGroupAddrType OBJECT-TYPE
+    SYNTAX     InetAddressType
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of tmnxMsdpSrcActRejGroupAddrType indicates the
+         address type of tmnxMsdpSrcActRejGroupAddr."
+    ::= { tmnxMsdpSrcActRejEntry 2 }
+
+tmnxMsdpSrcActRejGroupAddr OBJECT-TYPE
+    SYNTAX     InetAddress(SIZE (4|16))
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of tmnxMsdpSrcActRejGroupAddr indicates the group address
+         of the Source Active entry that is rejected."
+    ::= { tmnxMsdpSrcActRejEntry 3 }
+
+tmnxMsdpSrcActRejSourceAddrType OBJECT-TYPE
+    SYNTAX     InetAddressType
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of tmnxMsdpSrcActRejSourceAddrType indicates the
+         address type of tmnxMsdpSrcActRejSourceAddr."
+    ::= { tmnxMsdpSrcActRejEntry 4 }
+
+tmnxMsdpSrcActRejSourceAddr OBJECT-TYPE
+    SYNTAX     InetAddress(SIZE (4|16))
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of tmnxMsdpSrcActRejSourceAddr indicates the source
+         address of the Source Active entry that is rejected."
+    ::= { tmnxMsdpSrcActRejEntry 5 }
+
+tmnxMsdpSrcActRejOriginRPType OBJECT-TYPE
+    SYNTAX     InetAddressType
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of tmnxMsdpSrcActRejOriginRPType indicates
+         the address type of tmnxMsdpSrcActRejOriginRP."
+    ::= { tmnxMsdpSrcActRejEntry 6 }
+
+tmnxMsdpSrcActRejOriginRP OBJECT-TYPE
+    SYNTAX     InetAddress(SIZE (4|16))
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of tmnxMsdpSrcActRejOriginRP indicates the origin
+         rendezvous point (RP) address of the Source Active entry that is
+         rejected."
+    ::= { tmnxMsdpSrcActRejEntry 7 }
+
+tmnxMsdpSrcActRejPeerAddrType OBJECT-TYPE
+    SYNTAX     InetAddressType
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of tmnxMsdpSrcActRejPeerAddrType indicates
+         the address type of tmnxMsdpSrcActRejPeerAddr."
+    ::= { tmnxMsdpSrcActRejEntry 8 }
+
+tmnxMsdpSrcActRejPeerAddr OBJECT-TYPE
+    SYNTAX     InetAddress(SIZE (4|16))
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of tmnxMsdpSrcActRejPeerAddr indicates the peer
+         from which this rejected Source Active entry was last received."
+    ::= { tmnxMsdpSrcActRejEntry 9 }
+
+tmnxMsdpSrcActRejFailureReason OBJECT-TYPE
+    SYNTAX     INTEGER
+               {
+                    importPolicyFailure (1),
+                    exportPolicyFailure (2),
+                    rpfFailure (3),
+                    actSrcLimitExceeded (4),
+                    srcActSrcLimitExceeded (5),
+                    peerActSrcLimitExceeded (6),
+                    groupActSrcLimitExceeded (7),
+                    groupPeerActSrcLimitExceeded (8)
+               }
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The value of tmnxMsdpSrcActRejFailureReason indicates
+         the reason why this Source Active entry is rejected."
+    ::= { tmnxMsdpSrcActRejEntry 10 }
+
+--
+-- Notification Definition section
+--
+
+tmnxMsdpActSrcLimExcd NOTIFICATION-TYPE
+    OBJECTS { tmnxMsdpMaxActiveSources,
+              tmnxMsdpStatusActSrcLimExceeded }
+    STATUS     current
+    DESCRIPTION
+        "The tmnxMsdpActSrcLimExcd event is generated whenever the global 
+         active source limit has been exceeded."
+    ::= { tmnxMsdpNotifications 1 }
+
+tmnxMsdpPeerActSrcLimExcd NOTIFICATION-TYPE
+    OBJECTS { tmnxMsdpPeerStatsActSrcLimExcd }
+    STATUS     current
+    DESCRIPTION
+        "The tmnxMsdpPeerActSrcLimExcd event is generated whenever the 
+         active source limit has been exceeded for the peer."
+    ::= { tmnxMsdpNotifications 2 }
+
+tmnxMsdpRPFFailure NOTIFICATION-TYPE
+    OBJECTS { tmnxMsdpSrcActiveRPFPeerType,
+              tmnxMsdpSrcActiveRPFPeer }
+    STATUS     current
+    DESCRIPTION
+        "The tmnxMsdpRPFFailure event is generated whenever a RPF(Reverse
+         Path Forwarding) failure occurs for a source configured by user."
+    ::= { tmnxMsdpNotifications 3 }
+
+tmnxMsdpSourceSrcActMsgsExcd NOTIFICATION-TYPE
+    OBJECTS { tmnxMsdpSourceMaxActiveSources,
+              tmnxMsdpSourceSrcActMsgsExMax
+               }
+    STATUS     current
+    DESCRIPTION
+        "The tmnxMsdpSourceSrcActMsgsExcd event is generated when the  
+         source active messages received from this source has exceeded 
+         the established maximum number."
+    ::= { tmnxMsdpNotifications 4 }
+
+tmnxMsdpGroupSrcActMsgsExcd NOTIFICATION-TYPE
+    OBJECTS { tmnxMsdpPeerGroupMaxActSources,
+              tmnxMsdpPeerGroupActMsgsExMax }
+    STATUS     current
+    DESCRIPTION
+        "The tmnxMsdpGroupSrcActMsgsExcd event is generated when the  
+         source active messages received from this group has exceeded 
+         the established maximum number."
+    ::= { tmnxMsdpNotifications 5 }
+
+-- compliance statements
+
+tmnxMsdpCompliance  MODULE-COMPLIANCE
+    STATUS  obsolete
+    DESCRIPTION
+      "The compliance statement for management of MSDP features
+       on Alcatel 7x50 SR series systems."
+    MODULE
+        MANDATORY-GROUPS {
+            tmnxMsdpGlobalGroup,
+            tmnxMsdpPeerGroup,
+            tmnxMsdpPeerGroupGroup,
+            tmnxMsdpSourceGroup,
+            tmnxMsdpSrcActiveGroup,
+            tmnxMsdpNotificationGroup
+        }
+    ::= { tmnxMsdpCompliances 1 }
+
+tmnxMsdpV10v0Compliance  MODULE-COMPLIANCE
+    STATUS  current
+    DESCRIPTION
+      "The compliance statement for management of MSDP features
+       on Alcatel 7x50 SR series systems."
+    MODULE
+        MANDATORY-GROUPS {
+            tmnxMsdpGlobalGroup,
+            tmnxMsdpPeerGroup,
+            tmnxMsdpPeerGroupGroup,
+            tmnxMsdpSourceGroup,
+            tmnxMsdpSrcActiveGroup,
+            tmnxMsdpSrcActiveRejGroup,
+            tmnxMsdpNotificationGroup
+        }
+    ::= { tmnxMsdpCompliances 2 }
+
+-- units of conformance
+
+tmnxMsdpGlobalGroup OBJECT-GROUP
+    OBJECTS {           
+        tmnxMsdpMaxActiveSources,
+        tmnxMsdpMsgRcvRate,
+        tmnxMsdpMsgRcvRateTime, 
+        tmnxMsdpMsgRcvRateThd, 
+        tmnxMsdpDataEncapsulation, 
+        tmnxMsdpAdminState, 
+        tmnxMsdpExportPolicy1, 
+        tmnxMsdpExportPolicy2, 
+        tmnxMsdpExportPolicy3, 
+        tmnxMsdpExportPolicy4, 
+        tmnxMsdpExportPolicy5, 
+        tmnxMsdpImportPolicy1,
+        tmnxMsdpImportPolicy2, 
+        tmnxMsdpImportPolicy3, 
+        tmnxMsdpImportPolicy4, 
+        tmnxMsdpImportPolicy5,
+        tmnxMsdpLocalAddress,
+        tmnxMsdpLocalAddressType,
+        tmnxMsdpStatusPeerCount,
+        tmnxMsdpStatusPeersEstablished,
+        tmnxMsdpStatusSACount,
+        tmnxMsdpStatusLastTimeUp,
+        tmnxMsdpStatusActSrcLimExceeded,
+        tmnxMsdpRpfLookupSequence,
+        tmnxMsdpSACacheLifetime,
+        tmnxMsdpSARejectExportPolicy,
+        tmnxMsdpSARejectImportPolicy 
+                    }
+    STATUS     current
+    DESCRIPTION
+      "A collection of global objects supporting management of MSDP 
+       protocol on Alcatel 7x50 SR series systems."
+    ::= { tmnxMsdpGroups 1 }
+
+tmnxMsdpPeerGroup OBJECT-GROUP
+   OBJECTS {           
+        tmnxMsdpPeerRowStatus,
+        tmnxMsdpPeerMaxActiveSources,
+        tmnxMsdpPeerMsgRcvRate,
+        tmnxMsdpPeerMsgRcvRateTime,
+        tmnxMsdpPeerMsgRcvRateThd,
+        tmnxMsdpPeerAuthKey,
+        tmnxMsdpPeerAuthKeyEncrypted,
+        tmnxMsdpPeerDefaultPeer,
+        tmnxMsdpPeerAdminState,
+        tmnxMsdpPeerExportPolicy1,
+        tmnxMsdpPeerExportPolicy2 ,
+        tmnxMsdpPeerExportPolicy3 ,
+        tmnxMsdpPeerExportPolicy4 ,
+        tmnxMsdpPeerExportPolicy5,
+        tmnxMsdpPeerImportPolicy1,
+        tmnxMsdpPeerImportPolicy2 ,
+        tmnxMsdpPeerImportPolicy3,
+        tmnxMsdpPeerImportPolicy4,
+        tmnxMsdpPeerImportPolicy5,
+        tmnxMsdpPeerLocalAddressType,
+        tmnxMsdpPeerLocalAddress,
+
+        tmnxMsdpPeerGrpPeerRowStatus,
+        tmnxMsdpPeerGrpPeerMaxActSrcs, 
+        tmnxMsdpPeerGrpPeerMsgRcvRt,
+        tmnxMsdpPeerGrpPeerMsgRcvRtTime,
+        tmnxMsdpPeerGrpPeerMsgRcvRtThd ,
+        tmnxMsdpPeerGrpPeerAuthKey,
+        tmnxMsdpPeerGrpPeerAKeyEncrypt,
+        tmnxMsdpPeerGrpPeerDefaultPeer,
+        tmnxMsdpPeerGrpPeerAdminState,
+        tmnxMsdpPeerGrpPeerExportPolicy1,
+        tmnxMsdpPeerGrpPeerExportPolicy2,
+        tmnxMsdpPeerGrpPeerExportPolicy3,
+        tmnxMsdpPeerGrpPeerExportPolicy4,
+        tmnxMsdpPeerGrpPeerExportPolicy5,
+        tmnxMsdpPeerGrpPeerImportPolicy1,
+        tmnxMsdpPeerGrpPeerImportPolicy2,
+        tmnxMsdpPeerGrpPeerImportPolicy3,
+        tmnxMsdpPeerGrpPeerImportPolicy4,
+        tmnxMsdpPeerGrpPeerImportPolicy5,
+        tmnxMsdpPeerGrpPeerLocAddrType,
+        tmnxMsdpPeerGrpPeerLocalAddress,
+
+        tmnxMsdpPeerStatsActSrcLimExcd,
+        tmnxMsdpPeerStatsLastStChange,
+        tmnxMsdpPeerStatsLastMsgPeer,
+        tmnxMsdpPeerStatsRPFFailures,
+        tmnxMsdpPeerStatsRemoteCloses,
+        tmnxMsdpPeerStatsPeerTimeouts,
+        tmnxMsdpPeerStatsSAMsgsSent,
+        tmnxMsdpPeerStatsSAMsgsRecvd,
+        tmnxMsdpPeerStatsSAReqMsgsSent,
+        tmnxMsdpPeerStatsSAReqMsgsRecvd,
+        tmnxMsdpPeerStatsSAResMsgsSent,
+        tmnxMsdpPeerStatsSAResMsgsRecvd,
+        tmnxMsdpPeerStatsKAMsgsSent,
+        tmnxMsdpPeerStatsKAMsgsRecvd,
+        tmnxMsdpPeerStatsUnknMsgsRecvd,
+        tmnxMsdpPeerStatsErrorMsgsRecvd,
+        tmnxMsdpPeerStatsSALearnt,
+        tmnxMsdpPeerStatsSARejExpPolicy,
+        tmnxMsdpPeerStatsSARejImpPolicy,
+        tmnxMsdpPeerStatsResvMsgsRecvd,
+
+        tmnxMsdpPeerState,
+        tmnxMsdpPeerLastUpOrDown,
+        tmnxMsdpPeerConRetry,
+        tmnxMsdpPeerStateTimer,
+        tmnxMsdpPeerTimeout,
+        tmnxMsdpPeerSAAccepted,
+        tmnxMsdpPeerSARecvd,
+        tmnxMsdpPeerLastASLimit,
+
+        tmnxMsdpPeerGrpPeerState,
+        tmnxMsdpPeerGrpPeerLastUpOrDown,
+        tmnxMsdpPeerGrpPeerConRetry,
+        tmnxMsdpPeerGrpPeerStateTimer,
+        tmnxMsdpPeerGrpPeerTimeout,
+        tmnxMsdpPeerGrpPeerSAAccepted,
+        tmnxMsdpPeerGrpPeerSARecvd,
+        tmnxMsdpPeerGrpPeerLastASLimit  
+           }
+    STATUS     current
+    DESCRIPTION
+      "A collection of objects supporting management of MSDP 
+       peers on Alcatel 7x50 SR series systems."
+    ::= { tmnxMsdpGroups 2 }
+    
+tmnxMsdpPeerGroupGroup OBJECT-GROUP
+   OBJECTS {    
+        tmnxMsdpPeerGroupRowStatus,        
+        tmnxMsdpPeerGroupMsgRcvRate,
+        tmnxMsdpPeerGroupMsgRcvRateTime,
+        tmnxMsdpPeerGroupMsgRcvRateThd,
+        tmnxMsdpPeerGroupAdminState,
+        tmnxMsdpPeerGroupExportPolicy1,
+        tmnxMsdpPeerGroupExportPolicy2,
+        tmnxMsdpPeerGroupExportPolicy3,
+        tmnxMsdpPeerGroupExportPolicy4,
+        tmnxMsdpPeerGroupExportPolicy5,
+        tmnxMsdpPeerGroupImportPolicy1,
+        tmnxMsdpPeerGroupImportPolicy2,
+        tmnxMsdpPeerGroupImportPolicy3,
+        tmnxMsdpPeerGroupImportPolicy4,
+        tmnxMsdpPeerGroupImportPolicy5,
+        tmnxMsdpPeerGroupLocalAddrType,
+        tmnxMsdpPeerGroupLocalAddress,
+        tmnxMsdpPeerGroupMode,
+        tmnxMsdpPeerGroupMaxActSources,
+        tmnxMsdpPeerGroupActMsgsExMax,
+        tmnxMsdpPeerGrpSARejExpPolicy,
+        tmnxMsdpPeerGrpSARejImpPolicy
+           }
+    STATUS     current
+    DESCRIPTION
+      "A collection of objects supporting management of MSDP 
+       peer groups on Alcatel 7x50 SR series systems."
+    ::= { tmnxMsdpGroups 3 }
+
+  
+tmnxMsdpSourceGroup OBJECT-GROUP
+   OBJECTS {            
+        tmnxMsdpSourceRowStatus,
+        tmnxMsdpSourceMaxActiveSources,
+        tmnxMsdpSourceDiscMethod,
+        tmnxMsdpSourceSrcActMsgsExMax,
+        tmnxMsdpSourceLastExEventTime
+           }
+    STATUS     current
+    DESCRIPTION
+      "A collection of objects supporting management of MSDP 
+       sources on Alcatel 7x50 SR series systems."
+    ::= { tmnxMsdpGroups 4 }
+
+tmnxMsdpSrcActiveGroup OBJECT-GROUP
+   OBJECTS {            
+        tmnxMsdpSrcActivePrLearnFrType,
+        tmnxMsdpSrcActivePeerLearntFrom,
+        tmnxMsdpSrcActiveRPFPeerType,
+        tmnxMsdpSrcActiveRPFPeer,
+        tmnxMsdpSrcActiveUpTime,
+        tmnxMsdpSrcActiveExpiryTime
+       }
+    STATUS     current
+    DESCRIPTION
+      "A collection of objects supporting management of MSDP 
+       source active information on Alcatel 7x50 SR series systems."
+    ::= { tmnxMsdpGroups 5 }
+
+tmnxMsdpNotificationGroup NOTIFICATION-GROUP
+    NOTIFICATIONS {
+        tmnxMsdpActSrcLimExcd,
+        tmnxMsdpPeerActSrcLimExcd,
+        tmnxMsdpRPFFailure,
+        tmnxMsdpSourceSrcActMsgsExcd,
+        tmnxMsdpGroupSrcActMsgsExcd
+    }
+    STATUS    current
+    DESCRIPTION
+        "The group of notifications supporting management of the 
+         MSDP operations on Alcatel 7x50 SR series systems."
+    ::= { tmnxMsdpGroups 6 }
+
+tmnxMsdpSrcActiveRejGroup OBJECT-GROUP
+   OBJECTS {            
+        tmnxMsdpSrcActRejFailureReason
+       }
+    STATUS     current
+    DESCRIPTION
+      "A collection of objects supporting management of MSDP 
+       rejected source active information on Alcatel 7x50 SR series systems."
+    ::= { tmnxMsdpGroups 7 }
+
+END

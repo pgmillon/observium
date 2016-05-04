@@ -1,0 +1,118 @@
+#!/bin/bash
+
+echo '<<<hdarray>>>'
+############### Dell perc 6/i #############
+if [ -a /opt/dell/srvadmin/bin/omreport ]
+then
+  CONTROLLER=`/opt/dell/srvadmin/bin/omreport storage controller`
+  # Get Controller Info
+  CINFO=$(echo "$CONTROLLER" | grep Status)
+  CINFOSTAT=$(echo "$CINFO" | cut -d':' -f2)
+  CINFOSTAT=${CINFOSTAT:1}
+  echo Controller Status=$CINFOSTAT
+
+  IFS='
+'
+  set -f
+  #Drive status
+  DRIVES=`/opt/dell/srvadmin/bin/omreport  storage pdisk controller=0 -fmt ssv | sed -n '/[0-1].*/p'`
+  for line in $DRIVES
+  do
+    DRIVEINFO=$(echo "$line" | cut -d';' -f1)
+    DRIVESTATUS=$(echo "$line" | cut -d';' -f2) 
+    echo Drive $DRIVEINFO=$DRIVESTATUS
+  done
+  set +f
+  unset IFS
+  #echo $DRIVES
+fi
+
+################## Dell LSI Controllers ##############
+if [ -a /opt/MegaRAID/MegaCli/MegaCli64 ] 
+then
+  RAID=/tmp/lsi.$$
+
+  #TODO figure out how to get controller status
+  CTRLSTAT=Ok
+  echo Controller Status=$CTRLSTAT
+
+  #WARNING need to disable the stderr redirection to null in check_mk script
+
+  /opt/MegaRAID/MegaCli/MegaCli64 -AdpBbuCmd -aAll -NoLog > $RAID 2>&1
+
+  CTRLBATINFO="$(grep "Battery State" $RAID | cut -d\: -f2)"
+  CTRLBATINFO=$(echo $CTRLBATINFO)
+  [ "$CTRLBATINFO" = "Operational" ] && CTRLBATINFO=Ok
+  #echo Battery Status=$CTRLBATINFO
+
+  /opt/MegaRAID/MegaCli/MegaCli64 -LDInfo -Lall -aALL -NoLog > $RAID
+
+  let iLOGICALDEV=0
+  grep "Virtual Drive:" $RAID | while read DEVICE; do
+    STATUS="$(grep -A 5 "$DEVICE" $RAID | tail -1 | cut -d\: -f2)"
+    STATUS=${STATUS:1}
+    [ "$STATUS" = "Optimal" ] && STATUS=Ok
+    echo Logical Drive $iLOGICALDEV=$STATUS
+    let iLOGICALDEV++
+  done
+
+
+  /opt/MegaRAID/MegaCli/MegaCli64 -PDList -aALL -NoLog > $RAID
+
+  let iDEVICE=0
+  grep "Device Id" $RAID | while read DEVICE; do
+    STATUS="$(grep -A 12 "$DEVICE" $RAID | tail -1 | cut -d\: -f2)"
+    STATUS=${STATUS:1}
+    [ "$STATUS" = "Online, Spun Up" ] && STATUS=Ok
+    echo Drive $iDEVICE=$STATUS
+    let iDEVICE++
+  done
+  rm -f $RAID
+fi
+
+#################### Adaptec controllers ####################
+if [ -a /usr/StorMan/arcconf ]
+then
+
+  RAID=/tmp/adpatec.$$
+  /usr/StorMan/arcconf getconfig 1 al > $RAID
+
+  CTRLSTAT="$(grep "Controller Status" $RAID | cut -d\: -f2)"
+  CTRLSTAT=$(echo $CTRLSTAT)
+  [ "$CTRLSTAT" = "Optimal" ] && CTRLSTAT=Ok
+  echo Controller Status=$CTRLSTAT
+
+  CTRLBATINFO="$(grep -A 2 "Controller Battery" $RAID|grep "Status"|cut -d\: -f2)"
+  CTRLBATINFO=$(echo $CTRLBATINFO)
+  [[ "$CTRLBATINFO" = "Optimal"  || "$CTRLBATINFO" = "Charging" ]]; CTRLBATINFO=Ok
+  echo Battery Status=$CTRLBATINFO
+
+  CTRTEMP="$(grep "Temperature" $RAID| cut -d\: -f2|awk '{print $5}')"
+  CTRTEMP=$(echo $CTRTEMP)
+  [ "$CTRTEMP" = "(Normal)" ] && CTRTEMP=Ok
+  echo Controller Temp=$CTRTEMP
+
+  let iLOGICALDEV=0
+  grep "Status of logical device" $RAID | cut -d\: -f2 | while read STATUS; do
+    [ "$STATUS" = "Optimal" ] && STATUS=Ok
+    echo Logical Drive $iLOGICALDEV=$STATUS
+    let iLOGICALDEV++
+  done
+
+  let iLOGICALDEV=0 
+  grep "Failed stripes" $RAID| cut -d\: -f2 | while read STATUS; do
+    [ "$STATUS" = "No" ] && STATUS=Ok
+    echo Logical Drive Stripe $iLOGICALDEV=$STATUS
+    let iLOGICALDEV++
+  done
+
+  let iDEVICE=0
+  grep "Device #" $RAID | while read DEVICE; do
+    STATUS="$(grep -A 2 "$DEVICE" $RAID | tail -1 | cut -d\: -f2)"
+    STATUS=${STATUS:1}
+    [ "$STATUS" = "Online" ] && STATUS=Ok
+    echo Drive $iDEVICE=$STATUS
+    let iDEVICE++
+  done
+  rm -f $RAID
+fi

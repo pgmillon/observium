@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage web
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -28,6 +28,9 @@
  */
 function print_events($vars)
 {
+
+  global $config;
+
   // Get events array
   $events = get_events_array($vars);
 
@@ -39,16 +42,17 @@ function print_events($vars)
     // Entries have been returned. Print the table.
     $list = array('device' => FALSE, 'port' => FALSE);
     if (!isset($vars['device']) || empty($vars['device']) || $vars['page'] == 'eventlog') { $list['device'] = TRUE; }
-    if ($events['short'] || !isset($vars['port']) || empty($vars['port'])) { $list['port'] = TRUE; }
+    if ($events['short'] || !isset($vars['port']) || empty($vars['port'])) { $list['entity'] = TRUE; }
 
     $string = '<table class="table table-bordered table-striped table-hover table-condensed-more">' . PHP_EOL;
     if (!$events['short'])
     {
       $string .= '  <thead>' . PHP_EOL;
       $string .= '    <tr>' . PHP_EOL;
+      $string .= '      <th class="state-marker"></th>' . PHP_EOL;
       $string .= '      <th>Date</th>' . PHP_EOL;
       if ($list['device']) { $string .= '      <th>Device</th>' . PHP_EOL; }
-      if ($list['port'])   { $string .= '      <th>Entity</th>' . PHP_EOL; }
+      if ($list['entity']) { $string .= '      <th>Entity</th>' . PHP_EOL; }
       $string .= '      <th>Message</th>' . PHP_EOL;
       $string .= '    </tr>' . PHP_EOL;
       $string .= '  </thead>' . PHP_EOL;
@@ -58,10 +62,35 @@ function print_events($vars)
     foreach ($events['entries'] as $entry)
     {
 
-      $icon = geteventicon($entry['message']);
-      if ($icon) { $icon = '<img src="images/16/' . $icon . '" />'; }
+      #$icon = geteventicon($entry['message']);
+      #if ($icon) { $icon = '<img src="images/16/' . $icon . '" />'; }
 
-      $string .= '  <tr>' . PHP_EOL;
+      switch ($entry['severity'])
+      {
+        case "0": // Emergency
+        case "1": // Alert
+        case "2": // Critical
+        case "3": // Error
+            $entry['html_row_class'] = "error";
+            break;
+        case "4": // Warning
+            $entry['html_row_class'] = "warning";
+            break;
+        case "5": // Notification
+            $entry['html_row_class'] = "recovery";
+            break;
+        case "6": // Informational
+            $entry['html_row_class'] = "up";
+            break;
+        case "7": // Debugging
+            $entry['html_row_class'] = "suppressed";
+            break;
+        default:
+      }
+
+      $string .= '  <tr class="'.$entry['html_row_class'].'">' . PHP_EOL;
+      $string .= '<td class="state-marker"></td>' . PHP_EOL;
+
       if ($events['short'])
       {
         $string .= '    <td class="syslog" style="white-space: nowrap">';
@@ -81,24 +110,35 @@ function print_events($vars)
                              'section' => 'eventlog');
         $string .= '    <td class="entity">' . generate_device_link($dev, short_hostname($dev['hostname']), $device_vars) . '</td>' . PHP_EOL;
       }
-      if ($list['port'])
+      if ($list['entity'])
       {
-        if ($entry['type'] == 'port')
+        if ($entry['entity_type'] == 'device' && !$entry['entity_id']) { $entry['entity_id'] = $entry['device_id']; }
+        if ($entry['entity_type'] == 'port')
         {
-          $this_if = get_port_by_id_cache($entry['reference']);
-          $entry['link'] = '<span class="entity">' . generate_port_link($this_if, short_ifname($this_if['label'])) . '</span>';
+          $this_if = get_port_by_id_cache($entry['entity_id']);
+          $entry['link'] = '<span class="entity"><i class="' . $config['entities']['port']['icon'] . '"></i> ' . generate_port_link($this_if, short_ifname($this_if['label'])) . '</span>';
         } else {
-          $entry['link'] = ucfirst($entry['type']);
+          if (!empty($config['entities'][$entry['entity_type']]['icon']))
+          {
+            $entry['link'] = '<i class="' . $config['entities'][$entry['entity_type']]['icon'] . '"></i> <span class="entity">'.generate_entity_link($entry['entity_type'], $entry['entity_id']).'</span>';
+          } else {
+            $entry['link'] = nicecase($entry['entity_type']);
+          }
+
         }
-        if (!$events['short']) { $string .= '    <td>' . $entry['link'] . '</td>' . PHP_EOL; }
+        if (!$events['short']) { $string .= '    <td nowrap>' . $entry['link'] . '</td>' . PHP_EOL; }
       }
       if ($events['short'])
       {
-        $string .= '    <td class="syslog">' . $entry['link'] . ' ';
+        $string .= '    <td nowrap class="syslog">';
+        if (strpos($entry['message'], $entry['link']) !== 0)
+        {
+          $string .= $entry['link'] . ' ';
+        }
       } else {
         $string .= '    <td>';
       }
-      $string .= htmlspecialchars($entry['message']) . '</td>' . PHP_EOL;
+      $string .= escape_html($entry['message']) . '</td>' . PHP_EOL;
       $string .= '  </tr>' . PHP_EOL;
     }
 
@@ -133,7 +173,7 @@ function print_events_short($var)
  * Params:
  * short
  * pagination, pageno, pagesize
- * device_id, port, type, message, timestamp_from, timestamp_to
+ * device_id, entity_id, entity_type, message, timestamp_from, timestamp_to
  */
 function get_events_array($vars)
 {
@@ -163,10 +203,16 @@ function get_events_array($vars)
           $where .= generate_query_values($value, 'device_id');
           break;
         case 'port':
-          $where .= generate_query_values($value, 'reference');
+        case 'entity':
+        case 'entity_id':
+          $where .= generate_query_values($value, 'entity_id');
+          break;
+        case 'severity':
+          $where .= generate_query_values($value, 'severity');
           break;
         case 'type':
-          $where .= generate_query_values($value, 'type');
+        case 'entity_type':
+          $where .= generate_query_values($value, 'entity_type');
           break;
         case 'message':
           $where .= generate_query_values($value, 'message', '%LIKE%');
@@ -188,7 +234,7 @@ function get_events_array($vars)
 
   $query = 'FROM `eventlog` ';
   $query .= $where . $query_permitted;
-  $query_count = 'SELECT COUNT(`event_id`) '.$query;
+  $query_count = 'SELECT COUNT(*) '.$query;
   $query_updated = 'SELECT MAX(`timestamp`) '.$query;
 
   $query = 'SELECT * '.$query;

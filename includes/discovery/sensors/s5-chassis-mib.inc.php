@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -29,8 +29,8 @@ if ($fw_major_version >= 6.1)
   {
     $t = explode(" ",$t);
     $oid = $t[0];
-    $val = trim($t[1]);
-    discover_sensor($valid['sensor'], 'temperature', $device, $oid, zeropad($i+1), 'avaya-ers', "Unit " . ($i+1) . " temperature", $scale, $val * $scale);
+    $value = trim($t[1]);
+    discover_sensor($valid['sensor'], 'temperature', $device, $oid, zeropad($i+1), 'avaya-ers', "Unit " . ($i+1) . " temperature", $scale, $value);
   }
 }
 

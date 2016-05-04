@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -26,7 +26,7 @@ function getInterfaceList(sel, target_id)
                 var index = ajax.length;
                 ajax[index] = new sack();
 
-                ajax[index].requestFile = 'ajax_listports.php?device_id='+deviceId;    // Specifying which file to get
+                ajax[index].requestFile = 'ajax/device_ports.php?device_id='+deviceId;    // Specifying which file to get
                 ajax[index].onCompletion = function() { createInterfaces(index, target_id) };       // Specify function that will be executed after file has been found
                 ajax[index].runAJAX();          // Execute AJAX function
         }

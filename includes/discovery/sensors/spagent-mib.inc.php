@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -44,12 +44,11 @@ foreach ($akcp_array as $index => $entry)
     if ($entry['sensorProbeTempDegreeType'] == 'fahr')
     {
       $scale_temp = 5/9;
-      $value      = f2c($value);
+      //$value      = f2c($value);
       foreach (array('limit_high', 'limit_low', 'limit_high_warn', 'limit_low_warn') as $param)
       {
         $limits[$param] = f2c($limits[$param]); // Convert from fahrenheit to celsius
       }
-      print_debug('TEMP sensor: Fahrenheit -> Celsius');
     }
 
     if ($entry['sensorProbeTempStatus'] != 'noStatus')
@@ -84,7 +83,7 @@ foreach ($akcp_array as $index => $entry)
 
     $descr = $entry['sensorProbeSwitchDescription'];
     $oid   = ".1.3.6.1.4.1.3854.1.2.2.1.18.1.3.$index"; # SPAGENT-MIB:sensorProbeSwitchStatus.$index
-    $value = state_string_to_numeric('spagent-state',$entry['sensorProbeSwitchStatus']);
+    $value = $entry['sensorProbeSwitchStatus'];
 
     if ($entry['sensorProbeSwitchStatus'] != 'noStatus')
     {

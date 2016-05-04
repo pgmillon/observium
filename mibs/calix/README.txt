@@ -63,10 +63,14 @@ For the IF-MIB, the following numbering scheme is used for E7-2:
  22001-22048 -         DSL ports, shelf 10, card 2,  VDSL-48C and VDSL-48 cards
    ...
  30101-30104 - SFP     Pon ports, shelf 1, card 1, GPON-4 cards
+ 30101-30108 - SFP     Pon ports, shelf 1, card 1, GPON-8 cards
  30201-30204 - SFP     Pon ports, shelf 1, card 2, GPON-4 cards
+ 30201-30208 - SFP     Pon ports, shelf 1, card 2, GPON-8 cards
    ...
  31901-31904 - SFP     Pon ports, shelf 10, card 1, GPON-4 cards
+ 31901-31908 - SFP     Pon ports, shelf 10, card 1, GPON-8 cards
  32001-32004 - SFP     Pon ports, shelf 10, card 2, GPON-4 cards
+ 32001-32008 - SFP     Pon ports, shelf 10, card 2, GPON-8 cards
    ...
 100001-755360 - ONT FE, GE, and HPNA Ethernet ports
 
@@ -74,4 +78,13 @@ For the IF-MIB, the following numbering scheme is used for E5-400 and E5-312:
    101-  112 - SFP   1GigE ports
  10101-10102 - XFP  10GigE ports (E5-400 only)
  10103-10104 - SFP+ 10GigE ports
+
+For the IF-MIB, the following numbering scheme is used for E3-48C:
+   101-  103 - SFP   1GigE ports
+ 10103-10104 - SFP+ 10GigE ports
+ 20101-20148 -         DSL ports
+
+For the IF-MIB, the following numbering scheme is used for E5-48C and E5-48:
+   101-  104 - SFP   1GigE ports
+ 20101-20148 -         DSL ports
 

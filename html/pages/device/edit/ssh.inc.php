@@ -2,20 +2,20 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-if ($_POST['editing'])
+if ($vars['editing'])
 {
   if ($_SESSION['userlevel'] > "7")
   {
-    $ssh_port = $_POST['ssh_port'];
+    $ssh_port = $vars['ssh_port'];
 
     if (!is_numeric($ssh_port))
     {
@@ -68,7 +68,7 @@ print_warning("For now this option used only by 'libvirt-vminfo' discovery modul
       <div class="control-group">
         <label class="control-label" for="ssh_port">SSH Port</label>
         <div class="controls">
-          <input type=text name="ssh_port" size="32" value="<?php echo(htmlspecialchars($device['ssh_port'])); ?>"/>
+          <input type=text name="ssh_port" size="32" value="<?php echo(escape_html($device['ssh_port'])); ?>"/>
         </div>
       </div>
     </fieldset>

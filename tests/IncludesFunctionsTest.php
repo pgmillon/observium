@@ -1,7 +1,8 @@
 <?php
 
 include(dirname(__FILE__) . '/../includes/defaults.inc.php');
-include(dirname(__FILE__) . '/../config.php');
+//include(dirname(__FILE__) . '/../config.php'); // Do not include user editable config here
+include(dirname(__FILE__) . '/data/test_definitions.inc.php'); // Fake definitions for testing
 include(dirname(__FILE__) . '/../includes/definitions.inc.php');
 include(dirname(__FILE__) . '/../includes/functions.inc.php');
 
@@ -124,6 +125,7 @@ class IncludesFunctionsTest extends PHPUnit_Framework_TestCase
 
   /**
   * @dataProvider providerIsHexString
+  * @group hex
   */
   public function testIsHexString($string, $result)
   {
@@ -144,6 +146,7 @@ class IncludesFunctionsTest extends PHPUnit_Framework_TestCase
 
   /**
   * @dataProvider providerSNMPHexString
+  * @group hex
   */
   public function testSNMPHexString($string, $result)
   {
@@ -154,10 +157,97 @@ class IncludesFunctionsTest extends PHPUnit_Framework_TestCase
   {
     $results = array(
       array('49 6E 70 75 74 20 31 00 ', 'Input 1'),
-      array('49 6E 70 75 74 20 31 00',  'Input 1'),
+      array('49 6E 70 75 74 20 31',     'Input 1'),
+      array('4A 7D 34 3D',              'J}4='),
       array('49 6E 70 75 74 20 31 0',   '49 6E 70 75 74 20 31 0'),
       array('Simple String',            'Simple String'),
       array('49 6E 70 75 74 20 31 0R ', '49 6E 70 75 74 20 31 0R ')
+    );
+    return $results;
+  }
+
+  /**
+  * @dataProvider providerStr2Hex
+  * @group hex
+  */
+  public function testStr2Hex($string, $result)
+  {
+    $this->assertSame($result, str2hex($string));
+  }
+
+  public function providerStr2Hex()
+  {
+    $results = array(
+      array(' ',              '20'),
+      array('Input 1',        '496e7075742031'),
+      array('J}4=',           '4a7d343d'),
+      array('Simple String',  '53696d706c6520537472696e67'),
+    );
+    return $results;
+  }
+
+  /**
+  * @dataProvider providerHex2IP
+  * @group hexip
+  */
+  public function testHex2IP($string, $result)
+  {
+    $this->assertSame($result, hex2ip($string));
+  }
+
+  public function providerHex2IP()
+  {
+    $results = array(
+      // IPv4
+      array('C1 9C 5A 26',  '193.156.90.38'),
+      array('4a7d343d',     '74.125.52.61'),
+      array('207d343d',     '32.125.52.61'),
+      // IPv4 (converted to snmp string)
+      array('J}4=',         '74.125.52.61'),
+      array('J}4:',         '74.125.52.58'),
+      array('    ',         '32.32.32.32'),
+      // IPv6
+      array('20 01 07 F8 00 12 00 01 00 00 00 00 00 05 02 72',  '2001:07f8:0012:0001:0000:0000:0005:0272'),
+      array('20:01:07:F8:00:12:00:01:00:00:00:00:00:05:02:72',  '2001:07f8:0012:0001:0000:0000:0005:0272'),
+      array('200107f8001200010000000000050272',                 '2001:07f8:0012:0001:0000:0000:0005:0272'),
+      // Wrong data
+      array('4a7d343dd',                        '4a7d343dd'),
+      array('200107f800120001000000000005027',  '200107f800120001000000000005027'),
+      array('193.156.90.38',                    '193.156.90.38'),
+      array('Simple String',                    'Simple String'),
+      array('',  ''),
+      array(FALSE,  FALSE),
+    );
+    return $results;
+  }
+
+  /**
+  * @dataProvider providerIp2Hex
+  * @group hexip
+  */
+  public function testIp2Hex($string, $separator, $result)
+  {
+    $this->assertSame($result, ip2hex($string, $separator));
+  }
+
+  public function providerIp2Hex()
+  {
+    $results = array(
+      // IPv4
+      array('193.156.90.38', ' ', 'c1 9c 5a 26'),
+      array('74.125.52.61',  ' ', '4a 7d 34 3d'),
+      array('74.125.52.61',   '', '4a7d343d'),
+      // IPv6
+      array('2001:07f8:0012:0001:0000:0000:0005:0272', ' ', '20 01 07 f8 00 12 00 01 00 00 00 00 00 05 02 72'),
+      array('2001:7f8:12:1::5:0272',                   ' ', '20 01 07 f8 00 12 00 01 00 00 00 00 00 05 02 72'),
+      array('2001:7f8:12:1::5:0272',                    '', '200107f8001200010000000000050272'),
+      // Wrong data
+      array('4a7d343dd',                       NULL, '4a7d343dd'),
+      array('200107f800120001000000000005027', NULL, '200107f800120001000000000005027'),
+      array('300.156.90.38',                   NULL, '300.156.90.38'),
+      array('Simple String',                   NULL, 'Simple String'),
+      array('',    NULL, ''),
+      array(FALSE, NULL, FALSE),
     );
     return $results;
   }
@@ -175,13 +265,52 @@ class IncludesFunctionsTest extends PHPUnit_Framework_TestCase
     $results = array(
       array('mge-status-state',           'No', 2),
       array('mge-status-state',           'no', 2),
-      array('mge-status-state',           'Banana', -1),
-      array('inexistent-status-state',    'Vanilla', -1),
+      array('mge-status-state',           'Banana', FALSE),
+      array('inexistent-status-state',    'Vanilla', FALSE),
       array('radlan-hwenvironment-state', 'notFunctioning', 6),
       array('radlan-hwenvironment-state', 'notFunctioning ', 6),
       array('cisco-envmon-state',         'warning', 2),
-      array('cisco-envmon-state',         'war ning', -1),
+      array('cisco-envmon-state',         'war ning', FALSE),
       array('powernet-sync-state',        'inSync', 1),
+      // Numeric value
+      array('cisco-envmon-state',         '2', 2),
+      array('cisco-envmon-state',          2, 2),
+      array('cisco-envmon-state',         '2.34', FALSE),
+      array('cisco-envmon-state',          10, FALSE),
+    );
+    return $results;
+  }
+
+  /**
+  * @dataProvider providerPriorityStringToNumeric
+  */
+  public function testPriorityStringToNumeric($value, $result)
+  {
+    $this->assertSame($result, priority_string_to_numeric($value));
+  }
+
+  public function providerPriorityStringToNumeric()
+  {
+    $results = array(
+      // Named value
+      array('emerg',    0),
+      array('alert',    1),
+      array('crit',     2),
+      array('err',      3),
+      array('warning',  4),
+      array('notice',   5),
+      array('info',     6),
+      array('debug',    7),
+      array('DeBuG',    7),
+      // Numeric value
+      array('0',        0),
+      array('7',        7),
+      array(8,          8),
+      // Wrong value
+      array('some',    15),
+      array(array(),   15),
+      array(0.1,       15),
+      array('100',     15),
     );
     return $results;
   }
@@ -305,6 +434,72 @@ class IncludesFunctionsTest extends PHPUnit_Framework_TestCase
       array(FALSE, 'FE80:FFFF:0:FFFF:129:144:52:38', $nets6),
     );
     return $results;
+  }
+
+  /**
+  * @dataProvider providerIsPingable
+  * @group network
+  */
+  public function testIsPingable($result, $hostname, $try_a = TRUE)
+  {
+    $ping = isPingable($hostname, $try_a);
+    $ping = is_numeric($ping) && $ping > 0; // Function return random float number
+    $this->assertSame($result, $ping);
+  }
+
+  public function providerIsPingable()
+  {
+    $array = array(
+      array(TRUE,  'localhost'),
+      array(TRUE,  '127.0.0.1'),
+      array(FALSE, 'yohoho.i.butylka.roma'),
+      array(FALSE, '127.0.0.1', FALSE), // Try ping IPv4 with IPv6 disabled
+    );
+    $cmd = $GLOBALS['config']['fping6'] . " -c 1 -q ::1 2>&1";
+    exec($cmd, $output, $return); // Check if we have IPv6 support in current system
+    if ($return === 0)
+    {
+      // IPv6 only
+      $array[] = array(TRUE,  'localhost', FALSE);
+      $array[] = array(TRUE,  '::1',       FALSE);
+      $array[] = array(FALSE, '::ffff',    FALSE);
+    }
+    return $array;
+  }
+
+  /**
+  * @dataProvider providerGetDeviceOS
+  * @group snmp
+  */
+  public function testGetDeviceOS($result, $old_os, $sysObjectID, $sysDescr)
+  {
+    $device = array('device_id'      => 0,
+                    'disabled'       => 0,
+                    'ignore'         => 0,
+                    'status'         => 1,
+                    'snmp_version'   => 'v2c',
+                    'snmp_community' => 'test',
+                    'snmp_port'      => 161,
+                    'snmp_timeout'   => 1,
+                    'snmp_retries'   => 0,
+                    'hostname'       => 'example.test',
+                    'os'             => $old_os,
+                    );
+    $fake_data  = 'sysDescr.0 = '.$sysDescr.PHP_EOL;
+    $fake_data .= 'sysObjectID.0 = '.$sysObjectID;
+    $GLOBALS['config']['snmpget'] = dirname(__FILE__) . '/data/snmpfake.sh fakedata '.escapeshellarg($fake_data); //.' -d';
+    $os = get_device_os($device);
+    $this->assertSame($result, $os);
+  }
+
+  public function providerGetDeviceOS()
+  {
+    $array = array(
+      array('procurve', '', '.1.3.6.1.4.1.11.2.3.7.11.104',       'HP ProCurve 1810G - 24 GE, P.2.2, eCos-2.0, CFE-2.1'),
+      array('hpvc',     '', '.1.3.6.1.4.1.11.2.3.7.11.33.4.1.1',  'GbE2c L2/L3 Ethernet Blade Switch for HP c-Class BladeSystem'),
+      array('hpvc',     '', '.1.3.6.1.4.1.11.5.7.5.1',            'HP VC Flex-10 Enet Module Virtual Connect 3.18 '),
+    );
+    return $array;
   }
 }
 

@@ -8,7 +8,7 @@
  * @package    observium
  * @subpackage snmp
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -47,16 +47,47 @@ function mib_dirs()
   return implode(":", array_unique($dirs));
 }
 
-// Crappy function to get workaround 32bit counter wrapping in HOST-RESOURCES-MIB
-// See: http://blog.logicmonitor.com/2011/06/11/linux-monitoring-net-snmp-and-terabyte-file-systems/
-// DOCME needs phpdoc block
-// TESTME needs unit testing
+/**
+ * De-wrap 32bit counters
+ * Crappy function to get workaround 32bit counter wrapping in HOST-RESOURCES-MIB
+ * See: http://blog.logicmonitor.com/2011/06/11/linux-monitoring-net-snmp-and-terabyte-file-systems/
+ *
+ * @param integer $value
+ * @return integer
+ */
 function snmp_dewrap32bit($value)
 {
   if (is_numeric($value) && $value < 0)
   {
     return ($value + 4294967296);
   } else {
+    return $value;
+  }
+}
+
+/**
+ * Clean returned numeric data from snmp output
+ * Supports only non-scientific numbers
+ * Examples: "  20,4" -> 20.4
+ *
+ * @param string $value
+ * @return mixed $numeric
+ */
+function snmp_fix_numeric($value)
+{
+  if (is_numeric($value)) { return $value + 0; } // If already numeric just return value
+
+  $numeric = trim($value, " \t\n\r\0\x0B\"");
+  list($numeric) = explode(' ', $numeric);
+  $numeric = preg_replace('/[^0-9a-z\-,\.]/i', '', $numeric);
+  // Some retarded devices report data with spaces and commas: STRING: "  20,4"
+  $numeric = str_replace(',', '.', $numeric);
+  if (is_numeric($numeric))
+  {
+    // If cleaned data is numeric return number
+    return $numeric + 0;
+  } else {
+    // Else return original value
     return $value;
   }
 }
@@ -70,12 +101,13 @@ function snmp_dewrap32bit($value)
 function snmp_translate($oid, $mib = NULL, $mibdir = NULL)
 {
   // $rewrite_oids set in rewrites.php
-  global $rewrite_oids, $config, $debug;
+  global $rewrite_oids, $config;
 
   if (is_numeric(str_replace('.', '', $oid)))
   {
     $options = '-Os';
-  } elseif ($mib)
+  }
+  else if ($mib)
   {
     // If $mib::$oid known in $rewrite_oids use this value instead shell command snmptranslate.
     if (isset($rewrite_oids[$mib][$oid]))
@@ -89,9 +121,23 @@ function snmp_translate($oid, $mib = NULL, $mibdir = NULL)
   $cmd  = $config['snmptranslate'];
   if ($options) { $cmd .= ' ' . $options; } else { $cmd .= ' -On'; }
   if ($mib) { $cmd .= ' -m ' . $mib; }
-  if ($mibdir) { $cmd .= ' -M ' . $mibdir; } else { $cmd .= ' -M ' . mib_dirs(); }
+
+  // Set correct MIB directories based on passed dirs and OS definition
+  if ($mibdir)
+  {
+    $cmd .= " -M " . $mibdir;
+  }
+  else if (is_array($config['os'][$device['os']]['mib_dirs']))
+  {
+    // Add device-OS-specific MIB dirs
+    $cmd .= ' -M ' . mib_dirs($config['os'][$device['os']]['mib_dirs']);
+  } else {
+    // Set default Observium MIB dir
+    $cmd .= " -M " . $config['mib_dir'];
+  }
+
   $cmd .= ' ' . $oid;
-  if (!$debug) { $cmd .= ' 2>/dev/null'; }
+  if (!OBS_DEBUG) { $cmd .= ' 2>/dev/null'; }
 
   $data = trim(external_exec($cmd));
 
@@ -261,13 +307,26 @@ function snmp_parser_unquote($str)
 // TESTME needs unit testing
 function snmp_command($command, $device, $oids, $options, $mib = NULL, $mibdir = NULL)
 {
-  global $debug, $config;
+  global $config;
 
+  // This is compatibility code after refactor in r6306, for keep devices up before DB updated
+  if (get_db_version() < 189)
+  {
+    // FIXME. Remove this in r7000
+    $device['snmp_version'] = $device['snmpver'];
+    foreach (array('transport', 'port', 'timeout', 'retries', 'community',
+                   'authlevel', 'authname', 'authpass', 'authalgo', 'cryptopass', 'cryptoalgo') as $old_key)
+    {
+      // Convert to new device snmp keys
+      $device['snmp_'.$old_key] = $device[$old_key];
+    }
+  }
+  
   // Get the full command path from the config. Chose between bulkwalk and walk. Add max-reps if needed.
   switch($command)
   {
     case "snmpwalk":
-      if ($device['snmpver'] == 'v1' || (isset($config['os'][$device['os']]['nobulk']) && $config['os'][$device['os']]['nobulk']))
+      if ($device['snmp_version'] == 'v1' || (isset($config['os'][$device['os']]['nobulk']) && $config['os'][$device['os']]['nobulk']))
       {
         $cmd = $config['snmpwalk'];
       } else {
@@ -282,7 +341,7 @@ function snmp_command($command, $device, $oids, $options, $mib = NULL, $mibdir =
       $cmd = $config[$command];
       break;
     case "snmpbulkget":
-      if ($device['snmpver'] == 'v1' || (isset($config['os'][$device['os']]['nobulk']) && $config['os'][$device['os']]['nobulk']))
+      if ($device['snmp_version'] == 'v1' || (isset($config['os'][$device['os']]['nobulk']) && $config['os'][$device['os']]['nobulk']))
       {
         $cmd = $config['snmpget'];
       } else {
@@ -294,40 +353,50 @@ function snmp_command($command, $device, $oids, $options, $mib = NULL, $mibdir =
       }
       break;
     default:
-      echo("THIS SHOULD NOT HAPPEN. PLEASE REPORT.");
+      print_error("THIS SHOULD NOT HAPPEN. PLEASE REPORT TO DEVELOPERS.");
       return FALSE;
   }
 
   // Set timeout values if set in the database
-  if (is_numeric($device['timeout']) && $device['timeout'] > 0)
+  if (is_numeric($device['snmp_timeout']) && $device['snmp_timeout'] > 0)
   {
-     $timeout = $device['timeout'];
-  } elseif (isset($config['snmp']['timeout'])) {
-     $timeout = $config['snmp']['timeout'];
+    $snmp_timeout = $device['snmp_timeout'];
   }
-  if (isset($timeout)) { $cmd .= " -t " . escapeshellarg($timeout); }
+  else if (isset($config['snmp']['timeout']))
+  {
+    $snmp_timeout = $config['snmp']['timeout'];
+  }
+  if (isset($snmp_timeout)) { $cmd .= " -t " . escapeshellarg($snmp_timeout); }
 
   // Set retries if set in the database
-  if (is_numeric($device['retries']) && $device['retries'] >= 0)
+  if (is_numeric($device['snmp_retries']) && $device['snmp_retries'] >= 0)
   {
-    $retries = $device['retries'];
+    $snmp_retries = $device['snmp_retries'];
   } elseif (isset($config['snmp']['retries'])) {
-    $retries = $config['snmp']['retries'];
+    $snmp_retries = $config['snmp']['retries'];
   }
-  if (isset($retries)) { $cmd .= " -r " . escapeshellarg($retries); }
+  if (isset($snmp_retries)) { $cmd .= " -r " . escapeshellarg($snmp_retries); }
 
   // If no transport is set in the database, default to UDP.
-  if (!isset($device['transport']))
+  if (empty($device['snmp_transport']))
   {
-    $device['transport'] = "udp";
+    $device['snmp_transport'] = 'udp';
+  }
+
+  if (!$device['snmp_port'])
+  {
+    $device['snmp_port'] = 161;
   }
 
   // Add the SNMP authentication settings for the device
   $cmd .= snmp_gen_auth($device);
 
+  // Hardcode ignoring underscore parsing errors because net-snmp is dumb as a bag of rocks
+  $cmd .= " -Pu ";
+
   if ($options) { $cmd .= " " . $options; }
   if ($mib) { $cmd .= " -m " . $mib; }
-  
+
   // Set correct MIB directories based on passed dirs and OS definition
   if ($mibdir)
   {
@@ -343,13 +412,13 @@ function snmp_command($command, $device, $oids, $options, $mib = NULL, $mibdir =
   }
 
   // Add the device URI to the string
-  $cmd .= " ".escapeshellarg($device['transport']).":".escapeshellarg($device['hostname']).":".escapeshellarg($device['port']);
+  $cmd .= " ".escapeshellarg($device['snmp_transport']).":".escapeshellarg($device['hostname']).":".escapeshellarg($device['snmp_port']);
 
   // Add the OID(s) to the string
   $cmd .= " ".$oids;
 
   // If we're not debugging, direct errors to /dev/null.
-  if (!$debug) { $cmd .= " 2>/dev/null"; }
+  if (!OBS_DEBUG) { $cmd .= " 2>/dev/null"; }
 
   return $cmd;
 }
@@ -358,7 +427,7 @@ function snmp_command($command, $device, $oids, $options, $mib = NULL, $mibdir =
  * Uses snmpget to fetch multiple OIDs and returns a parsed array.
  *
  * @param  array  $device
- * @param  array $oids
+ * @param  array  $oids
  * @param  string $options
  * @param  string $mib
  * @param  string $mibdir
@@ -368,7 +437,7 @@ function snmp_command($command, $device, $oids, $options, $mib = NULL, $mibdir =
 // TESTME needs unit testing
 function snmp_get_multi($device, $oids, $options = "-OQUs", $mib = NULL, $mibdir = NULL)
 {
-  global $debug,$runtime_stats,$mibs_loaded;
+  global $runtime_stats, $mibs_loaded;
 
   if (is_array($oids))
   {
@@ -399,7 +468,7 @@ function snmp_get_multi($device, $oids, $options = "-OQUs", $mib = NULL, $mibdir
     list($oid, $index) = explode(".", $oid);
     if (!strstr($value, "at this OID") && isset($oid) && isset($index))
     {
-      $array[$index][$oid] = $value;
+      $array[$index][$oid] = trim($value, '"');
     }
   }
   if (empty($array))
@@ -407,7 +476,7 @@ function snmp_get_multi($device, $oids, $options = "-OQUs", $mib = NULL, $mibdir
     $GLOBALS['snmp_status'] = FALSE;
   }
 
-  if ($GLOBALS['debug'])
+  if (OBS_DEBUG)
   {
     print_message('SNMP_STATUS['.($GLOBALS['snmp_status'] ? '%gTRUE': '%rFALSE').'%n]', 'color');
   }
@@ -415,7 +484,17 @@ function snmp_get_multi($device, $oids, $options = "-OQUs", $mib = NULL, $mibdir
   return $array;
 }
 
-// DOCME needs phpdoc block
+/**
+ * Uses snmpget to fetch a single OID and returns a string.
+ *
+ * @param  array  $device
+ * @param  array  $oid
+ * @param  string $options
+ * @param  string $mib
+ * @param  string $mibdir
+ * @global debug
+ * @return string
+ */
 // TESTME needs unit testing
 function snmp_get($device, $oid, $options = NULL, $mib = NULL, $mibdir = NULL)
 {
@@ -427,7 +506,7 @@ function snmp_get($device, $oid, $options = NULL, $mib = NULL, $mibdir = NULL)
   }
 
   $cmd = snmp_command('snmpget', $device, $oid, $options, $mib, $mibdir);
-  $data = trim(external_exec($cmd));
+  $data = trim(external_exec($cmd), " \"\t\n\r\0\x0B");
   $GLOBALS['snmp_status'] = ($GLOBALS['exec_status']['exitcode'] === 0 ? TRUE : FALSE);
 
   $runtime_stats['snmpget']++;
@@ -445,7 +524,7 @@ function snmp_get($device, $oid, $options = NULL, $mib = NULL, $mibdir = NULL)
     $data = FALSE;
     $GLOBALS['snmp_status'] = FALSE;
   }
-  if ($GLOBALS['debug'])
+  if (OBS_DEBUG)
   {
     print_message('SNMP_STATUS['.($GLOBALS['snmp_status'] ? '%gTRUE': '%rFALSE').'%n]', 'color');
   }
@@ -539,12 +618,20 @@ function snmp_walk($device, $oid, $options = NULL, $mib = NULL, $mibdir = NULL, 
     {
       # Bit ugly :-(
       $d_ex = explode("\n",$data);
-      unset($d_ex[count($d_ex)-1]);
-      $data = implode("\n",$d_ex);
+      $d_ex_count = count($d_ex);
+      if ($d_ex_count > 1)
+      {
+        // Remove last line
+        unset($d_ex[$d_ex_count-1]);
+        $data = implode("\n",$d_ex);
+      } else {
+        $data = FALSE;
+        $GLOBALS['snmp_status'] = FALSE;
+      }
     }
   }
   $runtime_stats['snmpwalk']++;
-  if ($GLOBALS['debug'])
+  if (OBS_DEBUG)
   {
     print_message('SNMP_STATUS['.($GLOBALS['snmp_status'] ? '%gTRUE': '%rFALSE').'%n]', 'color');
   }
@@ -638,8 +725,15 @@ function snmpwalk_numericoids($device, $oid, $array, $mib = NULL, $mibdir = NULL
   return $array;
 }
 
-// DOCME needs phpdoc block
-// TESTME needs unit testing
+/**
+ * Uses snmpget to fetch a single OID and returns a string.
+ *
+ * @param  array  $device
+ * @param  string $oid
+ * @param  string $mib
+ * @param  string $mibdir
+ * @return array
+ */
 function snmpwalk_cache_oid($device, $oid, $array, $mib = NULL, $mibdir = NULL)
 {
   $data = snmp_walk($device, $oid, "-OQUs", $mib, $mibdir);
@@ -895,59 +989,63 @@ function snmp_cache_portName($device, $array)
 // TESTME needs unit testing
 function snmp_gen_auth(&$device)
 {
+
   $cmd = '';
   $vlan = FALSE;
 
-  if (isset($device['snmpcontext']))
+  if (isset($device['snmp_context']))
   {
-    if (is_numeric($device['snmpcontext']) && $device['snmpcontext'] > 0 && $device['snmpcontext'] < 4096 )
+    if (is_numeric($device['snmp_context']) && $device['snmp_context'] > 0 && $device['snmp_context'] < 4096 )
     {
-      $vlan = $device['snmpcontext'];
+      $vlan = $device['snmp_context'];
     }
   }
 
-  switch ($device['snmpver'])
+  switch ($device['snmp_version'])
   {
     case 'v3':
-      $cmd = ' -v3 -l ' . escapeshellarg($device['authlevel']);
+      $cmd = ' -v3 -l ' . escapeshellarg($device['snmp_authlevel']);
       /* NOTE.
        * For proper work of 'vlan-' context on cisco, it is necessary to add 'match prefix' in snmp-server config --mike
        * example: snmp-server group MONITOR v3 auth match prefix access SNMP-MONITOR
        */
       $cmd .= ($vlan) ? ' -n "vlan-' . $vlan . '"' : ' -n ""'; // Some devices, like HP, always require option '-n'
 
-      switch ($device['authlevel'])
+      switch ($device['snmp_authlevel'])
       {
         case 'authPriv':
-          $cmd .= ' -x ' . escapeshellarg($device['cryptoalgo']);
-          $cmd .= ' -X ' . escapeshellarg($device['cryptopass']);
+          $cmd .= ' -x ' . escapeshellarg($device['snmp_cryptoalgo']);
+          $cmd .= ' -X ' . escapeshellarg($device['snmp_cryptopass']);
           // no break here
         case 'authNoPriv':
-          $cmd .= ' -a ' . escapeshellarg($device['authalgo']);
-          $cmd .= ' -A ' . escapeshellarg($device['authpass']);
-          $cmd .= ' -u ' . escapeshellarg($device['authname']);
+          $cmd .= ' -a ' . escapeshellarg($device['snmp_authalgo']);
+          $cmd .= ' -A ' . escapeshellarg($device['snmp_authpass']);
+          $cmd .= ' -u ' . escapeshellarg($device['snmp_authname']);
           break;
         case 'noAuthNoPriv':
           // We have to provide a username anyway (see Net-SNMP doc)
           $cmd .= ' -u observium';
           break;
         default:
-          print_error('ERROR: ' . $device['authlevel'] . ' : Unsupported SNMPv3 AuthLevel.');
+          print_error('ERROR: Unsupported SNMPv3 snmp_authlevel (' . $device['snmp_authlevel'] . ')');
       }
       break;
 
     case 'v2c':
     case 'v1':
-      $cmd  = ' -' . $device['snmpver'];
-      $cmd .= ' -c ' . escapeshellarg($device['community']);
+      $cmd  = ' -' . $device['snmp_version'];
+      $cmd .= ' -c ' . escapeshellarg($device['snmp_community']);
       if ($vlan) { $cmd .= '@' . $vlan; }
       break;
     default:
-      print_error('ERROR: ' . $device['snmpver'] . ' : Unsupported SNMP Version.');
+      print_error('ERROR: ' . $device['snmp_version'] . ' : Unsupported SNMP Version.');
   }
 
-  $debug_auth = (!$GLOBALS['config']['snmp']['hide_auth'] ? "DEBUG: SNMP Auth options = $cmd" : '');
-  print_debug($debug_auth);
+  if (OBS_DEBUG === 1 && !$GLOBALS['config']['snmp']['hide_auth'])
+  {
+    $debug_auth = "DEBUG: SNMP Auth options = $cmd";
+    print_debug($debug_auth);
+  }
 
   return $cmd;
 }

@@ -7,18 +7,23 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 $mib = 'HOST-RESOURCES-MIB';
-echo(" $mib ");
 
-$mempool_array = snmpwalk_cache_oid($device, "hrStorageEntry", NULL, "HOST-RESOURCES-MIB:HOST-RESOURCES-TYPES", mib_dirs());
-
-if (is_array($mempool_array))
+if (!isset($cache_discovery['host-resources-mib']))
 {
-  foreach ($mempool_array as $index => $entry)
+  $cache_discovery['host-resources-mib'] = snmpwalk_cache_oid($device, "hrStorageEntry", NULL, "HOST-RESOURCES-MIB:HOST-RESOURCES-TYPES", mib_dirs());
+}
+
+//$debug_stats = array('total' => 0, 'used' => 0);
+if (count($cache_discovery['host-resources-mib']))
+{
+  echo(" $mib ");
+
+  foreach ($cache_discovery['host-resources-mib'] as $index => $entry)
   {
     $descr  = $entry['hrStorageDescr'];
     $units  = $entry['hrStorageAllocationUnits'];
@@ -47,6 +52,25 @@ if (is_array($mempool_array))
     }
 
     if ($device['os'] == "routeros" && $descr == "main memory") { $deny = FALSE; }
+    else if ($device['os'] == "mcd")
+    {
+      // Yes, hardcoded logic for mcd, because they do not use standard
+      // See: http://jira.observium.org/browse/OBSERVIUM-1269
+      if ($index === 1)
+      {
+        // hrStorageType.1 = hrStorageRam
+        // hrStorageDescr.1 = System Free Memory
+        // hrStorageAllocationUnits.1 = 1
+        // hrStorageSize.1 = 160481280
+        // hrStorageUsed.1 = 160481280
+        $descr = "Memory";
+        $free  = $total;
+        $total = 536870912; // 512Mb, Really total memory calculates as summary of all memory pools from this mib
+        $used  = $total - $free;
+        discover_mempool($valid['mempool'], $device, $index, "host-resources-mcd", $descr, $units, $total, $used);
+      }
+      $deny = TRUE;
+    }
 
     if (strstr($descr, "MALLOC") || strstr($descr, "UMA")) { $deny = TRUE;  }   // Ignore FreeBSD INSANITY
     if (strstr($descr, "procfs") || strstr($descr, "/proc")) { $deny = TRUE;  } // Ignore ProcFS
@@ -54,9 +78,11 @@ if (is_array($mempool_array))
     if (!$deny && is_numeric($entry['hrStorageSize']) && $total)
     {
       discover_mempool($valid['mempool'], $device, $index, $mib, $descr, $units, $total, $used);
+      //$debug_stats['total'] += $total;
+      //$debug_stats['used']  += $used;
     }
   }
 }
-unset ($mempool_array, $index, $descr, $total, $used, $units, $deny);
+unset ($index, $descr, $total, $used, $units, $deny);
 
 // EOF

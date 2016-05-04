@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -76,7 +76,7 @@ foreach ($mempools as $mempool)
 
   $link = generate_url( array("page" => "device", "device" => $mempool['device_id'], "tab" => "health", "metric" => 'mempool'));
 
-  $overlib_content = generate_overlib_content($graph_array, $mempool['hostname'] ." - " . $mempool['mempool_descr'], NULL);
+  $overlib_content = generate_overlib_content($graph_array, $mempool['hostname'] ." - " . $mempool['mempool_descr']);
 
   $graph_array['width'] = 80; $graph_array['height'] = 20; $graph_array['bg'] = 'ffffff00'; # the 00 at the end makes the area transparent.
   $graph_array['from'] = $config['time']['day'];

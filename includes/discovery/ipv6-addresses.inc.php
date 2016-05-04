@@ -7,11 +7,11 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-global $debug, $cache;
+global $cache;
 
 $device_id = $device['device_id'];
 // Caching ifIndex
@@ -41,10 +41,17 @@ foreach ($oids_ip as $oid)
 
 // Rewrite IP-MIB array
 $ip_data = array();
+$check_ipv6_mib = FALSE; // Flag for additionally check IPv6-MIB
 foreach ($oid_data as $key => $entry)
 {
   $ip_address = hex2ip(str_replace($ip_version.'.', '', $key));
   $ifIndex = $entry['ipAddressIfIndex'];
+  if ($entry['ipAddressPrefix'] == 'zeroDotZero')
+  {
+    // Additionally walk IPV6-MIB, especially in JunOS because they spit at world standards
+    // See: http://jira.observium.org/browse/OBSERVIUM-1271
+    $check_ipv6_mib = TRUE;
+  }
   $entry['ipAddressPrefix'] = end(explode('.', $entry['ipAddressPrefix']));
   if (!is_numeric($entry['ipAddressPrefix'])) { $entry['ipAddressPrefix'] = '128'; }
   if (is_ipv6_valid($ip_address, $entry['ipAddressPrefix']) === FALSE) { continue; }
@@ -53,7 +60,7 @@ foreach ($oid_data as $key => $entry)
     $ip_data[$ifIndex][$ip_address][$oid] = $entry[$oid];
   }
 }
-if ($debug && $ip_data) { echo "IP-MIB\n"; print_vars($ip_data); }
+if (OBS_DEBUG && $ip_data) { echo "IP-MIB\n"; print_vars($ip_data); }
 
 if (is_device_mib($device, 'CISCO-IETF-IP-MIB') && !count($ip_data))
 {
@@ -81,10 +88,10 @@ if (is_device_mib($device, 'CISCO-IETF-IP-MIB') && !count($ip_data))
       $ip_data[$ifIndex][$ip_address][$oid] = $entry['c'.ucfirst($oid)];
     }
   }
-  if ($debug && $ip_data) { echo "CISCO-IETF-IP-MIB\n"; print_vars($ip_data); }
+  if (OBS_DEBUG && $ip_data) { echo "CISCO-IETF-IP-MIB\n"; print_vars($ip_data); }
 }
 
-if (!count($ip_data))
+if ($check_ipv6_mib || !count($ip_data))
 {
   // Get IP addresses from IPV6-MIB
   $oids_ipv6 = array('ipv6AddrPfxLength', 'ipv6AddrType');
@@ -106,9 +113,12 @@ if (!count($ip_data))
     if (is_ipv6_valid($ip_address, $entry['ipv6AddrPfxLength']) === FALSE) { continue; }
     $ip_data[$ifIndex][$ip_address]['ipAddressIfIndex'] = $ifIndex;
     $ip_data[$ifIndex][$ip_address]['ipAddressPrefix'] = $entry['ipv6AddrPfxLength'];
-    $ip_data[$ifIndex][$ip_address]['ipAddressOrigin'] = $entry['ipv6AddrType'];
+    if (!isset($ip_data[$ifIndex][$ip_address]['ipAddressOrigin']))
+    {
+      $ip_data[$ifIndex][$ip_address]['ipAddressOrigin'] = $entry['ipv6AddrType'];
+    }
   }
-  if ($debug && $ip_data) { echo "IPV6-MIB\n"; print_vars($ip_data); }
+  if (OBS_DEBUG && $ip_data) { echo "IPV6-MIB\n"; print_vars($ip_data); }
 }
 
 // Caching old IPv6 addresses table
@@ -160,7 +170,8 @@ if (count($ip_data))
           {
             log_event("IPv6 removed: $ipv6_compressed/".$old_table[$ifIndex][$ipv6_address]['ipv6_prefixlen'], $device, 'port', $old_table[$ifIndex][$ipv6_address]['port_id']);
             log_event("IPv6 added: $full_compressed", $device, 'port', $port_id);
-          } elseif (isset($update_array['ipv6_prefixlen']))
+          }
+          else if (isset($update_array['ipv6_prefixlen']))
           {
             log_event("IPv6 changed: $ipv6_compressed/".$old_table[$ifIndex][$ipv6_address]['ipv6_prefixlen']." -> $full_compressed", $device, 'port', $port_id);
           }
@@ -196,7 +207,7 @@ foreach (dbFetchRows($query, array($device_id)) as $entry)
   {
     // Delete IP
     dbDelete('ipv6_addresses', '`ipv6_address_id` = ?', array($entry['ipv6_address_id']));
-    log_event("IPv6 removed: $full_compressed", $device, 'port', $port_id);
+    log_event("IPv6 removed: $full_address", $device, 'port', $port_id);
     echo('-');
     $check_networks[$entry['ipv6_network_id']] = 1;
   }

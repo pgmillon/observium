@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -43,9 +43,10 @@
 #CISCO-IPSEC-FLOW-MONITOR-MIB::cipSecGlobalNoSaFails.0 = Counter32: 5 Failures
 #CISCO-IPSEC-FLOW-MONITOR-MIB::cipSecGlobalSysCapFails.0 = Counter32: 0 Failures
 
-if ($device['os_group'] == "cisco")
+// FIXME. Candidate for migrate to graphs module with table_collect()
+if (is_device_mib($device, 'CISCO-IPSEC-FLOW-MONITOR-MIB'))
 {
-  $data = snmpwalk_cache_oid($device, "cipSecGlobalStats", NULL, "CISCO-IPSEC-FLOW-MONITOR-MIB");
+  $data = snmpwalk_cache_oid($device, "cipSecGlobalStats", NULL, "CISCO-IPSEC-FLOW-MONITOR-MIB", mib_dirs('cisco'));
   $data = $data[0];
 
   // Use HC Counters if they exist

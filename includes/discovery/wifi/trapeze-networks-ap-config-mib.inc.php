@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -20,7 +20,7 @@ echo(" TRAPEZE-NETWORKS-AP-CONFIG-MIB ");
 // Getting APs
 
 $accesspoints_snmp = snmpwalk_cache_multi_oid($device, "trpzApConfApConfigTable", $accesspoints_snmp, "TRAPEZE-NETWORKS-AP-CONFIG-MIB", mib_dirs('trapeze'),TRUE);
-if ($debug) { print_vars($accesspoints_snmp); }
+if (OBS_DEBUG > 1) { print_vars($accesspoints_snmp); }
 
 $accesspoints_db = dbFetchRows("SELECT `name`, `model`, `location`, `fingerprint`, `serial`, `device_id`, `ap_number` FROM `wifi_accesspoints` WHERE `device_id` = ?", array($device['device_id']));
 
@@ -45,7 +45,7 @@ foreach ($accesspoints_snmp as $ap_number => $accesspoint_snmp)
   } // DB: wifi_accesspoint_id, device_id, number, name, serial, model, location, fingerprint, delete
   $db_insert['device_id'] = $device['device_id'];
   $db_insert['ap_number'] = $ap_number;
-  if ($debug && count($db_insert)) { print_vars($db_insert); }
+  if (OBS_DEBUG && count($db_insert)) { print_vars($db_insert); }
   if (!is_array($ap_db[$ap_number]))
   {
     $accesspoint_id = dbInsert($db_insert, 'wifi_accesspoints');
@@ -53,7 +53,7 @@ foreach ($accesspoints_snmp as $ap_number => $accesspoint_snmp)
   }
   else if (array_diff($ap_db[$ap_number], $db_insert))
   {
-    if ($debug) { print_vars(array_diff($ap_db[$new_index],$db_insert));}
+    if (OBS_DEBUG > 1) { print_vars(array_diff($ap_db[$new_index], $db_insert)); }
     $updated = dbUpdate($db_insert, 'wifi_accesspoints', '`ap_number` = ? AND `device_id` = ?', array($ap_number, $device['device_id']));
     echo("U");
   }
@@ -68,7 +68,7 @@ unset($accesspoints_db, $accesspoints_snmp, $ap_db, $db_insert);
 // Getting Radios
 
 $radios_snmp = snmpwalk_cache_twopart_oid($device, "trpzApConfRadioConfigTable", $radios_snmp, "TRAPEZE-NETWORKS-AP-CONFIG-MIB", mib_dirs('trapeze'));
-if ($debug) { print_vars($radios_snmp); }
+if (OBS_DEBUG > 1) { print_vars($radios_snmp); }
 
 $accesspoints_db = dbFetchRows("SELECT `wifi_accesspoint_id`, `ap_number` FROM `wifi_accesspoints` WHERE `device_id` = ?", array($device['device_id']));
 
@@ -77,19 +77,12 @@ foreach ($accesspoints_db as $accesspoint_db)
   $ap_db[$accesspoint_db['ap_number']] = $accesspoint_db;
 }
 
-$radios_db = dbFetchRows("SELECT `wifi_radio_id`, `mac_addr`, `radio_number`,`ap_number`, `type`,`radio_status`,`numasoclients`,`txpow`,`channel`,`accesspoint_id` FROM `wifi_accesspoints`, `wifi_radios` WHERE wifi_radios.`accesspoint_id` = wifi_accesspoints.`wifi_accesspoint_id` AND wifi_accesspoints.`device_id` = ?", array($device['device_id']));
-
 // Mapping OIDs<>DB
 $db_oids = array('trpzApStatRadioStatusMacRadioNum' => 'radio_number',
-                 'trpzApConfRadioConfigRadioType'   => 'type',
+                 'trpzApConfRadioConfigRadioType'   => 'radio_type',
                  'trpzApConfRadioConfigRadioMode'   => 'radio_status',
-                 'trpzApConfRadioConfigTxPower'     => 'txpow',
-                 'trpzApConfRadioConfigChannel'     => 'channel');
-
-foreach ($radios_db as $radio_db)
-{
-  $radios_sorted_db[$radio_db['ap_number']][$radio_db['radio_number']] = $radio_db;
-}
+                 'trpzApConfRadioConfigTxPower'     => 'radio_txpower',
+                 'trpzApConfRadioConfigChannel'     => 'radio_channel');
 
 // Goes through the SNMP radio data
 foreach ($radios_snmp as $ap_number => $ap_radios)
@@ -98,31 +91,23 @@ foreach ($radios_snmp as $ap_number => $ap_radios)
 
   foreach ($ap_radios as $radio_number => $radio)
   {
+
     foreach ($db_oids as $db_oid => $db_value)
     {
-      $db_insert[$db_value] = $radio[$db_oid];
+      $radio[$db_value] = $radio[$db_oid];
     }
-    $db_insert['radio_number'] = $radio_number;
-    $db_insert['accesspoint_id'] = $accesspoint_id;
-    if ($debug) { print_vars($db_insert); }
-    if (!is_array($radios_sorted_db[$ap_number][$radio_number]))
-    {
-      $wifi_radio_id = dbInsert($db_insert, 'wifi_radios');
-      echo('+');
-    }
-    else if (array_diff($radios_sorted_db[$ap_number][$radio_number],$db_insert))
-    {
-      if ($debug) {  print_vars(array_diff($radios_sorted_db[$ap_number][$radio_number],$db_insert));}
-      $updated = dbUpdate($db_insert, 'wifi_radios', '`wifi_radio_id` = ?', array($radios_sorted_db[$ap_number][$radio_number]['wifi_radio_id']));
-        echo("U");
-    }
-    else
-    {
-      echo(".");
-    }
+
+    $radio['radio_number'] = $radio_number;
+    $radio['accesspoint_id'] = $accesspoint_id;
+
+    if (OBS_DEBUG) { print_vars($radio); }
+
+    discover_wifi_radio($radios_db, $device['device_id'], $radio);
+    // $params   = array('radio_ap', 'radio_number', 'radio_type', 'radio_status', 'radio_clients', 'radio_txpower', 'radio_channel', 'radio_mac', 'radio_protection', 'radio_bsstype', 'radio_mib');
+
   }
 }
 
-unset($radios_db, $radios_snmp, $radios_sorted_db, $db_insert);
+unset($radios_snmp, $radio);
 
 // EOF

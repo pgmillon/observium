@@ -1,0 +1,525 @@
+MPLS-FRR-FACILITY-STD-MIB DEFINITIONS ::= BEGIN
+
+ IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, mib-2,
+    Integer32,
+    NOTIFICATION-TYPE, Gauge32
+       FROM SNMPv2-SMI                            -- [RFC2578]
+    MODULE-COMPLIANCE, OBJECT-GROUP,
+    NOTIFICATION-GROUP
+       FROM SNMPv2-CONF                           -- [RFC2580]
+    TruthValue
+       FROM SNMPv2-TC                             -- [RFC2579]
+    InterfaceIndex
+       FROM IF-MIB                                -- [RFC2863]
+    MplsTunnelIndex, MplsTunnelInstanceIndex,
+    MplsLsrIdentifier, MplsBitRate
+       FROM MPLS-TC-STD-MIB                       -- [RFC3811]
+    mplsFrrGeneralScalarGroup, mplsFrrGeneralTunnelARHopGroup,
+    mplsFrrGeneralConstraintsGroup
+       FROM MPLS-FRR-GENERAL-STD-MIB
+    ;
+
+ mplsFrrFacilityMIB MODULE-IDENTITY
+    LAST-UPDATED
+       "201111030000Z" -- 03 Nov 2011 00:00:00 GMT
+    ORGANIZATION
+       "Multiprotocol Label Switching (MPLS) Working Group"
+
+    CONTACT-INFO
+         "
+                  Riza Cetin
+           Email: riza.cetin@alcatel.be
+
+                  Thomas D. Nadeau
+           Email: thomas.nadeau@ca.com
+
+                  A S Kiran Koushik
+           Email: kkoushik@cisco.com
+
+                  Stefaan De Cnodder
+           Email: Stefaan.de_cnodder@alcatel.be
+
+                  Der-Hwa Gan
+           Email: dhg@juniper.net
+         "
+    DESCRIPTION
+      "Copyright (c) 2011 IETF Trust and the persons
+       identified as authors of the code.  All rights
+       reserved.
+
+       Redistribution and use in source and binary forms,
+       with or without modification, is permitted pursuant
+       to, and subject to the license terms contained in,
+       the Simplified BSD License set forth in Section 4.c
+       of the IETF Trust's Legal Provisions Relating to
+       IETF Documents
+       (http://trustee.ietf.org/license-info).
+
+       This MIB module contains object definitions for the
+       MPLS Traffic Engineering facility backup method for
+       Fast Reroute as defined in RFC 4090."
+
+ -- Revision history.
+    REVISION
+      "201111030000Z" -- 03 Nov 2011 00:00:00 GMT
+    DESCRIPTION
+      "Initial version.  Published as RFC 6445."
+    ::= { mib-2 204 }
+
+ -- Top-level components of this MIB module
+
+ mplsFrrFacilityNotifications         OBJECT IDENTIFIER
+                                 ::= { mplsFrrFacilityMIB 0 }
+
+ mplsFrrFacilityObjects               OBJECT IDENTIFIER
+                                 ::= { mplsFrrFacilityMIB 1 }
+
+ mplsFrrFacilityConformance           OBJECT IDENTIFIER
+                                 ::= { mplsFrrFacilityMIB 2 }
+
+ -- Scalar objects defined for the facility backup style of FRR
+
+ mplsFrrConfiguredInterfaces OBJECT-TYPE
+    SYNTAX        Integer32(0..2147483647)
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+      "Indicates the number of MPLS interfaces configured for
+       protection."
+    DEFVAL { 0 }
+    ::= { mplsFrrFacilityObjects 1 }
+
+ mplsFrrActiveInterfaces OBJECT-TYPE
+    SYNTAX        Gauge32
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+      "Indicates the number of interfaces currently being
+       protected.  This value MUST be less than or equal
+       to mplsFrrConfiguredInterfaces."
+    DEFVAL { 0 }
+    ::= { mplsFrrFacilityObjects 2 }
+
+ mplsFrrConfiguredBypassTunnels OBJECT-TYPE
+    SYNTAX        Gauge32
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+      "Indicates the number of bypass tunnels configured to
+       protect TE tunnels on this LSR."
+    DEFVAL { 0 }
+    ::= { mplsFrrFacilityObjects 3 }
+
+ mplsFrrActiveBypassTunnels OBJECT-TYPE
+    SYNTAX        Gauge32
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+      "Indicates the number of bypass tunnels indicated in
+       mplsFrrConfiguredBypassTunnels whose operStatus
+       is up(1), indicating that they are currently protecting
+       TE tunnels on this LSR."
+    DEFVAL { 0 }
+    ::= { mplsFrrFacilityObjects 4 }
+
+ mplsFrrFacilityNotificationsEnabled OBJECT-TYPE
+    SYNTAX            TruthValue
+    MAX-ACCESS        read-write
+    STATUS            current
+    DESCRIPTION
+      "Enables or disables FRR notifications defined in this
+       MIB module.  Notifications are disabled by default.
+
+       This object is needed to control the notifications
+       emitted by this implementation."
+    DEFVAL { false }
+    ::= { mplsFrrFacilityObjects 5 }
+
+ mplsFrrFacilityNotificationsMaxRate OBJECT-TYPE
+    SYNTAX       Gauge32
+    UNITS        "Notifications per Second"
+    MAX-ACCESS   read-write
+    STATUS       current
+    DESCRIPTION
+      "This variable indicates the maximum number of
+       notifications issued per second.  If events occur
+       more rapidly, the implementation may simply fail to
+       emit these notifications during that period, or may
+       queue them until an appropriate time.  In case the
+       implementation chooses to drop the events during
+       throttling instead of queuing them to be sent at a later
+       time, it is assumed that there will be no indication
+       that events are being thrown away.
+
+       A value of 0 means no throttling is applied and
+       events may be generated at the rate at which they occur."
+    DEFVAL       { 0 }
+    ::= { mplsFrrFacilityObjects 6 }
+
+ --
+ -- Facility-based FRR-specific tables
+ --
+ -- Tables in this section pertain only to the facility-based
+ -- style of FRR.
+ --
+
+  mplsFrrFacilityDBTable OBJECT-TYPE
+     SYNTAX            SEQUENCE OF MplsFrrFacilityDBEntry
+     MAX-ACCESS        not-accessible
+     STATUS            current
+     DESCRIPTION
+       "The mplsFrrFacilityDBTable provides information about the
+        fast-reroute database.  Each entry belongs to a protected
+
+        interface, protecting backup tunnel, and protected tunnel.
+        MPLS interfaces defined on this node are protected by
+        backup tunnels and are indicated by the index
+        mplsFrrFacilityProtectedIfIndex.  If the interface index is
+        set to 0, this indicates that the remaining indexes apply
+        to all configured protected interfaces.
+
+        Note that all objects in this table are read-only, and
+        if new objects are added to this table, they should also
+        be read-only.
+
+        It is recommended that ifIndex persistence be enabled
+        across re-initializations.
+        If persistence is not implemented, then the value of
+        mplsFrrFacilityProtectedIfIndex in this
+        table cannot be guaranteed across restarts and all entries
+        in this table MUST NOT be persistent, or the values of
+        mplsFrrFacilityProtectedIfIndex MUST be reconstructed
+        on restart.
+
+        It is recommended that entries in this table be persistent
+        across reboots.
+
+        The protecting tunnel is indicated by the
+        index mplsFrrFacilityProtectingTunnelIndex and
+        represents a valid mplsTunnelEntry.  Note that the tunnel
+        instance index of the protecting tunnel may be set to 0,
+        which indicates the tunnel head interface for the
+        protecting tunnel, as per RFC 3812, but it may also be
+        defined using the following semantics:
+
+        - lower 16 bits : protected tunnel instance
+        - higher 16 bits: must be all zeros"
+    ::= { mplsFrrFacilityObjects 7 }
+
+ mplsFrrFacilityDBEntry OBJECT-TYPE
+    SYNTAX        MplsFrrFacilityDBEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+      "An entry in the mplsFrrFacilityDBTable represents a single
+       protected LSP, protected by a backup tunnel on a
+       specific protected interface, or if the interface
+       index is set to 0, on all interfaces.  Note that for
+       brevity, managers should consult the mplsTunnelTable
+       present in the MPLS-TE-STD-MIB module for
+       additional information about the protecting and protected
+       tunnels, and the ifEntry in the IF-MIB module
+
+       for the protected interface."
+    INDEX {
+           mplsFrrFacilityProtectedIfIndex,   -- protected ifIndex
+           mplsFrrFacilityProtectingTunnelIndex,-- protecting TE tun
+           mplsFrrFacilityBackupTunnelIndex,    -- protected TE tun
+           mplsFrrFacilityBackupTunnelInstance, -- LSP
+           mplsFrrFacilityBackupTunnelIngressLSRId,
+           mplsFrrFacilityBackupTunnelEgressLSRId }
+    ::= { mplsFrrFacilityDBTable 1 }
+
+ MplsFrrFacilityDBEntry ::= SEQUENCE {
+    mplsFrrFacilityProtectedIfIndex          InterfaceIndex,
+    mplsFrrFacilityProtectingTunnelIndex     MplsTunnelIndex,
+    mplsFrrFacilityBackupTunnelIndex         MplsTunnelIndex,
+    mplsFrrFacilityBackupTunnelInstance      MplsTunnelInstanceIndex,
+    mplsFrrFacilityBackupTunnelIngressLSRId  MplsLsrIdentifier,
+    mplsFrrFacilityBackupTunnelEgressLSRId   MplsLsrIdentifier,
+    mplsFrrFacilityDBNumProtectingTunnelOnIf Gauge32,
+    mplsFrrFacilityDBNumProtectedLspOnIf     Gauge32,
+    mplsFrrFacilityDBNumProtectedTunnels     Gauge32,
+    mplsFrrFacilityDBProtectingTunnelStatus  INTEGER,
+    mplsFrrFacilityDBProtectingTunnelResvBw  MplsBitRate
+ }
+
+ mplsFrrFacilityProtectedIfIndex OBJECT-TYPE
+    SYNTAX        InterfaceIndex
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+      "Uniquely identifies the interface configured for FRR
+       protection.  If this object is set to 0, this indicates
+       that the remaining indexing combinations for this row
+       apply to all interfaces on this device for which
+       the FRR feature can operate."
+    ::= { mplsFrrFacilityDBEntry 1 }
+
+ mplsFrrFacilityProtectingTunnelIndex OBJECT-TYPE
+    SYNTAX        MplsTunnelIndex
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+      "Uniquely identifies the mplsTunnelEntry primary index for
+       the tunnel head interface designated to protect the
+       interface as specified in the mplsFrrFacilityProtectedIfIndex
+       (and all of the tunnels using this interface).  Note
+       that the corresponding mplsTunnelInstance MUST BE
+       0 as per the indexing convention stipulated."
+    REFERENCE
+      "Section 6.1 of RFC 3812."
+    ::= { mplsFrrFacilityDBEntry 2 }
+
+ mplsFrrFacilityBackupTunnelIndex OBJECT-TYPE
+    SYNTAX        MplsTunnelIndex
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+      "Uniquely identifies the mplsTunnelEntry primary index for
+       the TE tunnel LSP being protected on the
+       interface as specified by mplsFrrFacilityProtectedIfIndex."
+    ::= { mplsFrrFacilityDBEntry 3 }
+
+ mplsFrrFacilityBackupTunnelInstance OBJECT-TYPE
+    SYNTAX        MplsTunnelInstanceIndex
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+      "Uniquely identifies the mplsTunnelEntry secondary index
+       for the TE tunnel LSP being protected on the
+       interface as specified by mplsFrrFacilityProtectedIfIndex."
+    ::= { mplsFrrFacilityDBEntry 4 }
+
+ mplsFrrFacilityBackupTunnelIngressLSRId OBJECT-TYPE
+    SYNTAX        MplsLsrIdentifier
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+      "Uniquely identifies the mplsTunnelEntry third index
+       for the TE tunnel LSP being protected on the
+       interface as specified by mplsFrrFacilityProtectedIfIndex."
+    REFERENCE
+      "Section 6.1 of RFC 3812."
+    ::= { mplsFrrFacilityDBEntry 5 }
+
+ mplsFrrFacilityBackupTunnelEgressLSRId  OBJECT-TYPE
+    SYNTAX        MplsLsrIdentifier
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+      "Uniquely identifies the mplsTunnelEntry fourth index
+       for the TE tunnel LSP being protected on the
+       interface as specified by mplsFrrFacilityProtectedIfIndex."
+    ::= { mplsFrrFacilityDBEntry 6 }
+
+ mplsFrrFacilityDBNumProtectingTunnelOnIf OBJECT-TYPE
+    SYNTAX            Gauge32
+    MAX-ACCESS        read-only
+    STATUS            current
+    DESCRIPTION
+      "The number of backup tunnels protecting the
+       interface specified by mplsFrrFacilityProtectedIfIndex."
+    ::= { mplsFrrFacilityDBEntry 7 }
+
+ mplsFrrFacilityDBNumProtectedLspOnIf OBJECT-TYPE
+    SYNTAX            Gauge32
+    MAX-ACCESS        read-only
+    STATUS            current
+    DESCRIPTION
+      "The number of LSPs currently being protected on
+       the interface specified by
+       mplsFrrFacilityProtectedIfIndex."
+    ::= { mplsFrrFacilityDBEntry 8 }
+
+ mplsFrrFacilityDBNumProtectedTunnels OBJECT-TYPE
+    SYNTAX            Gauge32
+    MAX-ACCESS        read-only
+    STATUS            current
+    DESCRIPTION
+      "The number of tunnels protected on the interface
+       specified by mplsFrrFacilityProtectedIfIndex."
+    ::= { mplsFrrFacilityDBEntry 9 }
+
+ mplsFrrFacilityDBProtectingTunnelStatus OBJECT-TYPE
+    SYNTAX            INTEGER {
+                          active(1),
+                          ready(2),
+                          partial(3)
+                      }
+    MAX-ACCESS        read-only
+    STATUS            current
+    DESCRIPTION
+      "Specifies the state of the protecting tunnel as
+       specified by mplsFrrFacilityProtectingTunnelIndex.
+
+       active  - This tunnel's label has been placed in the
+                 LFIB and is ready to be applied to incoming
+                 packets.
+       ready   - This tunnel's label entry has been created but
+                 is not yet in the LFIB.
+       partial - This tunnel's label entry has not been fully
+                 created."
+    ::= { mplsFrrFacilityDBEntry 10 }
+
+ mplsFrrFacilityDBProtectingTunnelResvBw  OBJECT-TYPE
+    SYNTAX            MplsBitRate
+    UNITS             "kilobits per second"
+    MAX-ACCESS        read-only
+    STATUS            current
+    DESCRIPTION
+      "Specifies the amount of bandwidth in units
+       of '1,000 bits per second', actually reserved by
+       the protecting tunnel for facility backup purposes.
+       This value is repeated here from the MPLS-TE-STD-MIB
+       module because the tunnel entry will reveal the
+       bandwidth reserved by the signaling protocol, which is
+       typically 0 for backup tunnels so as to not over-book
+       bandwidth.  However, internal reservations are
+       typically made on the PLR; thus, this value should be
+       revealed here, as it is often different from
+       mplsTunnelResourceMeanRate found in the MPLS-TE-STD-MIB
+       module."
+    ::= { mplsFrrFacilityDBEntry 11 }
+
+ -- Notifications
+ mplsFrrFacilityInitialBackupTunnelInvoked  NOTIFICATION-TYPE
+    OBJECTS { mplsFrrFacilityDBNumProtectingTunnelOnIf,
+              mplsFrrFacilityDBNumProtectedLspOnIf,
+              mplsFrrFacilityDBNumProtectedTunnels,
+              mplsFrrFacilityDBProtectingTunnelStatus,
+              mplsFrrFacilityDBProtectingTunnelResvBw
+            }
+    STATUS      current
+    DESCRIPTION
+      "This notification is generated when a tunnel running over an
+       interface as specified in the mplsFrrConstraintsTable is
+       initially protected by the backup tunnel also specified in the
+       mplsFrrConstraintsTable.  In some implementations, there may
+       be a difference between when the control plane triggers
+       this notification and when the hardware is programmed to
+       utilize the protection path.  Due to the urgency of this
+       operation, it is acceptable for the control plane to
+       issue this notification either before or after it programs
+       the hardware.  In cases where it is the latter approach,
+       the notification MUST be sent immediately after the
+       data plane has been altered.
+
+       This notification should not be generated for each subsequent
+       tunnel that is backed up by the FRR feature on this LSR, as
+       this may result in potential scaling issues with regard to
+       LSR performance and network load.  Note also that
+       notifications MUST be generated in accordance with the
+
+       mplsFrrNotificationsMaxRate."
+    ::= { mplsFrrFacilityNotifications 1 }
+
+ mplsFrrFacilityFinalTunnelRestored NOTIFICATION-TYPE
+    OBJECTS { mplsFrrFacilityDBNumProtectingTunnelOnIf,
+              mplsFrrFacilityDBNumProtectedLspOnIf,
+              mplsFrrFacilityDBNumProtectedTunnels,
+              mplsFrrFacilityDBProtectingTunnelStatus,
+              mplsFrrFacilityDBProtectingTunnelResvBw
+            }
+    STATUS      current
+    DESCRIPTION
+      "This notification is generated when the final tunnel that is
+       being protected by a backup tunnel as specified in the
+       mplsFrrConstraintsTable is restored to normal operation.  This
+       notification should not be generated for each restored tunnel,
+       as this may result in potential scaling issues with regard to
+       LSR performance and network load.  Note also that
+       notifications MUST be generated in accordance with the
+       mplsFrrNotificationsMaxRate."
+    ::= { mplsFrrFacilityNotifications 2 }
+
+ -- Module Conformance Statement
+
+ mplsFrrFacilityCompliances
+    OBJECT IDENTIFIER ::= {mplsFrrFacilityConformance 1 }
+
+ mplsFrrFacilityGroups
+    OBJECT IDENTIFIER ::= {mplsFrrFacilityConformance 2 }
+
+ mplsFrrFacilityModuleFullCompliance MODULE-COMPLIANCE
+    STATUS current
+    DESCRIPTION
+      "Compliance statements for SNMP engines that support the
+       MPLS-FRR-FACILITY-STD-MIB module."
+
+   MODULE MPLS-FRR-GENERAL-STD-MIB  -- MPLS FRR Generic MIB
+      MANDATORY-GROUPS {
+                          mplsFrrGeneralScalarGroup,
+                          mplsFrrGeneralTunnelARHopGroup,
+                          mplsFrrGeneralConstraintsGroup
+      }
+
+    MODULE -- this module
+        MANDATORY-GROUPS {
+                          mplsFrrFacilityScalarGroup,
+                          mplsFrrFacilityDBGroup,
+                          mplsFrrFacilityNotificationsGroup
+                         }
+    ::= { mplsFrrFacilityCompliances 1 }
+
+ mplsFrrFacilityModuleReadOnlyCompliance MODULE-COMPLIANCE
+    STATUS current
+    DESCRIPTION
+      "Compliance statements for SNMP engines that support the
+       MPLS-FRR-FACILITY-STD-MIB module."
+
+   MODULE MPLS-FRR-GENERAL-STD-MIB -- MPLS FRR Generic MIB
+      MANDATORY-GROUPS {
+                          mplsFrrGeneralScalarGroup,
+                          mplsFrrGeneralTunnelARHopGroup,
+                          mplsFrrGeneralConstraintsGroup
+      }
+
+    MODULE -- this module
+        MANDATORY-GROUPS {
+                          mplsFrrFacilityScalarGroup,
+                          mplsFrrFacilityDBGroup,
+                          mplsFrrFacilityNotificationsGroup
+                         }
+    ::= { mplsFrrFacilityCompliances 2 }
+
+ -- Units of conformance
+
+ mplsFrrFacilityScalarGroup OBJECT-GROUP
+    OBJECTS { mplsFrrConfiguredInterfaces,
+              mplsFrrActiveInterfaces,
+              mplsFrrConfiguredBypassTunnels,
+              mplsFrrActiveBypassTunnels,
+              mplsFrrFacilityNotificationsEnabled,
+              mplsFrrFacilityNotificationsMaxRate
+      }
+    STATUS        current
+    DESCRIPTION
+      "Objects that are required to represent the FRR
+       Facility Route Database information."
+    ::= { mplsFrrFacilityGroups 1 }
+
+ mplsFrrFacilityDBGroup OBJECT-GROUP
+    OBJECTS { mplsFrrFacilityDBNumProtectingTunnelOnIf,
+              mplsFrrFacilityDBNumProtectedLspOnIf,
+              mplsFrrFacilityDBNumProtectedTunnels,
+              mplsFrrFacilityDBProtectingTunnelStatus,
+              mplsFrrFacilityDBProtectingTunnelResvBw
+      }
+    STATUS        current
+    DESCRIPTION
+      "Objects that are required to represent the FRR
+       Facility Route Database information."
+    ::= { mplsFrrFacilityGroups 2 }
+
+ mplsFrrFacilityNotificationsGroup NOTIFICATION-GROUP
+    NOTIFICATIONS { mplsFrrFacilityInitialBackupTunnelInvoked,
+                    mplsFrrFacilityFinalTunnelRestored
+                  }
+    STATUS        current
+    DESCRIPTION
+      "Objects that are required to represent FRR notifications."
+    ::= { mplsFrrFacilityGroups 3 }
+
+END

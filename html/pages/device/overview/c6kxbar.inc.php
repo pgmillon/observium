@@ -2,19 +2,22 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 ?>
-<div class="well info_box">
-    <div class="title"><i class="oicon-arrow-switch"></i> 6500/7600 Crossbar</div>
-    <div class="content">
+
+  <div class="widget widget-table">
+    <div class="widget-header">
+      <i class="oicon-arrow-switch"></i><h3>c6500/7600 Crossbar</h3>
+    </div>
+    <div class="widget-content">
 
 <?php
 

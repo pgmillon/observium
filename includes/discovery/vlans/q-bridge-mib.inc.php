@@ -8,7 +8,7 @@
  * @package    observium
  * @subpackage discovery
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -17,6 +17,11 @@ echo(" Q-BRIDGE-MIB ");
 $vtpdomain_id = "1";
 //$q_bridge_index = snmpwalk_cache_oid($device, "dot1qPortVlanTable", array(), "Q-BRIDGE-MIB");
 $vlans = snmpwalk_cache_oid($device, "dot1qVlanStaticTable", array(), "Q-BRIDGE-MIB", mib_dirs());
+if ($vlans)
+{
+  $vlan_ifindex_map = snmpwalk_cache_oid($device, "dot1dBasePortIfIndex", array(), "Q-BRIDGE-MIB", mib_dirs());
+  $vlan_ifindex_min = $vlan_ifindex_map[key($vlan_ifindex_map)]['dot1dBasePortIfIndex'];
+}
 
 if (is_device_mib($device, 'JUNIPER-VLAN-MIB')) // Unsure if other Juniper platforms "affected"
 {
@@ -71,14 +76,14 @@ foreach ($vlans as $vlan_id => $vlan)
     $binary = '';
     foreach ($parts as $part)
     {
-      $binary .= zeropad(decbin($part),8);
+      $binary .= zeropad(base_convert($part, 16, 2), 8);
     }
     $length = strlen($binary);
     for ($i = 0; $i < $length; $i++)
     {
       if ($binary[$i])
       {
-        $port = get_port_by_index_cache($device, $i);
+        $port = get_port_by_index_cache($device, $i + $vlan_ifindex_min);
         if (isset($ports_vlans_db[$port['port_id']][$vlan_id]))
         {
           $ports_vlans[$port['port_id']][$vlan_id] = $ports_vlans_db[$port['port_id']][$vlan_id]['port_vlan_id'];

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -30,15 +30,15 @@ foreach (dbFetchRows("SELECT * FROM `ospf_instances` WHERE `device_id` = ?", arr
 }
 
 // Pull data from device
-$ospf_instances_poll = snmpwalk_cache_oid($device, "OSPF-MIB::ospfGeneralGroup", array(), "OSPF-MIB");
+$ospf_instances_poll = snmpwalk_cache_oid($device, "ospfGeneralGroup", array(), "OSPF-MIB", mib_dirs());
 $ospf_areas_poll = array();
 $ospf_ports_poll = array();
 $ospf_nbrs_poll = array();
 if (count($ospf_instances_poll))
 {
-  $ospf_areas_poll = snmpwalk_cache_oid($device, "OSPF-MIB::ospfAreaEntry", $ospf_areas_poll, "OSPF-MIB");
-  $ospf_ports_poll = snmpwalk_cache_oid($device, "OSPF-MIB::ospfIfEntry", $ospf_ports_poll, "OSPF-MIB");
-  $ospf_nbrs_poll = snmpwalk_cache_oid($device, "OSPF-MIB::ospfNbrEntry", $ospf_nbrs_poll, "OSPF-MIB");
+  $ospf_areas_poll = snmpwalk_cache_oid($device, "ospfAreaEntry", $ospf_areas_poll, "OSPF-MIB", mib_dirs());
+  $ospf_ports_poll = snmpwalk_cache_oid($device, "ospfIfEntry",   $ospf_ports_poll, "OSPF-MIB", mib_dirs());
+  $ospf_nbrs_poll  = snmpwalk_cache_oid($device, "ospfNbrEntry",  $ospf_nbrs_poll,  "OSPF-MIB", mib_dirs());
   $set_ospf = TRUE;
 } else {
   $set_ospf = FALSE;
@@ -56,7 +56,7 @@ foreach ($ospf_instances_poll as $ospf_instance_id => $ospf_entry)
   }
 }
 
-if ($debug && $set_ospf)
+if (OBS_DEBUG && $set_ospf)
 {
   echo("\nPolled: ");
   print_vars($ospf_instances_poll);
@@ -99,7 +99,8 @@ unset($ospf_instances_db);
 
 echo(" Areas: ");
 
-$ospf_area_oids = array('ospfAuthType','ospfImportAsExtern','ospfSpfRuns','ospfAreaBdrRtrCount','ospfAsBdrRtrCount','ospfAreaLsaCount','ospfAreaLsaCksumSum','ospfAreaSummary','ospfAreaStatus');
+$ospf_area_oids = array('ospfAuthType', 'ospfImportAsExtern', 'ospfSpfRuns', 'ospfAreaBdrRtrCount', 'ospfAsBdrRtrCount',
+                        'ospfAreaLsaCount', 'ospfAreaLsaCksumSum', 'ospfAreaSummary', 'ospfAreaStatus');
 
 // Build array of existing entries
 foreach (dbFetchRows("SELECT * FROM `ospf_areas` WHERE `device_id` = ?", array($device['device_id'])) as $entry)
@@ -107,19 +108,30 @@ foreach (dbFetchRows("SELECT * FROM `ospf_areas` WHERE `device_id` = ?", array($
   $ospf_areas_db[$entry['ospfAreaId']] = $entry;
 }
 
+echo "poll";
+
 foreach ($ospf_areas_poll as $ospf_area_id => $ospf_area)
 {
   // If the entry doesn't already exist in the prebuilt array, insert into the database and put into the array
   if (!isset($ospf_areas_db[$ospf_area_id]))
   {
-    dbInsert(array('device_id' => $device['device_id'], 'ospfAreaId' => $ospf_area_id), 'ospf_areas');
+    $insert = array();
+    $insert['device_id']    = $device['device_id'];
+    $insert['ospfAreaId'] = $ospf_area_id;
+
+    foreach ($ospf_area_oids as $oid)
+    { // Loop the OIDs
+      $insert[$oid] = $ospf_area[$oid];
+    }
+
+    dbInsert($insert, 'ospf_areas');
     echo("+");
-    $entry = dbFetchRows("SELECT * FROM `ospf_areas` WHERE `device_id` = ? AND `ospfAreaId` = ?",array($device['device_id'], $ospf_area_id));
-    $ospf_areas_db[$entry['ospf_area_id']] = $entry;
+    $ospf_areas_db[$ospf_area_id] = dbFetchRow("SELECT * FROM `ospf_areas` WHERE `device_id` = ? AND `ospfAreaId` = ?", array($device['device_id'], $ospf_area_id));
+    unset($insert);
   }
 }
 
-if ($debug && $set_ospf)
+if (OBS_DEBUG && $set_ospf)
 {
   echo("\nPolled: ");
   print_vars($ospf_areas_poll);
@@ -128,12 +140,14 @@ if ($debug && $set_ospf)
   echo("\n");
 }
 
+
 // Loop array of entries and update
 if (is_array($ospf_areas_db))
 {
-  foreach ($ospf_areas_db as $ospf_area_db)
+  foreach ($ospf_areas_db as $ospf_area_id => $ospf_area_db)
   {
-    if (is_array($ospf_ports_poll[$ospf_port_db['ospf_port_id']]))
+
+    if (is_array($ospf_areas_poll[$ospf_area_id]))
     {
       $ospf_area_poll = $ospf_areas_poll[$ospf_area_db['ospfAreaId']];
       foreach ($ospf_area_oids as $oid)
@@ -141,8 +155,8 @@ if (is_array($ospf_areas_db))
         if ($ospf_area_db[$oid] != $ospf_area_poll[$oid])
         { // If data has changed, build a query
           $ospf_area_update[$oid] = $ospf_area_poll[$oid];
-          // log_event("$oid -> ".$this_port[$oid], $device, 'interface', $port['port_id']); // FIXME
-        }
+          // log_event("$oid -> ".$this_port[$oid], $device, 'port', $port['port_id']); // FIXME
+        } else { echo ($ospf_area_db[$oid] . "=" . $ospf_area_poll[$oid]); }
       }
       if ($ospf_area_update)
       {
@@ -152,11 +166,11 @@ if (is_array($ospf_areas_db))
       } else {
         echo(".");
       }
-      unset($ospf_area_poll);
-      unset($ospf_area_db);
+
       $ospf_area_count++;
     } else {
-      dbDelete('ospf_ports', '`device_id` = ? AND `ospfAreaId` = ?', array($device['device_id'], $ospf_area_db['ospfAreaId']));
+      dbDelete('ospf_areas', '`device_id` = ? AND `ospfAreaId` = ?', array($device['device_id'], $ospf_area_db['ospfAreaId']));
+      echo '-';
     }
   }
 }
@@ -185,7 +199,7 @@ foreach ($ospf_ports_poll as $ospf_port_id => $ospf_port)
   }
 }
 
-if ($debug && $set_ospf)
+if (OBS_DEBUG && $set_ospf)
 {
   echo("\nPolled: ");
   print_vars($ospf_ports_poll);
@@ -272,7 +286,7 @@ foreach ($ospf_nbrs_poll as $ospf_nbr_id => $ospf_nbr)
   }
 }
 
-if ($debug && $set_ospf)
+if (OBS_DEBUG && $set_ospf)
 {
   echo("\nPolled: ");
   print_vars($ospf_nbrs_poll);
@@ -303,7 +317,7 @@ if (is_array($ospf_nbrs_db))
 
       foreach ($ospf_nbr_oids as $oid)
       { // Loop the OIDs
-        if ($debug) { echo($ospf_nbr_db[$oid]."|".$ospf_nbr_poll[$oid]."\n"); }
+        print_debug($ospf_nbr_db[$oid]."|".$ospf_nbr_poll[$oid]);
         if ($ospf_nbr_db[$oid] != $ospf_nbr_poll[$oid])
         { // If data has changed, build a query
           $ospf_nbr_update[$oid] = $ospf_nbr_poll[$oid];
@@ -347,6 +361,6 @@ if ($set_ospf)
 unset($ospf_ports_db);
 unset($ospf_ports_poll);
 
-echo("\n");
+echo(PHP_EOL);
 
 // EOF

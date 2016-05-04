@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -21,6 +21,8 @@
 // sysDescr.0 = STRING: Hardware: AMD64 Family 16 Model 8 Stepping 0 AT/AT COMPATIBLE - Software: Windows Version 6.1 (Build 7600 Multiprocessor Free)
 // sysDescr.0 = STRING: Hardware: Intel64 Family 6 Model 44 Stepping 2 AT/AT COMPATIBLE - Software: Windows Version 6.2 (Build 9200 Multiprocessor Free)
 // sysDescr.0 = STRING: Hardware: Intel64 Family 6 Model 44 Stepping 2 AT/AT COMPATIBLE - Software: Windows Version 6.3 (Build 9600 Multiprocessor Free)
+// sysDescr.0 = STRING: Microsoft Windows CE Version 5.0 (Build 1400)
+// sysDescr.0 = STRING: Microsoft Windows CE Version 6.0 (Build 0)
 
 if (strstr($poll_device['sysDescr'], "x86"))     { $hardware = "Generic x86"; }
 if (strstr($poll_device['sysDescr'], "ia64"))    { $hardware = "Intel Itanium IA64"; }
@@ -28,61 +30,113 @@ if (strstr($poll_device['sysDescr'], "EM64"))    { $hardware = "Intel x64"; }
 if (strstr($poll_device['sysDescr'], "AMD64"))   { $hardware = "AMD x64"; }
 if (strstr($poll_device['sysDescr'], "Intel64")) { $hardware = "Intel x64"; }
 
-if ($poll_device['sysObjectID'] == ".1.3.6.1.4.1.311.1.1.3.1.1") { // Workstation
-
-  if (strstr($poll_device['sysDescr'], "Build Number: 1057")) { $version = "NT 3.51 Workstation"; }
-  if (strstr($poll_device['sysDescr'], "Build Number: 1381")) { $version = "NT 4.0 Workstation"; }
-  if (strstr($poll_device['sysDescr'], "Build 2195"))         { $version = "2000 (NT 5.0)"; }
-  if (strstr($poll_device['sysDescr'], "Build 2600"))         { $version = "XP (NT 5.1)"; }
-  if (strstr($poll_device['sysDescr'], "Build 3790"))         { $version = "XP x64 (NT 5.2)"; }
-  if (strstr($poll_device['sysDescr'], "Build 6000"))         { $version = "Vista (NT 6.0)"; }
-  if (strstr($poll_device['sysDescr'], "Build 6001"))         { $version = "Vista SP1 (NT 6.0)"; }
-  if (strstr($poll_device['sysDescr'], "Build 6002"))         { $version = "Vista SP2 (NT 6.0)"; }
-  if (strstr($poll_device['sysDescr'], "Build 7600"))         { $version = "7 (NT 6.1)"; }
-  if (strstr($poll_device['sysDescr'], "Build 7601"))         { $version = "7 SP1 (NT 6.1)"; }
-  if (strstr($poll_device['sysDescr'], "Build 9200"))         { $version = "8 (NT 6.2)"; }
-  if (strstr($poll_device['sysDescr'], "Build 9600"))         { $version = "8.1 (NT 6.3)"; }
-  $windows_type = "workstation";
-
-} elseif ($poll_device['sysObjectID'] == ".1.3.6.1.4.1.311.1.1.3.1.2") { // Server
-
-  if (strstr($poll_device['sysDescr'], "Build Number: 1057")) { $version = "NT Server 3.51"; }
-  if (strstr($poll_device['sysDescr'], "Build Number: 1381")) { $version = "NT Server 4.0"; }
-  if (strstr($poll_device['sysDescr'], "Build 2195"))         { $version = "2000 Server (NT 5.0)"; }
-  if (strstr($poll_device['sysDescr'], "Build 3790"))         { $version = "Server 2003 (NT 5.2)"; }
-  if (strstr($poll_device['sysDescr'], "Build 6001"))         { $version = "Server 2008 (NT 6.0)"; }
-  if (strstr($poll_device['sysDescr'], "Build 6002"))         { $version = "Server 2008 SP2 (NT 6.0)"; }
-  if (strstr($poll_device['sysDescr'], "Build 7600"))         { $version = "Server 2008 R2 (NT 6.1)"; }
-  if (strstr($poll_device['sysDescr'], "Build 7601"))         { $version = "Server 2008 R2 SP1 (NT 6.1)"; }
-  if (strstr($poll_device['sysDescr'], "Build 9200"))         { $version = "Server 2012 (NT 6.2)"; }
-  if (strstr($poll_device['sysDescr'], "Build 9600"))         { $version = "Server 2012 R2 (NT 6.3)"; }
-  $windows_type = "server";
-
-} elseif ($poll_device['sysObjectID'] == ".1.3.6.1.4.1.311.1.1.3.1.3") { // Datacentre Server
-
-  if (strstr($poll_device['sysDescr'], "Build Number: 1057")) { $version = "NT Datacenter 3.51"; }
-  if (strstr($poll_device['sysDescr'], "Build Number: 1381")) { $version = "NT Datacenter 4.0"; }
-  if (strstr($poll_device['sysDescr'], "Build 2195"))         { $version = "2000 Datacenter Server (NT 5.0)"; }
-  if (strstr($poll_device['sysDescr'], "Build 3790"))         { $version = "Server 2003 Datacenter (NT 5.2)"; }
-  if (strstr($poll_device['sysDescr'], "Build 6001"))         { $version = "Server 2008 Datacenter (NT 6.0)"; }
-  if (strstr($poll_device['sysDescr'], "Build 6002"))         { $version = "Server 2008 Datacenter SP2 (NT 6.0)"; }
-  if (strstr($poll_device['sysDescr'], "Build 7600"))         { $version = "Server 2008 Datacenter R2 (NT 6.1)"; }
-  if (strstr($poll_device['sysDescr'], "Build 7601"))         { $version = "Server 2008 Datacenter R2 SP1 (NT 6.1)"; }
-  if (strstr($poll_device['sysDescr'], "Build 9200"))         { $version = "Server 2012 Datacenter (NT 6.2)"; }
-  if (strstr($poll_device['sysDescr'], "Build 9600"))         { $version = "Server 2012 Datacenter R2 (NT 6.3)"; }
-  $windows_type = "server";
-
+if (preg_match('/Version ([\d\.]+) +\(Build (?:Number: )?(\d+)/', $poll_device['sysDescr'], $matches))
+{
+  $windows['version'] = $matches[1];
+  $windows['build'] = $matches[2];
+}
+if ($poll_device['sysObjectID'] == ".1.3.6.1.4.1.311.1.1.3.1.1") // Workstation
+{
+  switch ($windows['version'])
+  {
+    case '3.1':
+    case '3.5':
+    case '3.51':
+    case '4.0':
+      $icon = 'windows_old'; $version = 'NT '.$windows['version'].' Workstation';
+      break;
+    case '5.0':
+      $icon = 'windows_old'; $version = '2000 (NT 5.0)';
+      break;
+    case '5.1':
+      $icon = 'windows_old'; $version = 'XP (NT 5.1)';
+      break;
+    case '5.2':
+      $icon = 'windows_old'; $version = 'XP x64 (NT 5.2)';
+      break;
+    case '6.0':
+      if      ($windows['build'] == '6001') { $windows['sp'] = 'SP1 '; }
+      else if ($windows['build'] == '6002') { $windows['sp'] = 'SP2 '; }
+      else if ($windows['build'] > '6002')  { $windows['sp'] = 'SP3 '; }
+      $icon = 'windows_old'; $version = 'Vista '.$windows['sp'].'(NT 6.0)';
+      break;
+    case '6.1':
+      if      ($windows['build'] == '7601') { $windows['sp'] = 'SP1 '; }
+      else if ($windows['build'] >  '7601') { $windows['sp'] = 'SP2 '; }
+      $icon = 'windows_old'; $version = '7 '.$windows['sp'].'(NT 6.1)';
+      break;
+    case '6.2':
+      $version = '8 (NT 6.2)';
+      break;
+    case '6.3':
+      if ($windows['build'] >  '9200') { $windows['sp'] = ', Update 1'; }
+      $version = '8.1'.$windows['sp'].' (NT 6.3)';
+      break;
+    default:
+      if ($windows['build'] > 9600)
+      {
+        $version = '10 (NT '.$windows['version'].')';
+      } else {
+        $icon = 'windows_old'; $version = 'NT '.$windows['version'].' Workstation';
+      }
+  }
+  $windows['type'] = "workstation";
+}
+else if ($poll_device['sysObjectID'] == ".1.3.6.1.4.1.311.1.1.3.1.2" || // Server
+         $poll_device['sysObjectID'] == ".1.3.6.1.4.1.311.1.1.3.1.3")   // Datacentre Server
+{
+  $windows['subtype'] = ($poll_device['sysObjectID'] == ".1.3.6.1.4.1.311.1.1.3.1.3") ? 'Datacenter ' : '';
+  switch ($windows['version'])
+  {
+    case '3.1':
+    case '3.5':
+    case '3.51':
+    case '4.0':
+      $icon = 'windows_old'; $version = 'NT '.$windows['subtype'].'Server '.$windows['version'];
+      break;
+    case '5.0':
+      $icon = 'windows_old'; $version = '2000 '.$windows['subtype'].'Server (NT 5.0)';
+      break;
+    case '5.2':
+      $icon = 'windows_old'; $version = 'Server 2003 '.$windows['subtype'].'(NT 5.2)';
+      break;
+    case '6.0':
+      if      ($windows['build'] == '6001') { $windows['sp'] = ''; }
+      else if ($windows['build'] == '6002') { $windows['sp'] = 'SP2 '; }
+      else if ($windows['build'] > '6002')  { $windows['sp'] = 'SP3 '; }
+      $icon = 'windows_old'; $version = 'Server 2008 '.$windows['subtype'].$windows['sp'].'(NT 6.0)';
+      break;
+    case '6.1':
+      if      ($windows['build'] == '7601') { $windows['sp'] = 'SP1 '; }
+      else if ($windows['build'] >  '7601') { $windows['sp'] = 'SP2 '; }
+      $icon = 'windows_old'; $version = 'Server 2008 '.$windows['subtype'].'R2 '.$windows['sp'].'(NT 6.1)';
+      break;
+    case '6.2':
+      $version = 'Server 2012 '.$windows['subtype'].'(NT 6.2)';
+      break;
+    case '6.3':
+      if ($windows['build'] >  '9200') { $windows['sp'] = ', Update 1'; }
+      $version = 'Server 2012 '.$windows['subtype'].'R2'.$windows['sp'].' (NT 6.3)';
+      break;
+    default:
+      if ($windows['build'] > 9600)
+      {
+        $version = 'Server 10 '.$windows['subtype'].'(NT '.$windows['version'].')'; // FIXME, currently unknown name
+      } else {
+        $icon = 'windows_old'; $version = 'NT '.$windows['subtype'].'Server '.$windows['version'];
+      }
+  }
+  $windows['type'] = "server";
+}
+else if ($poll_device['sysObjectID'] == ".1.3.6.1.4.1.311.1.1.3.3") // Windows CE
+{
+  $icon = 'windows_old'; $version = 'CE '.$windows['version'];
+  $windows['type'] = "workstation";
 }
 
-// Set type to a predefined type for the OS if it's not already set
-
-if ($device['type'] == "unknown" || $device['type'] == "")
+if (isset($windows['type']))
 {
-  if (isset($windows_type))
-  {
-    $update_array['type'] = $windows_type;
-    log_event("type -> ".$windows_type, $device, 'system');
-  }
+  $type = $windows['type'];
 }
 
 if (strstr($poll_device['sysDescr'], "Uniprocessor"))   { $features = "Uniprocessor"; }
@@ -93,11 +147,13 @@ if (strstr($poll_device['sysDescr'], "Multiprocessor")) { $features = "Multiproc
 // Detect Dell hardware via OpenManage SNMP
 $hw = snmp_get($device, ".1.3.6.1.4.1.674.10892.1.300.10.1.9.1", "-Oqv", "MIB-Dell-10892", mib_dirs('dell'));
 $hw = trim(str_replace("\"", "", $hw));
-if ($hw) { $hardware = "Dell " . $hw; }
+if ($hw)
+{
+  $hardware = "Dell " . $hw;
+  $serial = snmp_get($device, ".1.3.6.1.4.1.674.10892.1.300.10.1.11.1", "-Oqv", "MIB-Dell-10892", mib_dirs('dell'));
+  $serial = trim(str_replace("\"", "", $serial));
+}
 
-$serial = snmp_get($device, ".1.3.6.1.4.1.674.10892.1.300.10.1.11.1", "-Oqv", "MIB-Dell-10892", mib_dirs('dell'));
-$serial = trim(str_replace("\"", "", $serial));
-
-unset($windows_type);
+unset($windows, $hw);
 
 // EOF

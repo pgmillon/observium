@@ -2,12 +2,12 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -48,9 +48,9 @@ ksort($other_mibs);
 
 $attribs = get_dev_attribs($device['device_id']);
 
-if($_POST['toggle_mib'] && isset($mibs[$_POST['toggle_mib']]))
+if($vars['toggle_mib'] && isset($mibs[$vars['toggle_mib']]))
 {
-  $mib = $_POST['toggle_mib'];
+  $mib = $vars['toggle_mib'];
 
   if (isset($attribs['mib_'.$mib]))
   {

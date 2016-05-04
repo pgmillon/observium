@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage definitions
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -16,6 +16,45 @@
 /////////////////////////////////////////////////////////
 //               YES, THAT MEANS YOU                   //
 /////////////////////////////////////////////////////////
+
+// Always set locale to EN, because we use parsing strings
+setlocale(LC_ALL, 'C');
+putenv('LC_ALL=C');
+
+// Set DEBUG
+if (isset($options['d']))
+{
+  // CLI
+  echo("DEBUG!\n");
+  define('OBS_DEBUG', count($options['d'])); // -d == 1, -dd == 2..
+  ini_set('display_errors', 1);
+  ini_set('display_startup_errors', 1);
+  ini_set('log_errors', 1);
+  if (OBS_DEBUG > 1)
+  {
+    //ini_set('error_reporting', E_ALL ^ E_NOTICE); // FIXME, too many warnings ;)
+    ini_set('error_reporting', E_ALL ^ E_NOTICE ^ E_WARNING);
+  } else {
+    ini_set('error_reporting', E_ERROR); // This is equals 1
+  }
+}
+else if ((isset($_SERVER['PATH_INFO']) && strpos($_SERVER['PATH_INFO'], 'debug')) || (isset($_GET['debug']) && $_GET['debug']))
+{
+  // WEB
+  define('OBS_DEBUG', 1);
+  ini_set('display_errors', 1);
+  ini_set('display_startup_errors', 1);
+  ini_set('log_errors', 1);
+  ini_set('error_reporting', E_ALL ^ E_NOTICE);
+  //$vars['debug'] = 'yes';
+} else {
+  define('OBS_DEBUG', 0);
+  ini_set('display_errors', 0);
+  ini_set('display_startup_errors', 0);
+  ini_set('log_errors', 1);
+  //ini_set('error_reporting', 0); // Default
+}
+$debug = OBS_DEBUG; // DEBUG. Temporary fallback to old variable
 
 // Include OS definitions
 include($config['install_dir'].'/includes/definitions/os.inc.php');
@@ -31,6 +70,12 @@ include($config['install_dir'].'/includes/definitions/apps.inc.php');
 
 // Entity type definitions
 include($config['install_dir'].'/includes/definitions/entities.inc.php');
+
+// Rewriting array definitions
+include($config['install_dir'].'/includes/definitions/rewrites.inc.php');
+
+// MIB definitions
+include($config['install_dir'].'/includes/definitions/mibs.inc.php');
 
 // Sensors definitions
 include($config['install_dir'].'/includes/definitions/sensors.inc.php');
@@ -103,6 +148,11 @@ $config['device_types'][$i]['text'] = 'Storage';
 $config['device_types'][$i]['type'] = 'storage';
 $config['device_types'][$i]['icon'] = 'oicon-database';
 
+$i++;
+$config['device_types'][$i]['text'] = 'Management';
+$config['device_types'][$i]['type'] = 'management';
+$config['device_types'][$i]['icon'] = 'oicon-service-bell'; // FIXME. I really not know what icon better
+
 if (isset($config['enable_printers']) && $config['enable_printers'])
 {
   $i++;
@@ -110,6 +160,11 @@ if (isset($config['enable_printers']) && $config['enable_printers'])
   $config['device_types'][$i]['type'] = 'printer';
   $config['device_types'][$i]['icon'] = 'oicon-printer-color';
 }
+
+// SLA colours
+
+$config['sla']['loss_colour'] = array('55FF00', '00FFD5', '00D5FF', '00AAFF', '0080FF', '0055FF', '0000FF', '8000FF', 'D400FF', 'FF00D4', 'FF0080', 'FF0000');
+$config['sla']['loss_value'] = array(0, 2, 4, 6, 8, 10, 15, 20, 25, 40, 50, 100);
 
 // Syslog colour and name translation
 
@@ -166,7 +221,14 @@ $config['nicecase'] = array(
     "http" => "HTTP",
     "tcp" => "TCP",
     "udp" => "UDP",
-    "ssl" => "SSL");
+    "ssl" => "SSL",
+    "eventlog" => "Event log",
+    "alertlog" => "Alert log",
+    'netscaler_tcp' => 'NetScaler TCP',
+    'netscaler_ssl' => 'NetScaler SSL',
+    'netscaler_http' => 'NetScaler HTTP',
+    'netscaler_comp' => 'NetScaler Compression',
+);
 
 // Routing types
 
@@ -222,6 +284,7 @@ $config['sla_type_labels']['lspPingPseudowire'] = 'LSP Pseudowire ping';
 
 // RANCID OS map (for config generation script)
 $config['rancid']['os_map']['arista'] = 'arista';
+$config['rancid']['os_map']['asa'] = 'cisco';
 $config['rancid']['os_map']['avocent'] = 'avocent';
 $config['rancid']['os_map']['f5'] = 'f5';
 $config['rancid']['os_map']['fortigate'] = 'fortigate';
@@ -230,13 +293,13 @@ $config['rancid']['os_map']['ios'] = 'cisco';
 $config['rancid']['os_map']['iosxe'] = 'cisco';
 $config['rancid']['os_map']['iosxr'] = 'cisco-xr';
 $config['rancid']['os_map']['ironware'] = 'foundry';
-$config['rancid']['os_map']['hp'] = 'hp';
+$config['rancid']['os_map']['procurve'] = 'hp';
 $config['rancid']['os_map']['junos'] = 'juniper';
 $config['rancid']['os_map']['nxos'] = 'cisco-nx';
+$config['rancid']['os_map']['opengear'] = 'opengear';
 $config['rancid']['os_map']['routeros'] = 'mikrotik';
 $config['rancid']['os_map']['screenos'] = 'netscreen';
 $config['rancid']['os_map']['pfsense'] = 'pfsense';
-$config['rancid']['os_map']['asa'] = 'cisco';
 # Enable these (in config.php) if you added the powerconnect addon to your RANCID install
 #$config['rancid']['os_map']['powerconnect-fastpath'] = 'dell';
 #$config['rancid']['os_map']['powerconnect-radlan'] = 'dell';
@@ -248,9 +311,9 @@ $config['rancid']['os_map']['asa'] = 'cisco';
 // Include from PEAR
 set_include_path($config['install_dir'] . "/includes/pear" . PATH_SEPARATOR . get_include_path());
 
-include($config['install_dir'] . "/includes/pear/Net/IPv4.php");
-include($config['install_dir'] . "/includes/pear/Net/IPv6.php");
-include($config['install_dir'] . "/includes/pear/Net/MAC.php");
+include("Net/IPv4.php");
+include("Net/IPv6.php");
+include("Net/MAC.php");
 
 include($config['install_dir'].'/includes/definitions/version.inc.php');
 
@@ -273,9 +336,6 @@ if (!isset($config['temp_dir'])) { $config['temp_dir'] = '/tmp'; }
 else                             { $config['temp_dir'] = rtrim($config['temp_dir'], ' /'); }
 if (!isset($config['mib_dir']))  { $config['mib_dir']  = $config['install_dir'] . '/mibs'; }
 else                             { $config['mib_dir']  = rtrim($config['mib_dir'], ' /'); }
-
-// Try to create log directory if it doesn't exist
-if (!is_dir($config['log_dir'])) { mkdir($config['log_dir']); } // CLEANME remove in r6000
 
 // Old variable backwards compatibility
 if (isset($config['rancid_configs']) && !is_array($config['rancid_configs'])) { $config['rancid_configs'] = array($config['rancid_configs']); }
@@ -361,17 +421,22 @@ if (!$observium_link)
 {
   include_once("common.inc.php");
 
-  print_error("MySQL Error: " . mysql_error());
-  die;
+  if (defined('__PHPUNIT_PHAR__'))
+  {
+    print_warning("WARNING. In PHP Unit tests can skip MySQL connect. But If you test mysql functions, check your configs.");
+  } else {
+    print_error("MySQL Error: " . mysql_error());
+    die; // Die if not PHP Unit tests
+  }
 }
 $observium_db = mysql_select_db($config['db_name'], $observium_link);
 
 // Connect to statsd
 
-#if($config['statsd']['enable'])
-#{
-#  $log = new \StatsD\Client($config['statsd']['host'].':'.$config['statsd']['port']);
-#}
+if($config['statsd']['enable'] && class_exists('StatsD'))
+{
+  $statsd = new StatsD($config['statsd']['host'].':'.$config['statsd']['port']);
+}
 
 // Set some times needed by loads of scripts (it's dynamic, so we do it here!)
 $config['time']['now']        = time();
@@ -391,15 +456,15 @@ $config['time']['twoyear']    = $config['time']['now'] - 63072000; //time() - (2
 
 // Tables to clean up when deleting a device.
 // FIXME. Need simple way for fetch list tables with column 'device_id', like 'SHOW TABLES'
-$config['device_tables'] = array('accesspoints', 'alerts', 'alert_log', 'alert_table', 'applications',
-                                 'bgpPeers', 'bgpPeers_cbgp', 'cef_prefix', 'cef_switching', 'devices_attribs',
-                                 'devices_perftimes', 'device_graphs', 'eigrp_ports', 'entPhysical', 'eventlog',
-                                 'hrDevice', 'ipsec_tunnels', 'loadbalancer_rservers', 'loadbalancer_vservers',
-                                 'mempools', 'munin_plugins', 'netscaler_services', 'netscaler_services_vservers',
-                                 'netscaler_vservers', 'ospf_areas', 'ospf_instances', 'ospf_nbrs', 'ospf_ports',
-                                 'packages', 'ports', 'ports_stack', 'ports_vlans', 'processors', 'pseudowires',
-                                 'sensors', 'services', 'slas', 'storage', 'syslog', 'toner', 'ucd_diskio', 'vlans',
-                                 'vlans_fdb', 'vminfo', 'vrfs', 'wifi_accesspoints', 'wifi_sessions',
-                                 'entity_permissions', 'group_table', 'devices_mibs', 'devices');
+$config['device_tables'] = array(
+  'accesspoints', 'alerts', 'alert_log', 'alert_table', 'applications', 'bgpPeers', 'bgpPeers_cbgp',
+  'cef_prefix', 'cef_switching', 'devices_attribs', 'devices_mibs', 'devices_locations', 'devices_perftimes',
+  'device_graphs', 'eigrp_ports', 'entPhysical', 'eventlog', 'hrDevice', 'ipsec_tunnels',
+  'loadbalancer_rservers', 'loadbalancer_vservers', 'mempools', 'munin_plugins', 'netscaler_services',
+  'netscaler_services_vservers', 'netscaler_vservers', 'ospf_areas', 'ospf_instances', 'ospf_nbrs', 'ospf_ports',
+  'packages', 'ports', 'ports_stack', 'ports_vlans', 'processors', 'pseudowires', 'sensors', 'status', 'services', 'slas',
+  'storage', 'syslog', 'toner', 'ucd_diskio', 'vlans', 'vlans_fdb', 'vminfo', 'vrfs', 'wifi_accesspoints',
+  'wifi_sessions', 'entity_permissions', 'group_table', 'devices'
+);
 
 // End of includes/definitions.inc.php

@@ -9,33 +9,18 @@
  * @package    observium
  * @subpackage housekeeping
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 chdir(dirname($argv[0]));
 
+include_once("includes/defaults.inc.php");
+include_once("config.php");
+
 $options = getopt("A:Vyaselrptd");
 
-if (isset($options['d']))
-{
-  echo("DEBUG!\n");
-  $debug = TRUE;
-  ini_set('display_errors', 1);
-  ini_set('display_startup_errors', 1);
-  ini_set('log_errors', 1);
-#  ini_set('error_reporting', E_ALL ^ E_NOTICE);
-} else {
-  $debug = FALSE;
-#  ini_set('display_errors', 0);
-  ini_set('display_startup_errors', 0);
-  ini_set('log_errors', 0);
-#  ini_set('error_reporting', 0);
-}
-
-include("includes/defaults.inc.php");
-include("config.php");
-include("includes/definitions.inc.php");
+include_once("includes/definitions.inc.php");
 include("includes/functions.inc.php");
 
 $scriptname = basename($argv[0]);
@@ -45,10 +30,12 @@ $cli = is_cli();
 if (isset($options['V']))
 {
   print_message(OBSERVIUM_PRODUCT." ".OBSERVIUM_VERSION);
+  if (is_array($options['V'])) { print_versions(); }
   exit;
 }
 
 print_message("%g".OBSERVIUM_PRODUCT." ".OBSERVIUM_VERSION."\n%WHouseKeeping%n\n", 'color');
+if (OBS_DEBUG) { print_versions(); }
 
 // For interactive prompt/answer checks
 // if it is started from crontab - prompt disabled and answer always 'yes'
@@ -111,6 +98,7 @@ OPTIONS:
 
 DEBUGGING OPTIONS:
  -d                                          Enable debugging output.
+ -dd                                         More verbose debugging output.
 
 EXAMPLES:
   $scriptname -a                        Clean up by all modules interactively (with prompts!)

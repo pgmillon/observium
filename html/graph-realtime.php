@@ -17,24 +17,26 @@ include_once("../includes/defaults.inc.php");
 include_once("../config.php");
 include_once("../includes/definitions.inc.php");
 
-include_once("../includes/common.inc.php");
-include_once("../includes/dbFacile.php");
-include_once("../includes/rewrites.inc.php");
-include_once("includes/functions.inc.php");
-include_once("includes/authenticate.inc.php");
+include($config['install_dir'] . "/includes/common.inc.php");
+include($config['install_dir'] . "/includes/dbFacile.php");
+include($config['install_dir'] . "/includes/rewrites.inc.php");
+include($config['install_dir'] . "/includes/entities.inc.php");
+include($config['html_dir'] . "/includes/functions.inc.php");
+include($config['html_dir'] . "/includes/authenticate.inc.php");
 
-include_once("../includes/snmp.inc.php");
+// Push $_GET into $vars to be compatible with web interface naming
+$vars = get_vars('GET');
 
-if (is_numeric($_GET['id']) && ($config['allow_unauth_graphs'] || port_permitted($_GET['id'])))
+if (is_numeric($vars['id']) && ($config['allow_unauth_graphs'] || port_permitted($vars['id'])))
 {
-  $port   = get_port_by_id($_GET['id']);
+  $port   = get_port_by_id($vars['id']);
   $device = device_by_id_cache($port['device_id']);
   $title  = generate_device_link($device);
   $title .= " :: Port  ".generate_port_link($port);
   $auth   = TRUE;
 } else {
 
-  echo("Unauthenticad");
+  echo("Unauthenticated");
   die;
 
 }
@@ -42,23 +44,28 @@ if (is_numeric($_GET['id']) && ($config['allow_unauth_graphs'] || port_permitted
 header("Content-type: image/svg+xml");
 
 /********** HTTP GET Based Conf ***********/
-$ifnum=@$port['ifIndex'];  // BSD / SNMP interface name / number
-$ifname=htmlentities(@$port['ifDescr']);  //Interface name that will be showed on top right of graph
-$hostname=short_hostname($device['hostname']);
+$ifnum    = $port['ifIndex'];             // BSD / SNMP interface name / number
+$ifname   = escape_html($port['label']);  //Interface name that will be showed on top right of graph
+$hostname = short_hostname($device['hostname']);
 
-if($_GET['title']) { $ifname = $_GET['title']; }
+if($vars['title']) { $ifname = escape_html($vars['title']); }
 
 /********* Other conf *******/
-$scale_type="follow";               //Autoscale default setup : "up" = only increase scale; "follow" = increase and decrease scale according to current graphed datas
-$nb_plot=240;                   //NB plot in graph
+$scale_type="follow";     //Autoscale default setup : "up" = only increase scale; "follow" = increase and decrease scale according to current graphed datas
+$nb_plot=240;             //NB plot in graph
 
-if(is_numeric($_GET['interval'])) {
- $time_interval=$_GET['interval'];
+if (is_numeric($vars['interval']))
+{
+  $time_interval = $vars['interval'];
 } else {
- $time_interval=1;		//Refresh time Interval
+  $time_interval = 1;       // Refresh time Interval
 }
 
-$fetch_link = "data.php?id=".$_GET['id'];
+$fetch_link = "data.php?id=".$vars['id'];
+if (OBS_DEBUG)
+{
+  $fetch_link .= '&amp;debug=yes';
+}
 
 //SVG attributes
 $attribs['axis']='fill="black" stroke="black"';
@@ -77,7 +84,7 @@ $attribs['error']='fill="blue" font-family="Arial" font-size="4"';
 $attribs['collect_initial']='fill="gray" font-family="Tahoma, Verdana, Arial, Helvetica, sans-serif" font-size="4"';
 
 //Error text if we cannot fetch data : depends on which method is used
-$error_text = "Can't get data about interface $ifnum";
+$error_text = "Can't get data about port $ifnum";
 
 $height=125;            //SVG internal height : do not modify
 $width=300;             //SVG internal width : do not modify

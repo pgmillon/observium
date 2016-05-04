@@ -7,11 +7,9 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
-
-global $debug;
 
 // This is an include so that we don't lose variable scope.
 
@@ -26,7 +24,7 @@ if ($handle = opendir($config['install_dir'] . '/' . $include_dir))
   {
     if (filetype($config['install_dir'] . '/' . $include_dir . '/' . $file) == 'file' && preg_match($include_dir_regexp, $file))
     {
-      if ($debug) { echo("Including: " . $config['install_dir'] . '/' . $include_dir . '/' . $file . "\n"); }
+      print_debug('Including: ' . $config['install_dir'] . '/' . $include_dir . '/' . $file);
 
       include($config['install_dir'] . '/' . $include_dir . '/' . $file);
     }

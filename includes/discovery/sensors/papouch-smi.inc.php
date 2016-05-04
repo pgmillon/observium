@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -26,7 +26,7 @@ if ($descr != "" && is_numeric($temperature) && $temperature > 0)
 {
   $temperature_oid = ".1.3.6.1.4.1.18248.1.1.1.0";
   $descr = trim(str_replace("\"", "", $descr));
-  discover_sensor($valid['sensor'], 'temperature', $device, $temperature_oid, 1, 'papouch-tme', $descr, $scale, $temperature * $scale);
+  discover_sensor($valid['sensor'], 'temperature', $device, $temperature_oid, 1, 'papouch-tme', $descr, $scale, $temperature);
 }
 
 // TH2E
@@ -45,7 +45,7 @@ if (is_numeric($temperature) && $temperature > 0)
   }
 
   $temperature_oid = ".1.3.6.1.4.1.18248.20.1.2.1.1.2.1";
-  discover_sensor($valid['sensor'], 'temperature', $device, $temperature_oid, 1, 'papouch-th2e', "Temperature" , $scale, $temperature * $scale, $limits);
+  discover_sensor($valid['sensor'], 'temperature', $device, $temperature_oid, 1, 'papouch-th2e', "Temperature" , $scale, $temperature, $limits);
 }
 
 $temperature = snmp_get($device, "1.3.6.1.4.1.18248.20.1.2.1.1.2.3", "-Oqv");
@@ -62,7 +62,7 @@ if (is_numeric($temperature) && $temperature > 0)
   }
 
   $temperature_oid = ".1.3.6.1.4.1.18248.20.1.2.1.1.2.3";
-  discover_sensor($valid['sensor'], 'temperature', $device, $temperature_oid, "3", 'papouch-th2e', "Dew Point" , $scale, $temperature * $scale, $limits);
+  discover_sensor($valid['sensor'], 'temperature', $device, $temperature_oid, "3", 'papouch-th2e', "Dew Point" , $scale, $temperature, $limits);
 }
 
 $humidity = snmp_get($device, "1.3.6.1.4.1.18248.20.1.2.1.1.2.1", "-Oqv");
@@ -79,7 +79,7 @@ if (is_numeric($humidity) && $humidity > 0)
   }
 
   $humidity_oid = ".1.3.6.1.4.1.18248.20.1.2.1.1.2.2";
-  discover_sensor($valid['sensor'], 'humidity', $device, $humidity_oid, 1, 'papouch-th2e', "Humidity" , $scale, $humidity * $scale, $limits);
+  discover_sensor($valid['sensor'], 'humidity', $device, $humidity_oid, 1, 'papouch-th2e', "Humidity" , $scale, $humidity, $limits);
 }
 
 // EOF

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -36,10 +36,21 @@ $data_oids = array('ifName','ifDescr','ifAlias', 'ifAdminStatus', 'ifOperStatus'
 
 // IF-MIB statistics OIDs that go into RRD
 
-$stat_oids = array('ifInErrors', 'ifOutErrors', 'ifInUcastPkts', 'ifOutUcastPkts', 'ifInNUcastPkts', 'ifOutNUcastPkts',
-                   'ifHCInMulticastPkts', 'ifHCInBroadcastPkts', 'ifHCOutMulticastPkts', 'ifHCOutBroadcastPkts',
-                   'ifInOctets', 'ifOutOctets', 'ifHCInOctets', 'ifHCOutOctets', 'ifInDiscards', 'ifOutDiscards', 'ifInUnknownProtos',
-                   'ifInBroadcastPkts', 'ifOutBroadcastPkts', 'ifInMulticastPkts', 'ifOutMulticastPkts');
+$stat_oids = array(
+  'ifInOctets',        'ifOutOctets',
+  'ifInUcastPkts',     'ifOutUcastPkts',
+  'ifInNUcastPkts',    'ifOutNUcastPkts', // Note, (In|Out)NUcastPkts deprecated, for HC counters use Broadcast+Multicast instead
+  'ifInBroadcastPkts', 'ifOutBroadcastPkts',
+  'ifInMulticastPkts', 'ifOutMulticastPkts',
+  'ifInErrors',        'ifOutErrors',
+  'ifInDiscards',      'ifOutDiscards',
+  'ifInUnknownProtos',
+  // HC counters
+  'ifHCInUcastPkts',     'ifHCOutUcastPkts',
+  'ifHCInBroadcastPkts', 'ifHCOutBroadcastPkts',
+  'ifHCInMulticastPkts', 'ifHCOutMulticastPkts',
+  'ifHCInOctets',        'ifHCOutOctets',
+);
 
 // Subset of IF-MIB statistics OIDs that we put into the state table
 
@@ -116,6 +127,7 @@ if (count($port_stats))
   if ($device['adsl_count'] > "0")
   {
     echo("ADSL ");
+    // FIXME can't we walke a table here? And/or at least replace the numerics by adslLineType etc below?
     $port_stats = snmpwalk_cache_oid($device, ".1.3.6.1.2.1.10.94.1.1.1.1", $port_stats, "ADSL-LINE-MIB");
     $port_stats = snmpwalk_cache_oid($device, ".1.3.6.1.2.1.10.94.1.1.2.1", $port_stats, "ADSL-LINE-MIB");
     $port_stats = snmpwalk_cache_oid($device, ".1.3.6.1.2.1.10.94.1.1.3.1", $port_stats, "ADSL-LINE-MIB");
@@ -169,9 +181,11 @@ if (count($port_stats))
     // Grab data to put ports into vlans or make them trunks
     // FIXME we probably shouldn't be doing this from the VTP MIB, right?
     $port_stats = snmpwalk_cache_oid($device, "vmVlan", $port_stats, "CISCO-VLAN-MEMBERSHIP-MIB", mib_dirs('cisco'));
-    $port_stats = snmpwalk_cache_oid($device, "vlanTrunkPortEncapsulationOperType", $port_stats, "CISCO-VTP-MIB", mib_dirs('cisco'));
-    $port_stats = snmpwalk_cache_oid($device, "vlanTrunkPortNativeVlan", $port_stats, "CISCO-VTP-MIB", mib_dirs('cisco'));
-
+    if ($GLOBALS['snmp_status'] === TRUE)
+    {
+      $port_stats = snmpwalk_cache_oid($device, "vlanTrunkPortEncapsulationOperType", $port_stats, "CISCO-VTP-MIB", mib_dirs('cisco'));
+      $port_stats = snmpwalk_cache_oid($device, "vlanTrunkPortNativeVlan", $port_stats, "CISCO-VTP-MIB", mib_dirs('cisco'));
+    }
   } else {
 
     // The port is not Cisco. Try to get VLAN data from Q-BRIDGE-MIB.
@@ -179,23 +193,27 @@ if (count($port_stats))
     $port_stats = snmpwalk_cache_oid($device, "dot1qPortVlanTable", $port_stats, "Q-BRIDGE-MIB", mib_dirs());
 
     $vlan_ports = snmpwalk_cache_oid($device, "dot1qVlanStaticUntaggedPorts", $vlan_stats, "Q-BRIDGE-MIB", mib_dirs());
-    $vlan_ifindex_map = snmpwalk_cache_oid($device, "dot1dBasePortIfIndex", $vlan_stats, "Q-BRIDGE-MIB", mib_dirs());
-
-    foreach ($vlan_ports as $vlan_id => $instance)
+    if ($GLOBALS['snmp_status'] === TRUE)
     {
-      $parts = explode(' ',$instance['dot1qVlanStaticUntaggedPorts']);
-      $binary = '';
-      foreach ($parts as $part)
+      $vlan_ifindex_map = snmpwalk_cache_oid($device, "dot1dBasePortIfIndex", $vlan_stats, "Q-BRIDGE-MIB", mib_dirs());
+      $vlan_ifindex_min = $vlan_ifindex_map[key($vlan_ifindex_map)]['dot1dBasePortIfIndex'];
+  
+      foreach ($vlan_ports as $vlan_id => $instance)
       {
-        $binary .= zeropad(base_convert($part, 16, 2),8);
-      }
-      $length = strlen($binary);
-      for ($i = 0; $i < $length; $i++)
-      {
-        if ($binary[$i])
+        $parts = explode(' ',$instance['dot1qVlanStaticUntaggedPorts']);
+        $binary = '';
+        foreach ($parts as $part)
         {
-          $ifindex = $i; // FIXME $vlan_ifindex_map[$i]
-          $q_bridge_untagged[$ifindex] = $vlan_id;
+          $binary .= zeropad(base_convert($part, 16, 2),8);
+        }
+        $length = strlen($binary);
+        for ($i = 0; $i < $length; $i++)
+        {
+          if ($binary[$i])
+          {
+            $ifindex = $i + $vlan_ifindex_min;
+            $q_bridge_untagged[$ifindex] = $vlan_id;
+          }
         }
       }
     }
@@ -219,7 +237,9 @@ if (count($port_stats))
 
   // End Building SNMP Cache Array
 
-  if ($debug) { print_vars($port_stats); }
+  if (OBS_DEBUG > 1) { print_vars($port_stats); }
+  
+  $graphs['bits'] = TRUE;
 }
 
 $polled = time();
@@ -274,11 +294,10 @@ foreach ($ports as $port)
   { // Check to make sure Port data is cached.
     $this_port = &$port_stats[$port['ifIndex']];
 
+    // OS Specific rewrites (get your shit together, vendors)
     if ($device['os'] == "vmware" && preg_match("/Device ([a-z0-9]+) at .*/", $this_port['ifDescr'], $matches)) { $this_port['ifDescr'] = $matches[1]; }
-
     if ($device['os'] == 'zxr10') { $this_port['ifAlias'] = preg_replace("/^" . str_replace("/", "\\/", $this_port['ifName']) . "\s*/", '', $this_port['ifDescr']); }
-
-    if ($device['os'] == 'ciscosb' && $this_port['ifType'] =='propVirtual' && is_numeric($this_port['ifDescr']))
+    if ($device['os'] == 'ciscosb' && $this_port['ifType'] == 'propVirtual' && is_numeric($this_port['ifDescr']))
     {
       $this_port['ifName'] = 'Vl'.$this_port['ifDescr'];
       //$this_port['ifDescr'] = 'Vlan'.$this_port['ifDescr'];
@@ -317,7 +336,7 @@ foreach ($ports as $port)
 #    }
 
     // If we're not using SNMPv1, assumt there are 64-bit values and overwrite the 32-bit OIDs.
-    if ($device['snmpver'] != 'v1')
+    if ($device['snmp_version'] != 'v1')
     {
       // NetApp are dumb. Very Dumb. They invent their own random OIDs for 64-bit values. Bad netapp, why you so dumb?
       if ($device['os'] == "netapp") { $hc_prefix = '64'; } else { $hc_prefix = 'HC'; }
@@ -357,11 +376,14 @@ foreach ($ports as $port)
         print_debug("replacing with 64-bit...");
         foreach (array('Octets', 'UcastPkts', 'BroadcastPkts', 'MulticastPkts') as $hc)
         {
-          $hcin = 'if'.$hc_prefix.'In'.$hc;
+          $hcin  = 'if'.$hc_prefix.'In'.$hc;
           $hcout = 'if'.$hc_prefix.'Out'.$hc;
           $this_port['ifIn'.$hc]  = $this_port[$hcin];
           $this_port['ifOut'.$hc] = $this_port[$hcout];
         }
+        // Additionally override (In|Out)NUcastPkts
+        $this_port['ifInNUcastPkts']  = $this_port['ifInBroadcastPkts']  + $this_port['ifInMulticastPkts'];
+        $this_port['ifOutNUcastPkts'] = $this_port['ifOutBroadcastPkts'] + $this_port['ifOutMulticastPkts'];
       }
     }
 
@@ -375,11 +397,27 @@ foreach ($ports as $port)
       $this_port['ifPhysAddress'] = zeropad($a_a).zeropad($a_b).zeropad($a_c).zeropad($a_d).zeropad($a_e).zeropad($a_f);
     }
 
-    // Overwrite ifSpeed with ifHighSpeed if it's over 10G
-    if (is_numeric($this_port['ifHighSpeed']) && $this_port['ifSpeed'] > "1000000000")
+    if (is_numeric($this_port['ifHighSpeed']))
     {
-      echo("HighSpeed, ");
-      $this_port['ifSpeed'] = $this_port['ifHighSpeed'] * 1000000;
+      if ($this_port['ifHighSpeed'] == '0' && $port['ifHighSpeed'] > '0')
+      {
+        // Use old ifHighSpeed if current speed '0', seems as some error on device
+        $this_port['ifHighSpeed'] = $port['ifHighSpeed'];
+        print_debug('Port ifHighSpeed fixed from zero.');
+      }
+
+      // Overwrite ifSpeed with ifHighSpeed if it's over 10G or ifSpeed equals to zero
+      if ($this_port['ifHighSpeed'] > 0 && ($this_port['ifSpeed'] > '1000000000' || $this_port['ifSpeed'] == 0))
+      {
+        echo("HighSpeed, ");
+        $this_port['ifSpeed'] = $this_port['ifHighSpeed'] * 1000000;
+      }
+    }
+    if ($this_port['ifSpeed'] == '0' && $port['ifSpeed'] > '0')
+    {
+      // Use old ifSpeed if current speed '0', seems as some error on device
+      $this_port['ifSpeed'] = $port['ifSpeed'];
+      print_debug('Port ifSpeed fixed from zero.');
     }
 
     // Overwrite ifDuplex with dot3StatsDuplexStatus if it exists
@@ -424,6 +462,12 @@ foreach ($ports as $port)
       list($this_port['ifDescr']) = explode(';', $this_port['ifDescr']);
     }
 
+    // Added for Brocade NOS. Will copy ifDescr -> ifAlias if ifDescr != ifName
+    if ($config['os'][$device['os']]['ifDescr_ifAlias'] && $this_port['ifDescr'] != $this_port['ifName'])
+    {
+      $this_port['ifAlias'] = $this_port['ifDescr'];
+    }
+
     // Update IF-MIB data
     $log_event = array();
     foreach ($data_oids as $oid)
@@ -438,8 +482,14 @@ foreach ($ports as $port)
           $port['update'][$oid] = array('NULL');
           $msg = "[$oid] " . $port[$oid] . " -> NULL";
         }
-        $log_event[] = $msg;
-        if ($debug) { echo($msg." "); } else { echo($oid . " "); }
+        if ($oid == 'ifOperStatus' && ($port[$oid] == 'up' || $port[$oid] == 'down') && isset($this_port[$oid]))
+        {
+          // Specific log_event for port Up/Down
+          log_event('Interface '.ucfirst($this_port[$oid]) . ": [$oid] " . $port[$oid] . ' -> ' . $this_port[$oid], $device, 'port', $port, 'warning');
+        } else {
+          $log_event[] = $msg;
+        }
+        if (OBS_DEBUG) { echo($msg." "); } else { echo($oid . " "); }
       }
     }
     if ((bool)$log_event) { log_event('Interface changed: ' . implode('; ', $log_event), $device, 'port', $port); }
@@ -508,7 +558,7 @@ foreach ($ports as $port)
     foreach ($stat_oids as $oid)
     {
       // Update StatsD/Carbon
-      if ($config['statsd']['enable'] == TRUE && !strpos($oid, "HC"))
+      if ($config['statsd']['enable'] == TRUE && !strpos($oid, "HC") && is_numeric($this_port[$oid]))
       {
         StatsD::gauge(str_replace(".", "_", $device['hostname']).'.'.'port'.'.'.$port['ifIndex'].'.'.$oid, $this_port[$oid]);
       }
@@ -527,7 +577,7 @@ foreach ($ports as $port)
       $debug_file   = "/tmp/port_debug_".$port['port_id'].".txt";
       //FIXME. I think formatted debug out (as for spikes) more informative, but output here more parsable as CSV
       $port_msg  = $port['port_id']."|".$polled."|".$polled_period."|".$debug_port['ifInOctets']."|".$debug_port['ifOutOctets']."|".$debug_port['ifHCInOctets']."|".$debug_port['ifHCOutOctets'];
-      $port_msg .= "|".formatRates($port['stats']['ifInOctets_rate'])."|".formatRates($port['stats']['ifOutOctets_rate'])."|".$device['snmpver']."\n";
+      $port_msg .= "|".formatRates($port['stats']['ifInOctets_rate'])."|".formatRates($port['stats']['ifOutOctets_rate'])."|".$device['snmp_version']."\n";
       file_put_contents($debug_file, $port_msg, FILE_APPEND);
     }
 
@@ -575,6 +625,11 @@ foreach ($ports as $port)
       $port['stats']['ifInBits_perc'] = round($port['stats']['ifInBits_rate'] / $this_port['ifSpeed'] * 100);
       $port['stats']['ifOutBits_perc'] = round($port['stats']['ifOutBits_rate'] / $this_port['ifSpeed'] * 100);
       $port['alert_array']['ifSpeed'] = $this_port['ifSpeed'];
+    }
+
+    if (is_numeric($this_port['ifHighSpeed']))
+    {
+      $port['alert_array']['ifHighSpeed'] = $this_port['ifHighSpeed'];
     }
 
     $port['state']['ifInOctets_perc'] = $port['stats']['ifInBits_perc'];
@@ -656,8 +711,7 @@ foreach ($ports as $port)
     $ports_module = 'enable_ports_poe';
     if ($attribs[$ports_module] || ($config[$ports_module] && !isset($attribs[$ports_module]))) { include("port-poe.inc.php"); }
 
-#    if ($debug || TRUE) { print_vars($port['alert_array']); echo(PHP_EOL); print_vars($this_port);}
-#    print_vars($port['alert_array']);
+#    if (OBS_DEBUG > 1) { print_vars($port['alert_array']); echo(PHP_EOL); print_vars($this_port);}
 
     check_entity('port', $port, $port['alert_array']);
 

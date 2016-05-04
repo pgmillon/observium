@@ -7,8 +7,14 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
+ */
+
+/**
+ * FIXME. Remove in r7000.
+ * This file is not used anymore, but temporarily left for not broke os detect
+ * when update and discovery -h all launched simultaneously
  */
 
 if (empty($os))

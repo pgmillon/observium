@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -80,7 +80,7 @@ if ($config['enable_libvirt'] == '1' && $device['os'] == "linux" )
           $vm_info_xml = implode('', $vm_info_array);
 
           $xml = simplexml_load_string('<?xml version="1.0"?> ' . $vm_info_xml);
-          if ($debug) { print_vars($xml); }
+          if (OBS_DEBUG && $xml) { print_vars($xml); }
 
           $vmwVmGuestOS   = ''; // libvirt does not supply this
           $vmwVmMemSize   = $xml->currentMemory / 1024;

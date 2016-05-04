@@ -11,7 +11,7 @@
  * @package    observium
  * @subpackage webinterface
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -60,10 +60,11 @@ else if (dbFetchCell("SELECT COUNT(*) FROM `mac_accounting` WHERE `port_id` = ?"
   $port['tags'] .= '<a href="' . generate_port_url($port, array('view' => 'macaccounting')) . '"><span class="label label-info">MAC</span></a>';
 }
 
-echo('<tr class="'.$port['row_class'].'" onclick="location.href=\'' . generate_port_url($port) . '\'" style="cursor: pointer;">
-         <td style="width: 1px; background-color: '.$port['table_tab_colour'].'; margin: 0px; padding: 0px; width: 10px;"></td>
+echo('<tr class="'.$port['row_class'].'"');
+if($vars['tab'] != "port") { echo ' onclick="location.href=\'' . generate_port_url($port) . '\'" style="cursor: pointer;">'; }
+echo('         <td class="state-marker"></td>
          <td style="width: 1px;"></td>
-         <td style="width: 350px;">');
+         <td style="min-width: 250px;">');
 
 echo("        <span class='entity-title'>
               " . generate_port_link($port) . " ".$port['tags']."
@@ -161,32 +162,13 @@ if ($port['ifTrunk'])
   if ($vlans_count)
   {
     echo('ALLOWED: ');
-    $vlan_prev = 0;
+    $vlans_aggr = array();
     foreach ($vlans as $vlan)
     {
       if ($vlans_count > 20)
       {
         // Aggregate VLANs
-        $last_char = $vlans_aggr[strlen($vlans_aggr)-1];
-        if ($vlan_prev == 0)
-        {
-          $vlans_aggr = '<strong>'.$vlan['vlan'];
-        } elseif (is_numeric($last_char))
-        {
-          $vlans_aggr .= ($vlan['vlan']-1 == $vlan_prev) ? '-' : ', '.$vlan['vlan'];
-        } elseif ($last_char == '-')
-        {
-          if ($vlan['vlan']-1 == $vlan_prev)
-          {
-            $vlan_prev = $vlan['vlan'];
-            continue;
-          } else {
-            $vlans_aggr .= $vlan_prev.', '.$vlan['vlan'];
-          }
-        } else {
-          $vlans_aggr .= $vlan['vlan'];
-        }
-        $vlan_prev = $vlan['vlan'];
+        $vlans_aggr[] = $vlan['vlan'];
       } else {
         // List VLANs
         switch ($vlan['state'])
@@ -199,17 +181,10 @@ if ($port['ifTrunk'])
         echo("<strong class=".$class.">".$vlan['vlan'] ." [".$vlan['vlan_name']."]</strong><br />");
       }
     }
-    if ($vlan_prev)
+    if ($vlans_count > 20)
     {
       // End aggregate VLANs
-      $last_char = $vlans_aggr[strlen($vlans_aggr)-1];
-      if ($last_char == '-')
-      {
-        $vlans_aggr = substr($vlans_aggr, 0, -1);
-      } elseif ($last_char == ' ') {
-        $vlans_aggr = substr($vlans_aggr, 0, -2);
-      }
-      echo($vlans_aggr.'</strong>');
+      echo('<strong>'.range_to_list($vlans_aggr, ', ').'</strong>');
     }
   }
   echo('</div>">'.$port['ifTrunk'].'</a></p>');
@@ -263,7 +238,7 @@ if ($port_adsl['adslLineCoding'])
 }
 
 echo("</td>");
-echo("<td style='width: 375px' class=small>");
+echo("<td style='min-width: 275px' class=small>");
 
 if ($port_details)
 {
@@ -349,9 +324,9 @@ if ($port_details)
   {
     foreach (dbFetchRows("SELECT * FROM `pseudowires` WHERE `port_id` = ?", array($port['port_id'])) as $pseudowire)
     {
-      //`port_id`,`peer_device_id`,`peer_ldp_id`,`cpwVcID`,`cpwOid`
+      //`port_id`,`peer_device_id`,`peer_ldp_id`,`pwID`,`pwIndex`
   #    $pw_peer_dev = dbFetchRow("SELECT * FROM `devices` WHERE `device_id` = ?", array($pseudowire['peer_device_id']));
-      $pw_peer_int = dbFetchRow("SELECT * FROM `ports` AS I, `pseudowires` AS P WHERE I.`device_id` = ? AND P.`cpwVcID` = ? AND P.`port_id` = I.`port_id`", array($pseudowire['peer_device_id'], $pseudowire['cpwVcID']));
+      $pw_peer_int = dbFetchRow("SELECT * FROM `ports` AS I, `pseudowires` AS P WHERE I.`device_id` = ? AND P.`pwID` = ? AND P.`port_id` = I.`port_id`", array($pseudowire['peer_device_id'], $pseudowire['pwID']));
 
   #    $pw_peer_int = get_port_by_id_cache($pseudowire['peer_device_id']);
       $pw_peer_dev = device_by_id_cache($pseudowire['peer_device_id']);
@@ -361,10 +336,10 @@ if ($port_details)
         humanize_port($pw_peer_int);
         echo($br.'<i class="oicon-arrow-switch"></i> <strong>' . generate_port_link($pw_peer_int, short_ifname($pw_peer_int['label'])) .' on '. generate_device_link($pw_peer_dev, short_hostname($pw_peer_dev['hostname'])) . '</strong>');
       } else {
-        echo($br.'<i class="oicon-arrow-switch"></i> <strong> VC ' . $pseudowire['cpwVcID'] .' on '. $pseudowire['peer_addr'] . '</strong>');
+        echo($br.'<i class="oicon-arrow-switch"></i> <strong> VC ' . $pseudowire['pwID'] .' on '. $pseudowire['peer_addr'] . '</strong>');
       }
-      echo ' <span class="label">'.$pseudowire['pw_psntype'].'</span>';
-      echo ' <span class="label">'.$pseudowire['pw_type'].'</span>';
+      echo ' <span class="label">'.$pseudowire['pwPsnType'].'</span>';
+      echo ' <span class="label">'.$pseudowire['pwType'].'</span>';
       $br = "<br />";
     }
   }

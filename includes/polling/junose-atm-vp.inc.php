@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -33,8 +33,6 @@ if (count($vp_rows))
 
     $oid = $vp['ifIndex'].".".$vp['vp_id'];
 
-    if ($debug) { echo("$oid "); }
-
     $t_vp = $vp_cache[$oid];
 
     $vp_update = $t_vp['juniAtmVpStatsInCells'].":".$t_vp['juniAtmVpStatsOutCells'];
@@ -43,8 +41,6 @@ if (count($vp_rows))
     $vp_update .= ":".$t_vp['juniAtmVpStatsInPacketErrors'].":".$t_vp['juniAtmVpStatsOutPacketErrors'];
 
     $rrd  = "vp-" . $vp['ifIndex'] . "-" . $vp['vp_id'] . ".rrd";
-
-    if ($debug) { echo("$rrd "); }
 
     rrdtool_create($device, $rrd, " \
       DS:incells:DERIVE:600:0:125000000000 \

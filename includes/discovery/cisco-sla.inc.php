@@ -7,112 +7,118 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-if ($config['enable_sla'] && $device['os_group'] == "cisco")
+/// FIXME. Make this module generic, not only cisco-like
+
+if ($config['enable_sla'] && is_device_mib($device, 'CISCO-RTTMON-MIB'))
 {
   echo("SLAs : ");
 
-  $slas = snmp_walk($device, "ciscoRttMonMIB.ciscoRttMonObjects.rttMonCtrl", "-Osq", "+CISCO-RTTMON-MIB");
+  $valid['slas'] = array();
 
-  $sla_table = array();
-  foreach (explode("\n", $slas) as $sla)
-  {
-    $key_val = explode(" ", $sla, 2);
-    if (count($key_val) != 2)
-      $key_val[] = "";
-
-    $key = $key_val[0];
-    $value = $key_val[1];
-
-    $prop_id = explode(".", $key);
-    if ((count($prop_id) != 2) || !ctype_digit($prop_id[1]))
-      continue;
-
-    $property = $prop_id[0];
-    $id = intval($prop_id[1]);
-
-    $sla_table[$id][$property] = trim($value);
-  }
-
-  #var_dump($sla_table);
+  $sla_table = snmpwalk_cache_multi_oid($device, "rttMonCtrl", array(), 'CISCO-RTTMON-MIB', mib_dirs('cisco'));
+  if (OBS_DEBUG > 1) { print_vars($sla_table); }
 
   // Get existing SLAs
-  $existing_slas = dbFetchColumn("SELECT `sla_id` FROM `slas` WHERE `device_id` = :device_id AND `deleted` = 0", array('device_id' => $device['device_id']));
-
-  foreach ($sla_table as $sla_nr => $sla_config)
+  $sla_db  = array();
+  //$sla_ids = array();
+  foreach (dbFetchRows("SELECT * FROM `slas` WHERE `device_id` = ?", array($device['device_id'])) as $entry)
   {
-    $query_data = array(
-      'device_id' => $device['device_id'],
-      'sla_nr' => $sla_nr,
-    );
-    $sla_id = dbFetchCell("SELECT `sla_id` FROM `slas` WHERE `device_id` = :device_id AND `sla_nr` = :sla_nr", $query_data);
+    $sla_db[$entry['sla_index']] = $entry;
+    //$sla_ids[$entry['sla_id']] = $entry['sla_id'];
+  }
+
+  foreach ($sla_table as $sla_index => $entry)
+  {
+    if (!isset($entry['rttMonCtrlAdminStatus'])) { continue; } // Skip additional multiindex entries from table
 
     $data = array(
-      'device_id' => $device['device_id'],
-      'sla_nr' => $sla_nr,
-      'owner' => $sla_config['rttMonCtrlAdminOwner'],
-      'tag' => $sla_config['rttMonCtrlAdminTag'],
-      'rtt_type' => $sla_config['rttMonCtrlAdminRttType'],
-      'status' => ($sla_config['rttMonCtrlAdminStatus'] == 'active') ? 1 : 0,
-      'deleted' => 0,
+      'device_id'  => $device['device_id'],
+      'sla_index'  => $sla_index,
+      'sla_owner'  => $entry['rttMonCtrlAdminOwner'],
+      'sla_tag'    => $entry['rttMonCtrlAdminTag'],
+      'rtt_type'   => $entry['rttMonCtrlAdminRttType'],
+      'sla_status' => $entry['rttMonCtrlAdminStatus'], // Possible: active, notInService, notReady, createAndGo, createAndWait, destroy
+      'deleted'    => 0,
     );
 
     // Some fallbacks for when the tag is empty
-    if (!$data['tag'])
+    if (!$data['sla_tag'])
     {
       switch ($data['rtt_type'])
       {
         case 'http':
-          $data['tag'] = $sla_config['rttMonEchoAdminURL'];
+        case 'ftp':
+          $data['sla_tag'] = $entry['rttMonEchoAdminURL'];
           break;
-
         case 'dns':
-          $data['tag'] = $sla_config['rttMonEchoAdminTargetAddressString'];
+          $data['sla_tag'] = $entry['rttMonEchoAdminTargetAddressString'];
           break;
-
         case 'echo':
-          $parts = explode(" ", $sla_config['rttMonEchoAdminTargetAddress']);
-          if (count($parts) == 4)
-          {
-            // IPv4
-            $data['tag'] = implode(".", array_map('hexdec', $parts));
-          }
-          elseif (count($parts) == 16)
-          {
-            // IPv6
-            $data['tag'] = $parts[0].$parts[1].':'.$parts[2].$parts[3].':'.$parts[4].$parts[5].':'.$parts[6].$parts[7].':'.$parts[8].$parts[9].':'.$parts[10].$parts[11].':'.$parts[12].$parts[13].':'.$parts[14].$parts[15];
-            $data['tag'] = preg_replace('/:0*([0-9])/', ':$1', $data['tag']);
-          }
+        case 'jitter':
+        case 'icmpjitter':
+          $data['sla_tag'] = hex2ip($entry['rttMonEchoAdminTargetAddress']);
           break;
       }
     }
 
-    if (!$sla_id)
+    if (!isset($sla_db[$sla_index]))
     {
+      // Not exist, add
       $sla_id = dbInsert($data, 'slas');
-      echo "+";
-    }
-    else
-    {
-      // Remove from the list
-      $existing_slas = array_diff($existing_slas, array($sla_id));
+      $GLOBALS['module_stats'][$module]['added']++; //echo "+";
+    } else {
+      $sla_id = $sla_db[$sla_index]['sla_id'];
 
-      dbUpdate($data, 'slas', "`sla_id` = :sla_id", array('sla_id' => $sla_id));
-      echo ".";
+      $update_db = array();
+      foreach ($data as $key => $value)
+      {
+        if ($sla_db[$sla_index][$key] != $value) { $update_db[$key] = $value; }
+      }
+      if (count($update_db))
+      {
+        dbUpdate($update_db, 'slas', "`sla_id` = ?", array($sla_id));
+        if (OBS_DEBUG > 1) { print_vars($update_db); }
+        if (isset($update_db['deleted']))
+        {
+          // This is re-added sla
+          $GLOBALS['module_stats'][$module]['added']++; //echo "+";
+        } else {
+          $GLOBALS['module_stats'][$module]['updated']++; //echo "U";
+        }
+      } else {
+        $GLOBALS['module_stats'][$module]['unchanged']++; //echo ".";
+      }
     }
+    $valid['slas'][$sla_id] = $sla_id;
   }
 
   // Mark all remaining SLAs as deleted
-  foreach ($existing_slas as $existing_sla)
+  foreach ($sla_db as $entry)
   {
-    dbUpdate(array('deleted' => 1), 'slas', "`sla_id` = :sla_id", array('sla_id' => $existing_sla));
-    echo "-";
+    if (isset($valid['slas'][$entry['sla_id']]) || $entry['deleted'] == 1)
+    {
+      // SLA exist or already deleted
+      continue;
+    } else {
+      if (!$entry['rttMonCtrlAdminStatus'])
+      {
+        dbDelete('slas', "`sla_id` = ?", array($entry['sla_id']));
+      } else {
+        dbUpdate(array('deleted' => 1), 'slas', "`sla_id` = ?", array($entry));
+      }
+      $GLOBALS['module_stats'][$module]['deleted']++; //echo "-";
+    }
   }
 
-  echo("\n");
+  $GLOBALS['module_stats'][$module]['status'] = count($valid['slas']);
+  if (OBS_DEBUG && $GLOBALS['module_stats'][$module]['status']) { print_vars($valid['slas']); }
+
+  // Clean
+  unset($update_db, $sla_db, $sla_table, $sla_ids, $data, $entry);
 } # enable_sla && cisco
 
 // EOF

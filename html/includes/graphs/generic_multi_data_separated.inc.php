@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -38,6 +38,7 @@ if (!$noheader)
 
 if (!isset($multiplier)) { $multiplier = "8"; }
 
+$rrd_multi = array();
 foreach ($rrd_list as $rrd)
 {
   if (!$config['graph_colours'][$colours_in][$iter] || !$config['graph_colours'][$colours_out][$iter]) { $iter = 0; }
@@ -64,16 +65,12 @@ foreach ($rrd_list as $rrd)
 
   if (!$args['nototal'])
   {
-
-    $in_thing .= $separator . $in . $i . ",UN,0," . $in . $i . ",IF";
-    $out_thing .= $separator . $out . $i . ",UN,0," . $out . $i . ",IF";
-    $pluses .= $plus;
-    $separator = ",";
-    $plus = ",+";
-
     $rrd_options .= " VDEF:totin".$i."=inB".$i.",TOTAL";
     $rrd_options .= " VDEF:totout".$i."=outB".$i.",TOTAL";
     $rrd_options .= " VDEF:tot".$i."=octets".$i.",TOTAL";
+
+    $rrd_multi['in_thing'][]  = $in .  $i . ",UN,0," . $in .  $i . ",IF";
+    $rrd_multi['out_thing'][] = $out . $i . ",UN,0," . $out . $i . ",IF";
   }
 
   if ($i) { $stack="STACK"; }
@@ -101,6 +98,9 @@ if ($custom_graph) { $rrd_options .= $custom_graph; }
 
 if (!$nototal)
 {
+  $in_thing  = implode(',', $rrd_multi['in_thing']);
+  $out_thing = implode(',', $rrd_multi['out_thing']);
+  $pluses    = str_repeat(',+', count($rrd_multi['in_thing']) - 1);
   $rrd_options .= " CDEF:".$in."octets=" . $in_thing . $pluses;
   $rrd_options .= " CDEF:".$out."octets=" . $out_thing . $pluses;
   $rrd_options .= " CDEF:octets=inoctets,outoctets,+";
@@ -126,5 +126,8 @@ if (!$nototal)
 
 $rrd_options .= $rrd_optionsb;
 $rrd_options .= " HRULE:0#999999";
+
+// Clean
+unset($rrd_multi, $in_thing, $out_thing, $pluses);
 
 // EOF

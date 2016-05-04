@@ -7,105 +7,124 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 // FIXME - seems to be broken. IPs appear with leading zeroes.
+// FIXME. Missing clean DB
 
-$ipsec_array = snmpwalk_cache_oid($device, "cipSecTunnelEntry", array(), "CISCO-IPSEC-FLOW-MONITOR-MIB", mib_dirs('cisco'));
-$ike_array   = snmpwalk_cache_oid($device, "cikeTunnelEntry", array(), "CISCO-IPSEC-FLOW-MONITOR-MIB", mib_dirs('cisco'));
-
-$tunnels_db = dbFetchRows("SELECT * FROM `ipsec_tunnels` WHERE `device_id` = ?", array($device['device_id']));
-foreach ($tunnels_db as $tunnel) { $tunnels[$tunnel['peer_addr']] = $tunnel;}
-
-foreach ($ipsec_array as $index => $tunnel)
+if (is_device_mib($device, 'CISCO-IPSEC-FLOW-MONITOR-MIB'))
 {
+  // Cache DB entries
+  $tunnels_db = dbFetchRows("SELECT * FROM `ipsec_tunnels` WHERE `device_id` = ?", array($device['device_id']));
+  foreach ($tunnels_db as $tunnel) { $tunnels[$tunnel['peer_addr']] = $tunnel;}
 
-  $tunnel = array_merge($tunnel, $ike_array[$tunnel['cipSecTunIkeTunnelIndex']]);
-
-  echo("Tunnel $index (".$tunnel['cipSecTunIkeTunnelIndex'].")\n");
-
-  echo("Address ".$tunnel['cikeTunRemoteValue']."\n");
-
-  $address = $tunnel['cikeTunRemoteValue'];
-
-  $oids = array (
-    "cipSecTunInOctets",
-    "cipSecTunInDecompOctets",
-    "cipSecTunInPkts",
-    "cipSecTunInDropPkts",
-    "cipSecTunInReplayDropPkts",
-    "cipSecTunInAuths",
-    "cipSecTunInAuthFails",
-    "cipSecTunInDecrypts",
-    "cipSecTunInDecryptFails",
-    "cipSecTunOutOctets",
-    "cipSecTunOutUncompOctets",
-    "cipSecTunOutPkts",
-    "cipSecTunOutDropPkts",
-    "cipSecTunOutAuths",
-    "cipSecTunOutAuthFails",
-    "cipSecTunOutEncrypts",
-    "cipSecTunOutEncryptFails");
-
-  $db_oids = array("cipSecTunStatus" => "tunnel_status",
-                   "cikeTunLocalName" => "tunnel_name",
-                   "cikeTunLocalValue" => "local_addr");
-
-  if (!is_array($tunnels[$tunnel['cikeTunRemoteValue']]))
+  $device_context = $device;
+  if (!count($tunnels_db))
   {
-    $tunnel_id = dbInsert(array('device_id' => $device['device_id'], 'peer_addr' => $tunnel['cikeTunRemoteValue'], 'local_addr' => $tunnel['cikeTunLocalValue'], 'tunnel_name' => $tunnel['cikeTunLocalName']), 'ipsec_tunnels');
-  } else {
-    foreach ($db_oids as $db_oid => $db_value) {
-      $db_update[$db_value] = $tunnel[$db_oid];
-    }
-
-    $updated   = dbUpdate($db_update, 'ipsec_tunnels', '`tunnel_id` = ?', array($tunnels[$tunnel['cikeTunRemoteValue']]['tunnel_id']));
+    // Set retries to 0 for speedup first walking, only if previously polling also empty (DB empty)
+    $device_context['snmp_retries'] = 0;
+  }
+  $ike_array   = snmpwalk_cache_oid($device_context, "cikeTunnelEntry", array(), "CISCO-IPSEC-FLOW-MONITOR-MIB", mib_dirs('cisco'));
+  unset($device_context);
+  if ($GLOBALS['snmp_status'])
+  {
+    $ipsec_array = snmpwalk_cache_oid($device, "cipSecTunnelEntry", array(), "CISCO-IPSEC-FLOW-MONITOR-MIB", mib_dirs('cisco'));
   }
 
-  if (is_numeric($tunnel['cipSecTunHcInOctets']) && is_numeric($tunnel['cipSecTunHcInDecompOctets']) && is_numeric($tunnel['cipSecTunHcOutOctets']) && is_numeric($tunnel['cipSecTunHcOutUncompOctets']))
+  foreach ($ipsec_array as $index => $tunnel)
   {
-    echo("HC ");
+    $tunnel = array_merge($tunnel, $ike_array[$tunnel['cipSecTunIkeTunnelIndex']]);
 
-    $tunnel['cipSecTunInOctets'] = $tunnel['cipSecTunHcInOctets'];
-    $tunnel['cipSecTunInDecompOctets'] = $tunnel['cipSecTunHcInDecompOctets'];
-    $tunnel['cipSecTunOutOctets'] = $tunnel['cipSecTunHcOutOctets'];
-    $tunnel['cipSecTunOutUncompOctets'] = $tunnel['cipSecTunHcOutUncompOctets'];
-  }
+    echo("Tunnel $index (".$tunnel['cipSecTunIkeTunnelIndex'].")\n");
 
-  $rrd_file = "ipsectunnel-".$address.".rrd";
+    echo("Address ".$tunnel['cikeTunRemoteValue']."\n");
 
-  $rrd_create = '';
+    $address = $tunnel['cikeTunRemoteValue'];
 
-  foreach ($oids as $oid)
-  {
-    $oid_ds = truncate(str_replace("cipSec", "", $oid), 19, '');
-    $rrd_create .= ' DS:'.$oid_ds.':COUNTER:600:U:1000000000';
-  }
+    $oids = array (
+      "cipSecTunInOctets",
+      "cipSecTunInDecompOctets",
+      "cipSecTunInPkts",
+      "cipSecTunInDropPkts",
+      "cipSecTunInReplayDropPkts",
+      "cipSecTunInAuths",
+      "cipSecTunInAuthFails",
+      "cipSecTunInDecrypts",
+      "cipSecTunInDecryptFails",
+      "cipSecTunOutOctets",
+      "cipSecTunOutUncompOctets",
+      "cipSecTunOutPkts",
+      "cipSecTunOutDropPkts",
+      "cipSecTunOutAuths",
+      "cipSecTunOutAuthFails",
+      "cipSecTunOutEncrypts",
+      "cipSecTunOutEncryptFails");
 
-  $rrdupdate = "N";
+    $db_oids = array("cipSecTunStatus" => "tunnel_status",
+                     "cikeTunLocalName" => "tunnel_name",
+                     "cikeTunLocalValue" => "local_addr");
 
-  foreach ($oids as $oid)
-  {
-    if (is_numeric($tunnel[$oid]))
+    if (!is_array($tunnels[$tunnel['cikeTunRemoteValue']]))
     {
-      $value = $tunnel[$oid];
+      $tunnel_id = dbInsert(array('device_id' => $device['device_id'],
+                                  'peer_addr' => $tunnel['cikeTunRemoteValue'],
+                                  'local_addr' => $tunnel['cikeTunLocalValue'],
+                                  'tunnel_name' => $tunnel['cikeTunLocalName']), 'ipsec_tunnels');
     } else {
-      $value = "0";
+      foreach ($db_oids as $db_oid => $db_value)
+      {
+        $db_update[$db_value] = $tunnel[$db_oid];
+      }
+
+      $updated   = dbUpdate($db_update, 'ipsec_tunnels', '`tunnel_id` = ?', array($tunnels[$tunnel['cikeTunRemoteValue']]['tunnel_id']));
     }
-    $rrdupdate .= ':'.$value;
+
+    if (is_numeric($tunnel['cipSecTunHcInOctets']) && is_numeric($tunnel['cipSecTunHcInDecompOctets']) &&
+        is_numeric($tunnel['cipSecTunHcOutOctets']) && is_numeric($tunnel['cipSecTunHcOutUncompOctets']))
+    {
+      echo("HC ");
+
+      $tunnel['cipSecTunInOctets'] = $tunnel['cipSecTunHcInOctets'];
+      $tunnel['cipSecTunInDecompOctets'] = $tunnel['cipSecTunHcInDecompOctets'];
+      $tunnel['cipSecTunOutOctets'] = $tunnel['cipSecTunHcOutOctets'];
+      $tunnel['cipSecTunOutUncompOctets'] = $tunnel['cipSecTunHcOutUncompOctets'];
+    }
+
+    $rrd_file = "ipsectunnel-".$address.".rrd";
+
+    $rrd_create = '';
+
+    foreach ($oids as $oid)
+    {
+      $oid_ds = truncate(str_replace("cipSec", "", $oid), 19, '');
+      $rrd_create .= ' DS:'.$oid_ds.':COUNTER:600:U:1000000000';
+    }
+
+    $rrdupdate = "N";
+
+    foreach ($oids as $oid)
+    {
+      if (is_numeric($tunnel[$oid]))
+      {
+        $value = $tunnel[$oid];
+      } else {
+        $value = "0";
+      }
+      $rrdupdate .= ':'.$value;
+    }
+
+    if (isset($tunnel['cikeTunRemoteValue']))
+    {
+      rrdtool_create($device, $rrd_file, $rrd_create);
+      rrdtool_update($device, $rrd_file, $rrdupdate);
+      #$graphs['ipsec_tunnels'] = TRUE;
+    }
+
   }
 
-  if (isset($tunnel['cikeTunRemoteValue']))
-  {
-    rrdtool_create($device, $rrd_file, $rrd_create);
-    rrdtool_update($device, $rrd_file, $rrdupdate);
-    #$graphs['ipsec_tunnels'] = TRUE;
-  }
-
+  unset($oids, $data, $oid, $tunnel);
 }
-
-unset($oids, $data, $oid, $tunnel);
 
 // EOF

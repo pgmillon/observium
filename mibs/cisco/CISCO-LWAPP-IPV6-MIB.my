@@ -1,0 +1,1250 @@
+
+-- *******************************************************************
+-- CISCO-LWAPP-ACL-MIB.my
+-- March 2011, Nallathambi Konar
+--   
+-- Copyright (c) 2005-2006, 2011-12 by Cisco Systems, Inc.
+-- All rights reserved.
+-- *******************************************************************
+
+CISCO-LWAPP-IPV6-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY,
+    OBJECT-TYPE,
+    Unsigned32,
+    Counter32
+        FROM SNMPv2-SMI
+    MODULE-COMPLIANCE,
+    OBJECT-GROUP,
+    NOTIFICATION-GROUP
+        FROM SNMPv2-CONF
+    DisplayString, TruthValue,
+    RowStatus
+        FROM SNMPv2-TC
+    ciscoMgmt
+        FROM CISCO-SMI
+    claCpuAclName, 
+    claCpuAclPacketApplicability,
+    claAclCounterEnable,
+    claAclCounterClear,
+    claAclRuleHits
+        FROM CISCO-LWAPP-ACL-MIB
+    cldcClientMacAddress
+        FROM CISCO-LWAPP-DOT11-CLIENT-MIB
+    InetAddressType, InetAddress
+    	FROM INET-ADDRESS-MIB
+    SnmpAdminString
+	FROM SNMP-FRAMEWORK-MIB;
+
+-- ********************************************************************
+-- *  MODULE IDENTITY
+-- ********************************************************************
+
+ciscoLwappIpv6MIB MODULE-IDENTITY
+    LAST-UPDATED    "201103040000Z"
+    ORGANIZATION    "Cisco Systems Inc."
+    CONTACT-INFO
+            "Cisco Systems,
+            Customer Service
+
+            Postal: 170 West Tasman Drive
+            San Jose, CA  95134
+            USA
+
+            Tel: +1 800 553-NETS
+
+            Email: cs-wnbu-snmp@cisco.com"
+    DESCRIPTION
+            "This MIB is intended to be implemented on all those
+            devices operating as Central Controllers (CC) that
+            terminate the Light Weight Access Point Protocol
+            tunnel from Light-weight LWAPP Access Points.
+
+            This MIB provides configuration and status information
+            about the ACLs on the controller.
+
+            Particularly this mib covers the CPU ACLs for the wireless
+            controllers.
+
+            Traffic to the controller CPU comes from the NPU (Network
+            Processing Unit).
+
+            Using CPU ACLs, the user can place restrictions on type of
+            traffic reaching the CPU of the controller from the NPU.      
+
+
+
+            CPU ACLs introduce an ACL for the traffic to the CPU of
+            controller. With this ACL the type of packets reaching the
+            CPU can be controlled. The mode of operation is as follows.
+
+            The administrator designates one ACL for the traffic to the
+            CPU. The ACL kicks in for packets from the NPU to the CPU.
+            Each ACL is an ordered set of rules. If a rule matches then
+            action for that rule is applied to the packet. The decision
+            to send or drop the packet is taken based on the action
+            parameter of the ACL.
+
+            There will be no ACL for the packets from the CPU to the
+            NPU.
+
+
+
+                                    GLOSSARY                              
+
+
+            Access Control List ( ACL )
+
+            A list of rules used to restrict the traffic reaching an
+            interface or the CPU.  Each ACL is an ordered set of rules
+            and actions.  If a rule matches then the action for that 
+            rule is applied to the packet.
+
+
+
+            Access Point ( AP )
+
+            An entity that contains an 802.11 medium access control 
+            ( MAC ) and physical layer ( PHY ) interface and provides
+            acess to the distribution services via the wireless medium
+            for associated clients.
+
+
+            CPU ACL ( CPU ACL )
+
+            The ACL applied to the CPU.  This controls the type of 
+            traffic reaching the CPU of the controller.
+
+
+
+            Network Processing Unit ( NPU )
+
+            This entity is responsible for forwarding traffic to the
+            CPU. The only exceptions are data coming thorugh the 
+            console port and the Service port i.e. these communicate
+            directly with the CPU and not via the NPU.
+
+
+            Light Weight Access Point Protocol ( LWAPP )
+
+            This is a generic protocol that defines the communciation
+            between the Access Points and the Central Controller.
+
+            Cryptographically Generated Addresses (CGA)
+ 
+            Cryptographically Generated Addresses (CGAs) are IPv6 addresses, 
+            which allow for a secure association of an IPv6 address, 
+            the CGA, with a public key.
+
+
+
+            REFERENCE
+
+            [1] Part 11 Wireless LAN Medium Access Control ( MAC ) and
+            Physical Layer ( PHY ) Specifications.
+            "
+    REVISION        "201003040000Z"
+    DESCRIPTION
+        "Added claAclTable and claAclRuleTable."
+          ::= { ciscoMgmt 9999 }
+
+
+ciscoLwappIpv6MIBNotifs  OBJECT IDENTIFIER
+    ::= { ciscoLwappIpv6MIB 0 }
+
+ciscoLwappIpv6MIBObjects  OBJECT IDENTIFIER
+    ::= { ciscoLwappIpv6MIB 1 }
+
+ciscoLwappIpv6MIBConform  OBJECT IDENTIFIER
+    ::= { ciscoLwappIpv6MIB 2 }
+
+ciscoLwappIpv6Config  OBJECT IDENTIFIER
+    ::= { ciscoLwappIpv6MIBObjects 1 }
+
+ciscoLwappIpv6Stats OBJECT IDENTIFIER
+    ::= { ciscoLwappIpv6MIBObjects 2 }
+
+ciscoLwappIpv6NbRaThrottleConfig OBJECT IDENTIFIER
+    ::= { ciscoLwappIpv6Config 4 }
+
+ciscoLwappIpv6NbTimerConfig OBJECT IDENTIFIER
+    ::= { ciscoLwappIpv6Config 5 }
+
+-- *******************************************************************
+-- cLIpv6AclTable
+-- *******************************************************************
+
+cLIpv6AclTable OBJECT-TYPE
+      SYNTAX     SEQUENCE OF CLIpv6AclEntry
+      MAX-ACCESS not-accessible
+      STATUS     current
+      DESCRIPTION
+            "The table listing IPv6 ACLs (Access Control Lists) on the 
+             Switch."
+      ::= { ciscoLwappIpv6Config 1 }
+
+
+cLIpv6AclEntry OBJECT-TYPE
+      SYNTAX     CLIpv6AclEntry
+      MAX-ACCESS not-accessible
+      STATUS     current
+      DESCRIPTION
+            "Each entry in this table provides information about
+             one IPv6 ACL of the controller."
+      INDEX      { cLIpv6AclName }
+      ::= { cLIpv6AclTable 1 }
+
+CLIpv6AclEntry ::= SEQUENCE {
+                cLIpv6AclName            OCTET STRING,
+                cLIpv6AclApplyMode       INTEGER,
+                cLIpv6AclCounterClear    TruthValue,
+                cLIpv6AclRowStatus       RowStatus
+           }
+
+cLIpv6AclName OBJECT-TYPE
+      SYNTAX     OCTET STRING (SIZE(1..32))
+      MAX-ACCESS read-create
+      STATUS     current
+      DESCRIPTION
+             "Name of the Access Control List."
+      ::= { cLIpv6AclEntry 1 }
+
+cLIpv6AclApplyMode OBJECT-TYPE
+    SYNTAX          INTEGER  {
+                        notapplied(0),
+                        applied(1)
+                    }
+      MAX-ACCESS read-only
+      STATUS     current
+      DESCRIPTION
+             "The apply mode of the ACL on the switch. Mode value 
+              'applied' means the ACL has been applied on the switch."
+      ::= { cLIpv6AclEntry 2 }
+
+cLIpv6AclCounterClear OBJECT-TYPE
+      SYNTAX     TruthValue
+      MAX-ACCESS read-write
+      STATUS     current
+      DESCRIPTION
+              "This object when set to 'true', will clear the
+               counter of the ACL represented by the
+               unique ACL name."
+      ::= { cLIpv6AclEntry 3 }
+
+cLIpv6AclRowStatus OBJECT-TYPE
+      SYNTAX     RowStatus
+      MAX-ACCESS read-create
+      STATUS     current
+      DESCRIPTION
+             "Row Status of the IPv6 ACL. Modification of row is possible."
+      ::= { cLIpv6AclEntry 4 }
+
+-- *******************************************************************
+-- cLIpv6AclRuleTable
+-- *******************************************************************
+
+cLIpv6AclRuleTable OBJECT-TYPE
+      SYNTAX     SEQUENCE OF CLIpv6AclRuleEntry
+      MAX-ACCESS not-accessible
+      STATUS     current
+      DESCRIPTION
+            "The table listing Acl Rules(Access Control List Entries) 
+             on the ACL with name cLIpv6AclName."
+      ::= { ciscoLwappIpv6Config 2 }
+
+cLIpv6AclRuleEntry OBJECT-TYPE
+      SYNTAX     CLIpv6AclRuleEntry
+      MAX-ACCESS not-accessible
+      STATUS     current
+      DESCRIPTION
+            "...."
+    INDEX           {
+                        cLIpv6AclName,
+                        cLIpv6AclRuleIndex
+                    } 
+      ::= { cLIpv6AclRuleTable 1 }
+
+CLIpv6AclRuleEntry ::= SEQUENCE {
+                    cLIpv6AclRuleIndex                    Unsigned32,
+                    cLIpv6AclRuleAction                   INTEGER,
+                    cLIpv6AclRuleDirection                INTEGER,
+                    cLIpv6AclRuleSourceInetAddressType    InetAddressType,
+                    cLIpv6AclRuleSourceInetAddress        InetAddress,
+                    cLIpv6AclRuleSourcePrefixLength       Unsigned32,
+                    cLIpv6AclRuleDestinationInetAddressType    InetAddressType,
+                    cLIpv6AclRuleDestinationInetAddress        InetAddress,
+                    cLIpv6AclRuleDestinationPrefixLength       Unsigned32, 
+                    cLIpv6AclRuleProtocol                 Unsigned32,
+                    cLIpv6AclRuleStartSourcePort          Unsigned32,
+                    cLIpv6AclRuleEndSourcePort            Unsigned32,
+                    cLIpv6AclRuleStartDestinationPort     Unsigned32,
+                    cLIpv6AclRuleEndDestinationPort       Unsigned32,
+                    cLIpv6AclRuleDscp                     Unsigned32,
+                    cLIpv6AclNewRuleIndex                 Unsigned32,
+                    cLIpv6AclRuleHits                     Counter32,
+                    cLIpv6AclRuleRowStatus                RowStatus
+            }
+
+cLIpv6AclRuleIndex OBJECT-TYPE
+      SYNTAX Unsigned32(1..64)
+      MAX-ACCESS read-create
+      STATUS     current
+      DESCRIPTION
+             "Index of the ACL rule. This can be updated to reset the 
+              sequence of the rules of an ACL."
+      ::= { cLIpv6AclRuleEntry 1 }
+
+cLIpv6AclRuleAction OBJECT-TYPE
+    SYNTAX          INTEGER  {
+                        deny(0),
+                        permit(1)
+                    }
+      MAX-ACCESS read-create
+      STATUS     current
+      DESCRIPTION
+             "The permission mode of a rule."
+      DEFVAL { deny }
+      ::= { cLIpv6AclRuleEntry 2 }
+
+cLIpv6AclRuleDirection OBJECT-TYPE
+    SYNTAX          INTEGER  {
+                        inbound(0),
+                        outbound(1),
+                        any(2)
+                    }
+      MAX-ACCESS read-create
+      STATUS     current
+      DESCRIPTION
+             "The direction of the packet to which the rule may be 
+              applied."
+      DEFVAL { any }
+      ::= { cLIpv6AclRuleEntry 3 }
+
+cLIpv6AclRuleSourceInetAddressType OBJECT-TYPE
+         SYNTAX      InetAddressType
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                "Source Inet Address type of the ACL rule."
+         ::= { cLIpv6AclRuleEntry 4 }
+
+cLIpv6AclRuleSourceInetAddress OBJECT-TYPE
+         SYNTAX      InetAddress
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                "Source Inet Address of the ACL rule."
+         ::= { cLIpv6AclRuleEntry 5 }
+         
+cLIpv6AclRuleSourcePrefixLength OBJECT-TYPE
+         SYNTAX      Unsigned32 (0..128)
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                "This object denotes the prefix length for Source
+                Inet address of the ACL rule."
+         ::= { cLIpv6AclRuleEntry 6 }
+
+cLIpv6AclRuleDestinationInetAddressType OBJECT-TYPE
+         SYNTAX      InetAddressType
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                "Destination Inet Address type of the ACL rule."
+         ::= { cLIpv6AclRuleEntry 7 }
+
+cLIpv6AclRuleDestinationInetAddress OBJECT-TYPE
+         SYNTAX      InetAddress
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                "Destination Inet Address of the ACL rule."
+         ::= { cLIpv6AclRuleEntry 8 }
+         
+cLIpv6AclRuleDestinationPrefixLength OBJECT-TYPE
+         SYNTAX      Unsigned32 (0..128)
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                "This object denotes the prefix length for Destination
+                Inet address of the ACL rule."
+         ::= { cLIpv6AclRuleEntry 9 }
+         
+cLIpv6AclRuleProtocol OBJECT-TYPE
+        SYNTAX Unsigned32(0..256)
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+                "Protocol of the packet. It can be either of the pre 
+                 specified protocols like TCP, UDP, ICMP, ESP, AH, GRE,
+                 IP, Ethernet Over IP, OSPF or any number between 0 
+                 and 255. A value 256 implies that this rule applies 
+                 to 'Any' protocol."
+        DEFVAL { 256 }
+        ::= { cLIpv6AclRuleEntry 10 }
+
+cLIpv6AclRuleStartSourcePort OBJECT-TYPE
+        SYNTAX Unsigned32(0..65535)
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+                "This object represents the start Source Port of the 
+                 packet. It can be either of the pre specified ports 
+                 like HTTP, HTTPS, Telnet, RADIUS etc or any number 
+between 0 and 65535. A value 65536 
+                 implies that this rule applies to 'Any' source port.
+                 This value can be set only if the protocol is set to 
+                 TCP or UDP.  Otherwise the value is set to Any(65536)"
+        DEFVAL { 0 }
+        ::= { cLIpv6AclRuleEntry 11 }
+
+cLIpv6AclRuleEndSourcePort OBJECT-TYPE
+        SYNTAX Unsigned32(0..65535)
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+                "This object represents the end Source Port of the packet.
+                 It can be either of the pre specified ports like HTTP, 
+                 HTTPS, Telnet, RADIUS etc or any number between 0 and 65535.
+                 A value 65536 implies that this rule applies to 'Any'
+                 source port.  This value can be set only if the 
+                 protocol is set to TCP or UDP.
+                 Otherwise the value is set to Any(65536)"
+        DEFVAL { 65535 }
+        ::= { cLIpv6AclRuleEntry 12 }
+
+cLIpv6AclRuleStartDestinationPort OBJECT-TYPE
+        SYNTAX Unsigned32(0..65535)
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+                "This object represents the start Destination Port of the
+                 packet. It can be either of 
+                 the pre specified ports like HTTP, HTTPS, Telnet, 
+                 RADIUS etc or any number between 0 and 65535.
+                 A value 65536 implies that this rule aplpies to 'Any'
+                 Destination port. This value can be set only if the 
+                 protocol is set to TCP or UDP.  Otherwise the value is
+                 set to Any(65536)"
+        DEFVAL { 0 }
+        ::= { cLIpv6AclRuleEntry 13 }
+
+cLIpv6AclRuleEndDestinationPort OBJECT-TYPE
+        SYNTAX Unsigned32(0..65535)
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+                "This object represents the End Destination Port of the packet. 
+                 It can be either of 
+                 the pre specified ports like HTTP, HTTPS, Telnet, 
+                 RADIUS etc or any number between 0 and 65535.
+                 A value 65536 implies that this rule aplpies to 'Any'
+                 Destination port. This value can be set only if the 
+                 protocol is set to TCP or UDP.  Otherwise the value is
+                 set to Any(65536)"
+        DEFVAL { 65535 }
+        ::= { cLIpv6AclRuleEntry 14 }
+
+cLIpv6AclRuleDscp OBJECT-TYPE
+        SYNTAX Unsigned32(0..256)
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+                "DSCP value of the rule. A value 256 implies Any"
+        DEFVAL { 256 }
+        ::= { cLIpv6AclRuleEntry 15 }
+
+cLIpv6AclNewRuleIndex OBJECT-TYPE
+      SYNTAX Unsigned32(1..64)
+      MAX-ACCESS read-create
+      STATUS     current
+      DESCRIPTION
+             "New Index of the ACL rule. This attribute should be 
+              updated if the requirement is to reset the sequence of 
+              the rules of an ACL. A read on this will not yield 
+              anything."
+      ::= { cLIpv6AclRuleEntry 16 }
+
+cLIpv6AclRuleHits OBJECT-TYPE
+      SYNTAX Counter32
+      MAX-ACCESS read-only
+      STATUS current
+      DESCRIPTION
+          "Number of hits in the particular rule under the ACL.This object
+           is cleared by setting the cLIpv6AclCounterClear object."
+      ::= { cLIpv6AclRuleEntry 17 }
+
+cLIpv6AclRuleRowStatus OBJECT-TYPE
+      SYNTAX     RowStatus
+      MAX-ACCESS read-create
+      STATUS     current
+      DESCRIPTION
+             "Row Status of the ACL Rule."
+      ::= { cLIpv6AclRuleEntry 18 }
+
+--********************************************************************
+-- IPv6 RA Filtering configuration
+-- *******************************************************************
+ciscoLwappIpv6RaFiltering OBJECT IDENTIFIER
+    ::= { ciscoLwappIpv6Config 3 }
+
+cLIpv6RaFilteringEnabled OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write  
+    STATUS          current
+    DESCRIPTION
+        "This object represents the IPv6 RA filtering
+        configuration on the controller."
+        ::= { ciscoLwappIpv6RaFiltering 1 }
+
+cLIpv6RaFilteringOnApEnabled OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object represents the IPv6 RA filtering
+        configuration on the controller.
+        When set to true, IPv6 RA filtering is enabled
+        on the AP.
+        When set to false, IPv6 RA filtering is disabled
+        on the AP."
+    ::= { ciscoLwappIpv6RaFiltering 2 }
+
+cLIpv6RaFilteringClientInfoTable OBJECT-TYPE
+      SYNTAX     SEQUENCE OF CLIpv6RaFilteringClientInfoEntry
+      MAX-ACCESS not-accessible 
+      STATUS     current
+      DESCRIPTION
+            "The table lists the RA Packets Drop per client."
+      ::= { ciscoLwappIpv6RaFiltering 3 }
+
+cLIpv6RaFilteringClientInfoEntry OBJECT-TYPE
+      SYNTAX     CLIpv6RaFilteringClientInfoEntry
+      MAX-ACCESS not-accessible
+      STATUS     current
+      DESCRIPTION
+            "Each entry in this table provides information about
+             Ra Packets drop per client."
+      INDEX    { cldcClientMacAddress }
+      ::= { cLIpv6RaFilteringClientInfoTable 1 }
+
+CLIpv6RaFilteringClientInfoEntry ::= SEQUENCE {
+                cLIpv6RaFilteringClientInfoApName      OCTET STRING,
+                cLIpv6RaFilteringClientInfoWlan        Unsigned32,
+                cLIpv6RaFilteringClientInfoPktsDropped       Counter32 
+           }
+
+cLIpv6RaFilteringClientInfoApName OBJECT-TYPE
+        SYNTAX     OCTET STRING
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+        "This is the AP Name on which the client is associated."
+        ::= { cLIpv6RaFilteringClientInfoEntry 1}
+
+
+cLIpv6RaFilteringClientInfoWlan OBJECT-TYPE
+        SYNTAX     Unsigned32 
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+        "This is the vap id on which the client is associated."
+         ::= { cLIpv6RaFilteringClientInfoEntry 2}
+
+cLIpv6RaFilteringClientInfoPktsDropped OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "This is the number of RA Packets dropped for the
+            client."
+       ::= { cLIpv6RaFilteringClientInfoEntry 3}
+
+--********************************************************************
+-- IPv6 RA Throttler configuration
+-- *******************************************************************
+
+cLIpv6NbRaThrottleEnabled OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object represents the IPv6 RA Throttle Policy
+         configuration on the controller.
+         When set to true, IPv6 RA Throttling is enabled
+         on the controller.
+         When set to false, IPv6 RA Throttling is disabled
+         on the controller."
+    DEFVAL { false }
+    ::= { ciscoLwappIpv6NbRaThrottleConfig 1 }
+
+cLIpv6NbRaThrottlePeriod OBJECT-TYPE
+    SYNTAX          Unsigned32(10..86400)
+    UNITS           "Seconds"
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "This object represents the RA Throttler Policy throttle period."
+    DEFVAL { 600 }
+    ::= { ciscoLwappIpv6NbRaThrottleConfig 2 }
+
+cLIpv6NbRaThrottleMaxThrough OBJECT-TYPE
+    SYNTAX          Unsigned32(0..256)
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+         "This object represents the RA Throttler Policy Max Through Value."
+    DEFVAL { 10 }
+    ::= { ciscoLwappIpv6NbRaThrottleConfig 3 }
+
+cLIpv6NbRaThrottleMaxThroughNoLimitEnabled OBJECT-TYPE
+    SYNTAX          TruthValue 
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "This object represents the RA Throttler Policy Max Through Nolimit
+         Value.
+         When NoLimit is set to true, the value for Max Through(cLIpv6RaThrottlerPolicyMaxThrough)
+         will not be set.
+         When NoLimit is set to false, the vlaue for Max Through will be set."
+    DEFVAL { false }
+    ::= { ciscoLwappIpv6NbRaThrottleConfig 4 }
+
+cLIpv6NbRaThrottleIntervalOption OBJECT-TYPE
+    SYNTAX          INTEGER {
+                    ignore(1),
+                    passthrough(2),
+                    throttle(3)
+               }
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "This object represents the RA Throttler Policy interval option."
+    DEFVAL { 3 }
+    ::= { ciscoLwappIpv6NbRaThrottleConfig 5 }
+
+cLIpv6NbRaThrottleAllowAtleast OBJECT-TYPE
+    SYNTAX          Unsigned32(0..32)
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "This object represents the RA Throttler Policy allow atleast limit"
+    DEFVAL { 1 }
+    ::= { ciscoLwappIpv6NbRaThrottleConfig 6 }
+
+cLIpv6NbRaThrottleAllowAtmost OBJECT-TYPE
+    SYNTAX          Unsigned32(0..256)
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "This object represents the RA Throttler Policy allow atmost limit"
+    DEFVAL { 1 }
+    ::= { ciscoLwappIpv6NbRaThrottleConfig 7 }
+
+cLIpv6NbRaThrottleAllowNoLimitEnabled OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "This object represents the RA Throttler Policy Allow Nolimit
+         Value.
+         When NoLimit is set to true, the value for Allow Atmost(cLIpv6RaThrottlerPolicyAllowAtmost)
+         will not be set.
+         When NoLimit is set to false, the vlaue for Allow Atmost  will be set."
+    DEFVAL { false }
+    ::= { ciscoLwappIpv6NbRaThrottleConfig 8 }
+
+--********************************************************************
+-- IPv6 Neighbor Binding Timer configuration
+-- *******************************************************************
+
+cLIpv6NbTimerDownLifeTimeEnabled OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object represents the Neighbor Binding DownLife Timer.
+        When set to true, DownLife timer is enabled
+        on the controller.
+        When set to false, DownLife timer is disabled
+        on the controller."
+    DEFVAL { false }
+    ::= { ciscoLwappIpv6NbTimerConfig 1 }
+
+cLIpv6NbTimerDownLifeTimeInterval OBJECT-TYPE
+    SYNTAX          Unsigned32(0..86400) 
+    UNITS           "Seconds"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object represents interval of Neighbor Binding DownLife Timer.
+         The interval is set on the controller only when the DownLife Timer is
+         enabled on the controller."
+    DEFVAL { 86400 }
+    ::= { ciscoLwappIpv6NbTimerConfig 2 }
+
+cLIpv6NbTimerStaleLifeTimeEnabled OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object represents the  Neighbor Binding StaleLife Timer.
+         When set to true, StaleLife timer is enabled
+         on the controller.
+         When set to false, Staletime timer is disabled
+         on the controller."
+    DEFVAL { false }
+    ::= { ciscoLwappIpv6NbTimerConfig 3 }
+
+cLIpv6NbTimerStaleLifeTimeInterval OBJECT-TYPE
+    SYNTAX          Unsigned32(0..86400)
+    UNITS           "Seconds"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+         "This object represents interval of NeighborBinding StaleLife Timer.
+          The interval is set on the controller only when the StaleLife 
+          Timer is enabled on the controller."
+    DEFVAL { 86400 }
+    ::= { ciscoLwappIpv6NbTimerConfig 4 }
+
+cLIpv6NbTimerReachableLifeTimeEnabled OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+         "This object represents the Neighbor Binding ReachableLife Timer.
+          When set to true, ReachableLife timer is enabled
+          on the controller.
+          When set to false, ReachableLife timer is disabled
+          on the controller."
+    DEFVAL { false }
+    ::= { ciscoLwappIpv6NbTimerConfig 5 }
+
+cLIpv6NbTimerReachableLifeTimeInterval OBJECT-TYPE
+    SYNTAX          Unsigned32(0..86400)
+    UNITS           "Seconds"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object represents interval of NeighborBinding ReachableLife Timer.
+         The interval is set on the controller only when the StaleLife 
+         Timer is enabled on the controller."
+    DEFVAL { 300 }
+    ::= { ciscoLwappIpv6NbTimerConfig 6 }
+
+ cLIpv6NbTimerNsMulticastCacheMissForward OBJECT-TYPE
+     SYNTAX          TruthValue
+     MAX-ACCESS      read-write
+     STATUS          current
+     DESCRIPTION
+          "This object represents the NS Multicast CacheMiss Forward
+           When set to true,NS Multicast CacheMiss Forward is enabled
+           on the controller.
+           When set to false,NS Multicast CacheMiss Forward is disabled
+           on the controller."
+     DEFVAL { false }
+     ::= { ciscoLwappIpv6NbTimerConfig 7 }
+
+
+-- ********************************************************************
+-- IPv6 Neighbor binding Counter - Sent and Recieve Counters
+-- ********************************************************************
+cLIpv6NeighborBindingCounterTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF CLIpv6NeighborBindingCounterEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This table represents the IPv6 Neighbor binding 
+        Counters of the controller."
+    ::= { ciscoLwappIpv6Stats 1 }
+
+cLIpv6NeighborBindingCounterEntry OBJECT-TYPE
+    SYNTAX          CLIpv6NeighborBindingCounterEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "Each entry in this table represents the IPv6 
+        Neighbor binding Counter on the controller.
+        Entries cannot be added/deleted and is populated by
+        the Type of counter."
+    INDEX           { cLIpv6NeighborBindingCounterType } 
+    ::= { cLIpv6NeighborBindingCounterTable 1 }
+
+CLIpv6NeighborBindingCounterEntry ::= SEQUENCE {
+        cLIpv6NeighborBindingCounterType               INTEGER,
+        cLIpv6NeighborBindingCounterNdpRs              Counter32,
+        cLIpv6NeighborBindingCounterNdpRa              Counter32,
+        cLIpv6NeighborBindingCounterNdpNs              Counter32,
+        cLIpv6NeighborBindingCounterNdpNa              Counter32,
+        cLIpv6NeighborBindingCounterNdpRedirect        Counter32,
+        cLIpv6NeighborBindingCounterNdpCertSol         Counter32,
+        cLIpv6NeighborBindingCounterNdpCertAdv         Counter32,
+        cLIpv6NeighborBindingCounterDhcpV6Sol          Counter32,
+        cLIpv6NeighborBindingCounterDhcpV6Adv          Counter32,
+        cLIpv6NeighborBindingCounterDhcpV6Request      Counter32,
+        cLIpv6NeighborBindingCounterDhcpV6Confirm      Counter32,
+        cLIpv6NeighborBindingCounterDhcpV6Renew        Counter32,
+        cLIpv6NeighborBindingCounterDhcpV6Rebind       Counter32,
+        cLIpv6NeighborBindingCounterDhcpV6Reply       Counter32,
+        cLIpv6NeighborBindingCounterDhcpV6Release      Counter32,
+        cLIpv6NeighborBindingCounterDhcpV6Decline      Counter32,
+        cLIpv6NeighborBindingCounterDhcpV6Recfg        Counter32,
+        cLIpv6NeighborBindingCounterDhcpV6InfoReq      Counter32,
+        cLIpv6NeighborBindingCounterDhcpV6RelayForward Counter32,
+        cLIpv6NeighborBindingCounterDhcpV6RelayReplay  Counter32 
+}
+
+cLIpv6NeighborBindingCounterType OBJECT-TYPE
+       SYNTAX     INTEGER {
+               receivedMessages(1),
+               bridgedMessages(2)
+        }
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION                
+            "This object represents the type of IPv6 Neighbor 
+            Binding Counter."
+        ::= { cLIpv6NeighborBindingCounterEntry  1 }
+
+cLIpv6NeighborBindingCounterNdpRs OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION                
+            "This object represents the number of NDP Router
+            Solicitation counters."
+        ::= { cLIpv6NeighborBindingCounterEntry  2 }
+
+cLIpv6NeighborBindingCounterNdpRa  OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION                
+            "This object represents the number of NDP Router
+            Advertisement counters."
+        ::= { cLIpv6NeighborBindingCounterEntry  3 }
+
+cLIpv6NeighborBindingCounterNdpNs OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION                
+            "This object represents the number of NDP 
+            Neighbor Solicitation counters."
+        ::= { cLIpv6NeighborBindingCounterEntry  4 }
+
+cLIpv6NeighborBindingCounterNdpNa OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION                
+            "This object represents the number of NDP 
+            Neighbor Advertisement counters."
+        ::= { cLIpv6NeighborBindingCounterEntry  5 }
+
+cLIpv6NeighborBindingCounterNdpRedirect OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION                
+            "This object represents the number of NDP
+            Neighbor Redirect counters."
+        ::= { cLIpv6NeighborBindingCounterEntry  6 }
+
+cLIpv6NeighborBindingCounterNdpCertSol OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "This object represents the number of NDP
+            Neighbor Certificate Solicitation counters."
+        ::= { cLIpv6NeighborBindingCounterEntry  7 }
+
+cLIpv6NeighborBindingCounterNdpCertAdv OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "This object represents the number of NDP
+            Neighbor Certificate Advertisement counters."
+        ::= { cLIpv6NeighborBindingCounterEntry 8 }
+
+cLIpv6NeighborBindingCounterDhcpV6Sol OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION                
+            "This object represents the number of DHCPv6 
+            Solicitated counters."
+        ::= { cLIpv6NeighborBindingCounterEntry  9 }
+
+cLIpv6NeighborBindingCounterDhcpV6Adv OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION                
+            "This object represents the number of DHCPv6 
+            Advertisement counters."
+        ::= { cLIpv6NeighborBindingCounterEntry  10 }
+
+cLIpv6NeighborBindingCounterDhcpV6Request  OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "This object represents the number of DHCPv6
+            Request counters."
+        ::= { cLIpv6NeighborBindingCounterEntry 11 }
+
+cLIpv6NeighborBindingCounterDhcpV6Confirm OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "This object represents the number of DHCPv6
+            Confirm counters."
+        ::= { cLIpv6NeighborBindingCounterEntry 12 }
+
+cLIpv6NeighborBindingCounterDhcpV6Renew OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "This object represents the number of DHCPv6
+            Renew counters."
+        ::= { cLIpv6NeighborBindingCounterEntry 13 }
+
+cLIpv6NeighborBindingCounterDhcpV6Rebind OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "This object represents the number of DHCPv6
+            Rebind counters."
+        ::= { cLIpv6NeighborBindingCounterEntry 14 }
+
+cLIpv6NeighborBindingCounterDhcpV6Reply OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "This object represents the number of DHCPv6
+            Reply counters."
+        ::= { cLIpv6NeighborBindingCounterEntry 15 }
+
+cLIpv6NeighborBindingCounterDhcpV6Release OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "This object represents the number of DHCPv6
+            Release counters."
+        ::= { cLIpv6NeighborBindingCounterEntry 16 }
+
+cLIpv6NeighborBindingCounterDhcpV6Decline OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "This object represents the number of DHCPv6
+            Decline counters."
+        ::= { cLIpv6NeighborBindingCounterEntry 17 }
+
+cLIpv6NeighborBindingCounterDhcpV6Recfg OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "This object represents the number of DHCPv6
+            Reconfigure counters."
+        ::= { cLIpv6NeighborBindingCounterEntry 18 }
+
+cLIpv6NeighborBindingCounterDhcpV6InfoReq OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "This object represents the number of DHCPv6
+            Information request counters."
+        ::= { cLIpv6NeighborBindingCounterEntry 19 }
+
+cLIpv6NeighborBindingCounterDhcpV6RelayForward OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "This object represents the number of DHCPv6
+            Relay counters."
+        ::= { cLIpv6NeighborBindingCounterEntry 20 }
+
+cLIpv6NeighborBindingCounterDhcpV6RelayReplay  OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "This object represents the number of DHCPv6
+            Relay Reply counters."
+        ::= { cLIpv6NeighborBindingCounterEntry 21 }
+
+
+-- ********************************************************************
+-- IPv6 Neighbor binding Neighbor Discovery Suppress Drop Counter
+-- ********************************************************************
+cLIpv6NbNdSuppressDropCounter OBJECT IDENTIFIER
+     ::= { ciscoLwappIpv6Stats 2 }
+
+cLIpv6NbNdSuppressDropCounterTotal OBJECT-TYPE
+       SYNTAX     Counter32
+       MAX-ACCESS read-only
+       STATUS     current
+       DESCRIPTION
+           "This object specifies the Suppress Drop Counter Total Value
+            including all reasons. "
+       ::= { cLIpv6NbNdSuppressDropCounter 1 }
+
+cLIpv6NbNdSuppressDropCounterReasonSilent OBJECT-TYPE
+       SYNTAX     Counter32
+       MAX-ACCESS read-only
+       STATUS     current
+       DESCRIPTION
+           "This object represents the Suppress Drop Counter Value
+            for the reason slient drop."
+       ::= { cLIpv6NbNdSuppressDropCounter 2 }
+
+cIpv6NbNdSuppressDropCounterReasonInOut OBJECT-TYPE
+       SYNTAX     Counter32
+       MAX-ACCESS read-only
+       STATUS     current
+       DESCRIPTION
+           "This object represents the Suppress Drop Counter Value
+            for the reason owner is on the input interface."
+       ::= { cLIpv6NbNdSuppressDropCounter 3 }
+
+cLIpv6NbNdSuppressDropCounterReasonDad OBJECT-TYPE
+       SYNTAX     Counter32
+       MAX-ACCESS read-only
+       STATUS     current
+       DESCRIPTION
+           "This object represents the Suppress Drop Counter Value
+            for the reason duplicate address detected ."
+       ::= { cLIpv6NbNdSuppressDropCounter 4 }
+
+cLIpv6NbNdSuppressDropCounterReasonUnicast OBJECT-TYPE
+       SYNTAX     Counter32
+       MAX-ACCESS read-only
+       STATUS     current
+       DESCRIPTION
+           "This object represents the Suppress Drop Counter Value
+            for the reason unicast suppressed."
+       ::= { cLIpv6NbNdSuppressDropCounter 5 }
+
+cLIpv6NbNdSuppressDropCounterReasonMulticast OBJECT-TYPE
+       SYNTAX     Counter32
+       MAX-ACCESS read-only
+       STATUS     current
+       DESCRIPTION
+           "This object represents the Suppress Drop Counter Value
+            for the reason multicast suppressed."
+       ::= { cLIpv6NbNdSuppressDropCounter 6 }
+
+cLIpv6NbNdSuppressDropCounterReasonInt OBJECT-TYPE
+       SYNTAX     Counter32
+       MAX-ACCESS read-only
+       STATUS     current
+       DESCRIPTION
+           "This object represents the Suppress Drop Counter Value
+            for the reason internal failure."
+       ::= { cLIpv6NbNdSuppressDropCounter 7 }
+
+-- ********************************************************************
+-- IPv6 Neighbor binding Neighbor Discovery Snooping Drop Counter
+-- ********************************************************************
+
+cLIpv6NbSnoopingDropCounterTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF CLIpv6NbSnoopingDropCounterEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This table represents the IPv6 Neighbor binding Snooping
+        Drop Counters of the controller."
+    ::= { ciscoLwappIpv6Stats 3 }
+
+cLIpv6NbSnoopingDropCounterEntry OBJECT-TYPE
+        SYNTAX          CLIpv6NbSnoopingDropCounterEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Each entry in this table represents the IPv6
+             Neighbor binding Snooping drop Counter on the controller.
+             Entries cannot be added/deleted and is populated by
+             the Type of Snooping drop counter."
+        INDEX           { cLIpv6NbSnoopingDropCounterType }
+        ::= { cLIpv6NbSnoopingDropCounterTable 1 }
+
+CLIpv6NbSnoopingDropCounterEntry ::= SEQUENCE {
+        cLIpv6NbSnoopingDropCounterType   INTEGER,
+        cLIpv6NbSnoopingDropCounterTotal  Counter32,
+        cLIpv6NbSnoopingDropCounterSilent Counter32,
+        cLIpv6NbSnoopingDropCounterReasonInt Counter32,
+        cLIpv6NbSnoopingDropCounterReasonCga  Counter32,
+        cLIpv6NbSnoopingDropCounterReasonRsa  Counter32,
+        cLIpv6NbSnoopingDropCounterReasonLimit Counter32,
+        cLIpv6NbSnoopingDropCounterReasonMartian Counter32,
+        cLIpv6NbSnoopingDropCounterReasonMartianMac Counter32,
+        cLIpv6NbSnoopingDropCounterReasonNotAllowed Counter32,
+        cLIpv6NbSnoopingDropCounterReasonNotAuthorised Counter32,
+        cLIpv6NbSnoopingDropCounterReasonStop  Counter32 
+}
+
+cLIpv6NbSnoopingDropCounterType OBJECT-TYPE
+       SYNTAX     INTEGER {
+               ndpRs(1), 
+               ndpRa(2),           
+               ndpNs(3),          
+               ndpNa(4),         
+               ndpRedirect(5),  
+               ndpCertSol(6),  
+               ndpCertAdv(7), 
+               nhcpV6Sol(8),
+               nhcpV6Adv(9),    
+               dhcpV6Request(10),    
+               dhcpV6Confirm(11), 
+               dhcpV6Renew(12),       
+               dhcpV6Rebind(13),      
+               dhcpV6Reply(14),       
+               dhcpV6Release(15),     
+               dhcpV6Decline(16),      
+               dhcpV6Recfg(17),       
+               dhcpV6InfoReq(18),    
+               dhcpV6RelayForward(19), 
+               dhcpV6RelayReplay(20)  
+        }
+       MAX-ACCESS not-accessible
+       STATUS     current
+       DESCRIPTION
+           "This object represents the type of IPv6 Neighbor
+           Binding Snooping Drop Counter."
+       ::= { cLIpv6NbSnoopingDropCounterEntry 1 }
+
+cLIpv6NbSnoopingDropCounterTotal OBJECT-TYPE
+       SYNTAX     Counter32
+       MAX-ACCESS read-only
+       STATUS     current
+       DESCRIPTION
+            "This object represents the Snooping Drop Counter Total Value
+             including all reasons."
+       ::= { cLIpv6NbSnoopingDropCounterEntry  2 }
+
+cLIpv6NbSnoopingDropCounterSilent OBJECT-TYPE
+       SYNTAX     Counter32
+       MAX-ACCESS read-only
+       STATUS     current
+       DESCRIPTION
+            "This object represents the Snooping Drop Counter Value
+            for the reason Silent drop."
+       ::= { cLIpv6NbSnoopingDropCounterEntry  3 }
+
+cLIpv6NbSnoopingDropCounterReasonInt OBJECT-TYPE
+       SYNTAX     Counter32
+       MAX-ACCESS read-only
+       STATUS     current
+       DESCRIPTION
+           "This object represents the Snooping Drop Counter Value
+            for the reason internal failure."
+       ::= { cLIpv6NbSnoopingDropCounterEntry  4 }
+
+cLIpv6NbSnoopingDropCounterReasonCga OBJECT-TYPE
+       SYNTAX     Counter32
+       MAX-ACCESS read-only
+       STATUS     current
+       DESCRIPTION
+           "This object represents the Snooping Drop Counter Value
+            for the reason CGA option does not verify."
+       ::= { cLIpv6NbSnoopingDropCounterEntry  5 }
+
+cLIpv6NbSnoopingDropCounterReasonRsa OBJECT-TYPE
+       SYNTAX     Counter32
+       MAX-ACCESS read-only
+       STATUS     current
+       DESCRIPTION
+           "This object represents the Snooping Drop Counter Value
+            for the reason RSA signature does not verify."
+       ::= { cLIpv6NbSnoopingDropCounterEntry  6 }
+
+cLIpv6NbSnoopingDropCounterReasonLimit OBJECT-TYPE
+       SYNTAX     Counter32
+       MAX-ACCESS read-only
+       STATUS     current
+       DESCRIPTION
+           "This object represents the Snooping Drop Counter Value
+            for the reason address limit reached."
+       ::= { cLIpv6NbSnoopingDropCounterEntry  7 }
+
+cLIpv6NbSnoopingDropCounterReasonMartian OBJECT-TYPE
+       SYNTAX     Counter32
+       MAX-ACCESS read-only
+       STATUS     current
+       DESCRIPTION
+           "This object represents the Snooping Drop Counter Value
+            for the reason martian packet."
+       ::= { cLIpv6NbSnoopingDropCounterEntry  8 }
+
+cLIpv6NbSnoopingDropCounterReasonMartianMac OBJECT-TYPE
+       SYNTAX     Counter32
+       MAX-ACCESS read-only
+       STATUS     current
+       DESCRIPTION
+           "This object represents the Snooping Drop Counter Value
+            for the reason martian mac."
+       ::= { cLIpv6NbSnoopingDropCounterEntry  9 }
+
+cLIpv6NbSnoopingDropCounterReasonNotAllowed OBJECT-TYPE
+       SYNTAX     Counter32
+       MAX-ACCESS read-only
+       STATUS     current
+       DESCRIPTION
+           "This object represents the Snooping Counter Value
+            for the reason more trusted entry exists."
+       ::= { cLIpv6NbSnoopingDropCounterEntry  10 }
+
+cLIpv6NbSnoopingDropCounterReasonNotAuthorised OBJECT-TYPE
+       SYNTAX     Counter32
+       MAX-ACCESS read-only
+       STATUS     current
+       DESCRIPTION
+           "This object represents the Snooping Drop Counter Value
+            for the reason packet not authorized on port."
+       ::= { cLIpv6NbSnoopingDropCounterEntry  11 }
+
+cLIpv6NbSnoopingDropCounterReasonStop OBJECT-TYPE
+       SYNTAX     Counter32
+       MAX-ACCESS read-only
+       STATUS     current
+       DESCRIPTION
+           "This object represents the Snooping Drop Counter Value
+            for reason packet accepted but not forwarded."
+       ::= { cLIpv6NbSnoopingDropCounterEntry  12 }
+
+
+cLIpv6NeighborBindingCounterClear         OBJECT-TYPE
+     SYNTAX      TruthValue
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+        " This object when set to 'true', will clear the
+         counter of the IPv6 Neighbor Binding."
+::= {  ciscoLwappIpv6Config 6}
+
+cLIpv6GlobalEnabled  OBJECT-TYPE
+     SYNTAX      TruthValue
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+        " This object represents the Global state of IPv6.
+         A value of 'true', will enable the Global IPv6 state.
+         A value of 'false', will disable the Global IPv6 state."
+::= {  ciscoLwappIpv6Config 7}
+
+END

@@ -1,0 +1,435 @@
+-- ======================================================================
+--
+--  LANplex Systems Management Information Base
+--  July 14, 1997
+--  3Com Corporation
+--  80 Central Street
+--  Boxborough, MA 01719
+--  
+--  Change History:
+--      Feb 26,  1998 - Add 1000Mb MacMode Support for CA/GA
+--      Jan 15,  1998 - Add MacMode instance to a3ComTrunkIfTable (hmk)
+--  	Aug  6,  1997 - change genVirtual to genTrunk 
+--      July 14, 1997 - edits from first review. 
+--
+--		Revision 1.0.0 Initially created by Lucas Lam/John Scano (508)-264-1400
+--
+-- ======================================================================
+--
+--	Interpretation of the Interface Table for TRUNKs
+-- 
+--	OBJECT              VALUE/USE
+--
+--	ifIndex             Same interpretation as RFC1573.  A unique value,
+--					 	greater than zero for each trunk interface.
+--
+--	ifDescr             Same interpretation as RFC1573.  A textual string
+--						containing information anout the interface.  This
+--						string should include the name of the manufacturer,
+--						the product name, the version of the software, and that
+--						the interface is a TRUNK.  Example: "3COM LANPlex 6000,
+--						version 8.3, TRUNK"
+--
+--	ifType              propVirtual(53)
+--
+--	ifMtu               The largest size of packet which can be sent/received
+--						on the interface.  
+--
+--	ifSpeed				The value of this object is aggregated bandwidth of all
+--						Mac(s) attached to this interface.
+--
+--	ifPhysAddress		The value of this object is always equal to a null octet
+--						string.
+--
+--	ifAdminStatus       Always equal to up(1).  SetRequest-PDUs fail.
+--
+--	ifOperStatus       	The value of this object is equal to up(1) if the
+--						ifOperStatus of at least one MAC in in the set of MAC(s)
+--						stacked below the TRUNK layer is up(1).  The value of this 
+--						object is down(2) if the ifOperStatus of all MAC(s) stacked
+--						below the TRUNK layer is down(2).  The value of this
+--						object is down(2) if there are no MAC(s) stacked below the
+--						the TRUNK sublayer.
+--
+--	ifLastChange       	Same interpretation as RFC1573.  The value of sysUpTime
+--						at the time the interface entered its current operational
+--						state.  If the current state was entered prior to the 
+--						last re-initialization of the local network management
+--						subsystem, then this object contains a zero value.
+--	 
+--	ifInOctets			These objects  return NO_SUCH_NAME on reads and writes. 
+--	ifInUcastPkts		This approach is more desireable than returning zero
+--	ifInNUcastPkts		on reads because NMS's cannot differentiate between
+--	ifInDiscards		returning a zero for non-support vs returning a real
+--	ifInErrors			zero value for the counter.  Inability to distinguish
+--	ifInUnknownProtos	between these two cases would essentially prevent
+--	ifOutOctets			future implementation of these objects, therefore NO_SUCH_NAME
+--	ifOutUcastPkts		is returned to indicate no-support.  Future implementations
+--	ifOutNUcastPkts		may choose to return real values for these counters.
+--	ifOutDiscards							"
+--	ifOutErrors								"
+--	ifLinkUpDownTrapEnable					"
+--	ifConnectorPresent						"
+--	ifHighSpeed								"
+--	ifName									"
+--
+--	ifOutQLen			Deprecated in RFC1573.  Set to zero if present.
+--	ifSpecific			Deprecated in RFC1573.  Set to { 0.0 } if present. 
+--
+--	linkUp TRAP			Not supported for the TRUNK sublayer
+--	linkDown TRAP		Not supported for the TRUNK sublayer
+--
+-- ======================================================================
+
+
+	GENERIC-3COM-TRUNK-MIB DEFINITIONS ::= BEGIN
+
+	IMPORTS
+		enterprises, IpAddress		FROM RFC1155-SMI
+		DisplayString, PhysAddress	FROM RFC1213-MIB
+		OBJECT-TYPE					FROM RFC-1212;
+
+	a3Com	OBJECT IDENTIFIER ::= { enterprises 43 }
+	generic OBJECT IDENTIFIER ::= { a3Com 10 }
+	genExperimental  OBJECT IDENTIFIER ::= { generic 1 }
+
+	genTrunk OBJECT IDENTIFIER ::= { genExperimental 15 }
+
+	--
+	-- Structure of MIB
+	--
+	-- The objects are arranged into the following groups:
+	--
+	-- 3Com Generic TRUNK MIB Groups 
+
+	a3ComTrunkGroup				OBJECT IDENTIFIER ::= { genTrunk 1 }
+
+	--  RowStatus is defined in SNMPv2-TC
+	RowStatus ::= INTEGER {
+
+		-- the following two values are states:
+		-- these values may be read or written
+		active(1),
+		notInService(2),
+
+		-- the following value is a state:
+		-- this value may be read, but not written
+		notReady(3),
+
+		-- the following three values are
+		-- actions: these values may be written,
+		--   but are never read
+		createAndGo(4),
+		createAndWait(5),
+		destroy(6)
+		}
+	
+	--
+	-- The TRUNK Interface Group
+	--	a3ComTrunkIfTable
+	--	INDEX { a3ComTrunkIfIndex }
+    --      The a3ComTrunkIfTable allows creation/deletion and
+    --      naming of a trunking group.  The trunking MAC type
+	--		is unknown until the first MAC is added to
+	--		a TRUNK.  Addition/deletion of a port to a TRUNK
+	--		is done through ifStackTable in which ifStackHigherLayer
+	--		is TRUNK interface number and ifStackLowerLayer is the MAC
+	--		interface number.  
+	--
+	-- a3ComTrunkMacTable
+	--	INDEX	{ a3ComTrunkMacTrunkIfIndex, a3ComTrunkMacIfIndex }
+	--		The a3ComTrunkMacTable provides information about the
+	--		status of a MAC in a TRUNK.
+	--
+	-- a3ComTrunkTcmpPeersTable
+	--	INDEX { a3ComTrunkPeerIfTrunkIndex, a3ComTrunkPeerMacIndex,
+	--			a3ComTrunkPeersMacAddress }
+	--  	The a3ComTrunkTcmpPeersTable provides neighbor
+	--		information of a MAC in a TRUNK interface only if
+	--		TCMP is enable in the TRUNK.
+	--	         	
+
+
+	-- The 3COM TRUNK Interface Table
+	--
+	-- This table is implemented by all 3Com network devices that  
+	-- support TRUNK interfaces.
+	--
+
+    a3ComTrunkIfTable OBJECT-TYPE
+		SYNTAX  SEQUENCE OF A3ComTrunkIfEntry
+		ACCESS  not-accessible
+		STATUS  mandatory
+		DESCRIPTION
+			"This table lists TRUNK interfaces that exist within
+			a device.  A single entry exists in this list for each
+			TRUNK interface in the system."
+		::= { a3ComTrunkGroup 1 }
+
+	a3ComTrunkIfEntry OBJECT-TYPE
+		SYNTAX  A3ComTrunkIfEntry
+		ACCESS  not-accessible
+		STATUS  mandatory
+		DESCRIPTION
+			"An individual Trunk interface entry.  When an NMS wishes
+			to create a new entry in this table, it must obtain a 
+			non-zero index from the a3ComNextAvailableVirtIfIndex
+			which is defined in a3ComVirtualGroup.
+			Row creation in this table will fail if the
+			chosen index value does not match the current value 
+			returned from the a3ComNextAvailableVirtIfIndex object."
+		INDEX { a3ComTrunkIfIndex }
+		::= { a3ComTrunkIfTable 1 }
+
+	A3ComTrunkIfEntry ::=
+		SEQUENCE {
+			a3ComTrunkIfIndex
+				INTEGER,
+			a3ComTrunkIfName
+				DisplayString,
+			a3ComTrunkTcmpEnable 
+				INTEGER,
+            a3ComTrunkMacMode
+                INTEGER,
+			a3ComTrunkIfStatus
+				RowStatus
+		}
+
+    a3ComTrunkIfIndex OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS 	not-accessible 
+        STATUS  mandatory
+        DESCRIPTION
+            "The index value of this row and the Trunk's ifIndex
+			in the ifTable.  The NMS obtains the index value to
+			create new row by reading the a3ComNextAvailableVirtIfIndex
+			object which is the same as the one defined in
+			a3ComVirtualGroup,"
+        ::= { a3ComTrunkIfEntry 1 }
+
+	a3ComTrunkIfName OBJECT-TYPE
+		SYNTAX	DisplayString (SIZE(0..31))
+		ACCESS	read-write
+		STATUS	mandatory
+		DESCRIPTION
+			"This is the name of this TRUNK interface."
+		::= { a3ComTrunkIfEntry 2 }
+
+    a3ComTrunkTcmpEnable OBJECT-TYPE
+        SYNTAX 	INTEGER {
+					notAvailable(1),
+					tcmpDisable(2),
+					tcmpEnable(3)
+				}
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+			"This object specifies if the Trunk Control Message
+        	Protocol(TCMP) is currently	enabled for operation
+			on a specific trunk. TCMP is used to dynamically control
+			the configuration and operation of a trunk port and its
+			constituent MACs."
+		DEFVAL { tcmpEnable }
+        ::= { a3ComTrunkIfEntry 3 }
+
+    a3ComTrunkMacMode OBJECT-TYPE
+        SYNTAX 	INTEGER {
+                    half10(1),
+                    full10(2),
+                    half100(3),
+                    full100(4),
+                    half1000(5),
+                    full1000(6)
+                }
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "This object controls the Trunk physical link speed.
+             When a port is added to this Trunk, it is switched
+             to the specified speed, regardless of its previous
+             speed setting. All ports; therefore, will be running 
+             on the specified speed."
+        DEFVAL { full100 }
+        ::= { a3ComTrunkIfEntry 4 }
+
+    a3ComTrunkIfStatus OBJECT-TYPE
+        SYNTAX  RowStatus
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "The status column for this TRUNK interface. 
+			 This OBJECT can be set to:
+
+				createAndGo(4)
+				destroy(6)
+
+            The following values may be read:
+            	active(1)
+           		notReady(3).
+			
+			Setting this object to createAndGo(4) causes the agent
+			to attempt to create and commit the row based on 
+			the contents of the objects in the row.  If all necessary
+			information is present in the row and the values are
+			acceptible to the agent, the agent will change the 
+			status to notReady(3).  If any of the necessary objects  
+			are not available, the agent will reject the creation
+			request.
+
+			The state of the row transits to active(1) if and only
+			if MAC(s) has/have been added to this entry through
+			ifStackTable and system is ready.
+
+			Setting this object to destroy(6) will remove the corresponding
+			TRUNK interface and remove the entry in this table.
+
+			In order for a set of this object to destroy(6) to succeed,
+			all dependencies on this row must have been removed.  These
+			will include any stacking dependencies in the ifStackTable."
+
+        ::= { a3ComTrunkIfEntry 5 }
+
+
+	a3ComTrunkMacTable OBJECT-TYPE
+		SYNTAX  SEQUENCE OF A3ComTrunkMacEntry
+		ACCESS  not-accessible
+		STATUS  mandatory
+		DESCRIPTION
+			"A list of information about state of TRUNK MAC(s)
+			in a TRUNK interface. If TCMP is not enabled, the MAC
+			status is tied to the link status."
+		::= { a3ComTrunkGroup 2 }
+
+	a3ComTrunkMacEntry OBJECT-TYPE
+		SYNTAX  A3ComTrunkMacEntry
+		ACCESS  not-accessible
+		STATUS  mandatory
+		DESCRIPTION
+			"An individual TRUNK group MAC entry status."
+		INDEX	{ a3ComTrunkMacTrunkIfIndex, a3ComTrunkMacIndex }
+		::= { a3ComTrunkMacTable 1 }
+
+	A3ComTrunkMacEntry ::=
+		SEQUENCE {
+			a3ComTrunkMacTrunkIfIndex
+				INTEGER,
+			a3ComTrunkMacIndex
+				INTEGER,
+			a3ComTrunkTcmpMacState
+				INTEGER
+		}
+
+	a3ComTrunkMacTrunkIfIndex OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS 	not-accessible 
+        STATUS  mandatory
+        DESCRIPTION
+            "This object is the same as a3ComTrunkIfIndex defined in
+			a3ComTrunkIfTable."
+        ::= { a3ComTrunkMacEntry 1 }
+
+a3ComTrunkMacIndex OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS 	not-accessible 
+        STATUS  mandatory
+        DESCRIPTION
+            "This object identifies the ifIndex in the ifTable of
+            a media access control (MAC) interface in the system."
+        ::= { a3ComTrunkMacEntry 2 }
+
+	a3ComTrunkTcmpMacState OBJECT-TYPE
+		SYNTAX  INTEGER {
+					notInUse(1),
+					selected(2),
+					inUse(3),
+					undefined(4),
+					down(5),
+					up(6),
+					configured(7)
+				}
+		ACCESS  read-only
+		STATUS  mandatory
+		DESCRIPTION
+			"The state column for this MAC TRUNK entry if
+			TCMP is enabled. The following values may be
+			read:
+
+			notInUse:	corresponding MAC has not been selected
+						for active participation in trunk.  No
+						LLC frames will be transmitted or
+						received.
+			selected:	corresponding MAC is selected for active
+						participation in the trunk, but it has not
+						transited to active use.
+			inUse:		corresponding MAC is in active use on the
+						trunk.
+
+			The following values may be read if TCMP is disabled:
+
+			undefined:	corresponding MAC is undefined
+			down:    	corresponding MAC is selected
+                        as a trunk port but is down
+            up:       	corresponding MAC is selected
+                        and in use
+            configured: corresponding MAC is 
+                        configured as TRUNK MAC "
+		::= { a3ComTrunkMacEntry 3 }
+
+	a3ComTrunkTcmpPeersTable OBJECT-TYPE
+		SYNTAX  SEQUENCE OF A3ComTrunkTcmpPeersEntry
+		ACCESS  not-accessible
+		STATUS  mandatory
+		DESCRIPTION
+			"This table lists neighbouring information for
+			a MAC in a Trunk interface."
+		::= { a3ComTrunkGroup 3 }
+
+	a3ComTrunkTcmpPeersEntry OBJECT-TYPE
+		SYNTAX  A3ComTrunkTcmpPeersEntry 
+		ACCESS  not-accessible
+		STATUS  mandatory
+		DESCRIPTION
+			"Information about a particular peer of a MAC within
+			the trunk."
+		INDEX { a3ComTrunkPeerTrunkIfIndex, a3ComTrunkPeerMacIndex,
+				a3ComTrunkPeersMacAddress }
+		::= { a3ComTrunkTcmpPeersTable 1 }
+
+	A3ComTrunkTcmpPeersEntry ::=
+		SEQUENCE {
+			a3ComTrunkPeerTrunkIfIndex
+				INTEGER,
+			a3ComTrunkPeerMacIndex
+				INTEGER,
+			a3ComTrunkPeersMacAddress
+				PhysAddress
+		}
+
+	a3ComTrunkPeerTrunkIfIndex OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS 	not-accessible 
+        STATUS  mandatory
+        DESCRIPTION
+            "This object is the same as a3ComTrunkIfIndex
+			defined in a3ComTrunkIfTable."
+        ::= { a3ComTrunkTcmpPeersEntry 1 }
+
+a3ComTrunkPeerMacIndex OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS 	not-accessible 
+        STATUS  mandatory
+        DESCRIPTION
+            "This object identifies the ifIndex in the ifTable of
+            a media access control (MAC) interface in the system."
+        ::= { a3ComTrunkTcmpPeersEntry 2 }
+
+	a3ComTrunkPeersMacAddress OBJECT-TYPE
+        SYNTAX  PhysAddress
+        ACCESS 	read-only
+        STATUS  mandatory
+        DESCRIPTION
+            "The MAC address of a peer connected to the
+             a3ComTrunkPeerMacIndex identified by this entry." 
+        ::= { a3ComTrunkTcmpPeersEntry 3 }
+
+END

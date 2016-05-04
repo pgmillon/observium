@@ -7,21 +7,20 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
+echo(" Inventory : ");
+
 $valid['inventory'] = array();
 
-echo("Inventory: ");
-
-include("includes/discovery/entity-physical.inc.php");
-include("includes/discovery/hr-device.inc.php");
-
 $include_dir = "includes/discovery/inventory";
-include("includes/include-dir-mib.inc.php");
+include($config['install_dir']."/includes/include-dir-mib.inc.php");
 
-if ($debug && count($valid['inventory'])) { print_vars($valid['inventory']); }
 check_valid_inventory($device, $valid['inventory']);
+
+$GLOBALS['module_stats'][$module]['status'] = count($valid[$module]);
+if (OBS_DEBUG && $GLOBALS['module_stats'][$module]['status']) { print_vars($valid[$module]); }
 
 // EOF

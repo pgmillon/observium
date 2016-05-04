@@ -1,0 +1,446 @@
+TIMETRA-BFD-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+
+    MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE,
+    Unsigned32, Counter32, Counter64, Gauge32
+        FROM SNMPv2-SMI
+
+    MODULE-COMPLIANCE, OBJECT-GROUP, NOTIFICATION-GROUP
+        FROM SNMPv2-CONF
+
+    DisplayString, RowStatus, TruthValue,
+    TEXTUAL-CONVENTION, TimeInterval, TimeStamp
+        FROM SNMPv2-TC
+
+    timetraSRMIBModules, tmnxSRObjs, tmnxSRConfs,
+    tmnxSRNotifyPrefix
+        FROM TIMETRA-GLOBAL-MIB
+
+    TNamedItem
+        FROM TIMETRA-TC-MIB
+
+    ;
+
+timetraBfdMIBModule    MODULE-IDENTITY
+    LAST-UPDATED "201206080000Z"
+        ORGANIZATION "Alcatel-Lucent"
+        CONTACT-INFO
+            "Alcatel-Lucent SROS Support
+             Web: http://support.alcatel-lucent.com"
+        DESCRIPTION
+        "This document is the SNMP MIB module to manage and provision
+        BFD templates on Alcatel-Lucent SROS equipment. 
+    
+        Copyright 2012-2013 Alcatel-Lucent. All rights reserved.
+        Reproduction of this document is authorized on the condition that
+        the foregoing copyright notice is included.
+    
+        This SNMP MIB module (Specification) embodies Alcatel-Lucent's
+        proprietary intellectual property. Alcatel-Lucent retains all title and
+        ownership in the Specification, including any revisions.
+    
+        Alcatel-Lucent grants all interested parties a non-exclusive
+        license to use and distribute an unmodified copy of this
+        Specification in connection with management of Alcatel-Lucent products,
+        and without fee, provided this copyright notice and license appear
+        on all copies.
+    
+        This Specification is supplied 'as is', and Alcatel-Lucent
+        makes no warranty, either express or implied, as to the use,
+        operation, condition, or performance of the Specification."
+
+        ::= { timetraSRMIBModules 85 }
+
+-- ----------------------------------------------------------------------------
+--  Alcatel-Lucent SROS series Delivery Appliance MIB structure
+-- ----------------------------------------------------------------------------
+
+tmnxBfdObjects         OBJECT IDENTIFIER ::= { tmnxSRObjs 85 }
+--
+tmnxBfdConformance         OBJECT IDENTIFIER ::= { tmnxSRConfs 85 }
+   tmnxBfdCompliances     OBJECT IDENTIFIER ::= { tmnxBfdConformance 1 }
+   tmnxBfdGroups            OBJECT IDENTIFIER ::= { tmnxBfdConformance 2 }
+--
+tmnxBfdOperObjects    OBJECT IDENTIFIER ::= { tmnxBfdObjects 1 }
+tmnxBfdAdminObjects   OBJECT IDENTIFIER ::= { tmnxBfdObjects 2 }
+
+
+
+--
+-- Administrative value objects
+--
+
+tmnxBfdAdminControlObjects  OBJECT IDENTIFIER ::= { tmnxBfdAdminObjects 1 }
+tmnxBfdAdminValueObjects    OBJECT IDENTIFIER ::= { tmnxBfdAdminObjects 2 }
+
+
+--
+-- Administrative value control objects
+--
+
+tmnxBfdAdminOwner  OBJECT-TYPE
+    SYNTAX       DisplayString (SIZE (0..32))
+    MAX-ACCESS   read-write
+    STATUS       current
+    DESCRIPTION
+        "Who has last initialized the administrative tables,
+         who is making all the changes, and who is expected to
+         either commit or re-initialize (ABORT-TRANSACTION).
+         
+         tmnxBfdAdminOwner is advisory only.  Before beginning a transaction,
+         read tmnxBfdAdminOwner. If it is empty then proceed with the 
+         configuration. Set tmnxBfdAdminOwner after setting 
+         tmnxBfdAdminControlApply so that other users will be advised to not 
+         make changes to the Admin tables.
+        
+         Agent sets tmnxBfdAdminOwner to empty string after 
+         tmnxBfdAdminControlApply is set - either by user initializing or 
+         committing, or by agent timing out the uncommitted transactions 
+         (tmnxBfdAdminLastSetTimer)."
+    ::= { tmnxBfdAdminControlObjects 1 }
+
+tmnxBfdAdminControlApply  OBJECT-TYPE
+    SYNTAX       INTEGER {
+                    none(1),
+                    initialize(2),
+                    commit(3)
+                 }
+    MAX-ACCESS   read-write
+    STATUS       current
+    DESCRIPTION
+        "This object controls the use of tmnxBfdAdminValueObjects tables.
+        
+         This object always reads none(1).
+        
+         When set to initialize(2), the objects in tmnxBfdAdminValueObjects 
+         tables are set to the current Operational values, from the 
+         corresponding tmnxBfdOperValueObjects tables. Any uncommitted changes 
+         are lost, so setting this value corresponds to both BEGIN-TRANSACTION
+         and ABORT-TRANSACTION.
+        
+         When set to commit(3) (END-TRANSACTION), all of the objects from 
+         tmnxBfdAdminValueObjects tables are copied to the corresponding
+         tmnxBfdOperValueObjects table objects."
+    DEFVAL { none }
+    ::= { tmnxBfdAdminControlObjects 2 }
+
+tmnxBfdAdminLastSetTimer  OBJECT-TYPE
+    SYNTAX       TimeInterval
+    UNITS        "centiseconds"
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The time remaining until the agent re-initializes the 
+         administrative tables.
+       
+         If tmnxBfdAdminControlApply is not set to commit(3) within 
+         tmnxBfdAdminLastSetTimeout centiseconds, the agent will set it 
+         to initialize(2) and all uncommitted changes will be lost.
+
+         This way, uncommitted changes from failed (uncompleted) change sets 
+         will eventually be removed, and another transaction can safely begin.
+        
+         This object is reset to tmnxBfdAdminLastSetTimeout after SNMP SET 
+         operation to any of the tmnxBfdAdminValueObjects tables."
+    ::= { tmnxBfdAdminControlObjects 3 }
+
+tmnxBfdAdminLastSetTimeout  OBJECT-TYPE
+    SYNTAX       TimeInterval
+    UNITS        "centiseconds"
+    MAX-ACCESS   read-write
+    STATUS       current
+    DESCRIPTION
+        "Timeout for tmnxBfdAdminLastSetTimer.
+         The value zero is not allowed."
+    DEFVAL { 180000 } -- 30 minutes
+    ::= { tmnxBfdAdminControlObjects 4 }
+
+--
+-- BFD template administrative value objects 
+--
+
+tmnxBfdAdminTemplateTable OBJECT-TYPE
+    SYNTAX       SEQUENCE OF TmnxBfdAdminTemplateEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION  
+        "Administrative value table for BFD templates."
+    ::= { tmnxBfdAdminValueObjects 1 }
+
+tmnxBfdAdminTemplateEntry OBJECT-TYPE
+    SYNTAX       TmnxBfdAdminTemplateEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION 
+        "Information about a particular BFD template.
+         Entries are created by user.
+         Entries are deleted by user."
+    INDEX { tmnxBfdAdminTemplateName }
+    ::= { tmnxBfdAdminTemplateTable 1 }
+
+TmnxBfdAdminTemplateEntry ::= SEQUENCE
+    {
+        tmnxBfdAdminTemplateName          TNamedItem,
+        tmnxBfdAdminTemplateRowStatus     RowStatus,
+        tmnxBfdAdminTemplateTxInt         Unsigned32,
+        tmnxBfdAdminTemplateRxInt         Unsigned32,
+        tmnxBfdAdminTemplateMultiplier    Unsigned32,
+        tmnxBfdAdminTemplateEchoRxInt     Unsigned32,
+        tmnxBfdAdminTemplateType          INTEGER
+    }
+
+tmnxBfdAdminTemplateName  OBJECT-TYPE
+    SYNTAX       TNamedItem
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "The name of this BFD template that uniquely identifies an
+         entry in this table."
+    ::= { tmnxBfdAdminTemplateEntry 1 }
+
+tmnxBfdAdminTemplateRowStatus  OBJECT-TYPE
+    SYNTAX       RowStatus
+    MAX-ACCESS   read-create
+    STATUS       current
+    DESCRIPTION 
+        "RowStatus for this row. Legal values to write are: 
+         active(1), createAndGo(4), createAndWait(5), destroy(6).
+        
+         To Create a row, set this object to createAndGo or createAndWait.
+         When tmnxBfdAdminControlApply is set to commit(3), the row will 
+         actually be created in the tmnxBfdOperTemplateTable.
+        
+         To destroy a row, set this object to destroy(6). If there are no 
+         objects that refer to the entry, when tmnxBfdAdminControlApply is 
+         set to commit(3) the row will actually be removed from the 
+         tmnxBfdOperTemplateTable.
+        
+         If there are objects that refer to the entry, the destroy SET request
+         will fail with an error."
+    ::= { tmnxBfdAdminTemplateEntry 2 }
+
+tmnxBfdAdminTemplateTxInt  OBJECT-TYPE
+    SYNTAX      Unsigned32 (10..100000)
+    UNITS       "milliseconds"
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxBfdAdminTemplateTxInt specifies the transmit 
+         timers for the BFD packets."
+    DEFVAL { 100 }
+    ::= { tmnxBfdAdminTemplateEntry 3 }
+
+
+tmnxBfdAdminTemplateRxInt  OBJECT-TYPE
+    SYNTAX      Unsigned32 (10..100000)
+    UNITS       "milliseconds"
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxBfdAdminTemplateRxInt specifies the receive 
+         timers for the BFD packets."
+    DEFVAL { 100 }
+    ::= { tmnxBfdAdminTemplateEntry 4 }
+
+tmnxBfdAdminTemplateMultiplier     OBJECT-TYPE
+    SYNTAX      Unsigned32 (3..20)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxBfdAdminTemplateMultiplier specifies the number of
+         consecutive BFD messages that must be missed from the peer before
+         the BFD session state is changed to down and the upper level
+         protocols (OSPF, IS-IS or PIM) are notified of the fault."
+    DEFVAL { 3 }
+    ::= { tmnxBfdAdminTemplateEntry 5 }
+
+tmnxBfdAdminTemplateEchoRxInt    OBJECT-TYPE
+    SYNTAX      Unsigned32 (100..100000)
+    UNITS       "milliseconds"
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxBfdAdminTemplateEchoRxInt specifies the minimum echo 
+         recieve interval for a BFD session."
+    DEFVAL { 100 }
+    ::= { tmnxBfdAdminTemplateEntry 6 }
+
+tmnxBfdAdminTemplateType OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    cpmNp(1),
+                    auto(2),
+                    iomHw(3)
+                }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxBfdAdminTemplateType specifies the configured 
+         termination of a BFD session. 
+
+         The value of 'cpmNp(1)' specifies termination on the CPM card's 
+         Network Processor. The value of 'auto(2)' specifies a 
+         system-selected termination other than the CPM Network Processor."
+    DEFVAL { auto }
+    ::= { tmnxBfdAdminTemplateEntry 7 }
+
+--
+-- BFD template operational value objects
+--
+
+tmnxBfdOperValueObjects OBJECT IDENTIFIER ::= { tmnxBfdOperObjects 1 }
+
+tmnxBfdOperTemplateTable OBJECT-TYPE
+    SYNTAX       SEQUENCE OF TmnxBfdOperTemplateEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION 
+        "Operational value table for BFD templates."
+    ::= { tmnxBfdOperValueObjects 1 }
+
+tmnxBfdOperTemplateEntry OBJECT-TYPE
+    SYNTAX       TmnxBfdOperTemplateEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION 
+        "Information about a particular BFD template.
+        
+         Entries are created by user via tmnxBfdAdminTemplateTable.
+         Entries are deleted by user via tmnxBfdAdminTemplateTable."
+    INDEX { tmnxBfdOperTemplateName }
+    ::= { tmnxBfdOperTemplateTable 1 }
+
+TmnxBfdOperTemplateEntry ::= SEQUENCE
+    {
+        tmnxBfdOperTemplateName          TNamedItem,
+        tmnxBfdOperTemplateRowStatus     RowStatus,
+        tmnxBfdOperTemplateTxInt         Unsigned32,
+        tmnxBfdOperTemplateRxInt         Unsigned32,
+        tmnxBfdOperTemplateMultiplier    Unsigned32,
+        tmnxBfdOperTemplateEchoRxInt     Unsigned32,
+        tmnxBfdOperTemplateType          INTEGER
+    }
+
+tmnxBfdOperTemplateName  OBJECT-TYPE
+    SYNTAX       TNamedItem
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "The name of this BFD template that uniquely identifies an
+         entry in this table."
+    ::= { tmnxBfdOperTemplateEntry 1 }
+
+tmnxBfdOperTemplateRowStatus    OBJECT-TYPE
+    SYNTAX       RowStatus
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "RowStatus for this row. Values read will only be 
+         active(1). To create or destroy entries in this table, use the 
+         tmnxBfdAdminTemplateEntry."
+    ::= { tmnxBfdOperTemplateEntry 2 }
+
+tmnxBfdOperTemplateTxInt  OBJECT-TYPE
+    SYNTAX      Unsigned32 (10..100000)
+    UNITS       "milliseconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxBfdOperTemplateTxInt indicates the transmit 
+         timers for the BFD packets."
+    ::= { tmnxBfdOperTemplateEntry 3 }
+
+tmnxBfdOperTemplateRxInt  OBJECT-TYPE
+    SYNTAX      Unsigned32 (10..100000)
+    UNITS       "milliseconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxBfdOperTemplateTxInt indicates the recieve 
+         timers for the BFD packets."
+    ::= { tmnxBfdOperTemplateEntry 4 }
+
+tmnxBfdOperTemplateMultiplier     OBJECT-TYPE
+    SYNTAX      Unsigned32 (3..20)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxBfdOperTemplateMultiplier indicates the number of
+         consecutive BFD messages that must be missed from the peer before
+         the BFD session state is changed to down and the upper level
+         protocols (OSPF, IS-IS or PIM) are notified of the fault."
+    ::= { tmnxBfdOperTemplateEntry 5 }
+
+tmnxBfdOperTemplateEchoRxInt    OBJECT-TYPE
+    SYNTAX      Unsigned32 (100..100000)
+    UNITS       "milliseconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxBfdOperTemplateEchoRxInt indicates the minimum echo 
+         recieve interval for a BFD session."
+    ::= { tmnxBfdOperTemplateEntry 6 }
+
+tmnxBfdOperTemplateType OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    cpmNp(1),
+                    auto(2),
+                    iomHw(3)
+                }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxBfdOperTemplateType indicates the configured 
+         termination of a BFD session. 
+
+         The value of 'cpmNp(1)' specifies termination on the CPM card's 
+         Network Processor. The value of 'auto(2)' specifies a 
+         system-selected termination other than the CPM Network Processor."
+    ::= { tmnxBfdOperTemplateEntry 7 }
+
+-- ----------------------------------------------
+-- Compliance Statements
+-- ----------------------------------------------
+
+tmnxBfdV11v0Compliance    MODULE-COMPLIANCE
+    STATUS      current
+    DESCRIPTION
+        "The compliance statement for management of BFD features on version 11.0 
+         of the Alcatel-Lucent SROS series systems."
+    MODULE
+        MANDATORY-GROUPS {
+            tmnxBfdV11v0Group
+        }
+    ::= { tmnxBfdCompliances 1 }
+
+-- ------------------------------------------ 
+-- Units of Conformance
+-- ------------------------------------------ 
+
+tmnxBfdV11v0Group    OBJECT-GROUP
+    OBJECTS {
+                 tmnxBfdAdminOwner,
+                 tmnxBfdAdminControlApply,
+                 tmnxBfdAdminLastSetTimer,
+                 tmnxBfdAdminLastSetTimeout,
+                 tmnxBfdAdminTemplateRowStatus,
+                 tmnxBfdAdminTemplateTxInt,
+                 tmnxBfdAdminTemplateRxInt,
+                 tmnxBfdAdminTemplateMultiplier,
+                 tmnxBfdAdminTemplateEchoRxInt,
+                 tmnxBfdAdminTemplateType,
+                 tmnxBfdOperTemplateRowStatus,
+                 tmnxBfdOperTemplateTxInt,
+                 tmnxBfdOperTemplateRxInt,
+                 tmnxBfdOperTemplateMultiplier,
+                 tmnxBfdOperTemplateEchoRxInt,
+                 tmnxBfdOperTemplateType  
+
+            }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects supporting management of BFD features on version 
+         11.0 of the Alcatel-Lucent SROS series systems."
+    ::= { tmnxBfdGroups 1 }
+
+END

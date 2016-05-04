@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -25,7 +25,7 @@ foreach (dbFetchRows($sql, array($device['device_id'])) as $processor)
   {
     include($file);
   } else {
-    $proc = snmp_get ($device, $processor['processor_oid'], "-O Uqnv", "\"\"");
+    $proc = snmp_get($device, $processor['processor_oid'], "-OUQnv");
   }
 
   $procrrd = "processor-" . $processor['processor_type'] . "-" . $processor['processor_index'] . ".rrd";

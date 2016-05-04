@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -24,16 +24,16 @@ foreach ($sessions_db as $session_db)
   $clean_mac = str_replace(array(':', '-'), '', $session_db['mac_addr']);
   $sessions_db[$clean_mac] = $session_db;
 }
-if ($debug && count($sessions_db)) { print_vars($sessions_db); }
+if (OBS_DEBUG && count($sessions_db)) { print_vars($sessions_db); }
 
-$radios_db = dbFetchRows("SELECT `wifi_radio_id`, `radio_number`,`ap_number`, `device_id` FROM `wifi_accesspoints`, `wifi_radios` WHERE wifi_radios.`accesspoint_id` = wifi_accesspoints.`wifi_accesspoint_id` AND wifi_accesspoints.`device_id` = ?", array($device['device_id']));
+$radios_db = dbFetchRows("SELECT `wifi_radio_id`, `radio_number`,`ap_number`, `wifi_accesspoints`.`device_id` FROM `wifi_accesspoints`, `wifi_radios` WHERE `wifi_radios`.`radio_ap` = wifi_accesspoints.`wifi_accesspoint_id` AND wifi_accesspoints.`device_id` = ?", array($device['device_id']));
 foreach ($radios_db as $radio_db)
 {
   $radios_sorted_db[$radio_db['ap_number']][$radio_db['radio_number']] = $radio_db;
 }
 
 $sessions_array = snmpwalk_cache_multi_oid($device, "trpzClSessClientSessionTable", $sessions_array, "TRAPEZE-NETWORKS-CLIENT-SESSION-MIB", mib_dirs('trapeze'), TRUE);
-if ($debug && count($sessions_array)) { print_vars($sessions_array); }
+if (OBS_DEBUG > 1 && count($sessions_array)) { print_vars($sessions_array); }
 
 $timestamp = date('Y-m-d H:i:s', strtotime("now"));
 // Goes through the SNMP sessions data
@@ -57,13 +57,13 @@ foreach ($sessions_array as $index => $session)
   }
   $db_insert['device_id'] = $device['device_id'];
   $db_insert['mac_addr']  = $clean_mac;
-  $db_insert['uptime']    = timeticks_to_sec($session['trpzClSessClientSessTimeStamp']);
+  $db_insert['uptime']    = timeticks_to_sec($session['trpzClSessClientSessTimeStamp']); // FIXME. There timestamp, not timetick!
   $db_insert['timestamp'] = $timestamp;
   if ($session['trpzClSessClientSessRadioNum'] == "radio-1")      { $radio_number = '1'; }
   else if ($session['trpzClSessClientSessradioNum'] == "radio-2") { $radio_number = '2'; }
 
   $db_insert['radio_id'] = $radios_sorted_db[$session['trpzClSessClientSessApNum']][$radio_number]['wifi_radio_id'];
-  if ($debug) { print_vars($db_insert); }
+  if (OBS_DEBUG > 1) { print_vars($db_insert); }
   if (!is_array($sessions_db[$new_index])) //If new session
   {
     $session_id = dbInsert($db_insert, 'wifi_sessions');

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -43,7 +43,7 @@ foreach ($oids as $index => $entry)
     $oid   = ".1.3.6.1.4.1.2544.1.11.2.6.2.156.1.1.".$index;
     $value = $entry['currentPmSnapshotOutputPower'];
 
-    discover_sensor($valid['sensor'], 'dbm', $device, $oid, $index, 'adva-output-power', $descr, $scale, $value * $scale, $options);
+    discover_sensor($valid['sensor'], 'dbm', $device, $oid, $index, 'adva-output-power', $descr, $scale, $value, $options);
   }
 
   // Input Power
@@ -55,7 +55,7 @@ foreach ($oids as $index => $entry)
     $descr = $ifDescr . " Input Power";
     $oid   = ".1.3.6.1.4.1.2544.1.11.2.6.2.156.1.2.".$index;
     $value = $entry['currentPmSnapshotInputPower'];
-    discover_sensor($valid['sensor'], 'dbm', $device, $oid, $index, 'adva-input-power', $descr, $scale, $value * $scale, $options);
+    discover_sensor($valid['sensor'], 'dbm', $device, $oid, $index, 'adva-input-power', $descr, $scale, $value, $options);
   }
 
   // Rx Line Attenuation
@@ -67,7 +67,7 @@ foreach ($oids as $index => $entry)
     $oid   = ".1.3.6.1.4.1.2544.1.11.2.6.2.156.1.11.".$index;
     $value = $entry['currentPmSnapshotRxLineAttenuation'];
     
-    discover_sensor($valid['sensor'], 'snr', $device, $oid, $index, 'adva-rx-attenuation', $descr, $scale, $value * $scale, $options);
+    discover_sensor($valid['sensor'], 'snr', $device, $oid, $index, 'adva-rx-attenuation', $descr, $scale, $value, $options);
   }
 
   // Tx Line Attenuation
@@ -79,7 +79,7 @@ foreach ($oids as $index => $entry)
     $oid   = ".1.3.6.1.4.1.2544.1.11.2.6.2.156.1.10.".$index;
     $value = $entry['currentPmSnapshotTxLineAttenuation'];
 
-    discover_sensor($valid['sensor'], 'snr', $device, $oid, $index, 'adva-tx-attenuation', $descr, $scale, $value * $scale, $options);
+    discover_sensor($valid['sensor'], 'snr', $device, $oid, $index, 'adva-tx-attenuation', $descr, $scale, $value, $options);
   }
 }
 

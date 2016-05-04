@@ -2,18 +2,26 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-?>
+$graph_array = array('type'   => 'device_poller_perf',
+                     'device' => $device['device_id'],
+                     'operation' => 'poll',
+                     'width'  => 1095,
+                     'height' => 150,
+                     'from'   => $config['time']['week'],
+                     'to'     => $config['time']['now'],
+                     );
+echo(generate_graph_tag($graph_array));
 
-<img src="graph.php?type=device_poller_perf&amp;device=<?php echo($device['device_id']) ?>&amp;operation=poll&amp;width=1095&amp;height=150&amp;from=<?php echo($config['time']['week']); ?>&amp;to=<?php echo($config['time']['now']); ?>" alt="" />
+?>
 
 <div class="row">
   <div class="col-md-6">

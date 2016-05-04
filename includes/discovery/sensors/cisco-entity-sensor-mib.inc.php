@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -119,7 +119,6 @@ foreach ($entity_array as $index => $entry)
     if ($c_entitysensor[$entry['entSensorType']] != 'state')
     {
       $scale = si_to_scale($entry['entSensorScale'], $entry['entSensorPrecision']);
-      $value = $value * $scale;
 
       // Check thresholds for this entry
       foreach ($t_entity_array[$index] as $t_index => $t_entry)

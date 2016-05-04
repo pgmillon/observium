@@ -32,7 +32,8 @@ IMPORTS
     RowStatus, MacAddress, TruthValue   FROM SNMPv2-TC
     airespace                           FROM AIRESPACE-REF-MIB
     dot1qVlanIndex, dot1qFdbId          FROM Q-BRIDGE-MIB
-    IANAifType                          FROM IANAifType-MIB;
+    IANAifType                          FROM IANAifType-MIB
+    InetAddressType, InetAddress        FROM INET-ADDRESS-MIB;
 
 --********************************************************************
 --*  MODULE IDENTITY
@@ -726,6 +727,13 @@ IMPORTS
     productGroup4        OBJECT IDENTIFIER ::= { agentProductGroup 4 }
 
 --********************************************************************
+-- productGroup5. This includes NM-AIR-WLC6-K9
+--********************************************************************
+
+    productGroup5        OBJECT IDENTIFIER ::= { agentProductGroup 5 }
+
+--********************************************************************
+
    agentCLIConfigGroup    OBJECT IDENTIFIER ::= { agentConfigGroup 1 }
 
 --********************************************************************
@@ -1259,7 +1267,7 @@ IMPORTS
          STATUS      current
          DESCRIPTION
                      "Switch's ethernet multicast support.
-                      disable- multicast is disabled
+                      disable- Not applicable (from 7.0 release onwards) 
                       multicast - Multicast is enabled.
                       unicast- Controller will convert multicast to
                                unicast packet."
@@ -1677,7 +1685,7 @@ IMPORTS
         ::= { agentInterfaceConfigEntry 15 }
 
     agentInterfaceBackupPortNo OBJECT-TYPE
-        SYNTAX Integer32(0..4)
+        SYNTAX Integer32(0..25)
         MAX-ACCESS read-create
         STATUS current
         DESCRIPTION
@@ -2128,6 +2136,9 @@ agentInterfaceVlanQuarantine OBJECT-TYPE
            agentSnmpCommunityIPMask       IpAddress,
            agentSnmpCommunityAccessMode   INTEGER,
            agentSnmpCommunityEnabled      INTEGER,
+           agentSnmpCommunityInetAddressType   InetAddressType,
+           agentSnmpCommunityInetAddress       InetAddress,
+           agentSnmpCommunityPrefixLength      Unsigned32,
            agentSnmpCommunityStatus       RowStatus
        }
 
@@ -2213,6 +2224,39 @@ agentInterfaceVlanQuarantine OBJECT-TYPE
     DEFVAL { no }
          ::= { agentSnmpCommunityConfigEntry 5 }
 
+    agentSnmpCommunityInetAddressType OBJECT-TYPE
+         SYNTAX      InetAddressType
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                   "This object represents the type of the primary 
+               controller's address made available through
+               agentSnmpCommunityInetAddress."
+    DEFVAL { ipv6 }
+         ::= { agentSnmpCommunityConfigEntry 6 }
+
+    agentSnmpCommunityInetAddress OBJECT-TYPE
+         SYNTAX      InetAddress
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                   "This object represents the address from which this
+                     device will accept SNMP packets with the
+                     associated community. "
+         ::= { agentSnmpCommunityConfigEntry 7 }
+
+    agentSnmpCommunityPrefixLength OBJECT-TYPE
+         SYNTAX      Unsigned32 (0..128)
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                   "This object denotes the prefix length for
+                Inet address which is a mask
+                     to be logical-ANDed with the requesting entity's
+                     IPv6 address before comparison with the Client IP
+                     Address.."
+         ::= { agentSnmpCommunityConfigEntry 8 }
+
     agentSnmpCommunityStatus OBJECT-TYPE
          SYNTAX    RowStatus
          MAX-ACCESS  read-create
@@ -2277,6 +2321,8 @@ agentInterfaceVlanQuarantine OBJECT-TYPE
            agentSnmpTrapReceiverName       OCTET STRING,
            agentSnmpTrapReceiverIPAddress  IpAddress,
            agentSnmpTrapReceiverEnabled    INTEGER,
+           agentSnmpTrapReceiverInetAddressType  InetAddressType,
+           agentSnmpTrapReceiverInetAddress      InetAddress,
            agentSnmpTrapReceiverStatus     RowStatus
        }
 
@@ -2313,6 +2359,27 @@ agentInterfaceVlanQuarantine OBJECT-TYPE
                       IP Address. "
          DEFVAL{ no }
          ::= { agentSnmpTrapReceiverConfigEntry 3 }
+
+    agentSnmpTrapReceiverInetAddressType OBJECT-TYPE
+         SYNTAX      InetAddressType
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "The flag to enable the trap receiver. If
+                      disabled, no traps are sent to this receiver's
+                      IP Address. "
+         DEFVAL{ ipv6 }
+         ::= { agentSnmpTrapReceiverConfigEntry 4 }
+
+    agentSnmpTrapReceiverInetAddress OBJECT-TYPE
+         SYNTAX      InetAddress
+         MAX-ACCESS  read-create
+         STATUS      current
+         DESCRIPTION
+                     "The flag to enable the trap receiver. If
+                      disabled, no traps are sent to this receiver's
+                      IP Address. "
+         ::= { agentSnmpTrapReceiverConfigEntry 5 }
 
     agentSnmpTrapReceiverStatus OBJECT-TYPE
          SYNTAX   RowStatus
@@ -2496,7 +2563,8 @@ agentInterfaceVlanQuarantine OBJECT-TYPE
     agentSnmpV3UserEncryptionType OBJECT-TYPE
          SYNTAX      INTEGER {
                      none(1),
-                     des(2)
+                     des(2),
+                     aes128(3)
                   }
          MAX-ACCESS  read-create
          STATUS      current
@@ -2506,7 +2574,8 @@ agentInterfaceVlanQuarantine OBJECT-TYPE
                      none(1).  Setting this object will set the
                      encryption password to an empty string.
                      none(1) - no encryption used
-                     des(1)  - DES encryption used"
+                     des(2)  - DES encryption used
+                     aes128(3)- AES 12bit encryption used."
          ::= { agentSnmpV3UserConfigEntry 4 }
 
     agentSnmpV3UserAuthenticationPassword OBJECT-TYPE
@@ -2669,42 +2738,48 @@ agentInterfaceVlanQuarantine OBJECT-TYPE
                      zmodem(4)
                   }
          MAX-ACCESS  read-write
-         STATUS      current
+         STATUS      deprecated
          DESCRIPTION
                      "Transfer upload mode configures the mode to use
                       when uploading from the switch. The mode is
                       either X/Y/ZMODEM or TFTP. X/Y/ZMODEM is valid
                       only when the file transfer is initiated by the
-                      serial EIA 232 port."
+                      serial EIA 232 port.
+
+                      Deprecated by clsTransferConfigTable"
          ::= { agentTransferUploadGroup 1 }
 
     agentTransferUploadServerIP OBJECT-TYPE
          SYNTAX      IpAddress
          MAX-ACCESS  read-write
-         STATUS      current
+         STATUS      deprecated
          DESCRIPTION
                      "Transfer upload tftpserverip configures the IP
                       address of the server where the file will be
                       uploaded. It is valid only when the Transfer
                       Mode is TFTP. The address is 4 integer bytes
-                      ranging from 0 to 255."
+                      ranging from 0 to 255.
+                      
+                      Deprecated by clsTransferConfigTable"
          ::= { agentTransferUploadGroup 2 }
 
     agentTransferUploadPath OBJECT-TYPE
          SYNTAX      DisplayString (SIZE(0..63))
          MAX-ACCESS  read-write
-         STATUS      current
+         STATUS      deprecated
          DESCRIPTION
                      "Transfer upload tftppath configures the
                      directory
                       path where the file is to be uploaded to. The
-                      switch remembers the last file path used."
+                      switch remembers the last file path used.
+                      
+                      Deprecated by clsTransferConfigTable"
          ::= { agentTransferUploadGroup 3 }
 
     agentTransferUploadFilename OBJECT-TYPE
          SYNTAX      DisplayString (SIZE(0..63))
          MAX-ACCESS  read-write
-         STATUS      current
+         STATUS      deprecated
          DESCRIPTION
                      "Transfer upload tftpfilename configures the
                       file name for the file being uploaded from the
@@ -2719,7 +2794,9 @@ agentInterfaceVlanQuarantine OBJECT-TYPE
                       e1r1v1.opr.
                       Note: File Name, File Path, and TFTP Server IP
                       Address are applicable only if the Transfer Mode
-                      is TFTP."
+                      is TFTP.
+
+                      Deprecated by clsTransferConfigTable"
          ::= { agentTransferUploadGroup 4 }
 
     agentTransferUploadDataType OBJECT-TYPE
@@ -2733,7 +2810,7 @@ agentInterfaceVlanQuarantine OBJECT-TYPE
                       unknown(99)
                     }
          MAX-ACCESS  read-write
-         STATUS      current
+         STATUS      deprecated
          DESCRIPTION
                      "Transfer upload datatype configures the type of
                       file to upload from the switch.
@@ -2743,7 +2820,8 @@ agentInterfaceVlanQuarantine OBJECT-TYPE
                         -   System trace
                         -   Trap log
                         -   Crash File
-                     "
+                     
+                      Deprecated by clsUploadFileType"
          ::= { agentTransferUploadGroup 5 }
 
 
@@ -2753,12 +2831,14 @@ agentInterfaceVlanQuarantine OBJECT-TYPE
                      disable(2)
                   }
          MAX-ACCESS  read-write
-         STATUS      current
+         STATUS      deprecated
          DESCRIPTION
                      "Transfer upload start will start an upload
                       transfer. The agentTransferUploadMode object
                       must not be set to xmodem(2), ymodem(3), or
-                      zmodem(4) to initiate a transfer via SNMP."
+                      zmodem(4) to initiate a transfer via SNMP.
+
+                      Deprecated by clsTransferConfigTable"
          ::= { agentTransferUploadGroup 6 }
 
     agentTransferUploadStatus OBJECT-TYPE
@@ -2779,10 +2859,12 @@ agentInterfaceVlanQuarantine OBJECT-TYPE
                      unknown(99)
                   }
          MAX-ACCESS  read-only
-         STATUS      current
+         STATUS      deprecated
          DESCRIPTION
                      "Indicates the current status of an upload
-                      transfer."
+                      transfer.
+
+                      Deprecated by clsTransferConfigTable"
          ::= { agentTransferUploadGroup 7 }
 
     agentTransferConfigurationFileEncryption OBJECT-TYPE
@@ -2791,23 +2873,27 @@ agentInterfaceVlanQuarantine OBJECT-TYPE
                      enable(1)
                   }
          MAX-ACCESS  read-write
-         STATUS      current
+         STATUS      deprecated
          DESCRIPTION
                      "The configuration file can be encrypted before
                       tftp upload from the switch and then decrypted
                       before downloading to the switch when this
-                      option is enabled."
+                      option is enabled.
+
+                      Deprecated by clsTransferConfigFileEncryption"
          ::= { agentTransferConfigGroup 3 }
 
     agentTransferConfigurationFileEncryptionKey OBJECT-TYPE
          SYNTAX      DisplayString(SIZE(0..16))
          MAX-ACCESS  read-write
-         STATUS      current
+         STATUS      deprecated
          DESCRIPTION
                      "This is the key to be used when encrypting the
                       configuration file while upload from the switch
                       or while decrypting the file after download to
-                      the switch."
+                      the switch.
+
+                      Deprecated by clsTransferConfigFileEncryptionKey"
          ::= { agentTransferConfigGroup 4 }
 
 
@@ -2827,41 +2913,47 @@ agentInterfaceVlanQuarantine OBJECT-TYPE
                      zmodem(4)
                   }
          MAX-ACCESS  read-write
-         STATUS      current
+         STATUS      deprecated
          DESCRIPTION
                      "Transfer download mode configures the mode to
                      use when downloading to the switch. The mode is
                      either X/Y/ZMODEM or TFTP. X/Y/ZMODEM is valid
                      only when the file transfer is initiated by the
-                     serial EIA 232 port."
+                     serial EIA 232 port.
+
+                      Deprecated by clsTransferConfigTable"
          ::= { agentTransferDownloadGroup 1 }
 
     agentTransferDownloadServerIP OBJECT-TYPE
          SYNTAX      IpAddress
          MAX-ACCESS  read-write
-         STATUS      current
+         STATUS      deprecated
          DESCRIPTION
                      "Transfer download tftpserverip configures the IP
                       address of the server where the file is located.
                       It is valid only when the Transfer Mode is TFTP.
                       The address is 4 integer bytes ranging from 0 to
-                      255."
+                      255.
+
+                      Deprecated by clsTransferConfigTable"
          ::= { agentTransferDownloadGroup 2 }
 
     agentTransferDownloadPath OBJECT-TYPE
          SYNTAX      DisplayString (SIZE(0..63))
          MAX-ACCESS  read-write
-         STATUS      current
+         STATUS      deprecated
          DESCRIPTION
                      "Transfer download tftppath configures the
                       directory path where the file is located. The
-                      switch remembers the last file path used."
+                      switch remembers the last file path used.
+
+                      Deprecated by clsTransferConfigTable"
          ::= { agentTransferDownloadGroup 3 }
 
     agentTransferDownloadFilename OBJECT-TYPE
          SYNTAX      DisplayString (SIZE(0..63))
          MAX-ACCESS  read-write
-         STATUS      current
+         STATUS      deprecated
          DESCRIPTION
                      "Transfer download tftpfilename configures the
                       file name for the file being downloaded to the
@@ -2875,8 +2967,9 @@ agentInterfaceVlanQuarantine OBJECT-TYPE
                       would be File Path set to c:\tftp\code\
                       and File Name set to e1r1v1.opr. Note: File
                       Name, File Path, and TFTP Server IP Address are
-                      applicable only if the Transfer Mode is TFTP."
+                      applicable only if the Transfer Mode is TFTP.
 
+                      Deprecated by clsTransferConfigTable"
          ::= { agentTransferDownloadGroup 4 }
 
     agentTransferDownloadDataType OBJECT-TYPE
@@ -2890,7 +2983,7 @@ agentInterfaceVlanQuarantine OBJECT-TYPE
                      unknown(99)
                   }
          MAX-ACCESS  read-write
-         STATUS      current
+         STATUS      deprecated
          DESCRIPTION
                      "Transfer download datatype configures the type
                       of file to downloaded to the switch.
@@ -2899,7 +2992,10 @@ agentInterfaceVlanQuarantine OBJECT-TYPE
                         -   Configuration
                         -   Certificates
                         -   Signatures
-                        -   customWebauth- custom webauth tar ball"
+                        -   customWebauth- custom webauth tar ball
+
+
+                      Deprecated by clsDownloadFileType"
          ::= { agentTransferDownloadGroup 5 }
 
 
@@ -2909,12 +3005,14 @@ agentInterfaceVlanQuarantine OBJECT-TYPE
                      disable(2)
                   }
          MAX-ACCESS  read-write
-         STATUS      current
+         STATUS      deprecated
          DESCRIPTION
                      "Transfer download start will start an download
                       transfer. The agentTransferDownloadMode object
                       must not be set to xmodem(2), ymodem(3), or
-                      zmodem(4) to initiate a transfer via SNMP."
+                      zmodem(4) to initiate a transfer via SNMP.
+
+                      Deprecated by clsTransferConfigTable"
          ::= { agentTransferDownloadGroup 6 }
 
     agentTransferDownloadStatus OBJECT-TYPE
@@ -2937,28 +3035,34 @@ agentInterfaceVlanQuarantine OBJECT-TYPE
                      unknown(99)
                   }
          MAX-ACCESS  read-only
-         STATUS      current
+         STATUS      deprecated
          DESCRIPTION
                      "Indicates the current status of an download
-                      transfer."
+                      transfer.
+
+                      Deprecated by clsTransferConfigTable"
          ::= { agentTransferDownloadGroup 7 }
 
     agentTransferDownloadTftpMaxRetries OBJECT-TYPE
          SYNTAX      Unsigned32(1..254)
          MAX-ACCESS  read-write
-         STATUS      current
+         STATUS      deprecated
          DESCRIPTION
                      "Maximum number of retries to be allowed for a
-                      TFTP message packet."
+                      TFTP message packet.
+
+                      Deprecated by clsTransferConfigTable"
          DEFVAL{ 10 }
           ::= { agentTransferDownloadGroup 8 }
 
     agentTransferDownloadTftpTimeout OBJECT-TYPE
          SYNTAX      Unsigned32(1..254)
          MAX-ACCESS  read-write
-         STATUS      current
+         STATUS      deprecated
          DESCRIPTION
-                     "Timeout in seconds for a TFTP message packet."
+                     "Timeout in seconds for a TFTP message packet.
+
+                      Deprecated by clsTransferConfigTable"
          DEFVAL{ 6 }
           ::= { agentTransferDownloadGroup 9 }
 
@@ -3137,11 +3241,12 @@ agentInterfaceVlanQuarantine OBJECT-TYPE
                      full1000sx(8)
                   }
          MAX-ACCESS  read-write
-         STATUS      current
+         STATUS      deprecated
          DESCRIPTION
                      "The switch's Port Speed Mode.  This is the
                       configured physical mode.This object is
-                      read-only for gigabit ports"
+                      read-only for gigabit ports.
+                      Deprecated by clsPortModePhysicalMode."
          ::= { agentPortConfigEntry 7 }
 
     agentPortPhysicalStatus OBJECT-TYPE
@@ -3155,10 +3260,11 @@ agentInterfaceVlanQuarantine OBJECT-TYPE
                      unknown(9)
                   }
          MAX-ACCESS  read-only
-         STATUS      current
+         STATUS      deprecated
          DESCRIPTION
                      "The switch's Port Physical Speed Status.This
-                      is the current actual speed."
+                      is the current actual speed.
+                      Deprecated by clsPortModePhysicalStatus."
          ::= { agentPortConfigEntry 8 }
 
     agentPortLinkTrapMode OBJECT-TYPE
@@ -3476,8 +3582,13 @@ agentInterfaceVlanQuarantine OBJECT-TYPE
      agentResetSystem OBJECT-TYPE
          SYNTAX      INTEGER {
                      enable(1),
-                     disable(2)
+                     disable(2),
+                     enablePeer(3),
+                     disablePeer(4),
+                     enableSelf(5),
+                     enableBoth(6)
                   }
+
          MAX-ACCESS  read-write
          STATUS      current
          DESCRIPTION
@@ -3636,7 +3747,8 @@ PortStatsEntry ::= SEQUENCE {
          "The total number of packets (including bad
          packets) transmitted that were more than
          1530 octets in length.
-         (excluding framing bits but including FCS octets)."
+         (excluding framing bits but including FCS octets).
+         For 5500 controllers, the length is more than 1518 octets."
      ::= { portStatsEntry 30 }
 
 
@@ -3672,7 +3784,7 @@ PortStatsEntry ::= SEQUENCE {
          OBJECTS {
                       dot1qVlanIndex
                  }
-         STATUS             current
+         STATUS             obsolete
          DESCRIPTION
              "Vlan Request Failure Log Trap"
          ::= { switchingTraps 5 }
@@ -3681,7 +3793,7 @@ PortStatsEntry ::= SEQUENCE {
          OBJECTS {
                       dot1qVlanIndex
                  }
-         STATUS             current
+         STATUS             obsolete
          DESCRIPTION
              "Last Vlan Delete Log Trap"
          ::= { switchingTraps 6 }
@@ -3690,7 +3802,7 @@ PortStatsEntry ::= SEQUENCE {
          OBJECTS {
                       dot1qVlanIndex
                  }
-         STATUS             current
+         STATUS             obsolete
          DESCRIPTION
              "Default Vlan Config Failure Log Trap"
          ::= { switchingTraps 7 }
@@ -3699,7 +3811,7 @@ PortStatsEntry ::= SEQUENCE {
          OBJECTS {
                       dot1qVlanIndex
                  }
-         STATUS             current
+         STATUS             obsolete
          DESCRIPTION
              "Vlan Restore Failure Log Trap"
          ::= { switchingTraps 8 }

@@ -1,0 +1,400 @@
+TRAFFIC-TEMPLATE-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY, OBJECT-TYPE, Integer32
+            FROM SNMPv2-SMI
+        MODULE-COMPLIANCE, OBJECT-GROUP
+            FROM SNMPv2-CONF
+        PortList
+            FROM Q-BRIDGE-MIB
+        DisplayString, TruthValue, RowStatus
+            FROM SNMPv2-TC
+        hpSwitch
+            FROM HP-ICF-OID
+        ;
+
+    hpicfTrafficTemplateMIB MODULE-IDENTITY
+        LAST-UPDATED "201202020000Z"  --February 2, 2012
+
+        ORGANIZATION "HP Networking"
+        CONTACT-INFO "Hewlett-Packard Company
+                      8000 Foothills Blvd.
+                      Roseville, CA 95747"
+        DESCRIPTION  "This MIB defines HP proprietary objects used to configure
+                      traffic templates for CoS (Class of Service) queuing."
+
+        REVISION     "201202020000Z"  --February 2, 2012
+        DESCRIPTION  "Added hpSwitchTrafficGroupEgressDiscardThreshold,
+                      hpSwitchTrafficTemplateNumQueues, and
+                      hpSwitchTrafficTemplatePredefined.
+                      Updated description text."
+
+        REVISION     "201003041230Z"  --March 4, 2010
+        DESCRIPTION  "Initial version."
+
+        ::= { hpSwitch 72 }
+
+    hpicfTrafficTemplateObjects    OBJECT IDENTIFIER ::= { hpicfTrafficTemplateMIB 1 }
+
+-- **********************************************************************************
+-- Traffic Template scalars
+-- **********************************************************************************
+
+    hpicfTrafficTemplateScalars    OBJECT IDENTIFIER ::= { hpicfTrafficTemplateObjects 1 }
+
+    hpSwitchTrafficTemplateSystemDefaultName OBJECT-TYPE
+        SYNTAX      OCTET STRING (SIZE(0..255))
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION "The name of the traffic template used as the system default
+                     when no name has been explicitly set.  Limited to 40 characters
+                     on some devices."
+        ::= { hpicfTrafficTemplateScalars 1 }
+
+-- ********************************************************************************
+-- Traffic Template Table
+-- ********************************************************************************
+
+    hpSwitchTrafficTemplate    OBJECT IDENTIFIER ::= { hpicfTrafficTemplateObjects 2 }
+
+    hpSwitchTrafficTemplateTable OBJECT-TYPE
+        SYNTAX      SEQUENCE OF HpSwitchTrafficTemplateEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION "A table that contains information about traffic templates
+                     for CoS (class of service) queue configuration in the device."
+        ::= { hpSwitchTrafficTemplate 1 }
+
+    hpSwitchTrafficTemplateEntry OBJECT-TYPE
+        SYNTAX      HpSwitchTrafficTemplateEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION "Information about a single traffic template for CoS queue
+                     configuration in the device."
+        INDEX       { hpSwitchTrafficTemplateName }
+        ::= { hpSwitchTrafficTemplateTable 1 }
+
+    HpSwitchTrafficTemplateEntry ::=
+        SEQUENCE {
+            hpSwitchTrafficTemplateName          DisplayString,
+            hpSwitchTrafficTemplateMappedPorts   PortList,
+            hpSwitchTrafficTemplateRowStatus     RowStatus,
+            hpSwitchTrafficTemplateNumQueues     Integer32,
+            hpSwitchTrafficTemplatePredefined    TruthValue
+        }
+
+    hpSwitchTrafficTemplateName OBJECT-TYPE
+        SYNTAX      DisplayString (SIZE(0..80))
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION "A unique name by which this template is referenced.
+                     Limited to 40 characters on some devices."
+        ::= { hpSwitchTrafficTemplateEntry 1 }
+
+    hpSwitchTrafficTemplateMappedPorts OBJECT-TYPE
+        SYNTAX      PortList
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION "The set of ports to which this traffic template is
+                     mapped.  The set of ports is identified by a PortList
+                     in which each port is represented by a bit.  A port
+                     cannot be mapped to more than one traffic template.
+
+                     Not all devices support different traffic templates
+                     for different ports.  The port map is ignored on
+                     devices that use a common template for all ports."
+
+        ::= { hpSwitchTrafficTemplateEntry 2 }
+
+    hpSwitchTrafficTemplateRowStatus OBJECT-TYPE
+        SYNTAX      RowStatus
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION "The Row Status of this traffic template entry.
+
+                     To create a new traffic template, send a SET
+                     request with a RowStatus of 'createAndWait'.
+                     This will result in the creation of a template of that
+                     name and a new hpSwitchTrafficGroupTable entry with
+                     system default values.
+                     
+                     active - all traffic groups in the template row are valid
+                     and the template is applied to one or more interfaces.
+                     
+                     notReady - template is not valid or is undergoing
+                     modification.
+
+                     notInService - template is valid, but is not applied
+                     to any interface.
+
+                     createAndWait - create a new traffic template.
+
+                     delete - delete the traffic template.
+
+                     createAndGo - not valid for this table.
+                     
+                     A device reboot is required to apply updated templates
+                     to their interfaces."
+
+        ::= { hpSwitchTrafficTemplateEntry 3 }
+
+    hpSwitchTrafficTemplateNumQueues OBJECT-TYPE
+        SYNTAX      Integer32 (1..9000)
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION "The number of egress queues this template is valid for."
+        ::= { hpSwitchTrafficTemplateEntry 4 }
+
+    hpSwitchTrafficTemplatePredefined OBJECT-TYPE
+        SYNTAX      TruthValue
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION "Indicates that this template is factory predefined.
+                     Predefined templates may not be deleted and their queue
+                     configuration may not be modified."
+        ::= { hpSwitchTrafficTemplateEntry 5 }
+
+-- ********************************************************************************
+-- Traffic Group Table
+-- ********************************************************************************
+
+    hpSwitchTrafficGroupTable OBJECT-TYPE
+        SYNTAX      SEQUENCE OF HpSwitchTrafficGroupEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION "A table that contains the mapping of 802.1q packet
+                     priorities to CoS traffic queues in the device.
+                     Entries in this table define traffic class groups
+                     containing a queue number, an optional ID number, a
+                     set of priority values mapped to the queue, an
+                     optional name, and a lossless flag when Priority
+                     Flow Control is enabled for a port.
+
+                     A SET to an object in any row of this table causes
+                     the RowStatus of the parent template to change to
+                     notReady.  Changes are temporary until the template
+                     RowStatus is successfully SET to active."
+
+        ::=  { hpSwitchTrafficTemplate 2 }
+
+    hpSwitchTrafficGroupEntry OBJECT-TYPE
+        SYNTAX      HpSwitchTrafficGroupEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION "Traffic group configuration for a given queue."
+        INDEX       { hpSwitchTrafficTemplateName, hpSwitchTrafficQueue }
+        ::= { hpSwitchTrafficGroupTable 1 }
+
+    HpSwitchTrafficGroupEntry ::=
+        SEQUENCE {
+            hpSwitchTrafficQueue                       Integer32,
+            hpSwitchTrafficGroupID                     Integer32,
+            hpSwitchTrafficGroupName                   OCTET STRING,
+            hpSwitchTrafficGroupPriorityMap            BITS,
+            hpSwitchTrafficGroupLossless               TruthValue,
+            hpSwitchTrafficGroupEgressDiscardThreshold INTEGER
+        }
+
+    hpSwitchTrafficQueue OBJECT-TYPE
+        SYNTAX      Integer32 (1..9000)
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION "The internal number of the queue this entry will apply to."
+        ::= { hpSwitchTrafficGroupEntry 1 }
+
+    hpSwitchTrafficGroupID OBJECT-TYPE
+        SYNTAX      Integer32 (0..15)
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION "The ID value of this traffic class group in the DCBX
+                     exchange.  Only IDs 0-7 are allowed in a SET request.
+                     This setting is not supported on all devices."
+        ::= { hpSwitchTrafficGroupEntry 2 }
+
+    hpSwitchTrafficGroupName OBJECT-TYPE
+        SYNTAX      OCTET STRING (SIZE(0..255))
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION "An optional user-defined name for this traffic group.
+                     Limited to 40 characters on some devices."
+        ::= { hpSwitchTrafficGroupEntry 3 }
+
+    hpSwitchTrafficGroupPriorityMap OBJECT-TYPE
+        SYNTAX      BITS {
+                        priority0 (0),
+                        priority1 (1),
+                        priority2 (2),
+                        priority3 (3),
+                        priority4 (4),
+                        priority5 (5),
+                        priority6 (6),
+                        priority7 (7),
+                        priority8 (8),
+                        priority9 (9),
+                        priority10 (10),
+                        priority11 (11),
+                        priority12 (12),
+                        priority13 (13),
+                        priority14 (14),
+                        priority15 (15)
+                    }
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION "A bitmap of 802.1q priority values assigned to this
+                     traffic group.  Each priority value 0-7 must be
+                     assigned to exactly one group for the template
+                     to be valid."
+        ::= { hpSwitchTrafficGroupEntry 4 }
+
+    hpSwitchTrafficGroupLossless OBJECT-TYPE
+        SYNTAX      TruthValue
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION "A flag indicating that this queue is to be
+                     configured for lossless behavior when Priority Flow
+                     Control (PFC) is enabled on a port.  Designating a
+                     queue as lossless causes ingress thresholds to be
+                     set that will trigger PFC frames when this queue
+                     exceeds or falls below a specific threshold.  The
+                     queue will also respond to PFC frames received from
+                     a neighbor.
+
+                     This flag may not be set if any queue in the template
+                     is configured for a 'medium' or 'low' discard threshold
+                     (see hpSwitchTrafficGroupEgressDiscardThreshold).
+
+                     This flag is not supported on all devices."
+
+        ::= { hpSwitchTrafficGroupEntry 5 }
+
+    hpSwitchTrafficGroupEgressDiscardThreshold OBJECT-TYPE
+        SYNTAX      INTEGER {
+                        low (1),
+                        medium (2),
+                        high (3)
+                    }
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION "The Egress Buffer Discard Threshold setting for this
+                     traffic group.  This setting controls the maximum size
+                     of the group egress queue.  When set to 'medium' or 'low',
+                     the maximum number of buffers permitted in the queue is
+                     reduced so packets are dropped sooner and their buffers
+                     made available for higher priority traffic.  However,
+                     this also reduces the maximum traffic burst that can be
+                     absorbed without dropping packets.  The default is 'high'.
+
+                     This setting may not be changed if any queue in the
+                     template is configured for lossless behavior (see
+                     hpSwitchTrafficGroupLossless).
+
+                     This setting is not supported on all devices."
+
+        ::= { hpSwitchTrafficGroupEntry 6 } 
+
+
+-- ********************************************************************************
+-- Conformance Information
+-- ********************************************************************************
+
+    hpicfTrafficTempalteConformance OBJECT IDENTIFIER ::= { hpicfTrafficTemplateMIB 2 }
+    hpicfTrafficTemplateGroups      OBJECT IDENTIFIER ::= { hpicfTrafficTempalteConformance 1 }
+    hpicfTrafficTemplateCompliances OBJECT IDENTIFIER ::= { hpicfTrafficTempalteConformance 2 }
+
+-- units of conformance
+
+    hpicfTrafficTemplateScalarGroup OBJECT-GROUP
+        OBJECTS {
+            hpSwitchTrafficTemplateSystemDefaultName
+        }
+        STATUS      current
+        DESCRIPTION "A collection of scalars related to traffic template
+                     configuration."
+        ::= { hpicfTrafficTemplateGroups 1 }
+
+    hpicfTrafficTemplateGroup OBJECT-GROUP
+        OBJECTS {
+            hpSwitchTrafficTemplateMappedPorts,
+            hpSwitchTrafficTemplateRowStatus
+        }
+        STATUS      deprecated
+        DESCRIPTION "###DEPRECATED###
+                     A collection of objects providing configuration
+                     of traffic templates.
+
+                     This conformance is deprecated and replaced by
+                     hpicfTrafficTemplateGroup2."
+        ::= { hpicfTrafficTemplateGroups 2 }
+
+    hpicfTrafficGroup OBJECT-GROUP
+        OBJECTS {
+            hpSwitchTrafficGroupID,
+            hpSwitchTrafficGroupName,
+            hpSwitchTrafficGroupPriorityMap,
+            hpSwitchTrafficGroupLossless
+        }
+        STATUS      deprecated
+        DESCRIPTION "###DEPRECATED###
+                     A collection of objects providing configuration
+                     of traffic groups in a template.
+
+                     This conformance is deprecated and replaced by
+                     hpicfTrafficGroup2."
+        ::= { hpicfTrafficTemplateGroups 3 }
+
+    hpicfTrafficTemplateGroup2 OBJECT-GROUP
+        OBJECTS {
+            hpSwitchTrafficTemplateMappedPorts,
+            hpSwitchTrafficTemplateRowStatus,
+            hpSwitchTrafficTemplateNumQueues,
+            hpSwitchTrafficTemplatePredefined
+        }
+        STATUS      current
+        DESCRIPTION "A collection of objects providing configuration
+                     of traffic templates."
+        ::= { hpicfTrafficTemplateGroups 4 }
+
+    hpicfTrafficGroup2 OBJECT-GROUP
+        OBJECTS {
+            hpSwitchTrafficGroupID,
+            hpSwitchTrafficGroupName,
+            hpSwitchTrafficGroupPriorityMap,
+            hpSwitchTrafficGroupLossless,
+            hpSwitchTrafficGroupEgressDiscardThreshold
+        }
+        STATUS      current
+        DESCRIPTION "A collection of objects providing configuration
+                     of traffic groups in a template."
+        ::= { hpicfTrafficTemplateGroups 5 }
+
+-- compliance statements
+
+    hpicfTrafficTemplateCompliance MODULE-COMPLIANCE
+        STATUS      deprecated
+        DESCRIPTION "###DEPRECATED###
+                     The compliance statement for device support of
+                     TRAFFIC-TEMPLATE-MIB.
+
+                     This compliance is deprecated and replaced by
+                     hpicfTrafficTemplateCompliance2."
+        MODULE -- This Module
+        MANDATORY-GROUPS {
+            hpicfTrafficTemplateScalarGroup,
+            hpicfTrafficTemplateGroup,
+            hpicfTrafficGroup
+        }
+        ::= { hpicfTrafficTemplateCompliances 1 }
+
+    hpicfTrafficTemplateCompliance2 MODULE-COMPLIANCE
+        STATUS      current
+        DESCRIPTION "The compliance statement for device support of
+                     TRAFFIC-TEMPLATE-MIB."
+        MODULE -- This Module
+        MANDATORY-GROUPS {
+            hpicfTrafficTemplateScalarGroup,
+            hpicfTrafficTemplateGroup2,
+            hpicfTrafficGroup2
+        }
+        ::= { hpicfTrafficTemplateCompliances 2 }
+
+END

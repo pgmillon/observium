@@ -7,12 +7,11 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-# FIXME dbFacile
-$interface = mysql_fetch_assoc(mysql_query("SELECT * FROM `ports` WHERE `device_id` = '".$device['device_id']."' AND `ifIndex` = '".$entry[2]."'"));
+$interface = dbFetchRow('SELECT * FROM `ports` WHERE `device_id` = ? AND `ifIndex` = ?', array($device['device_id'], $entry[2]));
 
 if (!$interface) { exit; }
 
@@ -28,8 +27,7 @@ log_event("SNMP Trap: linkDown " . $interface['ifDescr'], $device, "interface", 
 if ($ifOperStatus != $interface['ifOperStatus'])
 {
   log_event("Interface went Down : " . $interface['ifDescr'] . " (TRAP)", $device, "interface", $interface['port_id']);
-  #FIXME dbFacile
-  mysql_query("UPDATE `ports` SET ifOperStatus = 'down' WHERE `port_id` = '".$interface['port_id']."'");
+  dbUpdate(array('ifOperStatus' => 'down'), 'ports', '`port_id` = ?', array($interface['port_id']));
 }
 
 // EOF

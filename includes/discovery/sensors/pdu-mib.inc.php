@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -48,7 +48,7 @@ foreach (explode("\n", $outlet_oids) as $outlet_data)
 
     if ($outlet_current >= 0)
     {
-      discover_sensor($valid['sensor'], 'current', $device, $outlet_oid, $outlet_insert_index, 'raritan', $outlet_descr, $scale, $outlet_current * $scale, $limits);
+      discover_sensor($valid['sensor'], 'current', $device, $outlet_oid, $outlet_insert_index, 'raritan', $outlet_descr, $scale, $outlet_current, $limits);
     }
 
     $outlet_oid     = ".1.3.6.1.4.1.13742.4.1.2.2.1.8.$outletsuffix";
@@ -78,7 +78,7 @@ $outlet_current = snmp_get($device,"unitCpuTemp.0", "-Ovq", "PDU-MIB"); // Yeah,
 
 if ($outlet_current >= 0)
 {
-  discover_sensor($valid['sensor'], 'temperature', $device, $outlet_oid, 0, 'raritan', $outlet_descr, $scale, $outlet_current * $scale, $limits);
+  discover_sensor($valid['sensor'], 'temperature', $device, $outlet_oid, 0, 'raritan', $outlet_descr, $scale, $outlet_current, $limits);
 }
 
 $scale          = 0.001;
@@ -92,7 +92,7 @@ $outlet_current = snmp_get($device,"unitVoltage.0", "-Ovq", "PDU-MIB");
 
 if ($outlet_current >= 0)
 {
-  discover_sensor($valid['sensor'], 'voltage', $device, $outlet_oid, 0, 'raritan', $outlet_descr, $scale, $outlet_current * $scale, $limits);
+  discover_sensor($valid['sensor'], 'voltage', $device, $outlet_oid, 0, 'raritan', $outlet_descr, $scale, $outlet_current, $limits);
 }
 
 // Raritan External Environmental Sensors
@@ -155,7 +155,7 @@ foreach ($oids as $index => $entry)
 
   if (isset($r_types[$entry['externalSensorType']]) && is_numeric($value))
   {
-    discover_sensor($valid['sensor'], $r_types[$entry['externalSensorType']], $device, $oid, $index, 'raritan', $descr, $scale, $value * $scale, $limits);
+    discover_sensor($valid['sensor'], $r_types[$entry['externalSensorType']], $device, $oid, $index, 'raritan', $descr, $scale, $value, $limits);
   }
 }
 

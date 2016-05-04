@@ -5,7 +5,7 @@
 --   
 -- Jun 2006, Sunethra Jawahar
 --   
--- Copyright (c) 2006, 2008, 2010 by Cisco Systems, Inc.
+-- Copyright (c) 2006, 2008, 2010-2011 by Cisco Systems Inc.
 -- All rights reserved.
 -- ********************************************************************
 
@@ -14,12 +14,14 @@ CISCO-CABLE-WIDEBAND-MIB DEFINITIONS ::= BEGIN
 IMPORTS
     MODULE-IDENTITY,
     OBJECT-TYPE,
+    NOTIFICATION-TYPE,
     Gauge32,
     Counter64,
     Integer32,
     Unsigned32
         FROM SNMPv2-SMI
     OBJECT-GROUP,
+    NOTIFICATION-GROUP,
     MODULE-COMPLIANCE
         FROM SNMPv2-CONF
     MacAddress,
@@ -36,7 +38,8 @@ IMPORTS
     ifIndex
         FROM IF-MIB
     PhysicalIndexOrZero,
-    entPhysicalIndex
+    entPhysicalIndex,
+    entPhysicalName
         FROM ENTITY-MIB
     docsIfCmtsCmStatusIndex
         FROM DOCS-IF-MIB
@@ -47,7 +50,7 @@ IMPORTS
 
 
 ciscoCableWidebandMIB MODULE-IDENTITY
-    LAST-UPDATED    "201007160000Z"
+    LAST-UPDATED    "201101050000Z"
     ORGANIZATION    "Cisco Systems, Inc."
     CONTACT-INFO
             "Cisco Systems
@@ -130,7 +133,14 @@ ciscoCableWidebandMIB MODULE-IDENTITY
         narrowband downstream channels with the BG channel.
 
         Fiber Node is an optical node which terminates the fiber based
-        downstream signal as an electrical signal onto a coaxial RF cable."
+        downstream signal as an electrical signal onto a coaxial RF cable.
+
+        DEPI:  Downstream external physical interface. 
+        TSID:  MPEG2 Transport Stream ID.
+        SFP:   Small Form-Factor Pluggable."
+    REVISION        "201101050000Z"
+    DESCRIPTION
+        "Added ccwbWidebandObjGroupSup2 and ccwbWidebandNotifGroup."
     REVISION        "201007150000Z"
     DESCRIPTION
         "Added ccwbWidebandObjGroupRev1.
@@ -392,7 +402,9 @@ CcwbRFChannelQamEntry ::= SEQUENCE {
         ccwbRFChanQamTos           Unsigned32,
         ccwbRFChanQamVlanId        Unsigned32,
         ccwbRFChanQamPriorityBits  Unsigned32,
-        ccwbRFChanQamDepiRemoteId  Unsigned32
+        ccwbRFChanQamDepiRemoteId  Unsigned32,
+        ccwbRFChanQamDepiTunnel    SnmpAdminString,
+        ccwbRFChanQamTsid          Unsigned32
 }
 
 ccwbRFChanQamIPAddressType OBJECT-TYPE
@@ -476,6 +488,24 @@ ccwbRFChanQamDepiRemoteId OBJECT-TYPE
     DESCRIPTION
         "The DEPI remote ID on edge QAM associated with this RF channel." 
     ::= { ccwbRFChannelQamEntry 8 }
+
+ccwbRFChanQamDepiTunnel OBJECT-TYPE
+    SYNTAX          SnmpAdminString (SIZE  (0..255))
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the name of the DEPI tunnel which determines
+        the DEPI data session configuration associated with this RF channel." 
+    ::= { ccwbRFChannelQamEntry 9 }
+
+ccwbRFChanQamTsid OBJECT-TYPE
+    SYNTAX          Unsigned32 (0..65535)
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the MPEG2 transport stream ID which is
+        associated with this RF channel." 
+    ::= { ccwbRFChannelQamEntry 10 }
  
 
 
@@ -1087,12 +1117,37 @@ ccwbRFChanUtilInterval OBJECT-TYPE
         reinitializations."
     DEFVAL          { 0 } 
     ::= { ciscoCableWidebandMIBObjects 10 }
+
+ccwbSFPLinkTrapEnable OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies whether ccwbSFPLinkDownNotification and
+        ccwbSFPLinkUpNotification are generated." 
+    ::= { ciscoCableWidebandMIBObjects 11 }
 ciscoCableWidebandMIBCompliances  OBJECT IDENTIFIER
     ::= { ciscoCableWidebandMIBConform 1 }
 
 ciscoCableWidebandMIBGroups  OBJECT IDENTIFIER
     ::= { ciscoCableWidebandMIBConform 2 }
 
+
+ccwbSFPLinkDownNotification NOTIFICATION-TYPE
+    OBJECTS         { entPhysicalName }
+    STATUS          current
+    DESCRIPTION
+        "This notification is generated when link of SFP port is
+        lost. entPhysicalName identifies the SFP port."
+   ::= { ciscoCableWidebandMIBNotifs 1 }
+
+ccwbSFPLinkUpNotification NOTIFICATION-TYPE
+    OBJECTS         { entPhysicalName }
+    STATUS          current
+    DESCRIPTION
+        "This notification is generated when link of SFP port is
+        up. entPhysicalName identifies the SFP port."
+   ::= { ciscoCableWidebandMIBNotifs 2 }
 
 -- compliance statements
 
@@ -1326,7 +1381,7 @@ ciscoCableWidebandMIBComplianceRev1 MODULE-COMPLIANCE
     ::= { ciscoCableWidebandMIBCompliances 2 }
 
 ciscoCableWidebandMIBComplianceRev2 MODULE-COMPLIANCE
-    STATUS          current
+    STATUS          deprecated
     DESCRIPTION
         "The compliance statement for WCMTS devices that
         implement the Wideband DOCSIS feature."
@@ -1465,6 +1520,148 @@ ciscoCableWidebandMIBComplianceRev2 MODULE-COMPLIANCE
         that do not have valid physical entity value."
     ::= { ciscoCableWidebandMIBCompliances 3 }
 
+ciscoCableWidebandMIBComplianceRev3 MODULE-COMPLIANCE
+    STATUS          current
+    DESCRIPTION
+        "The compliance statement for WCMTS devices that
+        implement the Wideband DOCSIS feature."
+    MODULE          -- this module
+    MANDATORY-GROUPS {
+                        ccwbWidebandObjGroupRev1,
+                        ccwbWidebandObjGroupSup1,
+                        ccwbWidebandObjGroupSup2,
+                        ccwbWidebandNotifGroup
+                    }
+
+    OBJECT          ccwbRFChannelFrequencyRev1
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required.
+
+        A range of 54MHz to 860MHz is appropriate for a cable
+        plant using a North American Sub-Split channel plan.
+        The spectrum range has been expanded to accommodate
+        a lower edge of 47MHz and an upper edge of 862MHz
+        for some European channel plans."
+
+    OBJECT          ccwbRFChannelWidth
+    WRITE-SYNTAX    Unsigned32(6000000 | 8000000)
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required.
+        An implementation is only required to
+        support 6000000 and 8000000.
+
+        It is conformant to implement this object as read-only.
+        The value of 6 MHz is appropriate for cable
+        plants running under NTSC (National Television
+        Standards Committee) standards.  The value of 8 MHz is
+        appropriate for cable plants running under ETSI
+        standards."
+
+    OBJECT          ccwbRFChanQamIPAddressType
+    SYNTAX          INTEGER  {
+                        ipv4(1)
+                    }
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required.
+        An implementation is only required to support
+        IPv4 addresses."
+
+    OBJECT          ccwbRFChannelRowStatus
+    SYNTAX          INTEGER  {
+                        active(1)
+                    }
+    WRITE-SYNTAX    INTEGER  {
+                        createAndGo(4),
+                        destroy(6)
+                    }
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required.
+        Support for 'createAndWait' and 'notInService'
+        is not required."
+
+    OBJECT          ccwbWBtoRFRowStatus
+    SYNTAX          INTEGER  {
+                        active(1)
+                    }
+    WRITE-SYNTAX    INTEGER  {
+                        createAndGo(4),
+                        destroy(6)
+                    }
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required.
+        Support for 'createAndWait' and 'notInService'
+        is not required."
+
+    OBJECT          ccwbRFChannelAnnex
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required.
+
+        The value of this object will be same for all
+        RF channels."
+
+    OBJECT          ccwbRFChannelModulation
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required.
+
+        Currently the value of this object must be the same for
+        all RF channels."
+
+    OBJECT          ccwbWBCmStatusValue
+    SYNTAX          INTEGER  {
+                        wbOnline(27),
+                        wbOnlinePrivacy(28),
+                        wbOnlineKekAssigned(29),
+                        wbOnlineTekAssigned(30),
+                        wbOnlineNetAccessDis(31),
+                        wbKekReject(32),
+                        wbTekReject(33),
+                        wbNetAccessDisReject(34),
+                        wbPrivacyEnabReject(35),
+                        wbKekExpire(36),
+                        wbTekExpire(37),
+                        wbNetAccessDisExpire(38),
+                        wbPrivacyEnabExpire(39)
+                    }
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required.
+        An implementation is only required to support
+        the above numerated values."
+
+    OBJECT          ccwbFiberNodeDescription
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Read and write operations are not needed for
+        agents for which the associated value of the
+        description string is null."
+
+    OBJECT          ccwbFiberNodeNBIfIndx
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write operation is not required for agents
+        for which the associated value of if-index
+        is not valid."
+
+    OBJECT          ccwbFiberNodeWBContlrPhyIndx
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write operation is not needed for agents
+        that do not have valid physical entity value."
+
+    OBJECT          ccwbFiberNodeWBRFPort
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write operation is not needed for agents
+        that do not have valid physical entity value."
+    ::= { ciscoCableWidebandMIBCompliances 4 }
+
 -- units of conformance
 
 ccwbWidebandObjGroup OBJECT-GROUP
@@ -1557,7 +1754,68 @@ ccwbWidebandObjGroupRev1 OBJECT-GROUP
         providing for Wideband DOCSIS feature."
     ::= { ciscoCableWidebandMIBGroups 3 }
 
+ccwbWidebandObjGroupSup2 OBJECT-GROUP
+    OBJECTS         {
+                        ccwbRFChanQamDepiTunnel,
+                        ccwbRFChanQamTsid,
+                        ccwbSFPLinkTrapEnable
+                    }
+    STATUS          current
+    DESCRIPTION
+        "Group of objects implemented in WCMTS
+        for SFP Port information."
+    ::= { ciscoCableWidebandMIBGroups 4 }
+
+ccwbWidebandNotifGroup NOTIFICATION-GROUP
+   NOTIFICATIONS    {
+                        ccwbSFPLinkDownNotification,
+                        ccwbSFPLinkUpNotification
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A collection of notifications which provides
+        SFP linkup/linkdown state."
+    ::= { ciscoCableWidebandMIBGroups 5 }
+
 END
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

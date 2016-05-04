@@ -7,16 +7,16 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 $mib = 'NETAPP-MIB';
-$cache_storage['netapp-mib'] = snmpwalk_cache_oid($device, "dfEntry", array(), $mib, mib_dirs("netapp"));
+$cache_discovery['netapp-mib'] = snmpwalk_cache_oid($device, "dfEntry", array(), $mib, mib_dirs("netapp"));
 
-if ((bool)$cache_storage['netapp-mib'])
+if (count($cache_discovery['netapp-mib']))
 {
-  echo(" $mib: ");
+  echo(" $mib ");
 
   /*
   Available data:
@@ -66,7 +66,7 @@ if ((bool)$cache_storage['netapp-mib'])
 
   */
 
-  foreach ($cache_storage['netapp-mib'] as $index => $storage)
+  foreach ($cache_discovery['netapp-mib'] as $index => $storage)
   {
     $fstype = $storage['dfType'];
     $descr  = $storage['dfFileSys'];

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -59,7 +59,7 @@ for ($index = 1;$index <= $channels;$index++)
   $scale = 0.01;
   if ($value != '' && $value != -9999)
   {
-    discover_sensor($valid['sensor'], 'frequency', $device, $oid, "pdu8310Frequency.$index", 'pdu8310', $descr, $scale, $value * $scale);
+    discover_sensor($valid['sensor'], 'frequency', $device, $oid, "pdu8310Frequency.$index", 'pdu8310', $descr, $scale, $value);
   }
 
   // GUDEADS-PDU8310-MIB::pdu8310Current.1 = Gauge32: 336 mA
@@ -71,7 +71,7 @@ for ($index = 1;$index <= $channels;$index++)
   $scale = 0.001;
   if ($value != '' && $value != -9999)
   {
-    discover_sensor($valid['sensor'], 'current', $device, $oid, "pdu8310Current.$index", 'pdu8310', $descr, $scale, $value * $scale);
+    discover_sensor($valid['sensor'], 'current', $device, $oid, "pdu8310Current.$index", 'pdu8310', $descr, $scale, $value);
   }
 }
 

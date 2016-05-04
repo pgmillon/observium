@@ -8,8 +8,7 @@
 -- November, 2003  Wen Xu
 -- February, 2004  Wen Xu
 --   
--- Copyright (c) 1996-2002, 2003, 2004, 2006-2008, 2009-2010 by Cisco
--- Systems, Inc.
+-- Copyright (c) 1996-2013 by Cisco Systems Inc.
 -- All rights reserved.
 -- *****************************************************************
 --   
@@ -42,6 +41,9 @@ IMPORTS
     ifIndex,
     InterfaceIndexOrZero
         FROM IF-MIB
+    InetAddress,
+    InetAddressType
+        FROM INET-ADDRESS-MIB
     OwnerString
         FROM RMON-MIB
     SnmpAdminString
@@ -53,7 +55,7 @@ IMPORTS
 
 
 ciscoVtpMIB MODULE-IDENTITY
-    LAST-UPDATED    "201005120000Z"
+    LAST-UPDATED    "201310140000Z"
     ORGANIZATION    "Cisco Systems, Inc."
     CONTACT-INFO
             "Cisco Systems
@@ -70,6 +72,16 @@ ciscoVtpMIB MODULE-IDENTITY
     DESCRIPTION
         "The MIB module for entities implementing the VTP
         protocol and Vlan management."
+    REVISION        "201310140000Z"
+    DESCRIPTION
+        "Added following OBJECT-GROUP
+        - vtpSourceInterfaceGroup
+        - vtpConfigFileGroup
+        - vtpVlanLocalShutdownGroup
+        - vtpLocalUpdaterGroup
+        - vtpDeviceIdGroup
+        Added new compliance
+        - vtpMIBCompliance16."
     REVISION        "201005120000Z"
     DESCRIPTION
         "Added vlanTrunkPortActiveVlansGroup.
@@ -412,7 +424,14 @@ ManagementDomainEntry ::= SEQUENCE {
         managementDomainTftpPathname     DisplayString,
         managementDomainPruningState     INTEGER,
         managementDomainVersionInUse     INTEGER,
-        managementDomainPruningStateOper INTEGER
+        managementDomainPruningStateOper INTEGER,
+        managementDomainAdminSrcIf       SnmpAdminString,
+        managementDomainSourceOnlyMode   TruthValue,
+        managementDomainOperSrcIf        SnmpAdminString,
+        managementDomainConfigFile       SnmpAdminString,
+        managementDomainLocalUpdaterType InetAddressType,
+        managementDomainLocalUpdater     InetAddress,
+        managementDomainDeviceID         SnmpAdminString
 }
 
 managementDomainIndex OBJECT-TYPE
@@ -618,6 +637,97 @@ managementDomainPruningStateOper OBJECT-TYPE
         "Indicates whether VTP pruning is operationally enabled or
         disabled in this managament domain." 
     ::= { managementDomainEntry 12 }
+
+managementDomainAdminSrcIf OBJECT-TYPE
+    SYNTAX          SnmpAdminString
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "The object specifies the interface to be used as the
+        preferred source interface for the VTP IP updater address.
+
+        A zero length value indicates that a source interface is not
+        specified." 
+    ::= { managementDomainEntry 13 }
+
+managementDomainSourceOnlyMode OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "The object specifies whether to use only the IP address of
+        managementDomainAdminSrcIf as the VTP IP updater address. 
+
+        'true' indicates to only use the IP address of 
+               managementDomainAdminSrcIf as the VTP IP 
+               updater address. 
+
+        'false' indicates to use the IP address of 
+                managementDomainAdminSrcIf as the VTP IP 
+                updater address if managementDomainAdminSrcIf 
+                is configured with an IP address.  Otherwise, the 
+                first available IP address of the system will
+                be used."
+    DEFVAL          { false } 
+    ::= { managementDomainEntry 14 }
+
+managementDomainOperSrcIf OBJECT-TYPE
+    SYNTAX          SnmpAdminString
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The object indicates the interface used as the
+        preferred source interface for the VTP IP updater address.
+
+        A zero length string indicates that a source interface is not
+        available." 
+    ::= { managementDomainEntry 15 }
+
+managementDomainConfigFile OBJECT-TYPE
+    SYNTAX          SnmpAdminString
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "The object specifies the file name where VTP configuration
+        is stored in the format of <filename> or <devices>:[<filename>].
+
+        <device> can be (but not limited to): flash, bootflash,
+        slot0, slot1, disk0." 
+    ::= { managementDomainEntry 16 }
+
+managementDomainLocalUpdaterType OBJECT-TYPE
+    SYNTAX          InetAddressType
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The object indicates the type of the Internet address
+        of the preferred source interface for the VTP IP updater.
+
+        The value of this object is 'unknown' if
+        managementDomainVersionInUse is 'version3' or
+        managementDomainLocalMode is not 'server'." 
+    ::= { managementDomainEntry 17 }
+
+managementDomainLocalUpdater OBJECT-TYPE
+    SYNTAX          InetAddress
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The object indicates the Internet address of the
+        preferred source interface for the VTP IP updater." 
+    ::= { managementDomainEntry 18 }
+
+managementDomainDeviceID OBJECT-TYPE
+    SYNTAX          SnmpAdminString
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The object indicates a value that uniquely identifies
+        this device within a VTP Domain.
+
+        The value of this object is zero length string if
+        managementDomainVersionInUse is not 'version3'." 
+    ::= { managementDomainEntry 19 }
  
 
 -- VLAN information
@@ -1511,7 +1621,8 @@ vtpVlanEditTypeExt OBJECT-TYPE
     MAX-ACCESS      read-only
     STATUS          deprecated
     DESCRIPTION
-        "The additional type information of this VLAN." 
+        "The additional type information of this VLAN.
+        vtpVlanEditTypeExt object is superseded by vtpVlanEditTypeExt2." 
     ::= { vtpVlanEditEntry 18 }
 
 vtpVlanEditTypeExt2 OBJECT-TYPE
@@ -1524,6 +1635,51 @@ vtpVlanEditTypeExt2 OBJECT-TYPE
         be written by a management application.
         The agent should provide a default value." 
     ::= { vtpVlanEditEntry 19 }
+ 
+
+
+vtpVlanLocalShutdownTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF VtpVlanLocalShutdownEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "Ths table contains the VLAN local shutdown
+        information within management domain."
+    ::= { vlanEdit 3 }
+
+vtpVlanLocalShutdownEntry OBJECT-TYPE
+    SYNTAX          VtpVlanLocalShutdownEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "An entry containing VLAN local shutdown information for a
+        particular VLAN in the management domain.
+
+        An entry is created if a VLAN which supports local shutdown
+        has been created.
+
+        An entry is deleted if a VLAN which supports local shutdown
+        has been removed."
+    INDEX           {
+                        managementDomainIndex,
+                        vtpVlanIndex
+                    } 
+    ::= { vtpVlanLocalShutdownTable 1 }
+
+VtpVlanLocalShutdownEntry ::= SEQUENCE {
+        vtpVlanLocalShutdown INTEGER
+}
+
+vtpVlanLocalShutdown OBJECT-TYPE
+    SYNTAX          INTEGER  {
+                        up(1),
+                        down(2)
+                    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "The object specifies the VLAN local shutdown state." 
+    ::= { vtpVlanLocalShutdownEntry 1 }
  
 
 -- VTP Statistics
@@ -5032,7 +5188,7 @@ vtpMIBCompliance14 MODULE-COMPLIANCE
     ::= { vtpMIBCompliances 14 }
 
 vtpMIBCompliance15 MODULE-COMPLIANCE
-    STATUS          current
+    STATUS          deprecated
     DESCRIPTION
         "The compliance statement for VTP implementations."
     MODULE          -- this module
@@ -5427,6 +5583,442 @@ vtpMIBCompliance15 MODULE-COMPLIANCE
         "Write access is not required."
     ::= { vtpMIBCompliances 15 }
 
+vtpMIBCompliance16 MODULE-COMPLIANCE
+    STATUS          current
+    DESCRIPTION
+        "The compliance statement for VTP implementations."
+    MODULE          -- this module
+    MANDATORY-GROUPS {
+                        vtpBasicGroup,
+                        vtpVlanInfoGroup,
+                        vtpConfigNotificationsGroupRev1,
+                        vtpStatsGroup,
+                        vtpTrunkPortGroup,
+                        vtpVersion2BasicGroup,
+                        vtpNotificationObjectsGroup
+                    }
+
+    GROUP           vtpTrunkPruningGroup
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP           vtpTrunkPruningGroup2
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP           vtpTrunkPortGroup2
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP           vtpVlanInfoEditGroup
+    DESCRIPTION
+        "This group must be implemented by VTP Servers.
+        VTP Clients need not implement these objects, and
+        must not allow VLANs to be created, modified, or
+        destroyed using these objects."
+
+    GROUP           vtpTrunkPortGroup3
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP           vtp4kVlanGroupRev1
+    DESCRIPTION
+        "This group must be implemented by the VTP Servers
+        which support the range of VlanIndex between 1024
+        and 4095."
+
+    GROUP           vtpVlanIfIndexGroup
+    DESCRIPTION
+        "This group is an optional group containing
+        objects providing information about the mapping
+        of VLAN ID to its corresponding IfIndex."
+
+    GROUP           vtpVlanInfoEditGroup2
+    DESCRIPTION
+        "This group is mandatory for devices which only support
+        one VLAN editing for each 'apply' operation."
+
+    GROUP           vtpVlanNotifEnabledGroup
+    DESCRIPTION
+        "This group is mandatory for devices which support the
+        notifications/traps in vtpConfigNotificationsGroup3."
+
+    GROUP           vtpConfigNotificationsGroup2
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP           vtpConfigNotificationsGroup3
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP           vtpConfigNotificationsGroup4
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP           vtpDiscoverGroup
+    DESCRIPTION
+        "This group is mandatory for devices which support the
+        VTP discovery."
+
+    GROUP           vtpDatabaseGroup
+    DESCRIPTION
+        "This group is mandatory for devices which support the
+        VTP distribution of different database types."
+
+    GROUP           vtpAuthGroup
+    DESCRIPTION
+        "This group is mandatory for devices which support
+        asymmetric keys authentication mechanism for VTP."
+
+    GROUP           vtpInternalVlanGrp
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP           vlanStatsGroup
+    DESCRIPTION
+        "This group is mandatory for agents capable of
+        providing VLAN statistics information."
+
+    GROUP           vtpConfigNotificationsGroup6
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP           vtpConfigNotificationsGroup7
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP           vtpTrunkPruningGroup3
+    DESCRIPTION
+        "This group is mandatory for devices which
+        support operational VTP pruning state."
+
+    GROUP           vtpConfigNotificationsGroup8
+    DESCRIPTION
+        "This group is mandatory for devices which
+        support the notification generation on operational 
+        VTP pruning state change."
+
+    GROUP           vlanTrunkPortActiveVlansGroup
+    DESCRIPTION
+        "This group is mandatory for devices capable of
+        providing active VLANs information for trunk
+        capable ports."
+
+    GROUP           vtpSourceInterfaceGroup
+    DESCRIPTION
+        "This group is mandatory for devices which support the
+        VTP IP updater address preferred source interface."
+
+    GROUP           vtpConfigFileGroup
+    DESCRIPTION
+        "This group is mandatory for devices which support the
+        location of VTP configuration file."
+
+    GROUP           vtpVlanLocalShutdownGroup
+    DESCRIPTION
+        "This group is mandatory for devices which support the
+        vlan local shutdown feature."
+
+    GROUP           vtpLocalUpdaterGroup
+    DESCRIPTION
+        "This group is mandatory for devices which support the
+        local updater IP address feature."
+
+    GROUP           vtpDeviceIdGroup
+    DESCRIPTION
+        "This group is mandatory for devices which support the
+        device identifier used by VTP domain."
+
+    OBJECT          vtpNotificationsEnabled
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpVlanCreatedNotifEnabled
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpVlanDeletedNotifEnabled
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          managementDomainName
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          managementDomainLocalMode
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          managementDomainRowStatus
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          managementDomainTftpServer
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          managementDomainTftpPathname
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          managementDomainPruningState
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          managementDomainVersionInUse
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpInternalVlanAllocPolicy
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpVlanEditOperation
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpVlanEditBufferOwner
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpVlanEditConfigRevNumber
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpVlanEditState
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpVlanEditType
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpVlanEditName
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpVlanEditMtu
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpVlanEditDot10Said
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpVlanEditRingNumber
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpVlanEditBridgeNumber
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpVlanEditStpType
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpVlanEditParentVlan
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpVlanEditRowStatus
+    SYNTAX          INTEGER  {
+                        active(1)
+                    }
+    WRITE-SYNTAX    INTEGER  {
+                        createAndGo(4),
+                        destroy(6)
+                    }
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required.
+
+        Support for createAndWait and notInService is not required."
+
+    OBJECT          vtpVlanEditTranslationalVlan1
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpVlanEditTranslationalVlan2
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpVlanEditBridgeType
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpVlanEditAreHopCount
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpVlanEditSteHopCount
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpVlanEditIsCRFBackup
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpVlanEditTypeExt2
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vlanTrunkPortManagementDomain
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vlanTrunkPortEncapsulationType
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vlanTrunkPortVlansEnabled
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vlanTrunkPortNativeVlan
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vlanTrunkPortRowStatus
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vlanTrunkPortVlansPruningEligible
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vlanTrunkPortDynamicState
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vlanTrunkPortVtpEnabled
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vlanTrunkPortVlansEnabled2k
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vlanTrunkPortVlansEnabled3k
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vlanTrunkPortVlansEnabled4k
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpVlansPruningEligible2k
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpVlansPruningEligible3k
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpVlansPruningEligible4k
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vlanTrunkPortSetSerialNo
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpDiscoverAction
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpDatabaseLocalMode
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpDatabaseTakeOverPrimary
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpDatabaseTakeOverPassword
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpAuthPassword
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpAuthPasswordType
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpAuthSecretKey
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          managementDomainAdminSrcIf
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          managementDomainConfigFile
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          vtpVlanLocalShutdown
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+    ::= { vtpMIBCompliances 16 }
+
 -- units of conformance
 
 vtpBasicGroup OBJECT-GROUP
@@ -5595,7 +6187,8 @@ vtpConfigNotificationsGroup NOTIFICATION-GROUP
     STATUS          deprecated
     DESCRIPTION
         "The notifications which a VTP implementation is
-        required to implement."
+        required to implement.
+        vtpConfigNotificationsGroup object is superseded by vtpConfigNotificationsGroupRev1, vtpConfigNotificationsGroup5."
     ::= { vtpMIBGroups 6 }
 
 vtp4kVlanGroup OBJECT-GROUP
@@ -5618,7 +6211,8 @@ vtp4kVlanGroup OBJECT-GROUP
     STATUS          deprecated
     DESCRIPTION
         "A collection of objects providing information
-        for VLANS with VlanIndex from 1024 to 4095."
+        for VLANS with VlanIndex from 1024 to 4095.
+        vtp4kVlanGroup object is superseded by vtp4kVlanGroupRev1."
     ::= { vtpMIBGroups 16 }
 
 vtpDot1qTunnelGroup OBJECT-GROUP
@@ -5629,7 +6223,8 @@ vtpDot1qTunnelGroup OBJECT-GROUP
     STATUS          deprecated
     DESCRIPTION
         "A collection of objects providing information
-        for dot1qtunnel feature."
+        for dot1qtunnel feature.
+        vtpDot1qTunnelGroup object is superseded by vtpDot1qTunnelGroup2."
     ::= { vtpMIBGroups 17 }
 
 vtpVlanIfIndexGroup OBJECT-GROUP
@@ -5797,7 +6392,8 @@ vtpConfigNotificationsGroup5 NOTIFICATION-GROUP
     STATUS          deprecated
     DESCRIPTION
         "The additional notifications that may be
-        related to a VTP implementation."
+        related to a VTP implementation.
+        vtpConfigNotificationsGroup5 object is superseded by vtpConfigNotificationsGroup6, vtpConfigNotificationsGroup7."
     ::= { vtpMIBGroups 31 }
 
 vtpInternalVlanGrp OBJECT-GROUP
@@ -5868,7 +6464,58 @@ vlanTrunkPortActiveVlansGroup OBJECT-GROUP
         domain."
     ::= { vtpMIBGroups 38 }
 
+vtpSourceInterfaceGroup OBJECT-GROUP
+    OBJECTS         {
+                        managementDomainAdminSrcIf,
+                        managementDomainSourceOnlyMode,
+                        managementDomainOperSrcIf
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A collection of object providing the preferred source
+        interface for the VTP IP updater address."
+    ::= { vtpMIBGroups 39 }
+
+vtpConfigFileGroup OBJECT-GROUP
+    OBJECTS         { managementDomainConfigFile }
+    STATUS          current
+    DESCRIPTION
+        "A collection of object providing the location of VTP
+        configuration file."
+    ::= { vtpMIBGroups 40 }
+
+vtpVlanLocalShutdownGroup OBJECT-GROUP
+    OBJECTS         { vtpVlanLocalShutdown }
+    STATUS          current
+    DESCRIPTION
+        "A collection of object providing the VLAN local shutdown
+        state."
+    ::= { vtpMIBGroups 41 }
+
+vtpLocalUpdaterGroup OBJECT-GROUP
+    OBJECTS         {
+                        managementDomainLocalUpdaterType,
+                        managementDomainLocalUpdater
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A collection of object providing the local updater IP address."
+    ::= { vtpMIBGroups 42 }
+
+vtpDeviceIdGroup OBJECT-GROUP
+    OBJECTS         { managementDomainDeviceID }
+    STATUS          current
+    DESCRIPTION
+        "A collection of object providing the device id."
+    ::= { vtpMIBGroups 43 }
+
 END
+
+
+
+
+
+
 
 
 

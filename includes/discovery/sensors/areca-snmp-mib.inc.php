@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -79,7 +79,7 @@ foreach (explode("\n", $oids) as $data)
         discover_sensor($valid['sensor'], 'capacity', $device, $oid, $index, 'areca', trim($descr,'"'), 1, $value);
       }
     } else { # Not a battery
-      discover_sensor($valid['sensor'], 'voltage', $device, $oid, $index, 'areca', trim($descr,'"'), 0.001, $value / 1000);
+      discover_sensor($valid['sensor'], 'voltage', $device, $oid, $index, 'areca', trim($descr,'"'), 0.001, $value);
     }
   }
 }
@@ -106,7 +106,7 @@ foreach (explode("\n", $oids) as $data)
 
 // hwEnclosure02Installed.0 = 2
 // hwEnclosure02Description.0 = "Areca   ARC-4036-.01.06.0106"
-// hwEnclosure02NumberOfPower.0 = 0
+// hwEnclosure02NumberOfPower.0 = 2
 // hwEnclosure02NumberOfVol.0 = 2
 // hwEnclosure02NumberOfFan.0 = 2
 // hwEnclosure02NumberOfTemp.0 = 2
@@ -119,6 +119,9 @@ foreach (explode("\n", $oids) as $data)
 // hwEnclosure02TempIndex.1 = 1
 // hwEnclosure02TempDesc.1 = "ENC. Temp  "
 // hwEnclosure02TempValue.1 = 30
+// hwEnclosure02PowerIndex.1 = INTEGER: 1
+// hwEnclosure02PowerDesc.1 = STRING: "PowerSupply01"
+// hwEnclosure02PowerState.1 = INTEGER: Ok(1)
 
 for ($encNum = 1; $encNum <= 8; $encNum++)
 {
@@ -136,7 +139,7 @@ for ($encNum = 1; $encNum <= 8; $encNum++)
         $value = $entry["hwEnclosure0${encNum}VolValue"];
         $oid   = ".1.3.6.1.4.1.18928.1.2.2." . ($encNum+1) . ".8.1.3.$index";
         
-        discover_sensor($valid['sensor'], 'voltage', $device, $oid, "hwEnclosure0${encNum}VolValue.$index", 'areca', $descr, 0.001, $value / 1000);
+        discover_sensor($valid['sensor'], 'voltage', $device, $oid, "hwEnclosure0${encNum}VolValue.$index", 'areca', $descr, 0.001, $value);
       }
 
       if ($entry["hwEnclosure0${encNum}FanIndex"])
@@ -157,7 +160,14 @@ for ($encNum = 1; $encNum <= 8; $encNum++)
         discover_sensor($valid['sensor'], 'temperature', $device, $oid, "hwEnclosure0${encNum}TempValue.$index", 'areca', $descr, 1, $value);
       }
       
-      // there's also "numberOfPower" in the enclosure data (index 0) but I don't have any devices with this - not implemented currently.
+      if ($entry["hwEnclosure0${encNum}PowerIndex"])
+      {
+        $descr = $cache['areca']["hwEnclosure$encNum"][0]["hwEnclosure0${encNum}Description"] . ' (' . $encNum  . ') ' . $entry["hwEnclosure0${encNum}PowerDesc"];
+        $value = $entry["hwEnclosure0${encNum}PowerState"];
+        $oid   = ".1.3.6.1.4.1.18928.1.2.2." . ($encNum+1) . ".7.1.3.$index";
+        
+        discover_sensor($valid['sensor'], 'state', $device, $oid, "hwEnclosure0${encNum}PowerState.$index", 'areca-power-state', $descr, NULL, $value, array('entPhysicalClass' => 'power'));
+      }
     }
   }
 }

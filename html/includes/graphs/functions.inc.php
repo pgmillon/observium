@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -141,7 +141,7 @@ if ($legend != 'no')
 // DOCME needs phpdoc block
 function graph_error($string)
 {
-  global $vars, $config, $debug, $graphfile;
+  global $vars, $config, $graphfile;
 
   $vars['bg'] = "FFBBBB";
 
@@ -154,8 +154,8 @@ function graph_error($string)
 
   if ($height > "99")  {
     $woo = shell_exec($rrd_cmd);
-    if ($debug) { echo("<pre>".$rrd_cmd."</pre>"); }
-    if (is_file($graphfile) && !$debug)
+    if (OBS_DEBUG) { echo("<pre>".$rrd_cmd."</pre>"); }
+    if (is_file($graphfile) && !OBS_DEBUG)
     {
       header('Content-type: image/png');
       $fd = fopen($graphfile,'r'); fpassthru($fd); fclose($fd);
@@ -163,7 +163,7 @@ function graph_error($string)
 #      exit();
     }
   } else {
-    if (!$debug) { header('Content-type: image/png'); }
+    if (!OBS_DEBUG) { header('Content-type: image/png'); }
     $im     = imagecreate($width, $height);
     $orange = imagecolorallocate($im, 255, 225, 225);
     $px     = (imagesx($im) - 7.5 * strlen($string)) / 2;

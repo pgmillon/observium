@@ -8,7 +8,7 @@
 -- Oct     2001, Joline Chen
 -- July    2003, Gaurav Aggarwal
 --   
--- Copyright (c) 2001-2003-2006, 2010 by Cisco Systems Inc.
+-- Copyright (c) 2001-2003-2006, 2010, 2012-2013 by Cisco Systems Inc.
 -- All rights reserved.
 -- *****************************************************************
 
@@ -21,6 +21,7 @@ IMPORTS
     Integer32,
     Unsigned32,
     Counter32,
+    Counter64,
     IpAddress,
     Gauge32
         FROM SNMPv2-SMI
@@ -34,9 +35,11 @@ IMPORTS
     TimeStamp,
     RowStatus,
     TimeInterval,
+    DateAndTime,
     TEXTUAL-CONVENTION
         FROM SNMPv2-TC
     ifIndex,
+    ifDescr,
     InterfaceIndex
         FROM IF-MIB
     docsIfCmtsServiceEntry,
@@ -50,15 +53,21 @@ IMPORTS
     docsIfUpstreamChannelEntry,
     TenthdBmV
         FROM DOCS-IF-MIB
+    ChSetId
+        FROM DOCS-IF3-MIB
+    SnmpAdminString
+        FROM SNMP-FRAMEWORK-MIB
     InetAddress,
     InetAddressType
+        FROM INET-ADDRESS-MIB
+    InetAddressPrefixLength
         FROM INET-ADDRESS-MIB
     ciscoMgmt
         FROM CISCO-SMI;
 
 
 ciscoDocsExtMIB MODULE-IDENTITY
-    LAST-UPDATED    "201006090000Z"
+    LAST-UPDATED    "201303270000Z"
     ORGANIZATION    "Cisco Systems, Inc."
     CONTACT-INFO
             "Cisco Systems
@@ -103,7 +112,56 @@ ciscoDocsExtMIB MODULE-IDENTITY
         This MIB module also includes objects to keep count of
         the total # of modems, # of registered and # of active
         modems on the mac interface as well as each 
-        upstream."
+        upstream.
+
+        Glossary:
+
+        BE       Best Effort
+
+        CPE      Customer Premise Equipment
+
+        CM       Cable Modem
+
+        CMTS     Cable Modem Termination Systems
+
+        DMIC     Dynamic Message Integrity Check
+
+        DOCSIS   Data Over Cable Service Interface Specifications
+
+        IE       Information Element
+
+        NIC      Network Interface Card
+
+        QoS      Quality of Service
+
+        RF       Radio Frequency
+
+        RTPS     Real-Time Polling Service
+
+        SFID     Service Flow ID
+
+        SID      Service Id
+
+        TOD      Time of the Day
+
+        UGS      Unsolicited Grant Service
+
+        UGS-AD   Unsolicited Grant Service with Activity Detection"
+    REVISION        "201303270000Z"
+    DESCRIPTION
+        "Added following tables:
+        cdxCpeIpPrefixTable
+        cdxCmtsMtcCmTable
+        cdxCmtsUscbSflowTable
+        Added following OBJECT-GROUPs:
+        cdxCpeIpPrefixGroup
+        cdxCmtsMtcCmGroup
+        cdxCmtsUscbSflowGroup"
+    REVISION        "201211210000Z"
+    DESCRIPTION
+        "Add the following mib groups:
+        cdxWBResilGroup, cdxNotifGroupExt, cdxQosCtrlGroupExt, 
+        cdxDownstreamGroup"
     REVISION        "201006090000Z"
     DESCRIPTION
         "Add new object cdxCmCpeDeleteNow to cdxCmCpeTable to delete the
@@ -227,6 +285,16 @@ CdxResettableCounter32 ::= TEXTUAL-CONVENTION
         Typically this TC is used in table where the statistical 
         information needs to be re-count after a reset."
     SYNTAX          Gauge32
+
+CdxUpstreamBondGrpList ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT    "320a"
+    STATUS          current
+    DESCRIPTION
+        "This data type is a human-readable string that represents
+        the upstream bonding group list within a MAC Domain.
+        When there is no upstream bonding group in a MAC Domain, it
+        will be empty."
+    SYNTAX          OCTET STRING (SIZE (0..320))
 ciscoDocsExtMIBObjects  OBJECT IDENTIFIER
     ::= { ciscoDocsExtMIB 1 }
 
@@ -241,6 +309,15 @@ cdxCmtsCmCpeObjects  OBJECT IDENTIFIER
 
 cdxSpecMgmtObjects  OBJECT IDENTIFIER
     ::= { ciscoDocsExtMIBObjects 4 }
+
+cdxWBResilObjects  OBJECT IDENTIFIER
+    ::= { ciscoDocsExtMIBObjects 5 }
+
+cdxDownstreamObjects  OBJECT IDENTIFIER
+    ::= { ciscoDocsExtMIBObjects 6 }
+
+cdxCmtsMtcCmSfObjects  OBJECT IDENTIFIER
+    ::= { ciscoDocsExtMIBObjects 7 }
 
 -- Scheduler QoS Control Group
 --   
@@ -779,7 +856,11 @@ CdxCmtsServiceExtEntry ::= SEQUENCE {
         cdxIfCmtsServiceOutOctets    Counter32,
         cdxIfCmtsServiceOutPackets   Counter32,
         cdxQosMaxUpBWExcessRequests  Counter32,
-        cdxQosMaxDownBWExcessPackets Counter32
+        cdxQosMaxDownBWExcessPackets Counter32,
+        cdxIfCmtsServiceHCInOctets   Counter64,
+        cdxIfCmtsServiceHCInPackets  Counter64,
+        cdxIfCmtsServiceHCOutOctets  Counter64,
+        cdxIfCmtsServiceHCOutPackets Counter64
 }
 
 cdxIfCmtsServiceOutOctets OBJECT-TYPE
@@ -837,6 +918,47 @@ cdxQosMaxDownBWExcessPackets OBJECT-TYPE
     REFERENCE
         "docsIfQosProfMaxDownBandwidth object in DOCS-IF-MIB.my." 
     ::= { cdxCmtsServiceExtEntry 4 }
+
+cdxIfCmtsServiceHCInOctets OBJECT-TYPE
+    SYNTAX          Counter64
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The cumulative number of Packet Data octets received on this
+        Service ID. The count does not include the size of the Cable
+        MAC header. This object is a 64-bit version of
+        docsIfCmtsServiceInOctets." 
+    ::= { cdxCmtsServiceExtEntry 5 }
+
+cdxIfCmtsServiceHCInPackets OBJECT-TYPE
+    SYNTAX          Counter64
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The cumulative number of Packet Data packets received on this
+        Service ID. This object is a 64-bit version of
+        docsIfCmtsServiceInPackets." 
+    ::= { cdxCmtsServiceExtEntry 6 }
+
+cdxIfCmtsServiceHCOutOctets OBJECT-TYPE
+    SYNTAX          Counter64
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The cumulative number of Packet Data octets sent for this
+        Service ID. This object is a 64-bit version of
+        cdxIfCmtsServiceOutOctets." 
+    ::= { cdxCmtsServiceExtEntry 7 }
+
+cdxIfCmtsServiceHCOutPackets OBJECT-TYPE
+    SYNTAX          Counter64
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The cumulative number of Packet Data packets sent for this
+        Service ID. This object is a 64-bit version of
+        cdxIfCmtsServiceOutPackets." 
+    ::= { cdxCmtsServiceExtEntry 8 }
  
 
 -- Upstream Information Element Statistics Table
@@ -2558,6 +2680,98 @@ cdxCpeToCmStatusIndex OBJECT-TYPE
     ::= { cdxCpeToCmEntry 5 }
  
 
+
+cdxCpeIpPrefixTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF CdxCpeIpPrefixEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "The table contains a list CPE's IP Prefix management
+        information."
+    ::= { cdxCmtsCmCpeObjects 10 }
+
+cdxCpeIpPrefixEntry OBJECT-TYPE
+    SYNTAX          CdxCpeIpPrefixEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "An entry contains information of CM's MAC,
+        CPE's IP prefix type, CPE's IP prefix address,
+        CPE's IP prefix length and CPE's MAC address.
+        An entry is created if CPE is associated with a prefix."
+    INDEX           {
+                        cdxCpeIpPrefixCmMacAddress,
+                        cdxCpeIpPrefixType,
+                        cdxCpeIpPrefixAddress,
+                        cdxCpeIpPrefixLen
+                    } 
+    ::= { cdxCpeIpPrefixTable 1 }
+
+CdxCpeIpPrefixEntry ::= SEQUENCE {
+        cdxCpeIpPrefixCmMacAddress  MacAddress,
+        cdxCpeIpPrefixType          InetAddressType,
+        cdxCpeIpPrefixAddress       InetAddress,
+        cdxCpeIpPrefixLen           InetAddressPrefixLength,
+        cdxCpeIpPrefixCpeMacAddress MacAddress,
+        cdxCpeIpPrefixCpeType       SnmpAdminString
+}
+
+cdxCpeIpPrefixCmMacAddress OBJECT-TYPE
+    SYNTAX          MacAddress
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the MAC address of the cable modem." 
+    ::= { cdxCpeIpPrefixEntry 1 }
+
+cdxCpeIpPrefixType OBJECT-TYPE
+    SYNTAX          InetAddressType
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the IP prefix type of the CPE. This is
+        the type of cdxCpeIpPrefixAddress object." 
+    ::= { cdxCpeIpPrefixEntry 2 }
+
+cdxCpeIpPrefixAddress OBJECT-TYPE
+    SYNTAX          InetAddress (SIZE  (1..96))
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the IP prefix address. The type of this
+        address is determined by the value of 
+        cdxCpeIpPrefixType object." 
+    ::= { cdxCpeIpPrefixEntry 3 }
+
+cdxCpeIpPrefixLen OBJECT-TYPE
+    SYNTAX          InetAddressPrefixLength
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the IP prefix length of the CPE. This is
+        the length of cdxCpeIpPrefixAddress object." 
+    ::= { cdxCpeIpPrefixEntry 4 }
+
+cdxCpeIpPrefixCpeMacAddress OBJECT-TYPE
+    SYNTAX          MacAddress
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the MAC address of CPE." 
+    ::= { cdxCpeIpPrefixEntry 5 }
+
+cdxCpeIpPrefixCpeType OBJECT-TYPE
+    SYNTAX          SnmpAdminString
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the type of CPE.
+        Device Type: B - CM Bridge, R - CM Router
+        IP Assignment Method: D - DHCP
+        the format looks like 'R/D'." 
+    ::= { cdxCpeIpPrefixEntry 6 }
+ 
+
 -- CMTS Upstream Group
 --   
 -- Upstream impairment mitigation techniques are crucial to enhancing
@@ -2871,6 +3085,488 @@ cdxIfUpChannelAvgUGSLastFiveMins OBJECT-TYPE
     ::= { cdxIfUpstreamChannelExtEntry 16 }
  
 
+
+-- The MIB for Wideband RF Resiliency Control
+
+cdxWBResilRFChangeDampenTime OBJECT-TYPE
+    SYNTAX          Integer32 (1..65535)
+    UNITS           "Second"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the amount of time an RF channel must
+        remain in its new state, either UP or DOWN, before the
+        transition is considered valid.  This value applies to all
+        non-primary RF channels in the CMTS."
+    DEFVAL          { 30 } 
+    ::= { cdxWBResilObjects 1 }
+
+cdxWBResilRFChangeTriggerPercentage OBJECT-TYPE
+    SYNTAX          Integer32 (0..100)
+    UNITS           "Percentage"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the percentage of cable modems (CMs) that
+        must report that a particular Non Primary RF channel is DOWN,
+        before that channel is removed from any/all bonding groups
+        with that Non Primary RF channel configured. The value of 0
+        will prevent from any bonding group modifications. In order to
+        dampen state's changes for an RF channel, the trigger for 
+        a channel being restored is one half of this object's value."
+    DEFVAL          { 0 } 
+    ::= { cdxWBResilObjects 2 }
+
+cdxWBResilRFChangeTriggerCount OBJECT-TYPE
+    SYNTAX          Integer32 (0..65535)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the count of cable modems (CMs) that
+        must report that a particular Non Primary RF channel is DOWN,
+        before that channel is removed from any/all bonding groups
+        with that Non Primary RF channel configured. The value of 0
+        will prevent from any bonding group modifications. In order to
+        dampen state's changes for an RF channel, the trigger for 
+        a channel being restored is one half of this object's value."
+    DEFVAL          { 0 } 
+    ::= { cdxWBResilObjects 3 }
+
+cdxWBResilRFChangeTriggerMoveSecondary OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies whether the secondary service flows are
+        allowed to be moved and created on the narrowband interface."
+    DEFVAL          { false } 
+    ::= { cdxWBResilObjects 4 }
+
+cdxWBResilNotificationEnable OBJECT-TYPE
+    SYNTAX          BITS {
+                        event(0),
+                        cm-recover(1),
+                        cm-pmode(2),
+                        rf-up(3),
+                        rf-down(4)
+                    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "An indication of whether the cdxWBResilRFDown, cdxWBResilRFUp,
+        cdxWBResilCMPartialServiceNotif, cdxWBResilCMFullServiceNotif 
+        and cdxWBResilEvent are enabled."
+    DEFVAL          { {  } } 
+    ::= { cdxWBResilObjects 5 }
+
+cdxWBResilNotificationsInterval OBJECT-TYPE
+    SYNTAX          Integer32 (0..86400)
+    UNITS           "Second"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the interval that cdxWBResilEvent traps could be sent
+        per cable modem. It is to avoid too many cdxWBResilEvent traps sent for a
+        cable modem during a short period of time.
+        The default value is 1 (second). If the value is 0, the trap cdxWBResilEvent
+        will be sent for every wideband resiliency event. If the value is set to any
+        value greater than 0, for the wideband resiliency events which occurred in the 
+        same specific period of time, the CMTS will send only one trap."
+    DEFVAL          { 1 } 
+    ::= { cdxWBResilObjects 6 }
+
+cdxWBResilEventLevel OBJECT-TYPE
+    SYNTAX          INTEGER  {
+                        info(1),
+                        warning(2),
+                        error(3)
+                    }
+    MAX-ACCESS      accessible-for-notify
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the priority level of the event." 
+    ::= { cdxWBResilObjects 7 }
+
+cdxWBResilEventType OBJECT-TYPE
+    SYNTAX          INTEGER  {
+                        cmEventMddTimeout(1),
+                        cmEventQamFecFailure(2),
+                        cmEventMddRecovery(3),
+                        cmEventQamFecRecovery(4)
+                    }
+    MAX-ACCESS      accessible-for-notify
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the type of the event received by CMTS." 
+    ::= { cdxWBResilObjects 8 }
+
+cdxWBResilUpdateTime OBJECT-TYPE
+    SYNTAX          DateAndTime
+    MAX-ACCESS      accessible-for-notify
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the time when CMTS receives the
+        latest wideband resiliency event." 
+    ::= { cdxWBResilObjects 9 }
+
+cdxWBResilEventTotalCount OBJECT-TYPE
+    SYNTAX          Counter32
+    MAX-ACCESS      accessible-for-notify
+    STATUS          current
+    DESCRIPTION
+        "The object denotes the count of event CMTS received." 
+    ::= { cdxWBResilObjects 10 }
+
+cdxWBResilEventTotalDupCount OBJECT-TYPE
+    SYNTAX          Counter32
+    MAX-ACCESS      accessible-for-notify
+    STATUS          current
+    DESCRIPTION
+        "The object denotes the count of duplicate event CMTS
+        received." 
+    ::= { cdxWBResilObjects 11 }
+-- The MIB for cdxDownstream Objects
+
+cdxRFtoPrimaryChannelMappingTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF CdxRFtoPrimaryChannelMappingEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This table contains information of the mapping of
+        the physical RF channels to the primary RF channels."
+    ::= { cdxDownstreamObjects 1 }
+
+cdxRFtoPrimaryChannelMappingEntry OBJECT-TYPE
+    SYNTAX          CdxRFtoPrimaryChannelMappingEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "An Entry provides the association between the physical
+        RF channels and the primary RF Channels."
+    INDEX           { ifIndex } 
+    ::= { cdxRFtoPrimaryChannelMappingTable 1 }
+
+CdxRFtoPrimaryChannelMappingEntry ::= SEQUENCE {
+        cdxPrimaryChannelIfIndex InterfaceIndex
+}
+
+cdxPrimaryChannelIfIndex OBJECT-TYPE
+    SYNTAX          InterfaceIndex
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The ifIndex of the primary channel interface." 
+    ::= { cdxRFtoPrimaryChannelMappingEntry 1 }
+ 
+
+
+cdxPrimaryChanneltoRFMappingTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF CdxPrimaryChanneltoRFMappingEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This table contains information of the mapping of
+        the primary RF channels to the physical RF channels."
+    ::= { cdxDownstreamObjects 2 }
+
+cdxPrimaryChanneltoRFMappingEntry OBJECT-TYPE
+    SYNTAX          CdxPrimaryChanneltoRFMappingEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "An Entry provides the association between the primary
+        RF channels and the physical RF Channels."
+    INDEX           { ifIndex } 
+    ::= { cdxPrimaryChanneltoRFMappingTable 1 }
+
+CdxPrimaryChanneltoRFMappingEntry ::= SEQUENCE {
+        cdxPhysicalRFIfIndex InterfaceIndex
+}
+
+cdxPhysicalRFIfIndex OBJECT-TYPE
+    SYNTAX          InterfaceIndex
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The ifIndex of the physical RF channel interface." 
+    ::= { cdxPrimaryChanneltoRFMappingEntry 1 }
+ 
+
+
+cdxCmtsMtcCmTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF CdxCmtsMtcCmEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This table contains CM management information of Transmit
+        Channel Set(TCS) in the system."
+    ::= { cdxCmtsMtcCmSfObjects 1 }
+
+cdxCmtsMtcCmEntry OBJECT-TYPE
+    SYNTAX          CdxCmtsMtcCmEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "An entry provides the CM statistics and management
+        information of a specific TCS. The interface populated in this
+        table is of ifType = docsCableMaclayer(127)."
+    INDEX           {
+                        ifIndex,
+                        cdxCmtsMtcTcsId
+                    } 
+    ::= { cdxCmtsMtcCmTable 1 }
+
+CdxCmtsMtcCmEntry ::= SEQUENCE {
+        cdxCmtsMtcTcsId           ChSetId,
+        cdxCmtsMtcCmTotal         Unsigned32,
+        cdxCMtsMtcCmOperational   Unsigned32,
+        cdxCmtsMtcCmRegistered    Unsigned32,
+        cdxCmtsMtcCmUnregistered  Unsigned32,
+        cdxCmtsMtcCmOffline       Unsigned32,
+        cdxCmtsMtcCmWideband      Unsigned32,
+        cdxCmtsMtcUpstreamBondGrp CdxUpstreamBondGrpList
+}
+
+cdxCmtsMtcTcsId OBJECT-TYPE
+    SYNTAX          ChSetId
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the Id of the Transmit Channel Set." 
+    ::= { cdxCmtsMtcCmEntry 1 }
+
+cdxCmtsMtcCmTotal OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the total number of cable modems
+        which use this TCS in the MAC domain." 
+    ::= { cdxCmtsMtcCmEntry 2 }
+
+cdxCMtsMtcCmOperational OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the number of operational cable
+        modems which uses this TCS in the MAC domain." 
+    ::= { cdxCmtsMtcCmEntry 3 }
+
+cdxCmtsMtcCmRegistered OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the number of registered cable
+        modems which use this TCS in the MAC domain." 
+    ::= { cdxCmtsMtcCmEntry 4 }
+
+cdxCmtsMtcCmUnregistered OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the number of unregistered cable
+        modem which use this TCS in the MAC domain." 
+    ::= { cdxCmtsMtcCmEntry 5 }
+
+cdxCmtsMtcCmOffline OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the number of offline cable modems
+        which uses this TCS in the MAC domain." 
+    ::= { cdxCmtsMtcCmEntry 6 }
+
+cdxCmtsMtcCmWideband OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the number of operational cable
+        modems which are in wideband state and use this TCS in
+        the MAC domain." 
+    ::= { cdxCmtsMtcCmEntry 7 }
+
+cdxCmtsMtcUpstreamBondGrp OBJECT-TYPE
+    SYNTAX          CdxUpstreamBondGrpList
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the upstream channel bonding group." 
+    ::= { cdxCmtsMtcCmEntry 8 }
+ 
+
+
+cdxCmtsUscbSflowTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF CdxCmtsUscbSflowEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This table contains the Upstream Channel Bonding
+        Service Flow management information."
+    ::= { cdxCmtsMtcCmSfObjects 2 }
+
+cdxCmtsUscbSflowEntry OBJECT-TYPE
+    SYNTAX          CdxCmtsUscbSflowEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "A entry contains the Service Flow statistics for a specific
+        Upstream Channel Bonding group. The interface populated in this
+        table is of ifType = docsCableMaclayer(127)."
+    INDEX           {
+                        ifIndex,
+                        cdxCmtsUsBondingGrpId
+                    } 
+    ::= { cdxCmtsUscbSflowTable 1 }
+
+CdxCmtsUscbSflowEntry ::= SEQUENCE {
+        cdxCmtsUsBondingGrpId    Unsigned32,
+        cdxCmtsUscbSfTotal       Unsigned32,
+        cdxCmtsUscbSfPri         Unsigned32,
+        cdxCmtsUscbStaticSfBe    Unsigned32,
+        cdxCmtsUscbStaticSfUgs   Unsigned32,
+        cdxCmtsUscbStaticSfUgsad Unsigned32,
+        cdxCmtsUscbStaticSfRtps  Unsigned32,
+        cdxCmtsUscbStaticSfNrtps Unsigned32,
+        cdxCmtsUscbDynSfBe       Unsigned32,
+        cdxCmtsUscbDynSfUgs      Unsigned32,
+        cdxCmtsUscbDynSfUgsad    Unsigned32,
+        cdxCmtsUscbDynSfRtps     Unsigned32,
+        cdxCmtsUscbDynSfNrtps    Unsigned32,
+        cdxCmtsUscbDescr         SnmpAdminString
+}
+
+cdxCmtsUsBondingGrpId OBJECT-TYPE
+    SYNTAX          Unsigned32 (1..4294967295)
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This object indicates upstream bonding group
+        identifier within the MAC Domain." 
+    ::= { cdxCmtsUscbSflowEntry 1 }
+
+cdxCmtsUscbSfTotal OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the total number of service flows
+        which use this upstream channel bonding group." 
+    ::= { cdxCmtsUscbSflowEntry 2 }
+
+cdxCmtsUscbSfPri OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the total number of  primary
+        service flows which use this upstream channel bonding group." 
+    ::= { cdxCmtsUscbSflowEntry 3 }
+
+cdxCmtsUscbStaticSfBe OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the number of static BE service
+        flows which use this upstream channel bonding group." 
+    ::= { cdxCmtsUscbSflowEntry 4 }
+
+cdxCmtsUscbStaticSfUgs OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the number of static UGS service
+        flows which use this upstream channel bonding group." 
+    ::= { cdxCmtsUscbSflowEntry 5 }
+
+cdxCmtsUscbStaticSfUgsad OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the number of static UGS-AD service
+        flows which use this upstream channel bonding group." 
+    ::= { cdxCmtsUscbSflowEntry 6 }
+
+cdxCmtsUscbStaticSfRtps OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the number of static RTPS service
+        flows which use this upstream channel bonding group." 
+    ::= { cdxCmtsUscbSflowEntry 7 }
+
+cdxCmtsUscbStaticSfNrtps OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the number of static NRTPS service
+        flows which use this upstream channel bonding group." 
+    ::= { cdxCmtsUscbSflowEntry 8 }
+
+cdxCmtsUscbDynSfBe OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the number of dynamic BE service
+        flows which use this upstream channel bonding group." 
+    ::= { cdxCmtsUscbSflowEntry 9 }
+
+cdxCmtsUscbDynSfUgs OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the number of dynamic UGS service
+        flows which use this upstream channel bonding group." 
+    ::= { cdxCmtsUscbSflowEntry 10 }
+
+cdxCmtsUscbDynSfUgsad OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the number of dynamic UGS-Ad service
+        flows which use this upstream channel bonding group." 
+    ::= { cdxCmtsUscbSflowEntry 11 }
+
+cdxCmtsUscbDynSfRtps OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the number of dynamic RTPS service
+        flows which use this upstream channel bonding group." 
+    ::= { cdxCmtsUscbSflowEntry 12 }
+
+cdxCmtsUscbDynSfNrtps OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the number of dynamic NRTPS service
+        flows which use this upstream channel bonding group." 
+    ::= { cdxCmtsUscbSflowEntry 13 }
+
+cdxCmtsUscbDescr OBJECT-TYPE
+    SYNTAX          SnmpAdminString
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the description of upstream channel
+        bonding group." 
+    ::= { cdxCmtsUscbSflowEntry 14 }
+ 
+
 -- The Cisco DOCS Extension MIB Notifications
 
 ciscoDocsExtNotificationsPrefix  OBJECT IDENTIFIER
@@ -2931,6 +3627,73 @@ cdxCmtsCmDMICLockNotification NOTIFICATION-TYPE
         "This notification is sent whenever a modem is locked because
         it failed the Dynamic Message Integrity Check."
    ::= { ciscoDocsExtNotifications 3 }
+
+cdxWBResilRFDown NOTIFICATION-TYPE
+    OBJECTS         {
+                        ifIndex,
+                        ifDescr,
+                        cdxWBResilEventLevel
+                    }
+    STATUS          current
+    DESCRIPTION
+        "This notification indicates that a RF channel changed state to
+        logical DOWN state."
+   ::= { ciscoDocsExtNotifications 4 }
+
+cdxWBResilRFUp NOTIFICATION-TYPE
+    OBJECTS         {
+                        ifIndex,
+                        ifDescr,
+                        cdxWBResilEventLevel
+                    }
+    STATUS          current
+    DESCRIPTION
+        "This notification indicates that a RF channel changed state to
+        logical UP state."
+   ::= { ciscoDocsExtNotifications 5 }
+
+cdxWBResilCMPartialServiceNotif NOTIFICATION-TYPE
+    OBJECTS         {
+                        ifIndex,
+                        docsIfCmtsCmStatusMacAddress,
+                        docsIfCmtsCmStatusDownChannelIfIndex,
+                        cdxWBResilEventLevel
+                    }
+    STATUS          current
+    DESCRIPTION
+        "This notification indicates that a Cable Modem  is in partial
+        service. Object docsIfCmtsCmStatusDownChannelIfIndex 
+        represents the target wideband/narrowband ifindex."
+   ::= { ciscoDocsExtNotifications 6 }
+
+cdxWBResilCMFullServiceNotif NOTIFICATION-TYPE
+    OBJECTS         {
+                        ifIndex,
+                        docsIfCmtsCmStatusMacAddress,
+                        docsIfCmtsCmStatusDownChannelIfIndex,
+                        cdxWBResilEventLevel
+                    }
+    STATUS          current
+    DESCRIPTION
+        "This notification indicates that a Cable Modem  is recovered
+        from partial service. Object docsIfCmtsCmStatusDownChannelIfIndex
+                represents the target wideband/narrowband ifindex."
+   ::= { ciscoDocsExtNotifications 7 }
+
+cdxWBResilEvent NOTIFICATION-TYPE
+    OBJECTS         {
+                        docsIfCmtsCmStatusMacAddress,
+                        cdxWBResilEventType,
+                        cdxWBResilUpdateTime,
+                        cdxWBResilEventTotalCount,
+                        cdxWBResilEventTotalDupCount,
+                        cdxWBResilEventLevel
+                    }
+    STATUS          current
+    DESCRIPTION
+        "This notification indicates that a wideband resiliency event is
+        received by CMTS."
+   ::= { ciscoDocsExtNotifications 8 }
 -- The Cisco DOCS Extension MIB Conformance Statements
 --   
 
@@ -3152,7 +3915,7 @@ cdxDocsExtComplianceRev9 MODULE-COMPLIANCE
     ::= { cdxDocsExtCompliances 10 }
 
 cdxDocsExtComplianceRev10 MODULE-COMPLIANCE
-    STATUS          current
+    STATUS          obsolete
     DESCRIPTION
         "The compliance statement for devices that implement MCNS
         compliant Radio Frequency Interfaces and DOCSIS
@@ -3177,6 +3940,132 @@ cdxDocsExtComplianceRev10 MODULE-COMPLIANCE
     DESCRIPTION
         "Write access is not required."
     ::= { cdxDocsExtCompliances 11 }
+
+cdxDocsExtComplianceRev11 MODULE-COMPLIANCE
+    STATUS          deprecated
+    DESCRIPTION
+        "The compliance statement for devices that implement MCNS
+        compliant Radio Frequency Interfaces and DOCSIS
+        features."
+    MODULE          -- this module
+    MANDATORY-GROUPS {
+                        cdxQosCtrlGroupRev2,
+                        cdxQosCtrlGroupExt,
+                        cdxNotifGroupRev1,
+                        cdxQosQueueGroup,
+                        cdxCmtsCmCpeGroupRev8,
+                        cdxSpecMgmtGroupRev3,
+                        cdxDownstreamGroup,
+                        cdxNotifGroupExt,
+                        cdxWBResilGroup
+                    }
+
+    OBJECT          cdxCmtsCmChOverTimeExpiration
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cdxWBResilRFChangeDampenTime
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cdxWBResilRFChangeTriggerPercentage
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cdxWBResilRFChangeTriggerCount
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cdxWBResilRFChangeTriggerMoveSecondary
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cdxWBResilNotificationEnable
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cdxWBResilNotificationsInterval
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+    ::= { cdxDocsExtCompliances 12 }
+
+cdxDocsExtComplianceRev12 MODULE-COMPLIANCE
+    STATUS          current
+    DESCRIPTION
+        "The compliance statement for devices that implement MCNS
+        compliant Radio Frequency Interfaces and DOCSIS
+        features."
+    MODULE          -- this module
+    MANDATORY-GROUPS {
+                        cdxQosCtrlGroupRev2,
+                        cdxQosCtrlGroupExt,
+                        cdxNotifGroupRev1,
+                        cdxQosQueueGroup,
+                        cdxCmtsCmCpeGroupRev8,
+                        cdxSpecMgmtGroupRev3,
+                        cdxDownstreamGroup,
+                        cdxNotifGroupExt,
+                        cdxWBResilGroup
+                    }
+
+    GROUP           cdxCpeIpPrefixGroup
+    DESCRIPTION
+        "This group is mandatory for platforms which support
+        CPE IP Prefix feature."
+
+    GROUP           cdxCmtsMtcCmGroup
+    DESCRIPTION
+        "This group is mandatory for platforms which
+        support CM management information of TCS."
+
+    GROUP           cdxCmtsUscbSflowGroup
+    DESCRIPTION
+        "This group is mandatory for platforms which
+        support Service Flow statistics of Upstream 
+        Channel Bonding group."
+
+    OBJECT          cdxCmtsCmChOverTimeExpiration
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cdxWBResilRFChangeDampenTime
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cdxWBResilRFChangeTriggerPercentage
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cdxWBResilRFChangeTriggerCount
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cdxWBResilRFChangeTriggerMoveSecondary
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cdxWBResilNotificationEnable
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cdxWBResilNotificationsInterval
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+    ::= { cdxDocsExtCompliances 13 }
 
 -- MIB groupings
 
@@ -3775,38 +4664,117 @@ cdxCmtsCmCpeDeleteGroup OBJECT-GROUP
         Premises Equipment(CPE) in CMTS."
     ::= { cdxDocsExtGroups 20 }
 
+cdxWBResilGroup OBJECT-GROUP
+    OBJECTS         {
+                        cdxWBResilRFChangeDampenTime,
+                        cdxWBResilRFChangeTriggerPercentage,
+                        cdxWBResilRFChangeTriggerCount,
+                        cdxWBResilRFChangeTriggerMoveSecondary,
+                        cdxWBResilNotificationEnable,
+                        cdxWBResilNotificationsInterval,
+                        cdxWBResilEventLevel,
+                        cdxWBResilEventType,
+                        cdxWBResilUpdateTime,
+                        cdxWBResilEventTotalCount,
+                        cdxWBResilEventTotalDupCount
+                    }
+    STATUS          current
+    DESCRIPTION
+        "Group of objects implemented in Cable Modem
+        Termination Systems (CMTS) for managing and monitoring
+        Wideband Resiliency information."
+    ::= { cdxDocsExtGroups 21 }
+
+cdxNotifGroupExt NOTIFICATION-GROUP
+   NOTIFICATIONS    {
+                        cdxWBResilRFDown,
+                        cdxWBResilRFUp,
+                        cdxWBResilCMPartialServiceNotif,
+                        cdxWBResilCMFullServiceNotif,
+                        cdxWBResilEvent
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A group of notifications implemented in Cable Modem
+        Termination Systems (CMTS) for managing and monitoring
+        wideband resiliency events."
+    ::= { cdxDocsExtGroups 22 }
+
+cdxQosCtrlGroupExt OBJECT-GROUP
+    OBJECTS         {
+                        cdxIfCmtsServiceHCInOctets,
+                        cdxIfCmtsServiceHCInPackets,
+                        cdxIfCmtsServiceHCOutOctets,
+                        cdxIfCmtsServiceHCOutPackets
+                    }
+    STATUS          current
+    DESCRIPTION
+        "Group of objects implemented in Cable Modem Termination
+        Systems (CMTS) cable interfaces for 64bit couters about sending 
+        and receiving for the same SID."
+    ::= { cdxDocsExtGroups 23 }
+
+cdxDownstreamGroup OBJECT-GROUP
+    OBJECTS         {
+                        cdxPrimaryChannelIfIndex,
+                        cdxPhysicalRFIfIndex
+                    }
+    STATUS          current
+    DESCRIPTION
+        "Group of objects implements in Cable Modem Termination
+        System (CMTS for downstream interfaces."
+    ::= { cdxDocsExtGroups 24 }
+
+cdxCpeIpPrefixGroup OBJECT-GROUP
+    OBJECTS         {
+                        cdxCpeIpPrefixCpeMacAddress,
+                        cdxCpeIpPrefixCpeType
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A collection of objects providing CM management information
+        of TCS."
+    ::= { cdxDocsExtGroups 25 }
+
+cdxCmtsMtcCmGroup OBJECT-GROUP
+    OBJECTS         {
+                        cdxCmtsMtcCmTotal,
+                        cdxCMtsMtcCmOperational,
+                        cdxCmtsMtcCmRegistered,
+                        cdxCmtsMtcCmUnregistered,
+                        cdxCmtsMtcCmOffline,
+                        cdxCmtsMtcCmWideband,
+                        cdxCmtsMtcUpstreamBondGrp
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A collection of objects providing CM management
+        information of TCS."
+    ::= { cdxDocsExtGroups 26 }
+
+cdxCmtsUscbSflowGroup OBJECT-GROUP
+    OBJECTS         {
+                        cdxCmtsUscbSfTotal,
+                        cdxCmtsUscbSfPri,
+                        cdxCmtsUscbStaticSfBe,
+                        cdxCmtsUscbStaticSfUgs,
+                        cdxCmtsUscbStaticSfUgsad,
+                        cdxCmtsUscbStaticSfRtps,
+                        cdxCmtsUscbStaticSfNrtps,
+                        cdxCmtsUscbDynSfBe,
+                        cdxCmtsUscbDynSfUgs,
+                        cdxCmtsUscbDynSfUgsad,
+                        cdxCmtsUscbDynSfRtps,
+                        cdxCmtsUscbDynSfNrtps,
+                        cdxCmtsUscbDescr
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A collection of objects providing Upstream Channel
+        Bonding Service Flow management information."
+    ::= { cdxDocsExtGroups 27 }
+
 END
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

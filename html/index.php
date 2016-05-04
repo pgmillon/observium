@@ -8,28 +8,13 @@
  * @package    observium
  * @subpackage webinterface
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-if (isset($_SERVER['PATH_INFO']) && strpos($_SERVER['PATH_INFO'], "debug"))
-{
-  $debug = TRUE;
-  ini_set('display_errors', 1);
-  ini_set('display_startup_errors', 1);
-  ini_set('log_errors', 1);
-  ini_set('error_reporting', E_ALL);
-} else {
-  $debug = FALSE;
-  ini_set('display_errors', 0);
-  ini_set('display_startup_errors', 0);
-  ini_set('log_errors', 0);
-  ini_set('error_reporting', 0);
-}
-
-include("../includes/defaults.inc.php");
-include("../config.php");
-include("../includes/definitions.inc.php");
+include_once("../includes/defaults.inc.php");
+include_once("../config.php");
+include_once("../includes/definitions.inc.php");
 include($config['install_dir'] . "/includes/functions.inc.php");
 include($config['html_dir'] . "/includes/functions.inc.php");
 
@@ -55,6 +40,10 @@ if (!is_writable($config['temp_dir']))
   print_error("Temp Directory is not writable ({$config['tmp_dir']}).  Graphing may fail.");
 }
 
+if (ini_get('register_globals'))
+{
+  $notifications[] = array('text' => 'register_globals enabled in php.ini. Disable it!', 'severity' => 'alert');
+}
 // verify if PHP supports session, die if it does not
 check_extension_exists('session', '', TRUE);
 
@@ -76,6 +65,8 @@ ob_start();
   <link href="css/flags.css" rel="stylesheet" type="text/css" />
 
   <script type="text/javascript" src="js/jquery.min.js"></script>
+  <script type="text/javascript" src="js/jquery-ui.min.js"></script>
+  <script type="text/javascript" src="js/jquery.bootstrap-growl.js"></script>
 
 <?php /* html5.js below from https://github.com/aFarkas/html5shiv */ ?>
   <!--[if lt IE 9]><script src="js/html5shiv.min.js"></script><![endif]-->
@@ -125,7 +116,7 @@ if ($vars['widescreen'] == "no")  { unset($_SESSION['widescreen']); unset($vars[
 if ($vars['big_graphs'] == "yes") { $_SESSION['big_graphs'] = 1; unset($vars['big_graphs']); }
 if ($vars['big_graphs'] == "no")  { unset($_SESSION['big_graphs']); unset($vars['big_graphs']); }
 
-// Load the settings for Multi-Tenancy.
+// Load the settings for Multi-Tenancy. - FIXME i don't think we still support this, nor that it really works well. could/should be done in config.php by who needs this.
 if (isset($config['branding']) && is_array($config['branding']))
 {
   if ($config['branding'][$_SERVER['SERVER_NAME']])
@@ -207,10 +198,19 @@ if ($_SESSION['authenticated'])
     $db_version = sprintf("%03d", $db_version+1);
     if (is_file($config['install_dir'] . "/update/$db_version.sql") || is_file($config['install_dir'] . "/update/$db_version.php"))
     {
-      print_warning("Your database schema is old and needs updating. Run from server console:
-                  <pre class='small'>{$config['install_dir']}/discovery.php -u</pre>");
+      $notifications[] = array('text' => 'Your database schema is old and needs updating. Run from server console:
+                  <pre style="padding: 3px" class="small">' . $config['install_dir'] . '/discovery.php -u</pre>', 'severity' => 'alert');
     }
     unset($db_version);
+
+    // Warning about obsolete config on some pages
+    if (OBS_DEBUG ||
+        in_array($vars['tab'], array('data', 'perf', 'edit', 'showtech')) ||
+        in_array($vars['page'], array('pollerlog', 'settings', 'preferences')))
+    {
+      // FIXME move to notification center?
+      print_obsolete_config();
+    }
   }
 
   // Authenticated. Print a page.
@@ -265,7 +265,38 @@ if ($cachesize < 0) { $cachesize = 0; } // Silly PHP!
         </ul>
 
         <ul class="nav pull-right">
-          <li><a id="poller_status"></a></li>
+          <!--<li><a id="poller_status"></a></li>-->
+
+          <li class="divider-vertical" style="margin:0;"></li>
+          <li class="dropdown">
+            <?php
+            if (count($notifications)) // FIXME level 10 only, maybe? (answer: just do not add notifications for this users. --mike)
+            {
+            ?>
+            <a href="<?php echo(generate_url(array('page'=>'overview'))); ?>" class="dropdown-toggle" data-hover="dropdown" data-toggle="dropdown">
+              <i class="oicon-exclamation-red"></i> <b class="caret"></b></a>
+            <div class="dropdown-menu" style="padding: 10px; width: 800px;">
+              <table class="table table-borderxed table-condensed-more table-rounded table-striped">
+              <tr><th>Notification center</th></tr>
+<?php
+foreach ($notifications as $notification)
+{
+  // FIXME handle severity parameter with colour or icon?
+  echo('<tr><td width="100%" class="'.$notification['severity'].'">' . $notification['text'] . '</td></tr>');
+}
+?>
+              </table>
+            </div>
+            <?php
+            } else {
+              // Dim the icon to 20% opacity, makes the red pretty much blend in to the navbar
+              ?>
+            <a href="<?php echo(generate_url(array('page'=>'overview'))); ?>" alt="Notification center" class="dropdown-toggle" data-hover="dropdown" data-toggle="dropdown">
+              <i style="opacity: 0.2; filter: alpha(opacity=20);" class="oicon-tick-circle"></i></a>
+              <?php
+            }
+            ?>
+          </li>
 
           <li class="divider-vertical" style="margin:0;"></li>
           <li class="dropdown">
@@ -315,9 +346,8 @@ if ($cachesize < 0) { $cachesize = 0; } // Silly PHP!
             </div>
           </li>
 
-<?php if ($config['profile_sql'] == TRUE)
-{  // profile_sql
-
+<?php if ($config['profile_sql'] == TRUE) // FIXME level 10 only?
+{
 ?>
           <li class="dropdown">
             <a href="<?php echo(generate_url(array('page'=>'overview'))); ?>" class="dropdown-toggle" data-hover="dropdown" data-toggle="dropdown">
@@ -352,16 +382,16 @@ if ($cachesize < 0) { $cachesize = 0; } // Silly PHP!
 </div>
 
 <?php
-if (is_array($pagetitle))
+if (is_array($page_title))
 {
   // if prefix is set, put it in front
-  if ($config['page_title_prefix']) { array_unshift($pagetitle,$config['page_title_prefix']); }
+  if ($config['page_title_prefix']) { array_unshift($page_title,$config['page_title_prefix']); }
 
   // if suffix is set, put it in the back
-  if ($config['page_title_suffix']) { $pagetitle[] = $config['page_title_suffix']; }
+  if ($config['page_title_suffix']) { $page_title[] = $config['page_title_suffix']; }
 
   // create and set the title
-  $title = join(" - ",$pagetitle);
+  $title = join(" - ",$page_title);
 
   echo('<script type="text/javascript">document.title = "'.$title.'";</script>');
 }

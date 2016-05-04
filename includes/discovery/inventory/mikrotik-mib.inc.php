@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -31,7 +31,7 @@ if ($mtxrSerialNumber)
   );
   discover_inventory($valid['inventory'], $device, $system_index, $inventory[$system_index], "MIKROTIK-MIB");
 
-  if ($debug && count($inventory)) { print_vars($inventory); }
+  if (OBS_DEBUG > 1 && count($inventory)) { print_vars($inventory); }
 }
 
 echo(PHP_EOL);

@@ -1,0 +1,400 @@
+VPLS-BGP-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+
+MODULE-IDENTITY, OBJECT-TYPE,
+Unsigned32, transmission
+   FROM SNMPv2-SMI                    -- RFC 2578
+
+MODULE-COMPLIANCE, OBJECT-GROUP
+   FROM SNMPv2-CONF                   -- RFC 2580
+
+RowStatus, StorageType
+   FROM SNMPv2-TC                     -- RFC 2579
+
+SnmpAdminString
+   FROM SNMP-FRAMEWORK-MIB            -- RFC 3411
+
+pwIndex
+   FROM PW-STD-MIB                    -- RFC 5601
+
+vplsConfigIndex
+   FROM VPLS-GENERIC-MIB
+;
+
+vplsBgpMIB MODULE-IDENTITY
+   LAST-UPDATED "201405191200Z"  -- 19 May 2014 12:00:00 GMT
+
+   ORGANIZATION "Layer 2 Virtual Private Networks (L2VPN)
+                              Working Group"
+   CONTACT-INFO
+       "
+        V. J. Shah
+        Email: vshah@juniper.net
+
+        The L2VPN Working Group (email distribution l2vpn@ietf.org,
+        http://www.ietf.org/wg/l2vpn/charter/)
+        "
+   DESCRIPTION
+       "Copyright (c) 2014 IETF Trust and the persons
+        identified as authors of the code.  All rights reserved.
+
+        Redistribution and use in source and binary forms, with
+        or without modification, is permitted pursuant to, and
+        subject to the license terms contained in, the Simplified
+        BSD License set forth in Section 4.c of the IETF Trust's
+        Legal Provisions Relating to IETF Documents
+        (http://trustee.ietf.org/license-info).
+
+        The initial version of this MIB module was published in
+        RFC 7257; for full legal notices see the RFC itself.
+
+        This MIB module contains managed object definitions for
+        BGP signaled Virtual Private LAN Service as in
+        RFC 4761.
+
+        This MIB module enables the use of any underlying
+        pseudowire network."
+
+   -- Revision history.
+   REVISION
+       "201405191200Z"  -- 19 May 2014 12:00:00 GMT
+   DESCRIPTION "Initial version published as part of RFC 7257."
+         ::= { transmission 276 }
+
+-- Top-level components of this MIB.
+
+-- Tables, Scalars
+vplsBgpObjects       OBJECT IDENTIFIER
+                              ::= { vplsBgpMIB 1 }
+-- Conformance
+vplsBgpConformance   OBJECT IDENTIFIER
+                              ::= { vplsBgpMIB 2 }
+
+   -- Vpls Bgp Config Table
+
+   vplsBgpConfigTable OBJECT-TYPE
+       SYNTAX          SEQUENCE OF VplsBgpConfigEntry
+       MAX-ACCESS      not-accessible
+       STATUS          current
+       DESCRIPTION
+            "This table specifies information for configuring
+             and monitoring BGP-specific parameters for
+             Virtual Private LAN Service (VPLS)."
+       ::= { vplsBgpObjects 1 }
+
+   vplsBgpConfigEntry OBJECT-TYPE
+       SYNTAX          VplsBgpConfigEntry
+       MAX-ACCESS      not-accessible
+       STATUS          current
+       DESCRIPTION
+        "A row in this table represents BGP-specific information
+        for Virtual Private LAN Service (VPLS) in a packet
+        network.  It is indexed by vplsConfigIndex, which uniquely
+        identifies a single instance of a VPLS service.
+
+        A row is automatically created when a VPLS service is
+        created that is configured to use BGP signaling.
+
+        All of the writable object values can be
+        changed when vplsConfigRowStatus is in the active(1)
+        state.
+         "
+       INDEX           { vplsConfigIndex }
+       ::= { vplsBgpConfigTable 1 }
+
+  VplsBgpConfigEntry ::=
+
+     SEQUENCE {
+      vplsBgpConfigVERangeSize         Unsigned32
+     }
+
+  vplsBgpConfigVERangeSize   OBJECT-TYPE
+     SYNTAX        Unsigned32 (0..65535)
+     MAX-ACCESS    read-write
+     STATUS        current
+     DESCRIPTION
+         "Specifies the size of the range of VPLS Edge
+          Identifier (VE ID) in this VPLS service.  This
+          number controls the size of the label block
+          advertised for this VE by the PE.  A value of 0
+          indicates that the range is not configured and
+          the PE derives the range value from received
+          advertisements from other PEs.
+
+          The VE ID takes 2 octets in VPLS BGP NLRI according
+          to RFC 4761.  Hence we have limited the range of
+          this object to 65535."
+     DEFVAL           { 0 }
+     ::= { vplsBgpConfigEntry 1 }
+
+  -- Vpls Edge Device (VE) Identifier Table
+
+  vplsBgpVETable OBJECT-TYPE
+      SYNTAX        SEQUENCE OF VplsBgpVEEntry
+      MAX-ACCESS    not-accessible
+      STATUS        current
+      DESCRIPTION
+         "This table associates VPLS Edge devices to a VPLS service"
+      ::= { vplsBgpObjects 2 }
+
+  vplsBgpVEEntry OBJECT-TYPE
+      SYNTAX        VplsBgpVEEntry
+      MAX-ACCESS    not-accessible
+      STATUS        current
+      DESCRIPTION
+         "An entry in this table is created for each VE ID
+          configured on a PE for a particular VPLS service
+          instance.
+
+          Entries in this table may be created or deleted
+          through SNMP, as side effects of console or other
+          non-SNMP management commands, or upon learning via
+          autodiscovery.
+
+          It is optional for the agent to allow entries to be
+          created that point to nonexistent entries in
+          vplsConfigTable."
+      INDEX  { vplsConfigIndex, vplsBgpVEId }
+      ::= { vplsBgpVETable 1 }
+
+  VplsBgpVEEntry ::= SEQUENCE {
+       vplsBgpVEId          Unsigned32,
+       vplsBgpVEName        SnmpAdminString,
+       vplsBgpVEPreference  Unsigned32,
+       vplsBgpVERowStatus   RowStatus,
+       vplsBgpVEStorageType StorageType
+     }
+
+  vplsBgpVEId OBJECT-TYPE
+     SYNTAX        Unsigned32 (1..65535)
+     MAX-ACCESS    not-accessible
+     STATUS        current
+     DESCRIPTION
+         "A secondary index identifying a VE within an
+          instance of a VPLS service.
+
+          The VE ID takes 2 octets in VPLS BGP NLRI according
+          to RFC 4761.  Hence, we have limited the range of
+          this object to 65535."
+     ::= { vplsBgpVEEntry 1 }
+
+  vplsBgpVEName OBJECT-TYPE
+     SYNTAX        SnmpAdminString
+     MAX-ACCESS    read-create
+     STATUS        current
+     DESCRIPTION
+         "Descriptive name for the site or user-facing PE
+          (U-PE) associated with this VE ID."
+     DEFVAL { "" }
+     ::= { vplsBgpVEEntry 2 }
+
+  vplsBgpVEPreference OBJECT-TYPE
+     SYNTAX        Unsigned32 (0..65535)
+     MAX-ACCESS    read-create
+     STATUS        current
+     DESCRIPTION
+         "Specifies the preference of the VE ID on this
+          Provider Edge (PE) if the site is multihomed
+          and VE ID is reused."
+     DEFVAL           { 0 }
+     ::= { vplsBgpVEEntry 3 }
+
+  vplsBgpVERowStatus OBJECT-TYPE
+     SYNTAX        RowStatus
+     MAX-ACCESS    read-create
+     STATUS        current
+     DESCRIPTION
+         "This variable is used to create, modify, and/or
+          delete a row in this table.
+
+          All other objects in this row must be set to valid
+          values before this object can be set to active(1).
+
+          When a row in this table is in active(1) state, no
+          objects in that row can be modified except
+          vplsBgpSiteRowStatus."
+     ::= { vplsBgpVEEntry 5 }
+
+  vplsBgpVEStorageType OBJECT-TYPE
+       SYNTAX        StorageType
+       MAX-ACCESS    read-create
+       STATUS        current
+       DESCRIPTION
+            "This variable indicates the storage type for this
+
+             row."
+       DEFVAL { volatile }
+       ::= { vplsBgpVEEntry 6 }
+
+   -- VPLS BGP PW Binding Table
+
+   vplsBgpPwBindTable OBJECT-TYPE
+       SYNTAX          SEQUENCE OF VplsBgpPwBindEntry
+       MAX-ACCESS      not-accessible
+       STATUS          current
+       DESCRIPTION
+            "This table provides BGP-specific information for
+             an association between a VPLS service and the
+             corresponding pseudowires.  A service can have more
+             than one pseudowire association.  Pseudowires are
+             defined in the pwTable."
+       ::= { vplsBgpObjects 3 }
+
+   vplsBgpPwBindEntry OBJECT-TYPE
+       SYNTAX          VplsBgpPwBindEntry
+       MAX-ACCESS      not-accessible
+       STATUS          current
+       DESCRIPTION
+            "Each row represents an association between a
+             VPLS instance and one or more pseudowires
+             defined in the pwTable.  Each index is unique
+             in describing an entry in this table.  However,
+             both indexes are required to define the one
+             to many association of service to pseudowire.
+
+             An entry in this table in instantiated only when
+             BGP signaling is used to configure VPLS service.
+
+             Each entry in this table provides BGP-specific
+             information for the VPLS represented by
+             vplsConfigIndex."
+       INDEX  { vplsConfigIndex, pwIndex }
+       ::= { vplsBgpPwBindTable 1 }
+
+   VplsBgpPwBindEntry ::=
+       SEQUENCE {
+           vplsBgpPwBindLocalVEId        Unsigned32,
+           vplsBgpPwBindRemoteVEId       Unsigned32
+       }
+   vplsBgpPwBindLocalVEId   OBJECT-TYPE
+        SYNTAX          Unsigned32 (1..65535)
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+             "Identifies the local VE with which this pseudowire
+              is associated.
+
+              The VE ID takes 2 octets in VPLS BGP NLRI according
+              to RFC 4761.  Hence, we have limited the range of
+              this object to 65535."
+       ::= { vplsBgpPwBindEntry 1 }
+
+   vplsBgpPwBindRemoteVEId   OBJECT-TYPE
+        SYNTAX          Unsigned32 (1..65535)
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+             "Identifies the remote VE with which this pseudowire
+              is associated.
+
+              The VE ID takes 2 octets in VPLS BGP NLRI according
+              to RFC 4761.  Hence, we have limited the range of
+              this object to 65535."
+       ::= { vplsBgpPwBindEntry 2 }
+
+-- Conformance Section
+
+-- Compliance requirement for fully compliant implementations
+
+vplsBgpCompliances
+  OBJECT IDENTIFIER ::= { vplsBgpConformance 1 }
+
+vplsBgpModuleFullCompliance MODULE-COMPLIANCE
+   STATUS current
+   DESCRIPTION
+        "Compliance requirement for implementations that
+         provide full support for VPLS-BGP-MIB.
+
+         Such devices can then be monitored and configured using
+         this MIB module."
+
+   MODULE -- this module
+
+       MANDATORY-GROUPS {
+            vplsBgpConfigGroup,
+            vplsBgpVEGroup,
+            vplsBgpPwBindGroup
+        }
+   ::= { vplsBgpCompliances 1 }
+
+-- Compliance requirement for read-only implementations.
+
+vplsBgpModuleReadOnlyCompliance MODULE-COMPLIANCE
+   STATUS current
+   DESCRIPTION
+        "Compliance requirement for implementations that only
+         provide read-only support for VPLS-BGP-MIB.
+         Such devices can then be monitored but cannot be
+         configured using this MIB modules."
+
+   MODULE -- this module
+
+       MANDATORY-GROUPS {
+            vplsBgpConfigGroup,
+            vplsBgpVEGroup,
+            vplsBgpPwBindGroup
+        }
+
+        OBJECT          vplsBgpConfigVERangeSize
+        MIN-ACCESS      read-only
+        DESCRIPTION
+            "Write access is not required."
+
+        OBJECT          vplsBgpVEName
+        MIN-ACCESS      read-only
+        DESCRIPTION
+            "Write access is not required."
+
+        OBJECT          vplsBgpVEPreference
+        MIN-ACCESS      read-only
+        DESCRIPTION
+            "Write access is not required."
+
+        OBJECT          vplsBgpVERowStatus
+        MIN-ACCESS      read-only
+        DESCRIPTION
+            "Write access is not required."
+   ::= { vplsBgpCompliances 2 }
+
+-- Units of conformance.
+
+ vplsBgpGroups
+
+   OBJECT IDENTIFIER ::= { vplsBgpConformance 2 }
+
+ vplsBgpConfigGroup OBJECT-GROUP
+     OBJECTS {
+         vplsBgpConfigVERangeSize
+     }
+     STATUS          current
+     DESCRIPTION
+          "The group of objects supporting configuration
+           of L2VPN VPLS services using BGP."
+     ::= { vplsBgpGroups 1 }
+
+ vplsBgpVEGroup OBJECT-GROUP
+     OBJECTS {
+         vplsBgpVEName,
+         vplsBgpVEPreference,
+         vplsBgpVERowStatus,
+         vplsBgpVEStorageType
+     }
+     STATUS          current
+     DESCRIPTION
+          "The group of objects supporting management of VPLS
+           Edge devices for L2VPN VPLS services using BGP."
+     ::= { vplsBgpGroups 2 }
+
+ vplsBgpPwBindGroup OBJECT-GROUP
+     OBJECTS {
+         vplsBgpPwBindLocalVEId,
+         vplsBgpPwBindRemoteVEId
+     }
+     STATUS          current
+     DESCRIPTION
+          "The group of objects supporting management of
+           pseudowires for L2VPN VPLS services using BGP."
+     ::= { vplsBgpGroups 3 }
+
+END

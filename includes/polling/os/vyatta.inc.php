@@ -7,10 +7,17 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-list($features, $version) = explode("-", trim(str_replace("Vyatta", "", snmp_get($device, "SNMPv2-MIB::sysDescr.0", "-Oqv", "SNMPv2-MIB"))), 2);
+// Vyatta
+// Vyatta unknown-version
+// Vyatta VC6.2-2011.02.09
+// Vyatta Vyatta Core 6.0 Beta 2010.02.19
+if (preg_match('/Vyatta (?:[a-z ]+)(?<version>[\d\.]+)/i', $poll_device['sysDescr'], $matches))
+{
+  $version = $matches['version'];
+}
 
 // EOF

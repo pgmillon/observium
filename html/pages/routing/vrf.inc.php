@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -56,29 +56,36 @@ if ($_SESSION['userlevel'] >= '5')
 
   if (!$vars['vrf'])
   {
-
     // Pre-Cache in arrays
     // That's heavier on RAM, but much faster on CPU (1:40)
 
     // Specifying the fields reduces a lot the RAM used (1:4) .
-    $vrf_fields = "vrf_id, mplsVpnVrfRouteDistinguisher, mplsVpnVrfDescription, vrf_name";
-    $dev_fields = "D.device_id as device_id, hostname, os, hardware, version, features, location, status, `ignore`, disabled";
-    $port_fields = "port_id, ifvrf, device_id, ifDescr, ifAlias, ifName";
+    $vrf_fields = "`vrf_id`, `mplsVpnVrfRouteDistinguisher`, `mplsVpnVrfDescription`, `vrf_name`";
+    $dev_fields = "`device_id`, `hostname`, `os`, `hardware`, `version`, `features`, `location`, `status`, `ignore`, `disabled`";
+    $port_fields = "`port_id`, `ifVrf`, `device_id`, `ifDescr`, `ifAlias`, `ifName`";
 
-    foreach (dbFetchRows("SELECT $vrf_fields, $dev_fields FROM `vrfs` AS V, `devices` AS D WHERE D.device_id = V.device_id") as $vrf_device)
+    foreach (dbFetchRows("SELECT $vrf_fields, $dev_fields FROM `vrfs` LEFT JOIN `devices` USING (`device_id`) WHERE 1".$GLOBALS['cache']['where']['devices_permitted']) as $vrf_device)
     {
-      if (empty($vrf_devices[$vrf_device['mplsVpnVrfRouteDistinguisher']])) { $vrf_devices[$vrf_device['mplsVpnVrfRouteDistinguisher']][0] = $vrf_device; }
-        else { array_push ($vrf_devices[$vrf_device['mplsVpnVrfRouteDistinguisher']], $vrf_device); }
+      if (empty($vrf_devices[$vrf_device['mplsVpnVrfRouteDistinguisher']]))
+      {
+        $vrf_devices[$vrf_device['mplsVpnVrfRouteDistinguisher']][0] = $vrf_device;
+      } else {
+        array_push($vrf_devices[$vrf_device['mplsVpnVrfRouteDistinguisher']], $vrf_device);
+      }
     }
 
-    foreach (dbFetchRows("SELECT $port_fields FROM `ports` WHERE ifVrf<>0") as $port)
+    foreach (dbFetchRows("SELECT $port_fields FROM `ports` WHERE `ifVrf` <> 0".$GLOBALS['cache']['where']['ports_permitted']) as $port)
     {
-      if (empty($ports[$port['ifvrf']][$port['device_id']])) { $ports[$port['ifvrf']][$port['device_id']][0] = $port; }
-        else { array_push ($ports[$port['ifvrf']][$port['device_id']], $port); }
+      if (empty($vrf_ports[$port['ifVrf']][$port['device_id']]))
+      {
+        $vrf_ports[$port['ifVrf']][$port['device_id']][0] = $port;
+      } else {
+        array_push($vrf_ports[$port['ifVrf']][$port['device_id']], $port);
+      }
     }
 
     echo('<table class="table table-bordered table-striped">');
-    foreach (dbFetchRows("SELECT * FROM `vrfs` GROUP BY `mplsVpnVrfRouteDistinguisher`") as $vrf)
+    foreach (dbFetchRows("SELECT * FROM `vrfs` WHERE 1".$GLOBALS['cache']['where']['devices_permitted']." GROUP BY `mplsVpnVrfRouteDistinguisher`") as $vrf)
     {
       echo('<tr>');
       echo('<td style="width: 240px;"><a class="entity" href="'.generate_url($link_array,array('vrf' => $vrf['mplsVpnVrfRouteDistinguisher'])).'">' . $vrf['vrf_name'] . '</a><br /><span class="small">' . $vrf['mplsVpnVrfDescription'] . '</span></td>');
@@ -94,9 +101,9 @@ if ($_SESSION['userlevel'] >= '5')
         echo("</td><td>");
         unset($seperator);
 
-        foreach ($ports[$device['vrf_id']][$device['device_id']] as $port)
+        foreach ($vrf_ports[$device['vrf_id']][$device['device_id']] as $port)
         {
-          $port = array_merge ($device, $port);
+          $port = array_merge($device, $port);
 
           switch ($vars['graph'])
           {
@@ -139,15 +146,15 @@ if ($_SESSION['userlevel'] >= '5')
     // Print single VRF
 
     echo("<div style='background: $list_colour_a; padding: 10px;'><table cellspacing=0 cellpadding=5 width=100%>");
-    $vrf = dbFetchRow("SELECT * FROM `vrfs` WHERE mplsVpnVrfRouteDistinguisher = ?", array($vars['vrf']));
+    $vrf = dbFetchRow("SELECT * FROM `vrfs` WHERE `mplsVpnVrfRouteDistinguisher` = ? ".$GLOBALS['cache']['where']['devices_permitted'], array($vars['vrf']));
     echo('<tr>');
     echo('<td style="width: 200px;" class="entity-title"><a href="'.generate_url($link_array,array('vrf' => $vrf['mplsVpnVrfRouteDistinguisher'])).'">' . $vrf['vrf_name'] . '</a></td>');
     echo('<td style="width: 100px;" class="small">' . $vrf['mplsVpnVrfRouteDistinguisher'] . '</td>');
     echo('<td style="width: 200px;" class="small">' . $vrf['mplsVpnVrfDescription'] . '</td>');
     echo('</table></div>');
 
-    $devices = dbFetchRows("SELECT * FROM `vrfs` AS V, `devices` AS D WHERE `mplsVpnVrfRouteDistinguisher` = ? AND D.device_id = V.device_id", array($vrf['mplsVpnVrfRouteDistinguisher']));
-    foreach ($devices as $device)
+    $vrf_devices = dbFetchRows("SELECT * FROM `vrfs` LEFT JOIN `devices` USING (`device_id`) WHERE `mplsVpnVrfRouteDistinguisher` = ? ".$GLOBALS['cache']['where']['devices_permitted'], array($vrf['mplsVpnVrfRouteDistinguisher']));
+    foreach ($vrf_devices as $device)
     {
       $hostname = $device['hostname'];
       echo('<table cellpadding="10" cellspacing="0" class="devicetable" width="100%">');
@@ -158,7 +165,7 @@ if ($_SESSION['userlevel'] >= '5')
       unset($seperator);
       echo('<div style="margin: 10px;"><table class="table table-bordered table-striped">');
       $i=1;
-      foreach (dbFetchRows("SELECT * FROM `ports` WHERE `ifVrf` = ? AND `device_id` = ?", array($device['vrf_id'], $device['device_id'])) as $port)
+      foreach (dbFetchRows("SELECT * FROM `ports` WHERE `ifVrf` = ? AND `device_id` = ?".$GLOBALS['cache']['where']['ports_permitted'], array($device['vrf_id'], $device['device_id'])) as $port)
       {
 
         include("includes/print-interface.inc.php");

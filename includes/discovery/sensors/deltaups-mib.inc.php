@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -19,6 +19,7 @@ $dupsSensors = array(
   array('OID' => "1.3.6.1.4.1.2254.2.4.4.4.0",  'descr' => "Input",       'scale' => 0.1, 'class' => 'current'),     # dupsInputCurrent1.0
   array('OID' => "1.3.6.1.4.1.2254.2.4.6.4.0",  'descr' => "Bypass",      'scale' => 0.1, 'class' => 'current'),     # dupsBypassCurrent1.0
   array('OID' => "1.3.6.1.4.1.2254.2.4.7.8.0",  'descr' => "Battery Capacity", 'scale' => 1, 'class' => 'capacity'),     # dupsBatteryCapacity.0
+  array('OID' => "1.3.6.1.4.1.2254.2.4.7.5.0",  'descr' => "Battery Runtime Remaining", 'scale' => 1, 'class' => 'runtime'),     # dupsBatteryEstimatedTime.0
   array('OID' => "1.3.6.1.4.1.2254.2.4.5.7.0",  'descr' => "Output Load",      'scale' => 1, 'class' => 'capacity'),     # dupsOutputLoad1.0
   array('OID' => "1.3.6.1.4.1.2254.2.4.5.2.0",  'descr' => "Output",      'scale' => 0.1, 'class' => 'frequency'),   # dupsOutputFrequency.0
   array('OID' => "1.3.6.1.4.1.2254.2.4.4.2.0",  'descr' => "Input",       'scale' => 0.1, 'class' => 'frequency'),   # dupsInputFrequency.0
@@ -45,7 +46,7 @@ foreach ($dupsSensors as $eachArray => $eachValue)
   // Prevent NULL returned values from being added as sensors
   if (is_numeric($value))
   {
-    discover_sensor($valid['sensor'], $eachValue['class'], $device, $eachValue['OID'], $index, "DeltaUPS", $eachValue['descr'], $eachValue['scale'], $value * $eachValue['scale']);
+    discover_sensor($valid['sensor'], $eachValue['class'], $device, $eachValue['OID'], $index, "DeltaUPS", $eachValue['descr'], $eachValue['scale'], $value);
   }
 }
 

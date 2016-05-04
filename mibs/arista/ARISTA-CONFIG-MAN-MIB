@@ -1,0 +1,245 @@
+-- ARISTA-CONFIG-MAN-MIB: arista structure of config management information
+-- Copyright (c) 2012 Arista Networks, Inc.  All rights reserved.
+
+ARISTA-CONFIG-MAN-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-COMPLIANCE, 
+    OBJECT-GROUP, NOTIFICATION-GROUP     FROM SNMPv2-CONF
+    MODULE-IDENTITY, OBJECT-TYPE,
+    Unsigned32, TimeTicks                FROM SNMPv2-SMI
+    TEXTUAL-CONVENTION                   FROM SNMPv2-TC
+    NOTIFICATION-TYPE                    FROM SNMPv2-SMI
+    aristaMibs                           FROM ARISTA-SMI-MIB;
+
+aristaConfigManMIB MODULE-IDENTITY
+    LAST-UPDATED "201408150000Z"
+    ORGANIZATION "Arista Networks, Inc."
+    CONTACT-INFO
+        "Arista Networks, Inc.
+
+         Postal: 5453 Great America Parkway
+                 Santa Clara, CA 95054
+
+         Tel: +1 408 547-5500
+
+         E-mail: snmp@arista.com"
+    DESCRIPTION
+            "This MIB provides notifications in case of configuration events.
+            Notification to the managing device are sent (aristaConfigManEvent)
+            in case of the occurence of a config event.
+            The config events can take place from any of the following sources:
+
+            cli   commands issued via CLI
+            snmp  snmpsets via SNMP
+
+            aristaConfigManEvent would provide information about command source
+            config source, config destination, config source URL (for instance flash,
+            ftp, http and so on) and config destination URL.            
+            "
+
+       REVISION      "201408150000Z"
+       DESCRIPTION
+            "Updated postal and e-mail addresses."
+       REVISION      "201405061300Z"
+       DESCRIPTION
+            "Addition of session(6) under ConfigHistoryEventMedium."
+       REVISION      "201208231300Z"
+       DESCRIPTION
+            "Initial version."
+       ::= { aristaMibs 9 }
+
+-- Textual Conventions --
+ConfigHistoryEventMedium ::= TEXTUAL-CONVENTION
+    STATUS          current
+    DESCRIPTION
+            "The source or destination of a configuration change,
+            save, or copy.
+            erase           erasing destination (source only)
+            running         live operational data
+            commandSource   the command source itself
+            startup         what the system will use next reboot
+            url             when the source/destination is a URL (like: flash,
+                            ftp, http etc). The value of URL will be present in
+                            aristaCmdHistoryEventConfigSourceURLScheme or
+                            aristaCmdHistoryEventConfigDestURLScheme.
+            none            when none of the above mentioned options apply."
+
+    SYNTAX          INTEGER  {
+                        none(0),
+                        erase(1),
+                        commandSource(2),
+                        running(3),
+                        startup(4),
+                        url(5),
+                        session(6)
+                    }
+
+aristaConfigManMIBObjects OBJECT IDENTIFIER
+    ::= { aristaConfigManMIB 1 }
+
+aristaConfigManMibConformance OBJECT IDENTIFIER
+    ::= { aristaConfigManMIB 2 }
+
+aristaCmdHistory OBJECT IDENTIFIER
+    ::= { aristaConfigManMIBObjects 1 }
+
+-- Configuration History
+aristaCmdHistoryRunningLastChanged OBJECT-TYPE
+    SYNTAX          TimeTicks
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+            "The value of sysUpTime when the running configuration
+            was last changed."
+    ::= { aristaCmdHistory 1 }
+
+aristaCmdHistoryEventTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF AristaCmdHistoryEventEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "A table of configuration events on this router."
+    ::= { aristaCmdHistory 2 }
+
+aristaCmdHistoryEventEntry OBJECT-TYPE
+    SYNTAX          AristaCmdHistoryEventEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+            "Information about a configuration event on this
+            router."
+    INDEX           { aristaCmdHistoryEventIndex } 
+    ::= { aristaCmdHistoryEventTable 1 }
+
+AristaCmdHistoryEventEntry ::= SEQUENCE {
+        aristaCmdHistoryEventIndex                 Unsigned32,
+        aristaCmdHistoryEventTime                  TimeTicks,
+        aristaCmdHistoryEventCommandSource         INTEGER,
+        aristaCmdHistoryEventConfigSource          ConfigHistoryEventMedium,
+        aristaCmdHistoryEventConfigDestination     ConfigHistoryEventMedium,
+        aristaCmdHistoryEventConfigSourceURLScheme OCTET STRING,
+        aristaCmdHistoryEventConfigDestURLScheme   OCTET STRING
+}
+
+aristaCmdHistoryEventIndex OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+            "A monotonically increasing integer for the sole
+            purpose of indexing events."
+    ::= { aristaCmdHistoryEventEntry 1 }
+
+aristaCmdHistoryEventTime OBJECT-TYPE
+    SYNTAX          TimeTicks
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The value of sysUpTime when the configuration event occurred."
+    ::= { aristaCmdHistoryEventEntry 2 }
+
+aristaCmdHistoryEventCommandSource OBJECT-TYPE
+    SYNTAX          INTEGER  {
+                        commandLine(0),
+                        snmp(1)
+                    }
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The source from where the config command was initiated." 
+    ::= { aristaCmdHistoryEventEntry 3 }
+
+aristaCmdHistoryEventConfigSource OBJECT-TYPE
+    SYNTAX          ConfigHistoryEventMedium
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The configuration data source for the event." 
+    ::= { aristaCmdHistoryEventEntry 4 }
+
+aristaCmdHistoryEventConfigDestination OBJECT-TYPE
+    SYNTAX          ConfigHistoryEventMedium
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The configuration data destination for the event." 
+    ::= { aristaCmdHistoryEventEntry 5 }
+
+aristaCmdHistoryEventConfigSourceURLScheme OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE(0..255))
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The config source URL scheme." 
+    ::= { aristaCmdHistoryEventEntry 6 }
+
+aristaCmdHistoryEventConfigDestURLScheme OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE(0..255))
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The config destination URL scheme." 
+    ::= { aristaCmdHistoryEventEntry 7 }
+
+-- Notifications
+aristaConfigManMIBNotificationPrefix  OBJECT IDENTIFIER
+    ::= { aristaConfigManMIB 3 }
+
+aristaConfigManMIBNotifications  OBJECT IDENTIFIER
+    ::= { aristaConfigManMIBNotificationPrefix 0 }
+
+
+aristaConfigManEvent NOTIFICATION-TYPE
+    OBJECTS         {
+                        aristaCmdHistoryEventCommandSource,
+                        aristaCmdHistoryEventConfigSource,
+                        aristaCmdHistoryEventConfigDestination,
+                        aristaCmdHistoryEventConfigSourceURLScheme,
+                        aristaCmdHistoryEventConfigDestURLScheme
+                    }
+    STATUS          current
+    DESCRIPTION
+            "Notification of a configuration management event as
+            recorded in aristaCmdHistoryEventTable."
+   ::= { aristaConfigManMIBNotifications 1 }
+
+-- Compliance, MIB groups
+
+aristaConfigManMibCompliances OBJECT IDENTIFIER
+   ::= { aristaConfigManMibConformance 1 }
+
+aristaConfigManMibGroups OBJECT IDENTIFIER 
+    ::= { aristaConfigManMibCompliances 2 }
+
+aristaConfigManMibCompliance  MODULE-COMPLIANCE
+    STATUS          current
+    DESCRIPTION     "The compliance statement for Arista switches that
+                    support CONFIG-MAN-MIB."
+    MODULE          -- this module
+    MANDATORY-GROUPS {
+                         aristaConfigEventDetailGroup,
+                         aristaConfigManMibNotificationsGroup
+                     }
+    ::= { aristaConfigManMibCompliances 1 }
+
+aristaConfigEventDetailGroup  OBJECT-GROUP
+    OBJECTS       {
+                      aristaCmdHistoryRunningLastChanged,
+                      aristaCmdHistoryEventTime,
+                      aristaCmdHistoryEventCommandSource,
+                      aristaCmdHistoryEventConfigSource,
+                      aristaCmdHistoryEventConfigDestination,
+                      aristaCmdHistoryEventConfigSourceURLScheme,
+                      aristaCmdHistoryEventConfigDestURLScheme
+                  }
+    STATUS       current
+    DESCRIPTION
+        "The collection of objects that represent the redundancy
+        status in the system."
+    ::= { aristaConfigManMibGroups 1 }
+
+aristaConfigManMibNotificationsGroup  NOTIFICATION-GROUP
+    NOTIFICATIONS {
+                      aristaConfigManEvent
+                  }
+    STATUS        current
+    DESCRIPTION
+        "The collection of notifications generated by the system upon
+        configuration events."
+    ::= { aristaConfigManMibGroups 2 }
+
+END

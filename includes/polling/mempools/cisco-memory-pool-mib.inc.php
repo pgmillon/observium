@@ -7,20 +7,28 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 $mib = 'CISCO-MEMORY-POOL-MIB';
 
-foreach (array('ciscoMemoryPoolUsed', 'ciscoMemoryPoolFree') as $oid)
+if (!is_array($cache_storage['cisco-memory-pool-mib']))
 {
-  $cache_mempool = snmpwalk_cache_multi_oid($device, $oid, $cache_mempool, $mib, mib_dirs('cisco'));
+  foreach (array('ciscoMemoryPoolUsed', 'ciscoMemoryPoolFree') as $oid)
+  {
+    $cache_mempool = snmpwalk_cache_multi_oid($device, $oid, $cache_mempool, $mib, mib_dirs('cisco'));
+  }
+  $cache_storage['cisco-memory-pool-mib'] = $cache_mempool;
+} else {
+  print_debug("Cached!");
 }
 
 $index            = $mempool['mempool_index'];
-$mempool['used']  = $cache_mempool[$index]['ciscoMemoryPoolUsed'];
-$mempool['free']  = $cache_mempool[$index]['ciscoMemoryPoolFree'];
+$mempool['used']  = $cache_storage['cisco-memory-pool-mib'][$index]['ciscoMemoryPoolUsed'];
+$mempool['free']  = $cache_storage['cisco-memory-pool-mib'][$index]['ciscoMemoryPoolFree'];
 $mempool['total'] = $mempool['used'] + $mempool['free'];
+
+unset ($index, $oid);
 
 // EOF

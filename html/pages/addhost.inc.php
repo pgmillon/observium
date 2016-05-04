@@ -2,12 +2,12 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -18,53 +18,52 @@ if ($_SESSION['userlevel'] < 10)
   exit;
 }
 
+echo '<div class="row">';
+
 echo("<h2>Add Device</h2>");
 
-echo('<div class="well well-white">');
-
-if ($_POST['hostname'])
+if ($vars['hostname'])
 {
-  if ($_SESSION['userlevel'] > '5')
+  if ($_SESSION['userlevel'] >= '10')
   {
-    $hostname = $_POST['hostname'];
+    $hostname = strip_tags($vars['hostname']);
+    $snmp_community = strip_tags($vars['snmp_community']);
 
-    if ($_POST['port'] && is_numeric($_POST['port'])) { $port = (int) $_POST['port']; } else { $port = 161; }
+    if ($vars['snmp_port'] && is_numeric($vars['snmp_port'])) { $snmp_port = (int)$vars['snmp_port']; } else { $snmp_port = 161; }
 
-    if ($_POST['snmpver'] === "v2c" or $_POST['snmpver'] === "v1")
+    if ($vars['snmp_version'] === "v2c" || $vars['snmp_version'] === "v1")
     {
-      if ($_POST['community'])
+      if ($vars['snmp_community'])
       {
-        $config['snmp']['community'] = array($_POST['community']);
+        $config['snmp']['community'] = array($snmp_community);
       }
 
-      $snmpver = $_POST['snmpver'];
-      print_message("Adding host $hostname communit" . (count($config['snmp']['community']) == 1 ? "y" : "ies") . " "  . implode(', ',$config['snmp']['community']) . " port $port");
+      $snmp_version = $vars['snmp_version'];
+      print_message("Adding host $hostname communit" . (count($config['snmp']['community']) == 1 ? "y" : "ies") . " "  . implode(', ',$config['snmp']['community']) . " port $snmp_port");
     }
-    elseif ($_POST['snmpver'] === "v3")
+    else if ($vars['snmp_version'] === "v3")
     {
-      $v3 = array (
-        'authlevel' => $_POST['authlevel'],
-        'authname' => $_POST['authname'],
-        'authpass' => $_POST['authpass'],
-        'authalgo' => $_POST['authalgo'],
-        'cryptopass' => $_POST['cryptopass'],
-        'cryptoalgo' => $_POST['cryptoalgo'],
+      $snmp_v3 = array (
+        'authlevel'  => $vars['snmp_authlevel'],
+        'authname'   => $vars['snmp_authname'],
+        'authpass'   => $vars['snmp_authpass'],
+        'authalgo'   => $vars['snmp_authalgo'],
+        'cryptopass' => $vars['snmp_cryptopass'],
+        'cryptoalgo' => $vars['snmp_cryptoalgo'],
       );
 
-      array_push($config['snmp']['v3'], $v3);
+      array_unshift($config['snmp']['v3'], $snmp_v3);
 
-      $snmpver = "v3";
+      $snmp_version = "v3";
 
-      print_message("Adding SNMPv3 host $hostname port $port");
-    }
-    else
-    {
-      print_error("Unsupported SNMP Version. There was a dropdown menu, how did you reach this error ?"); // We have a hacker!
+      print_message("Adding SNMPv3 host $hostname port $snmp_port");
+    } else {
+      print_error("Unsupported SNMP Version. There was a dropdown menu, how did you reach this error?"); // We have a hacker!
     }
 
-    if ($_POST['ignorerrd'] == 'confirm') { $config['rrd_override'] = TRUE; }
+    if ($vars['ignorerrd'] == 'confirm') { $config['rrd_override'] = TRUE; }
 
-    $result = add_device($hostname, $snmpver, $port);
+    $result = add_device($hostname, $snmp_version, $snmp_port, strip_tags($vars['snmp_transport']));
     if ($result)
     {
       print_success("Device added (id = $result)");
@@ -72,129 +71,225 @@ if ($_POST['hostname'])
   } else {
     print_error("You don't have the necessary privileges to add hosts.");
   }
+} else {
+  // Defaults
+  switch ($vars['snmp_version'])
+  {
+    case 'v1':
+    case 'v2c':
+    case 'v3':
+      $snmp_version = $vars['snmp_version'];
+      break;
+    default:
+      $snmp_version = $config['snmp']['version'];
+  }
+  if (in_array($vars['snmp_transport'], $config['snmp']['transports']))
+  {
+    $snmp_transport = $vars['snmp_transport'];
+  } else {
+    $snmp_transport = $config['snmp']['transports'][0];
+  }
 }
 
-$pagetitle[] = "Add host";
+$page_title[] = "Add Device";
 
 ?>
 
-<form name="form1" method="post" action="" class="form-horizontal">
-
-  <p>Devices will be checked for Ping and SNMP reachability before being probed. Only devices with recognised OSes will be added.</p>
-
-  <fieldset>
-    <legend>Device Properties</legend>
-    <div class="control-group">
-      <label class="control-label" for="hostname">Hostname</label>
-      <div class="controls">
-         <input type="text" name="hostname" size="32" value="<?php echo($vars['hostname']); ?>"/>
-      </div>
-      <label class="control-label" for="ignorerrd">Ignore RRD exist</label>
-      <div class="controls">
-        <label class="checkbox">
-          <input type="checkbox" name="ignorerrd" value="confirm" <?php if ($config['rrd_override']) { echo('disabled checked'); } ?> />Add device anyway if directory with RRDs already exists
-        </label>
-      </div>
-    </div>
-
+<form id="edit" name="edit" method="post" class="form-horizontal" action="">
   <input type="hidden" name="editing" value="yes">
-  <fieldset>
-    <legend>SNMP Properties</legend>
-    <div class="control-group">
-      <label class="control-label" for="snmpver">SNMP Version</label>
-      <div class="controls">
-        <select name="snmpver">
-          <option value="v1"  <?php echo($vars['snmpver'] == 'v1'  || ($vars['snmpver'] == '' && $config['snmp']['version'] == 'v1')  ? 'selected' : ''); ?> >v1</option>
-          <option value="v2c" <?php echo($vars['snmpver'] == 'v2c' || ($vars['snmpver'] == '' && $config['snmp']['version'] == 'v2c') ? 'selected' : ''); ?> >v2c</option>
-          <option value="v3"  <?php echo($vars['snmpver'] == 'v3'  || ($vars['snmpver'] == '' && $config['snmp']['version'] == 'v3')  ? 'selected' : ''); ?> >v3</option>
-        </select>
+
+  <div class="row">
+    <div class="col-md-6">
+
+      <div class="widget widget-table">
+        <div class="widget-header">
+          <i class="oicon-gear"></i><h3>Basic Configuration</h3>
+        </div>
+        <div class="widget-content"  style="padding-top: 10px;">
+
+          <fieldset>
+
+            <div class="control-group">
+              <label class="control-label" for="hostname">Hostname</label>
+              <div class="controls">
+                <input type=text name="hostname" size="32" value="<?php echo(escape_html($vars['hostname'])); ?>" />
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label class="control-label" for="snmp_version">Protocol Version</label>
+              <div class="controls">
+                <select class="selectpicker" name="snmp_version" id="snmp_version">
+                  <option value="v1"  <?php echo($snmp_version == 'v1'  ? 'selected' : ''); ?> >v1</option>
+                  <option value="v2c" <?php echo($snmp_version == 'v2c' ? 'selected' : ''); ?> >v2c</option>
+                  <option value="v3"  <?php echo($snmp_version == 'v3'  ? 'selected' : ''); ?> >v3</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label class="control-label" for="snmp_transport">Transport</label>
+              <div class="controls">
+                <select class="selectpicker" name="snmp_transport">
+                  <?php
+                  foreach ($config['snmp']['transports'] as $transport)
+                  {
+                    echo("<option value='".$transport."'");
+                    if ($transport == $snmp_transport) { echo(" selected='selected'"); }
+                    echo(">".$transport."</option>");
+                  }
+                  ?>
+                </select>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label class="control-label" for="snmp_port">Port</label>
+              <div class="controls">
+                <input type=text name="snmp_port" size="32" value="<?php echo(escape_html($vars['snmp_port'])); ?>"/>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label class="control-label" for="snmp_timeout">Timeout</label>
+              <div class="controls">
+                <input type=text name="snmp_timeout" size="32" value="<?php echo(escape_html($vars['snmp_timeout'])); ?>"/>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label class="control-label" for="snmp_retries">Retries</label>
+              <div class="controls">
+                <input type=text name="snmp_retries" size="32" value="<?php echo(escape_html($vars['snmp_retries'])); ?>"/>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label class="control-label" for="ignorerrd">Ignore RRD exist</label>
+              <div class="controls">
+                <label class="checkbox">
+                <input type="checkbox" name="ignorerrd" value="confirm" <?php if ($config['rrd_override']) { echo('disabled checked'); } ?> />Add device anyway if directory with RRDs already exists
+                </label>
+              </div>
+            </div>
+          </fieldset>
+        </div>
       </div>
     </div>
 
-    <div class="control-group">
-       <label class="control-label" for="port">SNMP Port</label>
-       <div class="controls">
-         <input type="text" name="port" size="32" value="161"/>
-       </div>
-     </div>
-  </fieldset>
+    <div class="col-lg-6 pull-right">
+      <div class="widget widget-table">
+        <div class="widget-header">
+          <i class="oicon-lock-warning"></i><h3>Authentication Configuration</h3>
+        </div>
+        <div class="widget-content" style="padding-top: 10px;">
 
-  <!-- To be able to hide it -->
-  <div id="snmpv12">
-    <fieldset>
-      <legend>SNMPv1/v2c Configuration</legend>
-      <div class="control-group">
-        <label class="control-label" for="community">SNMP Community</label>
-        <div class="controls">
-          <input type="text" name="community" size="32" value="<?php echo $vars['community']; ?>"/>
+          <!-- To be able to hide it -->
+          <div id="snmpv2">
+            <fieldset>
+              <div class="control-group">
+                <label class="control-label" for="snmp_community">SNMP Community</label>
+                <div class="controls">
+                  <input type=text name="snmp_community" size="32" value="<?php echo(escape_html($vars['snmp_community'])); // FIXME. For passwords we should use filter instead escape! ?>"/>
+                </div>
+              </div>
+            </fieldset>
+          </div>
+
+          <!-- To be able to hide it -->
+          <div id="snmpv3">
+            <fieldset>
+              <div class="control-group">
+                <label class="control-label" for="snmp_authlevel">Auth Level</label>
+                <div class="controls">
+                  <select class="selectpicker" name="snmp_authlevel" id="snmp_authlevel">
+                    <option value="noAuthNoPriv" <?php echo($vars['snmp_authlevel'] == 'noAuthNoPriv' ? 'selected' : ''); ?> >noAuthNoPriv</option>
+                    <option value="authNoPriv"   <?php echo($vars['snmp_authlevel'] == 'authNoPriv' ? 'selected' : ''); ?> >authNoPriv</option>
+                    <option value="authPriv"     <?php echo($vars['snmp_authlevel'] == 'authPriv' ? 'selected' : ''); ?> >authPriv</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="control-group">
+                <label class="control-label" for="snmp_authname">Auth User Name</label>
+                <div class="controls">
+                  <input type=text name="snmp_authname" size="32" value="<?php echo(escape_html($vars['snmp_authname'])); ?>"/>
+                </div>
+              </div>
+
+              <div class="control-group">
+                <label class="control-label" for="snmp_authpass">Auth Password</label>
+                <div class="controls">
+                  <input type="password" name="snmp_authpass" size="32" value="<?php echo(escape_html($vars['snmp_authpass'])); // FIXME. For passwords we should use filter instead escape! ?>"/>
+                </div>
+              </div>
+
+              <div class="control-group">
+                <label class="control-label" for="snmp_authalgo">Auth Algorithm</label>
+                <div class="controls">
+                  <select class="selectpicker" name="snmp_authalgo">
+                    <option value="MD5" <?php echo($vars['snmp_authalgo'] == 'MD5' ? 'selected' : ''); ?> >MD5</option>
+                    <option value="SHA" <?php echo($vars['snmp_authalgo'] == 'SHA' ? 'selected' : ''); ?> >SHA</option>
+                  </select>
+                </div>
+              </div>
+              <div id="authPriv"> <!-- only show this when auth level = authPriv -->
+                <div class="control-group">
+                  <label class="control-label" for="snmp_cryptopass">Crypto Password</label>
+                  <div class="controls">
+                    <input type="password" name="snmp_cryptopass" size="32" value="<?php echo(escape_html($vars['snmp_cryptopass'])); // FIXME. For passwords we should use filter instead escape! ?>"/>
+                  </div>
+                </div>
+
+                <div class="control-group">
+                  <label class="control-label" for="snmp_cryptoalgo">Crypto Algorithm</label>
+                  <div class="controls">
+                    <select class="selectpicker" name="snmp_cryptoalgo">
+                      <option value="AES" <?php echo($vars['snmp_cryptoalgo'] == "AES" ? 'selected' : ''); ?> >AES</option>
+                      <option value="DES" <?php echo($vars['snmp_cryptoalgo'] == "DES" ? 'selected' : ''); ?> >DES</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </fieldset>
+          </div> <!-- end col -->
         </div>
       </div>
-    </fieldset>
+    </div>
   </div>
-
-  <!-- To be able to hide it -->
-  <div id='snmpv3'>
-    <fieldset>
-      <legend>SNMPv3 Configuration</legend>
-      <div class="control-group">
-        <label class="control-label" for="authlevel">Auth Level</label>
-        <div class="controls">
-          <select name="authlevel">
-            <option value="noAuthNoPriv" <?php echo($vars['authlevel'] == 'noAuthNoPriv' ? 'selected' : ''); ?> >noAuthNoPriv</option>
-            <option value="authNoPriv"   <?php echo($vars['authlevel'] == 'authNoPriv' ? 'selected' : ''); ?> >authNoPriv</option>
-            <option value="authPriv"     <?php echo($vars['authlevel'] == 'authPriv' ? 'selected' : ''); ?> >authPriv</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="control-group">
-        <label class="control-label" for="authname">Auth User Name</label>
-        <div class="controls">
-          <input type="text" name="authname" size="32" value="<?php echo $vars['authname']; ?>"/>
-        </div>
-      </div>
-
-      <div class="control-group">
-        <label class="control-label" for="authpass">Auth Password</label>
-        <div class="controls">
-          <input type="text" name="authpass" size="32" value=""/>
-        </div>
-      </div>
-
-      <div class="control-group">
-        <label class="control-label" for="authalgo">Auth Algorithm</label>
-        <div class="controls">
-          <select name="authalgo">
-            <option value='MD5'>MD5</option>
-            <option value='SHA' <?php echo($vars['authalgo'] === "SHA" ? 'selected' : ''); ?>>SHA</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="control-group">
-        <label class="control-label" for="cryptopass">Crypto Password</label>
-        <div class="controls">
-          <input type="text" name="cryptopass" size="32" value=""/>
-        </div>
-      </div>
-
-      <div class="control-group">
-        <label class="control-label" for="cryptoalgo">Crypto Algorithm</label>
-        <div class="controls">
-          <select name="cryptoalgo">
-            <option value='AES'>AES</option>
-            <option value='DES' <?php echo($vars['authalgo'] === "DES" ? 'selected' : ''); ?>>DES</option>
-          </select>
-        </div>
-      </div>
-
-    </fieldset>
+  <div class="col-md-12">
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary" name="submit" value="save"><i class="icon-plus icon-white"></i> Add Device</button>
+    </div>
   </div>
-
-  <div class="form-actions">
-    <button type="submit" class="btn btn-success" name="submit" value="save"><i class="oicon-plus oicon-white"></i> Add Device</button>
-  </div>
-
 </form>
 
-</div> <?php /* FIXME there is no opening div for this, can probably go? */ ?>
+<script>
+
+  // Show/hide SNMPv1/2c or SNMPv3 authentication settings pane based on setting of protocol version.
+  //$("#snmpv2").hide();
+  //$("#snmpv3").hide();
+
+  $("#snmp_version").change(function() {
+    var select = this.value;
+    if (select === 'v3') {
+      $('#snmpv3').show();
+      $("#snmpv2").hide();
+    } else {
+      $('#snmpv2').show();
+      $('#snmpv3').hide();
+    }
+  }).change();
+
+  $("#snmp_authlevel").change(function() {
+    var select = this.value;
+    if (select === 'authPriv') {
+      $('#authPriv').show();
+    } else {
+      $('#authPriv').hide();
+    }
+  }).change();
+
+</script>
+
+</div>

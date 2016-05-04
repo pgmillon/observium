@@ -54,7 +54,7 @@
         if ($ok)
         {
           #this is what actually adds the sensor
-          discover_sensor($valid['sensor'], $type, $device, $oid, $oidname, 'it-watchdogs-mib-v3', $descr);
+          discover_sensor($valid['sensor'], $type, $device, $oid, $oidname, 'it-watchdogs-mib-v3', $descr, 1, $value);
         }
       }
     }

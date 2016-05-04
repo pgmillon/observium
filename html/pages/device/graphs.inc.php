@@ -2,12 +2,12 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -18,10 +18,12 @@ $link_array = array('page'    => 'device',
                     'device'  => $device['device_id'],
                     'tab' => 'graphs');
 
-foreach (dbFetchRows("SELECT * FROM `device_graphs` WHERE `device_id` = ? AND `enabled` = 1 ORDER BY `graph`", array($device['device_id'])) as $entry)
+foreach ($device['graphs'] as $entry)
 {
+  if (isset($entry['enabled']) && !$entry['enabled']) { continue; } // Skip disabled graphs
+
   $section = $config['graph_types']['device'][$entry['graph']]['section'];
-  if ($section)
+  if (in_array($section, $config['graph_sections']))
   {
     // Collect only enabled and exists graphs
     $graphs_sections[$section][$entry['graph']] = $entry['enabled'];
@@ -61,6 +63,6 @@ foreach ($graph_enable as $graph => $entry)
 
 echo('</table>');
 
-$pagetitle[] = "Graphs";
+$page_title[] = "Graphs";
 
 // EOF

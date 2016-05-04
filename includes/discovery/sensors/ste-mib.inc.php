@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -56,7 +56,7 @@ foreach ($oids as $index => $entry)
 
   if (is_numeric($value) && $entry['sensState'] != 'invalid')
   {
-    discover_sensor($valid['sensor'], $type, $device, $oid, "steSensor.$index", 'ste', $descr, $scale, $value * $scale);
+    discover_sensor($valid['sensor'], $type, $device, $oid, "steSensor.$index", 'ste', $descr, $scale, $value);
   }
 }
 

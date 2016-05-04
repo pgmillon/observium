@@ -1,7 +1,7 @@
 <?php
 
 // Import from CVS
-require(dirname(__FILE__) . '/CsvFileIterator.php');
+require(dirname(__FILE__) . '/data/CsvFileIterator.php');
 
 // Base observium includes
 include(dirname(__FILE__) . '/../includes/defaults.inc.php');
@@ -14,9 +14,9 @@ include(dirname(__FILE__) . '/../includes/functions.inc.php');
 
 /*
 // Generate provider data
-foreach (array('iosrx', 'iosxe', 'ios') as $os)
+foreach (array('iosrx', 'iosxe', 'ios', 'procurve', 'vrp') as $os)
 {
-  foreach (array('entPhysicalDescr', 'entPhysicalName') as $file)
+  foreach (array('entPhysicalDescr', 'entPhysicalName', 'hwEntityBomEnDesc') as $file)
   {
     if (!is_file(dirname(__FILE__) . "/data/$os.$file.txt")) { continue; }
     $s = fopen(dirname(__FILE__) . "/data/$os.$file.txt", 'r');

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -44,6 +44,7 @@ if ($width > "500")
 }
 
 $colour_iter = 0;
+$rrd_multi = array();
 foreach ($rrd_list as $i => $rrd)
 {
   if ($rrd['colour'])
@@ -70,10 +71,8 @@ foreach ($rrd_list as $i => $rrd)
   {
     $rrd_options .= " DEF:".$i . "X=".$rrd['filename'].":".$rrd['ds'].":AVERAGE:start=".$prev_from.":end=".$from;
     $rrd_options .= " SHIFT:".$i . "X:$period";
-    $thingX .= $separatorX . $i . "X,UN,0," . $i . "X,IF";
-    $plusesX .= $plusX;
-    $separatorX = ",";
-    $plusX = ",+";
+
+    $rrd_multi['thingX'][] = $i . "X,UN,0," . $i . "X,IF";
   }
 
   // Suppress totalling?
@@ -131,14 +130,16 @@ foreach ($rrd_list as $i => $rrd)
 
 if ($_GET['previous'] == "yes")
 {
+  $thingX  = implode(',', $rrd_multi['thingX']);
+  $plusesX = str_repeat(',+', count($rrd_multi['thingX']) - 1);
   if (is_numeric($multiplier))
   {
     $rrd_options .= " CDEF:X=" . $thingX . $plusesX.",".$multiplier. ",*";
-  } elseif (is_numeric($divider))
+  }
+  else if (is_numeric($divider))
   {
     $rrd_options .= " CDEF:X=" . $thingX . $plusesX.",".$divider. ",/";
-  } else
-  {
+  } else {
     $rrd_options .= " CDEF:X=" . $thingX . $plusesX;
   }
 
@@ -150,5 +151,8 @@ if ($_GET['previous'] == "yes")
 $rrd_options .= $rrd_optionsb;
 $rrd_options .= " HRULE:0#555555";
 $rrd_options .= $rrd_optionsc;
+
+// Clean
+unset($rrd_multi, $thingX, $plusesX);
 
 // EOF

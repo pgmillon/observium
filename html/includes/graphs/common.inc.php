@@ -7,17 +7,16 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-# FIXME why are we mres()'ing these?! see below too
-if ($vars['from'])    { $from   = mres($vars['from']); }
-if ($vars['to'])      { $to     = mres($vars['to']); }
+if ($vars['from'])    { $from   = $vars['from']; }
+if ($vars['to'])      { $to     = $vars['to']; }
 
-if ($vars['width'])   { $width  = mres($vars['width']); }
+if ($vars['width'])   { $width  = $vars['width']; }
 if ($config['trim_tobias']) { $width+=12; }
-if ($vars['height'])  { $height = mres($vars['height']); }
+if ($vars['height'])  { $height = $vars['height']; }
 
 if ($vars['inverse']) { $in = 'out'; $out = 'in'; $inverse = TRUE; } else { $in = 'in'; $out = 'out'; $inverse = FALSE; }
 
@@ -58,8 +57,7 @@ if (is_numeric($from))
 $rrd_options .= '  --start '.$from.' --end ' . $to . ' --width '.$width.' --height '.$height.' ';
 $rrd_options .= $config['rrdgraph_def_text'];
 
-# FIXME mres? that's not for fixing commandline injection... we don't pass this on commandline, luckily... :-)
-if ($vars['bg']) { $rrd_options .= ' -c CANVAS#' . mres($vars['bg']) . ' '; }
+if ($vars['bg']) { $rrd_options .= ' -c CANVAS#' . $vars['bg'] . ' '; }
 
 #$rrd_options .= ' -c BACK#FFFFFF';
 

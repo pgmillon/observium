@@ -8,14 +8,22 @@ CISCO-LWAPP-INTERFACE-MIB DEFINITIONS ::= BEGIN
 
 IMPORTS
     MODULE-IDENTITY,
+    NOTIFICATION-TYPE,
     OBJECT-TYPE,
     Unsigned32
         FROM SNMPv2-SMI
     MODULE-COMPLIANCE,
-    OBJECT-GROUP
+    OBJECT-GROUP,
+    NOTIFICATION-GROUP
         FROM SNMPv2-CONF
-    TruthValue
+    TruthValue,
+    RowStatus
         FROM SNMPv2-TC
+    InetAddressType,
+    InetAddress
+        FROM INET-ADDRESS-MIB
+    SnmpAdminString
+        FROM SNMP-FRAMEWORK-MIB
     ciscoMgmt
         FROM CISCO-SMI;
 
@@ -25,7 +33,7 @@ IMPORTS
 -- ********************************************************************
 
 ciscoLwappInterfaceMIB MODULE-IDENTITY
-    LAST-UPDATED    "200901090000Z"
+    LAST-UPDATED    "201008220000Z"
     ORGANIZATION    "Cisco Systems Inc."
     CONTACT-INFO
             "Cisco Systems,
@@ -122,6 +130,23 @@ ciscoLwappInterfaceMIB MODULE-IDENTITY
 
         [2] Draft-obara-capwap-lwapp-00.txt, IETF Light 
         Weight Access Point Protocol"
+    REVISION        "201205300000Z"
+    DESCRIPTION
+        "Added clInterfaceDhcpOpt37Enabled object.
+        Added clInterfaceDhcpOpt82Enabled object.
+        Added ciscoLwappInterfaceMIBComplianceRev02 module compliance.
+        Added ciscoLwappInterfaceConfigGroupSup1 conformance group.
+        Deprecated ciscoLwappInterfaceMIBComplianceRev01 module
+        compliance."
+    REVISION        "201008220000Z"
+    DESCRIPTION
+       " Added the clInterfaceGroupsConfigTable table.
+         Added the clInterfaceGroupsMappingTable table.
+
+         Replaced ciscoLwappInterfaceMIBCompliance with
+         ciscoLwappInterfaceMIBComplianceRev01.
+         Added ciscoLwappInterfaceGroupConfigSup1 Group."
+
     REVISION        "200901090000Z"
     DESCRIPTION
         "Initial version of this MIB module."
@@ -139,6 +164,10 @@ ciscoLwappInterfaceMIBConform  OBJECT IDENTIFIER
 
 ciscoLwappInterfaceConfig  OBJECT IDENTIFIER
     ::= { ciscoLwappInterfaceMIBObjects 1 }
+
+ciscoLwappInterfaceInfo  OBJECT IDENTIFIER
+    ::= { ciscoLwappInterfaceMIBObjects 2 }
+
 
 -- ********************************************************************
 
@@ -166,7 +195,28 @@ clInterfaceConfigEntry OBJECT-TYPE
 ClInterfaceConfigEntry ::= SEQUENCE {
         clInterfaceName             OCTET STRING,
         clInterfaceWired            TruthValue,
-        clInterfaceQuarantineVlanId Unsigned32
+        clInterfaceQuarantineVlanId Unsigned32,
+        clInterfaceDhcpOpt82Enabled TruthValue,
+        clInterfaceDhcpProxyMode    INTEGER,
+        clInterfaceMdnsProfileName  SnmpAdminString,
+        clInterfaceNasId            SnmpAdminString,
+        clInterfaceMappingRedPort   TruthValue,
+        clInterfacePrimaryIPv6AddrType InetAddressType,
+        clInterfacePrimaryIPv6Addr  InetAddress,
+        clInterfacePrimaryPrefixLen   Unsigned32,
+        clInterfacePrimaryIPv6GatewayType InetAddressType,
+        clInterfacePrimaryIPv6Gateway  InetAddress,
+        clInterfaceIPv6AclName     SnmpAdminString,
+        clInterfaceLinkLocalIDType  InetAddressType,
+        clInterfaceLinkLocalID      InetAddress,
+        clInterfaceIPv6SLAAC        TruthValue,
+        clInterfaceLinkSelectEnabled TruthValue,
+        clInterfaceLinkSelectRelaySrcIntf SnmpAdminString,
+        clInterfaceVpnSelectEnabled TruthValue,
+        clInterfaceVpnSelectVpnId   SnmpAdminString,
+        clInterfaceVpnselectVrfName SnmpAdminString,
+        clInterfacePrimaryIpv6AddrStatus      INTEGER,
+        clInterfaceLinkLocalIpv6AddrStatus      INTEGER
 }
 
 clInterfaceName OBJECT-TYPE
@@ -208,8 +258,470 @@ clInterfaceQuarantineVlanId OBJECT-TYPE
         security device."
     DEFVAL          { 0 } 
     ::= { clInterfaceConfigEntry 3 }
- 
 
+clInterfaceDhcpOpt82Enabled OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object indicates whether the interface
+        represented by clInterfaceName, has DHCP Option 82
+        Enabled on it or not."
+    DEFVAL          { false } 
+    ::= { clInterfaceConfigEntry 4 }
+
+clInterfaceDhcpProxyMode OBJECT-TYPE
+    SYNTAX          INTEGER {
+        global(0),          -- default value
+        enabled(1),
+        disabled(2)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object indicates DHCP proxy mode on the
+        interface, which overrides the global DHCP proxy
+        mode. There are three modes as below:
+          * global   - use the global DHCP proxy mode on WLC
+          * enabled  - DHCP proxy mode enabled on the interface
+          * disabled - DHCP proxy mode disabled(bridging) on
+        "
+    DEFVAL          { global } 
+    ::= { clInterfaceConfigEntry 5 }
+
+clInterfaceMdnsProfileName OBJECT-TYPE
+    SYNTAX          SnmpAdminString
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object represents the name of the Mdns
+	 profile added on the Interface."
+    ::= { clInterfaceConfigEntry 6 }
+
+clInterfaceNasId OBJECT-TYPE
+    SYNTAX          SnmpAdminString (SIZE  (1..31))
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object represents the NAS-ID of the interface.
+        NAS-ID string is sent to Radius server by WLC (as radius client) 
+        via authentication request, which can be used to classify users 
+        to different groups then radius server can reply a customized 
+        authentication response."
+    ::= { clInterfaceConfigEntry 7 }
+
+clInterfaceMappingRedPort OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object indicates whether the interface
+        represented by clInterfaceName, has mapping to redundancy port
+        Enabled on it or not."
+    ::= { clInterfaceConfigEntry 8 }
+
+clInterfacePrimaryIPv6AddrType OBJECT-TYPE 
+         SYNTAX      InetAddressType 
+         MAX-ACCESS  read-write 
+         STATUS      current 
+         DESCRIPTION 
+                "This represents the ipv6 address type of the interface." 
+         ::= { clInterfaceConfigEntry 9 } 
+
+clInterfacePrimaryIPv6Addr OBJECT-TYPE 
+         SYNTAX      InetAddress 
+         MAX-ACCESS  read-write 
+         STATUS      current 
+         DESCRIPTION 
+                "Ipv6 Address of the interface." 
+         ::= { clInterfaceConfigEntry 10 } 
+
+clInterfacePrimaryPrefixLen OBJECT-TYPE 
+         SYNTAX      Unsigned32 (0..128) 
+         MAX-ACCESS  read-write 
+         STATUS      current 
+         DESCRIPTION 
+                "This object denotes the prefix length for interface  
+                Ipv6 address." 
+         ::= { clInterfaceConfigEntry 11 } 
+
+clInterfacePrimaryIPv6GatewayType OBJECT-TYPE 
+         SYNTAX      InetAddressType 
+         MAX-ACCESS  read-write 
+         STATUS      current 
+         DESCRIPTION 
+                "Gateway Address type of the interface." 
+         ::= { clInterfaceConfigEntry 12 } 
+
+clInterfacePrimaryIPv6Gateway OBJECT-TYPE 
+         SYNTAX      InetAddress 
+         MAX-ACCESS  read-write 
+         STATUS      current 
+         DESCRIPTION 
+                "Gateway Address of the interface." 
+         ::= { clInterfaceConfigEntry 13 }
+
+clInterfaceIPv6AclName OBJECT-TYPE
+         SYNTAX      SnmpAdminString (SIZE(0..32))
+         MAX-ACCESS  read-write
+         STATUS      current
+         DESCRIPTION
+                     "Name of the IPV6 Access Control List applied to 
+                      the interface. This attribute is applicable only
+                      to the management interface and other dynamic
+                      interfaces. If it is required to remove the ACL
+                      name for an interface, it should be set to an
+                      empty string."
+         ::= { clInterfaceConfigEntry 14 }
+
+clInterfaceLinkLocalIDType OBJECT-TYPE 
+          SYNTAX      InetAddressType 
+          MAX-ACCESS  read-only 
+          STATUS      current 
+          DESCRIPTION 
+                 "Link Local Identifier of the interface." 
+          ::= { clInterfaceConfigEntry 15 }
+ 
+clInterfaceLinkLocalID OBJECT-TYPE 
+          SYNTAX      InetAddress 
+          MAX-ACCESS  read-only 
+          STATUS      current 
+          DESCRIPTION 
+                 "Link Local Identifier of the interface." 
+          ::= { clInterfaceConfigEntry 16 }
+ 
+clInterfaceIPv6SLAAC OBJECT-TYPE
+          SYNTAX      TruthValue
+          MAX-ACCESS  read-write
+          STATUS      current
+          DESCRIPTION
+                      "This indicates the SLAAC status of the interface. This applies only
+                       to the service port interface."
+           ::= { clInterfaceConfigEntry 17 }
+
+clInterfaceLinkSelectEnabled OBJECT-TYPE
+          SYNTAX      TruthValue
+          MAX-ACCESS  read-write
+          STATUS      current
+          DESCRIPTION
+                     "This object indicates whether the interface
+                     represented by clInterfaceName, has DHCP Option 82
+                     Link Select Enabled on it or not."
+           ::= { clInterfaceConfigEntry 18 }
+
+clInterfaceLinkSelectRelaySrcIntf OBJECT-TYPE
+          SYNTAX      SnmpAdminString
+          MAX-ACCESS  read-write
+          STATUS      current
+          DESCRIPTION
+                      "This object represents the name of the Source
+                      Interface for DHCP Opt82 Link Select."
+           ::= { clInterfaceConfigEntry 19 }
+
+clInterfaceVpnSelectEnabled OBJECT-TYPE
+          SYNTAX      TruthValue
+          MAX-ACCESS  read-write
+          STATUS      current
+          DESCRIPTION
+                     "This object indicates whether the interface
+                      represented by clInterfaceName, has DHCP Option 82
+                      Vpn Select Enabled on it or not."
+           ::= { clInterfaceConfigEntry 20 }
+ 
+clInterfaceVpnSelectVpnId OBJECT-TYPE
+          SYNTAX      SnmpAdminString
+          MAX-ACCESS  read-write
+          STATUS      current
+          DESCRIPTION
+	              "This object represents the Vpn Id of DHCP Option 82 for
+		       Vpn Select, The VPN-ID is sequence of 7 octets,
+		       3 octet VPN authority Organizationally Unique Identifier,
+		       followed by 4 octet VPN index identifying VPN according to OUI"
+          ::= { clInterfaceConfigEntry 21 }
+
+clInterfaceVpnselectVrfName OBJECT-TYPE
+          SYNTAX      SnmpAdminString
+          MAX-ACCESS  read-write
+          STATUS      current
+          DESCRIPTION
+                      "This object represents the DHCP Opt 82 
+		       VrfName for the Vpn Select. "
+           ::= { clInterfaceConfigEntry 22 }
+
+           
+clInterfacePrimaryIpv6AddrStatus OBJECT-TYPE
+         SYNTAX          INTEGER {
+                             none(1),
+                             creating(2),
+                             tentative(3),
+                             incomplete(4),
+                             verify(5),
+                             reachable(6),
+                             stale(7),
+                             down(8),
+                             unknown(9),
+                             dad(10)
+        }
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+         "This object represents the Ipv6 Address status "
+     ::= { clInterfaceConfigEntry 23 }
+     
+clInterfaceLinkLocalIpv6AddrStatus OBJECT-TYPE
+         SYNTAX          INTEGER {
+                             none(1),
+                             creating(2),
+                             tentative(3),
+                             incomplete(4),
+                             verify(5),
+                             reachable(6),
+                             stale(7),
+                             down(8),
+                             unknown(9),
+                             dad(10)
+        }
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+         "This objest represents the Link local Ipv6 Address status"
+     ::= { clInterfaceConfigEntry 24 }
+	
+-- ********************************************************************
+-- * Begin of clInterfaceGroupsConfigTable
+-- ********************************************************************
+
+clInterfaceGroupsConfigTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF ClInterfaceGroupsConfigEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table is used to maintain the interface groups.
+         An interface group is a logical grouping of interfaces 
+         with unique VLAN ids."
+    ::= { ciscoLwappInterfaceConfig 2 }
+
+clInterfaceGroupsConfigEntry OBJECT-TYPE
+    SYNTAX ClInterfaceGroupsConfigEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This represents an entry in clInterfaceGroupsConfigTable.
+         Entries can be added or deleted by explicit management
+         action by NMS or by user console."
+    INDEX { clInterfaceGroupName }
+    ::= { clInterfaceGroupsConfigTable 1 }
+
+ClInterfaceGroupsConfigEntry ::= SEQUENCE {
+        clInterfaceGroupName         	   SnmpAdminString,
+        clInterfaceGroupDescr        	   SnmpAdminString,
+        clInterfaceGroupIsQuarantine 	   TruthValue,
+        clInterfaceGroupRowStatus    	   RowStatus,
+        clInterfaceGroupMdnsProfileName  SnmpAdminString,
+        clInterfaceGroupFailDetectMode   INTEGER
+    }
+
+clInterfaceGroupName OBJECT-TYPE
+        SYNTAX SnmpAdminString
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION
+          "This object represents the name
+           assigned to  identify the interface group."
+    ::= { clInterfaceGroupsConfigEntry 1}
+
+clInterfaceGroupDescr OBJECT-TYPE
+        SYNTAX SnmpAdminString
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+          "This object describes the interface group."
+    ::= { clInterfaceGroupsConfigEntry 2}
+
+clInterfaceGroupIsQuarantine OBJECT-TYPE
+        SYNTAX TruthValue
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+          "This object indicates whether the interface group
+           has quarantine interfaces. A value of 'true' specifies
+           the interface group has quarantine interfaces. A value
+           of 'false' specifies the group has nonquarantine interfaces."
+    ::= { clInterfaceGroupsConfigEntry 3}
+
+clInterfaceGroupRowStatus  OBJECT-TYPE
+      SYNTAX RowStatus
+      MAX-ACCESS read-create
+      STATUS current
+      DESCRIPTION
+         "This object is used to add or delete entries
+          in clInterfaceGroupsConfigTable"
+      ::= { clInterfaceGroupsConfigEntry 4 }
+
+clInterfaceGroupMdnsProfileName OBJECT-TYPE
+    SYNTAX          SnmpAdminString
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "This object represents the name of the Mdns
+         profile added on the Interface Group."
+      ::= { clInterfaceGroupsConfigEntry 5 }
+
+clInterfaceGroupFailDetectMode OBJECT-TYPE
+        SYNTAX INTEGER {
+                          aggressive(0),
+                          nonaggressive(1) 
+                       }
+        MAX-ACCESS read-write
+        STATUS current
+        DESCRIPTION
+          "This object indicates the mode of failure detection 
+           (dirty interface logic)in the interface group when a client 
+           fails to get an ip address from a vlan. 
+           'aggressive' - mark an interface dirty if three failure
+           attempts get reported
+           'nonaggressive' - mark an interface dirty only if failure
+           attempts are reported by three or more different clients"
+    DEFVAL          { aggressive } 
+    ::= { clInterfaceGroupsConfigEntry 6 }
+
+-- ********************************************************************
+-- * Begin of clInterfaceGroupsMappingTable
+-- ********************************************************************
+
+clInterfaceGroupsMappingTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF ClInterfaceGroupsMappingEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table represents the mapping between the interface
+         and the interface group."
+    ::= { ciscoLwappInterfaceConfig 3 }
+
+clInterfaceGroupsMappingEntry OBJECT-TYPE
+    SYNTAX ClInterfaceGroupsMappingEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This represents an entry in clInterfaceGroupsMappingTable
+         Entries can be added or deleted by explicit management action
+         By NMS or by user console ."
+    INDEX { clInterfaceGroupName, clInterfaceName }
+    ::= { clInterfaceGroupsMappingTable 1 }
+
+ClInterfaceGroupsMappingEntry ::= SEQUENCE {
+        clInterfaceGroupMappingRowStatus RowStatus
+    }
+
+clInterfaceGroupMappingRowStatus OBJECT-TYPE
+      SYNTAX RowStatus
+      MAX-ACCESS read-create
+      STATUS current
+      DESCRIPTION
+          "This object is used to add or delete entries
+           in clInterfaceGroupsMappingTable"
+      ::= { clInterfaceGroupsMappingEntry 1 }
+
+--********************************************************************
+-- * ciscoLwappInterfaceInfo 
+--********************************************************************
+
+cLInterfaceTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF CLInterfaceEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "This table represents the information about all the
+         interfaces, both the static and the dynamic interfaces, 
+         on the Wireless LAN Controller(WLC)."
+    ::= { ciscoLwappInterfaceInfo 1 }
+
+cLInterfaceEntry OBJECT-TYPE
+    SYNTAX      CLInterfaceEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each entry in this table provides information about
+         one interface on the WLC."
+    INDEX       { clInterfaceName }
+    ::= { cLInterfaceTable 1 }
+
+CLInterfaceEntry ::= SEQUENCE {
+        cLInterfacePreviousAddressType    InetAddressType,
+        cLInterfacePreviousAddress        InetAddress,
+        cLInterfaceCurrentAddressType     InetAddressType,
+        cLInterfaceCurrentAddress         InetAddress
+    }
+
+cLInterfacePreviousAddressType OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This object represents the previous type of 
+         the interface's address on the controller."
+    ::= { cLInterfaceEntry 1 }
+
+cLInterfacePreviousAddress OBJECT-TYPE
+    SYNTAX      InetAddress
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This object represents the previous address of 
+         the interface on the controller."
+    ::= { cLInterfaceEntry 2 }
+
+cLInterfaceCurrentAddressType OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This object represents the current type of 
+         the interface's address on the controller."
+    ::= { cLInterfaceEntry 3 }
+
+cLInterfaceCurrentAddress OBJECT-TYPE
+    SYNTAX      InetAddress
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This object represents the current address of 
+         the interface on the controller."
+    ::= { cLInterfaceEntry 4 }
+
+--********************************************************************
+-- *  Notifications
+--********************************************************************
+
+ciscoLwappInterfaceAddressChanged NOTIFICATION-TYPE
+    OBJECTS {
+                clInterfaceName,
+                cLInterfacePreviousAddressType,
+                cLInterfacePreviousAddress,
+                cLInterfaceCurrentAddressType,
+                cLInterfaceCurrentAddress
+            }
+    STATUS      current
+    DESCRIPTION
+        "This notification is generated after the address of
+         an interface is changed."
+    ::= { ciscoLwappInterfaceMIBNotifs 1 }
+
+
+ciscoLwappInterfaceIpv6AddressStatus NOTIFICATION-TYPE
+    OBJECTS {
+                clInterfaceName,
+                clInterfacePrimaryIpv6AddrStatus,    
+                cLInterfaceCurrentAddressType,
+                cLInterfaceCurrentAddress
+                
+            }
+    STATUS    current 
+    DESCRIPTION
+        " This notification is generated after the Ipv6 address status is changed"
+
+    ::= {ciscoLwappInterfaceMIBNotifs 2}    
+    
 -- ********************************************************************
 -- *    Compliance statements
 -- ********************************************************************
@@ -222,13 +734,66 @@ ciscoLwappInterfaceMIBGroups  OBJECT IDENTIFIER
 
 
 ciscoLwappInterfaceMIBCompliance MODULE-COMPLIANCE
-    STATUS          current
+    STATUS         deprecated 
     DESCRIPTION
         "The compliance statement for the SNMP entities that
         implement the ciscoLwappInterfaceMIB module."
     MODULE          -- this module
     MANDATORY-GROUPS { ciscoLwappInterfaceConfigGroup }
     ::= { ciscoLwappInterfaceMIBCompliances 1 }
+
+ ciscoLwappInterfaceMIBComplianceRev01 MODULE-COMPLIANCE
+     STATUS          deprecated
+     DESCRIPTION
+         "The compliance statement for the SNMP entities that
+         implement the ciscoLwappInterfaceMIB module."
+     MODULE          -- this module
+     MANDATORY-GROUPS { ciscoLwappInterfaceConfigGroup,
+                        ciscoLwappInterfaceGroupConfigSup1  }
+     ::= { ciscoLwappInterfaceMIBCompliances 2 }
+
+ciscoLwappInterfaceMIBComplianceRev02 MODULE-COMPLIANCE
+    STATUS          current
+    DESCRIPTION
+        "The compliance statement for the SNMP entities that
+        implement the ciscoLwappInterfaceMIB module."
+    MODULE          -- this module
+    MANDATORY-GROUPS {
+                        ciscoLwappInterfaceConfigGroup,
+                        ciscoLwappInterfaceGroupConfigSup1,
+                        ciscoLwappInterfaceConfigGroupSup1
+                    }
+
+    OBJECT          clInterfaceWired
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          clInterfaceQuarantineVlanId
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          clInterfaceDhcpOpt82Enabled
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          clInterfaceGroupDescr
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          clInterfaceGroupRowStatus
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          clInterfaceGroupMappingRowStatus
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+    ::= { ciscoLwappInterfaceMIBCompliances 3 }
 
 -- ********************************************************************
 -- *    Units of conformance
@@ -244,5 +809,27 @@ ciscoLwappInterfaceConfigGroup OBJECT-GROUP
         "This collection of objects represent the
         configuration of interfaces on the controller."
     ::= { ciscoLwappInterfaceMIBGroups 1 }
+
+ ciscoLwappInterfaceGroupConfigSup1 OBJECT-GROUP
+     OBJECTS         {
+                         clInterfaceGroupDescr,
+                         clInterfaceGroupIsQuarantine,
+                         clInterfaceGroupRowStatus,
+                         clInterfaceGroupMappingRowStatus
+                     }
+     STATUS          current
+     DESCRIPTION
+         "This collection of objects represent the
+         configuration of interface groups on the controller."
+     ::= { ciscoLwappInterfaceMIBGroups 2 }
+
+ciscoLwappInterfaceConfigGroupSup1 OBJECT-GROUP
+    OBJECTS         { clInterfaceDhcpOpt82Enabled
+					}
+    STATUS          current
+    DESCRIPTION
+        "This collection of objects represent the configuration of
+        interfaces on the controller."
+    ::= { ciscoLwappInterfaceMIBGroups 3 }
 
 END

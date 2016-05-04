@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -20,7 +20,7 @@ echo(" TRAPEZE-NETWORKS-AP-STATUS-MIB ");
 // getting APs and radios
 
 $radios_snmp = snmpwalk_cache_twopart_oid($device, "trpzApStatRadioOpStatisticsTable", $radios_snmp, "TRAPEZE-NETWORKS-AP-STATUS-MIB", mib_dirs('trapeze'));
-if ($debug && count($radios_snmp)) { print_vars($radios_snmp); }
+if (OBS_DEBUG > 1 && count($radios_snmp)) { print_vars($radios_snmp); }
 
 // OIDs to graph
 $oids_counter = array(

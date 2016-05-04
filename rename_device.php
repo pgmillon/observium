@@ -9,31 +9,35 @@
  * @package    observium
  * @subpackage cli
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 chdir(dirname($argv[0]));
-
-include("includes/defaults.inc.php");
-include("config.php");
-include("includes/definitions.inc.php");
-include("includes/functions.inc.php");
-
 $scriptname = basename($argv[0]);
 
+include_once("includes/defaults.inc.php");
+include_once("config.php");
+
+$options = getopt("d");
+if (isset($options['d'])) { array_shift($argv); } // for compatability
+
+include_once("includes/definitions.inc.php");
+include("includes/functions.inc.php");
+
 print_message("%g".OBSERVIUM_PRODUCT." ".OBSERVIUM_VERSION."\n%WRename Device%n\n", 'color');
+if (OBS_DEBUG) { print_versions(); }
 
 // Remove a host and all related data from the system
 
 if ($argv[1] && $argv[2])
 {
   $host = strtolower($argv[1]);
-  $id = getidbyname($host);
+  $id = get_device_id_by_hostname($host);
   if ($id)
   {
     $tohost = strtolower($argv[2]);
-    $toid = getidbyname($tohost);
+    $toid = get_device_id_by_hostname($tohost);
     if ($toid)
     {
       print_error("NOT renamed. New hostname $tohost already exists.");

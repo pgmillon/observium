@@ -1,0 +1,722 @@
+-- ============================================================================
+-- Copyright (C) 2003 by HUAWEI 3COM TECHNOLOGIES.  All rights reserved.
+--
+-- Description: This MIB is designed for IP Accounting Software
+-- Reference:
+-- Version: V1.0
+-- History:
+-- V1.0 created by kongfanhua.
+-- ============================================================================
+H3C-IPA-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, Counter32, Counter64,
+    Integer32, IpAddress
+        FROM SNMPv2-SMI
+    RowStatus, TEXTUAL-CONVENTION
+        FROM SNMPv2-TC
+    h3cCommon
+        FROM HUAWEI-3COM-OID-MIB;
+
+
+h3cIpa MODULE-IDENTITY
+       LAST-UPDATED "200411010000Z"
+       ORGANIZATION
+            "Huawei 3Com Technologies Co., Ltd."
+       CONTACT-INFO
+            "Platform Team Huawei 3Com Technologies Co., Ltd.
+            Hai-Dian District Beijing P.R. China
+            http://www.huawei-3com.com
+            Zip:100085
+            "
+       DESCRIPTION
+            "
+            This MIB is used to acquire ip accounting information.
+
+            The h3cIpaAccountListTable is set by user to define the group of ip address
+            which they want to account.
+            This module can be enabled in each port,
+            which was defined in the h3cIpaIfConfigTable.
+
+            If this module has been enabled, the packets will be accounted
+            when crossing the router from the ports having been enabled by user,
+            according to whether the source/destination ip address is in h3cIpaAccountListTable
+            and what kinds of function(in/out/both/fw) are enabled
+            and also whether it is denied by the firewall.
+            If it is denied by the firewall, it will be accounted in h3cIpaFWListTable
+            If it is accepted by the firewall, and ip source or ip destination is in h3cIpaAccountListTable,
+            it will be accounted in h3cIpaIntListTable, otherwise it will be accounted
+            in h3cIpaExtListTable.
+
+            And IP Accounting function also differentiates the packets by direction.
+            If the packet is inbound, the accounting information can be seen as
+              h3cIpaIntListInPackets/h3cIpaIntListInBytes in h3cIpaIntListTable,
+              h3cIpaExtListInPackets/h3cIpaExtListInBytes in h3cIpaExtListTable,
+              h3cIpaFWListInPackets/h3cIpaFWListInBytes in h3cIpaFWListTable.
+
+            or else the accounting information can be seen as
+              h3cIpaIntListOutPackets/h3cIpaIntListOutBytes in h3cIpaIntListTable,
+              h3cIpaExtListOutPackets/h3cIpaExtListOutBytes in h3cIpaExtListTable,
+              h3cIpaFWListOutPackets/h3cIpaFWListOutBytes in h3cIpaFWListTable.
+            "
+        ::= { h3cCommon 25 }
+
+   InterfaceIndex ::= TEXTUAL-CONVENTION
+       DISPLAY-HINT "d"
+       STATUS       current
+       DESCRIPTION
+               "A unique value, greater than zero, for each interface
+               or interface sub-layer in the managed system.  It is
+               recommended that values are assigned contiguously
+               starting from 1.  The value for each interface sub-
+               layer must remain constant at least from one re-
+               initialization of the entity's network management
+               system to the next re-initialization."
+       SYNTAX       Integer32 (1..2147483647)
+
+
+-- =============================================================================
+   -- h3cIpaGlobalConfigTable
+   --  The Global Data Set By User of IPA
+
+    h3cIpaGlobalStats OBJECT IDENTIFIER ::= { h3cIpa 1 }
+
+    h3cIpaGlobalEnable OBJECT-TYPE
+        SYNTAX      INTEGER {
+                        disabled(1),  -- the IPA function is disabled
+                        enabled(2)    -- the IPA function is enabled
+                       }
+           MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+               "
+               The indication of whether Ip Accounting function is enabled.
+               If it is disabled, ip packets will not be accounted.
+               "
+        DEFVAL        { disabled }
+        ::= { h3cIpaGlobalStats 1 }
+
+    h3cIpaTimeOutSeconds OBJECT-TYPE
+        SYNTAX      Integer32
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+               "
+               The value of List aging timeout.
+               The unit is second.
+               If exceeding the interval, the item in h3cIpaIntListTable, h3cIpaExtListTable
+               and h3cIpaFWListTable will be removed automaticlly.
+               The range is (3600..604800).
+               "
+        DEFVAL        { 43200 }
+        ::= { h3cIpaGlobalStats 2 }
+
+    h3cIpaIntListMaxItemNum OBJECT-TYPE
+        SYNTAX      Integer32
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+               "
+               The max number of items in h3cIpaIntListTable.
+               The range is (0..16384).
+               "
+        DEFVAL        { 512 }
+        ::= { h3cIpaGlobalStats 3 }
+
+    h3cIpaExtListMaxItemNum OBJECT-TYPE
+        SYNTAX      Integer32
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+               "
+               The max number of items in h3cIpaExtListTable.
+               The range is (0..8192).
+               "
+        DEFVAL        { 0 }
+        ::= { h3cIpaGlobalStats 4 }
+
+    h3cIpaFWListMaxItemNum OBJECT-TYPE
+        SYNTAX      Integer32
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+               "
+               The max number of items in h3cIpaFWListTable.
+               "
+        ::= { h3cIpaGlobalStats 5 }
+
+     h3cIpaAccountListMaxItemNum OBJECT-TYPE
+        SYNTAX      Integer32
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+               "
+               The max number of items in h3cIpaAccountListTable.
+               "
+        ::= { h3cIpaGlobalStats 6 }
+
+     h3cIpaAccountListNextIndex OBJECT-TYPE
+        SYNTAX      Integer32
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+               "
+               The next available index for creating rows of h3cIpaAccountListTable.
+               If the value is zero, it means the table is full and no available index
+               can be used.
+               "
+        ::= { h3cIpaGlobalStats 7 }
+
+    h3cIpaListCleaningFlag OBJECT-TYPE
+        SYNTAX      INTEGER {
+                        idle(1),             -- idling
+                        cleaningAll(2),      -- clearing all of the tables below.
+                        cleaningIntList(3),  -- clearing h3cIpaIntListTable
+                        cleaningExtList(4),  -- clearing h3cIpaExtListTable
+                        cleaningFWList(5)    -- clearing h3cIpaFWListTable
+                    }
+          MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+               "
+               Cleaning List in this module.
+               The default value is idle. If user wants to clean some lists, he
+               can set the value to 2, 3, 4 and 5 to clean the corresponding list.
+               After the operation, the value will return to idle.
+               "
+        DEFVAL        { idle }
+        ::= { h3cIpaGlobalStats 8 }
+
+
+-- =============================================================================
+   -- h3cIpaIfConfigTable
+   --  enable or disable and show ip accounting function under interface
+
+     h3cIpaIfConfigTable OBJECT-TYPE
+         SYNTAX   SEQUENCE OF H3cIpaIfConfigEntry
+         MAX-ACCESS   not-accessible
+         STATUS   current
+         DESCRIPTION
+            "
+            Enable or disable the ip accounting inbound/outbound
+            function under a particular interface.
+            "
+         ::= { h3cIpa 2 }
+
+    h3cIpaIfConfigEntry OBJECT-TYPE
+         SYNTAX   H3cIpaIfConfigEntry
+         MAX-ACCESS   not-accessible
+         STATUS   current
+         DESCRIPTION
+            "
+            Entry of the table.
+            "
+         INDEX { h3cIpaIfConfigIfIndex }
+         ::= { h3cIpaIfConfigTable 1 }
+
+    H3cIpaIfConfigEntry ::=
+        SEQUENCE {
+            h3cIpaIfConfigIfIndex
+                InterfaceIndex,
+            h3cIpaIfConfigInEnable
+                INTEGER,
+            h3cIpaIfConfigOutEnable
+                INTEGER,
+            h3cIpaIfConfigFWEnable
+                INTEGER
+        }
+
+    h3cIpaIfConfigIfIndex OBJECT-TYPE
+        SYNTAX   InterfaceIndex
+        MAX-ACCESS   not-accessible
+        STATUS   current
+        DESCRIPTION
+            "It equals to ifIndex"
+        ::= { h3cIpaIfConfigEntry 1 }
+
+    h3cIpaIfConfigInEnable OBJECT-TYPE
+        SYNTAX      INTEGER {
+            disabled(1),  -- inbound packets are not accounted in this interface
+            enabled(2)    -- inbound packets are accounted in this interface
+        }
+        MAX-ACCESS  read-write
+        STATUS      current
+
+        DESCRIPTION
+            "
+            This object is applicable to h3cIpaIntListTable and h3cIpaExtListTable.
+            If the value is disabled, inbound ip packets are not accounted.
+            "
+        DEFVAL        { disabled }
+        ::= { h3cIpaIfConfigEntry 2 }
+
+    h3cIpaIfConfigOutEnable OBJECT-TYPE
+        SYNTAX      INTEGER {
+            disabled(1),  -- outbound packets are not accounted in this interface
+            enabled(2)    -- outbound packets are accounted in this interface
+        }
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+            "
+            This object is applicable to h3cIpaIntListTable and h3cIpaExtListTable.
+            If the value is disabled, outbound ip packets are not accounted.
+            "
+        DEFVAL        { disabled }
+        ::= { h3cIpaIfConfigEntry 3 }
+
+    h3cIpaIfConfigFWEnable OBJECT-TYPE
+        SYNTAX      INTEGER {
+            nodirection(1),
+            inbound(2),
+            outbound(3),
+            bidirection(4)
+        }
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+            "
+            This object is applicable to h3cIpaFWListTable only.
+
+            If the value is 'inbound', then inbound ip packets which are denied by firewall
+            are accounted.
+            If the value is 'outbound', then outbound ip packets which were denied by firewall
+            are accounted.
+            If the value is 'nodirection', neither inbound nor outbound ip packets
+            which were denied by firewall are accounted.
+            If the value is 'bidirection', both inbound and outbound ip packets which
+            were denied by firewall are accounted.
+            "
+        DEFVAL        { nodirection }
+        ::= { h3cIpaIfConfigEntry 4 }
+
+-- =============================================================================
+     -- h3cIpaAccountListTable
+     -- The function of h3cIpaAccountListTable is to classify the ip packets
+     -- h3cIpaAccountListTable is set and deleted by user
+
+    h3cIpaAccountListTable OBJECT-TYPE
+        SYNTAX   SEQUENCE OF H3cIpaAccountListEntry
+        MAX-ACCESS   not-accessible
+        STATUS   current
+        DESCRIPTION
+            "
+            The List is used by user to sort packets into two groups
+            by source or destination ip address.
+            When source/destination ip address of a packet matches a item in this table,
+            the packet is accounted in h3cIpaIntListTable.
+            When source/destination ip address of a packet does not match any item
+            in this table, the packet is accounted in h3cIpaExtListTable.
+            "
+         ::= { h3cIpa 3 }
+
+    h3cIpaAccountListEntry OBJECT-TYPE
+        SYNTAX   H3cIpaAccountListEntry
+        MAX-ACCESS   not-accessible
+        STATUS   current
+        DESCRIPTION
+            "
+            Entry of the table.
+            "
+        INDEX { h3cIpaAccountListIndex }
+        ::= { h3cIpaAccountListTable 1 }
+
+    H3cIpaAccountListEntry ::=
+        SEQUENCE {
+            h3cIpaAccountListIndex
+                Integer32,
+            h3cIpaAccountListIpAddr
+                IpAddress,
+            h3cIpaAccountListIpMask
+                IpAddress,
+            h3cIpaAccountListRowStatus
+                RowStatus
+        }
+
+    h3cIpaAccountListIndex OBJECT-TYPE
+        SYNTAX   Integer32(1..2147483647)
+        MAX-ACCESS   not-accessible
+        STATUS   current
+        DESCRIPTION
+            "
+            The Index of the table.
+            "
+        ::= { h3cIpaAccountListEntry 1 }
+
+    h3cIpaAccountListIpAddr OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "
+            The IP address to which this entry's addressing information
+            pertains.
+            "
+        ::= { h3cIpaAccountListEntry 2 }
+
+    h3cIpaAccountListIpMask OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "
+            The subnet mask associated with the IP address of this
+            entry.  The value of the mask is an IP address with all the
+            network bits set to 1 and all the hosts bits set to 0.
+            "
+        ::= { h3cIpaAccountListEntry 3 }
+
+    h3cIpaAccountListRowStatus  OBJECT-TYPE
+        SYNTAX RowStatus
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+           "
+           The row status of the entry,
+           Supporting CreateAndGo and Destroy operation.
+           "
+        ::= { h3cIpaAccountListEntry 4 }
+
+
+-- =============================================================================
+     -- h3cIpaIntListTable
+     -- for showing accounting information of packet not match h3cIpaAccountListTable
+
+    h3cIpaIntListTable OBJECT-TYPE
+        SYNTAX   SEQUENCE OF H3cIpaIntListEntry
+        MAX-ACCESS   not-accessible
+        STATUS   current
+        DESCRIPTION
+            "
+            If matching the ip address recorded in h3cIpaAccountListTable
+            and not denied by the firewall, the packets will be accounted
+            in this list.
+            "
+        ::= { h3cIpa 4 }
+
+    h3cIpaIntListEntry OBJECT-TYPE
+        SYNTAX   H3cIpaIntListEntry
+        MAX-ACCESS   not-accessible
+        STATUS   current
+        DESCRIPTION
+            "
+            Entry of the table.
+            "
+        INDEX { h3cIpaIntListIpSrc,
+                h3cIpaIntListIpDst,
+                h3cIpaIntListProtocol
+              }
+        ::= { h3cIpaIntListTable 1 }
+
+    H3cIpaIntListEntry ::=
+        SEQUENCE {
+            h3cIpaIntListIpSrc
+                IpAddress,
+            h3cIpaIntListIpDst
+                IpAddress,
+            h3cIpaIntListProtocol
+                Integer32,
+            h3cIpaIntListInPackets
+                Counter32,
+            h3cIpaIntListInBytes
+                Counter64,
+            h3cIpaIntListOutPackets
+                Counter32,
+            h3cIpaIntListOutBytes
+                Counter64
+        }
+
+    h3cIpaIntListIpSrc OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "
+            Source IP-address of these accounted packets.
+            "
+        ::= { h3cIpaIntListEntry 1 }
+
+    h3cIpaIntListIpDst OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "
+            Destination IP-address of these accounted packets.
+            "
+        ::= { h3cIpaIntListEntry 2 }
+
+    h3cIpaIntListProtocol OBJECT-TYPE
+        SYNTAX Integer32(0..2147483647)
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "
+            The type of these accounted IP packets defined in RFC 1700.
+            "
+        ::= { h3cIpaIntListEntry 3 }
+
+    h3cIpaIntListInPackets OBJECT-TYPE
+        SYNTAX      Counter32
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "
+            The number of inbound packets in h3cIpaIntListTable.
+            "
+        ::= { h3cIpaIntListEntry 4 }
+
+    h3cIpaIntListInBytes OBJECT-TYPE
+        SYNTAX      Counter64
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "
+            The number of inbound bytes in h3cIpaIntListTable.
+            "
+        ::= { h3cIpaIntListEntry 5 }
+
+    h3cIpaIntListOutPackets OBJECT-TYPE
+        SYNTAX      Counter32
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "
+            The number of outbound Packets in h3cIpaIntListTable.
+            "
+        ::= { h3cIpaIntListEntry 6 }
+
+    h3cIpaIntListOutBytes OBJECT-TYPE
+        SYNTAX      Counter64
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "
+            The number of outbound bytes in h3cIpaIntListTable.
+            "
+        ::= { h3cIpaIntListEntry 7 }
+
+-- =============================================================================
+    -- h3cIpaExtListTable
+    -- for showing accounting information of packet not match h3cIpaAccountListTable
+
+    h3cIpaExtListTable OBJECT-TYPE
+        SYNTAX   SEQUENCE OF H3cIpaExtListEntry
+        MAX-ACCESS   not-accessible
+        STATUS   current
+        DESCRIPTION
+            "
+            If mismatching the ip address recorded in the h3cIpaAccountListTable
+            and not denied by the firewall, the packets will be accounted
+            in this list.
+            "
+        ::= { h3cIpa 5 }
+
+    h3cIpaExtListEntry OBJECT-TYPE
+        SYNTAX   H3cIpaExtListEntry
+        MAX-ACCESS   not-accessible
+        STATUS   current
+        DESCRIPTION
+           "
+           Entry of the table.
+           "
+        INDEX { h3cIpaExtListIpSrc,
+                h3cIpaExtListIpDst,
+                h3cIpaExtListProtocol
+              }
+        ::= { h3cIpaExtListTable 1 }
+
+    H3cIpaExtListEntry ::=
+        SEQUENCE {
+            h3cIpaExtListIpSrc
+                IpAddress,
+            h3cIpaExtListIpDst
+                IpAddress,
+            h3cIpaExtListProtocol
+                Integer32,
+            h3cIpaExtListInPackets
+                Counter32,
+            h3cIpaExtListInBytes
+                Counter64,
+            h3cIpaExtListOutPackets
+                Counter32,
+            h3cIpaExtListOutBytes
+                Counter64
+        }
+
+    h3cIpaExtListIpSrc OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "
+            Source IP-address of these accounted packets.
+            "
+        ::= { h3cIpaExtListEntry 1 }
+
+    h3cIpaExtListIpDst OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "
+            Destination IP-address of these accounted packets.
+            "
+        ::= { h3cIpaExtListEntry 2 }
+
+    h3cIpaExtListProtocol OBJECT-TYPE
+        SYNTAX Integer32(0..2147483647)
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "
+            The value indicates the value of the 'protocol' field
+            which is part of ip packet header.
+            "
+        ::= { h3cIpaExtListEntry 3 }
+
+    h3cIpaExtListInPackets OBJECT-TYPE
+        SYNTAX      Counter32
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "
+            The number of inbound packets in h3cIpaExtListTable.
+            "
+        ::= { h3cIpaExtListEntry 4 }
+
+    h3cIpaExtListInBytes OBJECT-TYPE
+        SYNTAX      Counter64
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "
+            The number of inbound bytes in h3cIpaExtListTable.
+            "
+        ::= { h3cIpaExtListEntry 5 }
+
+    h3cIpaExtListOutPackets OBJECT-TYPE
+        SYNTAX      Counter32
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "
+            The number of outbound packets in h3cIpaExtListTable.
+            "
+        ::= { h3cIpaExtListEntry 6 }
+
+    h3cIpaExtListOutBytes OBJECT-TYPE
+        SYNTAX      Counter64
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "
+            The number of outbound bytes in h3cIpaExtListTable.
+            "
+        ::= { h3cIpaExtListEntry 7 }
+
+-- =============================================================================
+    -- h3cIpaFWListTable
+    -- for showing accounting information of packet denied by the firewall
+
+    h3cIpaFWListTable OBJECT-TYPE
+        SYNTAX   SEQUENCE OF H3cIpaFWListEntry
+        MAX-ACCESS   not-accessible
+        STATUS   current
+        DESCRIPTION
+            "
+            If the packet is denied by the firewall,
+            it will be accounted in this list.
+            "
+        ::= { h3cIpa 6 }
+
+    h3cIpaFWListEntry OBJECT-TYPE
+        SYNTAX   H3cIpaFWListEntry
+        MAX-ACCESS   not-accessible
+        STATUS   current
+        DESCRIPTION
+            "
+            Entry of the table.
+            "
+        INDEX { h3cIpaFWListIpSrc,
+                h3cIpaFWListIpDst
+              }
+        ::= { h3cIpaFWListTable 1 }
+
+    H3cIpaFWListEntry ::=
+        SEQUENCE {
+            h3cIpaFWListIpSrc
+                IpAddress,
+            h3cIpaFWListIpDst
+                IpAddress,
+            h3cIpaFWListInPackets
+                Counter32,
+            h3cIpaFWListInBytes
+                Counter64,
+            h3cIpaFWListOutPackets
+                Counter32,
+            h3cIpaFWListOutBytes
+                Counter64
+        }
+
+    h3cIpaFWListIpSrc OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+             "
+             Source IP-address of these accounted packets.
+             "
+        ::= { h3cIpaFWListEntry 1 }
+
+    h3cIpaFWListIpDst OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+             "
+             Destination IP-address of these accounted packets.
+             "
+        ::= { h3cIpaFWListEntry 2 }
+
+    h3cIpaFWListInPackets OBJECT-TYPE
+        SYNTAX      Counter32
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+             "
+             The number of outbound packets in h3cIpaFWListTable.
+             "
+        ::= { h3cIpaFWListEntry 3 }
+
+    h3cIpaFWListInBytes OBJECT-TYPE
+        SYNTAX      Counter64
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "
+            The number of inbound bytes in h3cIpaFWListTable.
+            "
+        ::= { h3cIpaFWListEntry 4 }
+
+    h3cIpaFWListOutPackets OBJECT-TYPE
+        SYNTAX      Counter32
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "
+            The number of outbound packets in h3cIpaFWListTable.
+            "
+        ::= { h3cIpaFWListEntry 5 }
+
+   h3cIpaFWListOutBytes OBJECT-TYPE
+       SYNTAX      Counter64
+       MAX-ACCESS  read-only
+       STATUS      current
+       DESCRIPTION
+           "
+           The number of outbound bytes in h3cIpaFWListTable.
+           "
+       ::= { h3cIpaFWListEntry 6 }
+
+END

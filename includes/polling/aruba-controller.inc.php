@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -53,6 +53,9 @@ if ($device['type'] == 'wireless' && $device['os'] == 'arubaos')
   $cont_rrd_update="$polled:".$aruba_stats[0]['wlsxSwitchTotalNumAccessPoints'].":".$aruba_stats[0]['wlsxSwitchTotalNumStationsAssociated'];
   $ret = rrdtool_update($device, $rrdfile, $cont_rrd_update);
 
+  $graphs['arubacontroller_numclients'] = TRUE;
+  $graphs['arubacontroller_numaps'] = TRUE;
+
   // also save the info about how many clients in the same place as the wireless module
   $wificlientsrrd  = "wificlients-radio1.rrd";
 
@@ -78,19 +81,15 @@ if ($device['type'] == 'wireless' && $device['os'] == 'arubaos')
 
     $radionum      = substr($radioid,strlen($radioid)-1,1);
 
-    if ($debug)
-    {
-      echo("* radioid: $radioid\n");
-      echo("  radionum: $radionum\n");
-      echo("  name: $name\n");
-      echo("  type: $type\n");
-      echo("  channel: $channel\n");
-      echo("  txpow: $txpow\n");
-      echo("  radioutil: $radioutil\n");
-      echo("  numasoclients: $numasoclients\n");
-      echo("  interference: $interference\n");
-
-    }
+    print_debug("* radioid: $radioid\n" .
+                "  radionum: $radionum\n" .
+                "  name: $name\n" .
+                "  type: $type\n" .
+                "  channel: $channel\n" .
+                "  txpow: $txpow\n" .
+                "  radioutil: $radioutil\n" .
+                "  numasoclients: $numasoclients\n" .
+                "  interference: $interference");
 
     // if there is a numeric channel, assume the rest of the data is valid, I guess
     if (is_numeric($channel))

@@ -8,22 +8,21 @@
  * @package    observium
  * @subpackage webinterface
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
-
-// FIXME - fewer includes!
 
 include_once("../includes/defaults.inc.php");
 include_once("../config.php");
 include_once("../includes/definitions.inc.php");
-include_once("../includes/common.inc.php");
-include_once("../includes/dbFacile.php");
-include_once("../includes/rewrites.inc.php");
-include_once("includes/functions.inc.php");
-include_once("includes/authenticate.inc.php");
 
-include_once("../includes/snmp.inc.php");
+include($config['install_dir'] . "/includes/common.inc.php");
+include($config['install_dir'] . "/includes/dbFacile.php");
+include($config['install_dir'] . "/includes/rewrites.inc.php");
+include($config['install_dir'] . "/includes/entities.inc.php");
+include($config['install_dir'] . "/includes/snmp.inc.php");
+include($config['html_dir'] . "/includes/functions.inc.php");
+include($config['html_dir'] . "/includes/authenticate.inc.php");
 
 if (is_numeric($_GET['id']) && ($config['allow_unauth_graphs'] || port_permitted($_GET['id'])))
 {

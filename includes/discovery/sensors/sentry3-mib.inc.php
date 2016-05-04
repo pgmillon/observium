@@ -7,11 +7,9 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
-
-// CLEANME rename code can go in r6000
 
 echo(" Sentry3-MIB ");
 
@@ -36,12 +34,7 @@ foreach ($sentry3_InfeedEntry as $tower => $feeds)
                       'limit_high_warn' => $entry['infeedLoadHighThresh']);
       $value  = $entry['infeedLoadValue'];
 
-      ## Rename code for older revisions
-      $old_rrd  = $config['rrd_dir'].'/'.$device['hostname'].'/'.safename("sensor-current-sentry3-$tower.rrd");
-      $new_rrd  = $config['rrd_dir'].'/'.$device['hostname'].'/'.safename("sensor-current-sentry3-infeedLoad.$index.rrd");
-      if (is_file($old_rrd)) { rename($old_rrd, $new_rrd); print_message('Moved RRD'); }
-
-      discover_sensor($valid['sensor'], 'current', $device, $oid, "infeedLoad.$index", 'sentry3', $descr, $scale, $value * $scale, $limits);
+      discover_sensor($valid['sensor'], 'current', $device, $oid, "infeedLoad.$index", 'sentry3', $descr, $scale, $value, $limits);
     } else {
       /// FIXME. States for $entry['infeedLoadStatus']
     }
@@ -52,12 +45,7 @@ foreach ($sentry3_InfeedEntry as $tower => $feeds)
     {
       $value = $entry['infeedVoltage'];
 
-      ## Rename code for older revisions
-      $old_rrd  = $config['rrd_dir'].'/'.$device['hostname'].'/'.safename("sensor-voltage-sentry3-$tower.rrd");
-      $new_rrd  = $config['rrd_dir'].'/'.$device['hostname'].'/'.safename("sensor-voltage-sentry3-infeedVoltage.$index.rrd");
-      if (is_file($old_rrd)) { rename($old_rrd, $new_rrd); print_message('Moved RRD'); }
-
-      discover_sensor($valid['sensor'], 'voltage', $device, $oid, "infeedVoltage.$index", 'sentry3', $descr, $scale_voltage, $value * $scale_voltage);
+      discover_sensor($valid['sensor'], 'voltage', $device, $oid, "infeedVoltage.$index", 'sentry3', $descr, $scale_voltage, $value);
     }
 
     //infeedPower
@@ -65,11 +53,6 @@ foreach ($sentry3_InfeedEntry as $tower => $feeds)
     if (isset($entry['infeedPower']) && $entry['infeedPower'] >= 0)
     {
       $value = $entry['infeedPower'];
-
-      ## Rename code for older revisions
-      $old_rrd  = $config['rrd_dir'].'/'.$device['hostname'].'/'.safename("sensor-power-sentry3-$tower.rrd");
-      $new_rrd  = $config['rrd_dir'].'/'.$device['hostname'].'/'.safename("sensor-power-sentry3-infeedPower.$index.rrd");
-      if (is_file($old_rrd)) { rename($old_rrd, $new_rrd); print_message('Moved RRD'); }
 
       discover_sensor($valid['sensor'], 'power', $device, $oid, "infeedPower.$index", 'sentry3', $descr, 1, $value);
     }
@@ -88,12 +71,7 @@ foreach ($sentry3_InfeedEntry as $tower => $feeds)
                         'limit_low'  => $ou_entry['outletLoadLowThresh']);
         $value  = $ou_entry['outletLoadValue'];
 
-        ## Rename code for older revisions
-        $old_rrd  = $config['rrd_dir'].'/'.$device['hostname'].'/'.safename("sensor-current-sentry3-.$tower.$outlet.rrd");
-        $new_rrd  = $config['rrd_dir'].'/'.$device['hostname'].'/'.safename("sensor-current-sentry3-outletLoad.$index.rrd");
-        if (is_file($old_rrd)) { rename($old_rrd, $new_rrd); print_message('Moved RRD'); }
-
-        discover_sensor($valid['sensor'], 'current', $device, $oid, "outletLoad.$index", 'sentry3', $descr, $scale, $value * $scale, $limits);
+        discover_sensor($valid['sensor'], 'current', $device, $oid, "outletLoad.$index", 'sentry3', $descr, $scale, $value, $limits);
       } else {
         /// FIXME. States for $ou_entry['outletLoadStatus'], $ou_entry['outletStatus']
       }
@@ -103,14 +81,14 @@ foreach ($sentry3_InfeedEntry as $tower => $feeds)
 
 // temperature/humidity sensor
 $sentry3_TempHumidSensorEntry = snmpwalk_cache_oid($device, 'TempHumidSensorEntry', array(), 'Sentry3-MIB');
-if ($debug && count($sentry3_TempHumidSensorEntry)) { var_dump($sentry3_TempHumidSensorEntry); }
+if (OBS_DEBUG > 1 && count($sentry3_TempHumidSensorEntry)) { var_dump($sentry3_TempHumidSensorEntry); }
 
 foreach ($sentry3_TempHumidSensorEntry as $index => $entry)
 {
   $descr = $entry['tempHumidSensorName'];
 
   //tempHumidSensorTempValue
-  $oid        = '.1.3.6.1.4.1.1718.3.2.5.1.6.1.'.$index;
+  $oid        = '.1.3.6.1.4.1.1718.3.2.5.1.6.'.$index;
 
   if (isset($entry['tempHumidSensorTempValue']) && $entry['tempHumidSensorTempValue'] >= 0)
   {
@@ -121,37 +99,27 @@ foreach ($sentry3_TempHumidSensorEntry as $index => $entry)
     } else {
       $scale_temp = 1;
     }
-    $value      = $entry['tempHumidSensorTempValue'] * $scale_temp;
+    $value      = $entry['tempHumidSensorTempValue'];
     $limits     = array('limit_high' => (isset($entry['tempHumidSensorTempHighThresh']) ? $entry['tempHumidSensorTempHighThresh'] * $scale_temp : NULL),
                         'limit_low'  => (isset($entry['tempHumidSensorTempLowThresh'])  ? $entry['tempHumidSensorTempLowThresh']  * $scale_temp : NULL));
     if ($entry['tempHumidSensorTempScale'] == 'fahrenheit')
     {
       $scale_temp *= 5/9;
-      $value      = f2c($value);
+      //$value      = f2c($value);
       $limits['limit_high'] = f2c($limits['limit_high']);
       $limits['limit_low']  = f2c($limits['limit_low']);
     }
-
-    ## Rename code for older revisions
-    $old_rrd  = $config['rrd_dir'].'/'.$device['hostname'].'/'.safename("sensor-temperature-sentry3-$index.rrd");
-    $new_rrd  = $config['rrd_dir'].'/'.$device['hostname'].'/'.safename("sensor-temperature-sentry3-tempHumidSensor.$index.rrd");
-    if (is_file($old_rrd)) { rename($old_rrd, $new_rrd); print_message('Moved RRD'); }
 
     discover_sensor($valid['sensor'], 'temperature', $device, $oid, "tempHumidSensor.$index", 'sentry3', $descr, $scale_temp, $value, $limits);
   }
 
   //tempHumidSensorHumidValue
-  $oid        = '.1.3.6.1.4.1.1718.3.2.5.1.10.1.'.$index;
+  $oid        = '.1.3.6.1.4.1.1718.3.2.5.1.10.'.$index;
   if (isset($entry['tempHumidSensorHumidValue']) && $entry['tempHumidSensorHumidValue'] >= 0)
   {
     $limits     = array('limit_high' => (isset($entry['tempHumidSensorHumidHighThresh']) ? $entry['tempHumidSensorHumidHighThresh'] : NULL),
                         'limit_low'  => (isset($entry['tempHumidSensorHumidLowThresh'])  ? $entry['tempHumidSensorHumidLowThresh']  : NULL));
     $value      = $entry['tempHumidSensorHumidValue'];
-
-    ## Rename code for older revisions
-    $old_rrd  = $config['rrd_dir'].'/'.$device['hostname'].'/'.safename("sensor-humidity-sentry3-$index.rrd");
-    $new_rrd  = $config['rrd_dir'].'/'.$device['hostname'].'/'.safename("sensor-humidity-sentry3-tempHumidSensor.$index.rrd");
-    if (is_file($old_rrd)) { rename($old_rrd, $new_rrd); print_message('Moved RRD'); }
 
     discover_sensor($valid['sensor'], 'humidity', $device, $oid, "tempHumidSensor.$index", 'sentry3', $descr, 1, $value, $limits);
   }

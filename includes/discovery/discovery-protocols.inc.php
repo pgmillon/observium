@@ -8,7 +8,7 @@
  * @package    observium
  * @subpackage discovery
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -18,15 +18,11 @@ echo("Discovery protocols:");
 $include_dir = "includes/discovery/discovery-protocols";
 include("includes/include-dir-mib.inc.php");
 
-// Always discover LLDP-MIB
-// Include LLDP-MIB on devices where it's supported, don't just run it for everything.
-include("discovery-protocols/lldp-mib.inc.php");
-
-// Always discover CISCO-CDP-MIB (many non-cisco devices support this!)
-// Include CDP-MIB on devices where it's supported, don't just run it for everything.
-include("discovery-protocols/cisco-cdp-mib.inc.php");
-
-if ($debug && count($valid_link)) { print_vars($valid_link); }
+if (OBS_DEBUG > 1)
+{
+  if (count($valid_link)) { print_vars($valid_link); }
+  if (count($GLOBALS['cache']['discovery-protocols'])) { var_dump($GLOBALS['cache']['discovery-protocols']); }
+}
 
 $sql = 'SELECT * FROM `links` AS L, `ports` AS I WHERE L.`local_port_id` = I.`port_id` AND I.`device_id` = ?';
 foreach (dbFetchRows($sql, array($device['device_id'])) as $test)
@@ -43,6 +39,6 @@ foreach (dbFetchRows($sql, array($device['device_id'])) as $test)
 }
 
 unset($valid_link);
-echo("\n");
+echo(PHP_EOL);
 
 // EOF

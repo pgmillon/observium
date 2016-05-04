@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -19,7 +19,8 @@ foreach ($devices as $device)
   {
     if (!$location_filter || $device['location'] == $location_filter)
     {
-      include("includes/hostbox-basic.inc.php");
+      print_device_hostbox($device, 'basic');
+      //include("includes/hostbox-basic.inc.php");
     }
   }
 }

@@ -8,38 +8,41 @@
  * @package    observium
  * @subpackage functions
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 // DOCME needs phpdoc block
 // TESTME needs unit testing
-function get_entity_by_id_cache($type, $id)
+function get_entity_by_id_cache($entity_type, $entity_id)
 {
   global $cache;
 
-  $translate = entity_type_translate_array($type);
+  $translate = entity_type_translate_array($entity_type);
 
-  if (is_array($cache[$type][$id]))
+  if (is_array($cache[$entity_type][$entity_id]))
   {
-    return $cache[$type][$id];
+
+    return $cache[$entity_type][$entity_id];
+
   } else {
-    switch($type)
+
+    switch($entity_type)
     {
       case "port":
-        $entity = get_port_by_id($id);
+        $entity = get_port_by_id($entity_id);
         break;
       default:
-        $entity = dbFetchRow("SELECT * FROM `".$translate['table']."` WHERE `".$translate['id_field']."` = ?", array($id));
-        if (function_exists('humanize_'.$type)) { $do = 'humanize_'.$type; $do($entity); }
+        $entity = dbFetchRow("SELECT * FROM `".$translate['table']."` WHERE `".$translate['id_field']."` = ?", array($entity_id));
+        if (function_exists('humanize_'.$entity_type)) { $do = 'humanize_'.$entity_type; $do($entity); }
         elseif (isset($translate['humanize_function']) && function_exists('humanize_'.$translate['humanize_function'])) { $do = 'humanize_'.$translate['humanize_function']; $do($entity); }
         break;
     }
 
     if (is_array($entity))
     {
-      entity_rewrite($type, $entity);
-      $cache[$type][$id] = $entity;
+      entity_rewrite($entity_type, $entity);
+      $cache[$entity_type][$entity_id] = $entity;
       return $entity;
     }
   }
@@ -52,6 +55,8 @@ function get_entity_by_id_cache($type, $id)
 function entity_type_translate($entity_type)
 {
   $data = entity_type_translate_array($entity_type);
+  if (!is_array($data)) { return NULL; }
+
   return array($data['table'], $data['id_field'], $data['name_field'], $data['ignore_field'], $data['entity_humanize']);
 }
 
@@ -143,15 +148,72 @@ function entity_type_translate_array($entity_type)
   return $data;
 }
 
-// DOCME needs phpdoc block
+/**
+ * Returns TRUE if the logged in user is permitted to view the supplied entity.
+ *
+ * @param $entity_id
+ * @param $entity_type
+ * @param $device_id
+ *
+ * @return bool
+ */
 // TESTME needs unit testing
-function entity_rewrite($type, &$entity)
+function is_entity_permitted($entity_id, $entity_type, $device_id = NULL)
 {
-  $translate = entity_type_translate_array($type);
+  global $permissions; // 
 
-  switch($type)
+  if (!is_numeric($device_id)) { $device_id = get_device_id_by_entity_id($entity_id, $entity_type); }
+
+  if ($_SESSION['userlevel'] >= 7) // 7 is global read
+  {
+    $allowed = TRUE;
+  }
+  else if (is_numeric($device_id) && device_permitted($device_id))
+  {
+    $allowed = TRUE;
+  }
+  else if (isset($permissions[$entity_type][$entity_id]) && $permissions[$entity_type][$entity_id])
+  {
+    $allowed = TRUE;
+  } else {
+    $allowed = FALSE;
+  }
+
+  print_debug("PERMISSIONS CHECK. Entity type: $entity_type, Entity ID: $entity_id, Device ID: ".($device_id ? $device_id : 'NULL').", Allowed: ".($allowed ? 'TRUE' : 'FALSE').".");
+  return $allowed;
+}
+
+/**
+ * Generates standardised set of array fields for use in entity-generic functions and code.
+ * Has no return value, it modifies the $entity array in-place.
+ *
+ * @param $entity_type string
+ * @param $entity array
+ *
+ */
+// TESTME needs unit testing
+function entity_rewrite($entity_type, &$entity)
+{
+  $translate = entity_type_translate_array($entity_type);
+
+  // By default, fill $entity['entity_name'] with name_field contents.
+  if (isset($translate['name_field'])) { $entity['entity_name'] = $entity[$translate['name_field']]; }
+
+  // By default, fill $entity['entity_shortname'] with shortname_field contents. Fallback to entity_name when field name is not set.
+  if (isset($translate['shortname_field'])) { $entity['entity_shortname'] = $entity[$translate['name_field']]; } else { $entity['entity_shortname'] = $entity['entity_name']; }
+
+  // By default, fill $entity['entity_descr'] with descr_field contents.
+  if (isset($translate['descr_field'])) { $entity['entity_descr'] = $entity[$translate['descr_field']]; }
+
+  // By default, fill $entity['entity_id'] with id_field contents.
+  if (isset($translate['id_field'])) { $entity['entity_id'] = $entity[$translate['id_field']]; }
+
+  switch($entity_type)
   {
     case "bgp_peer":
+
+      // Special handling of name/shortname/descr for bgp_peer, since it combines multiple elements.
+
       if (Net_IPv6::checkIPv6($entity['bgpPeerRemoteAddr']))
       {
         $addr = Net_IPv6::compress($entity['bgpPeerRemoteAddr']);
@@ -164,84 +226,81 @@ function entity_rewrite($type, &$entity)
 
       $entity['entity_descr']     = $entity['astext'];
       break;
-    default:
-      // By default, fill $entity['entity_name'] with name_field contents.
-      if (isset($translate['name_field'])) { $entity['entity_name'] = $entity[$translate['name_field']]; }
-
-      // By default, fill $entity['entity_shortname'] with shortname_field contents. Fallback to entity_name when field name is not set.
-      if (isset($translate['shortname_field'])) { $entity['entity_shortname'] = $entity[$translate['name_field']]; } else { $entity['entity_shortname'] = $entity['entity_name']; }
-
-      // By default, fill $entity['entity_descr'] with descr_field contents.
-      if (isset($translate['descr_field'])) { $entity['entity_descr'] = $entity[$translate['descr_field']]; }
-      break;
   }
 }
 
-// DOCME needs phpdoc block
+/**
+ * Generates a URL to reach the entity's page (or the most specific list page the entity appears on)
+ * Has no return value, it modifies the $entity array in-place.
+ *
+ * @param $entity_type string
+ * @param $entity array
+ *
+ */
 // TESTME needs unit testing
-function generate_entity_link($type, $entity, $text=NULL, $graph_type=NULL, $escape = TRUE)
+function generate_entity_link($entity_type, $entity, $text=NULL, $graph_type=NULL, $escape = TRUE)
 {
   global $config, $entity_cache;
 
   if (is_numeric($entity))
   {
-    $entity = get_entity_by_id_cache($type, $entity);
+    $entity = get_entity_by_id_cache($entity_type, $entity);
   }
 
-  // Rewrite sensor subtypes to 'sensor'
-  $translate = entity_type_translate_array($type);
-  if (isset($translate['parent_type'])) { $type = $translate['parent_type']; }
+  entity_rewrite($entity_type, $entity);
 
-  switch($type)
+  // Rewrite sensor subtypes to 'sensor'
+  // $translate = entity_type_translate_array($type);
+  // if (isset($translate['parent_type'])) { $type = $translate['parent_type']; }
+
+  switch($entity_type)
   {
     case "device":
-      if (empty($text)) { $text = $entity['hostname']; } // FIXME use name_field property for all of these? Like entity_rewrite above does.
-      $link = generate_link($text, array('page' => 'device', 'device' => $entity['device_id']), array(), $escape);
+      $link = generate_device_link($entity);
       break;
     case "mempool":
-      if (empty($text)) { $text = $entity['mempool_descr']; }
-      $link = generate_link($text, array('page' => 'device', 'device' => $entity['device_id'], 'tab' => 'health', 'metric' => 'mempool'), array(), $escape);
+      $url = generate_url(array('page' => 'device', 'device' => $entity['device_id'], 'tab' => 'health', 'metric' => 'mempool'));
       break;
     case "processor":
-      if (empty($text)) { $text = $entity['processor_descr']; }
-      $link = generate_link($text, array('page' => 'device', 'device' => $entity['device_id'], 'tab' => 'health', 'metric' => 'processor'), array(), $escape);
+      $url = generate_url(array('page' => 'device', 'device' => $entity['device_id'], 'tab' => 'health', 'metric' => 'processor'));
+      break;
+    case "status":
+      $url = generate_url(array('page' => 'device', 'device' => $entity['device_id'], 'tab' => 'health', 'metric' => 'status'));
       break;
     case "sensor":
-      if (empty($text)) { $text = $entity['sensor_descr']; }
-      $link = generate_link($text, array('page' => 'device', 'device' => $entity['device_id'], 'tab' => 'health', 'metric' => $entity['sensor_class']), array(), $escape);
+      $url = generate_url(array('page' => 'device', 'device' => $entity['device_id'], 'tab' => 'health', 'metric' => $entity['sensor_class']));
       break;
     case "toner":
-      if (empty($text)) { $text = $entity['toner_descr']; }
-      $link = generate_link($text, array('page' => 'device', 'device' => $entity['device_id'], 'tab' => 'printing'), array(), $escape);
+      $url = generate_url(array('page' => 'device', 'device' => $entity['device_id'], 'tab' => 'printing'));
       break;
     case "port":
-      $link = generate_port_link($entity, $text, $graph_type, $escape);
+      $link = generate_port_link($entity, NULL, $graph_type, $escape);
       break;
     case "storage":
-      if (empty($text)) { $text = $entity['storage_descr']; }
-      $link = generate_link($text, array('page' => 'device', 'device' => $entity['device_id'], 'tab' => 'health', 'metric' => 'storage'), array(), $escape);
+      $url = generate_url(array('page' => 'device', 'device' => $entity['device_id'], 'tab' => 'health', 'metric' => 'storage'));
       break;
     case "bgp_peer":
-      if (Net_IPv6::checkIPv6($entity['bgpPeerRemoteAddr']))
-      {
-        $addr = Net_IPv6::compress($entity['bgpPeerRemoteAddr']);
-      } else {
-        $addr = $entity['bgpPeerRemoteAddr'];
-      }
-      if (empty($text)) { $text = $addr ." (AS".$entity['bgpPeerRemoteAs'] .")"; }
-      $link = generate_link($text, array('page' => 'device', 'device' => $entity['device_id'], 'tab' => 'routing', 'proto' => 'bgp'), array(), $escape);
+      $url = generate_url(array('page' => 'device', 'device' => $entity['device_id'], 'tab' => 'routing', 'proto' => 'bgp'));
       break;
     case "netscaler_vsvr":
-      if (empty($text)) { $text = $entity['vsvr_label']; }
-      $link = generate_link($text, array('page' => 'device', 'device' => $entity['device_id'], 'tab' => 'loadbalancer', 'type' => 'netscaler_vsvr', 'vsvr' => $entity['vsvr_id']), array(), $escape);
+      $url = generate_url(array('page' => 'device', 'device' => $entity['device_id'], 'tab' => 'loadbalancer', 'type' => 'netscaler_vsvr', 'vsvr' => $entity['vsvr_id']));
       break;
     case "netscaler_svc":
-      if (empty($text)) { $text = $entity['svc_label']; }
-      $link = generate_link($text, array('page' => 'device', 'device' => $entity['device_id'], 'tab' => 'loadbalancer', 'type' => 'netscaler_services', 'svc' => $entity['svc_id']), array(), $escape);
+      $url = generate_url(array('page' => 'device', 'device' => $entity['device_id'], 'tab' => 'loadbalancer', 'type' => 'netscaler_services', 'svc' => $entity['svc_id']));
       break;
-
+    case "sla":
+      $url = generate_url(array('page' => 'device', 'device' => $entity['device_id'], 'tab' => 'slas'));
+      break;
     default:
-      $link = $entity[$type.'_id'];
+      $url = NULL;
+  }
+
+  if (!isset($link))
+  {
+    if (!isset($text)) { $text = $entity['entity_name']; }
+    if ($escape) { $text = escape_html($text); }
+
+    $link = '<a href="' . $url . '" class="entity-popup ' . $entity['html_class'] . '" data-eid="' . $entity['entity_id'] . '" data-etype="' . $entity_type . '">' . $text . '</a>';
   }
   return($link);
 }

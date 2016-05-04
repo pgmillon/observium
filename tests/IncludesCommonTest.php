@@ -1,7 +1,8 @@
 <?php
 
 include(dirname(__FILE__) . '/../includes/defaults.inc.php');
-include(dirname(__FILE__) . '/../config.php');
+//include(dirname(__FILE__) . '/../config.php'); // Do not include user editable config here
+include(dirname(__FILE__) . '/data/test_definitions.inc.php'); // Fake definitions for testing
 include(dirname(__FILE__) . '/../includes/definitions.inc.php');
 include(dirname(__FILE__) . '/../includes/functions.inc.php');
 
@@ -201,6 +202,7 @@ class IncludesCommonTest extends PHPUnit_Framework_TestCase
 
   /**
    * @dataProvider providerTimeticksToSec
+   * @group datetime
    */
   public function testTimeticksToSec($value, $float, $result)
   {
@@ -210,10 +212,27 @@ class IncludesCommonTest extends PHPUnit_Framework_TestCase
   public function providerTimeticksToSec()
   {
     return array(
-      array('1:2:34:56.78', FALSE,    95696), // ints
-      array('(95696)',      FALSE,    95696),
-      array('1:2:34:56.78', TRUE,  95696.78), // floats
-      array('(95696)',      TRUE,   95696.0),
+      // Main, return integer
+      array('178:23:06:59.03', FALSE,   15462419),
+      array('1:2:34:56.78',    FALSE,      95696),
+      array('0:0:00:00.00',    FALSE,          0),
+      // Main, return float
+      array('178:23:06:59.03', TRUE, 15462419.03),
+      array('1:2:34:56.78',    TRUE,    95696.78),
+      array('0:0:00:00.00',    TRUE,         0.0),
+      // Spaces, quotes, brackets
+      array('"  (9569678)"',  FALSE,       95696),
+      array('(9569678)',       TRUE,    95696.78),
+      array('1546241903',      TRUE, 15462419.03),
+      array('"1:2:34:56.78"',  TRUE,    95696.78),
+      array('1: 2:34:56.78',  FALSE,       95696),
+      // Wrong Type
+      array('Wrong Type (should be Timeticks): 1632295600', FALSE, 16322956),
+      // Wrong data, return FALSE
+      array(NULL,            FALSE,    FALSE),
+      array('',              FALSE,    FALSE),
+      array('No',            FALSE,    FALSE),
+      array('1-2-34-56.78',  FALSE,    FALSE),
     );
   }
 
@@ -639,6 +658,7 @@ class IncludesCommonTest extends PHPUnit_Framework_TestCase
 
   /**
    * @dataProvider providerFormatBi
+   * @group numbers
    */
   public function testFormatBi($value, $round, $sf, $result)
   {
@@ -699,6 +719,7 @@ class IncludesCommonTest extends PHPUnit_Framework_TestCase
 
   /**
    * @dataProvider providerFormatNumber
+   * @group numbers
    */
   public function testFormatNumber($value, $base, $round, $sf, $result)
   {
@@ -757,6 +778,7 @@ class IncludesCommonTest extends PHPUnit_Framework_TestCase
 
   /**
    * @dataProvider providerFormatTimestamp
+   * @group datetime
    */
   public function testFormatTimestamp($value, $result)
   {
@@ -774,6 +796,7 @@ class IncludesCommonTest extends PHPUnit_Framework_TestCase
 
   /**
    * @dataProvider providerFormatUnixtime
+   * @group datetime
    */
   public function testFormatUnixtime($value, $format, $result)
   {
@@ -792,6 +815,7 @@ class IncludesCommonTest extends PHPUnit_Framework_TestCase
 
   /**
    * @dataProvider providerUnitStringToNumeric
+   * @group numbers
    */
   public function testUnitStringToNumeric($value, $result)
   {
@@ -850,6 +874,462 @@ class IncludesCommonTest extends PHPUnit_Framework_TestCase
       array('5 Tbps',            5*1000*1000*1000*1000.0),
     );
     return $results;
+  }
+
+  /**
+   * @dataProvider providerRangeToList
+   * @group numbers
+   */
+  public function testRangeToList($value, $separator, $sort, $result)
+  {
+    $arr = explode(',', $value);
+    $this->assertSame($result, range_to_list($arr, $separator, $sort));
+  }
+
+  public function providerRangeToList()
+  {
+    return array(
+      array(0, ',', TRUE, '0'),
+      array('1,2,3,4,5,6,7,8,9,10', ',', TRUE, '1-10'),
+      array('1,2,3,5,7,9,10,11,12,14,0,-1', ',', TRUE, '-1-3,5,7,9-12,14'),
+      array('1,2,3,5,7,9,10,11,12,14,0,-1', ',', FALSE, '1-3,5,7,9-12,14,0,-1'),
+      array('1,2,3,5,7,9,10,11,12,14,0,-1', ', ', TRUE, '-1-3, 5, 7, 9-12, 14'),
+      array(',', ',', TRUE, ''),
+      array('edwd', ',', TRUE, ''),
+    );
+  }
+
+  /**
+   * @dataProvider providerGetDeviceMibs
+   * @group mibs
+   */
+  public function testGetDeviceMibs($device, $result)
+  {
+    $mibs = array_values(get_device_mibs($device)); // Use array_values for reset keys
+    $this->assertEquals($result, $mibs);
+  }
+
+  public function providerGetDeviceMibs()
+  {
+    return array(
+      // OS with empty mibs (only default)
+      array(
+        array(
+          'device_id' => 1,
+          'os'        => 'test_generic'
+        ),
+        array(
+          'ENTITY-MIB',
+          'ENTITY-SENSOR-MIB',
+          'HOST-RESOURCES-MIB',
+          'Q-BRIDGE-MIB',
+          'LLDP-MIB',
+          'UCD-SNMP-MIB',
+          'CISCO-CDP-MIB',
+          'PW-STD-MIB',
+          'BGP4-MIB',
+        )
+      ),
+
+      // OS with group mibs
+      array(
+        array(
+          'device_id' => 1,
+          'os'        => 'test_ios'
+        ),
+        array(
+          'CISCO-IETF-IP-MIB',
+          'CISCO-ENTITY-SENSOR-MIB',
+          'CISCO-VTP-MIB',
+          'CISCO-ENVMON-MIB',
+          'CISCO-ENTITY-QFP-MIB',
+          'CISCO-IP-STAT-MIB',
+          'CISCO-FIREWALL-MIB',
+          'CISCO-ENHANCED-MEMPOOL-MIB',
+          'CISCO-MEMORY-POOL-MIB',
+          'CISCO-PROCESS-MIB',
+          'ENTITY-MIB',
+          'ENTITY-SENSOR-MIB',
+          'HOST-RESOURCES-MIB',
+          'Q-BRIDGE-MIB',
+          'LLDP-MIB',
+          'UCD-SNMP-MIB',
+          'CISCO-CDP-MIB',
+          'PW-STD-MIB',
+          'BGP4-MIB',
+        )
+      ),
+
+      // OS with group and os mibs
+      array(
+        array(
+          'device_id' => 1,
+          'os'        => 'test_linux'
+        ),
+        array(
+          'LM-SENSORS-MIB',
+          'SUPERMICRO-HEALTH-MIB',
+          'MIB-Dell-10892',
+          'CPQHLTH-MIB',
+          'CPQIDA-MIB',
+          'LSI-MegaRAID-SAS-MIB',
+          'ENTITY-MIB',
+          'ENTITY-SENSOR-MIB',
+          'HOST-RESOURCES-MIB',
+          'Q-BRIDGE-MIB',
+          'LLDP-MIB',
+          'UCD-SNMP-MIB',
+          'CISCO-CDP-MIB',
+          'PW-STD-MIB',
+          'BGP4-MIB',
+        )
+      ),
+      // OS with in os blacklisted mibs
+      array(
+        array(
+          'device_id' => 1,
+          'os'        => 'test_junos'
+        ),
+        array(
+          'JUNIPER-MIB',
+          'JUNIPER-ALARM-MIB',
+          'JUNIPER-DOM-MIB',
+          'JUNIPER-SRX5000-SPU-MONITORING-MIB',
+          'JUNIPER-VLAN-MIB',
+          'JUNIPER-MAC-MIB',
+          //'ENTITY-MIB',
+          //'ENTITY-SENSOR-MIB',
+          'HOST-RESOURCES-MIB',
+          'Q-BRIDGE-MIB',
+          'LLDP-MIB',
+          'UCD-SNMP-MIB',
+          'CISCO-CDP-MIB',
+          'PW-STD-MIB',
+          'BGP4-MIB',
+        )
+      ),
+
+      // OS with in os and group blacklisted mibs
+      array(
+        array(
+          'device_id' => 1,
+          'os'        => 'test_freebsd'
+        ),
+        array(
+          'CISCO-IETF-IP-MIB',
+          'CISCO-ENTITY-SENSOR-MIB',
+          'ENTITY-MIB',
+          //'ENTITY-SENSOR-MIB',
+          'HOST-RESOURCES-MIB',
+          //'Q-BRIDGE-MIB',
+          'LLDP-MIB',
+          'UCD-SNMP-MIB',
+          'CISCO-CDP-MIB',
+          'PW-STD-MIB',
+          'BGP4-MIB',
+        )
+      ),
+    );
+  }
+
+  /**
+   * @dataProvider providerVarEncode
+   * @group vars
+   */
+  public function testVarEncode($var, $method, $result)
+  {
+    $this->assertSame($result, var_encode($var, $method));
+  }
+
+  /**
+   * @dataProvider providerVarEncode
+   * @group vars
+   */
+  public function testVarDecode($result, $method, $string)
+  {
+    //$this->assertSame($result, var_decode($string, $method));
+    $this->assertEquals($result, var_decode($string, $method));
+  }
+
+  /**
+   * @dataProvider providerVarDecodeWrong
+   * @group vars
+   */
+  public function testVarDecodeWrong($result, $method, $string)
+  {
+    $this->assertSame($result, var_decode($string, $method));
+  }
+
+  public function providerVarEncode()
+  {
+    $json_utf8 = defined('JSON_UNESCAPED_UNICODE');
+    if (!$json_utf8) echo("WARNING. In var_encode() with method 'json' converts UTF-8 characters to Unicode escape sequences!\n\n");
+
+    $array = array();
+
+    // Basic data types
+    $array[] = array(NULL,    'json',      'bnVsbA==');
+    $array[] = array(array(), 'json',      'W10=');
+    $array[] = array(TRUE,    'json',      'dHJ1ZQ==');
+    $array[] = array(FALSE,   'json',      'ZmFsc2U=');
+    $array[] = array('true',  'json',      'InRydWUi');
+    $array[] = array('false', 'json',      'ImZhbHNlIg==');
+    $array[] = array('0',     'json',      'IjAi');
+    $array[] = array('',      'json',      'IiI=');
+    $array[] = array(0,       'json',      'MA==');
+    $array[] = array(1,       'json',      'MQ==');
+    $array[] = array(9.8172397123457E-14,      'json', 'OS44MTcyMzk3MTIzNDU3ZS0xNA==');
+    $array[] = array(NULL,    'serialize', 'Tjs=');
+    $array[] = array(array(), 'serialize', 'YTowOnt9');
+    $array[] = array(TRUE,    'serialize', 'YjoxOw==');
+    $array[] = array(FALSE,   'serialize', 'YjowOw==');
+    $array[] = array('true',  'serialize', 'czo0OiJ0cnVlIjs=');
+    $array[] = array('false', 'serialize', 'czo1OiJmYWxzZSI7');
+    $array[] = array('0',     'serialize', 'czoxOiIwIjs=');
+    $array[] = array('',      'serialize', 'czowOiIiOw==');
+    $array[] = array(0,       'serialize', 'aTowOw==');
+    $array[] = array(1,       'serialize', 'aToxOw==');
+    $array[] = array(9.8172397123457E-14, 'serialize', 'ZDo5LjgxNzIzOTcxMjM0NTdFLTE0Ow==');
+
+    // Basic string encode
+    $array[] = array('Sgt. Pepper\'s Lonely Hearts Club Band', 'json',      'IlNndC4gUGVwcGVyJ3MgTG9uZWx5IEhlYXJ0cyBDbHViIEJhbmQi');
+    $array[] = array('Sgt. Pepper\'s Lonely Hearts Club Band', 'serialize', 'czozNzoiU2d0LiBQZXBwZXIncyBMb25lbHkgSGVhcnRzIENsdWIgQmFuZCI7');
+
+    // Random string encode
+    $array[] = array('8,G(?\'A>_7p`>qbr!;9``1ssc$WZpc\'>KxD*?Py3', 'json',      'IjgsRyg/J0E+XzdwYD5xYnIhOzlgYDFzc2MkV1pwYyc+S3hEKj9QeTMi');
+    $array[] = array('8,G(?\'A>_7p`>qbr!;9``1ssc$WZpc\'>KxD*?Py3', 'serialize', 'czo0MDoiOCxHKD8nQT5fN3BgPnFiciE7OWBgMXNzYyRXWnBjJz5LeEQqP1B5MyI7');
+
+    // UTF-8 string encode
+    if ($json_utf8)
+    {
+      $array[] = array('Оркестр Клуба Одиноких Сердец Сержанта Пеппера', 'json',
+                       'ItCe0YDQutC10YHRgtGAINCa0LvRg9Cx0LAg0J7QtNC40L3QvtC60LjRhSDQodC10YDQtNC10YYg0KHQtdGA0LbQsNC90YLQsCDQn9C10L/Qv9C10YDQsCI=');
+    } else {
+      // Wrong pre-5.4 Unicode escaped
+      $array[] = array('Оркестр Клуба Одиноких Сердец Сержанта Пеппера', 'json',
+                       'Ilx1MDQxZVx1MDQ0MFx1MDQzYVx1MDQzNVx1MDQ0MVx1MDQ0Mlx1MDQ0MCBcdTA0MWFcdTA0M2JcdTA0NDNcdTA0MzFcdTA0MzAgXHUwNDFlXHUwNDM0XHUwNDM4XHUwNDNkXHUwNDNlXHUwNDNhXHUwNDM4XHUwNDQ1IFx1MDQyMVx1MDQzNVx1MDQ0MFx1MDQzNFx1MDQzNVx1MDQ0NiBcdTA0MjFcdTA0MzVcdTA0NDBcdTA0MzZcdTA0MzBcdTA0M2RcdTA0NDJcdTA0MzAgXHUwNDFmXHUwNDM1XHUwNDNmXHUwNDNmXHUwNDM1XHUwNDQwXHUwNDMwIg==');
+    }
+    $array[] = array('Оркестр Клуба Одиноких Сердец Сержанта Пеппера', 'serialize', 'czo4Nzoi0J7RgNC60LXRgdGC0YAg0JrQu9GD0LHQsCDQntC00LjQvdC+0LrQuNGFINCh0LXRgNC00LXRhiDQodC10YDQttCw0L3RgtCwINCf0LXQv9C/0LXRgNCwIjs=');
+
+    // Basic array
+    $array[] = array(array(3.14, '0', 'Yellow Submarine', TRUE), 'json',      'WzMuMTQsIjAiLCJZZWxsb3cgU3VibWFyaW5lIix0cnVlXQ==');
+    $array[] = array(array(3.14, '0', 'Yellow Submarine', TRUE), 'serialize', 'YTo0OntpOjA7ZDozLjE0MDAwMDAwMDAwMDAwMDE7aToxO3M6MToiMCI7aToyO3M6MTY6IlllbGxvdyBTdWJtYXJpbmUiO2k6MztiOjE7fQ==');
+
+    // Complex array
+    $array[] = array(
+      array(
+        0       => array('tempHumidSensorID' => 'A1', 'tempHumidSensorName' => 'Temp_Humid_Sensor_A1'),
+        '1.2'   => array('tempHumidSensorID' => 'A2', 'tempHumidSensorName' => 'Temp_Humid_Sensor_A2'),
+        'Frodo' => 'Baggins',
+        'binary' => TRUE,
+        //'number' => 98172397.1234567890, // Ohoho, json rounds this number to 98172397.123457
+        'number' => 98172397.123456,
+        NULL
+      ),
+      'json',      'eyIwIjp7InRlbXBIdW1pZFNlbnNvcklEIjoiQTEiLCJ0ZW1wSHVtaWRTZW5zb3JOYW1lIjoiVGVtcF9IdW1pZF9TZW5zb3JfQTEifSwiMS4yIjp7InRlbXBIdW1pZFNlbnNvcklEIjoiQTIiLCJ0ZW1wSHVtaWRTZW5zb3JOYW1lIjoiVGVtcF9IdW1pZF9TZW5zb3JfQTIifSwiRnJvZG8iOiJCYWdnaW5zIiwiYmluYXJ5Ijp0cnVlLCJudW1iZXIiOjk4MTcyMzk3LjEyMzQ1NiwiMSI6bnVsbH0='
+    );
+    $array[] = array(
+      array(
+        0       => array('tempHumidSensorID' => 'A1', 'tempHumidSensorName' => 'Temp_Humid_Sensor_A1'),
+        '1.2'   => array('tempHumidSensorID' => 'A2', 'tempHumidSensorName' => 'Temp_Humid_Sensor_A2'),
+        'Frodo' => 'Baggins',
+        'binary' => TRUE,
+        'number' => 98172397.1234567890,
+        NULL
+      ),
+      'serialize', 'YTo2OntpOjA7YToyOntzOjE3OiJ0ZW1wSHVtaWRTZW5zb3JJRCI7czoyOiJBMSI7czoxOToidGVtcEh1bWlkU2Vuc29yTmFtZSI7czoyMDoiVGVtcF9IdW1pZF9TZW5zb3JfQTEiO31zOjM6IjEuMiI7YToyOntzOjE3OiJ0ZW1wSHVtaWRTZW5zb3JJRCI7czoyOiJBMiI7czoxOToidGVtcEh1bWlkU2Vuc29yTmFtZSI7czoyMDoiVGVtcF9IdW1pZF9TZW5zb3JfQTIiO31zOjU6IkZyb2RvIjtzOjc6IkJhZ2dpbnMiO3M6NjoiYmluYXJ5IjtiOjE7czo2OiJudW1iZXIiO2Q6OTgxNzIzOTcuMTIzNDU2NzkxO2k6MTtOO30='
+    );
+
+    return $array;
+  }
+
+  public function providerVarDecodeWrong()
+  {
+    $tests = array(
+      0, 1, 9.8E-14, TRUE, FALSE, NULL, '', array(), array('Yellow Submarine'),
+      'WWVsbG93IFN1Ym1hcmluZQ==',          // base64
+      '["Yellow Submarine"]',              // json
+      'a:1:{i:0;s:16:"Yellow Submarine";}' // serialize
+    );
+    foreach (array('json', 'serialize') as $method)
+    {
+      foreach ($tests as $test)
+      {
+        $array[] = array($test, $method, $test);
+      }
+    }
+    return $array;
+  }
+
+  /**
+   * @dataProvider providerPrintMessage
+   * @group print
+   */
+  public function testPrintMessage($cli, $type, $strip, $text, $result)
+  {
+    $this->expectOutputString($result);
+    $GLOBALS['cache']['is_cli'] = $cli; // Override actual is_cli test
+    print_message($text, $type, $strip);
+  }
+
+  public function providerPrintMessage()
+  {
+    return array(
+      // Basic CLI output ($cli=TRUE, $type='', $strip=TRUE)
+      array(
+        TRUE, '' , TRUE,
+        "",   "\n"),
+      array(
+        TRUE, '' , TRUE,
+        "  My test \n is simple",   "  My test \n is simple\n"),
+      array(
+        TRUE, '' , TRUE,
+        29874234,   "29874234\n"),
+      array( // Actually not print anything
+        TRUE, '' , TRUE,
+        NULL, ''),
+      array(
+        TRUE, '' , TRUE,
+        array(), ''),
+      // CLI other types: success, warning, error, debug
+      array(TRUE, 'success', TRUE, "  My test \n is simple",   "  My test \n is simple\n"),
+      array(TRUE, 'warning', TRUE, "  My test \n is simple",   "  My test \n is simple\n"),
+      array(TRUE, 'error',   TRUE, "  My test \n is simple",   "  My test \n is simple\n"),
+      array(TRUE, 'console', TRUE, "\n  My test \n is simple", "\n  My test \n is simple\033[0m\n"),
+      // Note, global $debug var checked only in print_debug() function
+      array(TRUE, 'debug',   TRUE, "  My test \n is simple",   "  My test \n is simple\n"),
+      // CLI strip html ($cli=TRUE, $type='', $strip=TRUE)
+      array(
+        TRUE, '' , TRUE,
+        '  <h1>My test</h1> <br /> <div class="alert alert-info"><button type="button" class="close" data-dismiss="alert">&times;</button></div>',
+        "  My test \n ×\n"),
+      // CLI no strip html ($cli=TRUE, $type='', $strip=FALSE)
+      array(
+        TRUE, '' , FALSE,
+        '  <h1>My test</h1> <br /> <div class="alert alert-info"><button type="button" class="close" data-dismiss="alert">&times;</button></div>',
+        '  <h1>My test</h1> <br /> <div class="alert alert-info"><button type="button" class="close" data-dismiss="alert">&times;</button></div>'.PHP_EOL),
+      // CLI strip html with color ($cli=TRUE, $type='color', $strip=TRUE)
+      array(
+        TRUE, 'color' , TRUE,
+        '  <h1>My test</h1> <br /> <div class="alert alert-info"><button type="button" class="close" data-dismiss="alert">&times;</button></div>',
+        "  My test \n ×\033[0m\n"),
+      // CLI no strip html with color ($cli=TRUE, $type='color', $strip=FALSE)
+      array(
+        TRUE, 'color' , FALSE,
+        '  <h1>My test</h1> <br /> <div class="alert alert-info"><button type="button" class="close" data-dismiss="alert">&times;</button></div>',
+        '  <h1>My test</h1> <br /> <div class="alert alert-info"><button type="button" class="close" data-dismiss="alert">&times;</button></div>'."\033[0m\n"),
+      // CLI color codes ($cli=TRUE, $type='color', $strip=TRUE)
+      array(
+        TRUE, 'color' , TRUE,
+      '%n, %y, %g, %r, %b, %c, %W, %k, %_, %U, %%, &',
+      "\033[0m, \033[0;33m, \033[0;32m, \033[0;31m, \033[0;34m, \033[0;36m, \033[1;37m, \033[0;30m, \033[1m, \033[4m, %, &\033[0m\n"),
+      // CLI color codes ($cli=TRUE, $type='color', $strip=FALSE)
+      array(
+        TRUE, 'color' , FALSE,
+      '%n, %y, %g, %r, %b, %c, %W, %k, %_, %U, %%, &',
+      "\033[0m, \033[0;33m, \033[0;32m, \033[0;31m, \033[0;34m, \033[0;36m, \033[1;37m, \033[0;30m, \033[1m, \033[4m, %, &\033[0m\n"),
+
+      // Basic HTML output ($cli=FALSE, $type='', $strip=TRUE)
+      array( // Actually not print anything
+        FALSE, '' , TRUE,
+        "",   ""),
+      array(
+        FALSE, '' , TRUE,
+        "  My test \n is simple",
+        '
+    <div class="alert alert-info"><button type="button" class="close" data-dismiss="alert">&times;</button>
+      <div>  My test 
+ is simple</div>
+    </div>'.PHP_EOL),
+      array(
+        FALSE, '' , TRUE,
+        29874234, '
+    <div class="alert alert-info"><button type="button" class="close" data-dismiss="alert">&times;</button>
+      <div>29874234</div>
+    </div>'.PHP_EOL),
+      array( // Actually not print anything
+        FALSE, '' , TRUE,
+        NULL, ''),
+      array( // Actually not print anything
+        FALSE, '' , TRUE,
+        array(), ''),
+      // HTML other types: success, warning, error, debug
+      array(
+        FALSE, 'success' , TRUE,
+        "  My test is simple",
+        '
+    <div class="alert alert-success"><button type="button" class="close" data-dismiss="alert">&times;</button>
+      <div>  My test is simple</div>
+    </div>'.PHP_EOL),
+      array(
+        FALSE, 'warning' , TRUE,
+        "  My test is simple",
+        '
+    <div class="alert alert-warning">
+      <div>  My test is simple</div>
+    </div>'.PHP_EOL),
+      array(
+        FALSE, 'error' , TRUE,
+        "  My test is simple",
+        '
+    <div class="alert alert-danger">
+      <div>  My test is simple</div>
+    </div>'.PHP_EOL),
+      array( // Note, global $debug var checked only in print_debug() function
+        FALSE, 'debug' , TRUE,
+        "  My test is simple",
+        '
+    <div class="alert alert-danger"><button type="button" class="close" data-dismiss="alert">&times;</button>
+      <div>  My test is simple</div>
+    </div>'.PHP_EOL),
+      // HTML strip cli ($cli=FALSE, $type='', $strip=TRUE)
+      array(
+        FALSE, '' , TRUE,
+        '%n, %y, %g, %r, %b, %c, %W, %k, %_, %U, %%, &',
+        '
+    <div class="alert alert-info"><button type="button" class="close" data-dismiss="alert">&times;</button>
+      <div>, , , , , , , , , , %, &amp;</div>
+    </div>'.PHP_EOL),
+      // HTML strip cli, input text have html tags ($cli=FALSE, $type='', $strip=TRUE)
+      array(
+        FALSE, '' , TRUE,
+        '%n, %y, %g, %r, %b, %c, %W, %k, %_, %U, %%, & <h1>',
+        '
+    <div class="alert alert-info"><button type="button" class="close" data-dismiss="alert">&times;</button>
+      <div>, , , , , , , , , , %, & <h1></div>
+    </div>'.PHP_EOL),
+      // HTML no strip cli ($cli=FALSE, $type='', $strip=FALSE)
+      array(
+        FALSE, '' , FALSE,
+        '%n, %y, %g, %r, %b, %c, %W, %k, %_, %U, %%, &',
+        '
+    <div class="alert alert-info"><button type="button" class="close" data-dismiss="alert">&times;</button>
+      <div>%n, %y, %g, %r, %b, %c, %W, %k, %_, %U, %%, &</div>
+    </div>'.PHP_EOL),
+      // HTML strip cli with color ($cli=FALSE, $type='color', $strip=TRUE)
+      array(
+        FALSE, 'color' , TRUE,
+        '%n, %y, %g, %r, %b, %c, %W, %k, %_, %U, %%, &',
+        '
+    <div class="alert alert-info"><button type="button" class="close" data-dismiss="alert">&times;</button>
+      <div></span>, <span class="label label-warning">, <span class="label label-success">, <span class="label label-danger">, <span class="label label-primary">, <span class="label label-info">, <span class="label label-default">, <span class="label label-default" style="color:black;">, <span style="font-weight: bold;">, <span style="text-decoration: underline;">, %, &amp;</div>
+    </div>'.PHP_EOL),
+      // HTML no strip cli with color ($cli=FALSE, $type='color', $strip=FALSE)
+      array(
+        FALSE, 'color' , FALSE,
+        '%n, %y, %g, %r, %b, %c, %W, %k, %_, %U, %%, &',
+        '
+    <div class="alert alert-info"><button type="button" class="close" data-dismiss="alert">&times;</button>
+      <div>%n, %y, %g, %r, %b, %c, %W, %k, %_, %U, %%, &</div>
+    </div>'.PHP_EOL),
+      array(FALSE, 'console', TRUE,
+        "\n  My test \n is simple",
+        '
+    <div class="alert alert-suppressed"><button type="button" class="close" data-dismiss="alert">&times;</button>
+      <div>My test <br />
+ is simple</div>
+    </div>'.PHP_EOL),
+    );
   }
 }
 

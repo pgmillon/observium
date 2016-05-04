@@ -2,12 +2,12 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -21,49 +21,14 @@ if ($vars['format'] != 'graphs')
   unset($vars['from'], $vars['to'], $vars['timestamp_from'], $vars['timestamp_to'], $vars['graph']);
 }
 
-/// FIXME - new style (print_search_simple) of searching here
+$query_permitted = generate_query_permitted(array('device'), array('device_table' => 'devices'));
+
+$where_array = build_devices_where_array($vars);
 
 $where = ' WHERE 1 ';
-$where_array = array();
-$query_permitted = generate_query_permitted(array('device'), array('device_table' => 'devices'));
-foreach ($vars as $var => $value)
-{
-  if ($value != '')
-  {
-    switch ($var)
-    {
-      case 'group':
-        $values = get_group_entities($value);
-        $where_array[$var] = generate_query_values($values, 'device_id');
-        break;
-      case 'hostname':
-      case 'sysname':
-        $where_array[$var] = generate_query_values($value, $var, '%LIKE%');
-        break;
-      case 'location_text':
-        $where_array[$var] = generate_query_values($value, 'location', '%LIKE%');
-        break;
-      case 'os':
-      case 'version':
-      case 'hardware':
-      case 'features':
-      case 'type':
-      case 'status':
-      case 'ignore':
-      case 'disabled':
-      case 'location_country':
-      case 'location_state':
-      case 'location_county':
-      case 'location_city':
-      case 'location':
-        $where_array[$var] = generate_query_values($value, $var);
-        break;
-    }
-  }
-}
 $where .= implode('', $where_array);
 
-$pagetitle[] = "Devices";
+$page_title[] = "Devices";
 
 if ($vars['searchbar'] != "hide")
 {
@@ -96,7 +61,8 @@ if ($vars['searchbar'] != "hide")
 
   foreach (get_locations() as $entry)
   {
-    $search_items['location'][$entry] = ($entry == '' ? 'UNSET' : htmlspecialchars($entry));
+    if ($entry === '') { $entry = OBS_VAR_UNSET; }
+    $search_items['location'][$entry] = $entry;
   }
 
   foreach (get_type_groups('device') as $entry)
@@ -110,6 +76,7 @@ if ($vars['searchbar'] != "hide")
                                 'uptime'   => 'Uptime');
 
   $form = array('type'  => 'rows',
+                'space' => '10px',
                 //'brand' => NULL,
                 //'class' => 'well',
                 //'hr'    => FALSE,
@@ -125,7 +92,7 @@ if ($vars['searchbar'] != "hide")
                                   'type'        => 'multiselect',
                                   'name'        => 'Select Locations',
                                   'width'       => '180px',
-                                  'json'        => TRUE,
+                                  'encode'      => TRUE,
                                   'value'       => $vars['location'],
                                   'values'      => $search_items['location']);
   $form['row'][0]['os']       = array(
@@ -317,7 +284,12 @@ switch ($vars['sort'])
     break;
 }
 
-$query = "SELECT * FROM `devices` " . $where . $query_permitted . $order;
+$query = "SELECT * FROM `devices` ";
+if ($config['geocoding']['enable'])
+{
+  $query .= " LEFT JOIN `devices_locations` USING (`device_id`) ";
+}
+$query .= $where . $query_permitted . $order;
 
 list($format, $subformat) = explode("_", $vars['format'], 2);
 

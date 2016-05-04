@@ -2,12 +2,12 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -16,8 +16,25 @@
 <div class="col-md-12">
 
 <?php
-unset($search, $vlans, $vlan_names);
+unset($search, $vlans, $vlan_names, $port_names);
 
+// Select ports only present in FDB tables
+foreach (dbFetchRows('SELECT `port_id`, `device_id`, `ifDescr`, `ifName`, `ifAlias`
+                        FROM `vlans_fdb` AS F
+                        LEFT JOIN `ports` as P USING (`port_id`, `device_id`)
+                        WHERE `device_id` = ? AND `port_id` != 0 GROUP BY `port_id`;', array($device['device_id'])) as $data)
+{
+  humanize_port($data);
+  $port_ids[$data['port_id']] = $data['label'];
+}
+natcasesort($port_ids);
+// Ports names field
+$search[] = array('type'    => 'multiselect',
+                  'width'   => '160px',
+                  'name'    => 'Ports',
+                  'id'      => 'port',
+                  'value'   => $vars['port'],
+                  'values'  => $port_ids);
 // Select vlans only with FDB tables
 foreach (dbFetchRows('SELECT `vlan_vlan`, `vlan_name`
                      FROM `vlans_fdb` AS F
@@ -49,7 +66,7 @@ $search[] = array('type'    => 'text',
                   'id'      => 'address',
                   'value'   => $vars['address']);
 
-print_search($search);
+print_search($search, NULL, 'search', 'device/device='.$device['device_id'].'/tab=ports/view=fdb/');
 
 // Pagination
 $vars['pagination'] = TRUE;

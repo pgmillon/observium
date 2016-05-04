@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -25,7 +25,7 @@ if (is_array($mempool_array))
   {
     if (is_numeric($entry['hwEntityMemUsage']) && $entry['hwEntityMemSize'] > 0 )
     {
-      $descr   = $entry['hwEntityBomEnDesc'];
+      $descr   = rewrite_entity_name($entry['hwEntityBomEnDesc']);
       $percent = $entry['hwEntityMemUsage'];
       if (!strstr($descr, "No") && !strstr($percent, "No") && $descr != "" )
       {

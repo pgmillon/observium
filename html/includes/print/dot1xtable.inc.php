@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage web
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -47,8 +47,7 @@ function print_dot1xtable($vars)
             $param[] = '%'.$value.'%';
           } else if (isset($vars['searchby']) && $vars['searchby'] == 'mac') {
             $where .= ' AND `M`.`mac_addr` LIKE ?';
-            // FIXME hm? mres in a dbFacile parameter?
-            $param[] = '%'.str_replace(array(':', ' ', '-', '.', '0x'),'',mres($value)).'%';
+            $param[] = '%'.str_replace(array(':', ' ', '-', '.', '0x'),'', $value).'%';
           } else {
             $where .= ' AND `username` LIKE ?';
             $value = trim($value);
@@ -108,7 +107,7 @@ function print_dot1xtable($vars)
     $ap_id = $entry['accesspoint_id'];
     $interface = $aps_sorted_db[$ap_id]['name'];
     $string .= '  <tr>' . PHP_EOL;
-    $string .= '    <td style="width: 140px;">' . format_mac($entry['session_mac']) . '</td>' . PHP_EOL;
+    $string .= '    <td style="width: 140px;">' . generate_popup_link('mac', format_mac($entry['session_mac'])) . '</td>' . PHP_EOL;
     $string .= '    <td style="width: 140px;">' . $entry['ipv4_addr'] . '</td>' . PHP_EOL;
     $string .= '    <td style="white-space: nowrap;">' . $entry['username'] . '</td>' . PHP_EOL;
     $string .= '    <td style="width: 140px;">' . $entry['ssid'] . '</td>' . PHP_EOL;

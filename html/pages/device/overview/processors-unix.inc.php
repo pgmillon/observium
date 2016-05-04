@@ -2,12 +2,12 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -23,10 +23,13 @@ $processors = dbFetchRows($sql, array($device['device_id']));
 if (count($processors))
 {
 ?>
-<div class="well info_box">
-    <div class="title"><a href="<?php echo(generate_url(array('page' => 'device', 'device' => $device['device_id'], 'tab' => 'health', 'metric' => 'processor'))); ?>">
-       <i class="oicon-processor"></i> Processors</a></div>
-    <div class="content">
+        <div class="widget widget-table">
+          <div class="widget-header">
+            <a href="<?php echo(generate_url(array('page' => 'device', 'device' => $device['device_id'], 'tab' => 'health', 'metric' => 'processor'))); ?>">
+              <i class="oicon-processor"></i><h3>Processors</h3>
+            </a>
+          </div>
+          <div class="widget-content">
 
 <?php
     $graph_array = array();
@@ -49,14 +52,18 @@ if (count($processors))
     $graph_array['width']  = "210";
     $overlib_content = generate_overlib_content($graph_array, $device['hostname'] . " - Processor Usage");
 
-    echo(overlib_link($graph_link, $graph, $overlib_content, NULL));
+    //echo(overlib_link($graph_link, $graph, $overlib_content, NULL));
 
     $graph_array['width'] = 80; $graph_array['height'] = 20; $graph_array['bg'] = 'ffffff00'; # the 00 at the end makes the area transparent.
     $graph_array['style'][] = 'margin-top: -6px';
 
     $minigraph = generate_graph_tag($graph_array);
 
-#  echo('<table class="table table-condensed-more table-striped table-bordered">');
+  echo('<table class="table table-condensed-more table-striped table-bordered">');
+
+  echo('<tr><td colspan=2>');
+  echo(overlib_link($graph_link, $graph, $overlib_content, NULL));
+  echo('</td></tr>');
 
   $numprocs = 0;
   $total_percent = 0;
@@ -103,7 +110,7 @@ if (count($processors))
   $average_percent = round($total_percent / $numprocs);
   $background = get_percentage_colours($average_percent);
 
-    echo('<table class="table table-condensed-more table-striped table-bordered">');
+    // echo('<table class="table table-striped table-bordered">');
     echo('<tr>
            <td><span class="entity">'.overlib_link($link, $text_descr, $overlib_content).'</span><span class="label pull-right" style="margin-top: 2px; font-size: 11px;"><i class="icon-remove"></i> '.$numprocs.'</span></td>
            <td style="width: 200px">'.overlib_link($link, print_percentage_bar(200, 20, $average_percent, NULL, "ffffff", $background['left'], $average_percent . "%", "ffffff", $background['right']), $overlib_content).'</td>
@@ -112,5 +119,7 @@ if (count($processors))
   echo("</table>");
   echo("</div></div>");
 }
+
+
 
 // EOF

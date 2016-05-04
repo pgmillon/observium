@@ -8,7 +8,7 @@
  * @package    observium
  * @subpackage discovery
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -45,11 +45,11 @@
       $oid     = ".1.3.6.1.4.1.3417.2.1.1.1.1.1.5.".$index;
       $type    = $sensor_type_map[$entry['deviceSensorUnits']];
       $scale   = si_to_scale($entry['deviceSensorScale']);
-      $value   = $entry['deviceSensorValue'] * $scale;
+      $value   = $entry['deviceSensorValue'];
 
       if ($type == "temperature")
       {
-        if ($value > 200) { $ok = FALSE; }
+        if ($value * $scale > 200) { $ok = FALSE; }
       }
       if ($value == "-127") { $ok = FALSE; }
 

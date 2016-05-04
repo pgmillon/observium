@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -20,40 +20,47 @@ $graph_return = array('descr' => 'Device total traffic in bits/sec.');
 
 foreach (dbFetchRows("SELECT * FROM `ports` WHERE `device_id` = ?", array($device['device_id'])) as $port)
 {
-  $ignore = 0;
+  $ignore = FALSE;
+  $debug_msg = '[Port (id='.$port['port_id'].', ifIndex='.$port['ifIndex'].') ignored by ';
   if (is_array($config['device_traffic_iftype']))
   {
     foreach ($config['device_traffic_iftype'] as $iftype)
     {
       if (preg_match($iftype ."i", $port['ifType']))
       {
-        $ignore = 1;
+        print_debug($debug_msg.'ifType='.$port['ifType'].']');
+        $ignore = TRUE;
+        break;
       }
     }
   }
-  if (is_array($config['device_traffic_descr']))
+  if (!$ignore && is_array($config['device_traffic_descr']))
   {
     foreach ($config['device_traffic_descr'] as $ifdescr)
     {
       if (preg_match($ifdescr."i", $port['ifDescr']))
       {
-        if ($debug) { echo("[".$port['ifIndex'].":ifDescr ignored]"); }
-        $ignore = 1;
-      } elseif (preg_match($ifdescr."i", $port['ifName']))
-      {
-        if ($debug) { echo("[".$port['ifIndex'].":ifName ignored(".$ifdescr."||".$port['ifName'].")]"); }
-        $ignore = 1;
-      } elseif (preg_match($ifdescr."i", $port['portName']))
-      {
-        if ($debug) { echo("[".$port['ifIndex'].":portName ignored]"); }
-        $ignore = 1;
+        print_debug($debug_msg.'ifDescr='.$port['ifDescr'].']');
+        $ignore = TRUE;
+        break;
       }
-
+      else if (preg_match($ifdescr."i", $port['ifName']))
+      {
+        print_debug($debug_msg.'ifName='.$port['ifName'].']');
+        $ignore = TRUE;
+        break;
+      }
+      else if (preg_match($ifdescr."i", $port['portName']))
+      {
+        print_debug($debug_msg.'portName='.$port['portName'].']');
+        $ignore = TRUE;
+        break;
+      }
     }
   }
 
   $rrd_filename = get_port_rrdfilename($port, NULL, TRUE);
-  if ($ignore != 1 && is_file($rrd_filename))
+  if (!$ignore && is_file($rrd_filename))
   {
     humanize_port($port);   // Fix Labels! ARGH. This needs to be in the bloody database!
 
@@ -93,4 +100,4 @@ include("includes/graphs/generic_multi_separated.inc.php");
 #include("includes/graphs/generic_multi_bits_separated.inc.php");
 #include("includes/graphs/generic_multi_data_separated.inc.php");
 
-?>
+// EOF

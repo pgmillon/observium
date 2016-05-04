@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -19,7 +19,7 @@ $sensor_array = snmpwalk_cache_oid($device, 'hpicfSensorTable', array(), $mib, m
 
 foreach ($sensor_array as $index => $entry)
 {
-  $descr = $entry['hpicfSensorDescr'];
+  $descr = rewrite_entity_name($entry['hpicfSensorDescr']);
 
   // Find entPhysicalClass some way
   if (stripos($descr, 'fan') !== FALSE)
@@ -38,7 +38,7 @@ foreach ($sensor_array as $index => $entry)
   }
 
   $oid   = '.1.3.6.1.4.1.11.2.14.11.1.2.6.1.4.'.$index;
-  $value = state_string_to_numeric($type_state, $entry['hpicfSensorStatus']);
+  $value = $entry['hpicfSensorStatus'];
 
   if ($entry['hpicfSensorStatus'] != 'notPresent')
   {

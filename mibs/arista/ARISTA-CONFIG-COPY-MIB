@@ -1,0 +1,280 @@
+-- Copyright (c) 2013 Aristra Networks, Inc.  All rights reserved.
+
+-- *****************************************************************
+-- ARISTA-CONFIG-COPY-MIB: MIB for copying to/from switch's
+-- running-config startup-config
+-- *****************************************************************
+
+ARISTA-CONFIG-COPY-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-COMPLIANCE, 
+    OBJECT-GROUP, NOTIFICATION-GROUP            FROM SNMPv2-CONF
+    MODULE-IDENTITY, OBJECT-TYPE, Unsigned32    FROM SNMPv2-SMI
+    aristaMibs, aristaModules, aristaProducts   FROM ARISTA-SMI-MIB
+    TEXTUAL-CONVENTION, DisplayString,
+    DateAndTime, RowStatus                      FROM SNMPv2-TC;
+
+aristaConfigCopyMIB MODULE-IDENTITY
+    LAST-UPDATED    "201408150000Z"
+    ORGANIZATION "Arista Networks, Inc."
+    CONTACT-INFO
+        "Arista Networks, Inc.
+
+         Postal: 5453 Great America Parkway
+                 Santa Clara, CA 95054
+
+         Tel: +1 408 547-5500
+
+         E-mail: snmp@arista.com"
+    DESCRIPTION "This MIB is for copying a source URI to a destination URI.
+                 A URI specifies the location of a local file, network file,
+                 running-config or startup-config. The resources specified by
+                 the URIs are copied from/to Arista devices.
+
+                 Currently supported URI schemes include: file, flash,
+                 extension, system, ftp, http, https and tftp."
+    REVISION    "201408150000Z"
+    DESCRIPTION "Updated postal and e-mail addresses."
+    REVISION    "201302140000Z"
+    DESCRIPTION "The initial revision of this MIB module."
+    ::= { aristaMibs 7 }
+
+ConfigCopyState ::= TEXTUAL-CONVENTION
+    STATUS          current
+    DESCRIPTION     "The state of a copy request. Here are the possible states:
+
+                    inactive:   no copy request has been queued yet. This is
+                                the default state when a row is created.
+                    scheduled:  the copy request has been scheduled to run, but
+                                has not started yet (probably waiting for ealier
+                                copy requests to complete).
+                    running:    the copy request has been started.
+                    completed:  the copy request is completed with success.
+                    failed:     the copy request failed (probably because network
+                                problem, timeout, permission denial, etc.)
+
+                    Once the row is activated, the agent will mark the row as
+                    scheduled. It changes state to running when the copy request
+                    is started. Once the copy request is completed, the state
+                    changes to completed or failed."
+    SYNTAX          INTEGER  {
+                        inactive(0),
+                        scheduled(1),
+                        running(2),
+                        completed(3),
+                        failed(4)
+                    }
+
+ConfigCopyFailureCause ::= TEXTUAL-CONVENTION
+    STATUS          current
+    DESCRIPTION     "The reason why a copy request failed. Possible causes are:
+                    none:       the copy request succeeded.
+                    unknown:    the copy request failed without a clear
+                                cause, details are in the failure message.
+                    timeout:    the copy request took too long and has been
+                                terminated."
+    SYNTAX          INTEGER  {
+                        none(0),
+                        unknown(1),
+                        timeout(2)
+                    }
+
+aristaConfigCopyCommandTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF AristaConfigCopyCommandEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "A table of copy requests. Each row corresponds to a copy
+                    request. The completed rows are accessible for status
+                    retrival for a certain peroid of time and then will be
+                    gradually aged out by the agent."
+    ::= { aristaConfigCopyMIB 1 }
+
+aristaConfigCopyCommandEntry OBJECT-TYPE
+    SYNTAX          AristaConfigCopyCommandEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "A copy request.
+                    
+                    A management station should generate a unique ID and name
+                    (as the index) for each copy request. This prevents multiple
+                    management stations or applications from using same index
+                    and causing conflicts in same row.
+
+                    After an unique index is generated, the management station
+                    could create a row with that index and setup a copy request.
+
+                    Once a copy request is setup correctly with both source and
+                    destination URIs, it can be queued by setting the row status
+                    to active. The row creation, copy request setup and row
+                    activation can be done in one or multiple SET requests.
+
+                    The status of the copy request may change after the request
+                    is queued. It can be retrieved at any time before the request
+                    is aged out by the agent.
+                    "
+    INDEX { aristaConfigCopyName, aristaConfigCopyId }
+    ::= { aristaConfigCopyCommandTable 1 }
+
+AristaConfigCopyCommandEntry ::=
+    SEQUENCE {
+        aristaConfigCopyName            DisplayString,
+        aristaConfigCopyId              Unsigned32,
+        aristaConfigCopySourceUri       DisplayString,
+        aristaConfigCopyDestUri         DisplayString,
+        aristaConfigCopyState           ConfigCopyState,
+        aristaConfigCopyTimeout         Unsigned32,
+        aristaConfigCopyTimeStarted     DateAndTime,
+        aristaConfigCopyTimeCompleted   DateAndTime,
+        aristaConfigCopyFailureCause    ConfigCopyFailureCause,
+        aristaConfigCopyFailureMessage  DisplayString,
+        aristaConfigCopyRowStatus       RowStatus
+}
+
+aristaConfigCopyName OBJECT-TYPE
+    SYNTAX     DisplayString (SIZE (0..255))
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION     "The name of a copy request.
+    
+                     It is chosen by the management station and should be unique
+                     so that two management stations or applications do not cause
+                     conflicts in same row."
+    ::= { aristaConfigCopyCommandEntry 1 }
+
+aristaConfigCopyId OBJECT-TYPE
+    SYNTAX     Unsigned32
+    MAX-ACCESS     not-accessible
+    STATUS          current
+    DESCRIPTION     "The ID of a copy request.
+    
+                    It is chosen by the management station and should be unique.
+                    One way to generate such a unique intenger is through the
+                    TestAndIncr mechanism (in SNMPv2-TC)."
+    ::= { aristaConfigCopyCommandEntry 2 }
+
+aristaConfigCopySourceUri OBJECT-TYPE
+    SYNTAX          DisplayString(SIZE (0..512))
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION     "The source URI of a copy request.
+
+                    The URI format is: scheme://[username:password@]host/path
+
+                    Supported URI schemes are: file, flash, extension, system,
+                    ftp, http, https and tftp. username and password may be
+                    required for a network URI scheme (e.g. ftp).
+
+                    For convenience, two aliases are supported:
+                      startup-config -> flash://startup-config
+                      running-config -> system://running-config "
+    ::= { aristaConfigCopyCommandEntry 3 }
+
+aristaConfigCopyDestUri OBJECT-TYPE
+    SYNTAX          DisplayString(SIZE (0..512))
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION     "The destination URI of a copy request.
+
+                    It has the same format as the source URI."
+    ::= { aristaConfigCopyCommandEntry 4 }
+
+aristaConfigCopyState OBJECT-TYPE
+    SYNTAX          ConfigCopyState
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The state of a copy request."
+    ::= { aristaConfigCopyCommandEntry 5 }
+
+aristaConfigCopyTimeout OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION     "The  maximum number of seconds a copy request could run.
+
+                    If the copy request is not completed in such amount of
+                    time, it will be terminated and marked as failed with a
+                    failure cause of timeout.
+
+                    The time taken by a copy request varies by the source and/
+                    or destination file size, network condition, system load,
+                    etc. A reasonable timeout should be chosen so that a stuck
+                    or run-away copy request could be terminated, but a normal
+                    copy request could complete."
+    DEFVAL          { 60 }
+    ::= { aristaConfigCopyCommandEntry 6 }
+
+aristaConfigCopyTimeStarted OBJECT-TYPE
+    SYNTAX          DateAndTime
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The time when a copy request was started."
+    ::= { aristaConfigCopyCommandEntry 7 }
+
+aristaConfigCopyTimeCompleted OBJECT-TYPE
+    SYNTAX          DateAndTime 
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The time when a copy request was completed."
+    ::= { aristaConfigCopyCommandEntry 8 }
+
+aristaConfigCopyFailureCause OBJECT-TYPE
+    SYNTAX          ConfigCopyFailureCause
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The cause of a failed copy request."
+    ::= { aristaConfigCopyCommandEntry 9 }
+
+aristaConfigCopyFailureMessage OBJECT-TYPE
+    SYNTAX          DisplayString
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The details of a failed copy request."
+    ::= { aristaConfigCopyCommandEntry 10 }
+
+aristaConfigCopyRowStatus OBJECT-TYPE
+    SYNTAX          RowStatus
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION     "The row status of a copy request.
+
+                    A new copy request is instantiated by creating a new row.
+                    An existing copy request is queued by activating a row, or
+                    cancelled by destroying a row."
+    ::= { aristaConfigCopyCommandEntry 11 }
+
+-- Conformance
+
+aristaConfigCopyConformance OBJECT IDENTIFIER ::= { aristaConfigCopyMIB 2 }
+
+aristaConfigCopyCompliances OBJECT IDENTIFIER ::= { aristaConfigCopyConformance 1 }
+aristaConfigCopyGroups      OBJECT IDENTIFIER ::= { aristaConfigCopyConformance 2 }
+
+-- Units of conformance
+
+aristaConfigCopyCompliance MODULE-COMPLIANCE
+    STATUS          current
+    DESCRIPTION     "The compliance statement for SNMP entities which implement
+                    the ARISTA-CONFIG-COPY-MIB."
+    MODULE
+        MANDATORY-GROUPS {
+            aristaConfigCopyObjectsGroup
+        }
+    ::= { aristaConfigCopyCompliances 1 }
+
+aristaConfigCopyObjectsGroup    OBJECT-GROUP
+    OBJECTS {
+        aristaConfigCopySourceUri,
+        aristaConfigCopyDestUri,
+        aristaConfigCopyState,
+        aristaConfigCopyTimeout,
+        aristaConfigCopyTimeStarted,
+        aristaConfigCopyTimeCompleted,
+        aristaConfigCopyFailureCause,
+        aristaConfigCopyFailureMessage,
+        aristaConfigCopyRowStatus
+    }
+    STATUS          current
+    DESCRIPTION     "The collection of objects in the ARISTA-CONFIG-COPY-MIB."
+    ::= { aristaConfigCopyGroups 1 }
+END

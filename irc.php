@@ -9,20 +9,20 @@
  * @package    observium
  * @subpackage ircbot
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 chdir(dirname($argv[0]));
 
-# Disable annoying messages... well... all messages actually :)
-error_reporting(0);
-
-$debug=0;
-
 include_once("includes/defaults.inc.php");
 include_once("config.php");
-include("includes/definitions.inc.php");
+include_once("includes/definitions.inc.php");
+
+# Disable annoying messages... well... all messages actually :)
+error_reporting(0);
+$debug=0;
+
 include_once("includes/functions.inc.php");
 include_once("includes/discovery/functions.inc.php");
 include_once('Net/SmartIRC.php');
@@ -288,7 +288,7 @@ class observiumbot
 $bot = &new observiumbot();
 $irc = &new Net_SmartIRC();
 
-if($debug) $irc->setDebug(SMARTIRC_DEBUG_ALL);
+if (OBS_DEBUG) $irc->setDebug(SMARTIRC_DEBUG_ALL);
 
 $irc->registerActionhandler(SMARTIRC_TYPE_CHANNEL, '!listdevices', $bot, 'list_devices');
 $irc->registerActionhandler(SMARTIRC_TYPE_CHANNEL, '!listports', $bot, 'list_ports');

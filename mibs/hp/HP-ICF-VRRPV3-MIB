@@ -1,0 +1,499 @@
+HP-ICF-VRRPV3-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY, OBJECT-TYPE, Integer32, IpAddress, Counter32
+            FROM SNMPv2-SMI
+        MODULE-COMPLIANCE, OBJECT-GROUP
+            FROM SNMPv2-CONF
+        ifIndex
+            FROM IF-MIB
+        InetAddressPrefixLength
+            FROM INET-ADDRESS-MIB
+        SnmpAdminString
+            FROM SNMP-FRAMEWORK-MIB
+        vrrpv3OperationsEntry, vrrpv3AssociatedIpAddrEntry, vrrpv3OperationsVrId,
+            vrrpv3OperationsInetAddrType
+            FROM VRRPV3-MIB
+        TruthValue, RowStatus
+            FROM SNMPv2-TC
+        hpSwitch
+            FROM HP-ICF-OID;
+
+hpicfVrrpv3MIB  MODULE-IDENTITY
+            LAST-UPDATED "201211210000Z"   -- Nov 21, 2012
+            ORGANIZATION "HP Networking"
+            CONTACT-INFO "Hewlett Packard Company
+                          8000 Foothills Blvd.
+                          Roseville, CA 95747"
+            DESCRIPTION "This MIB module contains HP proprietary
+                         extensions to the standard VRRPV3-MIB module."
+
+            REVISION    "201210250000Z"   -- Oct 25, 2012."
+            DESCRIPTION "Initial revision."
+
+            REVISION    "201211210000Z"   -- Nov 21, 2012."
+            DESCRIPTION "Added statistics objects."
+
+           ::= { hpSwitch 90 }
+
+
+-- **********************************************************************
+-- VRRPV3 MIB Groups
+-- **********************************************************************
+
+    hpicfVrrpv3Operations  OBJECT IDENTIFIER ::= { hpicfVrrpv3MIB 1 }
+    hpicfVrrpv3ErrorObjects OBJECT IDENTIFIER ::= { hpicfVrrpv3Operations 10 }
+    hpicfVrrpv3Conformance OBJECT IDENTIFIER ::= { hpicfVrrpv3MIB 2 }
+
+    hpicfVrrpv3IPv4AdminStatus  OBJECT-TYPE
+        SYNTAX      TruthValue
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION "When set to true, this enables VRRP for IPv4 globally on 
+                    the router. If set to false, this would disable VRRPv3 
+                    for IPv4. Default is false."
+        DEFVAL      { false }
+        ::= { hpicfVrrpv3Operations 1 }
+
+
+    hpicfVrrpv3IPv6AdminStatus  OBJECT-TYPE
+        SYNTAX      TruthValue
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION "When set to true, this enables VRRP for IPv6 globally on 
+                     the router. If set to false, this would disable VRRPv3 
+                     for IPv6. Default is false."
+        DEFVAL      { false }
+        ::= { hpicfVrrpv3Operations 2 }
+
+-- **********************************************************************
+-- Extensions to the VRRPv3 Operations Table 
+-- **********************************************************************
+
+    hpicfVrrpv3OperationsTable OBJECT-TYPE
+        SYNTAX      SEQUENCE OF HpicfVrrpv3OperationsEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION "HP extensions to the vrrpv3OperationsTable."
+        ::= { hpicfVrrpv3Operations 3 }
+
+    hpicfVrrpv3OperationsEntry OBJECT-TYPE
+        SYNTAX      HpicfVrrpv3OperationsEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION "HP extensions for an entry in the vrrpv3OperationsTable."
+        AUGMENTS    { vrrpv3OperationsEntry }
+        ::= { hpicfVrrpv3OperationsTable 1 }
+
+
+    HpicfVrrpv3OperationsEntry ::=
+        SEQUENCE {
+            hpicfVrrpv3VrMode             INTEGER,
+            hpicfVrrpv3VrPreemptDelayTime Integer32,
+            hpicfVrrpv3VrControl          INTEGER,
+            hpicfVrrpv3VrRespondToPing    TruthValue,
+            hpicfVrrpv3Version            INTEGER,
+            hpicfVrrpv3VrNullAuthCompatibility TruthValue    
+        }
+
+    hpicfVrrpv3VrMode OBJECT-TYPE
+        SYNTAX      INTEGER {
+                        owner(1),
+                        backup(2),
+                        uninitialized(3)
+                    }
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION "This object denotes whether this VR has been
+                    designated as an owner or as a backup. On VR 
+                    creation, this field is set to uninitialized. 
+                    The user cannot set the value of this object to 
+                    uninitialized."
+        DEFVAL      { uninitialized }
+        ::= { hpicfVrrpv3OperationsEntry 1 }
+
+    hpicfVrrpv3VrPreemptDelayTime OBJECT-TYPE
+        SYNTAX      Integer32(0..600)
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION "This object specifies the time that the owner 
+                     virtual router will wait before taking control of 
+                     its virtual IP address. A value of 0 indicates 
+                     that the pre-empt delay timer is not active"
+        DEFVAL      { 0 }
+        ::= { hpicfVrrpv3OperationsEntry 2 }
+
+
+    hpicfVrrpv3VrControl OBJECT-TYPE
+        SYNTAX       INTEGER {
+                        failback(1),
+                        failover(2),
+                        failoverWithMonitoring(3),
+                        invalid(4)
+                     }
+        MAX-ACCESS   read-create
+        STATUS       current
+        DESCRIPTION  "When this object is set to failback (1), it acts
+                     as a trigger to intimate VRRP to failback
+                     to this router from another.
+                     When this object is set to failover (2), it acts
+                     as a trigger to intimate VRRP to failover
+                     from this router to another.
+                     When this object is set to
+                     failoverWithMonitoring (3), in addition to
+                     triggering VRRP to failover, it triggers VR to
+                     monitor for presence of a master.
+                     When read, this object always returns
+                     invalid (4)."
+        DEFVAL      { invalid }
+        ::= { hpicfVrrpv3OperationsEntry 3 }
+
+    hpicfVrrpv3VrRespondToPing OBJECT-TYPE
+        SYNTAX       TruthValue
+        MAX-ACCESS   read-create
+        STATUS       current
+        DESCRIPTION  "If set to FALSE, prevents a response to ping requests to 
+                      the virtual router IP addresses configured on the backup
+                      router. If set to TRUE allows response to ping requests
+                      to virtual IP addresses configured when virtual router 
+                      become master. hpicfVrrpv3RespondToPing must also be
+                      configured globally to respond to virtual IP ping 
+                      requests. By default hpicfVrrpv3VrRespondToPing is enabled."
+        DEFVAL       { true }
+        ::= { hpicfVrrpv3OperationsEntry 4 }
+
+    hpicfVrrpv3Version OBJECT-TYPE
+        SYNTAX       INTEGER{
+                         v2 (2),
+                         v3 (3)
+                      }
+        MAX-ACCESS   read-create
+        STATUS       current
+        DESCRIPTION  "The configured version of VRRP. IPv6 Virtual Routers
+                      supports only v3. Default value for IPv4 virtual 
+                      Routers is v2 and for IPv6 Virtual Routers is v3."
+        ::=  { hpicfVrrpv3OperationsEntry 5 }
+
+    hpicfVrrpv3VrNullAuthCompatibility OBJECT-TYPE
+        SYNTAX       TruthValue
+        MAX-ACCESS   read-create
+        STATUS       current
+        DESCRIPTION  " When set to TRUE appends authentication data at the end to an 
+                       IPv6 VRRP packet being sent out. The authentication data is 8 
+                       bytes filled with 0 and is applicable only for IPv6 Virtual 
+                       router. By default hpicfVrrpv3VrNullAuthCompatibility is 
+                       set to FALSE."
+        DEFVAL       { FALSE }
+        ::= { hpicfVrrpv3OperationsEntry 6 }
+
+-- **********************************************************************
+-- VRRPV3 Track Table
+-- **********************************************************************  
+
+   hpicfVrrpv3TrackTable OBJECT-TYPE
+        SYNTAX      SEQUENCE OF HpicfVrrpv3TrackEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION "HP extensions for supporting tracking."
+        ::= { hpicfVrrpv3Operations 4 }
+
+    hpicfVrrpv3TrackEntry OBJECT-TYPE
+        SYNTAX      HpicfVrrpv3TrackEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION "HP extensions for supporting tracking."
+        INDEX       { ifIndex, vrrpv3OperationsVrId, 
+                      vrrpv3OperationsInetAddrType, 
+                      hpicfVrrpv3VrTrackType, hpicfVrrpv3VrTrackEntity }
+        ::= { hpicfVrrpv3TrackTable 1 }
+
+    HpicfVrrpv3TrackEntry ::=
+        SEQUENCE {
+            hpicfVrrpv3VrTrackType        INTEGER,
+            hpicfVrrpv3VrTrackEntity      SnmpAdminString,
+            hpicfVrrpv3TrackRowStatus     RowStatus
+        }
+
+    hpicfVrrpv3VrTrackType OBJECT-TYPE
+        SYNTAX       INTEGER {
+            port(1),
+            trunk(2),
+            vlan(3)
+        }
+        MAX-ACCESS   not-accessible
+        STATUS       current
+        DESCRIPTION
+            "This object specifies the type of interface specified by
+            'hpicfVrrpv3VrTrackEntity'."
+        ::= { hpicfVrrpv3TrackEntry 1 }
+
+    hpicfVrrpv3VrTrackEntity OBJECT-TYPE
+        SYNTAX       SnmpAdminString (SIZE (1..255))
+        MAX-ACCESS   not-accessible
+        STATUS       current
+        DESCRIPTION
+            "This object specifies interface details. Interface detail
+            is interpreted Based on type specified by
+            'hpicfVrrpv3VrTrackType'. Valid values for different track
+            types are -
+            ------------------------------------
+            hpicfVrrpv3VrTrackType    range
+            ------------------------------------
+            port                    '1'..'65535'
+            trunk                   '1'..'65535'
+            vlan                    '1'..'65535'
+            ------------------------------------"
+        ::= { hpicfVrrpv3TrackEntry 2 }
+
+    hpicfVrrpv3TrackRowStatus OBJECT-TYPE
+        SYNTAX       RowStatus
+        MAX-ACCESS   read-create
+        STATUS       current
+        DESCRIPTION
+            "The row status of given track entity."
+        ::= { hpicfVrrpv3TrackEntry 3 }
+
+
+    hpicfVrrpv3StatsTable OBJECT-TYPE
+        SYNTAX       SEQUENCE OF HpicfVrrpv3StatsEntry
+        MAX-ACCESS   not-accessible
+        STATUS       current
+        DESCRIPTION "Table of virtual router statistics."
+        ::= { hpicfVrrpv3Operations 5 }
+
+
+    hpicfVrrpv3StatsEntry OBJECT-TYPE
+        SYNTAX       HpicfVrrpv3StatsEntry
+        MAX-ACCESS   not-accessible
+        STATUS       current
+        DESCRIPTION "An entry in the table, containing statistics information
+                     about a given virtual router."
+        AUGMENTS    { vrrpv3OperationsEntry }
+        ::= { hpicfVrrpv3StatsTable 1 }
+
+    HpicfVrrpv3StatsEntry ::=
+        SEQUENCE {
+            hpicfVrrpv3StatsNearFailovers     Counter32
+        }
+
+    hpicfVrrpv3StatsNearFailovers OBJECT-TYPE
+        SYNTAX      Counter32
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION "This object reports the number of near failovers
+                     for backup virtual routers.  A near failover occurs
+                     when a backup virtual router has not received an 
+                     advertisement packet from the master virtual router
+                     for two advertisement intervals."
+        DEFVAL      { 0 }
+        ::= { hpicfVrrpv3StatsEntry 1 }
+
+    hpicfVrrpv3RespondToPing OBJECT-TYPE
+        SYNTAX      TruthValue
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION "If this object is set to FALSE globally, it prevents a
+                     response to ping requests to the virtual router IP
+                     addresses configured on all backup routers.If set to TRUE,
+                     allows response to ping requests to virtual IP addresses
+                     configured on backup virtual routers when they become
+                     master. hpicfVrrpv3VrRespondToPing object must also be 
+                     configured on a Virtual router to respond to virtual 
+                     IP ping requests.
+                     By default hpicfVrrpv3RespondToPing is disabled."
+        DEFVAL      { false }
+        ::= { hpicfVrrpv3Operations 6 }
+
+    hpicfVrrpv3RemoveConfig OBJECT-TYPE
+        SYNTAX      TruthValue
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION "This objects clears all existing vrrp
+                     configuration and again intializes it with default
+                     values when this is set with value 'true'.  It also
+                     clears (disables) the global VRRP enable flag.
+                     SnmpGet on this will always return false."
+        DEFVAL      { false }
+        ::= { hpicfVrrpv3Operations 7 }
+
+    hpicfVrrpv3Nonstop OBJECT-TYPE
+        SYNTAX      TruthValue
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION "This object defines the operation of VRRP on
+                     redundant platforms. When set to TRUE, the VRRP
+                     Master router will retain control of virtual-IP
+                     addresses across a management card failure on
+                     redundant platforms. When set to FALSE, the VRRP
+                     Backup router will take control of virtual-IP
+                     addresses on the network on the occurrence of a
+                     management card failure on the Master VRRP router."
+        DEFVAL      { false }
+        ::= { hpicfVrrpv3Operations 8 }
+
+    hpicfVrrpv3NotificationCntl  OBJECT-TYPE
+        SYNTAX      INTEGER {
+                   enabled     (1),
+                   disabled    (2)
+              }
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION "Indicates whether the VRRPv3-enabled router will generate
+                     SNMP traps for events defined in this MIB. 'Enabled'
+                     results in SNMP traps; 'disabled', no traps are sent."
+        DEFVAL       { enabled }
+        ::= { hpicfVrrpv3Operations 9 }
+
+    hpicfVrrpv3IPv4RouterChecksumErrors OBJECT-TYPE
+        SYNTAX       Counter64
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION "The total number of IPv4 VRRP packets received with an
+                     invalid VRRP checksum value.
+                     Discontinuities in the value of this counter can occur
+                     at re-initialization of the management system, and at
+                     other times as indicated by the value of
+                     vrrpv3GlobalStatisticsDiscontinuityTime."
+        DEFVAL       { 0 }
+        ::= { hpicfVrrpv3ErrorObjects 1 }
+
+    hpicfVrrpv3IPv6RouterChecksumErrors OBJECT-TYPE
+        SYNTAX       Counter64
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION "The total number of IPv6 VRRP packets received with an
+                     invalid VRRP checksum value.
+                     Discontinuities in the value of this counter can occur
+                     at re-initialization of the management system, and at
+                     other times as indicated by the value of
+                     vrrpv3GlobalStatisticsDiscontinuityTime."
+        DEFVAL       { 0 }
+        ::= { hpicfVrrpv3ErrorObjects 2 }
+
+    hpicfVrrpv3IPv4RouterVersionErrors OBJECT-TYPE
+        SYNTAX       Counter64
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION "The total number of IPv4 VRRP packets received with an
+                     unknown or unsupported version number.
+                     Discontinuities in the value of this counter can occur
+                     at re-initialization of the management system, and at
+                     other times as indicated by the value of
+                     vrrpv3GlobalStatisticsDiscontinuityTime."
+        DEFVAL      { 0 }
+        ::= { hpicfVrrpv3ErrorObjects 3 }
+
+    hpicfVrrpv3IPv6RouterVersionErrors OBJECT-TYPE
+        SYNTAX       Counter64
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION "The total number of IPv6 VRRP packets received with an
+                     unknown or unsupported version number.
+                     Discontinuities in the value of this counter can occur
+                     at re-initialization of the management system, and at
+                     other times as indicated by the value of
+                     vrrpv3GlobalStatisticsDiscontinuityTime."
+        DEFVAL      { 0 }
+        ::= { hpicfVrrpv3ErrorObjects 4 }
+
+    hpicfVrrpv3IPv4RouterVrIdErrors OBJECT-TYPE
+        SYNTAX       Counter64
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION "The total number of IPv4 VRRP packets received with a
+                     VRID that is not valid for any virtual router on this
+                     router.
+                     Discontinuities in the value of this counter can occur
+                     at re-initialization of the management system, and at
+                     other times as indicated by the value of
+                     vrrpv3GlobalStatisticsDiscontinuityTime."
+        DEFVAL      { 0 }
+        ::= { hpicfVrrpv3ErrorObjects 5 }
+
+    hpicfVrrpv3IPv6RouterVrIdErrors OBJECT-TYPE
+        SYNTAX       Counter64
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION "The total number of IPv6 VRRP packets received with a
+                     VRID that is not valid for any virtual router on this
+                     router.
+                     Discontinuities in the value of this counter can occur
+                     at re-initialization of the management system, and at
+                     other times as indicated by the value of
+                     vrrpv3GlobalStatisticsDiscontinuityTime."
+        DEFVAL      { 0 }
+        ::= { hpicfVrrpv3ErrorObjects 6 }
+
+
+-- **********************************************************************
+-- Conformance Information
+-- **********************************************************************
+
+    hpicfVrrpv3MIBCompliances  OBJECT IDENTIFIER ::= { hpicfVrrpv3Conformance 1 }
+    hpicfVrrpv3MIBGroups       OBJECT IDENTIFIER ::= { hpicfVrrpv3Conformance 2 }
+
+
+
+-- ......................................................................
+-- Compliance statements
+-- ......................................................................
+
+    hpicfVrrpv3MIBCompliance MODULE-COMPLIANCE
+        STATUS      current
+        DESCRIPTION "The compliance statement for HP routers running
+                    VRRPV3 and implementing the HP-ICF-VRRPV3-MIB."
+        MODULE  -- this module
+            MANDATORY-GROUPS { hpicfVrrpv3OperGroup,
+                               hpicfVrrpv3TrackGroup}
+
+            GROUP       hpicfVrrpv3OperGroup
+            DESCRIPTION "Support for this group is required for HP routers
+                        that support VRRPV3."
+
+            GROUP       hpicfVrrpv3TrackGroup
+            DESCRIPTION "Support for this group is required for HP routers
+                        that support Tracking in VRRPV3."
+            
+        ::= { hpicfVrrpv3MIBCompliances 1 }
+
+
+
+-- ......................................................................
+-- Conformance Groups
+-- ......................................................................
+
+    hpicfVrrpv3OperGroup OBJECT-GROUP
+        OBJECTS     { hpicfVrrpv3IPv4AdminStatus,
+                      hpicfVrrpv3IPv6AdminStatus,
+                      hpicfVrrpv3Version,
+                      hpicfVrrpv3VrMode,
+                      hpicfVrrpv3VrRespondToPing,
+                      hpicfVrrpv3VrPreemptDelayTime,                       
+                      hpicfVrrpv3VrControl,
+                      hpicfVrrpv3StatsNearFailovers,
+                      hpicfVrrpv3VrNullAuthCompatibility,
+                      hpicfVrrpv3RespondToPing, 
+                      hpicfVrrpv3RemoveConfig,
+                      hpicfVrrpv3Nonstop, 
+                      hpicfVrrpv3NotificationCntl,
+                      hpicfVrrpv3IPv4RouterChecksumErrors,
+                      hpicfVrrpv3IPv6RouterChecksumErrors,
+                      hpicfVrrpv3IPv4RouterVersionErrors,
+                      hpicfVrrpv3IPv6RouterVersionErrors,
+                      hpicfVrrpv3IPv4RouterVrIdErrors, 
+                      hpicfVrrpv3IPv6RouterVrIdErrors
+                    }
+        STATUS      current
+        DESCRIPTION "A collection of HP proprietary objects to support 
+                    VRRPV3 configuration on HP routers."
+        ::= { hpicfVrrpv3MIBGroups 1 }
+
+
+    hpicfVrrpv3TrackGroup OBJECT-GROUP
+        OBJECTS     { hpicfVrrpv3TrackRowStatus }                      
+        STATUS      current
+        DESCRIPTION "A collection of HP proprietary objects to support 
+                    VRRPV3 configuration on HP routers."
+        ::= { hpicfVrrpv3MIBGroups 2 }
+END
+

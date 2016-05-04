@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -21,7 +21,7 @@ if (!empty($agent_data['app']['mysql']))
   foreach ($data as $str)
   {
     list($key, $value) = explode(":", $str);
-    $map[$key] = (float)trim($value);
+    $map[$key] = trim($value);
   }
 
   // General Stats

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -62,8 +62,8 @@ foreach ($oids as $index => $entry)
     $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-temperature-fastpath-boxservices-private-mib-boxServicesTempSensorTemperature." . ($index-1) . ".rrd");
     if (is_file($old_rrd)) { rename($old_rrd, $new_rrd); print_warning("Moved RRD"); }
 
-    $oid = ".1.3.6.1.4.1.674.10895.5000.2.6132.1.1.43.1.9.1.4.$index";
-    $value = state_string_to_numeric('fastpath-boxservices-private-temp-state', $entry['boxServicesStackTempSensorState']);
+    $oid   = ".1.3.6.1.4.1.674.10895.5000.2.6132.1.1.43.1.9.1.4.$index";
+    $value = $entry['boxServicesStackTempSensorState'];
 
     discover_sensor($valid['sensor'], 'state', $device, $oid, "boxServicesStackTempSensorState.$index", 'fastpath-boxservices-private-temp-state', $descr, 1, $value, array('entPhysicalClass' => 'temperature'));
 }
@@ -97,8 +97,8 @@ if (!$boxServicesStackTempSensorsTable)
     $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-temperature-fastpath-boxservices-private-mib-boxServicesTempSensorTemperature.$index.rrd");
     if (is_file($old_rrd)) { rename($old_rrd, $new_rrd); print_warning("Moved RRD"); }
 
-    $oid = ".1.3.6.1.4.1.674.10895.5000.2.6132.1.1.43.1.8.1.3.$index";
-    $value = state_string_to_numeric('fastpath-boxservices-private-temp-state', $entry['boxServicesTempSensorState']);
+    $oid   = ".1.3.6.1.4.1.674.10895.5000.2.6132.1.1.43.1.8.1.3.$index";
+    $value = $entry['boxServicesTempSensorState'];
 
     discover_sensor($valid['sensor'], 'state', $device, $oid, "boxServicesTempSensorState.$index", 'fastpath-boxservices-private-temp-state', $descr, 1, $value, array('entPhysicalClass' => 'temperature'));
   }
@@ -130,8 +130,8 @@ $oids = snmpwalk_cache_multi_oid($device, "boxServicesFansTable", array(), "FAST
 foreach ($oids as $index => $entry)
 {
   $descr = "Fan"; if (count($oids) > 1) { $descr .= " " . ($index+1); }
-  $oid = ".1.3.6.1.4.1.674.10895.5000.2.6132.1.1.43.1.6.1.3.".$index;
-  $value = state_string_to_numeric('fastpath-boxservices-private-state', $entry['boxServicesFanItemState']);
+  $oid   = ".1.3.6.1.4.1.674.10895.5000.2.6132.1.1.43.1.6.1.3.".$index;
+  $value = $entry['boxServicesFanItemState'];
 
   if ($entry['boxServicesFanItemState'] != 'notpresent')
   {
@@ -158,8 +158,8 @@ $oids = snmpwalk_cache_multi_oid($device, "boxServicesPowSuppliesTable", array()
 foreach ($oids as $index => $entry)
 {
   $descr = ucfirst($entry['boxServicesPowSupplyItemType'] . ' Power Supply');
-  $oid = ".1.3.6.1.4.1.674.10895.5000.2.6132.1.1.43.1.7.1.3.".$index;
-  $value = state_string_to_numeric('fastpath-boxservices-private-state', $entry['boxServicesPowSupplyItemState']);
+  $oid   = ".1.3.6.1.4.1.674.10895.5000.2.6132.1.1.43.1.7.1.3.".$index;
+  $value = $entry['boxServicesPowSupplyItemState'];
 
   if ($entry['boxServicesPowSupplyItemState'] != 'notpresent')
   {

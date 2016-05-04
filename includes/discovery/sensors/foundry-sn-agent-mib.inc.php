@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -43,7 +43,7 @@ foreach (explode("\n", $oids) as $data)
       $descr = trim($descr);
 
       $scale   = 0.5;
-      $value = $temperature * $scale;
+      $value = $temperature;
 
       discover_sensor($valid['sensor'], 'temperature', $device, $temperature_oid, $oid, 'ironware', $descr, $scale, $value);
     }
@@ -67,7 +67,7 @@ foreach ($cache['fnsnagent'] as $index => $entry)
 {
   $descr = "Power Supply $index";
   $oid   = ".1.3.6.1.4.1.1991.1.1.1.2.2.1.4.$index";
-  $value = state_string_to_numeric('foundry-sn-agent-oper-state',$entry['snChasPwrSupply2OperStatus']);
+  $value = $entry['snChasPwrSupply2OperStatus'];
   discover_sensor($valid['sensor'], 'state', $device, $oid, "snChasPwrSupply2OperStatus.$index", 'foundry-sn-agent-oper-state', $descr, NULL, $value, array('entPhysicalClass' => 'powerSupply'));
   $stackable = 1;
 }
@@ -87,7 +87,7 @@ if ($stackable == 0)
   {
     $descr = "Power Supply $index";
     $oid   = ".1.3.6.1.4.1.1991.1.1.1.2.1.1.3.$index";
-    $value = state_string_to_numeric('foundry-sn-agent-oper-state',$entry['snChasPwrSupplyOperStatus']);
+    $value = $entry['snChasPwrSupplyOperStatus'];
     discover_sensor($valid['sensor'], 'state', $device, $oid, "snChasPwrSupplyOperStatus.$index", 'foundry-sn-agent-oper-state', $descr, NULL, $value, array('entPhysicalClass' => 'powerSupply'));
   }
 }
@@ -105,7 +105,7 @@ foreach ($cache['fnsnagent'] as $index => $entry)
 {
   $descr = "Fan $index";
   $oid   = ".1.3.6.1.4.1.1991.1.1.1.3.2.1.4.$index";
-  $value = state_string_to_numeric('foundry-sn-agent-oper-state',$entry['snChasFan2OperStatus']);
+  $value = $entry['snChasFan2OperStatus'];
   discover_sensor($valid['sensor'], 'state', $device, $oid, "snChasFan2OperStatus.$index", 'foundry-sn-agent-oper-state', $descr, NULL, $value, array('entPhysicalClass' => 'fan'));
   $stackable = 1;
 }
@@ -125,7 +125,7 @@ if ($stackable == 0)
   {
     $descr = "Fan $index";
     $oid   = ".1.3.6.1.4.1.1991.1.1.1.2.1.1.3.$index";
-    $value = state_string_to_numeric('foundry-sn-agent-oper-state',$entry['snChasFanOperStatus']);
+    $value = $entry['snChasFanOperStatus'];
     discover_sensor($valid['sensor'], 'state', $device, $oid, "snChasFanOperStatus.$index", 'foundry-sn-agent-oper-state', $descr, NULL, $value, array('entPhysicalClass' => 'fan'));
   }
 }

@@ -2,12 +2,12 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -16,6 +16,8 @@ if (!isset($vars['section'])) { $vars['section'] = 'eventlog'; }
 $sections = array('eventlog');
 
 if ($config['enable_syslog']) { $sections[] = 'syslog'; }
+
+if (OBSERVIUM_EDITION != 'community') { $sections[] = 'alertlog'; }
 
 $navbar['brand'] = "Logging";
 $navbar['class'] = "navbar-narrow";
@@ -36,6 +38,7 @@ switch ($vars['section'])
 {
   case 'syslog':
   case 'eventlog':
+  case 'alertlog':
     include('pages/device/logs/'.$vars['section'].'.inc.php');
     break;
   default:

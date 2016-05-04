@@ -8,7 +8,7 @@
  * @package    Simple Observium API
  * @subpackage Demo module
  * @author     Dennis de Houx <dennis@aio.be>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 

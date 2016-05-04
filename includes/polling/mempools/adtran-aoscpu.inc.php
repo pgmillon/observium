@@ -7,11 +7,11 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-$mib = 'adtran-aoscpu';
+$mib = 'ADTRAN-AOSCPU';
 
 // ADTRAN-AOSCPU::adGenAOSMemPool.0 = Gauge32: 134217727
 // ADTRAN-AOSCPU::adGenAOSHeapSize.0 = Gauge32: 103795696

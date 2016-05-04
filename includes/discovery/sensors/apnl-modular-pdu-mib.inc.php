@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -17,7 +17,6 @@ echo(" APNL-MODULAR-PDU-MIB ");
 
 // Power
 
-echo("pdu.nodeTable.nodeEntry.nodePower ");
 $oids_power = snmpwalk_cache_multi_oid($device, "pdu.nodeTable.nodeEntry.nodePower", array(), "APNL-MODULAR-PDU-MIB");
 
 foreach ($oids_power as $index => $entry)
@@ -34,7 +33,6 @@ foreach ($oids_power as $index => $entry)
 
 // Frequency
 
-echo("pdu.nodeTable.nodeEntry.nodeFrequency");
 $oids_freq = snmpwalk_cache_multi_oid($device, "pdu.nodeTable.nodeEntry.nodeFrequency", array(), "APNL-MODULAR-PDU-MIB");
 
 foreach ($oids_freq as $index => $entry)
@@ -44,16 +42,13 @@ foreach ($oids_freq as $index => $entry)
   $value = $entry['nodeFrequency'];
   if (is_numeric($value) && $value > 0)
   {
-    discover_sensor($valid['sensor'], 'frequency', $device, $oid, $index, 'apnl-modular-pdu-mib', $descr, 0.1, $value / 10);
+    discover_sensor($valid['sensor'], 'frequency', $device, $oid, $index, 'apnl-modular-pdu-mib', $descr, 0.1, $value);
   }
 }
 
 // Voltage
 
-$oids_volt = array();
-echo("pdu.nodeTable.nodeEntry.nodeVoltage ");
-$oids_volt = snmpwalk_cache_multi_oid($device, "pdu.nodeTable.nodeEntry.nodeVoltage", $oids_volt, "APNL-MODULAR-PDU-MIB");
-echo("pdu.nodeTable.nodeEntry.nodeMinVoltage ");
+$oids_volt = snmpwalk_cache_multi_oid($device, "pdu.nodeTable.nodeEntry.nodeVoltage", array(), "APNL-MODULAR-PDU-MIB");
 $oids_volt = snmpwalk_cache_multi_oid($device, "pdu.nodeTable.nodeEntry.nodeMinVoltage", $oids_volt, "APNL-MODULAR-PDU-MIB");
 
 foreach ($oids_volt as $index => $entry)
@@ -71,9 +66,7 @@ foreach ($oids_volt as $index => $entry)
 
 // Amperes
 
-echo("pdu.nodeTable.nodeEntry.nodeAcurrent ");
 $oids_curr = snmpwalk_cache_multi_oid($device, "pdu.nodeTable.nodeEntry.nodeAcurrent", array(), "APNL-MODULAR-PDU-MIB");
-echo("pdu.nodeTable.nodeEntry.nodePeakCurrent ");
 $oids_curr = snmpwalk_cache_multi_oid($device, "pdu.nodeTable.nodeEntry.nodePeakCurrent", $oids_curr, "APNL-MODULAR-PDU-MIB");
 
 foreach ($oids_curr as $index => $entry)
@@ -85,7 +78,7 @@ foreach ($oids_curr as $index => $entry)
 
   if (is_numeric($value) && $value > 0)
   {
-    discover_sensor($valid['sensor'], 'current', $device, $oid, $index, 'apnl-modular-pdu-mib', $descr, 0.1, $value / 10, $limits);
+    discover_sensor($valid['sensor'], 'current', $device, $oid, $index, 'apnl-modular-pdu-mib', $descr, 0.1, $value, $limits);
   }
 }
 

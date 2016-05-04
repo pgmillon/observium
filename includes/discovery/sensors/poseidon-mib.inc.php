@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -163,7 +163,7 @@ foreach ($oids as $index => $entry)
     } else {
       $limits = array();
     }
-    discover_sensor($valid['sensor'], $type, $device, $oid, "poseidonSensor.$index", 'poseidon', $descr, $scale, $value * $scale, $limits);
+    discover_sensor($valid['sensor'], $type, $device, $oid, "poseidonSensor.$index", 'poseidon', $descr, $scale, $value, $limits);
   }
 }
 

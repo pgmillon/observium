@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -29,7 +29,6 @@ foreach ($entity_array as $index => $entry)
   // HH3C-ENTITY-EXT-MIB::hh3cEntityExtShutdownTemperatureThreshold.8 = INTEGER: 65535
   if ($entry['hh3cEntityExtTemperature'] != 0 &&
       $entry['hh3cEntityExtTemperatureThreshold']         != 65535 &&
-      $entry['hh3cEntityExtCriticalTemperatureThreshold'] != 65535 &&
       $entry['hh3cEntityExtLowerTemperatureThreshold']    != 65535)
   {
     $limits['limit_low']       = $entry['hh3cEntityExtLowerTemperatureThreshold'];

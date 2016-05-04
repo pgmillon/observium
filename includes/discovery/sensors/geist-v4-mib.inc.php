@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -48,7 +48,7 @@ foreach ($cache['geist']['internalTable'] as $index => $entry)
 
     if (is_numeric($value))
     {
-      discover_sensor($valid['sensor'], 'temperature', $device, $oid, 'internalTemp.'.$index, 'geist-v4-mib', $descr, $scale, $value * $scale);
+      discover_sensor($valid['sensor'], 'temperature', $device, $oid, 'internalTemp.'.$index, 'geist-v4-mib', $descr, $scale, $value);
     }
 
     $descr = $entry['internalName'] . " Dew Point";
@@ -57,7 +57,7 @@ foreach ($cache['geist']['internalTable'] as $index => $entry)
 
     if (is_numeric($value))
     {
-      discover_sensor($valid['sensor'], 'temperature', $device, $oid, 'internalDewPoint.'.$index, 'geist-v4-mib', $descr, $scale, $value * $scale);
+      discover_sensor($valid['sensor'], 'temperature', $device, $oid, 'internalDewPoint.'.$index, 'geist-v4-mib', $descr, $scale, $value);
     }
 
     $descr = $entry['internalName'] . " Humidity";

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -25,12 +25,17 @@ $oids = array('cbQosCMPrePolicyPkt64','cbQosCMPrePolicyByte64', 'cbQosCMPostPoli
 
 // Walk the first service policies OID and then see if it was populated before we continue
 
-$service_policies = array(); // This ends up being indexed by cbQosPolicyIndex
-$service_policies = snmpwalk_cache_oid($device, "cbQosIfType", $service_policies, "CISCO-CLASS-BASED-QOS-MIB", mib_dirs('cisco'));
-
-if(count($service_policies))
+$device_context = $device;
+if (!count($cbq_db))
 {
+  // Set retries to 1 for speedup first walking, only if previously polling also empty (DB empty)
+  $device_context['snmp_retries'] = 1;
+}
+$service_policies = snmpwalk_cache_oid($device_context, "cbQosIfType", array(), "CISCO-CLASS-BASED-QOS-MIB", mib_dirs('cisco'));
+unset($device_context);
 
+if (count($service_policies))
+{
   // Continue populating service policies
   $service_policies = snmpwalk_cache_oid($device, "cbQosPolicyDirection", $service_policies, "CISCO-CLASS-BASED-QOS-MIB", mib_dirs('cisco'));
   $service_policies = snmpwalk_cache_oid($device, "cbQosIfIndex", $service_policies, "CISCO-CLASS-BASED-QOS-MIB", mib_dirs('cisco'));

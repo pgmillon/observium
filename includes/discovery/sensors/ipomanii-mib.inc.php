@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -46,7 +46,7 @@ foreach ($oids_in as $index => $entry)
 
   if (is_numeric($value))
   {
-    discover_sensor($valid['sensor'], 'current', $device, $oid, '1.3.1.3.'.$index, 'ipoman', $descr, $scale, $value * $scale, $limits);
+    discover_sensor($valid['sensor'], 'current', $device, $oid, '1.3.1.3.'.$index, 'ipoman', $descr, $scale, $value, $limits);
   }
   // FIXME: iPoMan 1201 also says it has 2 inlets, at least until firmware 1.06 - wtf?
 }
@@ -60,7 +60,7 @@ foreach ($oids_out as $index => $entry)
 
   if (is_numeric($value))
   {
-    discover_sensor($valid['sensor'], 'current', $device, $oid, '2.3.1.3.'.$index, 'ipoman', $descr, $scale, $value * $scale, $limits);
+    discover_sensor($valid['sensor'], 'current', $device, $oid, '2.3.1.3.'.$index, 'ipoman', $descr, $scale, $value, $limits);
   }
 }
 
@@ -86,7 +86,7 @@ foreach ($oids as $index => $entry)
 
   if (is_numeric($value))
   {
-    discover_sensor($valid['sensor'], 'frequency', $device, $oid, $index, 'ipoman', $descr, $scale, $value * $scale, $limits);
+    discover_sensor($valid['sensor'], 'frequency', $device, $oid, $index, 'ipoman', $descr, $scale, $value, $limits);
   }
   // FIXME: iPoMan 1201 also says it has 2 inlets, at least until firmware 1.06 - wtf?
 }
@@ -107,7 +107,7 @@ if ($emd_installed == 'eMD-HT')
   {
     $descr = trim(str_replace("\"", "", $descr));
 
-    discover_sensor($valid['sensor'], 'humidity', $device, $oid, "1", 'ipoman', $descr, $scale, $value * $scale, $limits);
+    discover_sensor($valid['sensor'], 'humidity', $device, $oid, "1", 'ipoman', $descr, $scale, $value, $limits);
   }
 }
 
@@ -123,7 +123,7 @@ if ($emd_installed != 'disabled')
   {
     $descr = trim(str_replace("\"", "", $descr));
 
-    discover_sensor($valid['sensor'], 'temperature', $device, $oid, "1", 'ipoman', $descr, $scale, $value * $scale, $limits);
+    discover_sensor($valid['sensor'], 'temperature', $device, $oid, "1", 'ipoman', $descr, $scale, $value, $limits);
   }
 }
 
@@ -143,7 +143,7 @@ $oids_out = snmpwalk_cache_multi_oid($device, "outletStatusWH", $oids_out, "IPOM
 #    $oid   = ".1.3.6.1.4.1.2468.1.4.2.1.3.1.3.1.5.$index";
 #    $value = $entry['inletStatusWH'];
 #
-#    discover_sensor($valid['sensor'], 'power', $device, $oid, '1.3.1.3.'.$index, 'ipoman', $descr, $scale, $value * $scale;
+#    discover_sensor($valid['sensor'], 'power', $device, $oid, '1.3.1.3.'.$index, 'ipoman', $descr, $scale, $value);
 #    // FIXME: iPoMan 1201 also says it has 2 inlets, at least until firmware 1.06 - wtf?
 #  }
 
@@ -156,7 +156,7 @@ foreach ($oids_out as $index => $entry)
 
   if (is_numeric($value))
   {
-    discover_sensor($valid['sensor'], 'power', $device, $oid, '2.3.1.3.'.$index, 'ipoman', $descr, $scale, $value * $scale);
+    discover_sensor($valid['sensor'], 'power', $device, $oid, '2.3.1.3.'.$index, 'ipoman', $descr, $scale, $value);
   }
 }
 
@@ -179,7 +179,7 @@ foreach ($oids as $index => $entry)
 
   if (is_numeric($value))
   {
-    discover_sensor($valid['sensor'], 'voltage', $device, $oid, $index, 'ipoman', $descr, $scale, $value * $scale, $limits);
+    discover_sensor($valid['sensor'], 'voltage', $device, $oid, $index, 'ipoman', $descr, $scale, $value, $limits);
   }
   // FIXME: iPoMan 1201 also says it has 2 inlets, at least until firmware 1.06 - wtf?
 }

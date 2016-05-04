@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -25,19 +25,17 @@ if ($format == "octets" || $format == "bytes")
   $format = "bits";
 }
 
-$i=0;
-
+$i = 0;
+$rrd_multi = array();
 foreach ($rrd_filenames as $key => $rrd_filename)
 {
   if ($rrd_inverted[$key]) { $in = 'out'; $out = 'in'; } else { $in = 'in'; $out = 'out'; }
 
   $rrd_options .= " DEF:".$in."octets" . $i . "=".$rrd_filename.":".$ds_in.":AVERAGE";
   $rrd_options .= " DEF:".$out."octets" . $i . "=".$rrd_filename.":".$ds_out.":AVERAGE";
-  $in_thing .= $separator . "inoctets" . $i . ",UN,0," . "inoctets" . $i . ",IF";
-  $out_thing .= $separator . "outoctets" . $i . ",UN,0," . "outoctets" . $i . ",IF";
-  $pluses .= $plus;
-  $separator = ",";
-  $plus = ",+";
+
+  $rrd_multi['in_thing'][]  = "inoctets" .  $i . ",UN,0," . "inoctets" .  $i . ",IF";
+  $rrd_multi['out_thing'][] = "outoctets" . $i . ",UN,0," . "outoctets" . $i . ",IF";
 
   if ($_GET['previous'])
   {
@@ -45,11 +43,9 @@ foreach ($rrd_filenames as $key => $rrd_filename)
     $rrd_options .= " DEF:".$out."octets" . $i . "X=".$rrd_filename.":".$ds_out.":AVERAGE:start=".$prev_from.":end=".$from;
     $rrd_options .= " SHIFT:".$in."octets" . $i . "X:$period";
     $rrd_options .= " SHIFT:".$out."octets" . $i . "X:$period";
-    $in_thingX .= $separatorX . "inoctets" . $i . "X,UN,0," . "inoctets" . $i . "X,IF";
-    $out_thingX .= $separatorX . "outoctets" . $i . "X,UN,0," . "outoctets" . $i . "X,IF";
-    $plusesX .= $plusX;
-    $separatorX = ",";
-    $plusX = ",+";
+
+    $rrd_multi['in_thingX'][]  = "inoctets" .  $i . "X,UN,0," . "inoctets" .  $i . "X,IF";
+    $rrd_multi['out_thingX'][] = "outoctets" . $i . "X,UN,0," . "outoctets" . $i . "X,IF";
   }
   $i++;
 }
@@ -57,6 +53,9 @@ foreach ($rrd_filenames as $key => $rrd_filename)
 if ($i)
 {
   if ($inverse) { $in = 'out'; $out = 'in'; } else { $in = 'in'; $out = 'out'; }
+  $in_thing  = implode(',', $rrd_multi['in_thing']);
+  $out_thing = implode(',', $rrd_multi['out_thing']);
+  $pluses    = str_repeat(',+', count($rrd_multi['in_thing']) - 1);
   $rrd_options .= " CDEF:".$in."octets=" . $in_thing . $pluses;
   $rrd_options .= " CDEF:".$out."octets=" . $out_thing . $pluses;
   $rrd_options .= " CDEF:doutoctets=outoctets,-1,*";
@@ -69,8 +68,11 @@ if ($i)
 
   if ($_GET['previous'] == "yes")
   {
-    $rrd_options .= " CDEF:".$in."octetsX=" . $in_thingX . $pluses;
-    $rrd_options .= " CDEF:".$out."octetsX=" . $out_thingX . $pluses;
+    $in_thingX  = implode(',', $rrd_multi['in_thingX']);
+    $out_thingX = implode(',', $rrd_multi['out_thingX']);
+    $plusesX    = str_repeat(',+', count($rrd_multi['in_thingX']) - 1);
+    $rrd_options .= " CDEF:".$in."octetsX=" . $in_thingX . $plusesX;
+    $rrd_options .= " CDEF:".$out."octetsX=" . $out_thingX . $plusesX;
     $rrd_options .= " CDEF:doutoctetsX=outoctetsX,-1,*";
     $rrd_options .= " CDEF:inbitsX=inoctetsX,8,*";
     $rrd_options .= " CDEF:outbitsX=outoctetsX,8,*";
@@ -116,5 +118,8 @@ if ($i)
 }
 
 #$rrd_options .= " HRULE:0#999999";
+
+// Clean
+unset($rrd_multi, $in_thing, $out_thing, $pluses, $in_thingX, $out_thingX, $plusesX);
 
 // EOF

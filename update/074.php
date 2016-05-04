@@ -7,11 +7,11 @@
  *
  * @package    observium
  * @subpackage update
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-echo("Updating netscaler service RRDs\n");
+echo(" Updating netscaler service RRDs\n");
 
 //foreach (dbFetchRows("SELECT * FROM `netscaler_services`") as $svc)
 if (FALSE)

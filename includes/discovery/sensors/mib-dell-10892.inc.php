@@ -8,7 +8,7 @@
  * @package    observium
  * @subpackage discovery
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -45,7 +45,7 @@ if (strstr($device['hardware'], "Dell"))
 {
   $scale = 0.1;
   $oids = snmp_walk($device, "temperatureProbeStateSettings", "-Osqn", "MIB-Dell-10892", mib_dirs('dell'));
-  if ($debug) { echo($oids."\n"); }
+
   $oids = trim($oids);
   if ($oids) echo("Dell OMSA ");
   foreach (explode("\n", $oids) as $data)
@@ -54,7 +54,7 @@ if (strstr($device['hardware'], "Dell"))
     if ($data)
     {
       list($oid,$status) = explode(" ", $data, 2);
-      if ($debug) { echo("status : ".$status."\n"); }
+      if (OBS_DEBUG > 1) { echo("status : ".$status."\n"); }
       if ($status == "enabled")
       {
         $split_oid        = explode('.',$oid);
@@ -73,13 +73,13 @@ if (strstr($device['hardware'], "Dell"))
                               'limit_high_warn' => snmp_get($device, $warnlimit_oid,    "-Oqv", "MIB-Dell-10892", mib_dirs('dell')) * $scale,
                               'limit_low_warn'  => snmp_get($device, $lowwarnlimit_oid, "-Oqv", "MIB-Dell-10892", mib_dirs('dell')) * $scale);
 
-        discover_sensor($valid['sensor'], 'temperature', $device, $temperature_oid, $temperature_id, 'dell', $descr, $scale, $temperature * $scale, $limits);
+        discover_sensor($valid['sensor'], 'temperature', $device, $temperature_oid, $temperature_id, 'dell', $descr, $scale, $temperature, $limits);
       }
     }
   }
 
   $oids = snmp_walk($device, "coolingDeviceStateSetting", "-Osqn", "MIB-Dell-10892", mib_dirs('dell'));
-  if ($debug) { echo($oids."\n"); }
+
   $oids = trim($oids);
   if ($oids) echo("Dell OMSA ");
   foreach (explode("\n", $oids) as $data)
@@ -88,7 +88,7 @@ if (strstr($device['hardware'], "Dell"))
     if ($data)
     {
       list($oid,$status) = explode(" ", $data, 2);
-      if ($debug) { echo("status : ".$status."\n"); }
+      if (OBS_DEBUG > 1) { echo("status : ".$status."\n"); }
       if ($status == "enabled")
       {
         $split_oid        = explode('.',$oid);

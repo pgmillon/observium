@@ -7,12 +7,22 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-// sysDescr: STRING:  LANCOM OAP-321 8.62.0086 / 07.11.2012 4002787218100104
+//LCOS-MIB::lcsFirmwareVersionTableEntryIfc.eIfc = INTEGER: eIfc(1)
+//LCOS-MIB::lcsFirmwareVersionTableEntryModule.eIfc = STRING: LANCOM L-321agn Wireless
+//LCOS-MIB::lcsFirmwareVersionTableEntryVersion.eIfc = STRING: 8.82.0100RU1 / 28.08.2013
+//LCOS-MIB::lcsFirmwareVersionTableEntrySerialNumber.eIfc = STRING: 4003xxxxxxxxxxxx
 
-list($os_type, $hardware, $version, , $release_date, $serial) = explode(" ", $poll_device['sysDescr']);
+
+$data = snmp_get_multi($device, 'lcsFirmwareVersionTableEntryModule.eIfc lcsFirmwareVersionTableEntryVersion.eIfc lcsFirmwareVersionTableEntrySerialNumber.eIfc', '-OQUs', 'LCOS-MIB', mib_dirs('lancom'));
+
+print_r($data);
+
+$hardware = $data['eIfc']['lcsFirmwareVersionTableEntryModule'];
+list($version, $features) = explode(" / ", $data['eIfc']['lcsFirmwareVersionTableEntryVersion']);
+$serial  = $data['eIfc']['lcsFirmwareVersionTableEntrySerialNumber'];
 
 // EOF

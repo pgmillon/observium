@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -16,23 +16,23 @@
 
 function custom_port_parser($port)
 {
-  global $debug, $config;
+  global $config;
 
   print_debug($port['ifAlias']);
 
-  # Pull out Type and Description or abort
+  // Pull out Type and Description or abort
   if (!preg_match('/^([^:]+):([^\[\]\(\)\{\}]+)/', $port['ifAlias'], $matches))
   {
     return array();
   }
 
-  # Munge and Validate type
+  // Munge and Validate type
   $types = array('core', 'peering', 'transit', 'cust', 'server', 'l2tp');
   foreach ($config['int_groups'] as $custom_type)
   {
     $types[] = strtolower(trim($custom_type));
   }
-  $type  = strtolower(trim($matches[1]));
+  $type  = strtolower(trim($matches[1], " \t\n\r\0\x0B\\/\"'"));
   if (!in_array($type, $types)) { return array(); }
 
   # Munge and Validate description
@@ -50,7 +50,7 @@ function custom_port_parser($port)
   $port_ifAlias['speed']   = $speed;
   $port_ifAlias['notes']   = $notes;
 
-  if ($debug) { print_vars($port_ifAlias); }
+  if (OBS_DEBUG > 1) { print_vars($port_ifAlias); }
 
   return $port_ifAlias;
 }

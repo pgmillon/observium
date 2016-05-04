@@ -2,20 +2,20 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 $overview = 1;
 
 $ports['total']    = dbFetchCell("SELECT COUNT(*) FROM `ports` WHERE device_id = ?", array($device['device_id']));
-$ports['up']       = dbFetchCell("SELECT COUNT(*) FROM `ports` WHERE device_id = ? AND ( `ifOperStatus` = 'up' OR `ifOperStatus` = 'monitoring')", array($device['device_id']));
-$ports['down']     = dbFetchCell("SELECT COUNT(*) FROM `ports` WHERE device_id = ? AND `ifOperStatus` = 'down' AND `ifAdminStatus` = 'up'", array($device['device_id']));
+$ports['up']       = dbFetchCell("SELECT COUNT(*) FROM `ports` WHERE device_id = ? AND `ifAdminStatus` = 'up' AND (`ifOperStatus` = 'up' OR `ifOperStatus` = 'monitoring')", array($device['device_id']));
+$ports['down']     = dbFetchCell("SELECT COUNT(*) FROM `ports` WHERE device_id = ? AND `ifAdminStatus` = 'up' AND (`ifOperStatus` = 'lowerLayerDown' OR `ifOperStatus` = 'down')", array($device['device_id']));
 $ports['disabled'] = dbFetchCell("SELECT COUNT(*) FROM `ports` WHERE device_id = ? AND `ifAdminStatus` = 'down'", array($device['device_id']));
 
 $services['total']    = dbFetchCell("SELECT COUNT(service_id) FROM `services` WHERE `device_id` = ?", array($device['device_id']));
@@ -30,7 +30,8 @@ if ($ports['down']) { $ports_colour = $warn_colour_a; } else { $ports_colour = $
 <div class="row">
 <div class="col-md-6">
 
-<?php 
+<?php
+/* Begin Left Pane */
 include("overview/information.inc.php");
 
 include("overview/ports.inc.php");
@@ -73,27 +74,17 @@ if ($services['total'])
 if ($config['enable_syslog'])
 {
   if (dbFetchCell("SELECT COUNT(*) from `syslog` WHERE `device_id` = ?", array($device['device_id'])))
-  { ?>
-
-    <div class="well info_box">
-      <div class="title"><a href="<?php echo(generate_url(array('page' => 'device', 'device' => $device['device_id'], 'tab' => 'logs', 'section' => 'syslog'))); ?>">
-        <i class="oicon-clipboard-eye"></i> Syslog</a></div>
-      <div class="content">
-
-    <?php
-    print_syslogs(array('device' => $device['device_id'], 'short' => TRUE));
-    ?>
-      </div>
-    </div>
-<?php
+  {
+    include("overview/syslog.inc.php");
   }
 }
 
 echo("</div>");
+/* End Left Pane */
 
+/* Begin Right Pane */
 echo('<div class="col-md-6">');
 
-// Right Pane
 if ($device['os_group'] == "unix")
 {
   include("overview/processors-unix.inc.php");
@@ -116,10 +107,12 @@ if (is_array($entity_state['group']['c6kxbar']))
 }
 
 include("overview/toner.inc.php");
-
+include("overview/status.inc.php");
 include("overview/sensors.inc.php");
 
 include("overview/events.inc.php");
+
+/* End Right Pane */
 
 ?>
 

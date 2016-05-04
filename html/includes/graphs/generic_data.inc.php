@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -32,7 +32,7 @@ $unit_text = rrdtool_escape($unit_text, 9);
 
 if (!$noheader)
 {
-  $rrd_options .= " COMMENT:'$unit_text  Now      Avg      Max     95th \\n'";
+  $rrd_options .= " COMMENT:'$unit_text  Last     Avg      Max     95th \\n'";
 }
 
 if ($rrd_filename) { $rrd_filename_out = $rrd_filename; $rrd_filename_in = $rrd_filename; }
@@ -54,6 +54,11 @@ if ($multiplier)
   $rrd_options .= " DEF:".$out."octets_max=".$rrd_filename_out.":".$ds_out.":MAX";
   $rrd_options .= " DEF:".$in."octets_max=".$rrd_filename_in.":".$ds_in.":MAX";
 }
+
+// Unknown data
+$rrd_options .= " CDEF:alloctets=".$out."octets,".$in."octets,+";
+$rrd_options .= " CDEF:wrongin=alloctets,UN,INF,UNKN,IF";
+$rrd_options .= " CDEF:wrongout=wrongin,-1,*";
 
 if ($_GET['previous'] == "yes")
 {
@@ -99,9 +104,10 @@ $rrd_options .= " CDEF:doutbits_max=doutoctets_max,8,*";
 $rrd_options .= " CDEF:inbits=inoctets,8,*";
 $rrd_options .= " CDEF:inbits_max=inoctets_max,8,*";
 
-if ($config['rrdgraph_real_95th']) {
-        $rrd_options .= " CDEF:highbits=inoctets,outoctets,MAX,8,*";
-        $rrd_options .= " VDEF:95thhigh=highbits,95,PERCENT";
+if ($config['rrdgraph_real_95th'])
+{
+  $rrd_options .= " CDEF:highbits=inoctets,outoctets,MAX,8,*";
+  $rrd_options .= " VDEF:95thhigh=highbits,95,PERCENT";
 }
 
 $rrd_options .= " VDEF:totin=inoctets,TOTAL";
@@ -145,8 +151,8 @@ $rrd_options .= " GPRINT:95thout:%6.2lf%s\\\\n";
 
 if ($config['rrdgraph_real_95th'])
 {
-        $rrd_options .= " HRULE:95thhigh#FF0000:'Highest'";
-        $rrd_options .= " GPRINT:95thhigh:%30.2lf%s\\n";
+  $rrd_options .= " HRULE:95thhigh#FF0000:'Highest'";
+  $rrd_options .= " GPRINT:95thhigh:%30.2lf%s\\n";
 }
 
 $rrd_options .= " GPRINT:tot:'Total %6.2lf%s'";
@@ -155,10 +161,13 @@ $rrd_options .= " GPRINT:totout:'Out %6.2lf%s)\\\\l'";
 $rrd_options .= " LINE1:95thin#aa0000";
 $rrd_options .= " LINE1:d95thout#aa0000";
 
-if ($_GET['previous'] == "yes")
+if ($vars['previous'] == "yes")
 {
   $rrd_options .= " LINE1.25:in".$format."X#009900:'Prev In \\\\n'";
   $rrd_options .= " LINE1.25:dout".$format."X#000099:'Prev Out'";
+} else {
+  $rrd_options .= " AREA:wrongin#FFF2F2";
+  $rrd_options .= " AREA:wrongout#FFF2F2";
 }
 
 // EOF

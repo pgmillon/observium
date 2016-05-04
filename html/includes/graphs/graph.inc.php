@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -19,7 +19,7 @@ preg_match('/^(?P<type>[a-z0-9A-Z-]+)_(?P<subtype>[a-z0-9A-Z-_]+)/', $vars['type
 
 $graphfile = $config['temp_dir'] . "/"  . strgen() . ".png";
 
-if($debug) print_vars($graphtype);
+if (OBS_DEBUG) print_vars($graphtype);
 
 if(isset($graphtype['type']) && isset($graphtype['subtype']))
 {
@@ -59,12 +59,21 @@ $period = $to - $from;
 $prev_from = $from - $period;
 
 $graph_include = FALSE;
+$definition_include = FALSE;
+//print_message("Graph type: $type, subtype: $subtype");
 if (is_file($config['html_dir'] . "/includes/graphs/$type/$subtype.inc.php"))
 {
   $graph_include = $config['html_dir'] . "/includes/graphs/$type/$subtype.inc.php";
 }
 else if (is_array($config['graph_types'][$type][$subtype]['ds']))
 {
+  // Additional include with define some graph variables like $unit_text, $graph_title
+  // Currently only for indexed definitions
+  if ($config['graph_types'][$type][$subtype]['index'] &&
+      is_file($config['html_dir'] . "/includes/graphs/$type/definition.inc.php"))
+  {
+    $definition_include = $config['html_dir'] . "/includes/graphs/$type/definition.inc.php";
+  }
   $graph_include = $config['html_dir'] . "/includes/graphs/generic_definition.inc.php";
 }
 else if (is_file($config['html_dir'] . "/includes/graphs/$type/graph.inc.php"))
@@ -78,6 +87,10 @@ if ($graph_include)
 
   if (isset($auth) && $auth)
   {
+    if ($definition_include)
+    {
+      include_once($definition_include);
+    }
     include($graph_include);
   }
 } else {
@@ -118,6 +131,7 @@ else if (!$auth)
 
     unlink($graphfile);
 
+    $graph_return['descr'] = $config['graph_types'][$type][$subtype]['long'];
     $graph_return['total_time'] = $total_time;
     $graph_return['rrdtool_time'] = $graph_time;
     $graph_return['cmd']  = "rrdtool graph $graphfile $rrd_options";
@@ -125,14 +139,14 @@ else if (!$auth)
     if ($rrd_options)
     {
       rrdtool_graph($graphfile, $rrd_options);
-      if ($debug) { echo($rrd_cmd); }
+      print_debug($rrd_cmd);
       if (is_file($graphfile))
       {
         if ($vars['image_data_uri'] == TRUE)
         {
           $image_data_uri = data_uri($graphfile, 'image/png');
         }
-        else if (!$debug)
+        else if (!OBS_DEBUG)
         {
           $fd = fopen($graphfile, 'rb');
           header('Content-type: image/png');

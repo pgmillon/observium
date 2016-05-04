@@ -7,14 +7,14 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 /// FIXME. From this uses only check_valid_sensors(), maybe need move to global functions or copy to polling. --mike
 include_once("includes/discovery/functions.inc.php");
 
-global $debug, $valid, $agent_sensors;
+global $valid, $agent_sensors;
 
 if ($device['os_group'] == "unix")
 {
@@ -72,23 +72,42 @@ if ($device['os_group'] == "unix")
     foreach (explode("<<<", $agent_raw) as $section)
     {
       list($section, $data) = explode(">>>", $section);
-      list($sa, $sb, $sc) = explode("-", $section, 3);
 
-      ## Compatibility with versions of scripts with and without app-
-      ## Disabled for DRBD because it falsely detects the check_mk output
-
-      if ($section == "apache") { $sa = "app"; $sb = "apache"; }
-      if ($section == "mysql")  { $sa = "app"; $sb = "mysql"; }
-      if ($section == "nginx")  { $sa = "app"; $sb = "nginx"; }
-
-      # FIXME why is this here? New application scripts should just return app-$foo
-      if ($section == "freeradius")  { $sa = "app"; $sb = "freeradius"; }
-      if ($section == "postfix_qshape")  { $sa = "app"; $sb = "postfix_qshape"; }
-      if ($section == "postfix_mailgraph")  { $sa = "app"; $sb = "postfix_mailgraph"; }
+      switch ($section)
+      {
+        // Compatibility with versions of scripts with and without app-
+        // Disabled for DRBD because it falsely detects the check_mk output
+        case "apache":
+          $sa = "app"; $sb = "apache";
+          break;
+        case "mysql":
+          $sa = "app"; $sb = "mysql";
+          break;
+        case "nginx":
+          $sa = "app"; $sb = "nginx";
+          break;
+        # FIXME why is this here? New application scripts should just return app-$foo
+        case "freeradius":
+          $sa = "app"; $sb = "freeradius";
+          break;
+        case "postfix_qshape":
+          $sa = "app"; $sb = "postfix_qshape";
+          break;
+        case "postfix_mailgraph":
+          $sa = "app"; $sb = "postfix_mailgraph";
+          break;
+        # Workaround for older script where we didn't split into 3 possible parts yet
+        case "app-powerdns-recursor":
+          $sa = "app"; $sb = "powerdns-recursor"; $sc = "";
+          break;
+        case "app-exim-mailqueue":
+          $sa = "app"; $sb = "exim-mailqueue"; $sc = "";
+          break;
+        default:
+          // default section name: "app-some-sc"
+          list($sa, $sb, $sc) = explode("-", $section, 3);
+      }
       # DO -NOT- ADD NEW IFS ABOVE -- use <<<app-$foo>>> in your application script
-
-      # Workaround for older script where we didn't split into 3 possible parts yet
-      if ($section == "app-powerdns-recursor") { $sa = "app"; $sb = "powerdns-recursor"; $sc = ""; }
 
       if (!empty($sa) && !empty($sb))
       {
@@ -105,7 +124,7 @@ if ($device['os_group'] == "unix")
 
     $agent_sensors = array(); # Init to empty to be able to use array_merge() later on
 
-    if ($debug) { print_vars($agent_data); }
+    if (OBS_DEBUG && count($agent_data)) { print_vars($agent_data); }
 
     include("unix-agent/packages.inc.php");
     include("unix-agent/munin-plugins.inc.php");
@@ -114,11 +133,11 @@ if ($device['os_group'] == "unix")
     {
       if (file_exists($config['install_dir'].'/includes/polling/unix-agent/'.$key.'.inc.php'))
       {
-        if ($debug) { echo('Including: unix-agent/'.$key.'.inc.php'); }
+        print_debug('Including: unix-agent/'.$key.'.inc.php');
 
         include($config['install_dir'].'/includes/polling/unix-agent/'.$key.'.inc.php');
       } else {
-        echo("No include:".$key.PHP_EOL);
+        print_warning("No include: ".$key);
       }
     }
 
@@ -137,7 +156,7 @@ if ($device['os_group'] == "unix")
             echo("+");
           }
 
-          if ($debug) { echo('Including: applications/'.$key.'.inc.php'); }
+          print_debug('Including: applications/'.$key.'.inc.php');
 
           echo($key);
 

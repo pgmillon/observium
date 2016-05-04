@@ -7,7 +7,7 @@
  * @package    observium
  * @subpackage feed
  * @author     Mike Stupalov <mike@observium.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 

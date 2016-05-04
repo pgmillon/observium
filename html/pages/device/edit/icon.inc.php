@@ -2,20 +2,20 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-if ($_POST['editing'])
+if ($vars['editing'])
 {
   if ($_SESSION['userlevel'] > "7")
   {
-    $param = array('icon' => $_POST['icon']);
+    $param = array('icon' => $vars['icon']);
 
     $rows_updated = dbUpdate($param, 'devices', '`device_id` = ?', array($device['device_id']));
 
@@ -24,15 +24,15 @@ if ($_POST['editing'])
       $update_message = "Device icon updated.";
       $updated = 1;
       $device = dbFetchRow("SELECT * FROM `devices` WHERE `device_id` = ?", array($device['device_id']));
-    } elseif ($rows_updated = '-1') {
+    }
+    else if ($rows_updated = '-1')
+    {
       $update_message = "Device icon unchanged. No update necessary.";
       $updated = -1;
     } else {
       $update_message = "Device icon update error.";
     }
-  }
-  else
-  {
+  } else {
     include("includes/error-no-perm.inc.php");
   }
 }
@@ -59,16 +59,20 @@ if ($updated && $update_message)
 $numicons = 1;
 echo("          <tr>\n");
 
-# Default icon
-$icon = $config['os'][$device['os']]['icon'];
+// Default icon
+$icon = get_device_icon($device, TRUE);
+
 echo('            <td width="64" align="center"><img src="images/os/' . $icon . '.png"><br /><i>' . nicecase($icon) . '</i><p />');
 echo('<input name="icon" type="radio" value="' . $icon . '"' . ($device['icon'] == '' || $device['icon'] == $icon ? ' checked="1"' : '') . ' /></td>' . "\n");
 
-for ($i = 0;$i < count($config['os'][$device['os']]['icons']);$i++)
+foreach ($config['os'][$device['os']]['icons'] as $icon_new)
 {
-  $icon = $config['os'][$device['os']]['icons'][$i];
-  echo('            <td width="64" align="center"><img src="images/os/' . $icon . '.png"><br /><i>' . nicecase($icon) . '</i><p />');
-  echo('<input name="icon" type="radio" value="' . $icon . '"' . ($device['icon'] == $icon ? ' checked="1"' : '') . ' /></td>' . "\n");
+  if ($icon_new != $icon)
+  {
+    echo('            <td align="center"><img src="images/os/' . $icon_new . '.png"><br /><i>' . ucwords(strtr($icon_new, '_', ' ')) . '</i><p />');
+    echo('<input name="icon" type="radio" value="' . $icon_new . '"' . ($device['icon'] == $icon ? ' checked="1"' : '') . ' /></td>' . "\n");
+    $numicons++;
+  }
 }
 
 if ($numicons %10 == 0)

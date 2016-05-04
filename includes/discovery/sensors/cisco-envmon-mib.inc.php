@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -44,12 +44,11 @@ foreach ($oids as $index => $entry)
     // Exclude duplicated entries from CISCO-ENTITY-SENSOR
     $ent_count = dbFetchCell('SELECT COUNT(*) FROM `sensors` WHERE `device_id` = ? AND `sensor_type` = ? AND `sensor_class` = ? AND (`sensor_descr` LIKE ? OR `sensor_descr` LIKE ?);',
                               array($device['device_id'], 'cisco-entity-state', 'state', $descr.'%', '%- '.$descr));
-    //Not numerical values, only states
-    $value = state_string_to_numeric($sensor_state_type, $entry['ciscoEnvMonTemperatureState']);
-    if (!$ent_count && $value <= 4) // Exclude 'notPresent' and 'notFunctioning'
+    // Not numerical values, only states
+    if (!$ent_count)
     {
       discover_sensor($valid['sensor'], 'state', $device, $oid, 'temp-'.$index, $sensor_state_type, $descr, NULL,
-                      $value, array('entPhysicalClass' => 'temperature'));
+                      $entry['ciscoEnvMonTemperatureState'], array('entPhysicalClass' => 'temperature'));
     }
   }
 }
@@ -76,20 +75,19 @@ foreach ($oids as $index => $entry)
       $limits = array('limit_high' => $entry['ciscoEnvMonVoltageThresholdLow']  * $scale,
                       'limit_low'  => $entry['ciscoEnvMonVoltageThresholdHigh'] * $scale);
       discover_sensor($valid['sensor'], 'voltage', $device, $oid, $index, $sensor_type, $descr, $scale,
-                      $entry['ciscoEnvMonVoltageStatusValue'] * $scale, $limits);
+                      $entry['ciscoEnvMonVoltageStatusValue'], $limits);
     }
   }
   else if (isset($entry['ciscoEnvMonVoltageState']))
   {
     $oid   = '.1.3.6.1.4.1.9.9.13.1.2.1.7.'.$index;
     //Not numerical values, only states
-    $value = state_string_to_numeric($sensor_state_type, $entry['ciscoEnvMonVoltageState']);
     $query = 'SELECT COUNT(*) FROM `sensors` WHERE `device_id` = ? AND `sensor_type` = ? AND `sensor_class` = ? AND (`sensor_descr` LIKE ? OR `sensor_descr` LIKE ?);';
     $ent_count = dbFetchCell($query, array($device['device_id'], 'cisco-entity-state', 'state', $descr.'%', '%- '.$descr));
-    if (!$ent_count && $value <= 4) // Exclude 'notPresent' and 'notFunctioning'
+    if (!$ent_count)
     {
       discover_sensor($valid['sensor'], 'state', $device, $oid, 'voltage-'.$index, $sensor_state_type, $descr, NULL,
-                      $value, array('entPhysicalClass' => 'voltage'));
+                      $entry['ciscoEnvMonVoltageState'], array('entPhysicalClass' => 'voltage'));
     }
   }
 }
@@ -109,11 +107,10 @@ foreach ($oids as $index => $entry)
     $ent_count = dbFetchCell('SELECT COUNT(*) FROM `sensors` WHERE `device_id` = ? AND `sensor_type` = ? AND `sensor_class` = ? AND (`sensor_descr` LIKE ? OR `sensor_descr` LIKE ?);',
                               array($device['device_id'], 'cisco-entity-state', 'state', $descr.'%', '%- '.$descr));
     //Not numerical values, only states
-    $value = state_string_to_numeric($sensor_state_type, $entry['ciscoEnvMonSupplyState']);
-    if (!$ent_count && $value <= 4) // Exclude 'notPresent' and 'notFunctioning'
+    if (!$ent_count)
     {
       discover_sensor($valid['sensor'], 'state', $device, $oid, 'supply-'.$index, $sensor_state_type, $descr, NULL,
-                      $value, array('entPhysicalClass' => 'power'));
+                      $entry['ciscoEnvMonSupplyState'], array('entPhysicalClass' => 'power'));
     }
   }
 }
@@ -135,11 +132,10 @@ foreach ($oids as $index => $entry)
     $ent_count = dbFetchCell('SELECT COUNT(*) FROM `sensors` WHERE `device_id` = ? AND `sensor_type` = ? AND `sensor_class` = ? AND (`sensor_descr` LIKE ? OR `sensor_descr` LIKE ?);',
                               array($device['device_id'], 'cisco-entity-state', 'state', $descr.'%', '%- '.$descr));
     //Not numerical values, only states
-    $value = state_string_to_numeric($sensor_state_type, $entry['ciscoEnvMonFanState']);
-    if (!$ent_count && $value <= 4) // Exclude 'notPresent' and 'notFunctioning'
+    if (!$ent_count)
     {
       discover_sensor($valid['sensor'], 'state', $device, $oid, 'fan-'.$index, $sensor_state_type, $descr, NULL,
-                      $value, array('entPhysicalClass' => 'fan'));
+                      $entry['ciscoEnvMonFanState'], array('entPhysicalClass' => 'fan'));
     }
   }
 }

@@ -1,0 +1,266 @@
+-- *****************************************************************
+-- SONICWALL-GMS-TRAP
+--
+-- 08-01-2002,    Initial Version, Anthony Moore
+-- 11-11-2009,    Renamed this file from
+--                SW-GMS-TRAP.MIB to
+--                SONICWALL-GMS-TRAP-MIB.MIB   Ajit Nair
+-- 11-11-2009,    Updated SonicWALL company address, Ajit Nair
+-- 08-01-2013,    "SonicWALL" changed to "Dell SonicWALL"; updated Copyright date, Prasad Bevara
+--
+-- Version:  Enhanced v1.10
+--
+-- Copyright (c) 2001 - 2013 by Dell SonicWall, Inc.
+-- All rights reserved.
+-- *****************************************************************
+
+SONICWALL-GMS-TRAP-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    DisplayString,
+    TEXTUAL-CONVENTION		 	FROM SNMPv2-TC
+
+    IpAddress,
+    snmpModules,
+    OBJECT-TYPE,
+    NOTIFICATION-TYPE,
+    MODULE-IDENTITY             	FROM SNMPv2-SMI
+
+    snmpTrapEnterprise			FROM SNMPv2-MIB
+    
+    snmpTrapAddress,
+    snmpTrapCommunity			FROM SNMP-COMMUNITY-MIB
+    
+    sonicwallGMS           		FROM SONICWALL-SMI
+    
+    swTrapInfoTrapType,
+    swTrapInfoTrapDescription		FROM SONICWALL-FIREWALL-TRAP-MIB;
+
+sonicwallGMSTrapModule MODULE-IDENTITY
+	LAST-UPDATED "201308010000Z"
+	ORGANIZATION "Dell SonicWall, Inc."
+	CONTACT-INFO "Dell SonicWall, Inc.
+
+
+				  Postal: 2001 Logic Drive
+						  San Jose, CA 95124-3452
+						  USA
+
+				  Tel: +1 408 745 9600
+				  Fax: +1 408 745 9300
+				  E-mail: products@sonicwall.com"
+	DESCRIPTION
+		"The MIB Module for Dell SonicWALL GMS Trap."
+    ::= { sonicwallGMS 1 }
+
+-- *********************************************************************
+
+-- Type define
+
+-- *********************************************************************
+GmsTrapType ::= TEXTUAL-CONVENTION
+    STATUS current
+    DESCRIPTION
+        "Trap type from GMSTrapMaker or GMSSnmpMgr.  3-digit codes.  1XX codes
+        are for gmsTrapStatus messages. 2XX codes are for gmsTrapSysError messages."
+    SYNTAX INTEGER {
+    	trapTypeStillAlive		(100), 			-- GMS component is still functioning
+        trapTypeLostContact		(101), 			-- GMS component no longer sending trapTypeStillAlive
+        trapTypeFirewallLostContact	(102), 			-- Firewall no longer sending Syslog Heartbeat
+        trapTypeNormalShutdown		(103), 		-- GMS component has been shutdown by the user
+        trapTypeStartup			(104), 			-- GMS component has started
+        trapTypeStartContact		(105), 			-- GMS component has started sending trapTypeStillAlive
+        trapTypeFirewallStartContact	(106), 		-- Firewall has started sending Syslog Heartbeat
+        trapTypeFirewallMonDevicesUpDown	(110), 		-- NetMonitor devices up and down status
+        trapTypeFirewallMonDevicesSNMPRTMAlert	(120), 	-- NetMonitor SNMP realtime monitor alerts
+        trapTypeFirewallEventMgmtAlert	(130), 		-- GMS Event Mgmt alerts
+        trapTypeUnspecified		(200), 			-- Generic trap sent from GMS Event Management
+        trapTypeStopSnmpManager		(199) 		-- Special trap to stop the GMSSnmpMgr
+	}
+	
+GmsComponentType ::= TEXTUAL-CONVENTION
+    STATUS current
+    DESCRIPTION
+        "Type of the GMS component that is sending the trap."
+    SYNTAX INTEGER {
+    	componentTypeGMSSNMPMgr 		(0),	-- GMS SNMP Manager	
+        componentTypeGMSConsole		(1),	-- Web Server
+        componentTypeGMSAgent 		(2),	-- Scheduler
+	  componentTypeGateway			(3),	-- GMS Gateway
+        componentTypeFirewall			(4),	-- GMS Managed Appliances
+        componentTypeViewpointScheduler	(5),  -- Viewpoint Schedule
+        componentTypeViewpointSummarizer	(6),  -- Viewpoint Summarizer
+        componentTypeCLI			(7),	-- GMS CLI
+        componentTypeVisualTool		(8),	-- GMS Visualization Tool
+        componentTypeSyslogCollector	(9),	-- GMS Syslog Collector
+        componentTypeSGMSTool			(10),	-- GMS SGMS Tool
+        componentTypeSGMSMonitor		(11),	-- GMS Net Monitor
+        componentTypeSGMSUpdater		(12),	-- GMS Updater
+        componentTypeSGMSJUnit		(13),	-- GMS JUnit
+        componentTypeSGMSEventMgmt		(14),	-- GMS Event Mgmt Module
+        componentTypeSGMSWebServices	(15),	-- GMS Web Services
+        componentTypeGMSUnknown		(999)	-- Unknown
+	}
+	
+-- ****************************  Enterprise Specific Traps Information *******************************
+
+sonicwallGMSTrapInfo OBJECT IDENTIFIER ::= {sonicwallGMSTrapModule 1}
+
+
+-- ******************************************************************************************
+--
+-- The gmsTrapInfoTable
+--
+-- This table contains information that is
+-- for the basic event on the firewall. 
+-- ******************************************************************************************
+
+gmsTrapInfoTable OBJECT IDENTIFIER ::= { sonicwallGMSTrapInfo 1 }
+
+gmsTrapInfoTrapType OBJECT-TYPE
+        SYNTAX     	GmsTrapType
+        MAX-ACCESS 	accessible-for-notify
+        STATUS     	current
+        DESCRIPTION
+            "trap type. "
+    ::= { gmsTrapInfoTable 1 }
+
+
+gmsTrapInfoTrapDescription OBJECT-TYPE
+	SYNTAX 		DisplayString 
+        MAX-ACCESS 	accessible-for-notify
+        STATUS     	current
+        DESCRIPTION
+            "The description of the trap. "
+    ::= { gmsTrapInfoTable 2 }
+
+gmsTrapInfoSerial OBJECT-TYPE
+	SYNTAX 		DisplayString 
+        MAX-ACCESS 	accessible-for-notify
+        STATUS     	current
+        DESCRIPTION
+            "The serial number of the source device; usually equals MAC address. "
+    ::= { gmsTrapInfoTable 3 }
+
+gmsTrapInfoComponentType OBJECT-TYPE
+	SYNTAX 		GmsComponentType 
+        MAX-ACCESS 	accessible-for-notify
+        STATUS     	current
+        DESCRIPTION
+            "0 = gmsSNMPMgr, 1 = Console, 2 = Agent."
+    ::= { gmsTrapInfoTable 4 }
+
+
+-- ******************************************************************************************
+--
+-- sonicwall firewall trap group
+--
+-- This group defines the trap which sonicwall firewall generated
+-- ******************************************************************************************
+
+sonicwallGMSTrapRoot OBJECT IDENTIFIER ::= {sonicwallGMSTrapModule 2}
+
+gmsFwTrapAttack NOTIFICATION-TYPE
+        OBJECTS {
+            swTrapInfoTrapType,
+            swTrapInfoTrapDescription,
+	    	gmsTrapInfoSerial,
+            snmpTrapAddress,
+            snmpTrapCommunity,
+            snmpTrapEnterprise
+        }
+        STATUS current
+        DESCRIPTION
+            "This trap indicates that the firewall have detected a attack. 
+             The bound objects provide more detailed information about this problem."
+    ::= { sonicwallGMSTrapRoot 0 1 }
+
+gmsFwTrapSysError NOTIFICATION-TYPE
+        OBJECTS {
+            swTrapInfoTrapType,
+            swTrapInfoTrapDescription,
+		    gmsTrapInfoSerial,
+            snmpTrapAddress,
+            snmpTrapCommunity,
+            snmpTrapEnterprise
+        }
+        STATUS current
+        DESCRIPTION
+            "This trap indicates that there is a system problem with the SonicWALL appliance. 
+             The bound objects provide more detailed information about this problem."
+    ::= { sonicwallGMSTrapRoot 0 2 }
+
+gmsFwTrapBlkWebSite NOTIFICATION-TYPE
+        OBJECTS {
+            swTrapInfoTrapType,
+            swTrapInfoTrapDescription,
+		    gmsTrapInfoSerial,
+            snmpTrapAddress,
+            snmpTrapCommunity,
+            snmpTrapEnterprise
+        }
+        STATUS current
+        DESCRIPTION
+            "This trap indicates that there is a web site was blocked by the firewall.
+             The bound objects provide more detailed information about this problem."
+    ::= { sonicwallGMSTrapRoot 0 3 }
+    
+gmsFwTrapIpsecTunnel NOTIFICATION-TYPE
+        OBJECTS {
+            swTrapInfoTrapType,
+            swTrapInfoTrapDescription,
+            swTrapInfoSaName,
+            swTrapInfoFwSrlNumber,
+            swTrapInfoSaStatus,
+            swTrapInfoSrcAddrBegin,
+			swTrapInfoSrcAddrEnd,
+            swTrapInfoDstAddrBegin,
+			swTrapInfoDstAddrEnd,
+		    gmsTrapInfoSerial,
+            snmpTrapAddress,
+            snmpTrapCommunity,
+            snmpTrapEnterprise
+        }
+        STATUS current
+        DESCRIPTION
+            "This trap indicates that there has bee a change in the IPSec tunnel status along with 
+             the parameters required to indentify the tunnel."
+    ::= { sonicwallGMSTrapRoot 0 4 }
+
+gmsTrapStatus NOTIFICATION-TYPE
+        OBJECTS {
+            gmsTrapInfoTrapType,
+            gmsTrapInfoTrapDescription,
+		    gmsTrapInfoSerial,
+	   		gmsTrapInfoComponentType,
+            snmpTrapAddress,
+            snmpTrapCommunity,
+            snmpTrapEnterprise
+        }
+        STATUS current
+        DESCRIPTION
+            "This trap indicates the status of a GMS Component.  For example, a trap with
+            gmsTrapInfoTrapType == trapTypeLostContact and 
+            gmsTrapInfoComponentType == componentTypeGMSConsole would be sent when thr GMS
+            SNMP Manager loses contact with the GMS WebServer."
+    ::= { sonicwallGMSTrapRoot 0 5 }
+
+gmsTrapSysError NOTIFICATION-TYPE
+        OBJECTS {
+            gmsTrapInfoTrapType,
+            gmsTrapInfoTrapDescription,
+	    	gmsTrapInfoSerial,
+	    	gmsTrapInfoComponentType,
+            snmpTrapAddress,
+            snmpTrapCommunity,
+            snmpTrapEnterprise
+        }
+        STATUS current
+        DESCRIPTION
+            "This trap indicates that there is a system problem with the GMS component. 
+             The bound objects provide more detailed information about this problem."
+    ::= { sonicwallGMSTrapRoot 0 6 }
+
+END
+
+

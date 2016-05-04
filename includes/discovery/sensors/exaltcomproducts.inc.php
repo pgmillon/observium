@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -79,14 +79,14 @@ $sensor_state_type = 'exaltcomproducts-state';
 $options           = array('entPhysicalClass' => 'linkstate');
 if (!empty($discover['state'][0]['locLinkState']))
 {
-  $oid = '.1.3.6.1.4.1.25651.1.2.4.2.3.1.1.0';
-  $value = state_string_to_numeric($sensor_state_type, $discover['state'][0]['locLinkState']);
+  $oid   = '.1.3.6.1.4.1.25651.1.2.4.2.3.1.1.0';
+  $value = $discover['state'][0]['locLinkState'];
   discover_sensor($valid['sensor'], 'state', $device, $oid, 'locLinkState.0', $sensor_state_type, "Link Status (Internal)", NULL, $value, $options);
 }
 if (!empty($discover['state'][0]['remLinkState']))
 {
-  $oid = '.1.3.6.1.4.1.25651.1.2.4.2.4.1.1.0';
-  $value = state_string_to_numeric($sensor_state_type, $discover['state'][0]['remLinkState']);
+  $oid   = '.1.3.6.1.4.1.25651.1.2.4.2.4.1.1.0';
+  $value = $discover['state'][0]['remLinkState'];
   discover_sensor($valid['sensor'], 'state', $device, $oid, 'remLinkState.0', $sensor_state_type, "Link Status (Far end radio)", NULL, $value, $options);
 }
 if (is_numeric($discover['state'][0]['locErrorDuration']) && is_numeric($discover['state'][0]['locUnavailDuration']))

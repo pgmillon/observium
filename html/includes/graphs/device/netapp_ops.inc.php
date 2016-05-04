@@ -7,40 +7,38 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-$i = 0;
+$rrd_filename = get_rrd_path($device, 'netapp_stats.rrd');
+$rrd_exists   = is_file($rrd_filename);
 
+$count = 0;
 foreach (array('iscsi', 'nfs', 'cifs', 'http','fcp') as $stat)
 {
-  $rrd_filename = get_rrd_path($device, "netapp_stats.rrd");
-
-  if (is_file($rrd_filename))
-  {
-    $descr = nicecase($stat);
-
-    $rrd_list[$i]['filename'] = $rrd_filename;
-    $rrd_list[$i]['descr'] = $descr;
-    $rrd_list[$i]['ds'] = $stat.'_ops';
-    $i++;
+  if (!$rrd_exists) {
+    continue;
   }
+
+  $rrd_list[$count]['filename'] = $rrd_filename;
+  $rrd_list[$count]['descr']    = nicecase($stat);
+  $rrd_list[$count]['ds']       = $stat .'_ops';
+
+  $count++;
 }
 
-$unit_text = "Operations";
-
-$units = '';
+$unit_text   = 'Operations/s';
+$colours     = 'mixed';
+$units       = '';
 $total_units = '';
-$colours = 'mixed';
 
-$scale_min = "0";
-$scale_max = "100";
-
-$divider = $i;
+$scale_min = '0';
+$scale_max = '100';
+$divider   = $count;
 $text_orig = 1;
-$nototal = 1;
+$nototal   = 1;
 
-include("includes/graphs/generic_multi_simplex_separated.inc.php");
+include('includes/graphs/generic_multi_simplex_separated.inc.php');
 
-?>
+// EOF

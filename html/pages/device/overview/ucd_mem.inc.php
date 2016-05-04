@@ -2,20 +2,23 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 ?>
-  <div class="well info_box">
-    <div class="title"><a href="<?php echo(generate_url(array('page' => 'device', 'device' => $device['device_id'], 'tab' => 'graphs', 'group' => 'system'))); ?>">
-      <i class="oicon-memory"></i> Memory Usage</a></div>
-    <div class="content">
+    <div class="widget widget-table">
+      <div class="widget-header">
+        <a href="<?php echo(generate_url(array('page' => 'device', 'device' => $device['device_id'], 'tab' => 'health', 'metric' => 'mempool'))); ?>">
+          <i class="oicon-memory"></i><h3>Memory</h3>
+        </a>
+      </div>
+      <div class="widget-content">
 
 <?php
 $mem_used_total = $device_state['ucd_mem']['mem_total'] - $device_state['ucd_mem']['mem_avail'];
@@ -45,7 +48,7 @@ $link = generate_url($link_array);
 $graph_array['width'] = "210";
 $overlib_content = generate_overlib_content($graph_array, $device['hostname'] . " - Memory Usage");
 
-echo(overlib_link($link, $graph, $overlib_content, NULL));
+// echo(overlib_link($link, $graph, $overlib_content, NULL));
 
 $percentage_bar            = array();
 $percentage_bar['border']  = "#E25A00";
@@ -59,6 +62,11 @@ $percentage_bar['bars'][2] = array('percent' => $cach_perc, 'colour' => '#f0e0a0
 ?>
 
 <table width="100%" class="table table-striped table-condensed-more table-bordered">
+
+  <tr>
+    <td colspan=2><?php echo(overlib_link($link, $graph, $overlib_content, NULL)); ?></td>
+  </tr>
+
   <tr>
     <td class="entity">RAM</td>
     <td style="width: 90%;"><?php echo(percentage_bar($percentage_bar)); ?></td>

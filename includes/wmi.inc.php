@@ -8,7 +8,7 @@
  * @package    observium
  * @subpackage wmi
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -42,7 +42,7 @@ function wmi_query($wql, $override = NULL, $namespace = NULL)
   if (!empty($domain)) { $options .= "--workgroup='". $domain . "' "; }
   if (empty($GLOBALS['config']['wmi']['delimiter'])) { $options .= "--delimiter=## "; } else { $options .= "--delimiter=" . $GLOBALS['config']['wmi']['delimiter'] ." "; }
   if (empty($namespace)) { $options .= "--namespace='root\CIMV2' "; } else { $options .= "--namespace='" . $namespace ."' "; }
-  if ($GLOBALS['debug']) { $options .= "-d2 "; }
+  if (OBS_DEBUG) { $options .= "-d2 "; }
   $options .= "//" . $hostname;
 
   $cmd = $GLOBALS['config']['wmic'] . " " . $options . " " . "\"".$wql."\"";
@@ -70,7 +70,7 @@ function wmi_parse($wmi_string, $ret_single = FALSE, $ret_val = NULL)
     if (preg_match('/ERROR:/', $line))
     {
       $wmi_error = substr($line, strpos($line, 'ERROR:') + strlen("ERROR: "));
-      if ($GLOBALS['debug'])
+      if (OBS_DEBUG)
       {
         // If the error is something other than "Retrieve result data." please report it
         switch($wmi_error) {

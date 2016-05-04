@@ -7,11 +7,9 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
-
-// CLEANME Rename code can go in r6000.
 
 echo(" PowerNet-MIB ");
 
@@ -53,12 +51,7 @@ if ($inputs || $outputs)
 
       if ($value != '' && $value != -1)
       {
-        discover_sensor($valid['sensor'], 'current', $device, $oid, "upsPhaseInputCurrent.$tindex.1.$p", 'apc', $descr, $scale, $value * $scale);
-
-        ## Rename code for older revisions
-        $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-current-apc-6.$tindex.1.$p.rrd");
-        $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-current-apc-upsPhaseInputCurrent.$tindex.1.$p.rrd");
-        if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
+        discover_sensor($valid['sensor'], 'current', $device, $oid, "upsPhaseInputCurrent.$tindex.1.$p", 'apc', $descr, $scale, $value);
       }
 
       $oid      = ".1.3.6.1.4.1.318.1.1.1.9.2.3.1.3.$tindex.1.$p";
@@ -67,11 +60,6 @@ if ($inputs || $outputs)
       if ($value != '' && $value != -1)
       {
         discover_sensor($valid['sensor'], 'voltage', $device, $oid, "upsPhaseInputVoltage.$tindex.1.$p", 'apc', $descr, 1, $value);
-
-        ## Rename code for older revisions
-        $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-voltage-apc-2.3.1.3.$tindex.1.$p.rrd");
-        $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-voltage-apc-upsPhaseInputVoltage.$tindex.1.$p.rrd");
-        if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
       }
     }
 
@@ -83,7 +71,7 @@ if ($inputs || $outputs)
 
     if ($value != '' && $value != -1)
     {
-      discover_sensor($valid['sensor'], 'frequency', $device, $oid, $index, 'apc', $descr, $scale, $value * $scale);
+      discover_sensor($valid['sensor'], 'frequency', $device, $oid, $index, 'apc', $descr, $scale, $value);
     }
   }
 
@@ -103,12 +91,7 @@ if ($inputs || $outputs)
 
       if ($value != '' && $value != -1)
       {
-        discover_sensor($valid['sensor'], 'current', $device, $oid, "upsPhaseOutputCurrent.$tindex.1.$p", 'apc', $descr, $scale, $value * $scale);
-
-        ## Rename code for older revisions
-        $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-current-apc-4.$tindex.1.$p.rrd");
-        $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-current-apc-upsPhaseOutputCurrent.$tindex.1.$p.rrd");
-        if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
+        discover_sensor($valid['sensor'], 'current', $device, $oid, "upsPhaseOutputCurrent.$tindex.1.$p", 'apc', $descr, $scale, $value);
       }
 
       $oid      = ".1.3.6.1.4.1.318.1.1.1.9.3.3.1.3.$tindex.1.$p";
@@ -117,11 +100,6 @@ if ($inputs || $outputs)
       if ($value != '' && $value != -1)
       {
         discover_sensor($valid['sensor'], 'voltage', $device, $oid, "upsPhaseOutputVoltage.$tindex.1.$p", 'apc', $descr, 1, $value);
-
-        ## Rename code for older revisions
-        $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-voltage-apc-3.3.1.3.$tindex.1.$p.rrd");
-        $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-voltage-apc-upsPhaseOutputVoltage.$tindex.1.$p.rrd");
-        if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
       }
 
       $oid      = ".1.3.6.1.4.1.318.1.1.1.9.3.3.1.16.$tindex.1.$p";
@@ -140,7 +118,7 @@ if ($inputs || $outputs)
 
     if ($value != '' && $value != -1)
     {
-      discover_sensor($valid['sensor'], 'frequency', $device, $oid, "upsPhaseOutputFrequency.$tindex", 'apc', $descr, $scale, $value * $scale);
+      discover_sensor($valid['sensor'], 'frequency', $device, $oid, "upsPhaseOutputFrequency.$tindex", 'apc', $descr, $scale, $value);
     }
   }
 }
@@ -163,12 +141,7 @@ else
 
       if ($value != '' && $value != -1)
       {
-        ## Rename code for older revisions
-        $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-voltage-apc-3.3.1.$index.rrd");
-        $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-voltage-apc-upsHighPrecInputLineVoltage.$index.rrd");
-        if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
-
-        discover_sensor($valid['sensor'], 'voltage', $device, $oid, "upsHighPrecInputLineVoltage.$index", 'apc', $descr, $scale, $value * $scale);
+        discover_sensor($valid['sensor'], 'voltage', $device, $oid, "upsHighPrecInputLineVoltage.$index", 'apc', $descr, $scale, $value);
       }
 
       $oid   = ".1.3.6.1.4.1.318.1.1.1.3.3.4.$index";
@@ -177,12 +150,7 @@ else
 
       if ($value != '' && $value != -1)
       {
-        ## Rename code for older revisions
-        $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-frequency-apc-3.3.4.$index.rrd");
-        $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-frequency-apc-upsHighPrecInputFrequency.$index.rrd");
-        if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
-
-        discover_sensor($valid['sensor'], 'frequency', $device, $oid, "upsHighPrecInputFrequency.$index", 'apc', $descr, $scale, $value * $scale);
+        discover_sensor($valid['sensor'], 'frequency', $device, $oid, "upsHighPrecInputFrequency.$index", 'apc', $descr, $scale, $value);
       }
 
       $oid   = ".1.3.6.1.4.1.318.1.1.1.4.3.1.$index";
@@ -191,12 +159,7 @@ else
 
       if ($value != '' && $value != -1)
       {
-        ## Rename code for older revisions
-        $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-voltage-apc-4.3.1.$index.rrd");
-        $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-voltage-apc-upsHighPrecOutputVoltage.$index.rrd");
-        if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
-
-        discover_sensor($valid['sensor'], 'voltage', $device, $oid, "upsHighPrecOutputVoltage.$index", 'apc', $descr, $scale, $value * $scale);
+        discover_sensor($valid['sensor'], 'voltage', $device, $oid, "upsHighPrecOutputVoltage.$index", 'apc', $descr, $scale, $value);
       }
 
       $oid = ".1.3.6.1.4.1.318.1.1.1.4.3.4.$index";
@@ -205,12 +168,7 @@ else
 
       if ($value != '' && $value != -1)
       {
-        ## Rename code for older revisions
-        $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-current-apc-4.3.4.$index.rrd");
-        $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-current-apc-upsHighPrecOutputCurrent.$index.rrd");
-        if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
-
-        discover_sensor($valid['sensor'], 'current', $device, $oid, "upsHighPrecOutputCurrent.$index", 'apc', $descr, $scale, $value * $scale);
+        discover_sensor($valid['sensor'], 'current', $device, $oid, "upsHighPrecOutputCurrent.$index", 'apc', $descr, $scale, $value);
       }
 
       $oid   = ".1.3.6.1.4.1.318.1.1.1.4.3.2.$index";
@@ -219,12 +177,7 @@ else
 
       if ($value != '' && $value != -1)
       {
-        ## Rename code for older revisions
-        $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-frequency-apc-4.3.2." . $index . ".rrd");
-        $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-frequency-apc-upsHighPrecOutputFrequency." . $index . ".rrd");
-        if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
-
-        discover_sensor($valid['sensor'], 'frequency', $device, $oid, "upsHighPrecOutputFrequency.$index", 'apc', $descr, $scale, $value * $scale);
+        discover_sensor($valid['sensor'], 'frequency', $device, $oid, "upsHighPrecOutputFrequency.$index", 'apc', $descr, $scale, $value);
       }
 
       $oid   = ".1.3.6.1.4.1.318.1.1.1.4.3.3.$index";
@@ -234,7 +187,7 @@ else
       if ($value != '' && $value != -1)
       {
         $limits = array('limit_high' => 85, 'limit_high_warn' => 70);
-        discover_sensor($valid['sensor'], 'capacity', $device, $oid, "upsHighPrecOutputLoad.$index", 'apc', $descr, $scale, $value * $scale, $limits);
+        discover_sensor($valid['sensor'], 'capacity', $device, $oid, "upsHighPrecOutputLoad.$index", 'apc', $descr, $scale, $value, $limits);
       }
     }
     elseif (isset($entry['upsAdvInputLineVoltage']))
@@ -246,11 +199,6 @@ else
 
       if ($value != '' && $value != -1)
       {
-        ## Rename code for older revisions
-        $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-voltage-apc-3.2.1." . $index . ".rrd");
-        $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-voltage-apc-upsAdvInputLineVoltage." . $index . ".rrd");
-        if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
-
         discover_sensor($valid['sensor'], 'voltage', $device, $oid, "upsAdvInputLineVoltage.$index", 'apc', $descr, 1, $value);
       }
 
@@ -260,11 +208,6 @@ else
 
       if ($value != '' && $value != -1)
       {
-        ## Rename code for older revisions
-        $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-frequency-apc-3.2.4." . $index . ".rrd");
-        $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-frequency-apc-upsAdvInputFrequency." . $index . ".rrd");
-        if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
-
         discover_sensor($valid['sensor'], 'frequency', $device, $oid, "upsAdvInputFrequency.$index", 'apc', $descr, 1, $value);
       }
 
@@ -274,11 +217,6 @@ else
 
       if ($value != '' && $value != -1)
       {
-        ## Rename code for older revisions
-        $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-voltage-apc-4.2.1." . $index . ".rrd");
-        $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-voltage-apc-upsAdvOutputVoltage." . $index . ".rrd");
-        if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
-
         discover_sensor($valid['sensor'], 'voltage', $device, $oid, "upsAdvOutputVoltage.$index", 'apc', $descr, 1, $value);
       }
 
@@ -288,11 +226,6 @@ else
 
       if ($value != '' && $value != -1)
       {
-        ## Rename code for older revisions
-        $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-current-apc-4.2.4." . $index . ".rrd");
-        $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-current-apc-upsAdvOutputCurrent." . $index . ".rrd");
-        if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
-
         discover_sensor($valid['sensor'], 'current', $device, $oid, "upsAdvOutputCurrent.$index", 'apc', $descr, 1, $value);
       }
 
@@ -302,11 +235,6 @@ else
 
       if ($value != '' && $value != -1)
       {
-        ## Rename code for older revisions
-        $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-frequency-apc-4.2.2." . $index . ".rrd");
-        $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-frequency-apc-upsAdvOutputFrequency." . $index . ".rrd");
-        if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
-
         discover_sensor($valid['sensor'], 'frequency', $device, $oid, "upsAdvOutputFrequency.$index", 'apc', $descr, 1, $value);
       }
 
@@ -341,16 +269,11 @@ foreach ($cache['apc'] as $index => $entry)
     $oid   = ".1.3.6.1.4.1.318.1.1.1.2.3.2.$index";
     $value = $entry['upsHighPrecBatteryTemperature'];
 
-    discover_sensor($valid['sensor'], 'temperature', $device, $oid, "upsHighPrecBatteryTemperature.$index", 'apc', $descr, $scale, $value * $scale);
+    discover_sensor($valid['sensor'], 'temperature', $device, $oid, "upsHighPrecBatteryTemperature.$index", 'apc', $descr, $scale, $value);
   } elseif ($entry['upsAdvBatteryTemperature'] && $entry['upsAdvBatteryTemperature'] != -1)
   {
     $oid   = ".1.3.6.1.4.1.318.1.1.1.2.2.2.$index";
     $value = $entry['upsAdvBatteryTemperature'];
-
-    ## Rename code for older revisions
-    $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-temperature-apc-" . $index . ".rrd");
-    $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-temperature-apc-upsAdvBatteryTemperature." . $index . ".rrd");
-    if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
 
     discover_sensor($valid['sensor'], 'temperature', $device, $oid, "upsAdvBatteryTemperature.$index", 'apc', $descr, 1, $value);
   }
@@ -361,7 +284,7 @@ foreach ($cache['apc'] as $index => $entry)
   {
     $oid   = ".1.3.6.1.4.1.318.1.1.1.2.3.3.$index";
     $value = $entry['upsHighPrecBatteryNominalVoltage'];
-    discover_sensor($valid['sensor'], 'voltage', $device, $oid, "upsHighPrecBatteryNominalVoltage.$index", 'apc', $descr, $scale, $value * $scale);
+    discover_sensor($valid['sensor'], 'voltage', $device, $oid, "upsHighPrecBatteryNominalVoltage.$index", 'apc', $descr, $scale, $value);
   } elseif ($entry['upsAdvBatteryNominalVoltage'] && $entry['upsAdvBatteryNominalVoltage'] != -1)
   {
     $oid   = ".1.3.6.1.4.1.318.1.1.1.2.2.7.$index";
@@ -375,7 +298,7 @@ foreach ($cache['apc'] as $index => $entry)
   {
     $oid   = ".1.3.6.1.4.1.318.1.1.1.2.3.4.$index";
     $value = $entry['upsHighPrecBatteryActualVoltage'];
-    discover_sensor($valid['sensor'], 'voltage', $device, $oid, "upsHighPrecBatteryActualVoltage.$index", 'apc', $descr, $scale, $value * $scale);
+    discover_sensor($valid['sensor'], 'voltage', $device, $oid, "upsHighPrecBatteryActualVoltage.$index", 'apc', $descr, $scale, $value);
   } elseif ($entry['upsAdvBatteryActualVoltage'] && $entry['upsAdvBatteryActualVoltage'] != -1)
   {
     $oid   = ".1.3.6.1.4.1.318.1.1.1.2.2.8.$index";
@@ -390,7 +313,7 @@ foreach ($cache['apc'] as $index => $entry)
     $oid   = ".1.3.6.1.4.1.318.1.1.1.2.3.5.$index";
     $value = $entry['upsHighPrecBatteryCurrent'];
 
-    discover_sensor($valid['sensor'], 'current', $device, $oid, "upsHighPrecBatteryCurrent.$index", 'apc', $descr, $scale, $value * $scale);
+    discover_sensor($valid['sensor'], 'current', $device, $oid, "upsHighPrecBatteryCurrent.$index", 'apc', $descr, $scale, $value);
   } elseif ($entry['upsAdvBatteryCurrent'] && $entry['upsAdvBatteryCurrent'] != -1)
   {
     $oid   = ".1.3.6.1.4.1.318.1.1.1.2.2.9.$index";
@@ -406,7 +329,7 @@ foreach ($cache['apc'] as $index => $entry)
     $oid   = ".1.3.6.1.4.1.318.1.1.1.2.3.6.$index";
     $value = $entry['upsHighPrecTotalDCCurrent'];
 
-    discover_sensor($valid['sensor'], 'current', $device, $oid, "upsHighPrecTotalDCCurrent.$index", 'apc', $descr, $scale, $value * $scale);
+    discover_sensor($valid['sensor'], 'current', $device, $oid, "upsHighPrecTotalDCCurrent.$index", 'apc', $descr, $scale, $value);
   } elseif ($entry['upsAdvTotalDCCurrent'] && $entry['upsAdvTotalDCCurrent'] != -1)
   {
     $oid   = ".1.3.6.1.4.1.318.1.1.1.2.2.10.$index";
@@ -422,7 +345,7 @@ foreach ($cache['apc'] as $index => $entry)
     $oid    = ".1.3.6.1.4.1.318.1.1.1.2.3.1.$index";
     $value  = $entry['upsHighPrecBatteryCapacity'];
     $limits = array('limit_low' => 15, 'limit_low_warn' => 30);
-    discover_sensor($valid['sensor'], 'capacity', $device, $oid, "upsHighPrecBatteryCapacity.$index", 'apc', $descr, $scale, $value * $scale, $limits);
+    discover_sensor($valid['sensor'], 'capacity', $device, $oid, "upsHighPrecBatteryCapacity.$index", 'apc', $descr, $scale, $value, $limits);
   }
   elseif ($entry['upsAdvBatteryCapacity'] && $entry['upsAdvBatteryCapacity'] != -1)
   {
@@ -443,7 +366,7 @@ foreach ($cache['apc'] as $index => $entry)
     $limit_low = timeticks_to_sec($limit_low);
     $limits    = array('limit_low' => (is_numeric($limit_low) ? $limit_low * $scale_min : 2));
 
-    discover_sensor($valid['sensor'], 'runtime', $device, $oid, "upsAdvBatteryRunTimeRemaining.$index", 'apc', $descr, $scale_min, $value * $scale_min, $limits);
+    discover_sensor($valid['sensor'], 'runtime', $device, $oid, "upsAdvBatteryRunTimeRemaining.$index", 'apc', $descr, $scale_min, $value, $limits);
   }
 }
 
@@ -453,11 +376,10 @@ foreach ($cache['apc'] as $index => $entry)
 
 $value = snmp_get($device, "upsBasicOutputStatus.0", "-Oqv", "PowerNet-MIB", mib_dirs('apc'));
 
-if ($value != '')
+if ($value !== '')
 {
   $oid = ".1.3.6.1.4.1.318.1.1.1.4.1.1.0";
   $descr = "Output Status";
-  $value = state_string_to_numeric('powernet-upsbasicoutput-state', $value);
 
   discover_sensor($valid['sensor'], 'state', $device, $oid, "upsBasicOutputStatus.0", 'powernet-upsbasicoutput-state', $descr, NULL, $value, array('entPhysicalClass' => 'power'));
 }
@@ -470,7 +392,7 @@ $outputs = snmp_get($device, "atsNumOutputs.0", "-Ovq", "PowerNet-MIB", mib_dirs
 // Check if we have values for these, if not, try other code paths below.
 if ($inputs || $outputs)
 {
-  echo(" ");
+  echo(' ');
   $cache['apc'] = array();
 
   foreach (array("atsInputTable", "atsOutputTable", "atsInputPhaseTable", "atsOutputPhaseTable") as $table)
@@ -501,11 +423,6 @@ if ($inputs || $outputs)
     if ($value != '' && $value != -1)
     {
       discover_sensor($valid['sensor'], 'voltage', $device, $oid, "atsInputVoltage.$index.1.1", 'apc', $descr, 1, $value);
-
-      ## Rename code for older revisions
-      $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-voltage-apc-3.3.1.3." . $index . ".rrd");
-      $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-voltage-apc-atsInputVoltage." . $index . ".1.1.rrd");
-      if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
     }
 
     $oid   = ".1.3.6.1.4.1.318.1.1.8.5.3.3.1.9.$index.1.1";
@@ -524,7 +441,7 @@ if ($inputs || $outputs)
       $limits = array('limit_high'      => snmp_get($device, "atsConfigPhaseOverLoadThreshold.1",     "-Oqv", "PowerNet-MIB", mib_dirs('apc')),
                       'limit_low'       => snmp_get($device, "atsConfigPhaseLowLoadThreshold.1",      "-Oqv", "PowerNet-MIB", mib_dirs('apc')),
                       'limit_high_warn' => snmp_get($device, "atsConfigPhaseNearOverLoadThreshold.1", "-Oqv", "PowerNet-MIB", mib_dirs('apc')));
-      discover_sensor($valid['sensor'], 'current', $device, $oid, "atsInputCurrent.$index.1.1", 'apc', $descr, $scale, $value * $scale, $limits);
+      discover_sensor($valid['sensor'], 'current', $device, $oid, "atsInputCurrent.$index.1.1", 'apc', $descr, $scale, $value, $limits);
     }
 
     $oid   = ".1.3.6.1.4.1.318.1.1.8.5.3.2.1.4.$index";
@@ -533,11 +450,6 @@ if ($inputs || $outputs)
     if ($value != '' && $value != -1)
     {
       discover_sensor($valid['sensor'], 'frequency', $device, $oid, "atsInputFrequency.$index", 'apc', $descr, 1, $value);
-
-      ## Rename code for older revisions
-      $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-frequency-apc-3.2.1.4." . $index . ".rrd");
-      $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-frequency-apc-atsInputFrequency." . $index . ".rrd");
-      if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
     }
 
     $descr = "Output"; // No check for multiple output feeds, currently - I don't think this exists.
@@ -548,11 +460,6 @@ if ($inputs || $outputs)
     if ($value != '' && $value != -1)
     {
       discover_sensor($valid['sensor'], 'voltage', $device, $oid, "atsOutputVoltage.$index.1.1", 'apc', $descr, 1, $value);
-
-      ## Rename code for older revisions
-      $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-voltage-apc-4.3.1.3." . $index . ".rrd");
-      $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-voltage-apc-atsOutputVoltage." . $index . ".1.1.rrd");
-      if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
     }
 
     $oid   = ".1.3.6.1.4.1.318.1.1.8.5.4.3.1.13.$index.1.1";
@@ -572,12 +479,7 @@ if ($inputs || $outputs)
                       'limit_low'       => snmp_get($device, "atsConfigPhaseLowLoadThreshold.1",      "-Oqv", "PowerNet-MIB", mib_dirs('apc')),
                       'limit_high_warn' => snmp_get($device, "atsConfigPhaseNearOverLoadThreshold.1", "-Oqv", "PowerNet-MIB", mib_dirs('apc')));
 
-      discover_sensor($valid['sensor'], 'current', $device, $oid, "atsOutputCurrent.$index.1.1", 'apc', $descr, $scale, $value * $scale, $limits);
-
-      ## Rename code for older revisions
-      $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-current-apc-" . $index . ".rrd");
-      $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-current-apc-atsOutputCurrent." . $index . ".1.1.rrd");
-      if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
+      discover_sensor($valid['sensor'], 'current', $device, $oid, "atsOutputCurrent.$index.1.1", 'apc', $descr, $scale, $value, $limits);
     }
 
     $oid   = ".1.3.6.1.4.1.318.1.1.8.5.4.2.1.4.$index";
@@ -586,11 +488,6 @@ if ($inputs || $outputs)
     if ($value != '' && $value != -1)
     {
       discover_sensor($valid['sensor'], 'frequency', $device, $oid, "atsOutputFrequency.$index", 'apc', $descr, 1, $value);
-
-      ## Rename code for older revisions
-      $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-current-apc-4.2.1.4." . $index . ".rrd");
-      $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-current-apc-atsOutputFrequency." . $index . ".rrd");
-      if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
     }
   }
 
@@ -607,27 +504,27 @@ if ($inputs || $outputs)
   {
     $descr = "Switch Status";
     $oid   = ".1.3.6.1.4.1.318.1.1.8.5.1.10.$index";
-    $value = state_string_to_numeric('powernet-status-state',$entry['atsStatusSwitchStatus']);
+    $value = $entry['atsStatusSwitchStatus'];
     discover_sensor($valid['sensor'], 'state', $device, $oid, "atsStatusSwitchStatus.$index", 'powernet-status-state', $descr, NULL, $value, array('entPhysicalClass' => 'other'));
 
     $descr = "Source A";
     $oid   = ".1.3.6.1.4.1.318.1.1.8.5.1.12.$index";
-    $value = state_string_to_numeric('powernet-status-state',$entry['atsStatusSourceAStatus']);
+    $value = $entry['atsStatusSourceAStatus'];
     discover_sensor($valid['sensor'], 'state', $device, $oid, "atsStatusSourceAStatus.$index", 'powernet-status-state', $descr, NULL, $value, array('entPhysicalClass' => 'power'));
 
     $descr = "Source B";
     $oid   = ".1.3.6.1.4.1.318.1.1.8.5.1.13.$index";
-    $value = state_string_to_numeric('powernet-status-state',$entry['atsStatusSourceBStatus']);
+    $value = $entry['atsStatusSourceBStatus'];
     discover_sensor($valid['sensor'], 'state', $device, $oid, "atsStatusSourceBStatus.$index", 'powernet-status-state', $descr, NULL, $value, array('entPhysicalClass' => 'power'));
 
     $descr = "Phase Sync";
     $oid   = ".1.3.6.1.4.1.318.1.1.8.5.1.14.$index";
-    $value = state_string_to_numeric('powernet-sync-state',$entry['atsStatusPhaseSyncStatus']);
+    $value = $entry['atsStatusPhaseSyncStatus'];
     discover_sensor($valid['sensor'], 'state', $device, $oid, "atsStatusPhaseSyncStatus.$index", 'powernet-sync-state', $descr, NULL, $value, array('entPhysicalClass' => 'power'));
 
     $descr = "Hardware";
     $oid   = ".1.3.6.1.4.1.318.1.1.8.5.1.16.$index";
-    $value = state_string_to_numeric('powernet-status-state',$entry['atsStatusHardwareStatus']);
+    $value = $entry['atsStatusHardwareStatus'];
     discover_sensor($valid['sensor'], 'state', $device, $oid, "atsStatusHardwareStatus.$index", 'powernet-status-state', $descr, NULL, $value, array('entPhysicalClass' => 'other'));
   }
 
@@ -651,7 +548,7 @@ $loadDev = snmpwalk_cache_multi_oid($device, "rPDULoadDevice", array(), "PowerNe
 // Check if we have values for these, if not, try other code paths below.
 if ($outlets)
 {
-  echo(" ");
+  echo(' ');
 
   # v2 firmware: first bank is total
   # v3 firmware: last bank is total
@@ -677,11 +574,8 @@ if ($outlets)
       $type  = 'powernet-rpdu2supply-state';
       $descr = 'Power Supply '.$unit;
       $oid   = '.1.3.6.1.4.1.318.1.1.26.4.3.1.'.(12+$unit).'.'.$index;
-      $value = state_string_to_numeric($type, $value);
-      if ($value != 3)
-      {
-        discover_sensor($valid['sensor'], 'state', $device, $oid, "$key.$index", $type, $descr, NULL, $value, array('entPhysicalClass' => 'power'));
-      }
+
+      discover_sensor($valid['sensor'], 'state', $device, $oid, "$key.$index", $type, $descr, NULL, $value, array('entPhysicalClass' => 'power'));
     }
   }
   else if (isset($cache['apc'][0]))
@@ -693,11 +587,8 @@ if ($outlets)
       $type  = 'powernet-rpdusupply'.$unit.'-state';
       $descr = 'Power Supply '.$unit;
       $oid   = ".1.3.6.1.4.1.318.1.1.12.4.1.$unit.$index";
-      $value = state_string_to_numeric($type, $value);
-      if ($value != 3)
-      {
-        discover_sensor($valid['sensor'], 'state', $device, $oid, "$key.$index", $type, $descr, NULL, $value, array('entPhysicalClass' => 'power'));
-      }
+
+      discover_sensor($valid['sensor'], 'state', $device, $oid, "$key.$index", $type, $descr, NULL, $value, array('entPhysicalClass' => 'power'));
     }
   }
 
@@ -731,11 +622,6 @@ if ($outlets)
       if ($value != '' && $value != -1)
       {
         discover_sensor($valid['sensor'], 'voltage', $device, $oid, "rPDUIdentDeviceLinetoLineVoltage.$index", 'apc', 'Line-to-Line', 1, $value);
-
-        ## Rename code for older revisions
-        $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-voltage-apc-" . ($index+1) . ".rrd");
-        $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-voltage-apc-rPDUIdentDeviceLinetoLineVoltage." . $index . ".rrd");
-        if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
       }
 
       $oid   = ".1.3.6.1.4.1.318.1.1.12.1.16.$index";
@@ -798,7 +684,7 @@ if ($outlets)
 
         if ($value != '' && $value != -1)
         {
-          discover_sensor($valid['sensor'], 'current', $device, $oid, "rPDU2BankStatusCurrent.$index", 'apc', $descr, $scale, $value * $scale);
+          discover_sensor($valid['sensor'], 'current', $device, $oid, "rPDU2BankStatusCurrent.$index", 'apc', $descr, $scale, $value);
         }
       }
     }
@@ -821,13 +707,8 @@ if ($outlets)
 
       if ($value != '' && $value != -1)
       {
-        discover_sensor($valid['sensor'], 'current', $device, $oid, "rPDU2PhaseStatusCurrent.$index", 'apc', $descr, $scale, $value * $scale, $limits);
+        discover_sensor($valid['sensor'], 'current', $device, $oid, "rPDU2PhaseStatusCurrent.$index", 'apc', $descr, $scale, $value, $limits);
       }
-
-      ## Rename code for older revisions
-      $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-current-apc-" . $index . ".rrd");
-      $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-current-apc-rPDU2PhaseStatusCurrent." . $index . ".rrd");
-      if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
 
       $oid       = ".1.3.6.1.4.1.318.1.1.26.6.3.1.6.$index";
       $value     = $entry['rPDU2PhaseStatusVoltage'];
@@ -842,7 +723,7 @@ if ($outlets)
 
       if ($value != '' && $value != -1)
       {
-        discover_sensor($valid['sensor'], 'power', $device, $oid, "rPDU2PhaseStatusPower.$index", 'apc', $descr, 10, $value * 10);
+        discover_sensor($valid['sensor'], 'power', $device, $oid, "rPDU2PhaseStatusPower.$index", 'apc', $descr, 10, $value);
       }
 
       // PowerNet-MIB::rPDU2PhaseStatusLoadState.1 = INTEGER: normal(2)
@@ -898,13 +779,8 @@ if ($outlets)
 
       if ($value != '' && $value != -1)
       {
-        discover_sensor($valid['sensor'], 'current', $device, $oid, "rPDULoadStatusLoad.$index", 'apc', $descr, $scale, $value * $scale, $limits);
+        discover_sensor($valid['sensor'], 'current', $device, $oid, "rPDULoadStatusLoad.$index", 'apc', $descr, $scale, $value, $limits);
       }
-
-      ## Rename code for older revisions
-      $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-current-apc-" . $index . ".rrd");
-      $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-current-apc-rPDULoadStatusLoad." . $index . ".rrd");
-      if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
 
       // [rPDUStatusPhaseState] => phaseLoadNormal
       // [rPDULoadStatusLoadState] => phaseLoadNormal
@@ -938,23 +814,18 @@ if ($outlets)
 
     if ($value != '' && $value != -1)
     {
-      discover_sensor($valid['sensor'], 'current', $device, $oid, "rPDU2OutletMeteredStatusCurrent.$index", 'apc', $descr, $scale, $value * $scale, $limits);
+      discover_sensor($valid['sensor'], 'current', $device, $oid, "rPDU2OutletMeteredStatusCurrent.$index", 'apc', $descr, $scale, $value, $limits);
     }
-
-    ## Rename code for older revisions
-    $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-current-apc-" . $index . ".rrd");
-    $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-current-apc-rPDU2OutletMeteredStatusCurrent." . $index . ".rrd");
-    if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
 
     $oid       = ".1.3.6.1.4.1.318.1.1.26.9.4.3.1.7.$index";
     $value     = $entry['rPDU2OutletMeteredStatusPower'];
 
     if ($value != '' && $value != -1)
     {
-      discover_sensor($valid['sensor'], 'power', $device, $oid, "rPDU2OutletMeteredStatusPower.$index", 'apc', $descr, 1, $value);  // FIXME *10 ?
+      discover_sensor($valid['sensor'], 'power', $device, $oid, "rPDU2OutletMeteredStatusPower.$index", 'apc', $descr, 1, $value);
     }
 
-    // FIXME: rPDU2OutletMeteredStatusEnergy - "A user resettable energy meter measuring Rack PDU load energy consumption in tenths of kilowatt-hours"
+    // Not currently supported: kWh reading: rPDU2OutletMeteredStatusEnergy - "A user resettable energy meter measuring Rack PDU load energy consumption in tenths of kilowatt-hours"
   }
 }
 
@@ -962,7 +833,7 @@ if ($outlets)
 
 // FIXME This section needs a rewrite, but I can't find a device -TL
 
-echo(" ");
+echo(' ');
 
 $oids = snmp_walk($device, "isxModularDistSysVoltageLtoN", "-OsqnU", "PowerNet-MIB", mib_dirs('apc'));
 if ($oids)
@@ -970,13 +841,13 @@ if ($oids)
   echo(" Voltage In ");
   foreach (explode("\n", $oids) as $data)
   {
-    list($oid,$value) = explode(" ",$data);
+    list($oid,$value) = explode(' ',$data);
     $split_oid = explode('.',$oid);
     $phase = $split_oid[count($split_oid)-1];
     $index = "LtoN:".$phase;
     $descr = "Phase $phase Line to Neutral";
 
-    discover_sensor($valid['sensor'], 'voltage', $device, $oid, $index, 'apc', $descr, $scale, $value * $scale);
+    discover_sensor($valid['sensor'], 'voltage', $device, $oid, $index, 'apc', $descr, $scale, $value);
   }
 }
 
@@ -989,13 +860,13 @@ if ($oids)
     $data = trim($data);
     if ($data)
     {
-      list($oid,$value) = explode(" ", $data);
+      list($oid,$value) = explode(' ', $data);
       $split_oid = explode('.',$oid);
       $phase = $split_oid[count($split_oid)-1];
       $breaker = $split_oid[count($split_oid)-2];
       $index = str_pad($breaker, 2, "0", STR_PAD_LEFT) . "-" . $phase;
       $descr = "Breaker $breaker Phase $phase";
-      discover_sensor($valid['sensor'], 'current', $device, $oid, $index, 'apc', $descr, $scale, $value * $scale);
+      discover_sensor($valid['sensor'], 'current', $device, $oid, $index, 'apc', $descr, $scale, $value);
     }
   }
 
@@ -1005,19 +876,19 @@ if ($oids)
     $data = trim($data);
     if ($data)
     {
-      list($oid,$value) = explode(" ", $data);
+      list($oid,$value) = explode(' ', $data);
       $split_oid = explode('.',$oid);
       $phase = $split_oid[count($split_oid)-1];
       $index = ".$phase";
       $descr = "Phase $phase overall";
-      discover_sensor($valid['sensor'], 'current', $device, $oid, $index, 'apc', $descr, $scale, $value * $scale);
+      discover_sensor($valid['sensor'], 'current', $device, $oid, $index, 'apc', $descr, $scale, $value);
     }
   }
 }
 
 #### ENVIRONMENTAL ###################################################################################
 
-echo(" ");
+echo(' ');
 
 $cache['apc'] = array();
 
@@ -1062,12 +933,11 @@ foreach ($cache['apc'] as $index => $entry)
     if ($temp_units == 'fahrenheit')
     {
       $scale_temp = 5/9;
-      $value = f2c($value);
+      //$value = f2c($value);
       foreach (array('limit_low', 'limit_low_warn', 'limit_high_warn', 'limit_high') as $param)
       {
         $limits[$param] = f2c($limits[$param]); // Convert from fahrenheit to celsius
       }
-      print_debug('TEMP sensor: Fahrenheit -> Celsius');
     }
 
     discover_sensor($valid['sensor'], 'temperature', $device, $oid, "emsProbeStatusProbeTemperature.$index", 'apc', $descr, $scale_temp, $value, $limits);
@@ -1103,11 +973,6 @@ foreach ($cache['apc'] as $index => $entry)
   {
     discover_sensor($valid['sensor'], 'humidity', $device, $oid, "iemStatusProbeCurrentHumid.$index", 'apc', $descr, 1, $value, $limits);
     $iem_sensors['humidity'][] = $descr; // Store for later use in uio code below
-
-    ## Rename code for older revisions
-    $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-humidity-apc-" . $index . ".rrd");
-    $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-humidity-apc-iemStatusProbeCurrentHumid." . $index . ".rrd");
-    if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
   }
 
   // Temperature
@@ -1124,21 +989,15 @@ foreach ($cache['apc'] as $index => $entry)
     if ($temp_units == 'fahrenheit')
     {
       $scale_temp = 5/9;
-      $value = f2c($value);
+      //$value = f2c($value);
       foreach (array('limit_low', 'limit_low_warn', 'limit_high_warn', 'limit_high') as $param)
       {
         $limits[$param] = f2c($limits[$param]); // Convert from fahrenheit to celsius
       }
-      print_debug('TEMP sensor: Fahrenheit -> Celsius');
     }
 
     discover_sensor($valid['sensor'], 'temperature', $device, $oid, "iemStatusProbeCurrentTemp.$index", 'apc', $descr, $scale_temp, $value, $limits);
     $iem_sensors['temperature'][] = $descr; // Store for later use in uio code below
-
-    ## Rename code for older revisions
-    $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-temperature-apc-" . $index . ".rrd");
-    $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-temperature-apc-iemStatusProbeCurrentTemp." . $index . ".rrd");
-    if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
   }
 }
 
@@ -1168,7 +1027,7 @@ foreach ($cache['apc'] as $index => $entry)
 // PowerNet-MIB::uioSensorStatusCommStatus.1.1 = INTEGER: commsOK(2)
 // PowerNet-MIB::uioSensorStatusCommStatus.2.1 = INTEGER: commsOK(2)
 
-echo(" ");
+echo(' ');
 
 $cache['apc'] = array();
 
@@ -1239,11 +1098,6 @@ foreach ($cache['apc'] as $index => $entry)
   if ($value != '' && $value != -1 && $entry['rPDU2SensorTempHumidityStatusHumidityStatus'] != 'notPresent')
   {
     discover_sensor($valid['sensor'], 'humidity', $device, $oid, "rPDU2SensorTempHumidityStatusRelativeHumidity.$index", 'apc', $descr, 1, $value, $limits);
-
-    ## Rename code for older revisions
-    $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-humidity-apc-" . $index . ".rrd");
-    $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-humidity-apc-rPDU2SensorTempHumidityStatusRelativeHumidity." . $index . ".rrd");
-    if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
   }
 
   // Temperature
@@ -1254,18 +1108,13 @@ foreach ($cache['apc'] as $index => $entry)
 
   if ($value != '' && $value != -1)
   {
-    discover_sensor($valid['sensor'], 'temperature', $device, $oid, "rPDU2SensorTempHumidityStatusTempC.$index", 'apc', $descr, $scale, $value * $scale, $limits);
-
-    ## Rename code for older revisions
-    $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-temperature-apc-" . $index . ".rrd");
-    $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-temperature-apc-rPDU2SensorTempHumidityStatusTempC." . $index . ".rrd");
-    if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
+    discover_sensor($valid['sensor'], 'temperature', $device, $oid, "rPDU2SensorTempHumidityStatusTempC.$index", 'apc', $descr, $scale, $value, $limits);
   }
 }
 
 #### NETBOTZ #########################################################################################
 
-echo(" ");
+echo(' ');
 
 // PowerNet-MIB::memSensorsStatusSensorNumber.0.7 = INTEGER: 7
 // PowerNet-MIB::memSensorsStatusSensorName.0.7 = STRING: "Server Room"
@@ -1297,14 +1146,8 @@ foreach ($cache['apc'] as $index => $entry)
     if ($temp_units == 'fahrenheit')
     {
       $scale_temp = 5/9;
-      $value = f2c($value); // Convert from fahrenheit to celsius
-      print_debug('TEMP sensor: Fahrenheit -> Celsius');
+      //$value = f2c($value); // Convert from fahrenheit to celsius
     }
-
-    ## Rename code for older revisions
-    $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-temperature-apc-$index.rrd");
-    $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-temperature-apc-memSensorsTemperature.$index.rrd");
-    if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
 
     discover_sensor($valid['sensor'], 'temperature', $device, $oid, "memSensorsTemperature.$index", 'apc', $descr, $scale_temp, $value);
   }
@@ -1315,22 +1158,341 @@ foreach ($cache['apc'] as $index => $entry)
   // Exclude already added sensor from emsProbeStatusTable
   if ($value != '' && $value > 0 && !isset($valid['sensor']['humidity']['apc']["emsProbeStatusProbeHumidity.$ems_index"]))
   {
-    ## Rename code for older revisions
-    $old_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-humidity-apc-$index.rrd");
-    $new_rrd  = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-humidity-apc-memSensorsHumidity.$index.rrd");
-    if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); print_warning("Moved RRD"); }
-
     discover_sensor($valid['sensor'], 'humidity', $device, $oid, "memSensorsHumidity.$index", 'apc', $descr, 1, $value);
   }
 }
 
 #### INROW CHILLER ###################################################################################
 
-echo(" ");
+// Build array to cope with APC using different OID trees for different device series.
+// $inrow array main key is the sysObjectId.0 of the device.
+
+$inrow = array();
+
+$inrow['airIRRC100Series']['group']['status']['index']    = "airIRRCGroupStatus";
+$inrow['airIRRC100Series']['group']['status']['oid']      = ".1.3.6.1.4.1.318.1.1.13.3.2.1.1";
+$inrow['airIRRC100Series']['group']['setpoints']['index'] = "airIRRCGroupSetpoints";
+$inrow['airIRRC100Series']['group']['setpoints']['oid']   = ".1.3.6.1.4.1.318.1.1.13.3.2.1.2";
+$inrow['airIRRC100Series']['unit']['status']['index']     = "airIRRCUnitStatus";
+$inrow['airIRRC100Series']['unit']['status']['oid']       = ".1.3.6.1.4.1.318.1.1.13.3.2.2.2";
+$inrow['airIRRC100Series']['unit']['thresholds']['index'] = "airIRRCUnitThresholds";
+
+$inrow['airIRRP100Series']['group']['status']['index']    = "airIRRP100GroupStatus";
+$inrow['airIRRP100Series']['group']['status']['oid']      = ".1.3.6.1.4.1.318.1.1.13.3.3.1.1.1";
+$inrow['airIRRP100Series']['group']['setpoints']['index'] = "airIRRP100GroupSetpoints";
+$inrow['airIRRP100Series']['group']['setpoints']['oid']   = ".1.3.6.1.4.1.318.1.1.13.3.3.1.1.2";
+$inrow['airIRRP100Series']['unit']['status']['index']     = "airIRRP100UnitStatus";
+$inrow['airIRRP100Series']['unit']['status']['oid']       = ".1.3.6.1.4.1.318.1.1.13.3.3.1.2.2";
+$inrow['airIRRP100Series']['unit']['thresholds']['index'] = "airIRRP100UnitThresholds";
+
+$inrow['airIRRP500Series']['group']['status']['index']    = "airIRRP500GroupStatus";
+$inrow['airIRRP500Series']['group']['status']['oid']      = ".1.3.6.1.4.1.318.1.1.13.3.3.2.1.1";
+$inrow['airIRRP500Series']['group']['setpoints']['index'] = "airIRRP500GroupSetpoints";
+$inrow['airIRRP500Series']['group']['setpoints']['oid']   = ".1.3.6.1.4.1.318.1.1.13.3.3.2.1.2";
+$inrow['airIRRP500Series']['unit']['status']['index']     = "airIRRP500UnitStatus";
+$inrow['airIRRP500Series']['unit']['status']['oid']       = ".1.3.6.1.4.1.318.1.1.13.3.3.2.2.2";
+$inrow['airIRRP500Series']['unit']['thresholds']['index'] = "airIRRP500UnitThresholds";
+
+$inrow['airIRSC100Series']['group']['status']['index']    = "airIRSCGroupStatus";
+$inrow['airIRSC100Series']['group']['status']['oid']      = ".1.3.6.1.4.1.318.1.1.13.3.4.2.1";
+$inrow['airIRSC100Series']['group']['setpoints']['index'] = "airIRSCGroupSetpoints";
+$inrow['airIRSC100Series']['group']['setpoints']['oid']   = ".1.3.6.1.4.1.318.1.1.13.3.4.2.2";
+$inrow['airIRSC100Series']['unit']['status']['index']     = "airIRSCUnitStatus";
+$inrow['airIRSC100Series']['unit']['status']['oid']       = ".1.3.6.1.4.1.318.1.1.13.3.4.1.2";
+$inrow['airIRSC100Series']['unit']['thresholds']['index'] = "airIRSCUnitThresholds";
+
+$inrow['airIRRD100Series']['group']['status']['index']    = "airIRG2GroupStatus";
+$inrow['airIRRD100Series']['group']['status']['oid']      = "1.3.6.1.4.1.318.1.1.13.4.2.1";
+$inrow['airIRRD100Series']['group']['setpoints']['index'] = "airIRG2GroupSetpoints";
+$inrow['airIRRD100Series']['group']['setpoints']['oid']   = "1.3.6.1.4.1.318.1.1.13.4.2.2";
+$inrow['airIRRD100Series']['unit']['status']['index']     = "airIRG2RDT2Status";
+$inrow['airIRRD100Series']['unit']['status']['oid']       = "1.3.6.1.4.1.318.1.1.13.4.5.2.1";
+$inrow['airIRRD100Series']['unit']['thresholds']['index'] = "airIRG2RDT2Thresholds";
+
+$type = snmp_get($device, "sysObjectID.0", "-OUqsv", "PowerNet-MIB", mib_dirs("apc")); // Get the APC InRow model
+
+if (array_key_exists($type, $inrow)) // Check if the device is a supported APC InRow model as specifed above
+{
+  // APC InRow, Group Statistics
+  echo($inrow[$type]['group']['status']['index'] . ' ');
+  $cache['apc'] = snmpwalk_cache_multi_oid($device, $inrow[$type]['group']['status']['index'], array(), "PowerNet-MIB", mib_dirs("apc"));
+  echo($inrow[$type]['group']['setpoints']['index'] . ' ');
+  $cache['apc'] = snmpwalk_cache_multi_oid($device, $inrow[$type]['group']['setpoints']['index'], $cache['apc'], "PowerNet-MIB", mib_dirs("apc"));
+
+  foreach ($cache['apc'] as $index => $entry)
+  {
+    // airIRxxGroupStatusCoolOutput.x [.1.3.6.1.4.1.318.1.1.13.x.x.x.1.x]
+    $descr = "Group Cooling Output";
+    $oid   = $inrow[$type]['group']['status']['oid'] . ".1." . $index;
+    $name  = $inrow[$type]['group']['status']['index'] . "CoolOutput";
+    $value = $entry[$name];
+
+    if (is_numeric($value))
+    {
+      discover_sensor($valid['sensor'], 'power', $device, $oid, "$name.$index", 'apc', $descr, 100, $value);
+    }
+
+    // airIRxxGroupStatusCoolDemand.x [.1.3.6.1.4.1.318.1.1.13.x.x.x.2.x]
+    $descr = "Group Cooling Demand";
+    $oid   = $inrow[$type]['group']['status']['oid'] . ".2." . $index;
+    $name  = $inrow[$type]['group']['status']['index'] . "CoolDemand";
+    $value = $entry[$name];
+
+    if (is_numeric($value))
+    {
+      discover_sensor($valid['sensor'], 'power', $device, $oid, "$name.$index", 'apc', $descr, 100, $value);
+    }
+
+    // airIRxxGroupStatusAirFlowUS.x [.1.3.6.1.4.1.318.1.1.13.x.x.x.3.x]
+    $descr = "Group Air Flow";
+    $oid   = $inrow[$type]['group']['status']['oid'] . ".3." . $index;
+    $name  = $inrow[$type]['group']['status']['index'] . "AirFlowUS";
+    $value = $entry[$name];
+
+    if (is_numeric($value))
+    {
+      discover_sensor($valid['sensor'], 'airflow', $device, $oid, "$name.$index", 'apc', $descr, 1, $value);
+    }
+
+    // airIRxxGroupStatusMaxRackInletTempMetric.x [.1.3.6.1.4.1.318.1.1.13.x.x.x.6.x]
+    $descr = "Group Maximum Rack Inlet Temperature";
+    $oid   = $inrow[$type]['group']['status']['oid'] . ".6." . $index;
+    $name  = $inrow[$type]['group']['status']['index'] . "MaxRackInletTempMetric";
+    $value = $entry[$name];
+
+    if (is_numeric($value))
+    {
+      discover_sensor($valid['sensor'], 'temperature', $device, $oid, "$name.$index", 'apc', $descr, 0.1, $value);
+    }
+
+    // airIRxxGroupStatusMinRackInletTempMetric.x [.1.3.6.1.4.1.318.1.1.13.x.x.x.8.x]
+    $descr = "Group Minimum Rack Inlet Temperature";
+    $oid   = $inrow[$type]['group']['status']['oid'] . ".8." . $index;
+    $name  = $inrow[$type]['group']['status']['index'] . "MinRackInletTempMetric";
+    $value = $entry[$name];
+
+    if (is_numeric($value))
+    {
+      discover_sensor($valid['sensor'], 'temperature', $device, $oid, "$name.$index", 'apc', $descr, 0.1, $value);
+    }
+
+    // airIRxxGroupStatusMaxReturnAirTempMetric.x [.1.3.6.1.4.1.318.1.1.13.x.x.x.10.x]
+    $descr = "Group Maximum Return Air Temperature";
+    $oid   = $inrow[$type]['group']['status']['oid'] . ".10." . $index;
+    $name  = $inrow[$type]['group']['status']['index'] . "MaxReturnAirTempMetric";
+    $value = $entry[$name];
+
+    if (is_numeric($value))
+    {
+      discover_sensor($valid['sensor'], 'temperature', $device, $oid, "$name.$index", 'apc', $descr, 0.1, $value);
+    }
+
+    // airIRxxGroupStatusMinReturnAirTempMetric.x [.1.3.6.1.4.1.318.1.1.13.x.x.x.12.x]
+    $descr = "Group Minimum Return Air Temperature";
+    $oid   = $inrow[$type]['group']['status']['oid'] . ".12." . $index;
+    $name  = $inrow[$type]['group']['status']['index'] . "MinReturnAirTempMetric";
+    $value = $entry[$name];
+
+    if (is_numeric($value))
+    {
+      discover_sensor($valid['sensor'], 'temperature', $device, $oid, "$name.$index", 'apc', $descr, 0.1, $value);
+    }
+
+    // airIRxxGroupSetpointsCoolMetric.x [.1.3.6.1.4.1.318.1.1.13.x.x.x.x.2.x]
+    $descr = "Group Cooling Setpoint";
+    $oid   = $inrow[$type]['group']['setpoints']['oid'] . ".2." . $index;
+    $name  = $inrow[$type]['group']['setpoints']['index'] . "CoolMetric";
+    $value = $entry[$name];
+
+    if (is_numeric($value))
+    {
+      discover_sensor($valid['sensor'], 'temperature', $device, $oid, "$name.$index", 'apc', $descr, 0.1, $value);
+    }
+
+    // airIRxxGroupSetpointsSupplyAirMetric.x [.1.3.6.1.4.1.318.1.1.13.x.x.x.x.4.x]
+    $descr = "Group Supply Setpoint";
+    $oid   = $inrow[$type]['group']['setpoints']['oid'] . ".4." . $index;
+    $name  = $inrow[$type]['group']['setpoints']['index'] . "SupplyAirMetric";
+    $value = $entry[$name];
+
+    if (is_numeric($value))
+    {
+      discover_sensor($valid['sensor'], 'temperature', $device, $oid, "$name.$index", 'apc', $descr, 0.1, $value);
+    }
+  }
+
+  echo(' ');
+
+  // APC InRow, Unit Statistics
+  echo($inrow[$type]['unit']['status']['index'] . ' ');
+  $cache['apc'] = snmpwalk_cache_multi_oid($device, $inrow[$type]['unit']['status']['index'], array(), "PowerNet-MIB", mib_dirs("apc"));
+  echo($inrow[$type]['unit']['thresholds']['index'] . ' ');
+  $cache['apc'] = snmpwalk_cache_multi_oid($device, $inrow[$type]['unit']['thresholds']['index'], $cache['apc'], "PowerNet-MIB", mib_dirs("apc"));
+
+  foreach ($cache['apc'] as $index => $entry)
+  {
+    // If there are multiple units found, use the unit number as description prefix
+    $unit = count($cache['apc']) != 1 ? "Unit " . ($index + 1) : "Unit";
+
+    // airIRxxUnitStatusCoolOutput.x [.1.3.6.1.4.1.318.1.1.13.x.x.x.2.x]
+    $descr = $unit . " Cooling Output";
+    $oid   = $inrow[$type]['unit']['status']['oid'] . ".2." . $index;
+    $name  = $inrow[$type]['unit']['status']['index'] . "CoolOutput";
+    $value = $entry[$name];
+
+    if (is_numeric($value))
+    {
+      discover_sensor($valid['sensor'], 'power', $device, $oid, "$name.$index", 'apc', $descr, 100, $value);
+    }
+
+    // airIRxxUnitStatusCoolDemand.x [.1.3.6.1.4.1.318.1.1.13.x.x.x.3.x]
+    $descr = $unit . " Cooling Demand";
+    $oid   = $inrow[$type]['unit']['status']['oid'] . ".3." . $index;
+    $name  = $inrow[$type]['unit']['status']['index'] . "CoolDemand";
+    $value = $entry[$name];
+
+    if (is_numeric($value))
+    {
+      discover_sensor($valid['sensor'], 'power', $device, $oid, "$name.$index", 'apc', $descr, 100, $value);
+    }
+
+    // airIRxxUnitStatusAirFlowUS.x [.1.3.6.1.4.1.318.1.1.13.x.x.x.4.x]
+    $descr = $unit . " Air Flow";
+    $oid   = $inrow[$type]['unit']['status']['oid'] . ".4." . $index;
+    $name  = $inrow[$type]['unit']['status']['index'] . "AirFlowUS";
+    $value = $entry[$name];
+
+    if (is_numeric($value))
+    {
+      discover_sensor($valid['sensor'], 'airflow', $device, $oid, "$name.$index", 'apc', $descr, 1, $value);
+    }
+
+    // airIRxxUnitStatusRackInletTempMetric.x [.1.3.6.1.4.1.318.1.1.13.x.x.x.7.x]
+    $descr = $unit . " Rack Inlet Temperature";
+    $oid   = $inrow[$type]['unit']['status']['oid'] . ".7." . $index;
+    $name  = $inrow[$type]['unit']['status']['index'] . "RackInletTempMetric";
+    $value = $entry[$name];
+    $limit = array('limit_high' => $entry[$inrow[$type]['unit']['thresholds']['index'] . 'RackInletHighTempMetric'] / 10);
+
+    if (is_numeric($value))
+    {
+      discover_sensor($valid['sensor'], 'temperature', $device, $oid, "$name.$index", 'apc', $descr, 0.1, $value, $limit);
+    }
+
+    // airIRxxUnitStatusSupplyAirTempMetric.x [.1.3.6.1.4.1.318.1.1.13.x.x.x.9.x]
+    $descr = $unit . " Supply Air Temperature";
+    $oid   = $inrow[$type]['unit']['status']['oid'] . ".9." . $index;
+    $name  = $inrow[$type]['unit']['status']['index'] . "SupplyAirTempMetric";
+    $value = $entry[$name];
+    $limit = array('limit_high' => $entry[$inrow[$type]['unit']['thresholds']['index'] . 'SupplyAirHighTempMetric'] / 10);
+
+    if (is_numeric($value))
+    {
+      discover_sensor($valid['sensor'], 'temperature', $device, $oid, "$name.$index", 'apc', $descr, 0.1, $value, $limit);
+    }
+
+    // airIRxxUnitStatusReturnAirTempMetric.x [.1.3.6.1.4.1.318.1.1.13.x.x.x.11.x]
+    $descr = $unit . " Return Air Temperature";
+    $oid   = $inrow[$type]['unit']['status']['oid'] . ".11." . $index;
+    $name  = $inrow[$type]['unit']['status']['index'] . "ReturnAirTempMetric";
+    $value = $entry[$name];
+    $limit = array('limit_high' => $entry[$inrow[$type]['unit']['thresholds']['index'] . 'ReturnAirHighTempMetric'] / 10);
+
+    if (is_numeric($value))
+    {
+      discover_sensor($valid['sensor'], 'temperature', $device, $oid, "$name.$index", 'apc', $descr, 0.1, $value, $limit);
+    }
+
+    // airIRxxUnitStatusSuctionTempMetric.x [.1.3.6.1.4.1.318.1.1.13.x.x.x.13.x]
+    $descr = $unit . " Suction Temperature";
+    $oid   = $inrow[$type]['unit']['status']['oid'] . ".13." . $index;
+    $name  = $inrow[$type]['unit']['status']['index'] . "SuctionTempMetric";
+    $value = $entry[$name];
+
+    if (is_numeric($value))
+    {
+      discover_sensor($valid['sensor'], 'temperature', $device, $oid, "$name.$index", 'apc', $descr, 0.1, $value);
+    }
+
+    // airIRxxUnitStatusFilterDPMetric.x [.1.3.6.1.4.1.318.1.1.13.x.x.x.13.x]
+    $descr = $unit . " Air Filter Pressure";
+    $oid   = $inrow[$type]['unit']['status']['oid'] . ".13." . $index;
+    $name  = $inrow[$type]['unit']['status']['index'] . "FilterDPMetric";
+    $value = $entry[$name];
+
+    if (is_numeric($value))
+    {
+      discover_sensor($valid['sensor'], 'pressure', $device, $oid, "$name.$index", 'apc', $descr, 1, $value);
+    }
+
+    // airIRxxUnitStatusContainmtDPMetric.x [.1.3.6.1.4.1.318.1.1.13.x.x.x.15.x]
+    $descr = $unit . " Containment Pressure";
+    $oid   = $inrow[$type]['unit']['status']['oid'] . ".15." . $index;
+    $name  = $inrow[$type]['unit']['status']['index'] . "ContainmtDPMetric";
+    $value = $entry[$name];
+
+    if (is_numeric($value))
+    {
+      discover_sensor($valid['sensor'], 'pressure', $device, $oid, "$name.$index", 'apc', $descr, 1, $value);
+    }
+
+    // airIRxxUnitStatusEnteringFluidTemperatureMetric.x [.1.3.6.1.4.1.318.1.1.13.x.x.x.24.x]
+    $descr = $unit . " Entering Fluid Temperature";
+    $oid   = $inrow[$type]['unit']['status']['oid'] . ".24." . $index;
+    $name  = $inrow[$type]['unit']['status']['index'] . "EnteringFluidTemperatureMetric";
+    $value = $entry[$name];
+    $limit = array('limit_high' => $entry[$inrow[$type]['unit']['thresholds']['index'] . 'EnteringFluidHighTempMetric'] / 10);
+
+    if (is_numeric($value))
+    {
+      discover_sensor($valid['sensor'], 'temperature', $device, $oid, "$name.$index", 'apc', $descr, 0.1, $value, $limit);
+    }
+
+    // airIRxxUnitStatusLeavingFluidTemperatureMetric.x [.1.3.6.1.4.1.318.1.1.13.x.x.x.26.x]
+    $descr = $unit . " Leaving Fluid Temperature";
+    $oid   = $inrow[$type]['unit']['status']['oid'] . ".26." . $index;
+    $name  = $inrow[$type]['unit']['status']['index'] . "LeavingFluidTemperatureMetric";
+    $value = $entry[$name];
+
+    if (is_numeric($value))
+    {
+      discover_sensor($valid['sensor'], 'temperature', $device, $oid, "$name.$index", 'apc', $descr, 0.1, $value);
+    }
+  }
+}
+
+unset($type, $inrow);
+
+#### NEW GENERATION INROW CHILLER ####################################################################
 
 $cache['apc'] = array();
 
-foreach (array("airIRRCGroupStatus", "airIRRCGroupSetpoints") as $table)
+// APC took a different approach here, with generic sensor descr/value in a table.
+// According to documentation, it looks like the OIDs are hard linked to the sensor type,
+// but I don't think we should rely on this to be true in the future as well.
+// We map the units to sensor types through the following array.
+// This does make it harder to link limits/setpoints to values though. :[
+
+$apc_unit_map = array(
+  'C' => 'temperature',
+  'F' => '', // Ignored, we use C instead
+  'CFM' => 'airflow',
+  'GPM' => '', // Gallons per minute, no sensor type for water flow right now
+  'kW' => 'power',
+  'W' => 'power',
+  '%' => 'capacity',
+  'Pa' => 'pressure',
+  'kWh' => '', // Currently not supported
+  'hr' => '', // Hours? Currently not supported
+  'weeks' => '', // Currently not supported
+);
+
+// PowerNet-MIB::coolingUnitStatusAnalogDescription.1.1 = STRING: "Supply Air Temperature"
+// PowerNet-MIB::coolingUnitStatusAnalogValue.1.1 = INTEGER: 526
+// PowerNet-MIB::coolingUnitStatusAnalogUnits.1.1 = STRING: "F"
+// PowerNet-MIB::coolingUnitStatusAnalogScale.1.1 = INTEGER: 10
+
+foreach (array("coolingUnitStatusAnalogTable") as $table)
 {
   echo("$table ");
   $cache['apc'] = snmpwalk_cache_multi_oid($device, $table, $cache['apc'], "PowerNet-MIB", mib_dirs('apc'));
@@ -1338,56 +1500,33 @@ foreach (array("airIRRCGroupStatus", "airIRRCGroupSetpoints") as $table)
 
 foreach ($cache['apc'] as $index => $entry)
 {
-  if (count($cache['apc']) != 1) { $unitDescr = "Unit " . ($index+1) . " "; } else { $unitDescr = ""; }
+  if ($apc_unit_map[$entry['coolingUnitStatusAnalogUnits']])
+  {
+    // Proceed if we can map this to a local sensor type
+    
+    $descr = $entry['coolingUnitStatusAnalogDescription'];
+    $oid   = ".1.3.6.1.4.1.318.1.1.27.1.4.1.2.1.3.$index";
+    $scale = 1 / $entry['coolingUnitStatusAnalogScale'];
+    $value = $entry['coolingUnitStatusAnalogValue'];
+    
+    // Workaround for kW vs W
+    if ($entry['coolingUnitStatusAnalogUnits'] == 'kW')
+    {
+      $scale = 1000; // 1kW = 1000W
+    }
 
-  $descr = "Group Min Rack Inlet Temperature";
-  $oid   = ".1.3.6.1.4.1.318.1.1.13.3.2.1.1.8.$index";
-  $value = $entry['airIRRCGroupStatusMinRackInletTempMetric'];
-
-  discover_sensor($valid['sensor'], 'temperature', $device, $oid, "airIRRCGroupStatusMinRackInletTempMetric.$index", 'apc', $descr, 0.1, $value / 10);
-
-  $descr = "Group Max Rack Inlet Temperature";
-  $oid   = ".1.3.6.1.4.1.318.1.1.13.3.2.1.1.6.$index";
-  $value = $entry['airIRRCGroupStatusMaxRackInletTempMetric'];
-
-  discover_sensor($valid['sensor'], 'temperature', $device, $oid, "airIRRCGroupStatusMaxRackInletTempMetric.$index", 'apc', $descr, 0.1, $value / 10);
-
-  $descr = "Group Cooling Setpoint";
-  $oid   = ".1.3.6.1.4.1.318.1.1.13.3.2.1.2.2.$index";
-  $value = $entry['airIRRCGroupSetpointsCoolMetric'];
-
-  discover_sensor($valid['sensor'], 'temperature', $device, $oid, "airIRRCGroupSetpointsCoolMetric.$index", 'apc', $descr, 0.1, $value / 10);
-
-  $descr = "Group Supply Setpoint";
-  $oid   = ".1.3.6.1.4.1.318.1.1.13.3.2.1.2.4.$index";
-  $value = $entry['airIRRCGroupSetpointsSupplyAirMetric'];
-
-  discover_sensor($valid['sensor'], 'temperature', $device, $oid, "airIRRCGroupSetpointsSupplyAirMetric.$index", 'apc', $descr, 0.1, $value / 10);
-
-  $descr = "Group Air Flow";
-  $oid   = ".1.3.6.1.4.1.318.1.1.13.3.2.1.1.3.$index";
-  $value = $entry['airIRRCGroupStatusAirFlowUS'];
-
-  discover_sensor($valid['sensor'], 'airflow', $device, $oid, "airIRRCGroupStatusAirFlowUS.$index", 'apc', $descr, 1, $value);
-
-  $descr = "Group Cooling Output";
-  $oid   = ".1.3.6.1.4.1.318.1.1.13.3.2.1.1.1.$index";
-  $value = $entry['airIRRCGroupStatusCoolOutput'];
-
-  discover_sensor($valid['sensor'], 'power', $device, $oid, "airIRRCGroupStatusCoolOutput.$index", 'apc', $descr, 100, $value * 100);
-
-  $descr = "Group Cooling Demand";
-  $oid   = ".1.3.6.1.4.1.318.1.1.13.3.2.1.1.2.$index";
-  $value = $entry['airIRRCGroupStatusCoolDemand'];
-
-  discover_sensor($valid['sensor'], 'power', $device, $oid, "airIRRCGroupStatusCoolDemand.$index", 'apc', $descr, 100, $value * 100);
+    discover_sensor($valid['sensor'], $apc_unit_map[$entry['coolingUnitStatusAnalogUnits']], $device, $oid, "coolingUnitStatusAnalogValue.$index", 'apc', $descr, $scale, $value);
+  }
 }
 
-echo(" ");
+echo(' ');
 
-$cache['apc'] = array();
+// PowerNet-MIB::coolingUnitExtendedAnalogDescription.1.1 = STRING: "Chilled Water Valve Position"
+// PowerNet-MIB::coolingUnitExtendedAnalogValue.1.1 = INTEGER: 21
+// PowerNet-MIB::coolingUnitExtendedAnalogUnits.1.1 = STRING: "%"
+// PowerNet-MIB::coolingUnitExtendedAnalogScale.1.1 = INTEGER: 1
 
-foreach (array("airIRRCUnitStatus") as $table)
+foreach (array("coolingUnitExtendedAnalogTable") as $table)
 {
   echo("$table ");
   $cache['apc'] = snmpwalk_cache_multi_oid($device, $table, $cache['apc'], "PowerNet-MIB", mib_dirs('apc'));
@@ -1395,102 +1534,101 @@ foreach (array("airIRRCUnitStatus") as $table)
 
 foreach ($cache['apc'] as $index => $entry)
 {
-  if (count($cache['apc']) != 1) { $unitDescr = "Unit " . ($index+1) . " "; } else { $unitDescr = ""; }
+  if ($apc_unit_map[$entry['coolingUnitExtendedAnalogUnits']])
+  {
+    // Proceed if we can map this to a local sensor type
+    
+    $descr = $entry['coolingUnitExtendedAnalogDescription'];
+    $oid   = ".1.3.6.1.4.1.318.1.1.27.1.6.1.2.1.3.$index";
+    $scale = 1 / $entry['coolingUnitExtendedAnalogScale'];
+    $value = $entry['coolingUnitExtendedAnalogValue'];
+    
+    // Workaround for kW vs W
+    if ($entry['coolingUnitExtendedAnalogUnits'] == 'kW')
+    {
+      $scale = 1000; // 1kW = 1000W
+    }
 
-  $descr = $unitDescr . "Rack Inlet";
-  $oid   = ".1.3.6.1.4.1.318.1.1.13.3.2.2.2.7.$index";
-  $value = $entry['airIRRCUnitStatusRackInletTempMetric'];
-  $limits = array('limit_high' => $entry['airIRRCUnitThresholdsRackInletHighTempMetric'] / 10);
-
-  discover_sensor($valid['sensor'], 'temperature', $device, $oid, "airIRRCUnitStatusRackInletTempMetric.$index", 'apc', $descr, 0.1, $value / 10, $limits);
-
-  ## Rename code for older revisions
-  $old_rrd = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-temperature-Ra-" . $index . ".rrd");
-  $new_rrd = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-temperature-apc-airIRRCUnitStatusRackInletTempMetric." . $index . ".rrd");
-  if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); echo("Moved RRD "); }
-
-  $descr = $unitDescr . "Supply Air";
-  $oid   = ".1.3.6.1.4.1.318.1.1.13.3.2.2.2.9.$index";
-  $value = $entry['airIRRCUnitStatusSupplyAirTempMetric'];
-  $limits = array('limit_high' => $entry['airIRRCUnitThresholdsSupplyAirHighTempMetric'] / 10);
-
-  discover_sensor($valid['sensor'], 'temperature', $device, $oid, "airIRRCUnitStatusSupplyAirTempMetric.$index", 'apc', $descr, 0.1, $value / 10, $limits);
-
-  ## Rename code for older revisions
-  $old_rrd = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-temperature-Su-" . $index . ".rrd");
-  $new_rrd = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-temperature-apc-airIRRCUnitStatusSupplyAirTempMetric." . $index . ".rrd");
-  if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); echo("Moved RRD "); }
-
-  $descr = $unitDescr . "Return Air";
-  $oid   = ".1.3.6.1.4.1.318.1.1.13.3.2.2.2.11.$index";
-  $value = $entry['airIRRCUnitStatusReturnAirTempMetric'];
-  $limits = array('limit_high' => $entry['airIRRCUnitThresholdsReturnAirHighTempMetric'] / 10);
-
-  discover_sensor($valid['sensor'], 'temperature', $device, $oid, "airIRRCUnitStatusReturnAirTempMetric.$index", 'apc', $descr, 0.1, $value / 10, $limits);
-
-  ## Rename code for older revisions
-  $old_rrd = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-temperature-Re-" . $index . ".rrd");
-  $new_rrd = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-temperature-apc-airIRRCUnitStatusReturnAirTempMetric." . $index . ".rrd");
-  if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); echo("Moved RRD "); }
-
-  $descr = $unitDescr . "Entering Fluid";
-  $oid   = ".1.3.6.1.4.1.318.1.1.13.3.2.2.2.24.$index";
-  $value = $entry['airIRRCUnitStatusEnteringFluidTemperatureMetric'];
-  $limit = $entry['airIRRCUnitThresholdsEnteringFluidHighTempMetric'];
-  $limits = array('limit_high' => $entry['airIRRCUnitThresholdsEnteringFluidHighTempMetric'] / 10);
-
-  discover_sensor($valid['sensor'], 'temperature', $device, $oid, "airIRRCUnitStatusEnteringFluidTemperatureMetric.$index", 'apc', $descr, 0.1, $value / 10, $limits);
-
-  ## Rename code for older revisions
-  $old_rrd = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-temperature-En-" . $index . ".rrd");
-  $new_rrd = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-temperature-apc-airIRRCUnitStatusEnteringFluidTemperatureMetric." . $index . ".rrd");
-  if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); echo("Moved RRD "); }
-
-  $descr = $unitDescr . "Leaving Fluid";
-  $oid   = ".1.3.6.1.4.1.318.1.1.13.3.2.2.2.26.$index";
-  $value = $entry['airIRRCUnitStatusLeavingFluidTemperatureMetric'];
-
-  discover_sensor($valid['sensor'], 'temperature', $device, $oid, "airIRRCUnitStatusLeavingFluidTemperatureMetric.$index", 'apc', $descr, 0.1, $value / 10);
-
-  ## Rename code for older revisions
-  $old_rrd = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-temperature-Le-" . $index . ".rrd");
-  $new_rrd = $config['rrd_dir'] . "/".$device['hostname']."/" . safename("sensor-temperature-apc-airIRRCUnitStatusLeavingFluidTemperatureMetric." . $index . ".rrd");
-  if (is_file($old_rrd)) { rename($old_rrd,$new_rrd); echo("Moved RRD "); }
-
-  $descr = $unitDescr . "Air Flow";
-  $oid   = ".1.3.6.1.4.1.318.1.1.13.3.2.2.2.4.$index";
-  $value = $entry['airIRRCUnitStatusAirFlowUS'];
-
-  discover_sensor($valid['sensor'], 'airflow', $device, $oid, "airIRRCUnitStatusAirFlowUS.$index", 'apc', $descr, 1, $value);
-
-  $descr = $unitDescr . "Cooling Output";
-  $oid   = ".1.3.6.1.4.1.318.1.1.13.3.2.2.2.2.$index";
-  $value = $entry['airIRRCUnitStatusCoolOutput'];
-
-  discover_sensor($valid['sensor'], 'power', $device, $oid, "airIRRCUnitStatusCoolOutput.$index", 'apc', $descr, 100, $value * 100);
-
-  $descr = $unitDescr . "Cooling Demand";
-  $oid   = ".1.3.6.1.4.1.318.1.1.13.3.2.2.2.3.$index";
-  $value = $entry['airIRRCUnitStatusCoolDemand'];
-
-  discover_sensor($valid['sensor'], 'power', $device, $oid, "airIRRCUnitStatusCoolDemand.$index", 'apc', $descr, 100, $value * 100);
-
-  $descr = $unitDescr . " Air Filter Pressure";
-  $oid   = ".1.3.6.1.4.1.318.1.1.13.3.2.2.2.15.$index";
-  $value = $entry['airIRRCUnitStatusFilterDPMetric'];
-
-  discover_sensor($valid['sensor'], 'pressure', $device, $oid, "airIRRCUnitStatusFilterDPMetric.$index", 'apc', $descr, 1, $value);
-
-  $descr = $unitDescr . " Containment Pressure";
-  $oid   = ".1.3.6.1.4.1.318.1.1.13.3.2.2.2.13.$index";
-  $value = $entry['airIRRCUnitStatusContainmtDPMetric'];
-
-  discover_sensor($valid['sensor'], 'pressure', $device, $oid, "airIRRCUnitStatusContainmtDPMetric.$index", 'apc', $descr, 1, $value);
+    discover_sensor($valid['sensor'], $apc_unit_map[$entry['coolingUnitExtendedAnalogUnits']], $device, $oid, "coolingUnitExtendedAnalogValue.$index", 'apc', $descr, $scale, $value);
+  }
 }
 
+unset($apc_unit_map);
+
+echo(' ');
+
+$cache['apc'] = array();
+
+// For the discrete sensors, we'll have to be creative with an array again, to map to a specific state sensor type.
+// This does mean however that we can't map sensors we have not seen/programmed before.
+
+$apc_state_map = array(
+  'Standby Input State' => 'powernet-cooling-input-state',
+  'Output 1 State' => 'powernet-cooling-output-state',
+  'Output 2 State' => 'powernet-cooling-output-state',
+  'Output 3 State' => 'powernet-cooling-output-state',
+  'Output 4 State' => 'powernet-cooling-output-state',
+  'Active Power Source' => 'powernet-cooling-powersource-state',
+  'Unit Type' => 'powernet-cooling-unittype-state',
+  'Operating Mode' => 'powernet-cooling-opmode-state',
+  'Active Flow Control Status' => 'powernet-cooling-flowcontrol-state',
+);
+
+// PowerNet-MIB::coolingUnitStatusDiscreteDescription.1.1 = STRING: "Operating Mode"
+// PowerNet-MIB::coolingUnitStatusDiscreteValueAsString.1.1 = STRING: "On"
+// PowerNet-MIB::coolingUnitStatusDiscreteValueAsInteger.1.1 = INTEGER: 1
+// PowerNet-MIB::coolingUnitStatusDiscreteIntegerReferenceKey.1.1 = STRING: "Standby(0),On(1),Idle(2),Maintenance(3)"
+
+foreach (array("coolingUnitStatusDiscreteTable") as $table)
+{
+  echo("$table ");
+  $cache['apc'] = snmpwalk_cache_multi_oid($device, $table, $cache['apc'], "PowerNet-MIB", mib_dirs('apc'));
+}
+
+foreach ($cache['apc'] as $index => $entry)
+{
+  if ($apc_state_map[$entry['coolingUnitStatusDiscreteDescription']])
+  {
+    $descr = $entry['coolingUnitStatusDiscreteDescription'];
+    $oid   = ".1.3.6.1.4.1.318.1.1.27.1.4.2.2.1.4.$index"; 
+    $value = $entry['coolingUnitStatusDiscreteValueAsInteger'];
+
+    discover_sensor($valid['sensor'], 'state', $device, $oid, "coolingUnitStatusDiscreteValueAsInteger.$index", $apc_state_map[$entry['coolingUnitStatusDiscreteDescription']], $descr, 1, $value);
+  }
+}
+
+echo(' ');
+
+$cache['apc'] = array();
+
+// PowerNet-MIB::coolingUnitExtendedDiscreteDescription.1.1 = STRING: "Standby Input State"
+// PowerNet-MIB::coolingUnitExtendedDiscreteValueAsString.1.1 = STRING: "Open"
+// PowerNet-MIB::coolingUnitExtendedDiscreteValueAsInteger.1.1 = INTEGER: 0
+// PowerNet-MIB::coolingUnitExtendedDiscreteIntegerReferenceKey.1.1 = STRING: "Open(0),Closed(1)"
+
+foreach (array("coolingUnitExtendedDiscreteTable") as $table)
+{
+  echo("$table ");
+  $cache['apc'] = snmpwalk_cache_multi_oid($device, $table, $cache['apc'], "PowerNet-MIB", mib_dirs('apc'));
+}
+
+foreach ($cache['apc'] as $index => $entry)
+{
+  if ($apc_state_map[$entry['coolingUnitExtendedDiscreteDescription']])
+  {
+    $descr = $entry['coolingUnitExtendedDiscreteDescription'];
+    $oid   = ".1.3.6.1.4.1.318.1.1.27.1.6.2.2.1.4.$index"; 
+    $value = $entry['coolingUnitExtendedDiscreteValueAsInteger'];
+
+    discover_sensor($valid['sensor'], 'state', $device, $oid, "coolingUnitExtendedDiscreteValueAsInteger.$index", $apc_state_map[$entry['coolingUnitExtendedDiscreteDescription']], $descr, 1, $value);
+  }
+}
+
+unset($apc_state_map);
+  
 #### Legacy mUpsEnvironment Sensors (AP9312TH) #######################################################
 
-echo(" ");
+echo(' ');
 
 $cache['apc'] = snmp_get_multi($device, "mUpsEnvironAmbientTemperature.0 mUpsEnvironRelativeHumidity.0 mUpsEnvironAmbientTemperature2.0 mUpsEnvironRelativeHumidity2.0", "-OUQs", "PowerNet-MIB", mib_dirs('apc'));
 
@@ -1547,7 +1685,7 @@ foreach ($cache['apc'] as $index => $entry)
   {
     $descr = $entry['description'];
     $oid   = ".1.3.6.1.4.1.318.1.1.2.2.2.1.5.$index";
-    $value = state_string_to_numeric('powernet-mupscontact-state',$entry['currentStatus']);
+    $value = $entry['currentStatus'];
 
     discover_sensor($valid['sensor'], 'state', $device, $oid, "currentStatus.$index", 'powernet-mupscontact-state', $descr, NULL, $value, array('entPhysicalClass' => 'other'));
   }

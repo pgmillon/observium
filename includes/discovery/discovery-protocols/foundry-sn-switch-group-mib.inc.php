@@ -8,7 +8,7 @@
  * @package    observium
  * @subpackage discovery
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -26,15 +26,28 @@ if ($fdp_array)
     foreach (array_keys($fdp_if_array) as $entry_key)
     {
       $fdp = $fdp_if_array[$entry_key];
-      $remote_device_id = dbFetchCell("SELECT `device_id` FROM `devices` WHERE `sysName` = ? OR `hostname` = ?", array($fdp['snFdpCacheDeviceId'], $fdp['snFdpCacheDeviceId']));
 
-      // FIXME do LLDP-code-style hostname overwrite here as well? (see below)
-
-      if (!$remote_device_id && is_valid_hostname($fdp['snFdpCacheDeviceId']) && !is_bad_xdp($fdp['snFdpCacheDeviceId']))
+      $remote_device_id = FALSE;
+      if (is_valid_hostname($fdp['snFdpCacheDeviceId']))
       {
-        $remote_device_id = discover_new_device($fdp['snFdpCacheDeviceId'], 'xdp', 'FDP', $device, $port);
+        if (isset($GLOBALS['cache']['discovery-protocols'][$fdp['snFdpCacheDeviceId']]))
+        {
+          // This hostname already checked, skip discover
+          $remote_device_id = $GLOBALS['cache']['discovery-protocols'][$fdp['snFdpCacheDeviceId']];
+        } else {
+          $remote_device_id = dbFetchCell("SELECT `device_id` FROM `devices` WHERE `sysName` = ? OR `hostname` = ?", array($fdp['snFdpCacheDeviceId'], $fdp['snFdpCacheDeviceId']));
+
+          if (!$remote_device_id && !is_bad_xdp($fdp['snFdpCacheDeviceId'], $fdp['snFdpCachePlatform']))
+          {
+            $remote_device_id = discover_new_device($fdp['snFdpCacheDeviceId'], 'xdp', 'FDP', $device, $port);
+          }
+
+          // Cache remote device ID for other protocols
+          $GLOBALS['cache']['discovery-protocols'][$fdp['snFdpCacheDeviceId']] = $remote_device_id;
+        }
       }
 
+      // FIXME do LLDP-code-style hostname overwrite here as well? (see below)
       if ($remote_device_id)
       {
         $if = $fdp['snFdpCacheDevicePort'];

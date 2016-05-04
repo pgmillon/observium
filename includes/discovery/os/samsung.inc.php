@@ -7,14 +7,14 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 if (!$os)
 {
-  if (strstr($sysDescr, 'Samsung ML') || strstr($sysDescr, 'Samsung SC')) { $os = 'samsung'; }
-  elseif (strstr(snmp_get($device, 'Printer-MIB::prtGeneralServicePerson.1', '-OQv'), 'Samsung')) { $os = 'samsung'; }
+  //FIXME. Make it generic for printers group
+  if (strstr(snmp_get($device, 'prtGeneralServicePerson.1', '-OQv', 'Printer-MIB', mib_dirs()), 'Samsung')) { $os = 'samsung'; }
 }
 
 // EOF

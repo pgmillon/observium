@@ -7,14 +7,14 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 echo(" FOUNDRY-SN-AGENT-MIB ");
 
 $processors_array = snmpwalk_cache_triple_oid($device, "snAgentCpuUtilEntry", $processors_array, "FOUNDRY-SN-AGENT-MIB", mib_dirs('foundry'));
-if ($debug) { print_vars($processors_array); }
+if (OBS_DEBUG > 1) { print_vars($processors_array); }
 foreach ($processors_array as $index => $entry)
 {
   if ((isset($entry['snAgentCpuUtilValue']) || isset($entry['snAgentCpuUtil100thPercent'])) && $entry['snAgentCpuUtilInterval'] == "300")

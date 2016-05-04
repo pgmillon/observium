@@ -1,0 +1,198 @@
+-- Copyright 2004 MITEL Networks Corporation
+-- All rights reserved.
+-- This MITEL SNMP Management Information Base Specification
+-- (Specification) embodies MITEL's confidential and
+-- proprietary intellectual property. MITEL retains all
+-- title and ownership in the Specification, including any
+-- revisions.
+
+-- This Specification is supplied "AS IS", and MITEL makes
+-- no warranty, either express or implied, as to the use,
+-- operation, condition, or performance of the Specification.
+
+MITEL-ERN DEFINITIONS ::= BEGIN
+
+    IMPORTS
+    
+		OBJECT-TYPE
+			FROM RFC-1212
+		DisplayString, sysName
+			FROM RFC1213-MIB
+		TRAP-TYPE
+			FROM RFC-1215
+		mitelAppCallServer
+			FROM MITEL-MIB;
+
+--        MODULE-IDENTITY
+--        LAST-UPDATED      "200408290000Z"
+--        ORGANIZATION      "MITEL Networks Corporation"
+--        CONTACT-INFO      "Not Applicable. This is strictly an internal MIB."
+--        DESCRIPTION       "The MITEL MIB module for ER Notifications to MITEL ER Adviser."
+--        REVISION          "200408290000Z"
+
+	-- For SNMPv1 compliance:
+
+	Integer32 ::= INTEGER (-2147483648..2147483647)
+	DateAndTime ::= OCTET STRING(SIZE(8 | 11))
+	
+    mitelCsEmergencyResponse OBJECT IDENTIFIER ::= { mitelAppCallServer    3 }
+--		  OBJECT-IDENTITY
+--        STATUS            mandatory
+--        DESCRIPTION       "The branch to support ER Adviser. Leaves 
+--                          in this subtree are used to define information that
+--                          Mitel 3300 and SX-2000 Light Call Servers should comply with."
+--        ::= { mitelAppCallServer    3 }
+
+    mitelCsErSeqNumber OBJECT-TYPE
+        SYNTAX            Integer32
+        ACCESS            not-accessible
+        STATUS            mandatory 
+        DESCRIPTION       "Same number used in the Emergency Call logs."
+        ::= { mitelCsEmergencyResponse  1 }
+
+    mitelCsErCallType OBJECT-TYPE
+        SYNTAX            Integer32  -- Under debate; could be an enumeration
+        ACCESS            not-accessible
+        STATUS            mandatory 
+        DESCRIPTION       "Type of Emergency Call."
+        ::= { mitelCsEmergencyResponse  2 }
+
+    mitelCsErDetectTime OBJECT-TYPE
+        SYNTAX            DateAndTime
+        ACCESS            not-accessible
+        STATUS            mandatory
+        DESCRIPTION       "The time that the emergency call occurred on the Call Server."
+        ::= { mitelCsEmergencyResponse  3 }
+
+    mitelCsErCallingDN OBJECT-TYPE
+        SYNTAX            DisplayString 
+        ACCESS            not-accessible
+        STATUS            mandatory 
+        DESCRIPTION       "The directory number dialed for the emergency call."
+        ::= { mitelCsEmergencyResponse  4 }
+
+    mitelCsErCallingPNI OBJECT-TYPE
+        SYNTAX            DisplayString
+        ACCESS            not-accessible
+        STATUS            mandatory 
+        DESCRIPTION       "The PNI dialed for the emergency call."
+        ::= { mitelCsEmergencyResponse  5 }
+
+    mitelCsErCesidDigits OBJECT-TYPE
+        SYNTAX            DisplayString
+        ACCESS            not-accessible
+        STATUS            mandatory 
+        DESCRIPTION       "The CESID assigned to the Dialing Number. May also be the default system CESID value or empty if the CESID is unknown."
+        ::= { mitelCsEmergencyResponse  6 }
+
+    mitelCsErDialledDigits OBJECT-TYPE
+        SYNTAX            DisplayString
+        ACCESS            not-accessible
+        STATUS            mandatory 
+        DESCRIPTION       "The number dialed for the emergency call."
+        ::= { mitelCsEmergencyResponse  7 }
+
+
+    mitelCsErRegistrationDN OBJECT-TYPE
+        SYNTAX            DisplayString
+        ACCESS            not-accessible
+        STATUS            mandatory 
+        DESCRIPTION       "The directory number dialed for the emergency call. This could be empty, the directory number of the device making the call, an incoming caller ID or remote CESID."
+        ::= { mitelCsEmergencyResponse  8 }
+
+
+    -----------------------------------------------
+    -- The unacknowledged Emergency Call notification table.
+    -----------------------------------------------
+
+    mitelCsErUnackTable OBJECT-TYPE
+        SYNTAX           SEQUENCE OF MitelCsErUnackTableEntry 
+        ACCESS           not-accessible
+        STATUS           mandatory
+        DESCRIPTION      "A list of notifications sent from this agent
+                         that are expected to be acknowledged, but have
+                         not yet received the acknowledgement. One entry
+                         is created for each acknowledgeable notification
+                         transmitted from this agent. Managers are expected
+                         to delete the rows in this table to acknowledge
+                         receipt of the notification. To do so, the index
+                         is provided in the notification sent to the manager.
+                         Any unacknowledged notifications are removed at
+                         the agent's discretion. This table is kept
+                         in volatile memory."
+        ::= { mitelCsEmergencyResponse  9 }
+
+    mitelCsErUnackTableEntry OBJECT-TYPE
+        SYNTAX           MitelCsErUnackTableEntry 
+        ACCESS           not-accessible
+        STATUS           mandatory
+        DESCRIPTION      "An entry containing unacknowledged notification
+                         information."
+        INDEX            { mitelCsErUnackTableIndex }
+        ::= { mitelCsErUnackTable 1 }
+
+    MitelCsErUnackTableEntry ::=
+        SEQUENCE {
+            mitelCsErUnackTableIndex     Integer32,
+            mitelCsErUnackTableToken     Integer32
+        }
+
+    mitelCsErUnackTableIndex OBJECT-TYPE
+        SYNTAX            Integer32
+        ACCESS            not-accessible
+        STATUS            mandatory
+        DESCRIPTION       "The index of the row for the Manager to acknowledge the notification. If no acknowledgement is required, this will be 0. For require acknowledgement this is a unique value,
+                          greater than zero, for each row. The values are assigned
+                          contiguously starting from 1, and are not re-used (to allow for
+                          duplicated Set Requests for destruction
+                          of the row)."
+        ::= { mitelCsErUnackTableEntry 1 }
+
+    mitelCsErUnackTableToken OBJECT-TYPE
+        SYNTAX            Integer32
+        ACCESS            write-only
+        STATUS            mandatory
+        DESCRIPTION       "The status of this row. A status of active
+                          indicates that an acknowledgement is still expected.
+                          Write a destroy(6) here to acknowledge this 
+                          notification. A status of notInService indicates
+                          that no acknowledgement is expected."
+        ::= { mitelCsErUnackTableEntry 2 }
+
+    --------------------------------------------
+    -- Notifications
+    --------------------------------------------
+
+    mitelCsErNotifications  OBJECT IDENTIFIER ::= { mitelCsEmergencyResponse 10 }
+--		  OBJECT-IDENTITY
+--        STATUS            mandatory
+--        DESCRIPTION       "."
+--        ::= { mitelCsEmergencyResponse 10 }
+
+    -- Emergency Services Notifications
+
+    mitelCsErNotification TRAP-TYPE
+        ENTERPRISE mitelCsEmergencyResponse 
+        VARIABLES {
+            sysName,
+            mitelCsErSeqNumber,
+            mitelCsErCallType,
+            mitelCsErDetectTime,
+            mitelCsErCallingDN,
+            mitelCsErCallingPNI,
+            mitelCsErCesidDigits,
+            mitelCsErDialledDigits,
+            mitelCsErRegistrationDN,
+            mitelCsErUnackTableIndex,
+            mitelCsErUnackTableToken
+         }
+--		STATUS	mandatory
+        DESCRIPTION
+            "This notification is generated whenever
+            an emergency call condition is detected. The
+            manager is expected to ...."
+        ::= 401 -- "201" "301" being used by alarms trap
+
+
+
+END -- MTL-ERN

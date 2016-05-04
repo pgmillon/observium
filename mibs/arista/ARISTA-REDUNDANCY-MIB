@@ -1,0 +1,252 @@
+-- ARISTA-REDUNDANCY-MIB: Arista Redundancy MIB
+-- Copyright (c) 2012 Arista Networks, Inc.  All rights reserved.
+
+ARISTA-REDUNDANCY-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE,
+    NOTIFICATION-TYPE, Unsigned32       FROM SNMPv2-SMI
+    TEXTUAL-CONVENTION, TimeStamp       FROM SNMPv2-TC
+    MODULE-COMPLIANCE, OBJECT-GROUP,
+    NOTIFICATION-GROUP                  FROM SNMPv2-CONF
+    aristaMibs                          FROM ARISTA-SMI-MIB;
+
+aristaRedundancyMIB MODULE-IDENTITY
+    LAST-UPDATED "201408150000Z"
+    ORGANIZATION "Arista Networks, Inc."
+    CONTACT-INFO
+        "Arista Networks, Inc.
+
+         Postal: 5453 Great America Parkway
+                 Santa Clara, CA 95054
+
+         Tel: +1 408 547-5500
+
+         E-mail: snmp@arista.com"
+    DESCRIPTION
+         "This MIB module provides configuration and status
+         information pertaining to high availability or redundancy 
+         infrastructure on Arista devices.
+
+         As such, this MIB module is aimed at providing relevant
+         information on 'Modular Systems' which support dual
+         supervisors for control plane redundancy.
+        
+         Each of the dual supervisors are referred to as 'unit'
+         in the module."
+    REVISION     "201408150000Z"
+    DESCRIPTION  "Updated postal and e-mail addresses."
+    REVISION     "201211102237Z"
+    DESCRIPTION  "Initial version of this MIB module."
+   ::= { aristaMibs 8 }
+
+-- Textual Conventions --
+
+AristaRedundancyState ::= TEXTUAL-CONVENTION
+    STATUS        current
+    DESCRIPTION
+         "The status of the unit.
+
+         unknown
+            - The redundancy status is unknown.
+         standby
+            - The unit is initialized, and is in the standby state.
+         active 
+            - The unit is currently in active mode. The SNMP agent
+            runs only on the active unit.
+         disabled
+            - The unit is currently disabled."
+    SYNTAX        INTEGER {
+                     unknown(0),
+                     standby(1),
+                     active(2),
+                     disabled(3)
+                  }
+
+AristaRedundancyProtocol ::= TEXTUAL-CONVENTION
+    STATUS        current
+    DESCRIPTION
+         "The redundancy protocol.
+
+         unknown
+            - The protocol is unknown.
+         simplex
+            - The peer unit will remain disabled with this protocol.
+         rpr
+            - Route Processor Redundancy. This protocol
+            allows the startup configuration files to be synchronized
+            between the units but not the active operational state.
+         sso
+            - Stateful Switchover. This protocol allows the peer units
+            to synchronize not only configuration but also operational
+            state so when the active unit fails, the peer can take
+            over control plane responsibilities."
+    SYNTAX        INTEGER {
+                      unknown(0),
+                      simplex(1),
+                      rpr(2),
+                      sso(3)
+                  }
+
+aristaRedundancyObjects  OBJECT IDENTIFIER
+   ::= { aristaRedundancyMIB 0 }
+
+aristaRedundancyNotifications  OBJECT IDENTIFIER
+   ::= { aristaRedundancyMIB 1 }
+
+aristaRedundancyConformance  OBJECT IDENTIFIER
+   ::= { aristaRedundancyMIB 2 }
+
+aristaRedundancyStatus   OBJECT IDENTIFIER
+   ::= { aristaRedundancyObjects 0 }
+
+aristaRedundancyHistory  OBJECT IDENTIFIER
+   ::= { aristaRedundancyObjects 1 }
+
+
+-- redundancy status
+
+aristaRedundancyProtocolConfig  OBJECT-TYPE
+    SYNTAX        AristaRedundancyProtocol
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION       
+         "Indicates the configured redundancy protocol in
+         the system."
+    ::= { aristaRedundancyStatus 1 }
+
+
+aristaRedundancyProtocolOper  OBJECT-TYPE
+    SYNTAX        AristaRedundancyProtocol
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION       
+         "Indicates the operational redundancy protocol
+         in the system."
+    ::= { aristaRedundancyStatus 2 }
+
+aristaRedundancyUnitStateTable  OBJECT-TYPE
+    SYNTAX        SEQUENCE OF AristaRedundancyUnitStateEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+         "This table contains the current redundancy
+         state information for the units in the system."
+    ::= { aristaRedundancyStatus 3 }
+
+aristaRedundancyUnitStateEntry  OBJECT-TYPE
+    SYNTAX        AristaRedundancyUnitStateEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION       
+         "An entry containing redundancy state
+         information for a unit."
+    INDEX         { aristaRedundancyUnitId }
+    ::= { aristaRedundancyUnitStateTable 1 }
+
+AristaRedundancyUnitStateEntry ::= SEQUENCE {
+    aristaRedundancyUnitId              Unsigned32,
+    aristaRedundancyUnitState           AristaRedundancyState,
+    aristaRedundancyUnitStateEntryTime  TimeStamp 
+}
+
+aristaRedundancyUnitId   OBJECT-TYPE
+    SYNTAX        Unsigned32
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION       
+         "A unique identifier representing a unit. 
+         Usually it is the slot number of the inserted unit on 
+         the given modular system."
+    ::= { aristaRedundancyUnitStateEntry 1 }
+    
+aristaRedundancyUnitState   OBJECT-TYPE
+    SYNTAX        AristaRedundancyState
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION       
+         "The current state of the given unit."
+    ::= { aristaRedundancyUnitStateEntry 2 }
+
+aristaRedundancyUnitStateEntryTime   OBJECT-TYPE
+    SYNTAX        TimeStamp
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION       
+         "The value of sysUpTime when the unit entered
+         the given state."
+    ::= { aristaRedundancyUnitStateEntry 3 }
+
+
+aristaRedundancyLastSwOverReason   OBJECT-TYPE
+    SYNTAX        OCTET STRING (SIZE(0..255))
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION       
+         "The reason for the last switchover in the system."
+    ::= { aristaRedundancyStatus 4 }
+   
+
+-- Notifications
+
+aristaRedundancyNotificationPrefix OBJECT IDENTIFIER
+    ::= { aristaRedundancyNotifications 0 }
+
+aristaRedundancySwitchOverNotif  NOTIFICATION-TYPE
+    OBJECTS {
+        aristaRedundancyUnitStateEntryTime,
+        aristaRedundancyLastSwOverReason
+    } 
+    STATUS        current
+    DESCRIPTION    
+         "A switchover notification is generated whenever a unit
+         becomes active and it has taken over the control
+         plane duties."
+    ::= { aristaRedundancyNotificationPrefix 1 }
+
+
+-- Compliance, MIB groups
+
+aristaRedundancyCompliances OBJECT IDENTIFIER
+    ::= { aristaRedundancyConformance 1 }
+
+aristaRedundancyGroups OBJECT IDENTIFIER 
+    ::= { aristaRedundancyConformance 2 }
+
+aristaRedundancyCompliance  MODULE-COMPLIANCE
+    STATUS        current
+    DESCRIPTION     
+         "The compliance statement for Arista switches that
+         support Redundancy MIB."
+    MODULE          -- this module
+    MANDATORY-GROUPS {
+                         aristaRedundancyStatusGroup,
+                         aristaRedundancyNotificationsGroup
+                     }
+    ::= { aristaRedundancyCompliances 1 }
+
+aristaRedundancyStatusGroup  OBJECT-GROUP
+    OBJECTS       {
+                      aristaRedundancyProtocolConfig,
+                      aristaRedundancyProtocolOper,
+                      aristaRedundancyUnitState,
+                      aristaRedundancyUnitStateEntryTime,
+                      aristaRedundancyLastSwOverReason
+                  }
+    STATUS       current
+    DESCRIPTION
+        "The collection of objects that represent the redundancy
+        status of the system."
+    ::= { aristaRedundancyGroups 1 }
+
+aristaRedundancyNotificationsGroup  NOTIFICATION-GROUP
+    NOTIFICATIONS {
+        aristaRedundancySwitchOverNotif
+    }
+    STATUS        current
+    DESCRIPTION
+        "The collection of notifications generated by the system on
+        redundancy change events."
+    ::= { aristaRedundancyGroups 2 }
+
+END

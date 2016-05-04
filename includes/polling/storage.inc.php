@@ -7,18 +7,16 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-$cache_storage = array();
+if (!isset($cache_storage)) { $cache_storage = array(); } // This cache used also in mempool module
 
 $sql  = "SELECT `storage`.*, `storage-state`.storage_polled";
 $sql .= " FROM  `storage`";
 $sql .= " LEFT JOIN `storage-state` ON `storage`.storage_id = `storage-state`.storage_id";
 $sql .= " WHERE `device_id` = ?";
-
-$db_version = get_db_version(); // Need for detect old (non-mib) storages
 
 foreach (dbFetchRows($sql, array($device['device_id'])) as $storage)
 {
@@ -28,10 +26,6 @@ foreach (dbFetchRows($sql, array($device['device_id'])) as $storage)
   rrdtool_create($device, $storage_rrd, " DS:used:GAUGE:600:0:U DS:free:GAUGE:600:0:U ");
 
   $file = $config['install_dir']."/includes/polling/storage/".$storage['storage_mib'].".inc.php";
-  if ($db_version < 128)
-  {
-    $file = str_replace(array('hrstorage.inc.php', 'netapp.inc.php'), array('host-resources-mib.inc.php', 'netapp-mib.inc.php'), $file);
-  }
   if (is_file($file))
   {
     include($file);
@@ -39,7 +33,7 @@ foreach (dbFetchRows($sql, array($device['device_id'])) as $storage)
     continue;
   }
 
-  if ($debug) {print_vars($storage); }
+  if (OBS_DEBUG && count($storage)) { print_vars($storage); }
 
   if ($storage['size'])
   {

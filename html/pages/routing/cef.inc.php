@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -26,20 +26,16 @@ echo('<thead><tr><th>Device</th>
 // Loop Instances
 
 $cef_query = 'SELECT `cef_switching`.`device_id`, `cef_switching`.`afi`, `cef_switching`.`entPhysicalIndex`,
- COUNT(cef_index) AS paths,
- SUM(`drop`) AS drops,
- SUM(`punt`) AS punts,
- SUM(`punt2host`) AS punt2host,
- `cef_pfx`
- FROM `cef_switching`
- LEFT JOIN `cef_prefix` ON `cef_switching`.`device_id` = `cef_switching`.`device_id`
-   AND `cef_switching`.`entPhysicalIndex` = `cef_prefix`.`entPhysicalIndex`
-   AND `cef_switching`.`afi` = `cef_prefix`.`afi`
- GROUP BY `cef_switching`.`device_id`, `cef_switching`.`afi`';
+  COUNT(`cef_index`) AS `paths`, SUM(`drop`) AS `drops`, SUM(`punt`) AS `punts`, SUM(`punt2host`) AS `punt2host`, `cef_pfx`
+  FROM `cef_switching`
+  LEFT JOIN `cef_prefix` ON `cef_switching`.`device_id` = `cef_switching`.`device_id`
+    AND `cef_switching`.`entPhysicalIndex` = `cef_prefix`.`entPhysicalIndex`
+    AND `cef_switching`.`afi` = `cef_prefix`.`afi`
+  WHERE 1'.generate_query_permitted(array('device'), array('device_table' => 'cef_switching')).'
+  GROUP BY `cef_switching`.`device_id`, `cef_switching`.`afi`';
 
 foreach (dbFetchRows($cef_query) as $instance)
 {
-
   $device = device_by_id_cache($instance['device_id']);
 
   echo('<tr>');

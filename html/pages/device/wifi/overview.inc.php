@@ -7,13 +7,13 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-if ($device['type'] == 'wireless' && $device['os'] == 'trapeze')
+if ($device['type'] == 'wireless')
 {
-  $radios = dbFetchRows("SELECT * FROM `wifi_accesspoints` LEFT JOIN `wifi_radios` ON `wifi_accesspoints`.`wifi_accesspoint_id` = `wifi_radios`.`accesspoint_id` WHERE `device_id` = ? ", array($device['device_id']));
+  $radios = dbFetchRows("SELECT * FROM `wifi_accesspoints` LEFT JOIN `wifi_radios` ON `wifi_accesspoints`.`wifi_accesspoint_id` = `wifi_radios`.`radio_ap` WHERE `wifi_accesspoints`.`device_id` = ? ", array($device['device_id']));
 
   foreach ($radios as $radio)
   {

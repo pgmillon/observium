@@ -1,11 +1,11 @@
- -- *****************************************************************
+-- *****************************************************************
 -- CISCO-L2-CONTROL-MIB
 --
 -- August 2003, Frank Chao
 --              Seth Wang
 -- December 2003, Frank Chao
 --
--- Copyright (c) 2003, 2005, 2006, 2007 by Cisco Systems, Inc.
+-- Copyright (c) 2003, 2005, 2006, 2007, 2013 by Cisco Systems, Inc.
 -- All rights reserved.
 -- *****************************************************************
 --
@@ -37,7 +37,7 @@ IMPORTS
         FROM IF-MIB;
 
 ciscoL2ControlMIB MODULE-IDENTITY
-        LAST-UPDATED "200701100000Z"
+        LAST-UPDATED "201307030000Z"
         ORGANIZATION "Cisco Systems, Inc."
         CONTACT-INFO
          "Postal: Cisco Systems, Inc.
@@ -52,6 +52,9 @@ ciscoL2ControlMIB MODULE-IDENTITY
             "The CISCO-L2-CONTROL-MIB is used to control some layer 2
              functions, including MAC limit function and unicast
              flooding.  This device could be a router or a switch."
+        REVISION "201307030000Z"
+        DESCRIPTION
+            "Added ClcMacAddressStatsType and clcMacAddressStatsGroup."
         REVISION "200701100000Z"
         DESCRIPTION
             "Added 'vlanMacLimitHigh' and 
@@ -103,6 +106,9 @@ clcIfMacAddressLimitObjects
 clcIfVlanMacAddressLimitObjects
         OBJECT IDENTIFIER ::= { ciscoL2ControlMIBObjects 4 }
 
+clcMacAddressStatsObjects
+        OBJECT IDENTIFIER ::= { ciscoL2ControlMIBObjects 5 }
+
 -- TEXTUAL-CONVENTION
 
 MacLimitExceededAction ::= TEXTUAL-CONVENTION
@@ -145,6 +151,29 @@ MacLimitExceededAction ::= TEXTUAL-CONVENTION
                       limitNoFlood(3),
                       shutdown(4)
                   }
+
+ClcMacAddressStatsType ::= TEXTUAL-CONVENTION
+    STATUS  current
+    DESCRIPTION
+        "The type of MAC address statistics.
+        
+        'allMac'        - All MAC addresses
+        'dynamicMac'    - dynamic MAC addresses
+        'staticMac'     - static MAC addresses
+        'mcastMac'      - multicast MAC addresses
+        'pvlanCloneMac' - PVLAN clone MAC addresses
+        'overlayMac'    - overlay MAC addresses
+        'secureMac'     - secure MAC addresses
+        "
+    SYNTAX INTEGER {
+                       allMac(1),
+                       dynamicMac(2),
+                       staticMac(3),
+                       mcastMac(4),
+                       pvlanCloneMac(5),
+                       overlayMac(6),
+                       secureMac(7)
+                   }
 
 -- MAC limit global configuration
 
@@ -1028,8 +1057,48 @@ clcIfVlanMacLimitHighNotifEnable  OBJECT-TYPE
           'false', generation of clcIfVlanMacLimitHighNotif is disabled."
     ::= { clcIfVlanMacAddressLimitObjects 4 }
 
--- Notifications objects
+clcFdbMacAddressStatsTable  OBJECT-TYPE
+    SYNTAX        SEQUENCE OF ClcFdbMacAddressStatsEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+         "The table contains statistics information for different
+         type of MAC addresses in the forwarding table of the system."
+    ::= { clcMacAddressStatsObjects 1 }
 
+clcFdbMacAddressStatsEntry  OBJECT-TYPE
+    SYNTAX        ClcFdbMacAddressStatsEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "An entry contains statistics information for a specific
+        MAC addresse type in the forwarding table of the system."
+    INDEX { clcFdbMacAddressStatsType }
+    ::= { clcFdbMacAddressStatsTable 1 } 
+
+ClcFdbMacAddressStatsEntry ::= SEQUENCE {
+    clcFdbMacAddressStatsType        ClcMacAddressStatsType,
+    clcFdbMacAddressStatsNumber      Unsigned32
+}
+
+clcFdbMacAddressStatsType   OBJECT-TYPE
+    SYNTAX        ClcMacAddressStatsType
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "This object indicates a specific MAC address statistics type."
+    ::= { clcFdbMacAddressStatsEntry 1 }
+
+clcFdbMacAddressStatsNumber   OBJECT-TYPE
+    SYNTAX        Unsigned32
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "This object indicates the number of a particular type of MAC
+        address in the forwarding table."
+    ::= { clcFdbMacAddressStatsEntry 2 }
+
+-- Notifications objects
 clcVlanMacLimitNotif NOTIFICATION-TYPE
     OBJECTS { clcFdbVlanMacUsage, clcVlanMaxMacLimit }
     STATUS current
@@ -1164,7 +1233,7 @@ ciscoL2ControlMIBCompliance MODULE-COMPLIANCE
     ::= { ciscoL2ControlMIBCompliances 1 }
 
 ciscoL2ControlMIBCompliance2  MODULE-COMPLIANCE
-    STATUS current
+    STATUS deprecated
     DESCRIPTION
         "The compliance statement for entities which implement
          the L2 Control MIB."
@@ -1304,6 +1373,151 @@ ciscoL2ControlMIBCompliance2  MODULE-COMPLIANCE
 
     ::= { ciscoL2ControlMIBCompliances 2 }
 
+ciscoL2ControlMIBCompliance3  MODULE-COMPLIANCE
+    STATUS current
+    DESCRIPTION
+        "The compliance statement for entities which implement
+         the L2 Control MIB."
+    MODULE  -- this module
+        GROUP    clcMacAddressLimitGroup
+        DESCRIPTION
+            "This is the group to control MAC address limit
+             function. This is group is mandatory only in devices
+             which support MAC address limit control."
+
+        GROUP    clcMacAddressLimitGroup1
+        DESCRIPTION
+            "This group is to control MAC address limit
+             function. This group is mandatory only in devices
+             which support additional MAC address limit control."
+
+        GROUP    clcVlanMacAddressLimitGroup
+        DESCRIPTION
+            "This is the group to control VLAN MAC address limit
+             function. This is group is mandatory only in devices
+             which support VLAN MAC address limit control."
+
+        GROUP    clcVlanMacAddressLimitGroup1
+        DESCRIPTION
+            "This group is to control VLAN MAC address limit
+             function. This group is mandatory only in devices
+             which support additional VLAN MAC address limit control."
+
+        GROUP    clcVlanMacLimitNotifControlGroup
+        DESCRIPTION
+             "This group is mandatory only in devices
+             which support VLAN MAC address limit control notification."
+
+        GROUP    clcVlanMacLimitNotifControlGroup1
+        DESCRIPTION
+             "This group is mandatory only in devices
+             which support additional VLAN MAC address limit 
+             control notification."
+
+        GROUP    clcUnicastFloodGroup
+        DESCRIPTION
+            "This is the group to control unicast flooding. This group
+             is mandatory only in devices which support unicast flood
+             control."
+
+        OBJECT clcMacLimitExceededActionDefault
+        SYNTAX    INTEGER {
+                            warning(1),
+                            limit(2)
+                           }
+        DESCRIPTION
+            "The option limitNoFlood(3), shutdown(4) may not be 
+             applied to this object since this option is not supported
+             in the global default configuration."
+
+
+        OBJECT    clcMacLimitHighExceedActionDef 
+        SYNTAX    INTEGER {
+                            warning(1),
+                            limit(2),
+                            shutdown(4)
+                  }
+        DESCRIPTION
+            "The option limitNoFlood(3) may not be applied to this
+             object since this option is not supported in the global
+             default configuration."
+
+        GROUP    clcMacAddressLimitIntervalGroup
+        DESCRIPTION
+            "This group is to control MAC address limit
+             interval. This group is mandatory only in devices
+             which support interval on  MAC address limit control."
+
+        GROUP    clcVlanMacLimitNotifsGroup
+        DESCRIPTION
+            "The collection of notifications used to indicate that the
+             number of MAC addresses has crossed the configured limit
+             of MAC addresses either rising above or falling below it.
+             This group is mandatory only in devices which support
+             VLAN MAC address limit control."
+
+        GROUP    clcVlanMacLimitNotifsGroup1
+        DESCRIPTION
+             "This group is mandatory only for platforms which support
+              the notification of crossing the MAC address limit high 
+              threshold for the Vlan."
+
+        GROUP    clcVlanMacLimitEnableGroup
+        DESCRIPTION
+            "This group is mandatory on those platforms that support
+             per vlan MAC limit enable/disable configuration."
+
+        GROUP    clcIfMacAddressLimitGroup
+        DESCRIPTION
+            "This group is mandatory only for platforms which support
+             the MAC address limit feature for the interface."
+
+        GROUP    clcIfMacLimitEnableGroup
+        DESCRIPTION
+            "This group is mandatory on those platforms that support
+             per interface MAC limit enable/disable configuration."
+
+        GROUP    clcIfMacLimitNotifControlGroup
+        DESCRIPTION
+             "This group is mandatory only in devices
+             which support interface MAC address limit control 
+             notification."
+
+        GROUP    clcIfMacLimitNotifsGroup
+        DESCRIPTION
+             "This group is mandatory only for platforms which support
+              the notification of crossing the MAC address limit for 
+              the interface."
+
+        GROUP    clcIfVlanMacAddressLimitGroup
+        DESCRIPTION
+             "This group is mandatory only for platforms which support
+              the MAC address limit feature for the interface and Vlan."
+
+        GROUP    clcIfVlanMacLimitEnableGroup
+        DESCRIPTION
+            "This group is mandatory on those platforms that support
+             per interface Vlan MAC limit enable/disable configuration."
+
+        GROUP    clcIfVlanMacLimitNotifControlGroup
+        DESCRIPTION
+             "This group is mandatory only in devices
+             which support per interface Vlan MAC address limit control 
+             notification."
+
+        GROUP    clcIfVlanMacLimitNotifsGroup
+        DESCRIPTION
+            "This group is mandatory only for platforms which support
+             the notification of crossing the MAC address limit for 
+             the interface and Vlan."
+
+        GROUP    clcMacAddressStatsGroup
+        DESCRIPTION
+            "This group is mandatory only for platforms which support
+            MAC address statistics."
+
+    ::= { ciscoL2ControlMIBCompliances 3 }
+    
 -- Units of Conformance
 
 clcMacAddressLimitGroup OBJECT-GROUP
@@ -1517,4 +1731,16 @@ clcIfVlanMacLimitNotifsGroup NOTIFICATION-GROUP
          of MAC addresses for a given VLAN and interface either rising 
          above or falling below it."
     ::= { ciscoL2ControlMIBGroups 19 }
+
+clcMacAddressStatsGroup OBJECT-GROUP
+    OBJECTS { clcFdbMacAddressStatsNumber }
+    STATUS        current
+    DESCRIPTION
+        "A collection of objects that provides the MAC address
+        statistics based on the type of MAC addresses."
+    ::= { ciscoL2ControlMIBGroups 20 }
 END
+
+
+
+

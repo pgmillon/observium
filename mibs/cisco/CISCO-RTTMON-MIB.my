@@ -3,7 +3,7 @@
 --   
 -- March 1996, Larry Metzger
 --   
--- Copyright (c) 1995-2012 by cisco Systems Inc.
+-- Copyright (c) 1995-2012 by Cisco Systems, Inc.
 -- All rights reserved.
 -- *****************************************************************
 --   
@@ -16,6 +16,7 @@ IMPORTS
     OBJECT-TYPE,
     NOTIFICATION-TYPE,
     Integer32,
+    Unsigned32,
     Counter32,
     Gauge32,
     TimeTicks
@@ -65,7 +66,7 @@ IMPORTS
 
 
 ciscoRttMonMIB MODULE-IDENTITY
-    LAST-UPDATED    "201201180000Z"
+    LAST-UPDATED    "201208160000Z"
     ORGANIZATION    "Cisco IOS"
     CONTACT-INFO
             "Cisco Systems, Inc.
@@ -225,6 +226,31 @@ ciscoRttMonMIB MODULE-IDENTITY
                will contain these responses, but the 
                Statistics capture table will omit them to
                prevent skewed results."
+    REVISION        "201208160000Z"
+    DESCRIPTION
+        "Added following objects to support Y1731 Synthetic Loss
+        Measurement
+            rttMonEchoAdminEnableBurst,
+            rttMonEchoAdminAggBurstCycles,
+            rttMonEchoAdminLossRatioNumFrames,
+            rttMonEchoAdminAvailNumFrames
+        Added following object to support improving accuracy for jitter
+        probes measurement. 
+            rttMonEchoAdminTstampOptimization        
+        Deprecated rttMonScheduleAdminConceptRowAgeout and replace
+        with  rttMonScheduleAdminConceptRowAgeoutV2.
+        Deprecated rttMonControlEnableErrors, rttMonStatsRetrieveErrors
+        and replace with rttMonStatsCollectCtrlEnErrors,
+        rttMonStatsCollectRetrieveErrors.
+        Modified the descriptions for 
+            rttMonLatestJitterOperMOS
+            rttMonLatestJitterOperICPIF,
+            rttMonJitterStatsMinOfMOS
+            rttMonJitterStatsMinOfICPIF,
+            rttMonJitterStatsMaxOfMOS
+            rttMonJitterStatsMaxOfICPIF
+        Added new compliance
+            ciscoRttMonMibComplianceRev21."
     REVISION        "201109150000Z"
     DESCRIPTION
         "Added following objects to rttMonEchoAdmin to support
@@ -1272,7 +1298,12 @@ RttMonEchoAdminEntry ::= SEQUENCE {
         rttMonEchoAdminSSM                  TruthValue,
         rttMonEchoAdminControlRetry         Unsigned32,
         rttMonEchoAdminControlTimeout       Unsigned32,
-        rttMonEchoAdminIgmpTreeInit         Unsigned32
+        rttMonEchoAdminIgmpTreeInit         Unsigned32,
+        rttMonEchoAdminEnableBurst          TruthValue,
+        rttMonEchoAdminAggBurstCycles       Integer32,
+        rttMonEchoAdminLossRatioNumFrames   Integer32,
+        rttMonEchoAdminAvailNumFrames       Integer32,
+        rttMonEchoAdminTstampOptimization   TruthValue
 }
 
 rttMonEchoAdminProtocol OBJECT-TYPE
@@ -2193,7 +2224,7 @@ rttMonEchoAdminControlTimeout OBJECT-TYPE
     MAX-ACCESS      read-create
     STATUS          current
     DESCRIPTION
-        "This object specifies the duration before control message
+        "This object specifies the wait duration before control message
         timeout."
     DEFVAL          { 5000 } 
     ::= { rttMonEchoAdminEntry 70 }
@@ -2204,10 +2235,71 @@ rttMonEchoAdminIgmpTreeInit OBJECT-TYPE
     STATUS          current
     DESCRIPTION
         "This object specifies number of packets to be sent for
-        multicast tree setup.  This object is applicable to multicast
+        multicast tree setup. This object is applicable to multicast
         probe only."
     DEFVAL          { 0 } 
     ::= { rttMonEchoAdminEntry 71 }
+
+rttMonEchoAdminEnableBurst OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates that packets will be sent in burst."
+    DEFVAL          { false } 
+    ::= { rttMonEchoAdminEntry 72 }
+
+rttMonEchoAdminAggBurstCycles OBJECT-TYPE
+    SYNTAX          Integer32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the number of burst cycles to be sent
+        during the aggregate interval. This value is currently used
+        for Y1731 SLM(Synthetic Loss Measurment) probe.
+        This object is applicable to Y1731 SLM probe only."
+    DEFVAL          { 0 } 
+    ::= { rttMonEchoAdminEntry 73 }
+
+rttMonEchoAdminLossRatioNumFrames OBJECT-TYPE
+    SYNTAX          Integer32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the number of frames over which to
+        calculate the frame loss ratio. This object is applicable 
+        to Y1731 SLM probe only."
+    DEFVAL          { 10 } 
+    ::= { rttMonEchoAdminEntry 74 }
+
+rttMonEchoAdminAvailNumFrames OBJECT-TYPE
+    SYNTAX          Integer32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the number of frames over which to
+        calculate the availability. This object is applicable to
+        Y1731 SLM probe only."
+    DEFVAL          { 10 } 
+    ::= { rttMonEchoAdminEntry 75 }
+
+rttMonEchoAdminTstampOptimization OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "This object specifies whether timestamp optimization is
+        enabled.
+
+        When the value is 'true' then timestamp optimization is
+        enabled.  The probe will utilize lower layer (Hardware/Packet
+        Processor) timestamping values to improve accuracy of
+        statistics.
+
+        This value can be set only for udp jitter operation with
+        precision of microsecond."
+    DEFVAL          { false } 
+    ::= { rttMonEchoAdminEntry 76 }
  
 
 -- FileIO Administration TABLE
@@ -2372,10 +2464,11 @@ rttMonScheduleAdminEntry OBJECT-TYPE
     ::= { rttMonScheduleAdminTable 1 }
 
 RttMonScheduleAdminEntry ::= SEQUENCE {
-        rttMonScheduleAdminRttLife          Integer32,
-        rttMonScheduleAdminRttStartTime     TimeTicks,
-        rttMonScheduleAdminConceptRowAgeout Integer32,
-        rttMonScheduleAdminRttRecurring     TruthValue
+        rttMonScheduleAdminRttLife            Integer32,
+        rttMonScheduleAdminRttStartTime       TimeTicks,
+        rttMonScheduleAdminConceptRowAgeout   Integer32,
+        rttMonScheduleAdminRttRecurring       TruthValue,
+        rttMonScheduleAdminConceptRowAgeoutV2 Integer32
 }
 
 rttMonScheduleAdminRttLife OBJECT-TYPE
@@ -2441,7 +2534,7 @@ rttMonScheduleAdminConceptRowAgeout OBJECT-TYPE
     SYNTAX          Integer32 (0..2073600)
     UNITS           "seconds"
     MAX-ACCESS      read-create
-    STATUS          current
+    STATUS          deprecated
     DESCRIPTION
         "The amount of time this conceptual Rtt control row will
         exist when not in an 'active' rttMonCtrlOperState.
@@ -2457,7 +2550,9 @@ rttMonScheduleAdminConceptRowAgeout OBJECT-TYPE
                rttMonReactTriggerOperTable.
 
         When this value is set to zero, this entry will
-        never be aged out."
+        never be aged out.
+        rttMonScheduleAdminConceptRowAgeout object is superseded by
+        rttMonScheduleAdminConceptRowAgeoutV2."
     DEFVAL          { 3600 } 
     ::= { rttMonScheduleAdminEntry 3 }
 
@@ -2478,6 +2573,29 @@ rttMonScheduleAdminRttRecurring OBJECT-TYPE
            86400 seconds."
     DEFVAL          { false } 
     ::= { rttMonScheduleAdminEntry 4 }
+
+rttMonScheduleAdminConceptRowAgeoutV2 OBJECT-TYPE
+    SYNTAX          Integer32 (0..2073600)
+    UNITS           "seconds"
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "The amount of time this conceptual Rtt control row will
+        exist when not in an 'active' rttMonCtrlOperState.
+
+        When this conceptual Rtt control row enters an 'active'
+        state, this timer will be reset and suspended.  When
+        this conceptual RTT control row enters a state other
+        than 'active', the timer will be restarted.
+
+        NOTE:  It is the same as rttMonScheduleAdminConceptRowAgeout
+               except DEFVAL is 0 to be consistent with CLI ageout
+               default.
+
+        When this value is set to zero, this entry will
+        never be aged out."
+    DEFVAL          { 0 } 
+    ::= { rttMonScheduleAdminEntry 5 }
  
 
 -- Reaction Administration Table
@@ -2521,7 +2639,8 @@ rttMonReactAdminTable OBJECT-TYPE
         rttMonReactTriggerAdminTable defined via the 
         rttMonCtrlAdminIndex will become active.
 
-        This table augments the rttMonCtrlAdminTable."
+        This table augments the rttMonCtrlAdminTable.
+        rttMonReactAdminTable object is superseded by rttMonReactTable."
     ::= { rttMonCtrl 6 }
 
 rttMonReactAdminEntry OBJECT-TYPE
@@ -2529,7 +2648,8 @@ rttMonReactAdminEntry OBJECT-TYPE
     MAX-ACCESS      not-accessible
     STATUS          deprecated
     DESCRIPTION
-        "A list of objects that define RTT reaction operations."
+        "A list of objects that define RTT reaction operations.
+        rttMonReactAdminEntry object is superseded by rttMonReactEntry."
     AUGMENTS           { rttMonCtrlAdminEntry  } 
     ::= { rttMonReactAdminTable 1 }
 
@@ -2554,7 +2674,9 @@ rttMonReactAdminConnectionEnable OBJECT-TYPE
         (echo type) causes 
         rttMonCtrlOperConnectionLostOccurred to change its 
         value.  Thus connections to intermediate hops will 
-        not cause this value to change."
+        not cause this value to change.
+        rttMonReactAdminConnectionEnable object is superseded by
+        rttMonReactVar."
     DEFVAL          { false } 
     ::= { rttMonReactAdminEntry 1 }
 
@@ -2569,7 +2691,9 @@ rttMonReactAdminTimeoutEnable OBJECT-TYPE
 
         When the RttMonRttType is 'pathEcho' timeouts to 
         intermediate hops will not cause 
-        rttMonCtrlOperTimeoutOccurred to change its value."
+        rttMonCtrlOperTimeoutOccurred to change its value.
+        rttMonReactAdminTimeoutEnable object is superseded by
+        rttMonReactVar."
     DEFVAL          { false } 
     ::= { rttMonReactAdminEntry 2 }
 
@@ -2641,7 +2765,9 @@ rttMonReactAdminThresholdType OBJECT-TYPE
         If this value is changed by a management station, 
         rttMonCtrlOperOverThresholdOccurred is set to false, but 
         no reaction is generated if the prior value of 
-        rttMonCtrlOperOverThresholdOccurred was true."
+        rttMonCtrlOperOverThresholdOccurred was true.
+        rttMonReactAdminThresholdType object is superseded by
+        rttMonReactThresholdType."
     DEFVAL          { never } 
     ::= { rttMonReactAdminEntry 3 }
 
@@ -2654,7 +2780,9 @@ rttMonReactAdminThresholdFalling OBJECT-TYPE
         "This object defines a threshold limit. If the RTT
         operation time falls below this limit and if the conditions
         specified in rttMonReactAdminThresholdType are satisfied, an 
-        threshold is generated."
+        threshold is generated.
+        rttMonReactAdminThresholdFalling object is superseded by
+        rttMonReactThresholdFalling."
     DEFVAL          { 3000 } 
     ::= { rttMonReactAdminEntry 4 }
 
@@ -2664,7 +2792,9 @@ rttMonReactAdminThresholdCount OBJECT-TYPE
     STATUS          deprecated
     DESCRIPTION
         "This object defines the 'x' value of the xOfy condition
-        specified in rttMonReactAdminThresholdType."
+        specified in rttMonReactAdminThresholdType.
+        rttMonReactAdminThresholdCount object is superseded by
+        rttMonReactThresholdCountX."
     DEFVAL          { 5 } 
     ::= { rttMonReactAdminEntry 5 }
 
@@ -2674,7 +2804,9 @@ rttMonReactAdminThresholdCount2 OBJECT-TYPE
     STATUS          deprecated
     DESCRIPTION
         "This object defines the 'y' value of the xOfy condition
-        specified in rttMonReactAdminThresholdType."
+        specified in rttMonReactAdminThresholdType.
+        rttMonReactAdminThresholdCount2 object is superseded by
+        rttMonReactThresholdCountyY."
     DEFVAL          { 5 } 
     ::= { rttMonReactAdminEntry 6 }
 
@@ -2711,7 +2843,9 @@ rttMonReactAdminActionType OBJECT-TYPE
                               are initiated
 
         A trigger action is defined via the 
-        rttMonReactTriggerAdminTable."
+        rttMonReactTriggerAdminTable.
+        rttMonReactAdminActionType object is superseded by
+        rttMonReactActionType."
     DEFVAL          { none } 
     ::= { rttMonReactAdminEntry 7 }
 
@@ -2722,7 +2856,9 @@ rttMonReactAdminVerifyErrorEnable OBJECT-TYPE
     DESCRIPTION
         "If true, a reaction is generated when a RTT
         operation causes rttMonCtrlOperVerifyErrorOccurred 
-        to change its value."
+        to change its value.
+        rttMonReactAdminVerifyErrorEnable object is superseded by
+        rttMonReactVar."
     DEFVAL          { false } 
     ::= { rttMonReactAdminEntry 8 }
  
@@ -4148,7 +4284,8 @@ rttMonLatestJitterOperMOS OBJECT-TYPE
         This value will be 0 if 
          - rttMonEchoAdminCodecType of the operation is notApplicable 
          - the operation is not started 
-         - the operation is started but failed" 
+         - the operation is started but failed
+        This value will be 1 for packet loss of 10% or more." 
     ::= { rttMonLatestJitterOperEntry 42 }
 
 rttMonLatestJitterOperICPIF OBJECT-TYPE
@@ -4156,7 +4293,9 @@ rttMonLatestJitterOperICPIF OBJECT-TYPE
     MAX-ACCESS      read-only
     STATUS          current
     DESCRIPTION
-        "Represents ICPIF value for the latest jitter operation" 
+        "Represents ICPIF value for the latest jitter operation.
+
+        This value will be 93 for packet loss of 10% or more." 
     ::= { rttMonLatestJitterOperEntry 43 }
 
 rttMonLatestJitterOperIAJOut OBJECT-TYPE
@@ -6226,7 +6365,7 @@ rttMonGeneratedOperRespIpAddr OBJECT-TYPE
     MAX-ACCESS      not-accessible
     STATUS          current
     DESCRIPTION
-        "The Internet address of a responder for IP SLA
+        "The internet address of a responder for IP SLA
         operation. The type of this address is determined
         by the value of rttMonGeneratedOperRespIpAddrType." 
     ::= { rttMonGeneratedOperEntry 2 }
@@ -6612,7 +6751,9 @@ RttMonStatsCollectEntry ::= SEQUENCE {
         rttMonStatsCollectVerifyErrors   Integer32,
         rttMonStatsCollectAddress        RttMonTargetAddress,
         rttMonControlEnableErrors        Integer32,
-        rttMonStatsRetrieveErrors        Integer32
+        rttMonStatsRetrieveErrors        Integer32,
+        rttMonStatsCollectCtrlEnErrors   Integer32,
+        rttMonStatsCollectRetrieveErrors Integer32
 }
 
 rttMonStatsCollectNumDisconnects OBJECT-TYPE
@@ -6824,28 +6965,64 @@ rttMonStatsCollectAddress OBJECT-TYPE
 rttMonControlEnableErrors OBJECT-TYPE
     SYNTAX          Integer32 (0..2147483647)
     MAX-ACCESS      read-only
-    STATUS          current
+    STATUS          deprecated
     DESCRIPTION
         "The number of occasions when control enable request failed.
         Currently it is used for multicast operation type.
 
         This object has the special behavior as defined by the
         ROLLOVER NOTE in the DESCRIPTION of the ciscoRttMonMIB
-        object." 
+        object.
+        rttMonControlEnableErrors object is superseded by
+        rttMonStatsCollectCtrlEnErrors." 
     ::= { rttMonStatsCollectEntry 9 }
 
 rttMonStatsRetrieveErrors OBJECT-TYPE
     SYNTAX          Integer32 (0..2147483647)
     MAX-ACCESS      read-only
-    STATUS          current
+    STATUS          deprecated
     DESCRIPTION
         "The number of occasions when stats retrieval request failed.
         Currently it is used for multicast operation type.
 
         This object has the special behavior as defined by the
         ROLLOVER NOTE in the DESCRIPTION of the ciscoRttMonMIB
-        object." 
+        object.
+        rttMonStatsRetrieveErrors object is superseded by
+        rttMonStatsCollectRetrieveErrors." 
     ::= { rttMonStatsCollectEntry 10 }
+
+rttMonStatsCollectCtrlEnErrors OBJECT-TYPE
+    SYNTAX          Integer32 (0..2147483647)
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The object is same as rttMonControlEnableErrors,
+        with corrected name for consistency.
+
+        The number of occasions when control enable request failed.
+        Currently it is used for multicast operation type.
+
+        This object has the special behavior as defined by the
+        ROLLOVER NOTE in the DESCRIPTION of the ciscoRttMonMIB
+        object." 
+    ::= { rttMonStatsCollectEntry 11 }
+
+rttMonStatsCollectRetrieveErrors OBJECT-TYPE
+    SYNTAX          Integer32 (0..2147483647)
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The object is same as rttMonStatsRetrieveErrors,
+        with corrected name for consistency.
+
+        The number of occasions when stats retrieval request failed.
+        Currently it is used for multicast operation type.
+
+        This object has the special behavior as defined by the
+        ROLLOVER NOTE in the DESCRIPTION of the ciscoRttMonMIB
+        object." 
+    ::= { rttMonStatsCollectEntry 12 }
  
 
 -- Statistics Totals Table
@@ -7636,7 +7813,9 @@ rttMonJitterStatsOWMinSD OBJECT-TYPE
     MAX-ACCESS      read-only
     STATUS          deprecated
     DESCRIPTION
-        "The minimum of all one way times from source to destination." 
+        "The minimum of all one way times from source to destination.
+        rttMonJitterStatsOWMinSD object is superseded by
+        rttMonJitterStatsOWMinSDNew." 
     ::= { rttMonJitterStatsEntry 44 }
 
 rttMonJitterStatsOWMaxSD OBJECT-TYPE
@@ -7644,7 +7823,9 @@ rttMonJitterStatsOWMaxSD OBJECT-TYPE
     MAX-ACCESS      read-only
     STATUS          deprecated
     DESCRIPTION
-        "The maximum of all one way times from source to destination." 
+        "The maximum of all one way times from source to destination.
+        rttMonJitterStatsOWMaxSD object is superseded by
+        rttMonJitterStatsOWMaxSDNew." 
     ::= { rttMonJitterStatsEntry 45 }
 
 rttMonJitterStatsOWSumDS OBJECT-TYPE
@@ -7680,7 +7861,9 @@ rttMonJitterStatsOWMinDS OBJECT-TYPE
     MAX-ACCESS      read-only
     STATUS          deprecated
     DESCRIPTION
-        "The minimum of all one way times from destination to source." 
+        "The minimum of all one way times from destination to source.
+        rttMonJitterStatsOWMinDS object is superseded by
+        rttMonJitterStatsOWMinDSNew." 
     ::= { rttMonJitterStatsEntry 49 }
 
 rttMonJitterStatsOWMaxDS OBJECT-TYPE
@@ -7688,7 +7871,9 @@ rttMonJitterStatsOWMaxDS OBJECT-TYPE
     MAX-ACCESS      read-only
     STATUS          deprecated
     DESCRIPTION
-        "The maximum of all one way times from destination to source." 
+        "The maximum of all one way times from destination to source.
+        rttMonJitterStatsOWMaxDS object is superseded by
+        rttMonJitterStatsOWMaxDSNew." 
     ::= { rttMonJitterStatsEntry 50 }
 
 rttMonJitterStatsNumOfOW OBJECT-TYPE
@@ -7745,7 +7930,8 @@ rttMonJitterStatsMinOfMOS OBJECT-TYPE
         This value will be 0 if 
          - rttMonEchoAdminCodecType of the operation is notApplicable 
          - the operation is not started 
-         - the operation is started but failed" 
+         - the operation is started but failed
+        This value will be 1 for packet loss of 10% or more." 
     ::= { rttMonJitterStatsEntry 56 }
 
 rttMonJitterStatsMaxOfMOS OBJECT-TYPE
@@ -7758,7 +7944,8 @@ rttMonJitterStatsMaxOfMOS OBJECT-TYPE
         This value will be 0 if 
          - rttMonEchoAdminCodecType of the operation is notApplicable 
          - the operation is not started 
-         - the operation is started but failed" 
+         - the operation is started but failed
+        This value will be 1 for packet loss of 10% or more." 
     ::= { rttMonJitterStatsEntry 57 }
 
 rttMonJitterStatsMinOfICPIF OBJECT-TYPE
@@ -7766,7 +7953,9 @@ rttMonJitterStatsMinOfICPIF OBJECT-TYPE
     MAX-ACCESS      read-only
     STATUS          current
     DESCRIPTION
-        "The minimum of all ICPIF values for the jitter operations" 
+        "The minimum of all ICPIF values for the jitter operations.
+
+        This value will be 93 for packet loss of 10% or more." 
     ::= { rttMonJitterStatsEntry 58 }
 
 rttMonJitterStatsMaxOfICPIF OBJECT-TYPE
@@ -7774,7 +7963,9 @@ rttMonJitterStatsMaxOfICPIF OBJECT-TYPE
     MAX-ACCESS      read-only
     STATUS          current
     DESCRIPTION
-        "The maximum of all ICPIF values for the jitter operations" 
+        "The maximum of all ICPIF values for the jitter operations.
+
+        This value will be 93 for packet loss of 10% or more." 
     ::= { rttMonJitterStatsEntry 59 }
 
 rttMonJitterStatsIAJOut OBJECT-TYPE
@@ -8501,7 +8692,9 @@ rttMonConnectionChangeNotification NOTIFICATION-TYPE
         If History is not being collected, the instance values 
         for the rttMonHistoryCollectionAddress object will not 
         be valid.  When RttMonRttType is not 'echo' or 'pathEcho'
-        the rttMonHistoryCollectionAddress object will be null."
+        the rttMonHistoryCollectionAddress object will be null.
+        rttMonConnectionChangeNotification object is superseded by
+        rttMonNotification."
    ::= { rttMonNotifications 1 }
 
 rttMonTimeoutNotification NOTIFICATION-TYPE
@@ -8527,7 +8720,9 @@ rttMonTimeoutNotification NOTIFICATION-TYPE
         If History is not being collected, the instance values 
         for the rttMonHistoryCollectionAddress object will not 
         be valid.  When RttMonRttType is not 'echo' or 'pathEcho'
-        the rttMonHistoryCollectionAddress object will be null."
+        the rttMonHistoryCollectionAddress object will be null.
+        rttMonTimeoutNotification object is superseded by
+        rttMonNotification."
    ::= { rttMonNotifications 2 }
 
 rttMonThresholdNotification NOTIFICATION-TYPE
@@ -8553,7 +8748,10 @@ rttMonThresholdNotification NOTIFICATION-TYPE
         If History is not being collected, the instance values 
         for the rttMonHistoryCollectionAddress object will not 
         be valid.  When RttMonRttType is not 'echo' or 'pathEcho'
-        the rttMonHistoryCollectionAddress object will be null."
+        the rttMonHistoryCollectionAddress object will be null.
+
+        rttMonThresholdNotification object is superseded by
+        rttMonNotification."
    ::= { rttMonNotifications 3 }
 
 rttMonVerifyErrorNotification NOTIFICATION-TYPE
@@ -8565,7 +8763,9 @@ rttMonVerifyErrorNotification NOTIFICATION-TYPE
     STATUS          deprecated
     DESCRIPTION
         "A rttMonVerifyErrorNotification indicates the
-        occurrence of a data corruption in an RTT operation."
+        occurrence of a data corruption in an RTT operation.
+        rttMonVerifyErrorNotification object is superseded by
+        rttMonNotification."
    ::= { rttMonNotifications 4 }
 
 
@@ -9276,7 +9476,7 @@ ciscoRttMonMibComplianceRev19 MODULE-COMPLIANCE
     ::= { ciscoRttMonMibCompliances 19 }
 
 ciscoRttMonMibComplianceRev20 MODULE-COMPLIANCE
-    STATUS          current
+    STATUS          deprecated
     DESCRIPTION
         "This compliance statement specifies the minimal
         requirements an implementation must meet in order to 
@@ -9383,6 +9583,123 @@ ciscoRttMonMibComplianceRev20 MODULE-COMPLIANCE
     DESCRIPTION
         "ciscoCtrlGroupRev22 is mandatory for Y1731 operation."
     ::= { ciscoRttMonMibCompliances 20 }
+
+ciscoRttMonMibComplianceRev21 MODULE-COMPLIANCE
+    STATUS          current
+    DESCRIPTION
+        "Please enter description here"
+    MODULE          -- this module
+    MANDATORY-GROUPS {
+                        ciscoStatsGroup,
+                        ciscoHistoryGroup,
+                        ciscoCtrlGroupRev1,
+                        ciscoCtrlGroupRev2,
+                        ciscoLatestOperGroupRev1,
+                        ciscoStatsGroupRev1,
+                        ciscoStatsGroupRev3,
+                        ciscoStatsGroupRev4,
+                        ciscoStatsGroupRev5,
+                        ciscoApplGroupRev2,
+                        ciscoApplGroupRev3,
+                        ciscoCtrlGroupRev4,
+                        ciscoCtrlGroupRev6,
+                        ciscoCtrlGroupRev7,
+                        ciscoCtrlGroupRev11,
+                        ciscoCtrlGroupRev14,
+                        ciscoNotificationGroupRev1,
+                        ciscoCtrlGroupRev9,
+                        ciscoStatsGroupRev8,
+                        ciscoCtrlGroupRev24,
+                        ciscoCtrlGroupRev25,
+                        ciscoCtrlGroupRev28,
+                        ciscoStatsGroupRev9
+                    }
+
+    GROUP           ciscoCtrlGroupRev19
+    DESCRIPTION
+        "ciscoCtrlGroupRev19 is only mandatory for the devices
+        that support Ethernet CFM for Virtual Connection."
+
+    GROUP           ciscoCtrlGroupRev18
+    DESCRIPTION
+        "ciscoCtrlGroupRev18 is only mandatory for the devices
+        that support Ethernet CFM for Virtual Connection ."
+
+    GROUP           ciscoCtrlGroupRev17
+    DESCRIPTION
+        "ciscoCtrlGroupRev17 is only mandatory for the devices
+        that support IP SLA auto measure feature."
+
+    GROUP           ciscoCtrlGroupRev16
+    DESCRIPTION
+        "ciscoCtrlGroupRev16 is only mandatory for the devices
+        that support LSP Ping over pseudowire."
+
+    GROUP           ciscoCtrlGroupRev15
+    DESCRIPTION
+        "ciscoCtrlGroupRev15 is only mandatory for the devices
+        that support Ethernet CFM."
+
+    GROUP           ciscoCtrlGroupRev8
+    DESCRIPTION
+        "ciscoCtrlGroupRev8 is only mandatory for the devices
+        that support MPLS."
+
+    GROUP           ciscoStatsGroupRev7
+    DESCRIPTION
+        "ciscoStatsGroupRev7 is only mandatory for the devices
+        that support MPLS."
+
+    GROUP           ciscoCtrlGroupRev13
+    DESCRIPTION
+        "ciscoCtrlGroupRev13 is only mandatory for the device
+        that support MPLS."
+
+    GROUP           ciscoNotificationGroupRev2
+    DESCRIPTION
+        "ciscoNotificationGroupRev2 is only mandatory for the devices
+        that support MPLS."
+
+    GROUP           ciscoApplGroupRev4
+    DESCRIPTION
+        "ciscoApplGroupRev4 is only mandatory for the devices
+        that support MPLS."
+
+    GROUP           ciscoCtrlGroupRev12
+    DESCRIPTION
+        "ciscoCtrlGroupRev12 is only mandatory for the devices
+        that support voice."
+
+    GROUP           ciscoCtrlGroupRev20
+    DESCRIPTION
+        "ciscoCtrlGroupRev20 is only mandatory for the devices
+        that support Video operations."
+
+    GROUP           ciscoCtrlGroupRev21
+    DESCRIPTION
+        "ciscoCtrlGroupRev21 is only mandatory for video operation with
+        DSCP, DSP reservation, and source interface support."
+
+    GROUP           ciscoCtrlGroupRev22
+    DESCRIPTION
+        "ciscoCtrlGroupRev22 is optional for video probes using emulate
+        source address, port, target address, and port."
+
+    GROUP           ciscoCtrlGroupRev23
+    DESCRIPTION
+        "ciscoCtrlGroupRev23 is mandatory for Y1731 operation."
+
+    GROUP           ciscoCtrlGroupRev26
+    DESCRIPTION
+        "ciscoCtrlGroupRev26 is optional for Y1731 Synthetic Loss
+        Measurement"
+
+    GROUP           ciscoCtrlGroupRev27
+    DESCRIPTION
+        "ciscoCtrlGroupRev27 is optional for jitter probes to utilize
+        lower layer (Hardware /Packet Processor) timstamping. Currently
+        supported only for udp jitter probe."
+    ::= { ciscoRttMonMibCompliances 21 }
 
 ciscoStatsGroup OBJECT-GROUP
     OBJECTS         {
@@ -9675,7 +9992,9 @@ ciscoNotificationGroup NOTIFICATION-GROUP
                     }
     STATUS          deprecated
     DESCRIPTION
-        "A collection of notifications."
+        "A collection of notifications.
+        ciscoNotificationGroup object is superseded by
+        ciscoNotificationGroupRev1."
     ::= { ciscoRttMonMibGroups 18 }
 
 ciscoApplGroupRev3 OBJECT-GROUP
@@ -9849,11 +10168,13 @@ ciscoCtrlGroupRev10 OBJECT-GROUP
                         rttMonReactTriggerAdminStatus,
                         rttMonReactTriggerOperState
                     }
-    STATUS          current
+    STATUS          deprecated
     DESCRIPTION
         "A collection of objects providing the Administration,
         Operational, Last Statistical values for the RTT
-        Monitoring Application."
+        Monitoring Application.
+        ciscoCtrlGroupRev10 object is superseded by
+        ciscoCtrlGroupRev28."
     ::= { ciscoRttMonMibGroups 24 }
 
 ciscoCtrlGroupRev11 OBJECT-GROUP
@@ -10020,7 +10341,9 @@ ciscoRttMonDeprecatedGroupRev1 OBJECT-GROUP
                     }
     STATUS          deprecated
     DESCRIPTION
-        "A collection of all objects that are deprecated."
+        "A collection of all objects that are deprecated.
+        ciscoRttMonDeprecatedGroupRev1 object is superseded by
+        ciscoCtrlGroupRev11."
     ::= { ciscoRttMonMibGroups 36 }
 
 ciscoCtrlGroupRev16 OBJECT-GROUP
@@ -10141,25 +10464,108 @@ ciscoStatsGroupRev2 OBJECT-GROUP
                         rttMonControlEnableErrors,
                         rttMonStatsRetrieveErrors
                     }
-    STATUS          current
+    STATUS          deprecated
     DESCRIPTION
         "A collection of objects providing Multicast control
-        request information."
+        request information.
+        ciscoStatsGroupRev2 object is superseded by
+        ciscoStatsGroupRev9."
     ::= { ciscoRttMonMibGroups 49 }
 
+ciscoCtrlGroupRev26 OBJECT-GROUP
+    OBJECTS         {
+                        rttMonEchoAdminEnableBurst,
+                        rttMonEchoAdminAggBurstCycles,
+                        rttMonEchoAdminLossRatioNumFrames,
+                        rttMonEchoAdminAvailNumFrames
+                    }
+    STATUS          current
+    DESCRIPTION
+        "New rttMonObjects related to the support of Y1731 Synthetic
+        Loss Measurement."
+    ::= { ciscoRttMonMibGroups 50 }
+
+ciscoCtrlGroupRev27 OBJECT-GROUP
+    OBJECTS         { rttMonEchoAdminTstampOptimization }
+    STATUS          current
+    DESCRIPTION
+        "The object is added to utilize lower layer (Hardware/Packet
+        Processor) timestamping for improving accuracy of jitter probe
+        statistics.
+
+        Currently the object is supported for udp jitter operations."
+    ::= { ciscoRttMonMibGroups 51 }
+
+ciscoCtrlGroupRev28 OBJECT-GROUP
+    OBJECTS         {
+                        rttMonCtrlAdminOwner,
+                        rttMonCtrlAdminTag,
+                        rttMonCtrlAdminRttType,
+                        rttMonCtrlAdminThreshold,
+                        rttMonCtrlAdminFrequency,
+                        rttMonCtrlAdminTimeout,
+                        rttMonCtrlAdminVerifyData,
+                        rttMonCtrlAdminStatus,
+                        rttMonCtrlAdminNvgen,
+                        rttMonEchoAdminProtocol,
+                        rttMonEchoAdminTargetAddress,
+                        rttMonEchoAdminPktDataRequestSize,
+                        rttMonEchoAdminPktDataResponseSize,
+                        rttMonScheduleAdminRttLife,
+                        rttMonScheduleAdminRttStartTime,
+                        rttMonStatisticsAdminNumHourGroups,
+                        rttMonStatisticsAdminNumPaths,
+                        rttMonStatisticsAdminNumHops,
+                        rttMonStatisticsAdminNumDistBuckets,
+                        rttMonStatisticsAdminDistInterval,
+                        rttMonHistoryAdminNumLives,
+                        rttMonHistoryAdminNumBuckets,
+                        rttMonHistoryAdminNumSamples,
+                        rttMonHistoryAdminFilter,
+                        rttMonCtrlOperModificationTime,
+                        rttMonCtrlOperDiagText,
+                        rttMonCtrlOperResetTime,
+                        rttMonCtrlOperOctetsInUse,
+                        rttMonCtrlOperConnectionLostOccurred,
+                        rttMonCtrlOperTimeoutOccurred,
+                        rttMonCtrlOperVerifyErrorOccurred,
+                        rttMonCtrlOperOverThresholdOccurred,
+                        rttMonCtrlOperNumRtts,
+                        rttMonCtrlOperRttLife,
+                        rttMonCtrlOperState,
+                        rttMonLatestRttOperCompletionTime,
+                        rttMonLatestRttOperSense,
+                        rttMonLatestRttOperApplSpecificSense,
+                        rttMonLatestRttOperSenseDescription,
+                        rttMonLatestRttOperTime,
+                        rttMonLatestRttOperAddress,
+                        rttMonReactTriggerAdminStatus,
+                        rttMonReactTriggerOperState,
+                        rttMonScheduleAdminConceptRowAgeoutV2
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A collection of objects providing the Administration,
+        Operational, Last Statistical values for the RTT
+        Monitoring Application.
+
+        Deprecated rttMonScheduleAdminConceptRowAgeout and added new
+        rttMonScheduleAdminConceptRowAgeoutV2 to consider 0 as default
+        age out value."
+    ::= { ciscoRttMonMibGroups 52 }
+
+ciscoStatsGroupRev9 OBJECT-GROUP
+    OBJECTS         {
+                        rttMonStatsCollectCtrlEnErrors,
+                        rttMonStatsCollectRetrieveErrors
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A collection of objects providing Multicast control request
+        information."
+    ::= { ciscoRttMonMibGroups 53 }
+
 END
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

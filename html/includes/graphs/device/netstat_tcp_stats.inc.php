@@ -7,13 +7,13 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 $rrd_filename = get_rrd_path($device, "netstats-tcp.rrd");
 
-$stats = array('tcpCurrEstab','tcpActiveOpens','tcpPassiveOpens','tcpAttemptFails','tcpEstabResets','tcpRetransSegs');
+$stats = array('tcpActiveOpens','tcpPassiveOpens','tcpAttemptFails','tcpEstabResets','tcpRetransSegs');
 
 $i=0;
 foreach ($stats as $stat)

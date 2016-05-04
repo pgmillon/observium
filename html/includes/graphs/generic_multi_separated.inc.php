@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -78,6 +78,7 @@ if ($legend != 'no')
 }
 
 $i = 0;
+$rrd_multi = array();
 foreach ($rrd_list as $rrd)
 {
   if (!$config['graph_colours'][$colours_in][$iter] || !$config['graph_colours'][$colours_out][$iter]) { $iter = 0; }
@@ -104,24 +105,19 @@ foreach ($rrd_list as $rrd)
     $rrd_options .= " DEF:outB" . $i . "X=".$rrd['filename'].":".$ds_out.":AVERAGE:start=".$prev_from.":end=".$from;
     $rrd_options .= " SHIFT:inB" . $i . "X:$period";
     $rrd_options .= " SHIFT:outB" . $i . "X:$period";
-    $in_thingX .= $separatorX . "inB" . $i . "X,UN,0," . "inB" . $i . "X,IF";
-    $out_thingX .= $separatorX . "outB" . $i . "X,UN,0," . "outB" . $i . "X,IF";
-    $plusesX .= $plusX;
-    $separatorX = ",";
-    $plusX = ",+";
+
+    $rrd_multi['in_thingX'][]  = "inB"  . $i . "X,UN,0," . "inB"  . $i . "X,IF";
+    $rrd_multi['out_thingX'][] = "outB" . $i . "X,UN,0," . "outB" . $i . "X,IF";
   }
 
   if (in_array("tot", $data_show))
   {
-    $in_thing .= $separator . "inB" . $i . ",UN,0," . "inB" . $i . ",IF";
-    $out_thing .= $separator . "outB" . $i . ",UN,0," . "outB" . $i . ",IF";
-    $pluses .= $plus;
-    $separator = ",";
-    $plus = ",+";
-
     $rrd_options .= " VDEF:totinB".$i."=inB".$i.",TOTAL";
     $rrd_options .= " VDEF:totoutB".$i."=outB".$i.",TOTAL";
     $rrd_options .= " VDEF:tot".$i."=octets".$i.",TOTAL";
+
+    $rrd_multi['in_thing'][]  = "inB"  . $i . ",UN,0," . "inB"  . $i . ",IF";
+    $rrd_multi['out_thing'][] = "outB" . $i . ",UN,0," . "outB" . $i . ",IF";
   }
 
   if ($i) { $stack="STACK"; }
@@ -150,6 +146,9 @@ foreach ($rrd_list as $rrd)
 
 if ($_GET['previous'] == "yes")
 {
+  $in_thingX  = implode(',', $rrd_multi['in_thingX']);
+  $out_thingX = implode(',', $rrd_multi['out_thingX']);
+  $plusesX    = str_repeat(',+', count($rrd_multi['in_thingX']) - 1);
   $rrd_options .= " CDEF:inBX=" . $in_thingX . $plusesX;
   $rrd_options .= " CDEF:outBX=" . $out_thingX . $plusesX;
   $rrd_options .= " CDEF:octetsX=inBX,outBX,+";
@@ -173,6 +172,9 @@ if ($_GET['previous'] == "yes")
 
 if (in_array("tot", $data_show))
 {
+  $in_thing  = implode(',', $rrd_multi['in_thing']);
+  $out_thing = implode(',', $rrd_multi['out_thing']);
+  $pluses    = str_repeat(',+', count($rrd_multi['in_thing']) - 1);
   $rrd_options .= " CDEF:inB=" . $in_thing . $pluses;
   $rrd_options .= " CDEF:outB=" . $out_thing . $pluses;
   $rrd_options .= " CDEF:octets=inB,outB,+";
@@ -263,5 +265,8 @@ if (in_array("tot", $data_show) && $_GET['previous'] == "yes")
 
 $rrd_options .= $rrd_optionsb;
 $rrd_options .= " HRULE:0#999999";
+
+// Clean
+unset($rrd_multi, $in_thing, $out_thing, $pluses, $in_thingX, $out_thingX, $plusesX);
 
 // EOF

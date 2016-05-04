@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -43,6 +43,7 @@ if (!$noheader)
 
 if (!isset($multiplier)) { $multiplier = "8"; }
 
+$rrd_multi = array();
 foreach ($rrd_list as $rrd)
 {
   if (!$config['graph_colours'][$colours_in][$iter] || !$config['graph_colours'][$colours_out][$iter]) { $iter = 0; }
@@ -68,11 +69,8 @@ foreach ($rrd_list as $rrd)
   $rrd_options .= " CDEF:outB".$i."_neg=outB".$i.",-1,*";
   $rrd_options .= " CDEF:octets".$i."=inB".$i.",outB".$i.",+";
 
-  $in_thing .= $separator . $in.$i . ",UN,0," . $in.$i . ",IF";
-  $out_thing .= $separator . $out.$i . ",UN,0," . $out.$i . ",IF";
-  $pluses .= $plus;
-  $separator = ",";
-  $plus = ",+";
+  $rrd_multi['in_thing'][]  = $in.$i  . ",UN,0," . $in.$i  . ",IF";
+  $rrd_multi['out_thing'][] = $out.$i . ",UN,0," . $out.$i . ",IF";
 
   $rrd_options .= " VDEF:totin".$i."=inB".$i.",TOTAL";
   $rrd_options .= " VDEF:totout".$i."=outB".$i.",TOTAL";
@@ -111,33 +109,36 @@ foreach ($rrd_list as $rrd)
   $i++; $iter++;
 }
 
-  $rrd_options .= " CDEF:".$in."octets=" . $in_thing . $pluses;
-  $rrd_options .= " CDEF:".$out."octets=" . $out_thing . $pluses;
-  $rrd_options .= " CDEF:doutoctets=outoctets,-1,*";
-  $rrd_options .= " CDEF:inbits=inoctets,8,*";
-  $rrd_options .= " CDEF:outbits=outoctets,8,*";
-  $rrd_options .= " CDEF:doutbits=doutoctets,8,*";
-  $rrd_options .= " VDEF:95thin=inbits,95,PERCENT";
-  $rrd_options .= " VDEF:95thout=outbits,95,PERCENT";
-  $rrd_options .= " VDEF:d95thout=doutbits,5,PERCENT";
-  $rrd_options .= " VDEF:totin=inoctets,TOTAL";
-  $rrd_options .= " VDEF:totout=outoctets,TOTAL";
+$in_thing  = implode(',', $rrd_multi['in_thing']);
+$out_thing = implode(',', $rrd_multi['out_thing']);
+$pluses    = str_repeat(',+', count($rrd_multi['in_thing']) - 1);
+$rrd_options .= " CDEF:".$in."octets=" . $in_thing . $pluses;
+$rrd_options .= " CDEF:".$out."octets=" . $out_thing . $pluses;
+$rrd_options .= " CDEF:doutoctets=outoctets,-1,*";
+$rrd_options .= " CDEF:inbits=inoctets,8,*";
+$rrd_options .= " CDEF:outbits=outoctets,8,*";
+$rrd_options .= " CDEF:doutbits=doutoctets,8,*";
+$rrd_options .= " VDEF:95thin=inbits,95,PERCENT";
+$rrd_options .= " VDEF:95thout=outbits,95,PERCENT";
+$rrd_options .= " VDEF:d95thout=doutbits,5,PERCENT";
+$rrd_options .= " VDEF:totin=inoctets,TOTAL";
+$rrd_options .= " VDEF:totout=outoctets,TOTAL";
 
-  $rrd_options .= " 'COMMENT: \\\\n'";
-  $rrd_options .= " 'COMMENT:Aggregate Totals\\\\n'";
+$rrd_options .= " 'COMMENT: \\\\n'";
+$rrd_options .= " 'COMMENT:Aggregate Totals\\\\n'";
 
-  $rrd_options .= " GPRINT:totin:'%6.2lf%s$total_units'";
-  $rrd_options .= " 'COMMENT:".str_pad("", $descr_len-8)."<'";
-  $rrd_options .= " GPRINT:inbits:LAST:%6.2lf%s$units";
-  $rrd_options .= " GPRINT:inbits:AVERAGE:%6.2lf%s$units";
-  $rrd_options .= " GPRINT:inbits:MAX:%6.2lf%s$units\\\\n";
+$rrd_options .= " GPRINT:totin:'%6.2lf%s$total_units'";
+$rrd_options .= " 'COMMENT:".str_pad("", $descr_len-8)."<'";
+$rrd_options .= " GPRINT:inbits:LAST:%6.2lf%s$units";
+$rrd_options .= " GPRINT:inbits:AVERAGE:%6.2lf%s$units";
+$rrd_options .= " GPRINT:inbits:MAX:%6.2lf%s$units\\\\n";
 #  $rrd_options .= " GPRINT:95thin:%6.2lf%s\\\\n";
 
-  $rrd_options .= " GPRINT:totout:'%6.2lf%s$total_units'";
-  $rrd_options .= " 'COMMENT:".str_pad("", $descr_len-8).">'";
-  $rrd_options .= " GPRINT:outbits:LAST:%6.2lf%s$units";
-  $rrd_options .= " GPRINT:outbits:AVERAGE:%6.2lf%s$units";
-  $rrd_options .= " GPRINT:outbits:MAX:%6.2lf%s$units\\\\n";
+$rrd_options .= " GPRINT:totout:'%6.2lf%s$total_units'";
+$rrd_options .= " 'COMMENT:".str_pad("", $descr_len-8).">'";
+$rrd_options .= " GPRINT:outbits:LAST:%6.2lf%s$units";
+$rrd_options .= " GPRINT:outbits:AVERAGE:%6.2lf%s$units";
+$rrd_options .= " GPRINT:outbits:MAX:%6.2lf%s$units\\\\n";
 
 #  $rrd_options .= " GPRINT:95thout:%6.2lf%s\\\\n";
 
@@ -145,5 +146,8 @@ if ($custom_graph) { $rrd_options .= $custom_graph; }
 
 $rrd_options .= $rrd_optionsb;
 $rrd_options .= " HRULE:0#999999";
+
+// Clean
+unset($rrd_multi, $in_thing, $out_thing, $pluses);
 
 // EOF

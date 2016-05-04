@@ -1,0 +1,3028 @@
+TIMETRA-PTP-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+        MODULE-IDENTITY, OBJECT-TYPE,
+        NOTIFICATION-TYPE, Unsigned32,
+        Counter32, Integer32                  FROM SNMPv2-SMI
+
+        MODULE-COMPLIANCE, OBJECT-GROUP,
+        NOTIFICATION-GROUP                    FROM SNMPv2-CONF
+
+        TEXTUAL-CONVENTION, RowStatus,
+        TimeStamp, TruthValue, RowPointer,
+        DateAndTime                           FROM SNMPv2-TC
+
+        InetAddressType, InetAddress          FROM INET-ADDRESS-MIB
+
+        timetraSRMIBModules, tmnxSRObjs,
+        tmnxSRNotifyPrefix, tmnxSRConfs       FROM TIMETRA-GLOBAL-MIB
+
+        tmnxChassisNotifyChassisId,
+        tmnxChassisNotifyHwIndex,
+        tmnxCpmCardEntry,
+        tmnxCpmCardOscillatorType             FROM TIMETRA-CHASSIS-MIB
+
+        TmnxPortEncapType                     FROM TIMETRA-PORT-MIB
+
+        TmnxAdminState, TmnxOperState,
+        TItemDescription, TmnxPortID,         
+        TmnxEncapVal                          FROM TIMETRA-TC-MIB
+
+        vRtrID, vRtrIfEntry                   FROM TIMETRA-VRTR-MIB
+        ;
+
+timetraPtpMIBModule          MODULE-IDENTITY
+        LAST-UPDATED "201102010000Z"
+        ORGANIZATION "Alcatel-Lucent"
+        CONTACT-INFO
+            "Alcatel-Lucent SROS Support
+             Web: http://support.alcatel-lucent.com"
+        DESCRIPTION
+        "This document is the SNMP MIB module to manage and provision the
+        Precision Time Protocol (PTP) components of the Alcatel-Lucent
+        SROS device as defined in the IEEE Standard for a Precision Clock
+        Synchronization Protocol for Networked Measurement and Control Systems
+        (IEEE Std 1588-2008).
+
+        Copyright (c) 2011-2014 Alcatel-Lucent.  All rights reserved.
+        Reproduction of this document is authorized on the condition that
+        the foregoing copyright notice is included.
+
+        This SNMP MIB module (Specification) embodies Alcatel-Lucent's
+        proprietary intellectual property.  Alcatel-Lucent retains
+        all title and ownership in the Specification, including any
+        revisions.
+
+        Alcatel-Lucent grants all interested parties a non-exclusive
+        license to use and distribute an unmodified copy of this
+        Specification in connection with management of Alcatel-Lucent
+        products, and without fee, provided this copyright notice and
+        license appear on all copies.
+
+        This Specification is supplied 'as is', and Alcatel-Lucent
+        makes no warranty, either express or implied, as to the use,
+        operation, condition, or performance of the Specification."
+
+--
+-- Revision History
+--
+        REVISION                 "201102010000Z"
+        DESCRIPTION              "Rev 1.0                1 Feb 2011 00:00
+                                  Initial release of the TIMETRA-PTP-MIB."
+
+        ::= { timetraSRMIBModules 74 }
+
+tmnxPtp1588Objs             OBJECT IDENTIFIER ::= { tmnxSRObjs              74 }
+tmnxPtp1588NotifyPrefix     OBJECT IDENTIFIER ::= { tmnxSRNotifyPrefix      74 }
+tmnxPtp1588Conformance      OBJECT IDENTIFIER ::= { tmnxSRConfs             74 }
+
+-- Object Groups in the Alcatel-Lucent PTP 1588 MIB Module
+tmnxPtp1588ConfigTimeStamps OBJECT IDENTIFIER ::= { tmnxPtp1588Objs         1 }
+tmnxPtp1588Configurations   OBJECT IDENTIFIER ::= { tmnxPtp1588Objs         2 }
+tmnxPtp1588Status           OBJECT IDENTIFIER ::= { tmnxPtp1588Objs         3 }
+tmnxPtp1588Statistics       OBJECT IDENTIFIER ::= { tmnxPtp1588Objs         5 }
+tmnxPtp1588NotifyObjects    OBJECT IDENTIFIER ::= { tmnxPtp1588Objs        10 }
+
+-- Notification Groups in the Alcatel-Lucent PTP 1588 MIB Module
+tmnxPtp1588Notifications    OBJECT IDENTIFIER ::= { tmnxPtp1588NotifyPrefix 0 }
+
+-- Compliance Groups in the Alcatel-Lucent PTP 1588 MIB Module
+tmnxPtp1588Compliances      OBJECT IDENTIFIER ::= { tmnxPtp1588Conformance  1 }
+tmnxPtp1588Groups           OBJECT IDENTIFIER ::= { tmnxPtp1588Conformance  2 }
+
+--%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+--
+--  TIMETRA-PTP-MIB Textual Conventions
+--
+TmnxPtpClockType                 ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "TmnxPtpClockType specifies the type of clock of the network element:
+             ordinarySlave  (1) - The system is always a slave clock in the
+                                  master-slave hierarchy. The system derives its
+                                  timing from one or more master clocks in the
+                                  network.
+             ordinaryMaster (2) - The system is a grandmaster clock in the
+                                  master-slave hierarchy.  The system provides
+                                  timing to multiple slave clocks in the
+                                  network.
+             boundary       (3) - The system is a boundary clock, which may be
+                                  anywhere in the master-slave clock hierarchy.
+                                  It can obtain timing from a master clock, and
+                                  provide timing to multiple slave clocks."
+    REFERENCE   "IEEE Std 1588-2008 Section 6.5"
+    SYNTAX      INTEGER {
+                    ordinarySlave  (1),
+                    ordinaryMaster (2),
+                    boundary       (3)
+                }
+
+TmnxPtpClockIdentity             ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "TmnxPtpClockIdentity specifies the unique identifier used to identify a
+         network element participating in the Precision Time Protocol (PTP)."
+    REFERENCE   "IEEE Std 1588-2008 Section 7.5.2.2"
+    SYNTAX      OCTET STRING (SIZE (8))
+
+TmnxPtpClockClass                ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "TmnxPtpClockClass specifies the traceability of the time or
+         frequency distributed by the grandmaster clock."
+    REFERENCE   "IEEE Std 1588-2008 Section 7.6.2.4"
+    SYNTAX      Unsigned32 (0..255)
+
+TmnxPtpDomain                    ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "TmnxPtpDomain specifies the Precision Time Protocol (PTP) domain.
+
+         The value 0 specifies the default domain for IEEE1588-2008.
+         The value 4 specifies the default domain for ITU-T G.8265.1
+         specification."
+    REFERENCE   "IEEE Std 1588-2008 Section 7.1 and
+                 ITU-T G.8265.1, draft V0.3, section 6.7.2"
+    SYNTAX      Unsigned32 (0..255)
+
+TmnxPtpPriority                  ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "The Precision Time Protocol (PTP) priority used both for the value to
+         advertise in the Announce messages and for the local clock value in
+         data set comparisons.
+
+         It is used by the Best Master Clock Algorithm to determine which clock
+         should provide timing for the network.
+
+         The priority is rated highest (0) to lowest (255)."
+    REFERENCE   "IEEE Std 1588-2008 Section 7.6.2.2 and 7.6.2.3"
+    SYNTAX      Unsigned32 (0..255)
+
+TmnxPtpProfile                   ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "The Precision Time Protocol (PTP) profile specifies the standard to
+        which PTP conforms.
+             g8265dot1-2010 - conforms to the PTP profile specified in the
+                              ITU-T G.8265.1 specification
+             ieee1588-2008  - conforms to the default PTP profile specified in
+                              the IEEE 1588-2008 standard."
+    REFERENCE   "IEEE Std 1588-2008 and ITU-T draft G.8265.1"
+    SYNTAX      INTEGER {
+                    g8265dot1-2010 (1),
+                    ieee1588-2008  (2)
+                }
+
+TmnxPtpDirection                 ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "TmnxPtpDirection specifies which direction packets are travelling in
+         the system:
+              rx  - Packets are being received by the system.
+              tx  - Packets are being transmitted from the system."
+    SYNTAX      INTEGER {
+                    rx (1),
+                    tx (2)
+                }
+
+TmnxPtpLogInterval               ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "TmnxPtpLogInterval specifies an interval between PTP packets, or
+         equivalently, a packet rate.  It is specified as the logarithm to the
+         base 2 of the interval in seconds.
+
+         For example, -7 specifies a packet rate of 128 packets per second, and
+         +4 specifies a packet rate of 1 packet every 16 seconds."
+    SYNTAX      Integer32 (-7..4)
+
+TmnxPtpClockStepType             ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+       "TmnxPtpClockStepType specifies the clock step:
+            unknown (0) - It is unknown whether the clock is a one-step or
+                          two-step clock.  No announce messages have been
+                          received from the remote clock.
+            oneStep (1) - The Clock provides time information using a single
+                          event message.
+            twoStep (2) - The Clock provides time information using the
+                          combination of an event message and a subsequent
+                          general message."
+    REFERENCE   "IEEE Std 1588-2008 Sections 3.1.21 and 3.1.47"
+    SYNTAX      INTEGER {
+                    unknown (0),
+                    oneStep (1),
+                    twoStep (2)
+                }
+
+TmnxPtpClockAccuracy             ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "TmnxPtpClockAccuracy specifies the mean of the time frequency
+         error between the clock under test and a perfect reference clock, over
+         an ensemble of measurements."
+     REFERENCE  "IEEE Std 1588-2008 Section 7.6.2.5"
+     SYNTAX     Unsigned32 (0..255)
+
+TmnxPtpClockVariance             ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "TmnxPtpClockVariance is a measure of the precision of a clock.  The
+         value 65535 indicates that the variance is either too large to be
+         represented or has not been computed."
+    REFERENCE   "IEEE Std 1588-2008 Section 7.6.3"
+    SYNTAX      Unsigned32 (0..65535)
+
+TmnxPtpPortState                 ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "TmnxPtpPortState indicates the operational state of a PTP port."
+    REFERENCE   "IEEE Std 1588-2008 Section 9.2.5"
+    SYNTAX      INTEGER {
+                    notApplicable (0),
+                    initializing  (1),
+                    faulty        (2),
+                    disabled      (3),
+                    listening     (4),
+                    preMaster     (5),
+                    master        (6),
+                    passive       (7),
+                    uncalibrated  (8),
+                    slave         (9)
+                }
+
+TmnxPtpPortNumber                ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "TmnxPtpPortNumber specifies a number which identifies a logical access
+         point of a clock for PTP communications to the communications network.
+
+         A PTP ordinary clock has exactly one PTP port, with port number 1.
+         A PTP boundary clock has multiple ports, each with unique port
+         numbers."
+    REFERENCE   "IEEE 1588-2008, Section 3.1.35, 7.5.2.3"
+
+    SYNTAX      Unsigned32 (0..65534)
+
+TmnxPtpTimeStampReferencePoint   ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "TmnxPtpTimeStampReferencePoint indicates the reference point where a 
+         PTP event packet is timestamped in the SROS system:
+            unknown (0) - The reference point for the PTP timestamp has not yet
+                          been determined.  
+            port    (1) - The PTP packet's timestamp was taken at the physical
+                          port, between the MAC and the PHY.  This corresponds
+                          to reference point 'A' in IEEE 1588-2008, Figure 14.
+            cpm     (2) - The PTP packet's timestamp was taken in software in 
+                          the operating system kernel on the CPM card.  This
+                          corresponds to reference point 'B' in IEEE 1588-2008,
+                          Figure 14."
+    REFERENCE   "IEEE Std 1588-2008 Section 6.6.5"
+    SYNTAX      INTEGER {
+                    unknown       (0),
+                    port          (1),
+                    cpm           (2)
+                }
+
+
+--%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+--
+--  TIMETRA-PTP-MIB Global Configuration Objects
+--
+tmnxPtpClockConfig         OBJECT IDENTIFIER ::= { tmnxPtp1588Configurations 1 }
+
+tmnxPtpClockAdminState           OBJECT-TYPE
+    SYNTAX      TmnxAdminState
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockAdminState specifies whether PTP 1588 is
+         enabled on the system or not."
+    DEFVAL      { outOfService }
+    ::= { tmnxPtpClockConfig 1 }
+
+tmnxPtpClockClockType            OBJECT-TYPE
+    SYNTAX      TmnxPtpClockType
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockClockType specifies the clock behavior of
+         PTP1588 on the system.
+
+         This object can only be modified if tmnxPtpClockAdminState is
+         set to 'outOfService (3)', otherwise an 'inconsistentValue' error is
+         returned."
+    DEFVAL      { ordinarySlave }
+    ::= { tmnxPtpClockConfig 2 }
+
+tmnxPtpClockProfile              OBJECT-TYPE
+    SYNTAX      TmnxPtpProfile
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockProfile specifies the conformance of the PTP
+         system to either the default IEEE 1588-2008 behavior, or the ITU-T
+         profile.
+
+         Modification of this object indirectly resets the value of
+         tmnxPtpClockDomain to the corresponding default value for the specified
+         profile.
+
+         This object can only be modified if tmnxPtpClockAdminState is
+         set to 'outOfService (3)', otherwise an 'inconsistentValue' error is
+         returned."
+    DEFVAL { g8265dot1-2010 }
+    ::= { tmnxPtpClockConfig 3 }
+
+tmnxPtpClockDomain               OBJECT-TYPE
+    SYNTAX      TmnxPtpDomain
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockDomain specifies the domain in which PTP 1588
+         runs on the system.
+
+         This object can only be modified if tmnxPtpClockAdminState is
+         set to 'outOfService (3)', otherwise an 'inconsistentValue' error is
+         returned."
+    DEFVAL      { 4 }
+    ::= { tmnxPtpClockConfig 4 }
+
+tmnxPtpClockAnnounceInterval     OBJECT-TYPE
+    SYNTAX      TmnxPtpLogInterval (-3..4)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockAnnounceInterval specifies the packet rate
+         requested in REQUEST_UNICAST_TRANSMISSION signaling messages for
+         announce packets.
+
+         This object can only be modified if tmnxPtpClockAdminState is
+         set to 'outOfService (3)', otherwise an 'inconsistentValue' error is
+         returned."
+    REFERENCE   "ITU-T draft G.8265.1 V0.3, Section 6.5"
+    DEFVAL      { 1 }
+    ::= { tmnxPtpClockConfig 5 }
+
+tmnxPtpClockPriority1            OBJECT-TYPE
+    SYNTAX      TmnxPtpPriority
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockPriority1 specifies the value of the
+         defaultDS.priority1 data set member defined in IEEE Std 1588-2008."
+    REFERENCE   "IEEE Std 1588-2008, Sections 7.6.2.2, and 8.2.1.4.1"
+    DEFVAL      { 128 }
+    ::= { tmnxPtpClockConfig 6 }
+
+tmnxPtpClockPriority2            OBJECT-TYPE
+    SYNTAX      TmnxPtpPriority
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockPriority2 specifies the value of the
+         defaultDS.priority2 data set member defined in IEEE Std 1588-2008."
+    REFERENCE   "IEEE Std 1588-2008, Sections 7.6.2.3, and 8.2.1.4.2"
+    DEFVAL      { 128 }
+    ::= { tmnxPtpClockConfig 7 }
+
+tmnxPtpClockWaitToRestore        OBJECT-TYPE
+    SYNTAX      Unsigned32 (0|1..600)
+    UNITS       "seconds"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockWaitToRestore specifies the time to wait after
+         an Announce Receipt Timeout expires before considering further announce
+         messages from a peer for the purposes of selecting a master clock.
+
+         The value zero (0), specifies no wait time.
+
+         This object can only be modified if tmnxPtpClockAdminState is
+         set to 'outOfService (3)', otherwise an 'inconsistentValue' error is
+         returned."
+    REFERENCE   "ITU-T draft G.8265.1 V0.3, Section 6.8.2"
+    DEFVAL      { 0 }
+    ::= { tmnxPtpClockConfig 8 }
+
+tmnxPtpClockNetworkType          OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    sonet   (1),
+                    sdh     (2)
+                }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockNetworkType specifies whether the SROS is
+         configured to use PTP clock classes corresponding to SONET or SDH
+         quality levels."
+    REFERENCE   "ITU-T draft G.8265.1 V0.3, Section 6.7.3.2"
+    DEFVAL      { sdh }
+    ::= { tmnxPtpClockConfig 9 }
+
+--%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+--
+--  TIMETRA-PTP-MIB Global Status/Operational Objects
+--
+tmnxPtpClockOperTable            OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxPtpClockOperEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The tmnxPtpClockOperTable contains the operational information for the
+         individual Precision Timing Protocol (PTP) for each CPM card in the
+         SROS system."
+    ::= { tmnxPtp1588Status   1 }
+
+tmnxPtpClockOperEntry            OBJECT-TYPE
+    SYNTAX      TmnxPtpClockOperEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The tmnxPtpClockOperEntry consists of the operational information for
+         the PTP clock on an individual CPM card."
+    AUGMENTS    { tmnxCpmCardEntry }
+    ::= { tmnxPtpClockOperTable 1 }
+
+TmnxPtpClockOperEntry            ::= SEQUENCE {
+    tmnxPtpClockIdentity             TmnxPtpClockIdentity,
+    tmnxPtpClockOperState            TmnxOperState,
+    tmnxPtpClockStepType             TmnxPtpClockStepType,
+    tmnxPtpClockClass                TmnxPtpClockClass,
+    tmnxPtpClockAccuracy             TmnxPtpClockAccuracy,
+    tmnxPtpClockVariance             TmnxPtpClockVariance,
+    tmnxPtpClockPortState            TmnxPtpPortState,
+    tmnxPtpClockPortStateLastChanged TimeStamp,
+    tmnxPtpClockRecoveryState        INTEGER,
+    tmnxPtpClockRecoveryStateLastChg TimeStamp,
+    tmnxPtpClockFrequencyOffset      Integer32
+}
+
+tmnxPtpClockIdentity             OBJECT-TYPE
+    SYNTAX      TmnxPtpClockIdentity
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockIdentity indicates the identify of the local
+         Clock.  This object corresponds to the value of the
+         defaultDS.clockIdentity data set member defined by IEEE Std 1588-2008.
+
+         The clock identity is derived from tmnxChassisBaseMacAddress."
+    ::= { tmnxPtpClockOperEntry 1 }
+
+tmnxPtpClockOperState            OBJECT-TYPE
+    SYNTAX      TmnxOperState
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockOperState  indicates the operational state of
+         PTP 1588 on the system."
+    ::= { tmnxPtpClockOperEntry 2 }
+
+tmnxPtpClockStepType             OBJECT-TYPE
+    SYNTAX      TmnxPtpClockStepType
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockStepType indicates how the system provides
+         timing information.  SROS systems always have a tmnxPtpClockStepType of
+         'oneStep (1)', and never transmit PTP 'follow up' packets."
+    ::= { tmnxPtpClockOperEntry 3 }
+
+tmnxPtpClockClass                OBJECT-TYPE
+    SYNTAX      TmnxPtpClockClass
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockClass indicates the local clock class. The
+         value of this object corresponds to the defaultDS.clockQuality data
+         set member defined in IEEE Std 1588-2008.
+
+         When tmnxPtpClockClockType is 'ordinarySlave (1)',
+         tmnxPtpClockClass is 'slaveOnly (255)'. Otherwise, when
+         tmnxPtpClockProfile is 'ieee1588-2008 (2)' tmnxPtpClockClass is
+         'default (248)'. When tmnxPtpClockProfile is 'g8265dot1-2010 (1)',
+         tmnxPtpClockClass changes depending on the value of
+         tmnxSyncIfTimingSystemQltyLevel.
+
+         The mapping between ITU-T synchronization quality levels and PTP clock
+         class is given in ITU-T recommendation G.8265.1."
+    REFERENCE   "IEEE Std 1588-2008, Section 8.2.1.3.1.1 and
+                 ITU-T draft G.8265.1 V0.3, Section 6.7.3.2."
+    ::= { tmnxPtpClockOperEntry 4 }
+
+tmnxPtpClockAccuracy             OBJECT-TYPE
+    SYNTAX      TmnxPtpClockAccuracy
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockAccuracy indicates the accuracy of the clock.
+         The value of this object corresponds to the
+         defaultDS.clockQuality.clockAccuracy data set member defined in
+         IEEE Std 1588-2008. For SROS systems, this is always reported as
+         254 (0xFE), meaning 'Unknown'."
+    REFERENCE   "IEEE Std 1588-2008, Section 8.2.1.3.1.2"
+    ::= { tmnxPtpClockOperEntry 5 }
+
+tmnxPtpClockVariance             OBJECT-TYPE
+    SYNTAX      TmnxPtpClockVariance
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockVariance indicates the inherent precision of
+         the local clock. The value of this object corresponds to the
+         defaultDS.clockQuality.clockVariance data set member defined in
+         IEEE Std 1588-2008."
+    ::= { tmnxPtpClockOperEntry 6 }
+
+tmnxPtpClockPortState            OBJECT-TYPE
+    SYNTAX      TmnxPtpPortState
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockPortState indicates the current state of the
+         single PTP port when tmnxPtpClockClockType is either
+         'ordinarySlave (1)' or 'ordinaryMaster (2)'.  Otherwise,
+         tmnxPtpClockPortState is 'notApplicable (0)'.
+
+         The value of this object corresponds to the
+         portDS.portState data set member defined in IEEE Std 1588-2008."
+    REFERENCE   "IEEE Std 1588-2008 Section 9.2.5"
+    ::= { tmnxPtpClockOperEntry 7 }
+
+tmnxPtpClockPortStateLastChanged OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockPortStateLastChanged indicates the time, since
+         system startup, when the tmnxPtpClockPortState last changed state."
+    ::= { tmnxPtpClockOperEntry 8 }
+
+tmnxPtpClockRecoveryState        OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    notApplicable (0),
+                    initial       (1),
+                    acquiring     (2),
+                    phaseTracking (3),
+                    holdover      (4),
+                    locked        (5)
+                }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockRecoveryState indicates the state of the clock
+         recovery process on a PTP system.  The various states are:
+            notApplicable (0) - The system is not attempting to recover a clock
+            initial       (1) - The system is configured to recover a clock,
+                                but not enough information has yet been received
+                                to adjust the local clock to match a master
+                                clock
+            acquiring     (2) - The system has enough information to attempt
+                                clock recovery, and has started the process of
+                                adjusting its local clock frequency to match the
+                                master clock
+            phaseTracking (3) - The system has adjusted its local clock to the
+                                approximate frequency of the master clock, and
+                                is adjusting the local clock to minimize the
+                                phase difference between the two clocks
+            locked        (4) - The system is locked to the chosen master clock
+                                and the phase error between the master clock and
+                                the local clock is relatively small
+            holdover      (5) - The system has stopped receiving useful
+                                information from the chosen master clock, and is
+                                maintaining the last estimated frequency for its
+                                local clock"
+    ::= { tmnxPtpClockOperEntry 9 }
+
+tmnxPtpClockRecoveryStateLastChg OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockRecoveryStateLastChg indicates the time, since
+         system startup, when tmnxPtpClockRecoveryState last changed state."
+    ::= { tmnxPtpClockOperEntry 10 }
+
+tmnxPtpClockFrequencyOffset      OBJECT-TYPE
+    SYNTAX      Integer32
+    UNITS       "parts per trillion"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockFrequencyOffset indicates the frequency offset
+         of the recovered clock, from the nominal clock rate, in parts per
+         trillion.  Positive values indicate that the recovered clock is faster
+         than nominal, and negative values indicate that the recovered clock is
+         slower than nominal."
+    REFERENCE   "IEEE Std 1588-2008 Section 3.1.12"
+    ::= { tmnxPtpClockOperEntry 11 }
+
+--%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+--
+--  TIMETRA-PTP-MIB Global Master Clock Configuration Objects
+--
+
+--%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+--
+--  TIMETRA-PTP-MIB Global Master Clock Status/Operational Objects
+--
+tmnxPtpMasterClockOper     OBJECT IDENTIFIER ::= { tmnxPtp1588Status   2 }
+
+tmnxPtpMasterClockAddressType    OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpMasterClockAddressType indicates, along with
+         the value of tmnxPtpMasterClockAddress, the IP address of the
+         Parent Clock.
+
+         tmnxPtpMasterClockAddressType must be set to 'ipv4 (1)'"
+    ::= { tmnxPtpMasterClockOper 1 }
+
+tmnxPtpMasterClockAddress        OBJECT-TYPE
+    SYNTAX      InetAddress (SIZE (0|4))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpMasterClockAddress indicates, along with
+         the value of tmnxPtpMasterClockAddressType, the IP address of the
+         Parent Clock.
+
+         If tmnxPtpMasterClockAddressType and tmnxPtpMasterClockAddress
+         specify an IPv4 address of 0.0.0.0, this indicates that the
+         local clock is currently the parent/master clock."
+    ::= { tmnxPtpMasterClockOper 2 }
+
+tmnxPtpMasterClockGMClockId      OBJECT-TYPE
+    SYNTAX      TmnxPtpClockIdentity
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpMasterClockGMClockId indicates the Grand Master
+         Clock Identity for the Master Clock.
+
+         This corresponds to the parentDS.grandmasterIdentity data set member
+         defined in IEEE Std 1588-2008."
+    REFERENCE   "IEEE 1588-2008, Section 8.2.3.6"
+    ::= { tmnxPtpMasterClockOper 3 }
+
+tmnxPtpMasterClockGMClockPrio1   OBJECT-TYPE
+    SYNTAX      TmnxPtpPriority
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpMasterClockGMClockPrio1 indicates the priority1 set
+         by the Grandmaster clock. The value of this object corresponds to the
+         parentDS.grandmasterPriority1 data set member defined in
+         IEEE Std 1588-2008."
+    REFERENCE   "IEEE 1588-2008, Section 8.2.3.8"
+    ::= { tmnxPtpMasterClockOper 4 }
+
+tmnxPtpMasterClockGMClockPrio2   OBJECT-TYPE
+    SYNTAX      TmnxPtpPriority
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpMasterClockGMClockPrio2 indicates the priority2 set
+         by the Grandmaster clock. The value of this object corresponds to the
+         parentDS.grandmasterPriority2 data set member defined in
+         IEEE Std 1588-2008."
+    REFERENCE   "IEEE 1588-2008, Section 8.2.3.9"
+    ::= { tmnxPtpMasterClockOper 5 }
+
+tmnxPtpMasterClockGMClockClass   OBJECT-TYPE
+    SYNTAX      TmnxPtpClockClass
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpMasterClockGMClockClass indicates the grand master
+         clock class. The value of this object corresponds to the
+         parentDS.grandMasterClockQuality.clockClass data set member defined in
+         IEEE Std 1588-2008."
+    REFERENCE   "IEEE 1588-2008, Section 8.2.3.7"
+    ::= { tmnxPtpMasterClockOper 6 }
+
+tmnxPtpMasterClockGMAccuracy     OBJECT-TYPE
+    SYNTAX      TmnxPtpClockAccuracy
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpMasterClockGMAccuracy indicates the accuracy of the
+         Grand Master clock. The value of this object corresponds to the
+         parentDS.grandMasterClockQuality.clockAccuracy data set member defined
+         in IEEE Std 1588-2008."
+    REFERENCE   "IEEE 1588-2008, Section 8.2.3.7"
+    ::= { tmnxPtpMasterClockOper 7 }
+
+tmnxPtpMasterClockGMVariance     OBJECT-TYPE
+    SYNTAX      TmnxPtpClockVariance
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpMasterClockGMVariance indicates the variance
+         of the Grand Master clock time. The value of this object corresponds to
+         the parentDS.grandMasterClockQuality.offsetScaledLogVariance data set
+         member defined in IEEE Std 1588-2008."
+    REFERENCE   "IEEE 1588-2008, Section 8.2.3.7"
+    ::= { tmnxPtpMasterClockOper 8 }
+
+tmnxPtpMasterClockParentClockId  OBJECT-TYPE
+    SYNTAX      TmnxPtpClockIdentity
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpMasterClockParentClockId indicates the
+         clock identity of the Master Clock's Parent. The value of this object
+         corresponds to the parentDS.parentPortIdentity.clockIdentity data set
+         member defined in IEEE Std 1588-2008."
+    REFERENCE   "IEEE 1588-2008, Section 8.2.3.2"
+    ::= { tmnxPtpMasterClockOper 9 }
+
+tmnxPtpMasterClockParentPortNum  OBJECT-TYPE
+    SYNTAX      TmnxPtpPortNumber
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpMasterClockParentPortNum indicates the identifying
+         port number used by the remote peer when communicating with the local
+         clock.  The value of this object corresponds to the
+         parentDS.parentPortIdentity.portNumber data set member defined in
+         IEEE Std 1588-2008."
+    REFERENCE   "IEEE Std 1588-2008 Section 8.2.3.2"
+    ::= { tmnxPtpMasterClockOper 10 }
+
+--%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+--
+--  TIMETRA-PTP-MIB Per Peer Clock Configuration Objects
+--
+tmnxPtpPeerConfigTblLastChanged  OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerConfigTblLastChanged indicates the time, since
+         system startup, when the tmnxPtpPeerConfigTable last changed state."
+    ::= { tmnxPtp1588ConfigTimeStamps 1 }
+
+tmnxPtpPeerConfigTable           OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxPtpPeerConfigEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The tmnxPtpPeerConfigTable consists of peer configuration information."
+    ::= { tmnxPtp1588Configurations 3 }
+
+tmnxPtpPeerConfigEntry           OBJECT-TYPE
+    SYNTAX      TmnxPtpPeerConfigEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The tmnxPtpPeerConfigEntry contains information pertaining to an
+         individual PTP 1588 peer.
+
+         Individual PTP peers are identified by the IP address of the peer PTP 
+         clock.
+
+         If tmnxPtpClockClockType is 'ordinarySlave (1)', entries may be
+         created and deleted via SNMP set operations using tmnxPtpPeerRowStatus.
+         The tmnxPtpPeerRemoteMaster attribute will be created with a value of
+         'true', and the tmnxPtpPeerRemoteSlave attribute will be created with
+         a value of 'false'.  Neither or these attributes may be subsequently 
+         changed.  These entries correspond to PTP grandmaster or boundary 
+         clocks providing timing information to the local clock.
+
+         In order to delete an entry, tmnxPtpPeerAdminState must first be
+         set to 'outOfService (3)'.
+
+         If tmnxPtpClockClockType is 'ordinaryMaster (2)', entries are
+         automatically created upon receipt of PTP signaling packets requesting 
+         unicast transmission of PTP packets.  Entries cannot be created or 
+         deleted via SNMP set operations.  These entries correspond to PTP slave 
+         boundary clocks receiving timing information from the local clock.  
+         These entries are created by the system with tmnxPtpPeerRemoteMaster 
+         set to 'false' and tmnxPtpPeerRemoteSlave set to 'true'.
+
+         If tmnxPtpClockClockType is 'boundary (3)', entries corresponding to
+         grandmaster or boundary PTP clocks providing timing to the local clock
+         may be created and deleted via SNMP set operations, in the same manner 
+         as when tmnxPtpClockClockType is 'ordinarySlave (1)'.  
+         As well, entries corresponding to slave or boundary PTP clocks 
+         receiving timing from the local clock may be automatically created by 
+         the system, in the same manner as when tmnxPtpClockClockType is
+         'ordinaryMaster (2)'.
+
+         For an individual entry, the value of tmnxPtpPeerRemoteMaster along 
+         with tmnxPtpPeerRemoteSlave indicates the direction of flow of timing 
+         information between the local PTP clock and the peer PTP clock.  
+         There are three cases:
+
+         1)  If tmnxPtpPeerRemoteMaster is 'true', and tmnxPtpPeerRemoteSlave
+             is 'false', the peer PTP clock is providing timing to the local
+             PTP clock.  
+
+             In this case, PTP Announce, Sync, and Delay Reponse packets are 
+             sent from the peer PTP clock to the local PTP clock, and PTP Delay 
+             Request packets are sent from the local PTP clock to the peer PTP
+             clock.
+
+             This type of PTP peer may exist when tmnxPtpClockClockType is
+             either 'ordinarySlave (1)' or boundary (3)'.
+
+         2)  If tmnxPtpPeerRemoteMaster is 'false', and tmnxPtpPeerRemoteSlave
+             is 'true', the local PTP clock is providing timing to the peer
+             PTP clock.  
+
+             In this case, PTP Announce, Sync, and Delay Reponse packets are 
+             sent from the local PTP clock to the peer PTP clock, and PTP Delay 
+             Request packets are sent from the peer PTP clock to the local PTP
+             clock.
+
+             This type of PTP peer may exist when tmnxPtpClockClockType is
+             either 'ordinaryMaster (2)' or boundary (3)'.
+
+         3)  If tmnxPtpPeerRemoteMaster and tmnxPtpPeerRemoteSlave are both
+             set to 'true', the local clock and remote PTP clock have a peer
+             relationship.  
+
+             Timing information may flow in either direction, depending on the 
+             decision of the PTP Best Master Clock Algorithm running on each
+             PTP clock.
+
+             This type of PTP peer may only exist when tmnxPtpClockClockType is
+             'boundary (3)'.
+
+          When tmnxPtpClockClockType is 'boundary (3)', a peer entry may be
+          changed from one that is only receiving timing from the local clock,
+          to one that may either receive or provide timing, by setting
+          tmnxPtpPeerRemoteMaster to 'true'."
+
+    INDEX {     vRtrID,
+                tmnxPtpPeerIpAddrType,
+                tmnxPtpPeerIpAddress
+          }
+    ::= { tmnxPtpPeerConfigTable 1 }
+
+TmnxPtpPeerConfigEntry           ::= SEQUENCE {
+    tmnxPtpPeerIpAddrType            InetAddressType,
+    tmnxPtpPeerIpAddress             InetAddress,
+    tmnxPtpPeerRowStatus             RowStatus,
+    tmnxPtpPeerLastChanged           TimeStamp,
+    tmnxPtpPeerAdminState            TmnxAdminState,
+    tmnxPtpPeerPortState             TmnxPtpPortState,
+    tmnxPtpPeerLocalPriority         TmnxPtpPriority,
+    tmnxPtpPeerRemoteMaster          TruthValue,
+    tmnxPtpPeerRemoteSlave           TruthValue,
+    tmnxPtpPeerClockId               TmnxPtpClockIdentity,
+    tmnxPtpPeerLocalPortNumber       TmnxPtpPortNumber,
+    tmnxPtpPeerRemotePortNumber      TmnxPtpPortNumber,
+    tmnxPtpPeerTxTimeStampPoint      TmnxPtpTimeStampReferencePoint,
+    tmnxPtpPeerLastTxPortId          TmnxPortID,
+    tmnxPtpPeerLastTxPortEncapType   TmnxPortEncapType,
+    tmnxPtpPeerLastTxPortEncapValue  TmnxEncapVal,
+    tmnxPtpPeerRxTimeStampPoint      TmnxPtpTimeStampReferencePoint,
+    tmnxPtpPeerLastRxPortId          TmnxPortID,
+    tmnxPtpPeerLastRxPortEncapType   TmnxPortEncapType,
+    tmnxPtpPeerLastRxPortEncapValue  TmnxEncapVal
+}
+
+tmnxPtpPeerIpAddrType            OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerIpAddrType specifies the type of address of the
+         PTP 1588 peer. This object represents the first index in the table."
+    ::= { tmnxPtpPeerConfigEntry 1 }
+
+tmnxPtpPeerIpAddress             OBJECT-TYPE
+    SYNTAX      InetAddress (SIZE (0|4))
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerIpAddress specifies the address of the PTP 1588
+         peer. This object represents the second index in the table."
+    ::= { tmnxPtpPeerConfigEntry 2 }
+
+tmnxPtpPeerRowStatus             OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerRowStatus specifies the row status of the
+         PTP 1588 peer.  
+
+         This object controls the creation and deletion of peer PTP grandmaster 
+         and boundary clocks that may provide timing to the local PTP clock.
+         These PTP peers may only be created when tmnxPtpClockClockType is set 
+         to 'ordinarySlave (1)' or 'boundary (3)'.  For these peers, 
+         tmnxPtpPeerRemoteMaster will be set to 'true'.
+
+         Before deleting one of these PTP peers, tmnxPtpPeerAdminState must be 
+         set to 'outOfService (3)'.
+
+         Peers that correspond to slave or boundary PTP clocks that may receive
+         timing information from the local clock can not be created or deleted
+         by the use of this object.  Instead, they are dynamically created by 
+         the system through the operation of the Precision Time Protocol."
+    ::= { tmnxPtpPeerConfigEntry 3 }
+
+tmnxPtpPeerLastChanged           OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerLastChanged indicates the time, since system
+         startup, that the PTP 1588 peer was created or modified."
+    ::= { tmnxPtpPeerConfigEntry 4 }
+
+tmnxPtpPeerAdminState            OBJECT-TYPE
+    SYNTAX      TmnxAdminState
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerAdminState specifies the administrative state
+         of the PTP 1588 peer, that is, whether or not the peer will be used by
+         the Precision Time Protocol (PTP)."
+    DEFVAL      { inService }
+    ::= { tmnxPtpPeerConfigEntry 5 }
+
+tmnxPtpPeerPortState             OBJECT-TYPE
+    SYNTAX      TmnxPtpPortState
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPortState indicates the current state of the
+         PTP port used when communicating with the remote peer.
+
+         If tmnxPtpClockClockType is either 'ordinarySlave (1)' or
+         'ordinaryMaster (2)', the value of tmnxPtpPeerPortState is the same as
+         tmnxPtpClockPortState.
+
+         The value of this object corresponds to the
+         portDS.portState data set member defined in IEEE Std 1588-2008."
+    REFERENCE   "IEEE Std 1588-2008 Section 8.2.5.3.1"
+    ::= { tmnxPtpPeerConfigEntry 6 }
+
+tmnxPtpPeerLocalPriority         OBJECT-TYPE
+    SYNTAX      TmnxPtpPriority
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerLocalPriority specifies the local priority used
+         to choose between PTP masters in the Best Master Clock Algorithm
+         (BMCA). This object is only relevant when tmnxPtpClockProfile is set to
+         'g8265dot1-2010 (1)'. The parameter is ignored otherwise."
+    REFERENCE   "ITU-T draft G.8265.1 V0.3, Section 6.7.2"
+    DEFVAL      { 128 }
+    ::= { tmnxPtpPeerConfigEntry 7 }
+
+tmnxPtpPeerRemoteMaster          OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerRemoteMaster indicates whether or not the peer
+         is configured as a remote grandmaster or boundary clock that may
+         provide timing information to the local clock.
+
+         If tmnxPtpClockClockType is 'ordinarySlave (1)', all entries in this
+         table will have tmnxPtpPeerRemoteMaster set to 'true', and it
+         cannot be changed.
+
+         If tmnxPtpClockClockType is 'ordinaryMaster (2)', all entries in this
+         table will have tmnxPtpPeerRemoteMaster set to 'false', and it
+         cannot be changed.
+  
+         If tmnxPtpClockClockType is 'boundary (3)', there may be entries in
+         this table with tmnxPtpPeerRemoteMaster set to 'false', indicating
+         that the local clock is only providing timing information to the 
+         remote PTP peer.  This peer may be changed to one that may either 
+         receive or provide timing, by setting tmnxPtpPeerRemoteMaster to 
+         'true'.
+
+         When the value of this object is 'true', a corresponding row in the 
+         tmnxPtpPeerMasterStatusTable will exist for this peer."
+    ::= { tmnxPtpPeerConfigEntry 8 }
+
+tmnxPtpPeerRemoteSlave           OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerRemoteSlave specifies whether or not the peer
+         is acting as a remote slave or boundary clock that may be receiving
+         timing information from the local clock.  Remote slave clocks are 
+         learned by the local clock upon reception of PTP signaling packets, 
+         and cannot be configured via SNMP set operations.
+
+         If tmnxPtpPeerRemoteSlave is 'true', it indicates that the local PTP
+         clock may provide timing information to the PTP peer.
+
+         If tmnxPtpClockClockType is 'ordinarySlave (1)', all entries in this
+         table will have tmnxPtpPeerRemoteSlave set to 'false'.
+
+         If tmnxPtpClockClockType is 'ordinaryMaster (2)', all entries in this
+         table will have tmnxPtpPeerRemoteSlave set to 'true'."
+         
+    ::= { tmnxPtpPeerConfigEntry 9 }
+
+tmnxPtpPeerClockId               OBJECT-TYPE
+    SYNTAX      TmnxPtpClockIdentity
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerClockId indicates the clock identity of the
+         peer."
+    ::= { tmnxPtpPeerConfigEntry 10 }
+
+tmnxPtpPeerLocalPortNumber       OBJECT-TYPE
+    SYNTAX      TmnxPtpPortNumber
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerLocalPortNumber indicates the PTP port number
+         assigned by the local clock and used when communicating with the
+         remote clock.
+
+         If tmnxPtpClockClockType is either 'ordinarySlave (1)' or
+         'ordinaryMaster (2)', tmnxPtpPeerLocalPortNumber has a value of 1.
+
+         The value of this object corresponds to the
+         portDS.portIdentity.portNumber data set member defined in IEEE Std
+         1588-2008."
+    REFERENCE   "IEEE Std 1588-2008 Section 7.5.2"
+    ::= { tmnxPtpPeerConfigEntry 11 }
+
+tmnxPtpPeerRemotePortNumber      OBJECT-TYPE
+    SYNTAX      TmnxPtpPortNumber
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerRemotePortNumber indicates the PTP port number
+         used by the remote peer when communicating with the local clock."
+    REFERENCE   "IEEE Std 1588-2008 Section 7.5.2.3"
+    ::= { tmnxPtpPeerConfigEntry 12 }
+
+tmnxPtpPeerTxTimeStampPoint      OBJECT-TYPE
+    SYNTAX      TmnxPtpTimeStampReferencePoint
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerTxTimeStampPoint indicates the reference point
+         used to generate the PTP timestamp for the last transmitted PTP event
+         packet.  If no event packets have been transmitted, the value is
+         'unknown(0)'.  If PTP event packets are transmitted out an interface
+         with tmnxPtpVRtrIfAdminState set to 'inService(2)', the value is
+         'port(1)'.  If PTP event packets are transmitted out an interface with
+         tmnxPtpVRtrIfAdminState set to 'outOfService(3)', the value is 
+         'cpm(2)'."
+    ::= { tmnxPtpPeerConfigEntry 13 }
+
+tmnxPtpPeerLastTxPortId          OBJECT-TYPE
+    SYNTAX      TmnxPortID
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerLastTxPortId along with 
+         tmnxPtpPeerLastTxPortEncapType and tmnxPtpPeerLastTxPortEncapValue 
+         indicates the last port used to transmit PTP packets to the PTP peer.
+         If no packets have been transmitted, tmnxPtpPeerLastTxPortId contains 
+         the 'invalid portid' value of 0x1e000000."
+    ::= { tmnxPtpPeerConfigEntry 14 }
+
+tmnxPtpPeerLastTxPortEncapType   OBJECT-TYPE
+    SYNTAX      TmnxPortEncapType
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerLastTxPortEncapType along with 
+         tmnxPtpPeerLastTxPortId and tmnxPtpPeerLastTxPortEncapValue indicates 
+         the last port used to transmit PTP packets to the PTP peer."
+    ::= { tmnxPtpPeerConfigEntry 15 }
+
+tmnxPtpPeerLastTxPortEncapValue  OBJECT-TYPE
+    SYNTAX      TmnxEncapVal
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerLastTxPortEncapValue along with 
+         tmnxPtpPeerLastTxPortId and tmnxPtpPeerLastTxPortEncapType indicates 
+         the last port used to transmit PTP packets to the PTP peer."
+    ::= { tmnxPtpPeerConfigEntry 16 }
+
+tmnxPtpPeerRxTimeStampPoint      OBJECT-TYPE
+    SYNTAX      TmnxPtpTimeStampReferencePoint
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerRxTimeStampPoint indicates the reference point
+         used to generate the PTP timestamp for the last received PTP event
+         packet.  If no event packets have been received, the value is
+         'unknown(0)'.  If PTP event packets are received on an interface
+         with tmnxPtpVRtrIfAdminState set to 'inService(2)', and the destination
+         IP address of the received packet is either the local IPv4 address
+         of the interface or the PTP system IPv4 address, the value is
+         'port(1)'.  Otherwise, the value is 'cpm(2)'."
+    ::= { tmnxPtpPeerConfigEntry 17 }
+
+tmnxPtpPeerLastRxPortId          OBJECT-TYPE
+    SYNTAX      TmnxPortID
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerLastRxPortId along with 
+         tmnxPtpPeerLastRxPortEncapType and tmnxPtpPeerLastRxPortEncapValue 
+         indicates the last port used to receive PTP packets from the PTP peer.
+         If no packets have been received, tmnxPtpPeerLastRxPortId contains the
+         'invalid portid' value of 0x1e000000."
+    ::= { tmnxPtpPeerConfigEntry 18 }
+
+tmnxPtpPeerLastRxPortEncapType   OBJECT-TYPE
+    SYNTAX      TmnxPortEncapType
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerLastRxPortEncapType along with 
+         tmnxPtpPeerLastRxPortId and tmnxPtpPeerLastRxPortEncapValue indicates 
+         the last port used to receive PTP packets from the PTP peer."
+    ::= { tmnxPtpPeerConfigEntry 19 }
+
+tmnxPtpPeerLastRxPortEncapValue  OBJECT-TYPE
+    SYNTAX      TmnxEncapVal
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerLastRxPortEncapValue along with 
+         tmnxPtpPeerLastRxPortId and tmnxPtpPeerLastRxPortEncapType indicates 
+         the last port used to receive PTP packets from the PTP peer."
+    ::= { tmnxPtpPeerConfigEntry 20 }
+
+--%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+--
+--  TIMETRA-PTP-MIB Per Peer Master Clock Configuration/Operational Objects
+--
+tmnxPtpPeerMasterStatusTable     OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxPtpPeerMasterStatusEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The tmnxPtpPeerMasterStatusTable consists of Precision Time Protocol
+         Master Peer state information. This table extends the
+         tmnxPtpPeerConfigTable for peers configured as grandmaster or boundary 
+         PTP clocks that may provide timing information to the local clock."
+    ::= { tmnxPtp1588Status   3 }
+
+tmnxPtpPeerMasterStatusEntry     OBJECT-TYPE
+    SYNTAX      TmnxPtpPeerMasterStatusEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The tmnxPtpPeerMasterStatusEntry contains the information pertaining
+         to Precision Time Protocol peers configured as master clocks.
+
+         Rows in this table are created and destroyed by the system based on
+         the configuration in the associated tmnxPtpPeerConfigEntry.  All
+         peers in this table have tmnxPtpPeerRemoteMaster set to 'true'."
+    INDEX {     vRtrID,
+                tmnxPtpPeerIpAddrType,
+                tmnxPtpPeerIpAddress
+          }
+    ::= { tmnxPtpPeerMasterStatusTable 1 }
+
+TmnxPtpPeerMasterStatusEntry     ::= SEQUENCE {
+    tmnxPtpPeerMasterCurrentMaster   TruthValue,
+    tmnxPtpPeerMasterClockStepType   TmnxPtpClockStepType,
+    tmnxPtpPeerMasterClockStepsRemvd Unsigned32,
+    tmnxPtpPeerMasterGMClockId       TmnxPtpClockIdentity,
+    tmnxPtpPeerMasterGMClockPrio1    TmnxPtpPriority,
+    tmnxPtpPeerMasterGMClockPrio2    TmnxPtpPriority,
+    tmnxPtpPeerMasterGMClockClass    TmnxPtpClockClass,
+    tmnxPtpPeerMasterGMClockAccuracy TmnxPtpClockAccuracy,
+    tmnxPtpPeerMasterGMClockVariance TmnxPtpClockVariance,
+    tmnxPtpPeerMasterWaitUntilRestr  Unsigned32,
+    tmnxPtpPeerMasterAlarm           BITS
+}
+
+tmnxPtpPeerMasterCurrentMaster   OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerMasterCurrentMaster indicates whether or not
+         this PTP Peer has been chosen by the PTP Best Master Clock Algorithm
+         as the current parent clock."
+    ::= { tmnxPtpPeerMasterStatusEntry 1 }
+
+tmnxPtpPeerMasterClockStepType   OBJECT-TYPE
+    SYNTAX      TmnxPtpClockStepType
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerMasterClockStepType indicates the step type
+         of the PTP peer."
+    ::= { tmnxPtpPeerMasterStatusEntry 2 }
+
+tmnxPtpPeerMasterClockStepsRemvd OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerMasterClockStepsRemvd indicates the number of
+         steps the master is removed from the grandmaster clock.  This value is
+         taken from the last announce packet received from the peer clock."
+    REFERENCE   "IEEE Std 1588-2008 Section 13.5.2.7"
+    ::= { tmnxPtpPeerMasterStatusEntry 3 }
+
+tmnxPtpPeerMasterGMClockId       OBJECT-TYPE
+    SYNTAX      TmnxPtpClockIdentity
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerMasterGMClockId indicates the identity of the
+         grandmaster PTP clock. This value is taken from the last Announce
+         packet received from the peer clock."
+    ::= { tmnxPtpPeerMasterStatusEntry 4 }
+
+tmnxPtpPeerMasterGMClockPrio1    OBJECT-TYPE
+    SYNTAX      TmnxPtpPriority
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerMasterGMClockPrio1 indicates the 'priority1'
+         value of the grandmaster clock.  This value is taken from the last
+         announce packet received from the peer clock."
+    ::= { tmnxPtpPeerMasterStatusEntry 5 }
+
+tmnxPtpPeerMasterGMClockPrio2    OBJECT-TYPE
+    SYNTAX      TmnxPtpPriority
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerMasterGMClockPrio2 indicates the 'priority2'
+         value of the grandmaster clock.  This value is taken from the last
+         announce packet received from the peer clock."
+    ::= { tmnxPtpPeerMasterStatusEntry 6 }
+
+tmnxPtpPeerMasterGMClockClass    OBJECT-TYPE
+    SYNTAX      TmnxPtpClockClass
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerMasterGMClockClass indicates the clock class of
+         the grandmaster clock. This value is taken from the last announce
+         packet received from the peer clock."
+    ::= { tmnxPtpPeerMasterStatusEntry 7 }
+
+tmnxPtpPeerMasterGMClockAccuracy OBJECT-TYPE
+    SYNTAX      TmnxPtpClockAccuracy
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerMasterGMClockAccuracy indicates the clock
+         accuracy of the grandmaster clock. This value is taken from the last
+         announce packet received from the peer clock."
+    ::= { tmnxPtpPeerMasterStatusEntry 8 }
+
+tmnxPtpPeerMasterGMClockVariance OBJECT-TYPE
+    SYNTAX      TmnxPtpClockVariance
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerMasterGMClockVariance indicates the clock
+         variance of the grandmaster clock. This value is taken from the last
+         announce packet received from the peer clock."
+    ::= { tmnxPtpPeerMasterStatusEntry 9 }
+
+tmnxPtpPeerMasterWaitUntilRestr  OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerMasterWaitUntilRestr indicates the remaining
+         time until PTP 1588 can consider an Announce message from a peer for
+         the purposes of Best Master Clock Algorithm (BMCA)."
+    ::= { tmnxPtpPeerMasterStatusEntry 10 }
+
+tmnxPtpPeerMasterAlarm           OBJECT-TYPE
+    SYNTAX      BITS {
+                    ptsfLossAnnounce (0),
+                    ptsfLossSync     (1)
+                }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerMasterAlarm indicates the alarm status of the
+         PTP peer clock:
+
+            ptsfLossAnnounce(0)
+                The peer is in the 'Packet Timing Signal Fail (Loss Announce)'
+                state, indicating that it is not receiving PTP announce messages
+                from the remote master.
+
+                The ptsfLossAnnounce bit is set if no PTP announce messages are
+                received for a duration equal to ANNOUNCE_RECEIPT_TIMEOUT
+                seconds, as described in G.8251.1, section 6.7.3.3.
+
+                The ptsfLossAnnounce bit is cleared if a PTP announce message is
+                received from the remote master.
+
+            ptsfLossSync(1)
+                The peer is in the 'Packet Timing Signal Fail (Loss Sync)'
+                state, indicating that it is not receiving PTP timing messages
+                from the remote master.
+
+                The ptsfLossSync bit is set if no PTP timing messages are
+                received from the remote master for a specific duration.  The
+                duration to enter the ptsfLossSync state is the same as the
+                duration for the ptsfLossAnnounce state.
+
+                The ptsfLossSync bit is cleared when PTP timing messages are
+                received from the remote master.
+
+         These bits will only be set when tmnxPtpClockClockType is 
+         'ordinarySlave (1)'.  They do not apply when tmnxPtpClockClockType is
+         'ordinaryMaster (2)' or 'boundary (3)'."
+    REFERENCE
+        "ITU-T G.8265.1, section 6.7.3.3."
+    ::= { tmnxPtpPeerMasterStatusEntry 11 }
+
+
+--%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+--
+--  TIMETRA-PTP-MIB Peer Unicast Status Table
+--
+tmnxPtpPeerUnicastTable         OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxPtpPeerUnicastEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The tmnxPtpPeerUnicastTable consists of the status of unicast
+         messaging service between the local PTP clock and all other PTP
+         clocks."
+    ::= { tmnxPtp1588Status 4 }
+
+tmnxPtpPeerUnicastEntry          OBJECT-TYPE
+    SYNTAX      TmnxPtpPeerUnicastEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The tmnxPtpPeerUnicastEntry contains the status of unicast messaging
+         service between PTP clocks for the specified packet type in the
+         direction specified.
+
+         Rows in this table are created and destroyed by the system based on
+         the existence of rows in the tmnxPtpPeerConfigTable, and based on the
+         transfer of unicast negotiation signaling TLVs between the PTP clocks."
+    REFERENCE   "IEEE Std 1588-2008 Section 16.1."
+    INDEX {     vRtrID,
+                tmnxPtpPeerIpAddrType,
+                tmnxPtpPeerIpAddress,
+                tmnxPtpPeerUnicastDirection,
+                tmnxPtpPeerUnicastPktType
+          }
+    ::= { tmnxPtpPeerUnicastTable 1 }
+
+TmnxPtpPeerUnicastEntry          ::= SEQUENCE {
+    tmnxPtpPeerUnicastDirection      TmnxPtpDirection,
+    tmnxPtpPeerUnicastPktType        INTEGER,
+    tmnxPtpPeerUnicastStatus         INTEGER,
+    tmnxPtpPeerUnicastRate           TmnxPtpLogInterval,
+    tmnxPtpPeerUnicastDuration       Unsigned32,
+    tmnxPtpPeerUnicastEventTime      TimeStamp
+}
+
+tmnxPtpPeerUnicastDirection      OBJECT-TYPE
+    SYNTAX      TmnxPtpDirection
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerUnicastDirection specifies the direction
+         of packet flow for tmnxPtpPeerUnicastPktType packets (announce,
+         sync, or delay response).   Ordinary slave clocks will only have
+         entries in tmnxPtpPeerUnicastTable with a tmnxPtpPeerUnicastDirection
+         of 'rx (1)'.  Ordinary master clocks will only have entries with a
+         tmnxPtpPeerUnicastDirection of 'tx (2)'.  Boundary clocks may have
+         entries in both directions."
+    ::= { tmnxPtpPeerUnicastEntry 1 }
+
+tmnxPtpPeerUnicastPktType        OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    announce      (1),
+                    sync          (2),
+                    delayResponse (3)
+                }
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerUnicastPktType specifies the packet type
+         described by the values in this table entry."
+    ::= { tmnxPtpPeerUnicastEntry 2 }
+
+tmnxPtpPeerUnicastStatus         OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    pending  (1),
+                    granted  (2),
+                    denied   (3),
+                    expired  (4),
+                    canceled (5)
+                }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerUnicastStatus indicates:
+            pending  (1) - a request for unicast transmission has been sent to
+                           the master, but no reply has been received.
+            granted  (2) - the packet rate and duration has been accepted by
+                           the master clock
+            denied   (3) - the packet rate and/or duration has been denied by
+                           the master clock
+            expired  (4) - the unicast transmission duration has expired
+                           without being renewed
+            canceled (5) - unicast transmission has been canceled by either
+                           the local or remote clock"
+    ::= { tmnxPtpPeerUnicastEntry 3 }
+
+tmnxPtpPeerUnicastRate           OBJECT-TYPE
+    SYNTAX      TmnxPtpLogInterval
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerUnicastRate indicates the packet rate
+         requested or granted for unicast transmission between the PTP peers."
+    ::= { tmnxPtpPeerUnicastEntry 4 }
+
+tmnxPtpPeerUnicastDuration       OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerUnicastDuration indicates the duration, in
+         seconds, requested or granted for unicast transmission between the PTP
+         peers."
+    ::= { tmnxPtpPeerUnicastEntry 5 }
+
+tmnxPtpPeerUnicastEventTime      OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerUnicastEventTime indicates the time, since
+         system startup, that tmnxPtpPeerUnicastStatus last changed or the
+         unicast session between the PTP clocks was renewed."
+    ::= { tmnxPtpPeerUnicastEntry 6 }
+
+--%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+--
+--  TIMETRA-PTP-MIB Time Information Objects
+--
+tmnxPtpTimeInformation     OBJECT IDENTIFIER ::= { tmnxPtp1588Status   5 }
+
+tmnxPtpTimeInfoTimescale         OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    ptp       (1),
+                    arbitrary (2)
+                }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpTimeInfoTimescale indicates the time scale
+         of the time reported by PTP."
+    REFERENCE
+        "IEEE 1588-2008, sections 7.2 and 8.2.4.8."
+    ::= { tmnxPtpTimeInformation 1 }
+
+tmnxPtpTimeInfoCurrentTime       OBJECT-TYPE
+    SYNTAX      DateAndTime (SIZE (8))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpTimeInfoCurrentTime contains the date and time.
+         If tmnxPtpTimeInfoTimescale is 'ptp (1)', the time is converted to 
+         UTC time, based on the current offset between UTC and PTP time."
+    REFERENCE
+        "IEEE 1588-2008, sections 7.2 and 8.2.4.8."
+    ::= { tmnxPtpTimeInformation 2 }
+
+tmnxPtpTimeInfoFreqTraceable     OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpTimeInfoFreqTraceable indicates whether the
+         frequency of time is traceable to a primary reference.  This
+         corresponds to the 'frequencyTraceable' member of the 'time properties'
+         data set."
+    REFERENCE
+        "IEEE 1588-2008, section 8.2.4.7."
+    ::= { tmnxPtpTimeInformation 3 }
+
+tmnxPtpTimeInfoTimeTraceable     OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpTimeInfoTimeTraceable indicates whether the
+         time is traceable to a primary reference.  This corresponds to the 
+         'timeTraceable' member of the 'time properties' data set."
+    REFERENCE
+        "IEEE 1588-2008, section 8.2.4.6."
+    ::= { tmnxPtpTimeInformation 4 }
+
+tmnxPtpTimeInfoTimeSource        OBJECT-TYPE
+    SYNTAX     INTEGER {
+                   atomicClock        (16),
+                   gps                (32),
+                   terrestrialRadio   (48),
+                   ptp                (64),
+                   ntp                (80),
+                   handSet            (96),
+                   other              (144),
+                   internalOscillator (160),
+                   reserved           (255)
+               }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpTimeInfoTimeSource indicates the source of time
+         used by the grandmaster clock.  This correponds to the 'timeSource'
+         member of the 'time properties' data set."
+    REFERENCE
+        "IEEE 1588-2008, sections 7.6.2.6 and 8.2.4.9."
+    ::= { tmnxPtpTimeInformation 5 }
+
+--%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+--
+--  TIMETRA-PTP-MIB Statistics Objects
+--
+tmnxPtpClockPacketStatsTable     OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxPtpClockPacketStatsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The tmnxPtpClockPacketStatsTable consists of the packet statistics
+         associated with the Precision Time Protocol (PTP)."
+    ::= { tmnxPtp1588Statistics 1 }
+
+tmnxPtpClockPacketStatsEntry     OBJECT-TYPE
+    SYNTAX      TmnxPtpClockPacketStatsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The tmnxPtpClockPacketStatsEntry contain the directional packet
+         statistics for the Precision Time Protocol (PTP).
+
+         Rows are created and destroyed by the system."
+    INDEX { tmnxPtpClkPktStatsDirection }
+    ::= { tmnxPtpClockPacketStatsTable 1 }
+
+TmnxPtpClockPacketStatsEntry     ::= SEQUENCE {
+    tmnxPtpClkPktStatsDirection      TmnxPtpDirection,
+    tmnxPtpClkPktStatsAnnounce       Counter32,
+    tmnxPtpClkPktStatsSync           Counter32,
+    tmnxPtpClkPktStatsFollowUp       Counter32,
+    tmnxPtpClkPktStatsDelayRequest   Counter32,
+    tmnxPtpClkPktStatsDelayResp      Counter32,
+    tmnxPtpClkPktStatsSignaling      Counter32,
+    tmnxPtpClkPktStatsOther          Counter32,
+    tmnxPtpClkPktStatsUniReqAnno     Counter32,
+    tmnxPtpClkPktStatsUniReqSync     Counter32,
+    tmnxPtpClkPktStatsUniReqDelayRsp Counter32,
+    tmnxPtpClkPktStatsUniGrantAnno   Counter32,
+    tmnxPtpClkPktStatsUniGrantSync   Counter32,
+    tmnxPtpClkPktStatsUniGrantDelRsp Counter32,
+    tmnxPtpClkPktStatsUniDenyAnno    Counter32,
+    tmnxPtpClkPktStatsUniDenySync    Counter32,
+    tmnxPtpClkPktStatsUniDenyDelRsp  Counter32,
+    tmnxPtpClkPktStatsUniCancelAnno  Counter32,
+    tmnxPtpClkPktStatsUniCancelSync  Counter32,
+    tmnxPtpClkPktStatsUniCancelDelay Counter32,
+    tmnxPtpClkPktStatsUniAckCnclAnno Counter32,
+    tmnxPtpClkPktStatsUniAckCnclSync Counter32,
+    tmnxPtpClkPktStatsUniAckCnclDly  Counter32,
+    tmnxPtpClkPktStatsOtherTLVs      Counter32,
+    tmnxPtpClkPktStatsDropBadDomain  Counter32,
+    tmnxPtpClkPktStatsDropAltMaster  Counter32,
+    tmnxPtpClkPktStatsDropOther      Counter32,
+    tmnxPtpClkPktStatsTimeStampPort  Counter32,
+    tmnxPtpClkPktStatsTimeStampCpm   Counter32
+}
+
+tmnxPtpClkPktStatsDirection      OBJECT-TYPE
+    SYNTAX      TmnxPtpDirection
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsDirection specifies which direction the
+         packet statistics for the particular row are accumulated."
+    ::= { tmnxPtpClockPacketStatsEntry 1 }
+
+tmnxPtpClkPktStatsAnnounce       OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsAnnounce indicates the accumulated
+         packet statistics for PTP Announce messages."
+    ::= { tmnxPtpClockPacketStatsEntry 2 }
+
+tmnxPtpClkPktStatsSync           OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsSync indicates the accumulated packet
+         statistics for PTP Sync messages."
+    ::= { tmnxPtpClockPacketStatsEntry 3 }
+
+tmnxPtpClkPktStatsFollowUp       OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsFollowUp indicates the accumulated
+         packet statistics for PTP Follow Up messages."
+    ::= { tmnxPtpClockPacketStatsEntry 4 }
+
+tmnxPtpClkPktStatsDelayRequest   OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsDelayRequest indicates the accumulated
+         packet statistics for PTP Delay Request messages."
+    ::= { tmnxPtpClockPacketStatsEntry 5 }
+
+tmnxPtpClkPktStatsDelayResp      OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsDelayResp indicates the accumulated
+         packet statistics for PTP Delay Response messages."
+    ::= { tmnxPtpClockPacketStatsEntry 6 }
+
+tmnxPtpClkPktStatsSignaling      OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsSignaling indicates the accumulated
+         packet statistics for PTP signaling messages."
+    ::= { tmnxPtpClockPacketStatsEntry 7 }
+
+tmnxPtpClkPktStatsOther          OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsOther indicates the accumulated packet
+         statistics for all other PTP messages.
+
+         This object is accumulated in the 'rx' direction only."
+    ::= { tmnxPtpClockPacketStatsEntry 8 }
+
+tmnxPtpClkPktStatsUniReqAnno     OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsUniReqAnno indicates the accumulated
+         packet statistics for Unicast Request Announce TLVs."
+    ::= { tmnxPtpClockPacketStatsEntry 9 }
+
+tmnxPtpClkPktStatsUniReqSync     OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsUniReqSync indicates the accumulated
+         packet statistics for Unicast Request Sync TLVs."
+    ::= { tmnxPtpClockPacketStatsEntry 10 }
+
+tmnxPtpClkPktStatsUniReqDelayRsp OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsUniReqDelayRsp indicates the accumulated
+         packet statistics for Unicast Request Delay Response TLVs."
+    ::= { tmnxPtpClockPacketStatsEntry 11 }
+
+tmnxPtpClkPktStatsUniGrantAnno   OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsUniGrantAnno indicates the accumulated
+         packet statistics for Unicast Grant Announce TLVs, where the request
+         was granted.  The request was granted if the duration indicated in the
+         TLV was non-zero."
+    ::= { tmnxPtpClockPacketStatsEntry 12 }
+
+tmnxPtpClkPktStatsUniGrantSync   OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsUniGrantSync indicates the accumulated
+         packet statistics for Unicast Grant Sync TLVs, where the request was
+         granted.  The request was granted if the duration indicated in the TLV
+         was non-zero."
+    ::= { tmnxPtpClockPacketStatsEntry 13 }
+
+tmnxPtpClkPktStatsUniGrantDelRsp OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsUniGrantDelRsp indicates the accumulated
+         packet statistics for Unicast Grant Delay Response TLVs, where the
+         request was granted.  The request was granted if the duration indicated
+         in the TLV was non-zero."
+    ::= { tmnxPtpClockPacketStatsEntry 14 }
+
+tmnxPtpClkPktStatsUniDenyAnno    OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsUniDenyAnno indicates the accumulated
+         packet statistics for Unicast Grant Announce TLVs, where the request
+         was denied.  The request was denied if the duration indicated in the
+         TLV was zero."
+    ::= { tmnxPtpClockPacketStatsEntry 15 }
+
+tmnxPtpClkPktStatsUniDenySync    OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsUniDenySync indicates the accumulated
+         packet statistics for Unicast Grant Sync TLVs, where the request was
+         denied.  The request was denied if the duration indicated in the TLV
+         was zero."
+    ::= { tmnxPtpClockPacketStatsEntry 16 }
+
+tmnxPtpClkPktStatsUniDenyDelRsp  OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsUniDenyDelRsp indicates the accumulated
+         packet statistics for Unicast Grant Delay Response TLVs, where the
+         request was denied.  The request was denied if the duration indicated
+         in the TLV was zero."
+    ::= { tmnxPtpClockPacketStatsEntry 17 }
+
+tmnxPtpClkPktStatsUniCancelAnno  OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsUniCancelAnno indicates the accumulated
+         packet statistics for Unicast Cancel Announce TLVs."
+    ::= { tmnxPtpClockPacketStatsEntry 18 }
+
+tmnxPtpClkPktStatsUniCancelSync  OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsUniCancelSync indicates the accumulated
+         packet statistics for Unicast Cancel Sync TLVs."
+    ::= { tmnxPtpClockPacketStatsEntry 19 }
+
+tmnxPtpClkPktStatsUniCancelDelay OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsUniCancelDelay indicates the accumulated
+         packet statistics for Unicast Cancel Delay TLVs."
+    ::= { tmnxPtpClockPacketStatsEntry 20 }
+
+tmnxPtpClkPktStatsUniAckCnclAnno OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsUniAckCnclAnno indicates the accumulated
+         packet statistics for Unicast Acknowledge Cancel Announce TLVs."
+    ::= { tmnxPtpClockPacketStatsEntry 21 }
+
+tmnxPtpClkPktStatsUniAckCnclSync OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsUniAckCnclSync indicates the accumulated
+         packet statistics for Unicast Acknowledge Cancel Sync TLVs."
+    ::= { tmnxPtpClockPacketStatsEntry 22 }
+
+tmnxPtpClkPktStatsUniAckCnclDly  OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsUniAckCnclDly indicates the accumulated
+         packet statistics for Unicast Acknowledge Cancel Delay Response TLVs."
+    ::= { tmnxPtpClockPacketStatsEntry 23 }
+
+tmnxPtpClkPktStatsOtherTLVs      OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsOtherTLVs indicates the accumulated
+         packet statistics for other PTP TLV signaling messages.
+
+         This object is accumulated for the 'rx' direction only."
+    ::= { tmnxPtpClockPacketStatsEntry 24 }
+
+tmnxPtpClkPktStatsDropBadDomain  OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsDropBadDomain indicates the accumulated
+         packet statistics for PTP packets dropped because the PTP domain
+         indicated in the packet does not match the configured PTP domain.
+
+         This object is accumulated for the 'rx' direction only."
+    ::= { tmnxPtpClockPacketStatsEntry 25 }
+
+tmnxPtpClkPktStatsDropAltMaster  OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsDropAltMaster indicates the accumulated
+         packet statistics for PTP packets dropped because the PTP header
+         has the 'alternateMasterFlag' set.
+
+         This object is accumulated for the 'rx' direction only."
+    ::= { tmnxPtpClockPacketStatsEntry 26 }
+
+tmnxPtpClkPktStatsDropOther      OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsDropOther indicates the accumulated
+         packet statistics for PTP packets dropped and not counted in the
+         'tmnxPtpClkPktStatsDropBadDomain' and 'tmnxPtpClkPktStatsDropAltMaster'
+         objects.
+
+         This object is accumulated for the 'rx' direction only."
+    ::= { tmnxPtpClockPacketStatsEntry 27 }
+
+tmnxPtpClkPktStatsTimeStampPort  OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsTimeStampPort indicates the accumulated
+         packet statistics for PTP event packets where the timestamp point is 
+         at the physical layer."
+    REFERENCE
+        "IEEE 1588-2008, Figure 14, timestamp point 'A'."
+    ::= { tmnxPtpClockPacketStatsEntry 28 }
+
+tmnxPtpClkPktStatsTimeStampCpm   OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClkPktStatsTimeStampCpm indicates the accumulated
+         packet statistics for PTP event packets where the timestamp point is 
+         at the operating system kernel."
+    REFERENCE
+        "IEEE 1588-2008, Figure 14, timestamp point 'B'."
+    ::= { tmnxPtpClockPacketStatsEntry 29 }
+
+--%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+--
+--  TIMETRA-PTP-MIB Clock Peer Packet Statistics Objects
+--
+tmnxPtpPeerPacketStatsTable      OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxPtpPeerPacketStatsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The tmnxPtpPeerPacketStatsTable consists of the per peer packet
+         statistics associated with the Precision Time Protocol (PTP)."
+    ::= { tmnxPtp1588Statistics 2 }
+
+tmnxPtpPeerPacketStatsEntry      OBJECT-TYPE
+    SYNTAX      TmnxPtpPeerPacketStatsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The tmnxPtpPeerPacketStatsEntry contain the directional packet
+         statistics for the Precision Time Protocol (PTP).
+
+         Rows are created and destroyed by the system."
+    INDEX {
+            vRtrID,
+            tmnxPtpPeerIpAddrType,
+            tmnxPtpPeerIpAddress,
+            tmnxPtpPeerPktStatDirection
+          }
+    ::= { tmnxPtpPeerPacketStatsTable 1 }
+
+TmnxPtpPeerPacketStatsEntry      ::= SEQUENCE {
+    tmnxPtpPeerPktStatDirection      TmnxPtpDirection,
+    tmnxPtpPeerPktStatAnnounce       Counter32,
+    tmnxPtpPeerPktStatSync           Counter32,
+    tmnxPtpPeerPktStatFollowUp       Counter32,
+    tmnxPtpPeerPktStatDelayRequest   Counter32,
+    tmnxPtpPeerPktStatDelayResp      Counter32,
+    tmnxPtpPeerPktStatSignaling      Counter32,
+    tmnxPtpPeerPktStatOther          Counter32,
+    tmnxPtpPeerPktStatUniReqAnno     Counter32,
+    tmnxPtpPeerPktStatUniReqSync     Counter32,
+    tmnxPtpPeerPktStatUniReqDelayRsp Counter32,
+    tmnxPtpPeerPktStatUniGrantAnno   Counter32,
+    tmnxPtpPeerPktStatUniGrantSync   Counter32,
+    tmnxPtpPeerPktStatUniGrantDelRsp Counter32,
+    tmnxPtpPeerPktStatUniDenyAnno    Counter32,
+    tmnxPtpPeerPktStatUniDenySync    Counter32,
+    tmnxPtpPeerPktStatUniDenyDelRsp  Counter32,
+    tmnxPtpPeerPktStatUniCancelAnno  Counter32,
+    tmnxPtpPeerPktStatUniCancelSync  Counter32,
+    tmnxPtpPeerPktStatUniCancelDelay Counter32,
+    tmnxPtpPeerPktStatUniAckCnclAnno Counter32,
+    tmnxPtpPeerPktStatUniAckCnclSync Counter32,
+    tmnxPtpPeerPktStatUniAckCnclDly  Counter32,
+    tmnxPtpPeerPktStatOtherTLVs      Counter32,
+    tmnxPtpPeerPktStatDropBadDomain  Counter32,
+    tmnxPtpPeerPktStatDropAltMaster  Counter32,
+    tmnxPtpPeerPktStatDropOther      Counter32,
+    tmnxPtpPeerPktStatTimeStampPort  Counter32,
+    tmnxPtpPeerPktStatTimeStampCpm   Counter32
+}
+
+tmnxPtpPeerPktStatDirection      OBJECT-TYPE
+    SYNTAX      TmnxPtpDirection
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatDirection specifies which direction the
+         packet statistics for the particular row are accumulated."
+    ::= { tmnxPtpPeerPacketStatsEntry 1 }
+
+tmnxPtpPeerPktStatAnnounce       OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatAnnounce indicates the accumulated
+         packet statistics for PTP Announce messages."
+    ::= { tmnxPtpPeerPacketStatsEntry 2 }
+
+tmnxPtpPeerPktStatSync           OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatSync indicates the accumulated packet
+         statistics for PTP Sync messages."
+    ::= { tmnxPtpPeerPacketStatsEntry 3 }
+
+tmnxPtpPeerPktStatFollowUp       OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatFollowUp indicates the accumulated
+         packet statistics for PTP Follow Up messages."
+    ::= { tmnxPtpPeerPacketStatsEntry 4 }
+
+
+tmnxPtpPeerPktStatDelayRequest   OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatDelayRequest indicates the accumulated
+         packet statistics for PTP Delay Request messages."
+    ::= { tmnxPtpPeerPacketStatsEntry 5 }
+
+tmnxPtpPeerPktStatDelayResp      OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatDelayResp indicates the accumulated
+         packet statistics for PTP Delay Response messages."
+    ::= { tmnxPtpPeerPacketStatsEntry 6 }
+
+tmnxPtpPeerPktStatSignaling      OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatSignaling indicates the accumulated
+         packet statistics for PTP signaling messages."
+    ::= { tmnxPtpPeerPacketStatsEntry 7 }
+
+tmnxPtpPeerPktStatOther          OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatOther indicates the accumulated packet
+         statistics for all other PTP messages.
+
+         This object is accumulated in the 'rx' direction only."
+    ::= { tmnxPtpPeerPacketStatsEntry 8 }
+
+tmnxPtpPeerPktStatUniReqAnno     OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatUniReqAnno indicates the accumulated
+         packet statistics for Unicast Request Announce TLVs."
+    ::= { tmnxPtpPeerPacketStatsEntry 9 }
+
+tmnxPtpPeerPktStatUniReqSync     OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatUniReqSync indicates the accumulated
+         packet statistics for Unicast Request Sync TLVs."
+    ::= { tmnxPtpPeerPacketStatsEntry 10 }
+
+tmnxPtpPeerPktStatUniReqDelayRsp OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatUniReqDelayRsp indicates the accumulated
+         packet statistics for Unicast Request Delay Response TLVs."
+    ::= { tmnxPtpPeerPacketStatsEntry 11 }
+
+tmnxPtpPeerPktStatUniGrantAnno   OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatUniGrantAnno indicates the accumulated
+         packet statistics for Unicast Grant Announce TLVs, where the request
+         was granted.   The request was granted if the duration indicated in the
+         TLV was non-zero."
+    ::= { tmnxPtpPeerPacketStatsEntry 12 }
+
+tmnxPtpPeerPktStatUniGrantSync   OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatUniGrantSync indicates the accumulated
+         packet statistics for Unicast Grant Sync TLVs, where the request was
+         granted.  The request was granted if the duration indicated in the TLV
+         was non-zero."
+    ::= { tmnxPtpPeerPacketStatsEntry 13 }
+
+tmnxPtpPeerPktStatUniGrantDelRsp OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatUniGrantDelRsp indicates the accumulated
+         packet statistics for Unicast Grant Delay Response TLVs, where the
+         request was granted.  The request was granted if the duration indicated
+         in the TLV was non-zero."
+    ::= { tmnxPtpPeerPacketStatsEntry 14 }
+
+tmnxPtpPeerPktStatUniDenyAnno    OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatUniDenyAnno indicates the accumulated
+         packet statistics for Unicast Grant Announce TLVs, where the request
+         was denied.  The requets was denied if the duration indicated in the
+         TLV was zero."
+    ::= { tmnxPtpPeerPacketStatsEntry 15 }
+
+tmnxPtpPeerPktStatUniDenySync    OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatUniDenySync indicates the accumulated
+         packet statistics for Unicast Grant Sync TLVs, where the request was
+         denied.  The request was denied if the duration indicated in the TLV
+         was zero."
+    ::= { tmnxPtpPeerPacketStatsEntry 16 }
+
+tmnxPtpPeerPktStatUniDenyDelRsp  OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatUniDenyDelRsp indicates the accumulated
+         packet statistics for Unicast Grant Delay Response TLVs, where the
+         request was denied.  The request was denied if the duration indicated
+         in the TLV was zero."
+    ::= { tmnxPtpPeerPacketStatsEntry 17 }
+
+tmnxPtpPeerPktStatUniCancelAnno  OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatUniCancelAnno indicates the accumulated
+         packet statistics for Unicast Cancel Announce TLVs."
+    ::= { tmnxPtpPeerPacketStatsEntry 18 }
+
+tmnxPtpPeerPktStatUniCancelSync  OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatUniCancelSync indicates the accumulated
+         packet statistics for Unicast Cancel Sync TLVs."
+    ::= { tmnxPtpPeerPacketStatsEntry 19 }
+
+tmnxPtpPeerPktStatUniCancelDelay OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatUniCancelDelay indicates the accumulated
+         packet statistics for Unicast Cancel Delay TLVs."
+    ::= { tmnxPtpPeerPacketStatsEntry 20 }
+
+tmnxPtpPeerPktStatUniAckCnclAnno OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatUniAckCnclAnno indicates the accumulated
+         packet statistics for Unicast Acknowledge Cancel Announce TLVs."
+    ::= { tmnxPtpPeerPacketStatsEntry 21 }
+
+tmnxPtpPeerPktStatUniAckCnclSync OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatUniAckCnclSync indicates the accumulated
+         packet statistics for Unicast Acknowledge Cancel Sync TLVs."
+    ::= { tmnxPtpPeerPacketStatsEntry 22 }
+
+tmnxPtpPeerPktStatUniAckCnclDly  OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatUniAckCnclDly indicates the accumulated
+         packet statistics for Unicast Acknowledge Cancel Delay Response TLVs."
+    ::= { tmnxPtpPeerPacketStatsEntry 23 }
+
+tmnxPtpPeerPktStatOtherTLVs      OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatOtherTLVs indicates the accumulated
+         packet statistics for other PTP TLV signaling messages.
+
+         This object is accumulated for the 'rx' direction only."
+    ::= { tmnxPtpPeerPacketStatsEntry 24 }
+
+tmnxPtpPeerPktStatDropBadDomain  OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatDropBadDomain indicates the accumulated
+         packet statistics for PTP packets dropped because the PTP domain
+         indicated in the packet does not match the configured PTP domain.
+
+         This object is accumulated for the 'rx' direction only."
+    ::= { tmnxPtpPeerPacketStatsEntry 25 }
+
+tmnxPtpPeerPktStatDropAltMaster  OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatDropAltMaster indicates the accumulated
+         packet statistics for PTP packets dropped because the PTP header
+         has the 'alternateMasterFlag' set.
+
+         This object is accumulated for the 'rx' direction only."
+    ::= { tmnxPtpPeerPacketStatsEntry 26 }
+
+tmnxPtpPeerPktStatDropOther      OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatDropOther indicates the accumulated
+         packet statistics for PTP packets dropped and not counted in the
+         'tmnxPtpPeerPktStatDropBadDomain' and
+         'tmnxPtpPeerPktStatDropAltMaster' objects.
+
+         This object is accumulated for the 'rx' direction only."
+    ::= { tmnxPtpPeerPacketStatsEntry 27 }
+
+tmnxPtpPeerPktStatTimeStampPort  OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatTimeStampPort indicates the accumulated
+         packet statistics for PTP event packets where the timestamp point is 
+         at the physical layer."
+    REFERENCE
+        "IEEE 1588-2008, Figure 14, timestamp point 'A'."
+    ::= { tmnxPtpPeerPacketStatsEntry 28 }
+
+tmnxPtpPeerPktStatTimeStampCpm   OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpPeerPktStatTimeStampCpm indicates the accumulated
+         packet statistics for PTP event packets where the timestamp point is 
+         at the operating system kernel."
+    REFERENCE
+        "IEEE 1588-2008, Figure 14, timestamp point 'B'."
+    ::= { tmnxPtpPeerPacketStatsEntry 29 }
+
+--%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+--
+--  TIMETRA-PTP-MIB Clock Recovery Statistics Objects
+--
+tmnxPtpClockRecoveryStatistics OBJECT IDENTIFIER ::= { tmnxPtp1588Statistics 3 }
+
+tmnxPtpClockRecStatsInitial      OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockRecStatsInitial indicates the number of
+         seconds that the clock recovery system has been in the initial state."
+    ::= { tmnxPtpClockRecoveryStatistics 1 }
+
+tmnxPtpClockRecStatsAcquiring    OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockRecStatsAcquiring indicate the number of
+         seconds that the clock recovery system has been in the acquiring
+         state."
+    ::= { tmnxPtpClockRecoveryStatistics 2 }
+
+tmnxPtpClockRecStatsPhaseTrack   OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockRecStatsPhaseTrack indicate the number of
+         seconds that the clock recovery system has been in the phase tracking
+         state."
+    ::= { tmnxPtpClockRecoveryStatistics 3 }
+
+tmnxPtpClockRecStatsLocked       OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockRecStatsLocked indicate the number of seconds
+         that the clock recovery system has been in the locked state."
+    ::= { tmnxPtpClockRecoveryStatistics 4 }
+
+tmnxPtpClockRecStatsHoldover     OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockRecStatsHoldover indicate the number of
+         seconds that the clock recovery system has been in the hold-over
+         state."
+    ::= { tmnxPtpClockRecoveryStatistics 5 }
+
+tmnxPtpClockRecStatsSyncPktLoss  OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockRecStatsSyncPktLoss indicates the number of 
+         times that the clock recovery process detected packet loss in the sync
+         packet flow from the best master clock."
+    ::= { tmnxPtpClockRecoveryStatistics 6 }
+
+tmnxPtpClockRecStatsSyncHiPktLss OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockRecStatsSyncHiPktLss indicates the number of
+         times that the clock recovery process detected a large amount of packet
+         loss in the sync flow from the remote master clock.
+         When this event occurs, the clock recovery process restarts."
+    ::= { tmnxPtpClockRecoveryStatistics 7 }
+
+tmnxPtpClockRecStatsSyncStep     OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockRecStatsSyncStep indicates the number of
+         times that the clock recovery process detected a large change in the
+         amount of time taken for sync packets to be sent from the best master
+         clock.
+         This normally occurs if the route taken by packets from the best master
+         changes."
+    ::= { tmnxPtpClockRecoveryStatistics 8 }
+
+tmnxPtpClockRecStatsSyncHighPDV  OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockRecStatsSyncHighPDV indicates the number of
+         times that the clock recovery process has determined that a sample of
+         sync packets from the best master clock had too much packet delay 
+         variation to be useful in recovering the clock from the best master.
+         When this event occurs, the entire sample of packets is not used in the
+         clock recovery process."
+    ::= { tmnxPtpClockRecoveryStatistics 9 }
+
+
+tmnxPtpClockRecStatsDlyPktLoss   OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockRecStatsDlyPktLoss indicates the number of 
+         times that the clock recovery process detected packet loss in the delay
+         request/response packet flow from the best master clock."
+    ::= { tmnxPtpClockRecoveryStatistics 10 }
+
+tmnxPtpClockRecStatsDlyHiPktLss  OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockRecStatsDlyHiPktLss indicates the number of
+         times that the clock recovery process detected a large amount of packet
+         loss in the delay request/response flow from the remote master clock.
+         When this event occurs, the clock recovery process restarts."
+    ::= { tmnxPtpClockRecoveryStatistics 11 }
+
+tmnxPtpClockRecStatsDlyStep      OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockRecStatsDlyStep indicates the number of
+         times that the clock recovery process detected a large change in the
+         amount of time taken for delay request packets to be sent to the best 
+         master clock.
+         This normally occurs if the route taken by packets to the best master 
+         changes."
+    ::= { tmnxPtpClockRecoveryStatistics 12 }
+
+tmnxPtpClockRecStatsDlyHighPDV  OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpClockRecStatsDlyHighPDV indicates the number of
+         times that the clock recovery process has determined that a sample of
+         delay request packets to the best master clock had too much packet 
+         delay variation to be useful in recovering the clock from the best 
+         master.
+         When this event occurs, the entire sample of packets is not used in the
+         clock recovery process."
+    ::= { tmnxPtpClockRecoveryStatistics 13 }
+
+--%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+--
+--  TIMETRA-PTP-MIB Interface Configuration Objects
+--
+
+tmnxPtpVRtrIfTableLastChanged    OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpVRtrIfTableLastChanged indicates the time, since
+         system startup, when the tmnxPtpVRtrIfTable last changed state."
+    ::= { tmnxPtp1588ConfigTimeStamps 2 }
+
+tmnxPtpVRtrIfTable               OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TmnxPtpVRtrIfEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The tmnxPtpVRtrIfTable table contains PTP configuration pertaining
+         to IP interfaces."
+    ::= { tmnxPtp1588Configurations 4 }
+
+tmnxPtpVRtrIfEntry               OBJECT-TYPE
+    SYNTAX      TmnxPtpVRtrIfEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each row entry represents the PTP configuration corresponding to
+         an interface configured in a virtual router.  Entries are created
+         and deleted when entries in the vRtrIfTable are created and deleted."
+    AUGMENTS { vRtrIfEntry }
+    ::= { tmnxPtpVRtrIfTable 1 }
+
+TmnxPtpVRtrIfEntry ::=
+    SEQUENCE {
+        tmnxPtpVRtrIfAdminState      TmnxAdminState
+    }
+
+tmnxPtpVRtrIfAdminState          OBJECT-TYPE
+    SYNTAX      TmnxAdminState
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpVRtrIfAdminState specifies the administrative
+         state of the PTP hardware assist configuration of the interface.
+
+         If the value is 'inService(2)', the timestamp point for PTP event 
+         packets is configured to be the physical layer.  This corresponds to 
+         timestamp point 'A' in IEEE 1588-2008, Figure 14.
+
+         If the value is 'outOfService(3)', the timestamp point for PTP event 
+         packets is configured to be the operating system kernel.  This 
+         corresponds to timestamp point 'B' in IEEE 1588-2008, Figure 14.
+
+         The value may only be configured to 'inService(2)' if all of the
+         following are true:
+         1. An IPv4 address is configured against the interface.
+         2. An Ethernet physical port (or VLAN tag on an Ethernet physical port)
+            has been associated with the interface.
+         3. The Ethernet port associated with the interface must not be
+            configured for WAN mode.  In other words, the tmnxPortEtherXGigMode
+            attribute for the port must be either 'notApplicable' or 'lan'.
+         4. The MDA associated with the interface has synchronous Ethernet 
+            enabled.  In other words, the tmnxMDASynchronousEthernet attribute
+            for the MDA must be 'enabled'.
+         5. The port associated with the interface is on an IOM that supports 
+            the hardware assist configuration.
+         6. The port associated with the interface supports the hardware assist
+            configuration.
+         7. The firmware currently in use by the active CPM support the hardware
+            assist configuration.
+         8. The firmware currently in use by the IOM card supports the 
+            hardware assist configuration.  After an upgrade from an older
+            release, the IOM may continue using older firmware.  A hard reset
+            of the IOM is then needed to bring the IOM firmware up to date.
+         9. The firmware currently in use by the MDA supports the hardware 
+            assist configuration.  After an upgrade from an older release, the
+            MDA may continue using older firmware.  A hard reset of the MDA or
+            IOM is then needed to bring the MDA firmware up to date.
+
+         If the physical port bound to the interface is removed,
+         tmnxPtpVRtrIfAdminState is set to 'outOfService(3)'.
+
+         If the IPv4 address assigned to the interface is removed,
+         tmnxPtpVRtrIfAdminState is set to 'outOfService(3)'."
+    REFERENCE
+        "IEEE 1588-2008, section 6.5.5."
+    ::= { tmnxPtpVRtrIfEntry 1 }
+
+--%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+--
+--  TIMETRA-PTP-MIB Notification Objects
+--
+
+tmnxPtpMasterClockLastIpAddrType OBJECT-TYPE
+     SYNTAX      InetAddressType
+     MAX-ACCESS  accessible-for-notify
+     STATUS      current
+     DESCRIPTION
+         "The value of tmnxPtpMasterClockLastIpAddrType indicates the IP Address
+          type of the last used IP Address reported in the
+          tmnxPtpMasterClockChangedEvent. The value 'unknown (0)' indicates that
+          there was no previous IP Address used by PTP for the Master Clock."
+     ::= { tmnxPtp1588NotifyObjects 1 }
+
+tmnxPtpMasterClockLastIpAddress  OBJECT-TYPE
+     SYNTAX      InetAddress (SIZE (0|4))
+     MAX-ACCESS  accessible-for-notify
+     STATUS      current
+     DESCRIPTION
+         "The value of tmnxPtpMasterClockLastIpAddress indicates the IP Address
+          used of the last used IP Address reported in the
+          tmnxPtpMasterClockChangedEvent. The NULL address indicates that there
+          was no previous IP Address used by PTP for the Master Clock."
+     ::= { tmnxPtp1588NotifyObjects 2 }
+
+tmnxPtpNotifyRowPointer          OBJECT-TYPE
+    SYNTAX      RowPointer
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpNotifyRowPointer indicates a row in a table that
+         has triggered a notification."
+    ::= { tmnxPtp1588NotifyObjects 3 }
+
+tmnxPtpNotifyRowDescription      OBJECT-TYPE
+    SYNTAX      TItemDescription
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPtpNotifyRowDescription indicates the description
+         explaining the cause of the notification."
+    ::= { tmnxPtp1588NotifyObjects 4 }
+
+--%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+--
+--  TIMETRA-PTP-MIB Notifications
+--
+tmnxPtpCardNotSupported          NOTIFICATION-TYPE
+     OBJECTS     {
+                     tmnxCpmCardOscillatorType,
+                     tmnxPtpClockClockType,
+                     tmnxPtpClockAdminState
+                 }
+     STATUS      current
+     DESCRIPTION
+         "The tmnxPtpCardNotSupported notification is generated when the
+          Precision Timing Protocol (PTP) is enabled on a card that is not
+          capable of clock recovery using PTP.
+
+          This notification is triggered when the
+          TIMETRA-CHASSIS-MIB::tmnxCpmCardOscillatorType is not 'ocxo (3)', the
+          tmnxPtpClockClockType is set to 'ordinarySlave (1)' or
+          'boundary (3)', and tmnxPtpClockAdminState is set to 'inService (2)'.
+
+          [EFFECT] While this event is active, tmnxPtpClockOperState will be
+          'outOfService (3)' on the card that this notification was generated.
+
+          [RECOVERY] This event is cleared when a replacement CPM card with an
+          Oscillator of type 'ocxo (3)' is inserted.
+
+          tmnxPtpCardNotSupportedClear is generated when this event is cleared."
+     ::= { tmnxPtp1588Notifications 1 }
+
+tmnxPtpCardNotSupportedClear     NOTIFICATION-TYPE
+     OBJECTS     {
+                     tmnxCpmCardOscillatorType,
+                     tmnxPtpClockClockType,
+                     tmnxPtpClockAdminState
+                 }
+     STATUS      current
+     DESCRIPTION
+         "The tmnxPtpCardNotSupportedClear notification is generated when the
+          tmnxPtpCardNotSupported event is cleared for a particular CPM card."
+     ::= { tmnxPtp1588Notifications 2 }
+
+tmnxPtpMasterClockChangedEvent   NOTIFICATION-TYPE
+    OBJECTS {
+        tmnxPtpMasterClockAddressType,
+        tmnxPtpMasterClockAddress,
+        tmnxPtpMasterClockLastIpAddrType,
+        tmnxPtpMasterClockLastIpAddress
+    }
+    STATUS      current
+    DESCRIPTION
+        "The tmnxPtpMasterClockChangedEvent is generated when the Master/Parent 
+         Clock for the Precision Timing Protocol (PTP) changes on the system."
+    ::= { tmnxPtp1588Notifications 3 }
+
+tmnxPtpClockRecoveryStateChange  NOTIFICATION-TYPE
+    OBJECTS {
+        tmnxPtpClockRecoveryState
+    }
+    STATUS      current
+    DESCRIPTION
+        "The tmnxPtpClockRecoveryStateChange is generated when the Precision
+         Timing Protocol (PTP) clock recovery state changes on the system."
+    ::= { tmnxPtp1588Notifications 4 }
+
+tmnxPtpOutOfResources            NOTIFICATION-TYPE
+    OBJECTS {
+        tmnxChassisNotifyChassisId,
+        tmnxChassisNotifyHwIndex
+    }
+    STATUS      current
+    DESCRIPTION
+        "The tmnxPtpOutOfResources notification is generated when the
+          Precision Timing Protocol (PTP) process on the card is out of
+          resources.
+
+          This may occur in either two situations:
+          1.  The number of PTP peers exceeds the system limit.
+          2.  The total unicast packet rate negotiated with all PTP peers
+              has reached the maximum packet rate supported by the system.
+              Exceeding this rate would impact the ability of the master clock
+              to provide an accurate stream of timing packets to each remote
+              slave clock.
+
+          If either of the above two situation occurs, the PTP process will
+          reject any new unicast packet requests from remote slave PTP peers.
+
+          tmnxPtpOutOfResourcesClear is generated when this event is
+          cleared."
+    ::= { tmnxPtp1588Notifications 5 }
+
+tmnxPtpOutOfResourcesClear       NOTIFICATION-TYPE
+    OBJECTS {
+        tmnxChassisNotifyChassisId,
+        tmnxChassisNotifyHwIndex
+    }
+    STATUS      current
+    DESCRIPTION
+         "The tmnxPtpOutOfResourcesClear notification is generated when both
+          the total number of active PTP peers and the total negotiated unicast
+          packet rate goes below 90% of the system limit."
+    ::= { tmnxPtp1588Notifications 6 }
+
+tmnxPtpDynamicChange             NOTIFICATION-TYPE
+    OBJECTS {
+        tmnxPtpNotifyRowPointer,
+        tmnxPtpNotifyRowDescription
+    }
+    STATUS      current
+    DESCRIPTION
+        "The tmnxPtpDynamicChange notification is generated when an object
+        dynamically (i.e. not by configuration) changes state. This notification
+        identifies the affected row."
+    ::= { tmnxPtp1588Notifications 7 }
+
+--%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+--
+--  TIMETRA-PTP-MIB Compliance Statements
+--
+tmnxPtpCompliance                MODULE-COMPLIANCE
+    STATUS      obsolete
+    DESCRIPTION
+        "The compliance statement for the management of the Precision Timing
+         Protocol for Release 9.0 on SROS series systems."
+    MODULE -- this module
+        MANDATORY-GROUPS {
+            tmnxPtpTimeStampGroup,
+            tmnxPtpLocalConfigGroup,
+            tmnxPtpLocalOperGroup,
+            tmnxPtpMasterClockGroup,
+            tmnxPtpPeerBaseConfigGroup,
+            tmnxPtpPeerMasterStatusGroup,
+            tmnxPtpPacketStatsGroup,
+            tmnxPtpClockRecoveryGroup,
+            tmnxPtpPeerUnicastStatusGroup,
+            tmnxPtpNotificationsGroup
+        }
+    ::= { tmnxPtp1588Compliances 1 }
+
+tmnxPtpComplianceV10v0           MODULE-COMPLIANCE
+    STATUS      current
+    DESCRIPTION
+        "The compliance statement for the management of the Precision Timing
+         Protocol for Release 10.0 on SROS series systems."
+    MODULE -- this module
+        MANDATORY-GROUPS {
+            tmnxPtpTimeStampGroup,
+            tmnxPtpLocalConfigGroup,
+            tmnxPtpLocalOperGroup,
+            tmnxPtpMasterClockGroup,
+            tmnxPtpPeerBaseConfigGroup,
+            tmnxPtpPeerMasterStatusGroup,
+            tmnxPtpPacketStatsGroup,
+            tmnxPtpClockRecoveryGroup,
+            tmnxPtpPeerUnicastStatusGroup,
+            tmnxPtpNotificationsGroup,
+            tmnxPtpVRtrIfTimeStampGroup,
+            tmnxPtpVRtrIfConfigGroup,
+            tmnxPtpTimeInfoGroup,
+            tmnxPtpPeerOperGroup,
+            tmnxPtpPacketStatsV10v0Group
+        }
+    ::= { tmnxPtp1588Compliances 2 }
+
+--%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+--
+--  TIMETRA-PTP-MIB Group Statements
+--
+tmnxPtpV9v0Groups                OBJECT IDENTIFIER ::= { tmnxPtp1588Groups 1 }
+
+tmnxPtpTimeStampGroup            OBJECT-GROUP
+    OBJECTS {
+        tmnxPtpPeerConfigTblLastChanged
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects maintaining table/row statistics for
+         Precision Timing Protocol (PTP) on the SROS series system."
+    ::= { tmnxPtpV9v0Groups 1 }
+
+tmnxPtpLocalConfigGroup          OBJECT-GROUP
+    OBJECTS {
+        tmnxPtpClockAdminState,
+        tmnxPtpClockClockType,
+        tmnxPtpClockProfile,
+        tmnxPtpClockDomain,
+        tmnxPtpClockAnnounceInterval,
+        tmnxPtpClockPriority1,
+        tmnxPtpClockPriority2,
+        tmnxPtpClockWaitToRestore,
+        tmnxPtpClockNetworkType
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects maintaining system configuration for the
+         Precision Timing Protocol (PTP) on SROS series systems."
+    ::= { tmnxPtpV9v0Groups 2 }
+
+tmnxPtpLocalOperGroup            OBJECT-GROUP
+    OBJECTS {
+        tmnxPtpClockIdentity,
+        tmnxPtpClockOperState,
+        tmnxPtpClockStepType,
+        tmnxPtpClockClass,
+        tmnxPtpClockAccuracy,
+        tmnxPtpClockVariance,
+        tmnxPtpClockPortState,
+        tmnxPtpClockPortStateLastChanged,
+        tmnxPtpClockRecoveryState,
+        tmnxPtpClockRecoveryStateLastChg,
+        tmnxPtpClockFrequencyOffset
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects indicating system operational states for the
+         Precision Timing Protocol (PTP) on SROS series systems."
+    ::= { tmnxPtpV9v0Groups 3 }
+
+tmnxPtpMasterClockGroup          OBJECT-GROUP
+    OBJECTS {
+        tmnxPtpMasterClockAddressType,
+        tmnxPtpMasterClockAddress,
+        tmnxPtpMasterClockGMClockId,
+        tmnxPtpMasterClockGMClockPrio1,
+        tmnxPtpMasterClockGMClockPrio2,
+        tmnxPtpMasterClockGMClockClass,
+        tmnxPtpMasterClockGMAccuracy,
+        tmnxPtpMasterClockGMVariance,
+        tmnxPtpMasterClockParentClockId,
+        tmnxPtpMasterClockParentPortNum
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects indicating system operational states for the
+         Master Clock for the Precision Timing Protocol (PTP) on SROS series
+         systems."
+    ::= { tmnxPtpV9v0Groups 4 }
+
+tmnxPtpPeerBaseConfigGroup       OBJECT-GROUP
+    OBJECTS {
+        tmnxPtpPeerRowStatus,
+        tmnxPtpPeerLastChanged,
+        tmnxPtpPeerAdminState,
+        tmnxPtpPeerPortState,
+        tmnxPtpPeerLocalPriority,
+        tmnxPtpPeerRemoteMaster,
+        tmnxPtpPeerRemoteSlave,
+        tmnxPtpPeerClockId,
+        tmnxPtpPeerLocalPortNumber,
+        tmnxPtpPeerRemotePortNumber
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects maintaining Peer configuration for the Precision
+         Timing Protocol (PTP) on SROS series systems."
+    ::= { tmnxPtpV9v0Groups 5 }
+
+tmnxPtpPeerMasterStatusGroup     OBJECT-GROUP
+    OBJECTS {
+        tmnxPtpPeerMasterCurrentMaster,
+        tmnxPtpPeerMasterClockStepType,
+        tmnxPtpPeerMasterClockStepsRemvd,
+        tmnxPtpPeerMasterGMClockId,
+        tmnxPtpPeerMasterGMClockPrio1,
+        tmnxPtpPeerMasterGMClockPrio2,
+        tmnxPtpPeerMasterGMClockClass,
+        tmnxPtpPeerMasterGMClockAccuracy,
+        tmnxPtpPeerMasterGMClockVariance,
+        tmnxPtpPeerMasterWaitUntilRestr,
+        tmnxPtpPeerMasterAlarm
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects indicating operational states for Master Peers
+         for the Precision Timing Protocol (PTP) on SROS series systems."
+    ::= { tmnxPtpV9v0Groups 6 }
+
+tmnxPtpPacketStatsGroup          OBJECT-GROUP
+    OBJECTS {
+        tmnxPtpClkPktStatsAnnounce,
+        tmnxPtpClkPktStatsSync,
+        tmnxPtpClkPktStatsFollowUp,
+        tmnxPtpClkPktStatsDelayRequest,
+        tmnxPtpClkPktStatsDelayResp,
+        tmnxPtpClkPktStatsSignaling,
+        tmnxPtpClkPktStatsOther,
+        tmnxPtpClkPktStatsUniReqAnno,
+        tmnxPtpClkPktStatsUniReqSync,
+        tmnxPtpClkPktStatsUniReqDelayRsp,
+        tmnxPtpClkPktStatsUniGrantAnno,
+        tmnxPtpClkPktStatsUniGrantSync,
+        tmnxPtpClkPktStatsUniGrantDelRsp,
+        tmnxPtpClkPktStatsUniDenyAnno,
+        tmnxPtpClkPktStatsUniDenySync,
+        tmnxPtpClkPktStatsUniDenyDelRsp,
+        tmnxPtpClkPktStatsUniCancelAnno,
+        tmnxPtpClkPktStatsUniCancelSync,
+        tmnxPtpClkPktStatsUniCancelDelay,
+        tmnxPtpClkPktStatsUniAckCnclAnno,
+        tmnxPtpClkPktStatsUniAckCnclSync,
+        tmnxPtpClkPktStatsUniAckCnclDly,
+        tmnxPtpClkPktStatsOtherTLVs,
+        tmnxPtpClkPktStatsDropBadDomain,
+        tmnxPtpClkPktStatsDropAltMaster,
+        tmnxPtpClkPktStatsDropOther,
+        tmnxPtpPeerPktStatAnnounce,
+        tmnxPtpPeerPktStatSync,
+        tmnxPtpPeerPktStatFollowUp,
+        tmnxPtpPeerPktStatDelayRequest,
+        tmnxPtpPeerPktStatDelayResp,
+        tmnxPtpPeerPktStatSignaling,
+        tmnxPtpPeerPktStatOther,
+        tmnxPtpPeerPktStatUniReqAnno,
+        tmnxPtpPeerPktStatUniReqSync,
+        tmnxPtpPeerPktStatUniReqDelayRsp,
+        tmnxPtpPeerPktStatUniGrantAnno,
+        tmnxPtpPeerPktStatUniGrantSync,
+        tmnxPtpPeerPktStatUniGrantDelRsp,
+        tmnxPtpPeerPktStatUniDenyAnno,
+        tmnxPtpPeerPktStatUniDenySync,
+        tmnxPtpPeerPktStatUniDenyDelRsp,
+        tmnxPtpPeerPktStatUniCancelAnno,
+        tmnxPtpPeerPktStatUniCancelSync,
+        tmnxPtpPeerPktStatUniCancelDelay,
+        tmnxPtpPeerPktStatUniAckCnclAnno,
+        tmnxPtpPeerPktStatUniAckCnclSync,
+        tmnxPtpPeerPktStatUniAckCnclDly,
+        tmnxPtpPeerPktStatOtherTLVs,
+        tmnxPtpPeerPktStatDropBadDomain,
+        tmnxPtpPeerPktStatDropAltMaster,
+        tmnxPtpPeerPktStatDropOther
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects indicating packet statistics for the Precision
+         Timing Protocol (PTP) on SROS series systems."
+    ::= { tmnxPtpV9v0Groups 7 }
+
+tmnxPtpClockRecoveryGroup        OBJECT-GROUP
+    OBJECTS {
+        tmnxPtpClockRecStatsInitial,
+        tmnxPtpClockRecStatsAcquiring,
+        tmnxPtpClockRecStatsPhaseTrack,
+        tmnxPtpClockRecStatsLocked,
+        tmnxPtpClockRecStatsHoldover,
+        tmnxPtpClockRecStatsSyncPktLoss,
+        tmnxPtpClockRecStatsSyncHiPktLss,
+        tmnxPtpClockRecStatsSyncStep,
+        tmnxPtpClockRecStatsSyncHighPDV,
+        tmnxPtpClockRecStatsDlyPktLoss,
+        tmnxPtpClockRecStatsDlyHiPktLss,
+        tmnxPtpClockRecStatsDlyStep,
+        tmnxPtpClockRecStatsDlyHighPDV
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects indicating the clock recovery state and event
+         statistics for the Precision Timing Protocol (PTP) on SROS series
+         systems."
+    ::= { tmnxPtpV9v0Groups 8 }
+
+tmnxPtpPeerUnicastStatusGroup    OBJECT-GROUP
+    OBJECTS {
+        tmnxPtpPeerUnicastStatus,
+        tmnxPtpPeerUnicastRate,
+        tmnxPtpPeerUnicastDuration,
+        tmnxPtpPeerUnicastEventTime
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects indicating the Peer Unicast Status information for
+         the Precision Timing Protocol (PTP) on SROS series systems."
+    ::= { tmnxPtpV9v0Groups 9 }
+
+tmnxPtpNotifyObjsGroup           OBJECT-GROUP
+    OBJECTS {
+        tmnxPtpMasterClockLastIpAddrType,
+        tmnxPtpMasterClockLastIpAddress,
+        tmnxPtpNotifyRowPointer,
+        tmnxPtpNotifyRowDescription
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects used in notifications generated by the Precision
+         Timing Protocol (PTP) on SROS series systems."
+    ::= { tmnxPtpV9v0Groups 10 }
+
+tmnxPtpNotificationsGroup        NOTIFICATION-GROUP
+    NOTIFICATIONS {
+        tmnxPtpCardNotSupported,
+        tmnxPtpCardNotSupportedClear,
+        tmnxPtpMasterClockChangedEvent,
+        tmnxPtpClockRecoveryStateChange,
+        tmnxPtpOutOfResources,
+        tmnxPtpOutOfResourcesClear,
+        tmnxPtpDynamicChange
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of notifications generated by the Precision Timing Protocol
+         (PTP) on SROS series systems."
+    ::= { tmnxPtpV9v0Groups 11 }
+
+tmnxPtpV10v0Groups                OBJECT IDENTIFIER ::= { tmnxPtp1588Groups 2 }
+
+tmnxPtpVRtrIfTimeStampGroup      OBJECT-GROUP
+    OBJECTS {
+        tmnxPtpVRtrIfTableLastChanged
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects maintaining table/row statistics for the
+         Precision Timing Protocol (PTP) on version 10.0 of SROS series 
+         systems."
+    ::= { tmnxPtpV10v0Groups 1 }
+
+tmnxPtpVRtrIfConfigGroup         OBJECT-GROUP
+    OBJECTS {
+        tmnxPtpVRtrIfAdminState
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects maintaining interface configuration for the 
+         Precision Timing Protocol (PTP) on version 10.0 of SROS series 
+         systems."
+    ::= { tmnxPtpV10v0Groups 2 }
+
+tmnxPtpTimeInfoGroup             OBJECT-GROUP
+    OBJECTS {
+        tmnxPtpTimeInfoTimescale,
+        tmnxPtpTimeInfoCurrentTime,
+        tmnxPtpTimeInfoFreqTraceable,
+        tmnxPtpTimeInfoTimeTraceable,
+        tmnxPtpTimeInfoTimeSource
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects maintaining interface operational state for the 
+         Precision Timing Protocol (PTP) on version 10.0 of SROS series 
+         systems."
+    ::= { tmnxPtpV10v0Groups 3 }
+
+tmnxPtpPeerOperGroup             OBJECT-GROUP
+    OBJECTS {
+        tmnxPtpPeerTxTimeStampPoint,
+        tmnxPtpPeerLastTxPortId,
+        tmnxPtpPeerLastTxPortEncapType,
+        tmnxPtpPeerLastTxPortEncapValue,
+        tmnxPtpPeerRxTimeStampPoint,
+        tmnxPtpPeerLastRxPortId,
+        tmnxPtpPeerLastRxPortEncapType,
+        tmnxPtpPeerLastRxPortEncapValue
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects maintaining peer operational state for the 
+         Precision Timing Protocol (PTP) on version 10.0 of SROS series 
+         systems."
+    ::= { tmnxPtpV10v0Groups 5 }
+
+tmnxPtpPacketStatsV10v0Group     OBJECT-GROUP
+    OBJECTS {
+        tmnxPtpClkPktStatsTimeStampPort,
+        tmnxPtpClkPktStatsTimeStampCpm,
+        tmnxPtpPeerPktStatTimeStampPort,
+        tmnxPtpPeerPktStatTimeStampCpm
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects indicating packet statistics for the Precision
+         Timing Protocol (PTP) on version 10.0 of SROS series systems."
+    ::= { tmnxPtpV10v0Groups 6 }
+
+END

@@ -2,23 +2,48 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
- * @version    1.1
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-$pagetitle[] = "Poller/Discovery Timing";
+$page_title[] = "Poller/Discovery Timing";
+
+$rrd_file = $config['rrd_dir'].'/poller-wrapper.rrd';
+if (is_file($rrd_file) && $_SESSION['userlevel'] > 5)
+{
+  echo "<h3>Poller Wrapper Graphs</h3>";
+  $graph_array = array('type'   => 'poller_wrapper_threads',
+                       //'operation' => 'poll',
+                       'width'  => 1095,
+                       'height' => 100,
+                       'from'   => $config['time']['week'],
+                       'to'     => $config['time']['now'],
+                       );
+  echo(generate_graph_tag($graph_array));
+  //echo "<h3>Poller wrapper Total time</h3>";
+  $graph_array = array('type'   => 'poller_wrapper_times',
+                       //'operation' => 'poll',
+                       'width'  => 1095,
+                       'height' => 100,
+                       'from'   => $config['time']['week'],
+                       'to'     => $config['time']['now'],
+                       );
+  echo(generate_graph_tag($graph_array));
+  echo('<blockquote>
+  <footer><i>NOTE. Total time for poller wrapper not same as mentioned below.<br />Total poller wrapper time is real polling time for all devices considering threads. But below shows the amount of all polling times for all devices.</i></footer>
+</blockquote>');
+}
 
 ?>
 
 <h3>Poller/Discovery Timing</h3>
 
-<table class="table table-striped table-condensed table-bordered">
+<table class="table table-striped table-condensed-more table-bordered">
   <thead>
     <tr>
       <th></th>
@@ -89,7 +114,7 @@ foreach ($poller_table as $row)
       <td style="width: 1px; max-width: 1px; background-color: '.$row['html_tab_colour'].'; margin: 0px; padding: 0px"></td>
       <td class="entity">'.$row['device_link'].'</td>
       <td style="width: 12%;">
-        <div class="progress progress-'.$proc['color']['poller'].' active" style="margin-bottom: 5px;"><div class="bar" style="text-align: right; width: '.$proc['time']['poller'].'%;"></div></div>
+        <div class="progress progress-'.$proc['color']['poller'].' active" style="margin: 2px 0 1px;"><div class="bar" style="text-align: right; width: '.$proc['time']['poller'].'%;"></div></div>
       </td>
       <td style="width: 7%">
         '.$row['last_polled_timetaken'].'s
@@ -100,7 +125,7 @@ foreach ($poller_table as $row)
   // Discovery times
   echo('
       <td style="width: 12%;">
-        <div class="progress progress-'.$proc['color']['discovery'].' active" style="margin-bottom: 5px;"><div class="bar" style="text-align: right; width: '.$proc['time']['discovery'].'%;"></div></div>
+        <div class="progress progress-'.$proc['color']['discovery'].' active" style="margin: 2px 0 1px;"><div class="bar" style="text-align: right; width: '.$proc['time']['discovery'].'%;"></div></div>
       </td>
       <td style="width: 7%">
         '.$row['last_discovered_timetaken'].'s

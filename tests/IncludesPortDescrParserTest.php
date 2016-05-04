@@ -1,9 +1,8 @@
 <?php
 
-error_reporting(E_ALL);
-
 include(dirname(__FILE__) . '/../includes/defaults.inc.php');
-include(dirname(__FILE__) . '/../config.php');
+//include(dirname(__FILE__) . '/../config.php'); // Do not include user editable config here
+include(dirname(__FILE__) . '/data/test_definitions.inc.php'); // Fake definitions for testing
 include(dirname(__FILE__) . '/../includes/common.inc.php');
 include(dirname(__FILE__) . '/../includes/port-descr-parser.inc.php');
 

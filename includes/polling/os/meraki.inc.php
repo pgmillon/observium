@@ -10,7 +10,7 @@ if (($device['type'] == 'network' || $device['type'] == '') && strpos($platform,
 {
   // Set type to wireless for APs
   $update_array['type'] = 'wireless';
-  log_event("type -> wireless", $device, 'system');
+  log_event("type -> wireless", $device, 'device');
 }
 
 // EOF

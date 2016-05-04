@@ -2,12 +2,12 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -40,7 +40,7 @@ if (!is_numeric($vars['to']))   { $vars['to']   = $config['time']['now']; }
 
 preg_match('/^(?P<type>[a-z0-9A-Z-]+)_(?P<subtype>.+)/', $vars['type'], $graphtype);
 
-if ($debug) print_vars($graphtype);
+if (OBS_DEBUG) { print_vars($graphtype); }
 
 $type = $graphtype['type'];
 $subtype = $graphtype['subtype'];

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage web
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -95,10 +95,15 @@ function print_navbar($navbar)
         echo('<li class="'.$array['class'].'">');
         if (isset($array['alt']))
         {
-          echo('<a href="'.$array['url'].'" data-rel="tooltip" data-tooltip="'.$array['alt'].'">');
+          echo('<a href="'.$array['url'].'" data-rel="tooltip" data-tooltip="'.$array['alt'].'"');
         } else {
-          echo('<a href="'.$array['url'].'">');
+          echo('<a href="'.$array['url'].'"');
         }
+
+        if (isset($array['id'])) { echo ' id="'.$array['id'].'"'; }
+
+        echo '>';
+
         if (isset($array['icon']))
         {
           echo('<i class="'.$array['icon'].'"></i> ');

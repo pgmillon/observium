@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -49,20 +49,20 @@ include("includes/port-sort.inc.php");
 
 // End populating ports array
 
-echo('<table class="table table-striped table-bordered table-rounded table-condensed" style="margin-top: 10px;">');
+echo('<table class="table table-striped table-bordered table-hover table-condensed">');
 echo('  <thead>');
 
 echo('<tr class="entity">');
-echo("      <th style='width: 1px'></th>\n");
-echo("      <th style='width: 1px'></th>\n");
+echo('      <th class="state-marker"></th>'.PHP_EOL);
+echo('      <th style="width: 1px;"></th>'.PHP_EOL);
 
-$cols = array(array('head' => 'Device', 'sort' => 'device', 'width' => 250),
-              array('head' => 'Port', 'sort' => 'port', 'width' => 350),
-              array('head' => 'Traffic', 'sort' => 'traffic', 'width' => 100),
-              array('head' => 'Traffic %', 'sort' => 'traffic_perc', 'width' => 90),
-              array('head' => 'Packets', 'sort' => 'packets', 'width' => 90),
-              array('head' => 'Speed', 'sort' => 'speed', 'width' => 90),
-              array('head' => 'MAC Address', 'sort' => 'mac', 'width' => 150)
+$cols = array( array('head' => 'Device',      'sort' => 'device',       'width' => 250),
+               array('head' => 'Port',        'sort' => 'port',         'width' => 350),
+               array('head' => 'Traffic',     'sort' => 'traffic',      'width' => 100),
+               array('head' => 'Traffic %',   'sort' => 'traffic_perc', 'width' => 90),
+               array('head' => 'Packets',     'sort' => 'packets',      'width' => 90),
+               array('head' => 'Speed',       'sort' => 'speed',        'width' => 90),
+               array('head' => 'MAC Address', 'sort' => 'mac',          'width' => 150)
               );
 
 foreach ($cols as $col)
@@ -92,10 +92,19 @@ foreach ($ports as $port)
 
     humanize_port($port);
 
+    $error_img = '';
     if ($port['in_errors'] > 0 || $port['out_errors'] > 0)
     {
-      $error_img = generate_port_link($port,"<img src='images/16/chart_curve_error.png' alt='Interface Errors' border=0>",errors);
-    } else { $error_img = ""; }
+      $error_img = generate_port_link($port, "<img src='images/16/chart_curve_error.png' alt='Interface Errors' border=0>", 'errors');
+    }
+    if (in_array($port['port_id'], $cache['ports']['cbqos']))
+    {
+      $error_img .= '<a href="' . generate_port_url($port, array('view' => 'cbqos')) . '"><span class="label label-info">CBQoS</span></a>';
+    }
+    if (in_array($port['port_id'], $cache['ports']['pseudowires']))
+    {
+      $error_img .= '<a href="' . generate_device_url($port, array('tab' => 'pseudowires')) . '"><span class="label label-info">Pseudowire</span></a>';
+    }
 
     $port['bps_in'] = formatRates($port['ifInOctets_rate'] * 8);
     $port['bps_out'] = formatRates($port['ifOutOctets_rate'] * 8);
@@ -104,13 +113,13 @@ foreach ($ports as $port)
     $port['pps_out'] = format_si($port['ifOutUcastPkts_rate'])."pps";
 
     echo("<tr class='ports ".$port['row_class']."'>
-          <td style='background-color: ".$port['table_tab_colour'].";'></td>
+          <td class='state-marker'></td>
           <td></td>
           <td><span class=entity>".generate_device_link($device, short_hostname($device['hostname'], "20"))."</span><br />
-              <span class=em>".htmlentities(truncate($port['location'],32,""))."</span></td>
+              <span class=em>".escape_html(truncate($port['location'],32,""))."</span></td>
 
           <td><span class=entity>" . generate_port_link($port, rewrite_ifname($port['label']))." ".$error_img."</span><br />
-              <span class=em>".htmlentities(truncate($port['ifAlias'], 50, ''))."</span></td>".
+              <span class=em>".escape_html(truncate($port['ifAlias'], 50, ''))."</span></td>".
 
     '<td> <i class="icon-circle-arrow-down" style="'.$port['bps_in_style'].'"></i>  <span class="small" style="'.$port['bps_in_style'].'">' . formatRates($port['in_rate']) . '</span><br />'.
        '<i class="icon-circle-arrow-up" style="'.$port['bps_out_style'].'"></i> <span class="small" style="'.$port['bps_out_style'].'">' . formatRates($port['out_rate']) . '</span><br /></td>'.

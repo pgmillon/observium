@@ -14,12 +14,12 @@ case $EXIM:$? in
 esac
 
 if [ -x "$EXIM" ] ; then
-	PARSE=`$EXIM -bpr 2>/dev/null`
+	EXIM_QUEUE=`$EXIM -bpc 2>/dev/null`
 	# Check if there is output.
 	# Sometimes you have installed exim but did not configure it, so it returns nothing.
-	if [ -n "$PARSE" ] ; then
+	if [ -n "$EXIM_QUEUE" ] ; then
 		echo '<<<app-exim-mailqueue>>>'
-		echo "$PARSE" | awk 'BEGIN { bounces = 0; frozen = 0; total = 0 }
+		$EXIM -bpr 2>/dev/null | awk 'BEGIN { bounces = 0; frozen = 0; total = 0 }
 		$4 == "<>" { bounces++; }
 		$6 == "frozen" { frozen++ }
 		/<[^>]*>/ { total++ }

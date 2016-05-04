@@ -2,12 +2,12 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -15,15 +15,15 @@ $svcs = dbFetchRows("SELECT * FROM `netscaler_services` WHERE `device_id` = ? OR
 
 #print_vars($svcs);
 
-if ($_POST['submit'] == "update-svcs" && $_SESSION['userlevel'] == '10')
+if ($vars['submit'] == "update-svcs" && $_SESSION['userlevel'] == '10')
 {
   foreach ($svcs AS $svc)
   {
-    if ($_POST['svcs'][$svc['svc_id']]['svc_ignore'] == "on") { $_POST['svcs'][$svc['svc_id']]['svc_ignore'] = "1"; } else { $_POST['svcs'][$svc['svc_id']]['svc_ignore'] = "0"; }
+    if ($vars['svcs'][$svc['svc_id']]['svc_ignore'] == "on") { $vars['svcs'][$svc['svc_id']]['svc_ignore'] = "1"; } else { $vars['svcs'][$svc['svc_id']]['svc_ignore'] = "0"; }
 
     foreach (array('svc_ignore','svc_limit_low','svc_limit') as $field)
     {
-      if ($_POST['svcs'][$svc['svc_id']][$field]    != $svc[$field])    { $sup[$field] = $_POST['svcs'][$svc['svc_id']][$field]; }
+      if ($vars['svcs'][$svc['svc_id']][$field]    != $svc[$field])    { $sup[$field] = $vars['svcs'][$svc['svc_id']][$field]; }
     }
 
     if (is_array($sup))
@@ -36,8 +36,6 @@ if ($_POST['submit'] == "update-svcs" && $_SESSION['userlevel'] == '10')
 
   $svcs = dbFetchRows("SELECT * FROM `netscaler_services` WHERE `device_id` = ? ORDER BY `svc_label`", array($device['device_id']));
 }
-
-#print_vars($_POST);
 
 ?>
 

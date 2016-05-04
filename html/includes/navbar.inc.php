@@ -7,13 +7,12 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 // FIXME - this could do with some performance improvements, i think. possible rearranging some tables and setting flags at poller time (nothing changes outside of then anyways)
 
-$packages = dbFetchCell("SELECT COUNT(*) from `packages`");
 ?>
 
 <header class="navbar navbar-fixed-top">
@@ -63,7 +62,7 @@ if (OBSERVIUM_EDITION != 'community')
 $navbar['observium']['entries'][] = array('title' => 'Inventory', 'url' => generate_url(array('page' => 'inventory')), 'icon' => 'oicon-wooden-box');
 $navbar['observium']['entries'][] = array('divider' => TRUE);
 
-if ($packages)
+if ($cache['packages']['count'])
 {
   $navbar['observium']['entries'][] = array('title' => 'Software Packages', 'url' => generate_url(array('page' => 'packages')), 'icon' => 'oicon-box-zipper');
   $navbar['observium']['entries'][] = array('divider' => TRUE);
@@ -71,7 +70,10 @@ if ($packages)
 
 // Build search submenu
 $search_sections = array('ipv4' => 'IPv4 Address', 'ipv6' => 'IPv6 Address', 'mac' => 'MAC Address', 'arp' => 'ARP/NDP Tables', 'fdb' => 'FDB Tables');
-if (dbFetchCell("SELECT COUNT(wifi_session_id) FROM wifi_sessions") > '0') { $search_sections['dot1x'] = '.1x Sessions'; }
+if ($cache['wifi_sessions']['count'])
+{
+  $search_sections['dot1x'] = '.1x Sessions';
+}
 
 foreach ($search_sections as $search_page => $search_name)
 {
@@ -92,12 +94,11 @@ $navbar['devices']['entries'][] = array('divider' => TRUE);
 if ($config['geocoding']['enable'] && $config['location_menu_geocoded'])
 {
   $navbar['devices']['entries'][] = array('locations' => TRUE); // Pretty complicated recursive function, workaround not having it converted to returning an array
-}
-else // Non-geocoded menu
-{
+} else {
+  // Non-geocoded menu
   foreach (get_locations() as $location)
   {
-    $name = ($location == '' ? '[[UNKNOWN]]' : htmlspecialchars($location));
+    $name = ($location === '' ? OBS_VAR_UNSET : escape_html($location));
     $location_menu[] = array('url' => generate_location_url($location), 'icon' => 'oicon-building-small', 'title' => $name);
   }
 
@@ -151,9 +152,14 @@ if ($config['enable_billing'])
   $ifbreak = 1;
 }
 
-if ($config['enable_pseudowires'])
+if ($config['enable_pseudowires'] && $cache['pseudowires']['count'])
 {
-  $navbar['ports']['entries'][] = array('title' => 'Pseudowires', 'url' => generate_url(array('page' => 'pseudowires')), 'icon' => 'oicon-layer-shape-curve');
+  $navbar['ports']['entries'][] = array('title' => 'Pseudowires ('.$cache['pseudowires']['count'].')', 'url' => generate_url(array('page' => 'pseudowires')), 'icon' => 'oicon-layer-shape-curve');
+  $ifbreak = 1;
+}
+if ($cache['cbqos']['count'])
+{
+  $navbar['ports']['entries'][] = array('title' => 'CBQoS ('.$cache['cbqos']['count'].')', 'url' => generate_url(array('page' => 'ports', 'cbqos' => 'yes')), 'icon' => 'oicon-category-group');
   $ifbreak = 1;
 }
 
@@ -220,10 +226,16 @@ $health_items = array('processor' => array('text' => "Processors", 'icon' => 'oi
                'mempool'   => array('text' => "Memory", 'icon' => 'oicon-memory'),
                'storage'   => array('text' => "Storage", 'icon' => 'oicon-drive'));
 
-if (dbFetchCell("SELECT count(*) FROM `toner`"))
+if ($cache['toner']['count'])
 {
   $health_items['toner'] = array('text' => "Toner", 'icon' => 'oicon-contrast');
 }
+
+if ($cache['status']['count'])
+{
+  $health_items['status'] = array('text' => "Status", 'icon' => $config['entities']['status']['icon']);
+}
+
 
 foreach ($health_items as $item => $item_data)
 {
@@ -253,13 +265,11 @@ foreach ($menu_items as $items)
 }
 
 //////////// Build applications menu
-$app_count = dbFetchCell("SELECT COUNT(`app_id`) FROM `applications`");
-
-if ($_SESSION['userlevel'] >= '5' && ($app_count) > "0")
+if ($_SESSION['userlevel'] >= '5' && ($cache['applications']['count']) > 0)
 {
   $navbar['apps'] = array('url' => '#', 'icon' => 'oicon-application-icon-large', 'title' => 'Apps');
 
-  $app_list = dbFetchRows("SELECT `app_type` FROM `applications` GROUP BY `app_type` ORDER BY `app_type`");
+  $app_list = dbFetchRows("SELECT `app_type` FROM `applications` WHERE 1 ".$cache['where']['devices_permitted']." GROUP BY `app_type`;");
   foreach ($app_list as $app)
   {
     $image = $config['html_dir']."/images/icons/".$app['app_type'].".png";
@@ -275,13 +285,13 @@ if ($_SESSION['userlevel'] >= '5' && ($routing['bgp']['count']+$routing['ospf'][
 
   $separator = 0;
 
-  if ($_SESSION['userlevel'] >= '5' && $routing['vrf']['count'])
+  if ($routing['vrf']['count'])
   {
     $navbar['routing']['entries'][] = array('url' => generate_url(array('page' => 'routing', 'protocol' => 'vrf')), 'icon' => 'oicon-arrow-branch-byr', 'title' => 'VRFs', 'count' => $routing['vrf']['count']);
     $separator++;
   }
 
-  if ($_SESSION['userlevel'] >= '5' && $routing['ospf']['up'])
+  if ($routing['cef']['count'])
   {
     if ($separator)
     {
@@ -289,12 +299,24 @@ if ($_SESSION['userlevel'] >= '5' && ($routing['bgp']['count']+$routing['ospf'][
       $separator = 0;
     }
 
-    $navbar['routing']['entries'][] = array('url' => generate_url(array('page' => 'routing', 'protocol' => 'ospf')), 'image' => 'images/16/text_letter_omega.png', 'title' => 'OSPF', 'count' => $routing['ospf']['up']);
+    $navbar['routing']['entries'][] = array('url' => generate_url(array('page' => 'routing', 'protocol' => 'cef')), 'icon' => 'oicon-arrow-branch-byr', 'title' => 'CEF', 'count' => $routing['cef']['count']);
+    $separator++;
+  }
+
+  if ($routing['ospf']['up'])
+  {
+    if ($separator)
+    {
+      $navbar['routing']['entries'][] = array('divider' => TRUE);
+      $separator = 0;
+    }
+
+    $navbar['routing']['entries'][] = array('url' => generate_url(array('page' => 'routing', 'protocol' => 'ospf')), 'image' => 'images/16/text_letter_omega.png', 'title' => 'OSPF', 'count' => $routing['ospf']['count']);
     $separator++;
   }
 
   // BGP Sessions
-  if ($_SESSION['userlevel'] >= '5' && $routing['bgp']['count'])
+  if ($routing['bgp']['count'])
   {
     if ($separator)
     {
@@ -343,12 +365,13 @@ function navbar_location_menu($array)
       }
       elseif ($entry_data['level'] == "location")
       {
-        $name = ($entry == '' ? '[[UNKNOWN]]' : htmlspecialchars($entry));
+        $name = ($entry === '' ? OBS_VAR_UNSET : escape_html($entry));
         echo('            <li><a href="' . generate_location_url($entry) . '"><i class="menu-icon oicon-building-small"></i> ' . $name . '&nbsp;['.$entry_data['count'].']</a></li>');
         continue;
       }
 
-      echo('<li class="dropdown-submenu"><a href="' . generate_url(array('page'=>'devices', $entry_data['level'] => urlencode($entry))) .
+      $url = ($entry_data['level'] == 'location_country' ? $code : $entry);
+      echo('<li class="dropdown-submenu"><a href="' . generate_url(array('page' => 'devices', $entry_data['level'] => var_encode($url))) .
            '">' . $image . ' ' . $entry . '&nbsp;['.$entry_data['count'].']</a>');
 
       navbar_location_menu($entry_data);
@@ -367,7 +390,7 @@ function navbar_location_menu($array)
       }
       elseif ($new_entry_data['level'] == "location")
       {
-        $name = ($new_entry == '' ? '[[UNKNOWN]]' : htmlspecialchars($new_entry));
+        $name = ($new_entry === '' ? OBS_VAR_UNSET : escape_html($new_entry));
         echo('            <li><a href="' . generate_location_url($new_entry) . '"><i class="menu-icon oicon-building-small"></i> ' . $name . '&nbsp;['.$new_entry_data['count'].']</a></li>');
         continue;
       }
@@ -377,11 +400,11 @@ function navbar_location_menu($array)
       {
         if (is_array($sub_entry_data['entries']))
         {
-          echo('<li class="dropdown-submenu"><a style="" href="' . generate_url(array('page'=>'devices', $sub_entry_data['level'] => urlencode($sub_entry))) . '">
+          echo('<li class="dropdown-submenu"><a style="" href="' . generate_url(array('page'=>'devices', $sub_entry_data['level'] => var_encode($sub_entry))) . '">
                 <i class="menu-icon oicon-building"></i> ' . $sub_entry . '&nbsp;['.$sub_entry_data['count'].']</a>');
           navbar_location_menu($sub_entry_data);
         } else {
-          $name = ($sub_entry == '' ? '[[UNKNOWN]]' : htmlspecialchars($sub_entry));
+          $name = ($sub_entry === '' ? OBS_VAR_UNSET : escape_html($sub_entry));
           echo('            <li><a href="' . generate_location_url($sub_entry) . '"><i class="menu-icon oicon-building-small"></i> ' . $name . '&nbsp;['.$sub_entry_data['count'].']</a></li>');
         }
       }
@@ -582,15 +605,23 @@ if (auth_can_logout())
 
 <script type="text/javascript">
 
+key_count_global = 0;
 function lookup(inputString) {
-   if (inputString.length == 0) {
-      $('#suggestions').fadeOut(); // Hide the suggestions box
-   } else {
-      $.post("ajax_search.php", {queryString: ""+inputString+""}, function(data) { // Do an AJAX call
-         $('#suggestions').fadeIn(); // Show the suggestions box
-         $('#suggestions').html(data); // Fill the suggestions box
-      });
-   }
+  if (inputString.trim().length == 0) {
+    $('#suggestions').fadeOut(); // Hide the suggestions box
+  } else {
+    key_count_global++;
+    setTimeout("lookupwait("+key_count_global+",\""+inputString+"\")", 300); // Added timeout 0.3s before send query
+  }
+}
+
+function lookupwait(key_count,inputString) {
+  if(key_count == key_count_global) {
+    $.post("ajax/search.php", {queryString: ""+inputString+""}, function(data) { // Do an AJAX call
+      $('#suggestions').fadeIn(); // Show the suggestions box
+      $('#suggestions').html(data); // Fill the suggestions box
+    });
+  }
 }
 
 <?php

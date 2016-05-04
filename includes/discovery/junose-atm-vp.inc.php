@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -20,7 +20,7 @@ if ($device['os'] == "junose" && ($attribs['enable_ports_junoseatmvp'] || ($conf
   echo("JunOSe ATM vps : ");
   $vp_array = snmpwalk_cache_multi_oid($device, "juniAtmVpStatsInCells", $vp_array, "Juniper-UNI-ATM-MIB" , mib_dirs('junose'));
   $valid_vp = array();
-  if ($debug) { print_vars($vp_array); }
+  if (OBS_DEBUG && count($vp_array)) { print_vars($vp_array); }
 
   if (is_array($vp_array))
   {
@@ -41,13 +41,13 @@ if ($device['os'] == "junose" && ($attribs['enable_ports_junoseatmvp'] || ($conf
 
   // Fix Me - preferred method is to track existance by removing from an array.
 
-  if ($debug) { print_vars ($valid_vp); }
+  if (OBS_DEBUG && count($valid_vp)) { print_vars ($valid_vp); }
 
   foreach (dbFetchRows("SELECT * FROM `ports` AS P, `juniAtmVp` AS J WHERE P.`device_id`  = ? AND J.port_id = P.port_id", array($device['device_id'])) as $test)
   {
     $port_id = $test['port_id'];
     $vp_id = $test['vp_id'];
-    if ($debug) { echo($port_id . " -> " . $vp_id . "\n"); }
+    if (OBS_DEBUG > 1) { echo($port_id . " -> " . $vp_id . "\n"); }
     if (!$valid_vp[$port_id][$vp_id])
     {
       echo("-");

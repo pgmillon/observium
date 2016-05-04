@@ -1,0 +1,17 @@
+ALTER TABLE `eventlog` CHANGE `reference` `entity_id` INT( 64 ) NULL DEFAULT NULL;
+ALTER TABLE `eventlog` CHANGE `type` `entity_type` VARCHAR( 64 ) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL;
+ALTER TABLE `eventlog` ADD `severity` TINYINT NOT NULL DEFAULT '6' AFTER `entity_id`;
+UPDATE `eventlog` SET `entity_type` = 'sensor' WHERE `entity_type` IN ('temperature', 'humidity', 'fanspeed', 'voltage', 'current', 'power', 'frequency', 'dbm', 'capacity', 'state');
+UPDATE `eventlog` SET `entity_type` = 'device' WHERE `entity_type` IN ('system', 'reboot');
+UPDATE `eventlog` SET `entity_type` = 'processor' WHERE `entity_type` = 'processors';
+UPDATE `eventlog` SET `entity_type` = 'port' WHERE `entity_type` = 'interface';
+UPDATE `eventlog` SET `severity` = 4 WHERE `message` REGEXP '(above|under) threshold';
+UPDATE `eventlog` SET `entity_type` = 'sensor' WHERE `entity_type` IN ('airflow', 'apower', 'impedance', 'snr', 'load', 'runtime');
+UPDATE `eventlog` SET `severity` = 5 WHERE `message` REGEXP ' [.(.]by (user|cron|console)';
+UPDATE `eventlog` SET `severity` = 3 WHERE `message` LIKE 'Device status changed to%';
+UPDATE `eventlog` SET `severity` = 4 WHERE `message` LIKE '%probably the device was replaced%';
+UPDATE `eventlog` SET `severity` = 4 WHERE `message` LIKE 'OS changed%';
+UPDATE `eventlog` SET `severity` = 4 WHERE `message` LIKE 'Device rebooted%';
+UPDATE `eventlog` SET `entity_type` = 'device' WHERE `entity_type` = 'bgp';
+UPDATE `eventlog` SET `entity_type` = 'bgp_peer' WHERE `entity_type` = 'bgpPeer';
+UPDATE `eventlog` SET `severity` = 4 WHERE `entity_type` IN ('bgp_peer', 'sensor') AND `message` REGEXP ' (Up|Down|Alarm): ';

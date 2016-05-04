@@ -2,12 +2,12 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -18,7 +18,7 @@ if ($_SESSION['userlevel'] < 10)
   exit;
 }
 
-$pagetitle[] = "Delete devices";
+$page_title[] = "Delete devices";
 
 if (is_numeric($vars['id']))
 {
@@ -26,7 +26,7 @@ if (is_numeric($vars['id']))
   if ($device && $vars['confirm'])
   {
     $delete_rrd = ($vars['deleterrd'] == 'confirm') ? TRUE : FALSE;
-    print_warning(delete_device($vars['id'], $delete_rrd));
+    print_message(delete_device($vars['id'], $delete_rrd), 'console');
     //echo('<div class="btn-group ">
     //        <button type="button" class="btn btn-default"><a href="/"><i class="oicon-globe-model"></i> Overview</a></button>
     //        <button type="button" class="btn btn-default"><a href="/devices/"><i class="oicon-servers"></i> Devices List</a></button>

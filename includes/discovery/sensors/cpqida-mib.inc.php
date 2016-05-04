@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -24,7 +24,7 @@ foreach ($oids as $index => $entry)
     $hardware   = rewrite_cpqida_hardware($entry['cpqDaCntlrModel']);
     $descr      = $hardware.' ('.$entry['cpqDaCntlrHwLocation'].') Status';
     $oid        = ".1.3.6.1.4.1.232.3.2.2.1.1.10.".$index;
-    $status     = state_string_to_numeric('cpqida-cntrl-state',$entry['cpqDaCntlrBoardStatus']);
+    $status     = $entry['cpqDaCntlrBoardStatus'];
 
     discover_sensor($valid['sensor'], 'state', $device, $oid, 'cpqDaCntlrEntry'.$index, 'cpqida-cntrl-state', $descr, NULL, $status, array('entPhysicalClass' => 'controller'));
 
@@ -58,7 +58,7 @@ foreach ($oids as $index => $entry)
   {
     $descr      = $descr." SMART Status";
     $oid        = ".1.3.6.1.4.1.232.3.2.5.1.1.57.".$index;
-    $status     = state_string_to_numeric('cpqida-smart-state', $entry['cpqDaPhyDrvSmartStatus']);
+    $status     = $entry['cpqDaPhyDrvSmartStatus'];
 
     discover_sensor($valid['sensor'], 'state', $device, $oid, 'cpqDaPhyDrv.'.$index, 'cpqida-smart-state', $descr, NULL, $status, array('entPhysicalClass' => 'other'));
   }
@@ -74,7 +74,7 @@ foreach ($oids as $index => $entry)
   {
     $descr      = "Logical Drive ".$entry['cpqDaLogDrvIndex'].' ('.$entry['cpqDaLogDrvOsName'].') Status';
     $oid        = ".1.3.6.1.4.1.232.3.2.3.1.1.11.".$index;
-    $status     = state_string_to_numeric('cpqida-smart-state',$entry['cpqDaLogDrvCondition']);
+    $status     = $entry['cpqDaLogDrvCondition'];
 
     discover_sensor($valid['sensor'], 'state', $device, $oid, 'cpqDaLogDrv.'.$index, 'cpqida-smart-state', $descr, NULL, $status, array('entPhysicalClass' => 'other'));
   }

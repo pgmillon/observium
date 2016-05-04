@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage authentication
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -21,10 +21,10 @@ if ($config['auth_ldap_kerberized'])
 }
 
 // Set LDAP debugging level to 7 (dumped to Apache daemon error log) (not virtualhost error log!)
-if ($debug)
+if (OBS_DEBUG > 1) // Currently OBS_DEBUG > 1 for WUI is not supported ;)
 {
   // Disabled by default, VERY chatty.
-  // ldap_set_option(NULL, LDAP_OPT_DEBUG_LEVEL, 7);
+  ldap_set_option(NULL, LDAP_OPT_DEBUG_LEVEL, 7);
 }
 
 // If a single server is specified, convert it to array anyway for use in functions below

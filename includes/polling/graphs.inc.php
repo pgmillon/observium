@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -18,10 +18,10 @@ echo("Graphs ".PHP_EOL);
 $include_dir = "includes/polling/graphs/";
 include("includes/include-dir-mib.inc.php");
 
-foreach ($table_defs AS $mib_name => $mib_tables)
+foreach ($table_defs as $mib_name => $mib_tables)
 {
-  echo("o $mib_name: ");
-  foreach ($mib_tables AS $table_name => $table_def)
+  echo(" $mib_name: ");
+  foreach ($mib_tables as $table_name => $table_def)
   {
     echo("$table_name ");
     collect_table($device, $table_def, $graphs);
@@ -29,4 +29,4 @@ foreach ($table_defs AS $mib_name => $mib_tables)
   echo PHP_EOL;
 }
 
-?>
+// EOF

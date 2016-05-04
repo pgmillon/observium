@@ -7,14 +7,14 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 echo(" BLUECOAT-SG-PROXY-MIB ");
 
 $processors_array = snmpwalk_cache_oid($device, "sgProxyCpuCoreBusyPerCent", array(), "BLUECOAT-SG-PROXY-MIB", mib_dirs('bluecoat'));
-if ($debug) { print_vars($processors_array); }
+if (OBS_DEBUG > 1) { print_vars($processors_array); }
 
 if (is_array($processors_array))
 {

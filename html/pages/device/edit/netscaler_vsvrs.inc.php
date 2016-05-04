@@ -2,12 +2,12 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -15,15 +15,15 @@ $vsvrs = dbFetchRows("SELECT * FROM `netscaler_vservers` WHERE `device_id` = ? O
 
 #print_r($vsvrs);
 
-if ($_POST['submit'] == "update-vsvrs" && $_SESSION['userlevel'] == '10')
+if ($vars['submit'] == "update-vsvrs" && $_SESSION['userlevel'] == '10')
 {
   foreach ($vsvrs AS $vsvr)
   {
-    if ($_POST['vsvrs'][$vsvr['vsvr_id']]['vsvr_ignore'] == "on") { $_POST['vsvrs'][$vsvr['vsvr_id']]['vsvr_ignore'] = "1"; } else { $_POST['vsvrs'][$vsvr['vsvr_id']]['vsvr_ignore'] = "0"; }
+    if ($vars['vsvrs'][$vsvr['vsvr_id']]['vsvr_ignore'] == "on") { $vars['vsvrs'][$vsvr['vsvr_id']]['vsvr_ignore'] = "1"; } else { $vars['vsvrs'][$vsvr['vsvr_id']]['vsvr_ignore'] = "0"; }
 
     foreach (array('vsvr_ignore','vsvr_limit_low','vsvr_limit') as $field)
     {
-      if ($_POST['vsvrs'][$vsvr['vsvr_id']][$field]    != $vsvr[$field])    { $sup[$field] = $_POST['vsvrs'][$vsvr['vsvr_id']][$field]; }
+      if ($vars['vsvrs'][$vsvr['vsvr_id']][$field]    != $vsvr[$field])    { $sup[$field] = $vars['vsvrs'][$vsvr['vsvr_id']][$field]; }
     }
 
     if (is_array($sup))
@@ -36,8 +36,6 @@ if ($_POST['submit'] == "update-vsvrs" && $_SESSION['userlevel'] == '10')
 
   $vsvrs = dbFetchRows("SELECT * FROM `netscaler_vservers` WHERE `device_id` = ? ORDER BY `vsvr_label`", array($device['device_id']));
 }
-
-#print_vars($_POST);
 
 ?>
 

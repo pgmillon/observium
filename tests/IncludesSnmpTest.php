@@ -60,6 +60,32 @@ class IncludesSnmpTest extends PHPUnit_Framework_TestCase
       array(4200000066,   -94967230),
     );
   }
+
+  /**
+  * @dataProvider providerSnmpFixNumeric
+  */
+  public function testSnmpFixNumeric($value, $result)
+  {
+    $this->assertSame($result, snmp_fix_numeric($value));
+  }
+
+  public function providerSnmpFixNumeric()
+  {
+    return array(
+      array(         0,           0),
+      array(  '-65000',      -65000),
+      array(        '',          ''),
+      array(  'Some.0',    'Some.0'),
+      array(     FALSE,       FALSE),
+      array(4200000066,  4200000066),
+      // Here numeric fixes
+      array('"-7"',              -7),
+      array('+7',                 7),
+      array('  20,4',          20.4),
+      array('4,200000067', 4.200000067),
+      array('" -002.4336 dBm: Normal "', -2.4336),
+    );
+  }
 }
 
 // EOF

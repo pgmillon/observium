@@ -2,12 +2,12 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -21,6 +21,10 @@ if ($_SESSION['userlevel'] < '7')
 } else {
   $panes['device']   = 'Device Settings';
   $panes['snmp']     = 'SNMP';
+  if ($config['geocoding']['enable'])
+  {
+    $panes['geo']     = 'Geolocation';
+  }
   $panes['mibs']     = 'MIBs';
   $panes['graphs']   = 'Graphs';
   $panes['alerts']   = 'Alerts';
@@ -85,11 +89,12 @@ if ($_SESSION['userlevel'] < '7')
   $filename = $config['html_dir'] . '/pages/device/edit/' . $vars['section'] . '.inc.php';
   if (is_file($filename))
   {
+    $vars = get_vars('POST'); // Note, on edit pages use only method POST!
     include($filename);
   }
 }
 unset($filename, $navbar, $panes, $link_array);
 
-$pagetitle[] = "Settings";
+$page_title[] = "Settings";
 
 // EOF

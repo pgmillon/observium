@@ -10,18 +10,25 @@
  * @package    observium
  * @subpackage functions
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-// This function does rewrites from the lowercase identifiers we use to the
-// standard capitalisation. UK English style plurals, please.
-// This uses $config['nicecase']
-// DOCME needs phpdoc block
+/**
+ * Process strings to give them a nicer capitalisation format
+ *
+ * This function does rewrites from the lowercase identifiers we use to the
+ * standard capitalisation. UK English style plurals, please.
+ * This uses $config['nicecase']
+ *
+ * @param string $item
+ * @return string
+*/
 function nicecase($item)
 {
   $mappings = $GLOBALS['config']['nicecase'];
   if (isset($mappings[$item])) { return $mappings[$item]; }
+  //$item = preg_replace('/([a-z])([A-Z]{2,})/', '$1 $2', $item); // turn "fixedAC" into "fixed AC"
 
   return ucfirst($item);
 }
@@ -32,12 +39,10 @@ function nicecase($item)
  *   Process an array containing a row from `alert_checks` and in place to add/modify elements.
  *
  * @param array $alert_check
- * @return none
  */
 // TESTME needs unit testing
 function humanize_alert_check(&$check)
 {
-
   // Fetch the queries to build the alert table.
   list($query, $param, $query_count) = build_alert_table_query(array('alert_test_id' => $check['alert_test_id']));
 
@@ -59,15 +64,15 @@ function humanize_alert_check(&$check)
 
   if ($check['entity_status']['up'] == $check['num_entities'])
   {
-    $check['class']  = "green"; $check['table_tab_colour'] = "#194b7f"; $check['html_row_class'] = "";
+    $check['class']  = "green"; $check['html_row_class'] = "up";
   } elseif($check['entity_status']['down'] > '0') {
-    $check['class']  = "red"; $check['table_tab_colour'] = "#cc0000"; $check['html_row_class'] = "error";
+    $check['class']  = "red"; $check['html_row_class'] = "error";
   } elseif($check['entity_status']['delay'] > '0') {
-    $check['class']  = "orange"; $check['table_tab_colour'] = "#ff6600"; $check['html_row_class'] = "warning";
+    $check['class']  = "orange"; $check['html_row_class'] = "warning";
   } elseif($check['entity_status']['suppress'] > '0') {
-    $check['class']  = "purple"; $check['table_tab_colour'] = "#740074"; $check['html_row_class'] = "suppressed";
+    $check['class']  = "purple"; $check['html_row_class'] = "suppressed";
   } elseif($check['entity_status']['up'] > '0') {
-    $check['class']  = "green"; $check['table_tab_colour'] = "#194b7f"; $check['html_row_class'] = "";
+    $check['class']  = "green"; $check['html_row_class'] = "success";
   } else {
     $check['entity_status']['class']  = "gray"; $check['table_tab_colour'] = "#555555"; $check['html_row_class'] = "disabled";
   }
@@ -85,7 +90,6 @@ function humanize_alert_check(&$check)
   *   Process an array containing a row from `alert_entry` and `alert_entry-state` in place to add/modify elements.
   *
   * @param array $alert_entry
-  * @return none
   */
 // TESTME needs unit testing
 function humanize_alert_entry(&$entry)
@@ -97,19 +101,19 @@ function humanize_alert_entry(&$entry)
   if ($entry['alert_status'] == '1')
   {
     // 1 means ok. Set blue text and disable row class
-    $entry['class']  = "green"; $entry['table_tab_colour'] = "#194b7f"; $entry['html_row_class'] = "";
+    $entry['class']  = "green"; $entry['html_row_class'] = "up";
   } elseif($entry['alert_status'] == '0') {
     // 0 means down. Set red text and error class
-    $entry['class']  = "red"; $entry['table_tab_colour'] = "#cc0000"; $entry['html_row_class'] = "error";
+    $entry['class']  = "red"; $entry['html_row_class'] = "error";
   } elseif($entry['alert_status'] == '2') {
     // 2 means the checks failed but we're waiting for x repetitions. set colour to orange and class to warning
-    $entry['class']  = "purple"; $entry['table_tab_colour'] = "#ff6600"; $entry['html_row_class'] = "warning";
+    $entry['class']  = "purple"; $entry['html_row_class'] = "warning";
   } elseif($entry['alert_status'] == '3') {
     // 3 means the checks failed but the alert is suppressed. set the colour to purple and the row class to suppressed
-    $entry['class']  = "purple"; $entry['table_tab_colour'] = "#740074"; $entry['html_row_class'] = "suppressed";
+    $entry['class']  = "purple"; $entry['html_row_class'] = "suppressed";
   } else {
     // Anything else set the colour to grey and the class to disabled.
-    $entry['class']  = "gray"; $entry['table_tab_colour'] = "#555555"; $entry['html_row_class'] = "disabled";
+    $entry['class']  = "gray"; $entry['html_row_class'] = "disabled";
   }
 
   // Set the checked/changed/alerted entries to formatted date strings if they exist, else set them to never
@@ -150,27 +154,22 @@ function humanize_device(&$device)
   if ($device['status'] == '0')
   {
     $device['html_row_class'] = "error";
-    $device['html_tab_colour'] = "#cc0000";
   } else {
-    $device['html_row_class'] = "";
-    $device['html_tab_colour'] = "#194B7F"; // Fucking dull gay colour, but at least there's a semicolon now - tom
+    $device['html_row_class'] = "up";  // Fucking dull gay colour, but at least there's a semicolon now - tom
                                             // Your mum's a semicolon - adama
   }
   if ($device['ignore'] == '1')
   {
     $device['html_row_class'] = "suppressed";
-    $device['html_tab_colour'] = "#740074";
     if ($device['status'] == '1')
     {
-      $device['html_row_class'] = "";
-      $device['html_tab_colour'] = "#009900"; // Why green for ignore? Confusing!
+      $device['html_row_class'] = "success";  // Why green for ignore? Confusing!
                                               // I chose this purely because using green for up and blue for up/ignore was uglier.
     }
   }
   if ($device['disabled'] == '1')
   {
-    $device['html_row_class'] = "warning";
-    $device['html_tab_colour'] = "#aaaaaa";
+    $device['html_row_class'] = "disabled";
   }
 
   // Set the name we print for the OS
@@ -200,24 +199,30 @@ function humanize_bgp(&$peer)
   if ($peer['bgpPeerAdminStatus'] == 'stop' || $peer['bgpPeerAdminStatus'] == 'halted')
   {
     // Peer is disabled, set row to warning and text classes to muted.
-    $peer['table_tab_colour'] = "#aaaaaa"; $peer['html_row_class'] = "warning"; $peer['state_class'] = "muted"; $peer['admin_class'] = "muted"; $peer['alert']=0; $peer['disabled']=1;
-  } elseif ($peer['bgpPeerAdminStatus'] == "start" || $peer['bgpPeerAdminStatus'] == "running" ) {
+    $peer['html_row_class'] = "warning";
+    $peer['state_class']    = "muted";
+    $peer['admin_class']    = "muted";
+    $peer['alert']          = 0;
+    $peer['disabled']       = 1;
+  }
+  else if ($peer['bgpPeerAdminStatus'] == "start" || $peer['bgpPeerAdminStatus'] == "running" )
+  {
     // Peer is enabled, set state green and check other things
     $peer['admin_class'] = "text-success";
     if ($peer['bgpPeerState'] == "established")
     {
       // Peer is up, set colour to blue and disable row class
-      $peer['state_class'] = "text-success"; $peer['table_tab_colour'] = "#194B7F"; $peer['html_row_class'] = "";
+      $peer['state_class'] = "text-success"; $peer['html_row_class'] = "up";
     } else {
       // Peer is down, set colour to red and row class to error.
-      $peer['state_class'] = "text-danger"; $peer['table_tab_colour'] = "#cc0000"; $peer['html_row_class'] = "error";
+      $peer['state_class'] = "text-danger"; $peer['html_row_class'] = "error";
     }
   }
 
   // Set text and colour if peer is same AS, private AS or external.
-  if ($peer['bgpPeerRemoteAs'] == $peer['bgpLocalAs'])                                    { $peer['peer_type'] = "<span style='color: #00f;'>iBGP</span>"; }
-  elseif ($peer['bgpPeerRemoteAS'] >= '64512' && $peer['bgpPeerRemoteAS'] <= '65535')     { $peer['peer_type'] = "<span style='color: #f00;'>Priv eBGP</span>"; }
-  else                                                                                    { $peer['peer_type'] = "<span style='color: #0a0;'>eBGP</span>"; }
+  if ($peer['bgpPeerRemoteAs'] == $peer['bgpLocalAs'])                                  { $peer['peer_type'] = "<span style='color: #00f;'>iBGP</span>"; }
+  else if ($peer['bgpPeerRemoteAS'] >= '64512' && $peer['bgpPeerRemoteAS'] <= '65535')  { $peer['peer_type'] = "<span style='color: #f00;'>Priv eBGP</span>"; }
+  else                                                                                  { $peer['peer_type'] = "<span style='color: #0a0;'>eBGP</span>"; }
 
   // Format (compress) the local/remote IPs if they're IPv6
   $peer['human_localip']  = (strstr($peer['bgpPeerLocalAddr'],  ':')) ? Net_IPv6::compress($peer['bgpPeerLocalAddr'])  : $peer['bgpPeerLocalAddr'];
@@ -235,8 +240,8 @@ function humanize_bgp(&$peer)
  * label, humans_speed, human_type, html_class and human_mac
  * row_class, table_tab_colour
  *
- * @param array $ports
- * @return array $ports
+ * @param array $port
+ * @return array $port
  *
  */
 // TESTME needs unit testing
@@ -279,41 +284,45 @@ function humanize_port(&$port)
 
   if (isset($config['os'][$os]['ifname']))
   {
-    if ($port['ifName'] == "")
+    if ($port['ifName'] == '')
     {
       $port['label'] = $port['ifDescr'];
     } else {
       $port['label'] = $port['ifName'];
     }
-  } elseif (isset($config['os'][$os]['ifalias'])) {
+  }
+  else if (isset($config['os'][$os]['ifalias']))
+  {
     $port['label'] = $port['ifAlias'];
   } else {
     $port['label'] = $port['ifDescr'];
     if (isset($config['os'][$os]['ifindex']))
     {
       $port['label'] .= ' ' . $port['ifIndex'];
-    } else {
-      $port['label'] = $port['ifDescr'];
     }
   }
-
-  // Set entity variables for use by code which uses entities
-
-  $port['entity_name']      = $port['label'];
-  $port['entity_shortname'] = $port['label'];
-  $port['entity_descr']     = $port['ifAlias'];
-
   if ($device['os'] == "speedtouch")
   {
     list($port['label']) = explode("thomson", $port['label']);
   }
 
-  $port['table_tab_colour'] = "#aaaaaa"; $port['row_class'] = ""; // Default
+  // Set entity variables for use by code which uses entities
+
+  // Base label part: TenGigabitEthernet3/3 -> TenGigabitEthernet, GigabitEthernet4/8.722 -> GigabitEthernet, Vlan2603 -> Vlan
+  $port['label_base']       = preg_replace('/^([A-Za-z ]*).*/', '$1', $port['label']);
+  //$port['label_num']        = substr($port['label'], strlen($port['label_base'])); // Second label part
+
+  //$port['label']            = escape_html($port['label']); // FIXME, not sure, can be double escaped
+  $port['entity_name']      = $port['label'];
+  $port['entity_shortname'] = $port['label']; // FIXME why not short_port_descr() or short_ifname()?
+  $port['entity_descr']     = escape_html($port['ifAlias']);
+
+  $port['table_tab_colour'] = "#aaaaaa"; $port['row_class'] = ""; $port['icon'] = 'port-ignored'; // Default
   $port['admin_status'] = $port['ifAdminStatus'];
   if     ($port['ifAdminStatus'] == "down")
   {
     $port['admin_status'] = 'disabled';
-    $port['row_class'] = "warning";
+    $port['row_class'] = "disabled";
     $port['icon'] = 'port-disabled';
   }
   elseif ($port['ifAdminStatus'] == "up")
@@ -321,21 +330,24 @@ function humanize_port(&$port)
     $port['admin_status'] = 'enabled';
     switch ($port['ifOperStatus'])
     {
-      case 'down':
-        $port['table_tab_colour'] = "#cc0000"; $port['row_class'] = "error";   $port['icon'] = 'port-down';
+      case 'up':
+        $port['table_tab_colour'] = "#194B7F"; $port['row_class'] = "up";      $port['icon'] = 'port-up';
         break;
       case 'monitoring':
         // This is monitoring ([e|r]span) ports
         $port['table_tab_colour'] = "#008C00"; $port['row_class'] = "success"; $port['icon'] = 'port-up';
         break;
+      case 'down':
+        $port['table_tab_colour'] = "#cc0000"; $port['row_class'] = "error";   $port['icon'] = 'port-down';
+        break;
       case 'lowerLayerDown':
         $port['table_tab_colour'] = "#ff6600"; $port['row_class'] = "warning"; $port['icon'] = 'port-down';
         break;
       case 'testing':
+      case 'unknown':
+      case 'dormant':
+      case 'notPresent':
         $port['table_tab_colour'] = "#85004b"; $port['row_class'] = "info";    $port['icon'] = 'port-ignored';
-        break;
-      case 'up':
-        $port['table_tab_colour'] = "#194B7F"; $port['row_class'] = "";        $port['icon'] = 'port-up';
         break;
     }
   }
@@ -380,6 +392,73 @@ function humanize_port(&$port)
 }
 
 /**
+ * Humanize status indicator.
+ *
+ * Returns a the $status array with processed information:
+ * sensor_state (TRUE: state sensor, FALSE: normal sensor)
+ * human_value, sensor_symbol, state_name, state_event, state_class
+ *
+ * @param array $status
+ * @return array $status
+ *
+ */
+// TESTME needs unit testing
+function humanize_status(&$status)
+{
+  global $config;
+
+  // Exit if already humanized
+  if ($status['humanized']) { return; }
+
+  switch ($status['status_event'])
+  {
+    case 'up':
+    case 'ok':
+      // FIXME -- replace up with ok to follow monitoring convention and not sound so derpy
+      $status['state_class'] = 'label label-success';
+      $status['row_class']   = 'up';
+      break;
+    case 'warning':
+      $status['state_class'] = 'label label-warning';
+      $status['row_class']   = 'warning';
+      break;
+    case 'alert':
+      $status['state_class'] = 'label label-important';
+      $status['row_class']   = 'error';
+      break;
+    case 'ignore':
+      $status['state_class'] = 'label';
+      $status['row_class']   = 'ignore';
+      break;
+    default:
+      $status['state_class'] = 'label label-info';
+      $status['row_class']   = '';
+    }
+
+  // Set humanized entry in the array so we can tell later
+  $status['humanized'] = TRUE;
+}
+
+/**
+ * Process status indicator.
+ *
+ * Returns a the $status array with processed information:
+ * state_name, state_event
+ *
+ * @param array $status
+ * @return array $status
+ *
+ */
+// TESTME needs unit testing
+function process_status(&$status)
+{
+  global $config;
+
+  // Set humanized entry in the array so we can tell later
+  $status['processed'] = TRUE;
+}
+
+/**
  * Humanize sensor.
  *
  * Returns a the $sensor array with processed information:
@@ -398,62 +477,8 @@ function humanize_sensor(&$sensor)
   // Exit if already humanized
   if ($sensor['humanized']) { return; }
 
-  if (isset($config['sensor_states'][$sensor['sensor_type']]))
-  {
-    // State sensors
-    $sensor['sensor_state'] = TRUE;
-    $sensor['sensor_value'] = (int)$sensor['sensor_value'];
-    $sensor['sensor_symbol'] = '';
-    $sensor['state_name'] = $config['sensor_states'][$sensor['sensor_type']][$sensor['sensor_value']]['name'];
-    if ($sensor['sensor_ignore'] || $sensor['sensor_disable'])
-    {
-      $sensor['state_event'] = 'ignore';
-    } else {
-      $sensor['state_event'] = $config['sensor_states'][$sensor['sensor_type']][$sensor['sensor_value']]['event'];
-    }
-    switch ($sensor['state_event'])
-    {
-      case 'up':
-        $sensor['state_class'] = 'label label-success';
-        break;
-      case 'warning':
-        $sensor['state_class'] = 'label label-warning';
-        break;
-      case 'alert':
-        $sensor['state_class'] = 'label label-important';
-        break;
-      case 'ignore':
-        $sensor['state_class'] = 'label';
-        break;
-      default:
-        $sensor['state_class'] = 'label label-info';
-    }
-  } else {
-    // Normal sensors
-    $sensor['sensor_state'] = FALSE;
-    $sensor['sensor_symbol'] = $config['sensor_types'][$sensor['sensor_class']]['symbol'];
-    $sensor['state_class'] = ''; //'text-success';
-    if ($sensor['sensor_ignore'] || $sensor['sensor_disable'])
-    {
-      $sensor['state_event'] = 'ignore';
-      $sensor['state_class'] = 'text-muted';
-    } else {
-      $sensor['state_event'] = 'up';
-      if (($sensor['sensor_limit_low_warn'] != '' && $sensor['sensor_value'] < $sensor['sensor_limit_low_warn']) ||
-          ($sensor['sensor_limit_warn']     != '' && $sensor['sensor_value'] > $sensor['sensor_limit_warn']))
-      {
-        $sensor['state_event'] = 'warning';
-        //$sensor['state_class'] = 'text-warning';
-      }
-      if ((($sensor['sensor_limit_low'] != '' && $sensor['sensor_value'] < $sensor['sensor_limit_low']) ||
-           ($sensor['sensor_limit']     != '' && $sensor['sensor_value'] > $sensor['sensor_limit']))
-           && ($sensor['sensor_value'] != '')) // Don't alert for "NaN" (no data yet)
-      {
-        $sensor['state_event'] = 'alert';
-        $sensor['state_class'] = 'text-danger';
-      }
-    }
-  }
+  $sensor['sensor_symbol'] = $config['sensor_types'][$sensor['sensor_class']]['symbol'];
+  $sensor['state_class'] = ''; //'text-success';
 
   if (!is_numeric($sensor['sensor_value']))
   {
@@ -471,9 +496,73 @@ function humanize_sensor(&$sensor)
       //case 'runtime':
       //  $sensor['human_value'] = formatUptime($sensor['sensor_value']);
       //  break;
+      case 'fanspeed':
+        $sensor['human_value'] = sprintf("%01.0f", $sensor['sensor_value']);
+        break;
       default:
         $sensor['human_value'] = sprintf("%01.2f", $sensor['sensor_value']);
     }
+  }
+
+  // Generate "pretty" thresholds
+  if (is_numeric($sensor['sensor_limit_low']))
+  {
+    switch ($sensor['sensor_class']) // Same set as in humanize_sensor()
+    {
+      case 'frequency':
+      case 'voltage':
+      case 'current':
+      case 'apower':
+      case 'power':
+        $sensor_threshold_low = format_si($sensor['sensor_limit_low']) . $sensor['sensor_symbol'];
+        break;
+      default:
+        $sensor_threshold_low = $sensor['sensor_limit_low'] . $sensor['sensor_symbol'];
+    }
+  } else {
+    $sensor_threshold_low = "&infin;";
+  }
+
+  if (is_numeric($sensor['sensor_limit']))
+  {
+    switch ($sensor['sensor_class']) // Same set as in humanize_sensor()
+    {
+      case 'frequency':
+      case 'voltage':
+      case 'current':
+      case 'apower':
+      case 'power':
+        $sensor_threshold_high = format_si($sensor['sensor_limit']) . $sensor['sensor_symbol'];
+        break;
+      default:
+        $sensor_threshold_high = $sensor['sensor_limit'] . $sensor['sensor_symbol'];
+    }
+  } else {
+    $sensor_threshold_high = "&infin;";
+  }
+  $sensor['sensor_thresholds'] = $sensor_threshold_low . ' - ' . $sensor_threshold_high;
+
+  switch ($sensor['sensor_event'])
+  {
+    case 'up':
+      $sensor['state_class'] = 'label label-success';
+      $sensor['row_class']   = 'up';
+      break;
+    case 'warning':
+      $sensor['state_class'] = 'label label-warning';
+      $sensor['row_class']   = 'warning';
+      break;
+    case 'alert':
+      $sensor['state_class'] = 'label label-important';
+      $sensor['row_class']   = 'error';
+      break;
+    case 'ignore':
+      $sensor['state_class'] = 'label';
+      $sensor['row_class']   = 'ignored';
+      break;
+    default:
+      $sensor['state_class'] = 'label label-info';
+      // $sensor['row_class']   = NULL;
   }
 
   // Set humanized entry in the array so we can tell later
@@ -1015,6 +1104,41 @@ $rewrite_cpqida_hardware = array(
   'sa-p831' => 'Smart Array P831'
 );
 
+$rewrite_aosw_hardware = array(
+
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.1.1'  => 'OmniAccess 5000',
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.1.2'  => 'OmniAccess 4024',
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.1.3'  => 'OmniAccess 4308',
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.1.4'  => 'OmniAccess 6000',
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.1.5'  => 'OmniAccess 4302',
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.1.6'  => 'OmniAccess 4504',
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.1.7'  => 'OmniAccess 4604',
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.1.8'  => 'OmniAccess 4704',
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.1.9'  => 'OmniAccess 4304',
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.1.10' => 'OmniAccess 4306',
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.1.11' => 'OmniAccess 4306G',
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.1.12' => 'OmniAccess 4306GW',
+
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.2.1'  => 'OmniAccess AP60',
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.2.2'  => 'OmniAccess AP61',
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.2.3'  => 'OmniAccess AP70',
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.2.4'  => 'OmniAccess AP80S',
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.2.5'  => 'OmniAccess AP80M',
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.2.6'  => 'OmniAccess AP65',
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.2.7'  => 'OmniAccess AP40',
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.2.8'  => 'OmniAccess AP85',
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.2.9'  => 'OmniAccess AP41',
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.2.10' => 'OmniAccess AP120',
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.2.11' => 'OmniAccess AP121',
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.2.12' => 'OmniAccess AP124',
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.2.13' => 'OmniAccess AP125',
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.2.14' => 'OmniAccess AP120ABG',
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.2.15' => 'OmniAccess AP121ABG',
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.2.16' => 'OmniAccess AP124ABG',
+  '1.3.6.1.4.1.6486.800.1.1.2.2.2.1.2.17' => 'OmniAccess AP125ABG',
+);
+
+
 $rewrite_ironware_hardware = array(
   'snFIWGSwitch' => 'Stackable FastIron workgroup',
   'snFIBBSwitch' => 'Stackable FastIron backbone',
@@ -1524,6 +1648,23 @@ $rewrite_ironware_hardware = array(
   'snFastIronStackFCXBaseL3Router' => 'FCX Base L3 router',
   'snFastIronStackFCXRouter' => 'FCX Premium Router',
   'snFastIronStackFCXAdvRouter' => 'FCX Advanced Premium Router (BGP)',
+  'ethernetAccessSwitchBr6910' => 'Brocade 6910 Ethernet Access Switch',
+  'snICX6650Family' => 'ICX 6650 64-port Family',
+  'snICX665064BaseFamily' => 'Brocade ICX 6650 64-port Base Family',
+  'snICX665064BaseL3Router' => 'ICX 6650 64-port Base Layer 3 Router',
+  'snICX665064Switch' => 'ICX 6650 64-port Switch',
+  'snICX665064Router' => 'ICX 6650 64-port Router',
+  'snICX643024Switch' => 'ICX 6430 24-port Switch',
+  'snICX643048Switch' => 'ICX 6430 24-port Switch',
+  'snICX645024Switch' => 'ICX 6450 24-port Switch',
+  'snICX645024PRouter' => 'ICX 6450 24-port Router',
+  'snICX645048Switch' => 'ICX 6450 48-port Switch',
+  'snICX645048PRouter' => 'ICX 6450 48-port Router',
+  'registration.59.1.1.1.1' => 'ICX 6650 64-port Switch',
+  'snCer2000Family.7' => 'NetIron CER 2024F + 4x10G',
+  'snICX661024ARouter' => 'ICX6610 24-port Advanced Router',
+  'snFCX624SRouter' => 'FCX624S Premium Router',
+  'snFCX648SRouter' => 'FCX648S Premium Router'
 );
 
 // rewrite oids used for snmp_translate()
@@ -1880,7 +2021,8 @@ $rewrite_ifname = array(
 );
 
 $rewrite_ifname_regexp = array(
-  '/Nortel .* Module - /i' => ''
+  '/Nortel .* Module - /i' => '',
+  '/Baystack .* - /i' => ''
 );
 
 $rewrite_shortif = array(
@@ -2062,14 +2204,15 @@ function rewrite_iftype($type)
   return $type;
 }
 
-// NOTE. For graphs use $htmlentities = FALSE
+// NOTE. For graphs use $escape = FALSE
 // TESTME needs unit testing
-function rewrite_ifname($inf, $htmlentities = TRUE)
+function rewrite_ifname($inf, $escape = TRUE)
 {
   //$inf = strtolower($inf); // ew. -tom
   $inf = array_str_replace($GLOBALS['rewrite_ifname'], $inf);
   $inf = array_preg_replace($GLOBALS['rewrite_ifname_regexp'], $inf);
-  if ($htmlentities) { $inf = htmlentities($inf); } // By default use htmlentities
+  if ($escape) { $inf = escape_html($inf); } // By default use htmlentities
+
   return $inf;
 }
 
@@ -2098,62 +2241,66 @@ function rewrite_hrDevice($dev)
 
 // DOCME needs phpdoc block
 // TESTME needs unit testing
-function short_hostname($hostname, $len = NULL)
+function short_hostname($hostname, $len = NULL, $escape = TRUE)
 {
   $len = (is_numeric($len) ? (int)$len : (int)$GLOBALS['config']['short_hostname']['length']);
 
   if (function_exists('custom_shorthost'))
   {
-    return custom_shorthost($hostname, $len);
+    $short_hostname = custom_shorthost($hostname, $len);
   }
-  elseif (function_exists('custom_short_hostname'))
+  else if (function_exists('custom_short_hostname'))
   {
-    return custom_short_hostname($hostname, $len);
-  }
+    $short_hostname = custom_short_hostname($hostname, $len);
+  } else {
 
-  $parts = explode('.', $hostname);
-  $short_hostname = $parts[0];
-  $i = 1;
-  while ($i < count($parts) && strlen($short_hostname.'.'.$parts[$i]) < $len)
-  {
-    $short_hostname = $short_hostname.'.'.$parts[$i];
-    $i++;
+    $parts = explode('.', $hostname);
+    $short_hostname = $parts[0];
+    $i = 1;
+    while ($i < count($parts) && strlen($short_hostname.'.'.$parts[$i]) < $len)
+    {
+      $short_hostname = $short_hostname.'.'.$parts[$i];
+      $i++;
+    }
   }
+  if ($escape) { $short_hostname = escape_html($short_hostname); }
 
   return $short_hostname;
 }
 
 // DOCME needs phpdoc block
 // TESTME needs unit testing
-function short_port_descr($descr, $len = NULL)
+function short_port_descr($descr, $len = NULL, $escape = TRUE)
 {
   $len = (is_numeric($len) ? (int)$len : (int)$GLOBALS['config']['short_port_descr']['length']);
 
   if (function_exists('custom_short_port_descr'))
   {
-    return custom_short_port_descr($descr, $len);
-  }
+    $descr = custom_short_port_descr($descr, $len);
+  } else {
 
-  list($descr) = explode("(", $descr);
-  list($descr) = explode("[", $descr);
-  list($descr) = explode("{", $descr);
-  list($descr) = explode("|", $descr);
-  list($descr) = explode("<", $descr);
-  $descr = truncate(trim($descr), $len, '');
+    list($descr) = explode("(", $descr);
+    list($descr) = explode("[", $descr);
+    list($descr) = explode("{", $descr);
+    list($descr) = explode("|", $descr);
+    list($descr) = explode("<", $descr);
+    $descr = truncate(trim($descr), $len, '');
+  }
+  if ($escape) { $descr = escape_html($descr); }
 
   return $descr;
 }
 
-// NOTE. For graphs use $htmlentities = FALSE
+// NOTE. For graphs use $escape = FALSE
 // NOTE. short_ifname() differs from short_port_descr()
 // short_ifname('FastEternet0/10') == 'Fa0/10'
 // DOCME needs phpdoc block
 // TESTME needs unit testing
-function short_ifname($if, $len = NULL, $htmlentities = TRUE)
+function short_ifname($if, $len = NULL, $escape = TRUE)
 {
   $len = (is_numeric($len) ? (int)$len : FALSE);
 
-  $if = rewrite_ifname($if, $htmlentities);
+  $if = rewrite_ifname($if, $escape);
   $if = strtolower($if);
   $if = array_str_replace($GLOBALS['rewrite_shortif'], $if);
   if ($len) { $if = truncate($if, $len, ''); }
@@ -2177,13 +2324,15 @@ function rewrite_entity_name($string)
   $string = str_replace("Sub-Module", "Module ", $string);
   $string = str_replace("DFC Card", "DFC", $string);
   $string = str_replace("Centralized Forwarding Card", "CFC", $string);
-  $string = str_replace(array('Power Supply Module', 'power-supply'), 'Power Supply', $string);
   $string = str_replace(array('fan-tray'), 'Fan Tray', $string);
   $string = str_replace(array('Temp: ', 'CPU of ', 'CPU ', '(TM)', '(R)'), '', $string);
   $string = str_replace('GenuineIntel Intel', 'Intel', $string);
-  $string = preg_replace("/([Vv]oltage|[Tt]ransceiver|[Pp]ower|[Cc]urrent|[Tt]emperature|[Ff]an|input|fail)\ Sensor/", "$1", $string);
+  $string = preg_replace("/(HP \w+) Switch/", "$1", $string);
+  $string = preg_replace("/power[ -]supply( \d+)?(?: (?:module|sensor))?/i", "Power Supply$1", $string);
+  $string = preg_replace("/([Vv]oltage|[Tt]ransceiver|[Pp]ower|[Cc]urrent|[Tt]emperature|[Ff]an|input|fail)\ [Ss]ensor/", "$1", $string);
   $string = preg_replace("/^(temperature|voltage|current|power)s?\ /", "", $string);
   $string = preg_replace('/\s{2,}/', ' ', $string);
+  $string = preg_replace('/([a-z])([A-Z]{2,})/', '$1 $2', $string); // turn "fixedAC" into "fixed AC"
 
   return trim($string);
 }
@@ -2203,23 +2352,31 @@ function rewrite_storage($string)
 // TESTME needs unit testing
 function rewrite_location($location)
 {
-  /// FIXME - also check the database for rewrites?
-  // Also roll this all up into some kind of 'rewrite_device' function? - adama
-  global $config;
+  global $config, $attribs;
 
+  $location = str_replace(array('\"', '"'), '', $location);
+
+  // Allow override sysLocation from DB.
+  if ($attribs['override_sysLocation_bool'])
+  {
+    $new_location = $attribs['override_sysLocation_string'];
+  }
   // This will call a user-defineable function to rewrite the location however the user wants.
-  if (function_exists('custom_rewrite_location'))
+  if (function_exists('custom_rewrite_location') && !isset($new_location))
   {
     $new_location = custom_rewrite_location($location);
-    if ($new_location) return $new_location;
   }
-
   // This uses a statically defined array to map locations.
-  if (isset($config['location_map'][$location]))
+  if (isset($config['location_map'][$location]) && !isset($new_location))
   {
-    $location = $config['location_map'][$location];
+    $new_location = $config['location_map'][$location];
   }
 
+  if (isset($new_location))
+  {
+    print_debug("sysLocation rewritten from '$location' to '$new_location'");
+    $location = $new_location;
+  }
   return $location;
 }
 

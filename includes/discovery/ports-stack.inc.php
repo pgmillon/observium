@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -19,7 +19,7 @@ foreach (dbFetchRows($query, array($device['device_id'])) as $entry)
   $stack_db_array[$entry['port_id_high']][$entry['port_id_low']]['ifStackStatus'] = $entry['ifStackStatus'];
 }
 
-$stack_poll_array = snmpwalk_cache_twopart_oid($device, "ifStackStatus", array());
+$stack_poll_array = snmpwalk_cache_twopart_oid($device, "ifStackStatus", array(), "IF-MIB", mib_dirs());
 
 foreach ($stack_poll_array as $port_id_high => $entry_high)
 {

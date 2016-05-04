@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -72,7 +72,7 @@ if ($e7SystemId)
     }
   }
 
-  if ($debug && count($inventory)) { print_vars($inventory); }
+  if (OBS_DEBUG > 1 && count($inventory)) { print_vars($inventory); }
 }
 
 // EOF

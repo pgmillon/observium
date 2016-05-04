@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -15,9 +15,10 @@ $lines = preg_split('/\r\n|\r|\n/', $poll_device['sysDescr']);
 
 if (count($lines) == 2)
 {
-  if (preg_match('/^HP (.*) Switch Software Version ([0-9\.]+), Release ([0-9P]+)/', $lines[0], $matches))
+  if (preg_match('/^(?:HP )?(.*?)(?: \(\w+\))? Switch Software Version ([0-9\.]+), Release ([0-9P]+)/', $lines[0], $matches))
   {
-    #  HP A5120-48G SI Switch Software Version 5.20, Release 1505P07
+    # HP A5120-48G SI Switch Software Version 5.20, Release 1505P07
+    # 1920-24G-PoE+ (370W) Switch Software Version 5.20.99, Release 1105 Copyright(c)2010-2014 Hewlett-Packard Development Company, L.P.
     $hardware = "HP " . $matches[1];
     $version = $matches[2] . " " . $matches[3];
   }

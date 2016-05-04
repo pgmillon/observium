@@ -1,0 +1,339 @@
+-- **********************************************************************
+--
+-- Name:	3Com WSD Embedded Scripts MIB 
+-- 
+-- Description: 
+--  
+-- This MIB allows control of an embedded scripting agent in an embedded agent.
+-- The MIB is not targetted at any specific scripting language or mechanism.
+-- This module provides two tables. The first allows an application to download
+-- small scripts to be executed. Other scripts can be stored locally on the
+-- device. The second (cmd table) is effectively a process table. Each process
+-- executes a script.
+-- 
+-- This module replaces 3Com0022. The changes include the addition of error
+-- codes for executing scripts and the replacement of a script index with a
+-- name column in the command table. The latter allows a named script to
+-- be executed, which may exist in some script repository other than the
+-- macro table in this module. This allows extensions so that some agents
+-- for example could have local file systems that store a number of scripts.
+--
+-- History  Date        Reason for Change
+--
+-- 1.00            	Issued as 3Com RFC.
+-- some history was lost
+-- 1.50			Added Abort and Next to cmdExecOperation
+--
+-- **********************************************************************
+-- Copyright (c) 3Com Corporation. All Rights Reserved.
+-- **********************************************************************
+A3COM0048-EMBEDDED-SCRIPTS DEFINITIONS ::= BEGIN
+
+
+	IMPORTS
+		rmonExtensions FROM A3COM0004-GENERIC
+		DisplayString FROM RFC1213-MIB
+		OwnerString, EntryStatus FROM RMON-MIB
+		OBJECT-TYPE FROM RFC-1212
+		;
+
+command           OBJECT IDENTIFIER ::= {rmonExtensions 5}
+cmdMacroTable OBJECT-TYPE
+      SYNTAX      SEQUENCE OF CmdMacroEntry
+      ACCESS      not-accessible
+      STATUS      mandatory
+      DESCRIPTION "Extended RMON table that provides a macro execution facility 
+        on the remote unit."
+      ::= {command 1}
+
+cmdMacroEntry OBJECT-TYPE
+      SYNTAX      CmdMacroEntry
+      ACCESS      not-accessible
+      STATUS      mandatory
+      DESCRIPTION ""
+      INDEX       {cmdMacroIndex}
+      ::= {cmdMacroTable 1}
+
+CmdMacroEntry ::= SEQUENCE {
+                  cmdMacroIndex                   INTEGER,
+                  cmdMacroName                    DisplayString (SIZE(0..10)),
+                  cmdMacroString                  DisplayString (SIZE(0..255)),
+                  cmdMacroOwner                   OwnerString,
+                  cmdMacroStatus                  EntryStatus
+                  }
+
+cmdMacroIndex OBJECT-TYPE
+      SYNTAX      INTEGER (0..65535)
+      ACCESS      not-accessible
+      STATUS      mandatory
+      DESCRIPTION "Standard RMON index column."
+      ::= {cmdMacroEntry 1}
+
+cmdMacroName OBJECT-TYPE
+      SYNTAX      DisplayString (SIZE(0..10))
+      ACCESS      read-write
+      STATUS      mandatory
+      DESCRIPTION "A short text name for this macro. This name can be 
+        referenced in the cmdTable to execute a script."
+      ::= {cmdMacroEntry 2}
+
+cmdMacroString OBJECT-TYPE
+      SYNTAX      DisplayString (SIZE(0..255))
+      ACCESS      read-write
+      STATUS      mandatory
+      DESCRIPTION "Text macro that is represented by this control entry."
+      ::= {cmdMacroEntry 3}
+
+cmdMacroOwner OBJECT-TYPE
+      SYNTAX      OwnerString
+      ACCESS      read-write
+      STATUS      mandatory
+      DESCRIPTION "RMON Owner of this process."
+      ::= {cmdMacroEntry 4}
+
+cmdMacroStatus OBJECT-TYPE
+      SYNTAX      EntryStatus
+      ACCESS      read-write
+      STATUS      mandatory
+      DESCRIPTION "Rmon RowStatus for this macro definition."
+      ::= {cmdMacroEntry 5}
+
+cmdExecTable OBJECT-TYPE
+      SYNTAX      SEQUENCE OF CmdExecEntry
+      ACCESS      not-accessible
+      STATUS      mandatory
+      DESCRIPTION "Extended RMON table that provides a script execution 
+        facility on the remote unit. Note that scripts executed by this table 
+        do not have to reside in the macro table. A script is identified by its 
+        'cmdExecMacroName'. The agent will search all available script sources 
+        for that named script. The script _may_ be found in the macro table but 
+        this is not mandated."
+      ::= {command 2}
+
+cmdExecEntry OBJECT-TYPE
+      SYNTAX      CmdExecEntry
+      ACCESS      not-accessible
+      STATUS      mandatory
+      DESCRIPTION ""
+      INDEX       {cmdExecUnit, cmdExecIndex}
+      ::= {cmdExecTable 1}
+
+CmdExecEntry ::= SEQUENCE {
+                  cmdExecUnit                     INTEGER,
+                  cmdExecIndex                    INTEGER,
+                  cmdExecProcessStatus            INTEGER,
+                  cmdExecStartTime                TimeTicks,
+                  cmdExecLastExecTime             TimeTicks,
+                  cmdExecSystemTime               TimeTicks,
+                  cmdExecStatement                INTEGER,
+                  cmdExecOperation                INTEGER,
+                  cmdExecLastError                INTEGER,
+                  cmdExecOwner                    OwnerString,
+                  cmdExecStatus                   EntryStatus,
+                  cmdExecMacroName                DisplayString
+                  }
+
+cmdExecUnit OBJECT-TYPE
+      SYNTAX      INTEGER (0..65535)
+      ACCESS      not-accessible
+      STATUS      mandatory
+      DESCRIPTION "Identifies one of a number of different 'execution units'. 
+        Genrally each of these is a separate processor in a distributed 
+        environment."
+      ::= {cmdExecEntry 1}
+
+cmdExecIndex OBJECT-TYPE
+      SYNTAX      INTEGER (0..65535)
+      ACCESS      not-accessible
+      STATUS      mandatory
+      DESCRIPTION "Standard RMON index column."
+      ::= {cmdExecEntry 2}
+
+cmdExecProcessStatus OBJECT-TYPE
+      SYNTAX      INTEGER  {
+                  inactive (1),
+                  running (2),
+                  suspended (3),
+                  dying (4),
+                  paused (5),
+                  searching (6)
+      }
+      ACCESS      read-only
+      STATUS      mandatory
+      DESCRIPTION "The current status of this process. The various possible 
+        values are described as follows:
+
+        inactive : This process is not currently executing any script. This is 
+                   the default state after creating a row in the table.
+        running:   The process is currently executing a script, and that script 
+                   is not currently blocked by any internal asynchronous 
+                   activity. 'running' actually means that this process is 
+                   capable of being scheduled and is in a 'ready to run' 
+                   scheduling queue.
+        suspended: The script being executed by this process is currently 
+                   blocked waiting for the completion of some asynchronous 
+                   activity.
+        dying:     The script that was being executed by this process has 
+                   completed and is waiting to be tidied up. When the tidyup 
+                   has been completed this process will either automatically be 
+                   destroyed or will enter the 'inactive' state.
+        paused:    The script being executed has been manually stopped, 
+                   generally for debug purposes. A script can enter this state 
+                   either voluntarily be requesting the system to stop it (ie 
+                   similar to a breakpoint) or can be paused by writing to the 
+                   cmdExecOperation variable.
+        searching: When a process is given a script to execute the engine must 
+                   first find that script. The script is identified by name (spe
+                   cified in cmdExecMacroName). The agent must search all 
+                   possible sources for the script, which may take some time. 
+                   The MIB allows the script to be specified by any name and so 
+                   some implementations may allow the name to identify a file 
+                   on some remote file system, for example by using a URL. 
+                   While the agent searches for the script the process enters 
+                   the 'searching' state. If the agent locates the script it 
+                   will enter the 'running' state. If the script cannot be 
+                   located then the process re-enters the 'inactive' state."
+      ::= {cmdExecEntry 3}
+
+cmdExecStartTime OBJECT-TYPE
+      SYNTAX      TimeTicks 
+      ACCESS      read-only
+      STATUS      mandatory
+      DESCRIPTION "sysUpTime when this process was started."
+      ::= {cmdExecEntry 4}
+
+cmdExecLastExecTime OBJECT-TYPE
+      SYNTAX      TimeTicks 
+      ACCESS      read-only
+      STATUS      mandatory
+      DESCRIPTION "sysUpTime when this process last used any processor time."
+      ::= {cmdExecEntry 5}
+
+cmdExecSystemTime OBJECT-TYPE
+      SYNTAX      TimeTicks 
+      ACCESS      read-only
+      STATUS      mandatory
+      DESCRIPTION "Number of time-ticks used by this process."
+      ::= {cmdExecEntry 6}
+
+cmdExecStatement OBJECT-TYPE
+      SYNTAX      INTEGER (0..65535)
+      ACCESS      read-only
+      STATUS      mandatory
+      DESCRIPTION "Generally scripts are broken into statements, this is just 
+        about true for any scripting mechanism. The statement number is 
+        generally useful for debugging. This object reports the current 
+        statement that will be executed _next_."
+      ::= {cmdExecEntry 8}
+
+cmdExecOperation OBJECT-TYPE
+      SYNTAX      INTEGER  {
+                  none (1),
+                  execute (2),
+                  suspend (3),
+                  continue (4),
+                  step (5),
+                  kill (6),
+                  Abort (7),
+                  Next (8)
+      }
+      ACCESS      read-write
+      STATUS      mandatory
+      DESCRIPTION "This object can be set to cause some action to be applied to 
+        a executing process. Note that this variable can only be set if the row-
+        status is valid. Operations are:
+
+          none       - Value returned for _any_ read operation.
+          execute    - If the operational state of the macro is
+                       'inactive' then this command will attempt
+                       to execute the script named in cmdMacroName.
+                       If the process is in any other state this
+                       command will be rejected.
+          suspend    - This command will suspend the process at
+                       the end of the current statement. Command
+                       is rejected if the macro is inactive.
+          continue   - If a macro is suspended due to a 'suspend'
+                       command this will cause it to continue
+                       execution from its current point.
+          step       - Execute the next statement and then stop.
+          kill       - Stop this process from running and put it
+                       in the inactive state. Note that this
+                       deletes all resource associated with the
+                       executing script, but not the process itself.
+          abort      - If the current macro status is 'suspended'
+                       Will cause it to terminate at its current point.
+          next       - Execute the next statement, stepping over
+                       child processes."
+      ::= {cmdExecEntry 9}
+
+cmdExecLastError OBJECT-TYPE
+      SYNTAX      INTEGER  {
+                  none (1),
+                  syntax (2),
+                  noResource (3),
+                  illegalAssignment (4),
+                  blockMismatch (5),
+                  badFnParams (6),
+                  stackOverflow (7),
+                  accessViolation (8),
+                  typeMismatch (9),
+                  nestTooDeep (10),
+                  runTimeError (11),
+                  noSuchVar (12),
+                  outOfRange (13),
+                  illegalLeftVal (14),
+                  brokenRemoteProc (15),
+                  sourceNotFound (16),
+                  missingSemiColon (17),
+                  missingEndList (18),
+                  missingEndOid (19),
+                  missingEndBracket (20),
+                  missingEndSubscript (21),
+                  missingEndParams (22),
+                  invalidQuoteStr (23),
+                  invalidGlobalName (24),
+                  namedVarNotSupported (25),
+                  processKilled (26),
+                  childDiedBadly (27),
+                  noTargetProcess (28),
+                  invalidBinaryImage (29),
+                  divideByZero (30),
+                  parentDiedPadly (31),
+                  nestedErrorHandler (32),
+                  rpcTargetDoesnotExist (33),
+                  rpcTargetNotSupported (34),
+                  assertionFailed (35),
+                  missingControlExpression( 36)
+      }
+      ACCESS      read-only
+      STATUS      mandatory
+      DESCRIPTION "Last error detected by this process or the script executing 
+        within the process."
+      ::= {cmdExecEntry 10}
+
+cmdExecOwner OBJECT-TYPE
+      SYNTAX      OwnerString
+      ACCESS      read-write
+      STATUS      mandatory
+      DESCRIPTION "RMON Owner of this process."
+      ::= {cmdExecEntry 11}
+
+cmdExecStatus OBJECT-TYPE
+      SYNTAX      EntryStatus
+      ACCESS      read-write
+      STATUS      mandatory
+      DESCRIPTION "Rmon RowStatus for this process."
+      ::= {cmdExecEntry 12}
+
+cmdExecMacroName OBJECT-TYPE
+      SYNTAX      DisplayString
+      ACCESS      read-write
+      STATUS      mandatory
+      DESCRIPTION "Name of the script to execute in the process. The script can 
+        reside in either the macro table in this MIB module, or in some other 
+        internal script repository."
+      ::= {cmdExecEntry 13}
+
+
+
+END

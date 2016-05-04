@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -18,12 +18,12 @@
 
 echo(" OADWDM-MIB ");
 
-$oids = snmpwalk_cache_oid($device, "oaLdCardTemp", array(), "OADWDM-MIB", mib_dirs('mrv'));
-$oids = snmpwalk_cache_oid($device, "oaLdCardType", $oids, "OADWDM-MIB", mib_dirs('mrv'));
-$oids = snmpwalk_cache_oid($device, "oaLdDevPSOperStatus", $oids, "OADWDM-MIB", mib_dirs('mrv'));
+$oids = snmpwalk_cache_oid($device, "oaLdCardTemp",       array(), "OADWDM-MIB", mib_dirs('mrv'));
+$oids = snmpwalk_cache_oid($device, "oaLdCardType",         $oids, "OADWDM-MIB", mib_dirs('mrv'));
+$oids = snmpwalk_cache_oid($device, "oaLdDevPSOperStatus",  $oids, "OADWDM-MIB", mib_dirs('mrv'));
 $oids = snmpwalk_cache_oid($device, "oaLdDevFANOperStatus", $oids, "OADWDM-MIB", mib_dirs('mrv'));
 
-if ($debug) { print_vars($oids); }
+if (OBS_DEBUG > 1) { print_vars($oids); }
 
 foreach ($oids as $index => $entry)
 {
@@ -43,24 +43,18 @@ foreach ($oids as $index => $entry)
   {
     $descr = "Power Supply $index";
     $oid   = ".1.3.6.1.4.1.6926.1.41.1.10.1.2.1.5.$index";
-    $value = state_string_to_numeric('oadwdm-powersupply-state', $entry['oaLdDevPSOperStatus']);
+    $value = $entry['oaLdDevPSOperStatus'];
 
-    if ($value != -1)
-    {
-      discover_sensor($valid['sensor'], 'state', $device, $oid, $index, 'oadwdm-powersupply-state', $descr, NULL, $value, array('entPhysicalClass' => 'powerSupply'));
-    }
+    discover_sensor($valid['sensor'], 'state', $device, $oid, $index, 'oadwdm-powersupply-state', $descr, NULL, $value, array('entPhysicalClass' => 'powerSupply'));
   }
 
   if ($entry['oaLdDevFANOperStatus'] != 'empty')
   {
     $descr = "Fan $index";
     $oid   = ".1.3.6.1.4.1.6926.1.41.1.10.3.2.1.5.$index";
-    $value = state_string_to_numeric('oadwdm-fan-state', $entry['oaLdDevFANOperStatus']);
+    $value = $entry['oaLdDevFANOperStatus'];
 
-    if ($value != -1)
-    {
-      discover_sensor($valid['sensor'], 'state', $device, $oid, $index, 'oadwdm-fan-state', $descr, NULL, $value, array('entPhysicalClass' => 'fan'));
-    }
+    discover_sensor($valid['sensor'], 'state', $device, $oid, $index, 'oadwdm-fan-state', $descr, NULL, $value, array('entPhysicalClass' => 'fan'));
   }
 }
 

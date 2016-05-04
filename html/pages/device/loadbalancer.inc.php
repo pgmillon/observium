@@ -2,12 +2,12 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -23,7 +23,7 @@ $type_text['loadbalancer_vservers'] = "Serverfarms";
 $type_text['netscaler_vsvr'] = "VServers";
 $type_text['netscaler_services'] = "Services";
 
-$pagetitle[] = "Load Balancer";
+$page_title[] = "Load Balancer";
 
 $navbar['brand'] = "Load Balancer";
 $navbar['class'] = "navbar-narrow";

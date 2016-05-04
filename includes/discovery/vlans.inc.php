@@ -8,7 +8,7 @@
  * @package    observium
  * @subpackage discovery
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -36,9 +36,6 @@ $device['vlans'] = array();
 $include_dir = "includes/discovery/vlans";
 include("includes/include-dir-mib.inc.php");
 
-// Always discover Q-BRIDGE-MIB
-include("vlans/q-bridge-mib.inc.php");
-
 foreach ($device['vlans'] as $domain_id => $vlans)
 {
   foreach ($vlans as $vlan_id => $vlan)
@@ -56,20 +53,20 @@ foreach ($device['vlans'] as $domain_id => $vlans)
         list($ios_version) = explode('(', $device['version']);
 
         // vlan context not worked on Cisco IOS <= 12.1 (SNMPv3)
-        if ($device['snmpver'] == 'v3' && $device['os'] == "ios" && ($ios_version * 10) <= 121)
+        if ($device['snmp_version'] == 'v3' && $device['os'] == "ios" && ($ios_version * 10) <= 121)
         {
           print_error("ERROR: For VLAN context to work on this device please use SNMP v2/v1 for this device (or upgrade IOS).");
           break;
         }
         $device_context = $device;
-        $device_context['snmpcontext'] = $vlan_id;
+        $device_context['snmp_context'] = $vlan_id;
         $vlan_data = snmpwalk_cache_oid($device_context, "dot1dStpPortEntry", array(), "BRIDGE-MIB:Q-BRIDGE-MIB", mib_dirs());
 
         // Detection shit snmpv3 authorization errors for contexts
         if ($exec_status['exitcode'] != 0)
         {
           unset($device_context);
-          if ($device['snmpver'] == 'v3')
+          if ($device['snmp_version'] == 'v3')
           {
             print_error("ERROR: For VLAN context to work on Cisco devices with SNMPv3, it is necessary to add 'match prefix' in snmp-server config.");
           } else {
@@ -113,7 +110,7 @@ foreach ($device['vlans'] as $domain_id => $vlans)
           }
           if ($db_a_changed)
           {
-            dbUpdate($db_a, 'ports_vlans', "`port_vlan_id` = ?", $id);
+            dbUpdate($db_a, 'ports_vlans', "`port_vlan_id` = ?", array($id));
             $module_stats[$vlan_id]['S'] = 'U';
           } else {
             $module_stats[$vlan_id]['S'] = '.';

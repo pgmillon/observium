@@ -7,17 +7,32 @@
  *
  * @package    observium
  * @subpackage web
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-// This function print page refresh meta header,
-// and return status for current page with current, list and allowed refresh array.
-// Uses variables $vars['refresh'], $_SESSION['refresh'], $config['page_refresh']
+/**
+ * Print refresh meta header
+ * 
+ * This function print refresh meta header and return status for current page
+ * with refresh time, list and allowed refresh times.
+ * Uses variables $vars['refresh'], $_SESSION['refresh'], $config['page_refresh']
+ *
+ * @global string $GLOBALS['config']['page_refresh']
+ * @global string $_SESSION['refresh']
+ * @param array $vars
+ * @return array $return
+ */
 function print_refresh($vars)
 {
+  if (!$_SESSION['authenticated'])
+  {
+    // Do not print refresh header if not authenticated session, common use in logon page
+    return array('allowed' => FALSE);
+  }
+
   $refresh_array = array(0, 60, 120, 300, 900, 1800); // Allowed refresh times
-  $refresh_time  = 300;                           // Default page reload time (5 minutes)
+  $refresh_time  = 300;                               // Default page reload time (5 minutes)
   if (isset($vars['refresh']))
   {
     if (is_numeric($vars['refresh']) && in_array($vars['refresh'], $refresh_array))
@@ -50,6 +65,8 @@ function print_refresh($vars)
     array('page' => 'device', 'tab' => 'showconfig'),
     array('page' => 'addhost'),
     array('page' => 'delhost'),
+    array('page' => 'delsrv'),
+    array('page' => 'deleted-ports'),
     array('page' => 'adduser'),
     array('page' => 'edituser'),
     array('page' => 'settings'),
@@ -83,6 +100,46 @@ function print_refresh($vars)
   }
 
   return $return;
+}
+
+/**
+ * Helper function for generate table header with sort links
+ * This used in other print_* functions
+ *
+ * @param array $cols Array with column IDs, names and column styles
+ * @param array $vars Array with current selected column ID and/or variables for generate column link
+ * @return string $string
+ */
+function get_table_header($cols, $vars = array())
+{
+  $string  = '  <thead>' . PHP_EOL;
+  $string .= '    <tr>' . PHP_EOL;
+  foreach ($cols as $id => $col)
+  {
+    if (is_array($col))
+    {
+      $name  = $col[0];
+      $style = ' '.$col[1]; // Column styles/classes
+    } else {
+      $name  = $col;
+      $style = '';
+    }
+    $string .= '      <th'.$style.'>';
+    if ($name == NULL)          { $string .= ''; }         // Column without Name and without Sort
+    else if (is_int($id))       { $string .= $name; }      // Column without Sort
+    else if ($vars)
+    {
+      if ($vars['sort'] == $id) { $string .= $name.' *'; } // Column without Sort (selected)
+      else                      { $string .= '<a href="'. generate_url($vars, array('sort' => $id)).'">'.$name.'</a>'; } // Column without Sort
+    } else {
+      $string .= $name; // Sorting is not available (if vars empty or FALSE)
+    }
+    $string .= '</th>' . PHP_EOL;
+  }
+  $string .= '    </tr>' . PHP_EOL;
+  $string .= '  </thead>' . PHP_EOL;
+
+  return $string;
 }
 
 // EOF

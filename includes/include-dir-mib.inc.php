@@ -8,11 +8,9 @@
  * @package    observium
  * @subpackage common
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
-
-global $debug;
 
 /* not finished yet --mike
 if (isset($config['os'][$device['os']]['detect']) && $config['os'][$device['os']]['detect'])
@@ -34,20 +32,19 @@ if (isset($config['os'][$device['os']]['detect']) && $config['os'][$device['os']
 
 foreach (get_device_mibs($device) as $mib)
 {
-  $inc_file = $config['install_dir'] . '/' . $include_dir . '/' . strtolower($mib) . '.inc.php';
   $inc_dir  = $config['install_dir'] . '/' . $include_dir . '/' . strtolower($mib);
+  $inc_file = $inc_dir . '.inc.php';
 
   if (is_device_mib($device, $mib))
   {
     if (is_file($inc_file))
     {
-      if ($debug) { echo("[[$mib]]"); }
-
+      if (OBS_DEBUG) { echo("[[$mib]]"); }
       include($inc_file);
     }
     else if (is_dir($inc_dir))
     {
-      if ($debug) { echo("[[$mib]]"); }
+      if (OBS_DEBUG) { echo("[[$mib]]"); }
       foreach (glob($inc_dir.'/*.inc.php') as $dir_file)
       {
         if (is_file($dir_file))

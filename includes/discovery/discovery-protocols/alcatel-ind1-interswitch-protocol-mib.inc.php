@@ -8,7 +8,7 @@
  * @package    observium
  * @subpackage discovery
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -24,19 +24,31 @@ if ($amap_array)
 
     $port = dbFetchRow("SELECT * FROM `ports` WHERE `device_id` = ? AND `ifIndex` = ?", array($device['device_id'], $amap['aipAMAPLocalIfindex']));
 
-    $remote_device = dbFetchRow("SELECT `device_id`, `hostname` FROM `devices` WHERE `sysName` = ? OR `hostname` = ?", array($amap['aipAMAPRemHostname'], $amap['aipAMAPRemHostname']));
-    $remote_device_id = $remote_device['device_id'];
-
-    if (!$remote_device_id && is_valid_hostname($amap['aipAMAPRemHostname']) && !is_bad_xdp($amap['aipAMAPRemHostname']))
+    $remote_device_id = FALSE;
+    if (is_valid_hostname($amap['aipAMAPRemHostname']))
     {
-      $remote_device_id = discover_new_device($amap['aipAMAPRemHostname'], 'xdp', 'AMAP', $device, $port);
+      if (isset($GLOBALS['cache']['discovery-protocols'][$amap['aipAMAPRemHostname']]))
+      {
+        // This hostname already checked, skip discover
+        $remote_device_id = $GLOBALS['cache']['discovery-protocols'][$amap['aipAMAPRemHostname']];
+      } else {
+        $remote_device = dbFetchRow("SELECT `device_id`, `hostname` FROM `devices` WHERE `sysName` = ? OR `hostname` = ?", array($amap['aipAMAPRemHostname'], $amap['aipAMAPRemHostname']));
+        $remote_device_id = $remote_device['device_id'];
+
+        if (!$remote_device_id && !is_bad_xdp($amap['aipAMAPRemHostname'], $amap['aipAMAPRemDeviceType']))
+        {
+          $remote_device_id = discover_new_device($amap['aipAMAPRemHostname'], 'xdp', 'AMAP', $device, $port);
+        }
+
+        // Cache remote device ID for other protocols
+        $GLOBALS['cache']['discovery-protocols'][$amap['aipAMAPRemHostname']] = $remote_device_id;
+      }
     }
 
     if ($remote_device_id)
     {
       $if = $amap['aipAMAPRemSlot']."/".$amap['aipAMAPRemPort'];
-      $remote_port_id = dbFetchCell("SELECT `port_id` FROM `ports` WHERE (`ifDescr` = ? OR `ifName` = ?) AND `device_id` = ?",
-        array($if, $if, $remote_device_id));
+      $remote_port_id = dbFetchCell("SELECT `port_id` FROM `ports` WHERE (`ifDescr` = ? OR `ifName` = ?) AND `device_id` = ?", array($if, $if, $remote_device_id));
     } else {
       $remote_port_id = "0";
     }

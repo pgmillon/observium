@@ -7,14 +7,14 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 # FIXME mres? wtf. check for numeric!
-$port      = mres($_GET['id']);
-if ($_GET['stat']) { $stat      = mres($_GET['stat']); } else { $stat = "bits"; }
-$sort      = mres($_GET['sort']);
+$port      = $_GET['id'];
+if ($_GET['stat']) { $stat      = $_GET['stat']; } else { $stat = "bits"; }
+$sort      = $_GET['sort'];
 
 if (is_numeric($_GET['topn'])) { $topn = $_GET['topn']; } else { $topn = '10'; }
 
@@ -67,7 +67,7 @@ foreach ($mas as $ma)
 
   if (is_file($this_rrd))
   {
-    $mac = formatmac($ma['mac']);
+    $mac = format_mac($ma['mac']);
     $name = $mac;
     $addy = dbFetchRow("SELECT * FROM ipv4_mac where mac_address = ? AND port_id = ?", array($ma['mac'], $ma['port_id']));
 

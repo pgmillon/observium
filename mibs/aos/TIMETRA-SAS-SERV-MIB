@@ -1,0 +1,1157 @@
+TIMETRA-SAS-SERV-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE,
+    NOTIFICATION-TYPE, Gauge32,
+    Integer32, Unsigned32, IpAddress,
+    TimeTicks, Counter64, Counter32             FROM SNMPv2-SMI
+
+    MODULE-COMPLIANCE, OBJECT-GROUP,
+    NOTIFICATION-GROUP                          FROM SNMPv2-CONF
+
+    TEXTUAL-CONVENTION, DisplayString,
+    RowStatus, MacAddress, TimeStamp,
+    TruthValue, RowPointer, DateAndTime         FROM SNMPv2-TC
+
+    sapBaseStatsEntry, sapBaseInfoEntry,
+    sapEgrQosQueueStatsEntry,sapIngQosQueueStatsEntry,
+    sapPortId, sapEncapValue,sapIngQosQueueInfoEntry                        FROM TIMETRA-SAP-MIB
+    
+    svcBaseInfoEntry,svcId,iesIfIndex               FROM TIMETRA-SERV-MIB
+
+    timetraSASObjs, timetraSASNotifyPrefix, 
+    timetraSASConfs, timetraSASModules              FROM TIMETRA-SAS-GLOBAL-MIB
+
+    TMeterRateMode, TIngressBurstSize, 
+    TIngressPIRRate,TIngressCIRRate,TMeterMode      FROM TIMETRA-SAS-QOS-MIB
+    TAdaptationRule, TSapIngressMeterId,
+    TmnxServId, TNamedItem, TWeight, TLevelOrDefault                                      FROM TIMETRA-TC-MIB
+    ;
+
+timetraSASServicesMIBModule   MODULE-IDENTITY
+    LAST-UPDATED    "0907070000Z"
+    ORGANIZATION    "Alcatel"
+    CONTACT-INFO
+        "Alcatel Support
+         Web: http://www.alcatel.com/comps/pages/carrier_support.jhtml"
+    DESCRIPTION
+        "This  document  is the SNMP MIB module to manage and provision
+        the various services of the Alcatel 7x50 SR system.
+
+        Copyright  2003-2014 Alcatel-Lucent. All rights reserved. Reproduction
+        of  this  document  is  authorized  on  the  condition that the
+        foregoing copyright notice is included.
+
+        This   SNMP   MIB  module  (Specification)  embodies  Alcatel's
+        proprietary  intellectual  property.  Alcatel retains all title
+        and ownership in the Specification, including any revisions.
+
+        Alcatel  grants  all interested parties a non-exclusive license
+        to  use and distribute an unmodified copy of this Specification
+        in  connection with management of Alcatel products, and without
+        fee,  provided  this copyright notice and license appear on all
+        copies.
+
+        This  Specification  is  supplied `as is', and Alcatel makes no
+        warranty,  either express or implied, as to the use, operation,
+        condition, or performance of the Specification."
+
+--
+--  Revision History
+--
+        REVISION        "0907070000Z"
+        DESCRIPTION     "Rev 1.0                07 June 2009 00:00
+                This is the 1.0 release of the TIMETRA-SAS-SERV-MIB."
+
+        ::= { timetraSASModules 9 }
+
+-- --------------------------------------------------------------------
+--      TIMETRA-SERV-MIB organisation
+-- --------------------------------------------------------------------
+tmnxSASServObjs            OBJECT IDENTIFIER ::= { timetraSASObjs 8 }
+    tmnxSASSapObjs             OBJECT IDENTIFIER ::= { tmnxSASServObjs 1 }
+    tmnxSASSvcObjs             OBJECT IDENTIFIER ::= { tmnxSASServObjs 2 }
+    tmnxSASSvcTraps            OBJECT IDENTIFIER ::= { tmnxSASServObjs 3 }    
+    tmnxSASSvcNotifyObjs       OBJECT IDENTIFIER ::= { tmnxSASServObjs 4 }    
+
+tmnxSASServConformance     OBJECT IDENTIFIER ::= { timetraSASConfs 5 }
+    tmnxSASSapConformance      OBJECT IDENTIFIER ::= { tmnxSASServConformance 1 }
+    tmnxSASServGroups      OBJECT IDENTIFIER ::=  { tmnxSASServConformance 2 }    
+
+--
+-- Conformance Information
+--
+tmnxSASSapCompliances  OBJECT IDENTIFIER ::= { tmnxSASSapConformance 1 }
+tmnxSASSapGroups      OBJECT IDENTIFIER  ::= { tmnxSASSapConformance 2 }
+
+TSapIngressAggrMeterBurstSize ::= TEXTUAL-CONVENTION
+    STATUS       current
+    DESCRIPTION
+        "The amount of buffer space (in Kbits) assigned to a meter.
+         The value -1 means default value" 
+    SYNTAX       INTEGER (-1 | 4..2146959)
+
+TSapIngressAggShaperRateCIRsize ::= TEXTUAL-CONVENTION
+   STATUS       current
+    DESCRIPTION
+        "The CIR rate to be used in kbps. The value -1 means maximum rate." 
+    SYNTAX       INTEGER (-1 | 0..20000000)
+
+TSapIngressAggShaperRatePIRsize ::= TEXTUAL-CONVENTION
+   STATUS       current
+    DESCRIPTION
+        "The PIR rate to be used in kbps. The value -1 means maximum rate." 
+    SYNTAX       INTEGER (-1 | 1..20000000)
+
+TSapAggShaperRateCIRsize ::= TEXTUAL-CONVENTION
+   STATUS       current
+    DESCRIPTION
+        "The rate to be used in kbps. The value -1 means maximum rate." 
+    SYNTAX       INTEGER (-1 | 0..20000000)
+
+TSapAggShaperRatePIRsize ::= TEXTUAL-CONVENTION
+   STATUS       current
+    DESCRIPTION
+        "The rate to be used in kbps. The value -1 means maximum rate." 
+    SYNTAX       INTEGER (-1 | 1..20000000)
+
+TQosMeterAttribute ::= TEXTUAL-CONVENTION
+    STATUS          current
+    DESCRIPTION     "Indicates attributes of a QoS meter"
+    SYNTAX          BITS {
+                        cbs          (0),
+                        cir          (1),
+                        cirAdaptRule (2),
+                        mbs          (3),
+                        pir          (4),
+                        pirAdaptRule (5),
+                        rateMode     (6),
+                        colorMode    (7)
+                    }
+                    
+sapBaseStatsExtnTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF SapBaseStatsExtnEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "A table that contains ingress QoS SAP
+                     statistics."
+    ::= { tmnxSASSapObjs 1 }
+
+sapBaseStatsExtnEntry OBJECT-TYPE
+    SYNTAX          SapBaseStatsExtnEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     ""
+    AUGMENTS   { sapBaseStatsEntry } 
+    ::= { sapBaseStatsExtnTable 1 }
+
+SapBaseStatsExtnEntry ::=
+    SEQUENCE {
+        sapBaseStatsQosClassifiersUsed            Unsigned32,
+        sapBaseStatsQosMetersUsed                 Unsigned32,
+        sapBaseStatsIngressForwardedPackets       Counter64,
+        sapBaseStatsIngressForwardedOctets        Counter64,
+        sapBaseStatsEgressForwardedPackets        Counter64,
+        sapBaseStatsEgressForwardedOctets         Counter64,        
+        sapBaseStatsIngressExtraTagDroppedPackets Counter64,
+        sapBaseStatsIngressExtraTagDroppedOctets  Counter64,
+        sapBaseStatsIngressDroppedPackets         Counter64,
+        sapBaseStatsIngressDroppedOctets          Counter64        
+    }
+    
+sapBaseStatsQosClassifiersUsed OBJECT-TYPE
+    SYNTAX Unsigned32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION 
+        "This value indicates the number of ingress QoS classifiers 
+        used for this SAP."
+    ::= { sapBaseStatsExtnEntry 1 }
+
+sapBaseStatsQosMetersUsed OBJECT-TYPE
+    SYNTAX Unsigned32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION 
+        "This value indicates the number of ingress QoS meters used 
+        for this SAP."
+    ::= { sapBaseStatsExtnEntry 2 }              
+
+sapBaseStatsIngressForwardedPackets OBJECT-TYPE
+    SYNTAX          Counter64
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The number of sap ingress forwarded
+                     packets."
+    ::= { sapBaseStatsExtnEntry 3 }
+
+sapBaseStatsIngressForwardedOctets OBJECT-TYPE
+    SYNTAX          Counter64
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The number of sap ingress forwarded
+                     octets."
+    ::= { sapBaseStatsExtnEntry 4 }
+
+sapBaseStatsEgressForwardedPackets OBJECT-TYPE
+    SYNTAX          Counter64
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The number of sap egress forwarded
+                     packets."
+    ::= { sapBaseStatsExtnEntry 5 }
+
+sapBaseStatsEgressForwardedOctets OBJECT-TYPE
+    SYNTAX          Counter64
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The number of sap egress forwarded
+                     octets."
+    ::= { sapBaseStatsExtnEntry 6 }
+
+sapBaseStatsIngressExtraTagDroppedPackets OBJECT-TYPE
+    SYNTAX          Counter64
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The number of Ingress Extra Tag Dropped packets" 
+    ::= { sapBaseStatsExtnEntry 7 }
+    
+sapBaseStatsIngressExtraTagDroppedOctets OBJECT-TYPE
+    SYNTAX          Counter64
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The number of Ingress Extra Tag Dropped octets"
+    ::= { sapBaseStatsExtnEntry 8 }
+
+sapBaseStatsIngressDroppedPackets OBJECT-TYPE
+    SYNTAX          Counter64
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The number of sap ingress dropped
+                     packets."
+    ::= { sapBaseStatsExtnEntry 9 }
+
+sapBaseStatsIngressDroppedOctets OBJECT-TYPE
+    SYNTAX          Counter64
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The number of sap ingress dropped
+                     octets."
+    ::= { sapBaseStatsExtnEntry 10 }
+    
+sapBaseInfoExtnTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF SapBaseInfoExtnEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     
+        "sapBaseInfoExtnTable is an extension of 
+        sapBaseInfoTable"
+    ::= {  tmnxSASSapObjs 2 }
+
+sapBaseInfoExtnEntry OBJECT-TYPE
+    SYNTAX          SapBaseInfoExtnEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "Information about a specific SAP."
+    AUGMENTS   { sapBaseInfoEntry }
+    ::= { sapBaseInfoExtnTable 1 }
+
+SapBaseInfoExtnEntry ::=
+    SEQUENCE {
+        sapBaseInfoEgressStatsPktsMode        TruthValue,
+        sapBaseInfoIngressCounterMode         INTEGER,
+        sapBaseInfoIngressAggregateMeterRate  INTEGER, 
+        sapBaseInfoIngressAggregateMeterBurst TSapIngressAggrMeterBurstSize,
+        sapBaseInfoIngressWithAggregateMeter  TruthValue,
+        sapBaseInfoIngressExtraTagDropCount   TruthValue,
+        sapBaseInfoEgressStatsEnable          TruthValue,
+        sapBaseInfoIngressStatsEnable         TruthValue,
+        sapBaseInfoIngressCounterType         INTEGER,
+        sapBaseInfoIngressFabricPath          INTEGER,
+        sapBaseInfoEthRingShgEnable           TruthValue,
+        sapBaseInfoIngressAggShaperRateCIR    TSapIngressAggShaperRateCIRsize,
+        sapBaseInfoIngressAggShaperRatePIR    TSapIngressAggShaperRatePIRsize,
+        sapBaseInfoEgressAggShaperRateCIR     TSapAggShaperRateCIRsize,
+        sapBaseInfoEgressAggShaperRatePIR     TSapAggShaperRatePIRsize,
+        sapEgressAggRateLimitCIR              Integer32,
+        sapEgressAggRateLimitPIR              Integer32
+    }
+
+sapBaseInfoEgressStatsPktsMode OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION    
+        "When set to 'true', egress sap stats is enabled to collect
+        in packets"
+    DEFVAL { false }
+    ::= { sapBaseInfoExtnEntry 1 }    
+    
+sapBaseInfoIngressCounterMode OBJECT-TYPE
+    SYNTAX INTEGER {
+                        packet             (1),
+                        octet              (2)
+                    }
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION    
+        "When set to 'packet', Ingress sap stats collects in packets 
+        and when set to 'ocetet',  Ingress sap stats collects in 
+        octets"
+    DEFVAL { packet }
+    ::= { sapBaseInfoExtnEntry 2 }        
+
+sapBaseInfoIngressAggregateMeterRate OBJECT-TYPE
+    SYNTAX INTEGER (-1..20000000)
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION    
+        "The rate to be used in kbps. The value -1 means maximum rate.
+        sapBaseInfoIngressAggregateMeterRate can be set if 
+        'tSapIngressMeterRateMode' is set to 'modified-trtcm'. When set
+        to zero aggregate meter is disabled on sap Ingress"
+    DEFVAL { 0 }        
+    ::= { sapBaseInfoExtnEntry 3 }        
+
+sapBaseInfoIngressAggregateMeterBurst OBJECT-TYPE
+    SYNTAX TSapIngressAggrMeterBurstSize
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION    
+        "The rate to be used in kbits. sapBaseInfoIngressAggregateMeterBurst 
+        can be set if 'tSapIngressMeterRateMode' is set to 'modified-trtcm'"
+    DEFVAL { -1 }        
+    ::= { sapBaseInfoExtnEntry 4 }  
+    
+
+sapBaseInfoIngressWithAggregateMeter OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION    
+        "When set to 'true', ingress aggregate policer can be configured on 
+        this sap. sapBaseInfoIngressNeedAggregateMeter can be enabled only 
+        during sap creation"
+    DEFVAL { false }
+    ::= { sapBaseInfoExtnEntry 5 }  
+
+
+sapBaseInfoIngressExtraTagDropCount   OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION    
+        "When set to 'true', couting of extra tag dropped packet will be 
+         enabled, It will be set only for required SAP's"
+    DEFVAL { false }
+    ::= { sapBaseInfoExtnEntry 6 }  
+
+sapBaseInfoEgressStatsEnable OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION    
+        "When set to 'true', egress sap stats is enabled"
+    DEFVAL { false }
+    ::= { sapBaseInfoExtnEntry 7 }    
+
+sapBaseInfoIngressStatsEnable OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION    
+        "When set to 'true', ingress sap stats is enabled"
+    DEFVAL { false }
+    ::= { sapBaseInfoExtnEntry 8 }    
+
+sapBaseInfoIngressCounterType OBJECT-TYPE
+    SYNTAX INTEGER {
+                        in-out-profile-count (1),
+                        forward-drop-count   (2)
+                    }
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION    
+        "When set to 'forward-drop-count', Ingress sap stats collects the
+        forwarded and drop count, else in/out profile"
+    DEFVAL { in-out-profile-count }
+    ::= { sapBaseInfoExtnEntry 9 }        
+   
+sapBaseInfoIngressFabricPath OBJECT-TYPE
+    SYNTAX INTEGER (1..2)
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION    
+        "Ingress sap Fabric path"
+    DEFVAL { 1 }
+    ::= { sapBaseInfoExtnEntry 10 }        
+
+sapBaseInfoEthRingShgEnable OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION    
+        "This command must only be used with the SAPs created in the 
+        service for the virtual channel on the interconnection nodes in a 
+        topology that uses multiple rings. This command creates a 
+        split-horizon group to ensure that Sub-Ring control messages 
+        from the major ring are only passed to the Sub-Ring control service."
+    DEFVAL { false }
+    ::= { sapBaseInfoExtnEntry 11 }   
+
+sapBaseInfoIngressAggShaperRateCIR OBJECT-TYPE
+    SYNTAX       TSapIngressAggShaperRateCIRsize
+    UNITS        "kbps"
+    MAX-ACCESS   read-create
+    STATUS       current
+    DESCRIPTION
+        "Aggregate shaper rate CIR value"
+    DEFVAL { 0 }
+    ::= { sapBaseInfoExtnEntry 12 }
+
+sapBaseInfoIngressAggShaperRatePIR OBJECT-TYPE
+    SYNTAX       TSapIngressAggShaperRatePIRsize
+    UNITS        "kbps"
+    MAX-ACCESS   read-create
+    STATUS       current
+    DESCRIPTION
+        "Aggregate shaper rate PIR value"
+    DEFVAL { -1 }
+    ::= { sapBaseInfoExtnEntry 13 }
+
+sapBaseInfoEgressAggShaperRateCIR OBJECT-TYPE
+    SYNTAX       TSapAggShaperRateCIRsize
+    UNITS        "kbps"
+    MAX-ACCESS   read-create
+    STATUS       current
+    DESCRIPTION
+        "Aggregate shaper rate CIR value"
+    DEFVAL { 0 }
+    ::= { sapBaseInfoExtnEntry 14 }
+
+sapBaseInfoEgressAggShaperRatePIR OBJECT-TYPE
+    SYNTAX       TSapAggShaperRatePIRsize
+    UNITS        "kbps"
+    MAX-ACCESS   read-create
+    STATUS       current
+    DESCRIPTION
+        "Aggregate shaper rate PIR value"
+    DEFVAL { -1 }
+    ::= { sapBaseInfoExtnEntry 15 }
+
+sapEgressAggRateLimitCIR  OBJECT-TYPE
+    SYNTAX      Integer32 (0..10000000) 
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of sapEgressAggRateLimitCIR in kbps is used
+          to cap sap aggregate traffic cir rate."
+    DEFVAL { 0 }
+    ::= { sapBaseInfoExtnEntry 16 }
+
+sapEgressAggRateLimitPIR  OBJECT-TYPE
+    SYNTAX      Integer32 (-1 | 1..10000000) 
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of tmnxPortEtherNwAggRateLimit in kbps is used
+          to cap sap aggregate traffic pir rate."
+    DEFVAL { -1 }
+    ::= { sapBaseInfoExtnEntry 17 }
+    
+svcBaseInfoExtnTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF SvcBaseInfoExtnEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     
+        "svcBaseInfoExtnTable is an extension of 
+        svcBaseInfoTable"
+    ::= {  tmnxSASSvcObjs 1 }
+
+svcBaseInfoExtnEntry OBJECT-TYPE
+    SYNTAX          SvcBaseInfoExtnEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "Information about a specific service."
+    AUGMENTS   { svcBaseInfoEntry }
+    ::= { svcBaseInfoExtnTable 1 }
+
+SvcBaseInfoExtnEntry ::=
+    SEQUENCE {
+        svcMtuCheck           TruthValue,
+        svcSapType            INTEGER,
+        svcUplinkType         INTEGER,
+        svcCustomerVid        INTEGER,
+        svcEpipeType          INTEGER,
+        svcAllowL2ptXstpBpdu  INTEGER,
+        svcbVplsVid             INTEGER
+    }
+
+svcMtuCheck OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION    
+        "This `no` form of this command disables the service MTU checks. 
+        When the check is disabled the system will pass on packets to the
+        egress as long as the packet length is lesser than or equal to the 
+        configured port MTU. In other words, the length of the packet sent 
+        out of a SAP is limited by the access port MTU and the length of 
+        the packet sent out of a PW is limited by the network port MTU 
+        (minus the MPLS encapsulation). When set to 'false', the configured 
+        svcMtu value is not enforced"
+    DEFVAL { true }
+    ::= { svcBaseInfoExtnEntry 1 }    
+
+svcSapType OBJECT-TYPE
+    SYNTAX          INTEGER {
+                        undefined (0),
+                        null-star (1),
+                        dot1q (2),
+                        dot1q-preserve (3),
+                        any (4),
+                        dot1q-range (5),
+                        qinq-inner-tag-preserve(6)
+                    }
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION     
+      "The value of svcSapType specifies the type of saps configured
+       in the service. If svcSapType is null-star the allowed access 
+       saps are null & star and Network sap is Q.*. If svcSapType 
+       is dot1q the allowed access saps is dot1q and Network sap are Q.*.
+       If svcSapType is dot1q-preserve the allowed access saps is dot1q 
+       and Network sap is QinQ. If svcSapType is any the allowed access 
+       saps are null, dot1q, dot1q explicit null, star and Network 
+       sap is Q.*. If svcSapType is dot1q-range, the allowed saps are
+       dot1q-range saps and Q.*"
+    ::= { svcBaseInfoExtnEntry 2 }
+
+svcUplinkType OBJECT-TYPE
+    SYNTAX          INTEGER {
+                        undefined (0),
+                        l2 (1),
+                        mpls (2)
+                    }
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION     
+      "The value of svcUplinkType specifies the uplink type of the service.
+       If uplink type is L2 the network SAPs can be Q.* and QinQ. If uplink 
+       type is MPLS the network SAPs can be spoke SDPs."
+    ::= { svcBaseInfoExtnEntry 3 }
+
+svcCustomerVid OBJECT-TYPE
+    SYNTAX          INTEGER  (1..4094)
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION     
+      "The value of svcCustomerVid specifies the encap value when svcSapType is
+       dot1q-preserve. The sapEncapValue of Dot1q SAPs in the service should 
+       match this svcCustomerVid. The qtag2 of sapEncapValue of QinQ SAPs 
+       in the service should match this svcCustomerVid."
+    ::= { svcBaseInfoExtnEntry 4 }
+
+svcEpipeType OBJECT-TYPE
+    SYNTAX          INTEGER {
+                        none  (1),
+                        pbbepipe (2)
+                    }
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION     
+      "The value of this particular object indicates that a 'pbb-epipe'
+       service is to be created"
+    DEFVAL     { none }
+    ::= { svcBaseInfoExtnEntry 5 }
+
+svcAllowL2ptXstpBpdu OBJECT-TYPE
+    SYNTAX          INTEGER {
+                        undefined (0),
+                        enable  (1),
+                        disable (2)
+                    }
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION     
+      "The value of this particular object indicates that whether
+      this service allows l2pt xstp bpdu"
+    DEFVAL     { disable }
+    ::= { svcBaseInfoExtnEntry 6 }
+
+svcbVplsVid OBJECT-TYPE
+    SYNTAX          INTEGER  (1..4094)
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION     
+      "The value of svcbVplsVid specifies the b-vid for b-vpls and it is
+       a mandatory parameter when creating a b-vpls service."
+    ::= { svcBaseInfoExtnEntry 7 }
+
+sapEgrQosQueueStatsExtnTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF SapEgrQosQueueStatsExtnEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "A table that contains egress QoS queue SAP
+                     statistics. This table extends the capabilities
+                     of sapEgrQosQueueStatsTable"
+    ::= { tmnxSASSapObjs 3 }
+
+sapEgrQosQueueStatsExtnEntry OBJECT-TYPE
+    SYNTAX          SapEgrQosQueueStatsExtnEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "Egress statistics about a specific SAP's
+                     QoS queue."
+    AUGMENTS           { sapEgrQosQueueStatsEntry }
+    ::= { sapEgrQosQueueStatsExtnTable 1 }
+ 
+ SapEgrQosQueueStatsExtnEntry ::=
+    SEQUENCE {
+        sapEgrQosQueueStatsFwdPkts         Counter64,
+        sapEgrQosQueueStatsFwdOcts         Counter64,
+        sapEgrQosQueueStatsInprofDroPkts   Counter64,
+        sapEgrQosQueueStatsInprofDroOcts   Counter64,
+        sapEgrQosQueueStatsOutprofDroPkts  Counter64,
+        sapEgrQosQueueStatsOutprofDroOcts  Counter64
+    }
+
+sapEgrQosQueueStatsFwdPkts OBJECT-TYPE
+    SYNTAX          Counter64
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The number of forwarded packets
+                     on this egress Queue."
+    ::= { sapEgrQosQueueStatsExtnEntry 1 }
+
+sapEgrQosQueueStatsFwdOcts OBJECT-TYPE
+    SYNTAX          Counter64
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The number of forwarded bytes
+                     on this egress Queue."
+    ::= { sapEgrQosQueueStatsExtnEntry 2 }
+
+sapEgrQosQueueStatsInprofDroPkts OBJECT-TYPE
+    SYNTAX          Counter64
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The number of dropped packets
+                     for this in profile egress Queue."
+    ::= { sapEgrQosQueueStatsExtnEntry 3 }
+
+sapEgrQosQueueStatsInprofDroOcts OBJECT-TYPE
+    SYNTAX          Counter64
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The number of dropped bytes
+                     for this in profile egress Queue."
+    ::= { sapEgrQosQueueStatsExtnEntry 4 }
+
+sapEgrQosQueueStatsOutprofDroPkts OBJECT-TYPE
+    SYNTAX          Counter64
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The number of dropped packets
+                     for this out profile egress Queue."
+    ::= { sapEgrQosQueueStatsExtnEntry 5 }
+
+sapEgrQosQueueStatsOutprofDroOcts OBJECT-TYPE
+    SYNTAX          Counter64
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The number of dropped bytes
+                     for this out profile egress Queue."
+    ::= { sapEgrQosQueueStatsExtnEntry 6 }
+
+
+sapIngQosQueueStatsExtnTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF SapIngQosQueueStatsExtnEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "A table that contains ingress QoS queue SAP
+                     statistics. This table extends the capabilities
+                     of sapIngQosQueueStatsTable"
+    ::= { tmnxSASSapObjs 4 }
+
+sapIngQosQueueStatsExtnEntry OBJECT-TYPE
+    SYNTAX          SapIngQosQueueStatsExtnEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "Ingress statistics about a specific SAP's
+                     QoS queue."
+    AUGMENTS           { sapIngQosQueueStatsEntry }
+    ::= { sapIngQosQueueStatsExtnTable 1 }
+ 
+ SapIngQosQueueStatsExtnEntry ::=
+    SEQUENCE {
+        sapIngQosQueueStatsFwdPkts         Counter64,
+        sapIngQosQueueStatsFwdOcts         Counter64,
+        sapIngQosQueueStatsInprofDroPkts   Counter64,
+        sapIngQosQueueStatsInprofDroOcts   Counter64,
+        sapIngQosQueueStatsOutprofDroPkts  Counter64,
+        sapIngQosQueueStatsOutprofDroOcts  Counter64
+    }
+
+sapIngQosQueueStatsFwdPkts OBJECT-TYPE
+    SYNTAX          Counter64
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The number of forwarded packets
+                     on this ingress Queue."
+    ::= { sapIngQosQueueStatsExtnEntry 1 }
+
+sapIngQosQueueStatsFwdOcts OBJECT-TYPE
+    SYNTAX          Counter64
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The number of forwarded bytes
+                     on this ingress Queue."
+    ::= { sapIngQosQueueStatsExtnEntry 2 }
+
+sapIngQosQueueStatsInprofDroPkts OBJECT-TYPE
+    SYNTAX          Counter64
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The number of dropped packets
+                     for this in profile ingress Queue."
+    ::= { sapIngQosQueueStatsExtnEntry 3 }
+
+sapIngQosQueueStatsInprofDroOcts OBJECT-TYPE
+    SYNTAX          Counter64
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The number of dropped bytes
+                     for this in profile ingress Queue."
+    ::= { sapIngQosQueueStatsExtnEntry 4 }
+
+sapIngQosQueueStatsOutprofDroPkts OBJECT-TYPE
+    SYNTAX          Counter64
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The number of dropped packets
+                     for this out profile ingress Queue."
+    ::= { sapIngQosQueueStatsExtnEntry 5 }
+
+sapIngQosQueueStatsOutprofDroOcts OBJECT-TYPE
+    SYNTAX          Counter64
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The number of dropped bytes
+                     for this out profile ingress Queue."
+    ::= { sapIngQosQueueStatsExtnEntry 6 }
+
+-- ------------------------------------------
+-- SAP Ingress QoS Meter Table
+-- ------------------------------------------
+sapIngQosMeterInfoTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF SapIngQosMeterInfoEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "This table is used to override the base parameters
+                     of a Meter, as defined in the associated SAP
+                     ingress QoS policy."
+    ::= { tmnxSASSapObjs 5 }
+
+sapIngQosMeterInfoEntry OBJECT-TYPE
+    SYNTAX          SapIngQosMeterInfoEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "Override values for the specified SAP ingress QoS
+                     Meter. These values override the corresponding ones
+                     specified in the associated SAP ingress QoS policy."
+    INDEX           { svcId,
+                      sapPortId,
+                      sapEncapValue,
+                      sapIngQosMeterOvId }
+    ::= { sapIngQosMeterInfoTable 1 }
+
+SapIngQosMeterInfoEntry ::=
+    SEQUENCE {
+        sapIngQosMeterOvId              TSapIngressMeterId,
+        sapIngQosMeterRowStatus         RowStatus,
+        sapIngQosMeterLastMgmtChange    TimeStamp,
+        sapIngQosMeterOverrideFlags     TQosMeterAttribute,
+        sapIngQosMeterAdminCBS          TIngressBurstSize,
+        sapIngQosMeterAdminMBS          TIngressBurstSize,  
+        sapIngQosMeterCIRAdaptation     TAdaptationRule,
+        sapIngQosMeterPIRAdaptation     TAdaptationRule,
+        sapIngQosMeterAdminPIR          TIngressPIRRate,
+        sapIngQosMeterAdminCIR          TIngressCIRRate,
+        sapIngQosMeterRateMode          TMeterRateMode,
+        sapIngQosMeterOperPIR           TIngressPIRRate,
+        sapIngQosMeterOperCIR           TIngressCIRRate,
+        sapIngQosMeterRateColorMode     INTEGER
+
+    }
+
+sapIngQosMeterOvId OBJECT-TYPE
+    SYNTAX          TSapIngressMeterId
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "The value of sapIngQosMeterOvId indicates the ID of the
+                     Meter whose parameters are to be overridden."
+    ::= { sapIngQosMeterInfoEntry 1 }
+
+sapIngQosMeterRowStatus OBJECT-TYPE
+    SYNTAX          RowStatus
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION     "The value of sapIngQosMeterRowStatus controls the creation
+                     and deletion of rows in this table."
+    ::= { sapIngQosMeterInfoEntry 2 }
+
+sapIngQosMeterLastMgmtChange OBJECT-TYPE
+    SYNTAX          TimeStamp
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The value of sapIngQosMeterLastMgmtChange indicates the
+                     value of sysUpTime at the time of the last management
+                     change of any writable object of this row."
+    ::= { sapIngQosMeterInfoEntry 3 }
+
+sapIngQosMeterOverrideFlags OBJECT-TYPE
+    SYNTAX          TQosMeterAttribute
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION     "The value of sapIngQosMeterOverrideFlags specifies the
+                     set of attributes whose values have been overridden
+                     via management on this Meter. Clearing a given flag
+                     will return the corresponding overridden attribute
+                     to the value defined on the SAP's ingress QoS policy."
+    ::= { sapIngQosMeterInfoEntry 4 }
+
+sapIngQosMeterAdminCBS OBJECT-TYPE
+    SYNTAX          TIngressBurstSize
+    UNITS           "kilo bytes"
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION     "The value of sapIngQosMeterCBS specifies the amount of
+                     reserved buffer space (in kilo bytes) for this queue."
+    DEFVAL { -1 }
+    ::= { sapIngQosMeterInfoEntry 5 }
+
+sapIngQosMeterAdminMBS OBJECT-TYPE
+    SYNTAX          TIngressBurstSize
+    UNITS           "kilo bytes"
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION     "The value of sapIngQosQMBS specifies the maximum
+                     amount of buffer space (in kilo bytes) allowed for
+                     this queue."
+    DEFVAL { -1 }
+    ::= { sapIngQosMeterInfoEntry 6 }
+    
+sapIngQosMeterCIRAdaptation OBJECT-TYPE
+    SYNTAX          TAdaptationRule
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION     "The value of sapIngQosMeterCIRAdaptation specifies the
+                     criteria to use to compute the operational CIR value
+                     for this Meter, while maintaining a minimum offset."
+    DEFVAL { closest }
+    ::= { sapIngQosMeterInfoEntry 7 }
+
+sapIngQosMeterPIRAdaptation OBJECT-TYPE
+    SYNTAX          TAdaptationRule
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION     "The value of sapIngQosMeterPIRAdaptation specifies the
+                     criteria to use to compute the operational PIR value
+                     for this Meter, while maintaining a minimum offset."
+    DEFVAL { closest }
+    ::= { sapIngQosMeterInfoEntry 8 }
+
+sapIngQosMeterAdminPIR OBJECT-TYPE
+    SYNTAX          TIngressPIRRate
+    UNITS           "kilo bits per second"
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION     "The value of sapIngQosMeterAdminPIR specifies the desired
+                     PIR value for this Meter."
+    DEFVAL { -1 }
+    ::= { sapIngQosMeterInfoEntry 9 }
+
+sapIngQosMeterAdminCIR OBJECT-TYPE
+    SYNTAX          TIngressCIRRate
+    UNITS           "kilo bits per second"
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION     "The value of sapIngQosMeterAdminCIR specifies the desired
+                     CIR value for this queue."
+    DEFVAL { -1 }
+    ::= { sapIngQosMeterInfoEntry 10 }
+
+sapIngQosMeterRateMode OBJECT-TYPE
+    SYNTAX          TMeterRateMode
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION     "Sap Ingress Meter Rate mode.The mode can be configured as 
+         Two Rate Three Color Marker (trTCM) or Single Rate Three Color 
+         Marker (srTCM). The mode command can be executed at anytime."
+    DEFVAL { trtcm1 }
+    ::= { sapIngQosMeterInfoEntry 11 }
+
+sapIngQosMeterOperPIR OBJECT-TYPE
+    SYNTAX          TIngressPIRRate
+    UNITS           "kilo bits per second"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The value of sapIngQosMeterOperPIR returns the operational
+                     PIR value for this Meter."
+    DEFVAL { -1 }
+    ::= { sapIngQosMeterInfoEntry 12 }
+
+sapIngQosMeterOperCIR OBJECT-TYPE
+    SYNTAX          TIngressCIRRate
+    UNITS           "kilo bits per second"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "The value of sapIngQosMeterOperCIR returns the operational
+                     CIR value for this queue."
+    DEFVAL { -1 }
+    ::= { sapIngQosMeterInfoEntry 13 }
+
+sapIngQosMeterRateColorMode OBJECT-TYPE
+    SYNTAX       INTEGER {
+                     color-aware  (1),
+                     color-blind  (2)
+                 }
+    MAX-ACCESS   read-create
+    STATUS       current
+    DESCRIPTION
+        "Set sap meter color mode"
+    DEFVAL { color-blind }
+    ::= { sapIngQosMeterInfoEntry 14 }
+    
+-- ------------------------------------------
+-- SAP Ingress QoS Queue Extn Table
+-- ------------------------------------------
+sapIngQosQueueInfoExtnTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF SapIngQosQueueInfoExtnEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "This table is used to override the base parameters
+                     of a queue, as defined in the associated SAP
+                     ingress QoS policy."
+    ::= { tmnxSASSapObjs 6 }
+
+sapIngQosQueueInfoExtnEntry OBJECT-TYPE
+    SYNTAX          SapIngQosQueueInfoExtnEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION     "Override values for the specified SAP ingress QoS
+                     queue. These values override the corresponding ones
+                     specified in the associated SAP ingress QoS policy."
+    AUGMENTS           { sapIngQosQueueInfoEntry }                     
+    ::= { sapIngQosQueueInfoExtnTable 1 }
+
+SapIngQosQueueInfoExtnEntry ::=
+    SEQUENCE {
+        sapIngQosQPolicyName                TNamedItem,
+        sapIngQosQPIRWeight                   TWeight,
+        sapIngQosQCIRLevel                  TLevelOrDefault
+        }
+
+sapIngQosQPolicyName  OBJECT-TYPE
+    SYNTAX       TNamedItem 
+    MAX-ACCESS   read-create
+    STATUS       current
+    DESCRIPTION
+        "sapIngQosQPolicyName determines the queue management policy
+        attached to this SAP Ingress queue."
+    DEFVAL { "default" }
+    ::= { sapIngQosQueueInfoExtnEntry 1 }
+
+sapIngQosQPIRWeight  OBJECT-TYPE
+    SYNTAX       TWeight
+    MAX-ACCESS   read-create
+    STATUS       current
+    DESCRIPTION
+        "The weight that needs to be used by the scheduler to which this override queue
+         would be feeding to."
+    DEFVAL { 1 }
+    ::= { sapIngQosQueueInfoExtnEntry 2 }
+
+sapIngQosQCIRLevel  OBJECT-TYPE
+    SYNTAX       TLevelOrDefault 
+    MAX-ACCESS   read-create
+    STATUS       current
+    DESCRIPTION
+        "This specifies the level of priority while feeding to the parent.
+         The level '0' means treat all offered load for this override queue as for
+         the above CIR traffic."
+    DEFVAL { 0 }
+    ::= { sapIngQosQueueInfoExtnEntry 3 }
+-- Notifications
+
+svcVplsId OBJECT-TYPE
+    SYNTAX         TmnxServId
+    MAX-ACCESS     accessible-for-notify
+    STATUS         current
+    DESCRIPTION    "The value of the object svcVplsId is the vpls service id
+                    bound to IES interface after ip interface binding is enabled
+                    on IES IP interface."
+    ::= { tmnxSASSvcNotifyObjs 1 }
+
+svcIesId OBJECT-TYPE
+    SYNTAX         TmnxServId
+    MAX-ACCESS     accessible-for-notify
+    STATUS         current
+    DESCRIPTION    "The value of the object svcIesId is the ies service id
+                    to which vpls service is bound after ip interface binding is 
+                    enabled on a IES IP interface."
+    ::= { tmnxSASSvcNotifyObjs 2 }
+    
+svcVplssvcBoundToIESSvc  NOTIFICATION-TYPE
+   OBJECTS {
+        svcVplsId,
+        svcIesId,
+        iesIfIndex
+   }
+   STATUS       current
+   DESCRIPTION  "The svcVplssvcBoundToIESSvc notification is generated when vpls
+         service is bound to IES interface. The ip interface binding must be 
+         enabled before the IES IP interface is bound to the VPLS service"
+    ::= { tmnxSASSvcTraps 1 }
+
+tmnxSASSvcNotifyGroup NOTIFICATION-GROUP
+    NOTIFICATIONS   {
+      svcVplssvcBoundToIESSvc
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of notifications for the services feature
+         on Alcatel-Lucent 7210 series systems."
+    ::= { tmnxSASServGroups 1 }
+    
+tmnxSapGlobalV1v0Group OBJECT-GROUP
+    OBJECTS {
+        sapBaseStatsQosClassifiersUsed,
+        sapBaseStatsQosMetersUsed,
+        sapBaseInfoEgressStatsPktsMode,
+        sapBaseInfoIngressCounterMode,
+        sapBaseInfoIngressAggregateMeterRate, 
+        sapBaseInfoIngressAggregateMeterBurst,
+        sapBaseInfoIngressWithAggregateMeter,        
+        sapBaseInfoIngressExtraTagDropCount, 
+        svcMtuCheck,
+        svcSapType,
+        svcUplinkType,
+        svcCustomerVid,
+        sapBaseStatsIngressForwardedPackets,
+        sapBaseStatsIngressForwardedOctets,
+        sapBaseStatsEgressForwardedPackets,
+        sapBaseStatsEgressForwardedOctets,
+        sapBaseStatsIngressExtraTagDroppedPackets,
+        sapBaseStatsIngressExtraTagDroppedOctets
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects supporting management of Services SAP general
+         capabilities on Alcatel 7210 series systems."
+    ::= { tmnxSASSapGroups 28 }         
+   
+tmnxSasSapQosV2v0Group OBJECT-GROUP
+    OBJECTS {
+        sapEgrQosQueueStatsFwdPkts,
+        sapEgrQosQueueStatsFwdOcts,
+        sapEgrQosQueueStatsInprofDroPkts,
+        sapEgrQosQueueStatsInprofDroOcts,
+        sapEgrQosQueueStatsOutprofDroPkts,
+        sapEgrQosQueueStatsOutprofDroOcts,
+        sapIngQosQueueStatsFwdPkts,
+        sapIngQosQueueStatsFwdOcts,
+        sapIngQosQueueStatsInprofDroPkts,
+        sapIngQosQueueStatsInprofDroOcts,
+        sapIngQosQueueStatsOutprofDroPkts,
+        sapIngQosQueueStatsOutprofDroOcts
+    }
+    STATUS current
+    DESCRIPTION
+        "The group of objects supporting the management of Qos capabilities
+         on Alcatel 7210 series systems."
+    ::= { tmnxSASSapGroups 29 }
+
+
+tmnxSapGlobalV3v0Group OBJECT-GROUP
+    OBJECTS {
+        sapBaseStatsQosClassifiersUsed,
+        sapBaseStatsQosMetersUsed,
+        sapBaseInfoEgressStatsPktsMode,
+        sapBaseInfoEgressStatsEnable,
+        sapBaseInfoIngressStatsEnable,        
+        sapBaseInfoIngressCounterMode,
+        sapBaseInfoIngressAggregateMeterRate, 
+        sapBaseInfoIngressAggregateMeterBurst,
+        sapBaseInfoIngressWithAggregateMeter,        
+        sapBaseInfoIngressExtraTagDropCount, 
+        svcMtuCheck,
+        svcEpipeType,
+        svcSapType,
+        svcUplinkType,
+        svcCustomerVid,
+        sapBaseStatsIngressForwardedPackets,
+        sapBaseStatsIngressForwardedOctets,
+        sapBaseStatsEgressForwardedPackets,
+        sapBaseStatsEgressForwardedOctets,
+        sapBaseStatsIngressExtraTagDroppedPackets,
+        sapBaseStatsIngressExtraTagDroppedOctets
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects supporting management of Services SAP general
+         capabilities on Alcatel 7210 series systems."
+    ::= { tmnxSASSapGroups 30 }         
+
+
+tmnxSapGlobalV4v0Group OBJECT-GROUP
+    OBJECTS {
+        sapBaseInfoIngressCounterType,
+        sapBaseInfoIngressFabricPath,
+        sapBaseInfoEthRingShgEnable,
+        sapBaseInfoIngressAggShaperRateCIR,
+        sapBaseInfoIngressAggShaperRatePIR
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects supporting management of Services SAP general
+         capabilities on Alcatel 7210 series systems."
+    ::= { tmnxSASSapGroups 31 } 
+
+tmnxSapGlobalV5v0Group OBJECT-GROUP
+    OBJECTS {   
+        sapIngQosMeterRowStatus,
+        sapIngQosMeterLastMgmtChange,
+        sapIngQosMeterOverrideFlags,
+        sapIngQosMeterAdminCBS,
+        sapIngQosMeterAdminMBS,
+        sapIngQosMeterCIRAdaptation,
+        sapIngQosMeterPIRAdaptation,
+        sapIngQosMeterAdminPIR,  
+        sapIngQosMeterAdminCIR,
+        sapIngQosMeterRateMode,
+        sapIngQosMeterOperPIR,  
+        sapIngQosMeterOperCIR        
+    }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects supporting management of Services SAP general
+         capabilities on Alcatel 7210 series systems."
+    ::= { tmnxSASSapGroups 32 } 
+    
+tmnxSap72100V1v0Compliance MODULE-COMPLIANCE
+    STATUS  current
+    DESCRIPTION
+        "The compliance statement for management of services SAPs
+         on Alcatel 7210 SAS series systems."
+    MODULE  -- this module
+        MANDATORY-GROUPS
+        {
+            tmnxSapGlobalV1v0Group,
+            tmnxSasSapQosV2v0Group
+        }
+    ::= { tmnxSASSapCompliances 1 }
+
+    
+END

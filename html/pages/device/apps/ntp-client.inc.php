@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage applications
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 

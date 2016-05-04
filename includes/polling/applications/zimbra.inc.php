@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -369,10 +369,8 @@ if (!empty($agent_data['app']['zimbra']))
         $ds_list .= "DS:c$ds_cmd:GAUGE:600:0:U DS:a$ds_cmd:GAUGE:600:0:U ";
       }
 
-      $debug=1;
         rrdtool_create($device, $rrd_filename, " "
           . $ds_list );
-      $debug=0;
 
       rrdtool_update($device, $rrd_filename, "N:" . implode(':', $rrd_values));
     }

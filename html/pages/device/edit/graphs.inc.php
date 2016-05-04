@@ -2,12 +2,12 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -23,7 +23,7 @@ foreach (dbFetchRows("SELECT `graph`,`enabled` FROM `device_graphs` WHERE `devic
   $graphs_sections[$section][$graph] = (bool)$entry['enabled'];
 }
 
-$graph = $_POST['toggle_graph'];
+$graph = $vars['toggle_graph'];
 if ($graph && isset($graphs_db[$graph]) &&
     !in_array($config['graph_types']['device'][$graph]['section'], array('poller', 'system')))
 {

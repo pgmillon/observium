@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage web
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -34,21 +34,22 @@ function print_status($status)
   $max_count    = filter_var($status['max']['count'],    FILTER_VALIDATE_INT, array('options' => array('default' => 200,
                                                                                                        'min_range' => 1)));
 
-  $string  = '<table class="table table-bordered table-striped table-hover table-condensed">' . PHP_EOL;
-  $string .= '  <thead>' . PHP_EOL;
+   $string  = '<table class="table table-bordered table-striped table-hover table-condensed">' . PHP_EOL;
+ /* $string .= '  <thead>' . PHP_EOL;
   $string .= '  <tr>' . PHP_EOL;
   $string .= '    <th>Device</th>' . PHP_EOL;
   $string .= '    <th>Type</th>' . PHP_EOL;
   $string .= '    <th>Status</th>' . PHP_EOL;
   $string .= '    <th>Entity</th>' . PHP_EOL;
-  $string .= '    <th>Location</th>' . PHP_EOL;
-  $string .= '    <th>Time Since / Information</th>' . PHP_EOL;
+  // $string .= '    <th>Location</th>' . PHP_EOL;
+  $string .= '    <th>Information</th>' . PHP_EOL;
   $string .= '  </tr>' . PHP_EOL;
   $string .= '  </thead>' . PHP_EOL;
   $string .= '  <tbody>' . PHP_EOL;
+ */
 
-  $query_device_permitted = generate_query_permitted(array('device'), array('device_table' => 'D', 'ignored' => TRUE));
-  $query_port_permitted   = generate_query_permitted(array('port'),   array('port_table' => 'I',   'ignored' => TRUE));
+  $query_device_permitted = generate_query_permitted(array('device'), array('device_table' => 'D', 'hide_ignored' => TRUE));
+  $query_port_permitted   = generate_query_permitted(array('port'),   array('port_table' => 'I',   'hide_ignored' => TRUE));
 
   // Show Device Status
   if ($status['devices'])
@@ -61,10 +62,10 @@ function print_status($status)
     {
       $string .= '  <tr>' . PHP_EOL;
       $string .= '    <td class="entity">' . generate_device_link($device, short_hostname($device['hostname'])) . '</td>' . PHP_EOL;
-      $string .= '    <td><span class="badge badge-inverse">Device</span></td>' . PHP_EOL;
+      // $string .= '    <td><span class="badge badge-inverse">Device</span></td>' . PHP_EOL;
       $string .= '    <td><span class="label label-important">Device Down</span></td>' . PHP_EOL;
-      $string .= '    <td>-</td>' . PHP_EOL;
-      $string .= '    <td style="white-space: nowrap">' . htmlspecialchars(truncate($device['location'], 30)) . '</td>' . PHP_EOL;
+      $string .= '    <td class="entity"><i class="oicon-servers"></i> ' . generate_device_link($device, short_hostname($device['hostname'])) . '</td>' . PHP_EOL;
+      // $string .= '    <td style="white-space: nowrap">' . escape_html(truncate($device['location'], 30)) . '</td>' . PHP_EOL;
       $string .= '    <td style="white-space: nowrap">' . deviceUptime($device, 'short') . '</td>' . PHP_EOL;
       $string .= '  </tr>' . PHP_EOL;
     }
@@ -84,10 +85,10 @@ function print_status($status)
       {
         $string .= '  <tr>' . PHP_EOL;
         $string .= '    <td class="entity">' . generate_device_link($device, short_hostname($device['hostname'])) . '</td>' . PHP_EOL;
-        $string .= '    <td><span class="badge badge-inverse">Device</span></td>' . PHP_EOL;
+        // $string .= '    <td><span class="badge badge-inverse">Device</span></td>' . PHP_EOL;
         $string .= '    <td><span class="label label-success">Device Rebooted</span></td>' . PHP_EOL;
-        $string .= '    <td>-</td>' . PHP_EOL;
-        $string .= '    <td style="white-space: nowrap">' . htmlspecialchars(truncate($device['location'], 30)) . '</td>' . PHP_EOL;
+        $string .= '    <td class="entity"><i class="oicon-servers"></i> ' . generate_device_link($device, short_hostname($device['hostname'])) . '</td>' . PHP_EOL;
+        // $string .= '    <td style="white-space: nowrap">' . escape_html(truncate($device['location'], 30)) . '</td>' . PHP_EOL;
         $string .= '    <td style="white-space: nowrap">Uptime ' . formatUptime($device['uptime'], 'short') . '</td>' . PHP_EOL;
         $string .= '  </tr>' . PHP_EOL;
       }
@@ -99,19 +100,10 @@ function print_status($status)
   {
     $status['links'] = $status['links'] && !$status['ports']; // Disable 'links if 'ports' already enabled
 
-    // warning about deprecated option: $config['warn']['ifdown']
-    if (isset($config['warn']['ifdown']) && !$config['warn']['ifdown'])
-    {
-      print_warning("<strong>Config option obsolete</strong>
-                    Please note that config option <strong>\$config['warn']['ifdown']</strong> is now obsolete.
-                    Use options: <strong>\$config['frontpage']['device_status']['ports']</strong> and <strong>\$config['frontpage']['device_status']['errors']</strong>
-                    To remove this message, delete <strong>\$config['warn']['ifdown']</strong> from configuration file.");
-    }
-
     $query = 'SELECT * FROM `ports` AS I ';
     if ($status['links']) { $query .= 'INNER JOIN `links` AS L ON I.`port_id` = L.`local_port_id` '; }
     $query .= 'LEFT JOIN `devices` AS D ON I.`device_id` = D.`device_id` ';
-    $query .= "WHERE D.`status` = 1 AND I.`ifOperStatus` = 'down' AND I.`ifAdminStatus` = 'up' ";
+    $query .= "WHERE D.`status` = 1 AND I.`ifAdminStatus` = 'up' AND (I.`ifOperStatus` = 'lowerLayerDown' OR I.`ifOperStatus` = 'down') ";
     if ($status['links']) { $query .= ' AND L.`active` = 1 '; }
     $query .= $query_port_permitted;
     $query .= ' AND I.`ifLastChange` >= DATE_SUB(NOW(), INTERVAL '.$max_interval.' HOUR) ';
@@ -131,10 +123,10 @@ function print_status($status)
       humanize_port($port);
       $string .= '  <tr>' . PHP_EOL;
       $string .= '    <td class="entity">' . generate_device_link($port, short_hostname($port['hostname'])) . '</td>' . PHP_EOL;
-      $string .= '    <td><span class="badge badge-info">Port</span></td>' . PHP_EOL;
+      // $string .= '    <td><span class="badge badge-info">Port</span></td>' . PHP_EOL;
       $string .= '    <td><span class="label label-important">Port Down</span></td>' . PHP_EOL;
-      $string .= '    <td class="entity">' . generate_port_link($port, short_ifname($port['label'])) . '</td>' . PHP_EOL;
-      $string .= '    <td style="white-space: nowrap">' . htmlspecialchars(truncate($port['location'], 30)) . '</td>' . PHP_EOL;
+      $string .= '    <td class="entity"><i class="oicon-network-ethernet"></i> ' . generate_port_link($port, short_ifname($port['label'])) . '</td>' . PHP_EOL;
+      // $string .= '    <td style="white-space: nowrap">' . escape_html(truncate($port['location'], 30)) . '</td>' . PHP_EOL;
       $string .= '    <td style="white-space: nowrap">Down for ' . formatUptime($config['time']['now'] - strtotime($port['ifLastChange']), 'short'); // This is like deviceUptime()
       if ($status['links']) { $string .= ' ('.nicecase($port['protocol']).': ' .$port['remote_hostname'].' / ' .$port['remote_port'] .')'; }
       $string .= '</td>' . PHP_EOL;
@@ -158,10 +150,10 @@ function print_status($status)
       humanize_port($port);
       $string .= '  <tr>' . PHP_EOL;
       $string .= '    <td class="entity">' . generate_device_link($port, short_hostname($port['hostname'])) . '</td>' . PHP_EOL;
-      $string .= '    <td><span class="badge badge-info">Port</span></td>' . PHP_EOL;
+      // $string .= '    <td><span class="badge badge-info">Port</span></td>' . PHP_EOL;
       $string .= '    <td><span class="label label-important">Port Errors</span></td>' . PHP_EOL;
-      $string .= '    <td class="entity">'.generate_port_link($port, short_ifname($port['label']), 'port_errors') . '</td>' . PHP_EOL;
-      $string .= '    <td style="white-space: nowrap">' . htmlspecialchars(truncate($port['location'], 30)) . '</td>' . PHP_EOL;
+      $string .= '    <td class="entity"><i class="oicon-network-ethernet"></i> '.generate_port_link($port, short_ifname($port['label']), 'port_errors') . '</td>' . PHP_EOL;
+      // $string .= '    <td style="white-space: nowrap">' . escape_html(truncate($port['location'], 30)) . '</td>' . PHP_EOL;
       $string .= '    <td>Errors ';
       if ($port['ifInErrors_delta']) { $string .= 'In: ' . $port['ifInErrors_delta']; }
       if ($port['ifInErrors_delta'] && $port['ifOutErrors_delta']) { $string .= ', '; }
@@ -184,10 +176,10 @@ function print_status($status)
     {
       $string .= '  <tr>' . PHP_EOL;
       $string .= '    <td class="entity">' . generate_device_link($service, short_hostname($service['hostname'])) . '</td>' . PHP_EOL;
-      $string .= '    <td><span class="badge">Service</span></td>' . PHP_EOL;
+      // $string .= '    <td><span class="badge">Service</span></td>' . PHP_EOL;
       $string .= '    <td><span class="label label-important">Service Down</span></td>' . PHP_EOL;
       $string .= '    <td>' . $service['service_type'] . '</td>' . PHP_EOL;
-      $string .= '    <td style="white-space: nowrap">' . htmlspecialchars(truncate($service['location'], 30)) . '</td>' . PHP_EOL;
+      // $string .= '    <td style="white-space: nowrap">' . escape_html(truncate($service['location'], 30)) . '</td>' . PHP_EOL;
       $string .= '    <td style="white-space: nowrap">Down for ' . formatUptime($config['time']['now'] - strtotime($service['service_changed']), 'short') . '</td>' . PHP_EOL; // This is like deviceUptime()
       $string .= '  </tr>' . PHP_EOL;
     }
@@ -217,10 +209,10 @@ function print_status($status)
         $peer_ip = (strstr($peer['bgpPeerRemoteAddr'], ':')) ? Net_IPv6::compress($peer['bgpPeerRemoteAddr']) : $peer['bgpPeerRemoteAddr'];
         $string .= '  <tr>' . PHP_EOL;
         $string .= '    <td class="entity">' . generate_device_link($peer, short_hostname($peer['hostname']), array('tab' => 'routing', 'proto' => 'bgp')) . '</td>' . PHP_EOL;
-        $string .= '    <td><span class="badge badge-warning">BGP</span></td>' . PHP_EOL;
-        $string .= '    <td><span class="label label-important" title="' . $bgpstates . '">BGP ' . nicecase($peer['bgpPeerState']) . '</span></td>' . PHP_EOL;
-        $string .= '    <td style="white-space: nowrap">' . $peer_ip . '</td>' . PHP_EOL;
-        $string .= '    <td style="white-space: nowrap">' . htmlspecialchars(truncate($peer['location'], 30)) . '</td>' . PHP_EOL;
+        // $string .= '    <td><span class="badge badge-warning">BGP</span></td>' . PHP_EOL;
+        $string .= '    <td><span class="label label-warning" title="' . $bgpstates . '">BGP ' . nicecase($peer['bgpPeerState']) . '</span></td>' . PHP_EOL;
+        $string .= '    <td class="entity" style="white-space: nowrap"><i class="oicon-chain"></i> ' . $peer_ip . '</td>' . PHP_EOL;
+        // $string .= '    <td style="white-space: nowrap">' . escape_html(truncate($peer['location'], 30)) . '</td>' . PHP_EOL;
         $string .= '    <td><strong>AS' . $peer['bgpPeerRemoteAs'] . ' :</strong> ' . $peer['astext'] . '</td>' . PHP_EOL;
         $string .= '  </tr>' . PHP_EOL;
       }
@@ -281,8 +273,8 @@ function get_status_array($status)
                                                                                                        'min_range' => 1)));
   $max_count    = filter_var($status['max']['count'],    FILTER_VALIDATE_INT, array('options' => array('default' => 200,
                                                                                                        'min_range' => 1)));
-  $query_device_permitted = generate_query_permitted(array('device'), array('device_table' => 'D', 'ignored' => TRUE));
-  $query_port_permitted   = generate_query_permitted(array('port'),   array('port_table' => 'I',   'ignored' => TRUE));
+  $query_device_permitted = generate_query_permitted(array('device'), array('device_table' => 'D', 'hide_ignored' => TRUE));
+  $query_port_permitted   = generate_query_permitted(array('port'),   array('port_table' => 'I',   'hide_ignored' => TRUE));
 
   // Show Device Status
   if ($status['devices'])
@@ -321,19 +313,10 @@ function get_status_array($status)
   {
     $status['links'] = $status['links'] && !$status['ports']; // Disable 'links if 'ports' already enabled
 
-    // warning about deprecated option: $config['warn']['ifdown']
-    if (isset($config['warn']['ifdown']) && !$config['warn']['ifdown'])
-    {
-      print_warning("<strong>Config option obsolete</strong>
-                    Please note that config option <strong>\$config['warn']['ifdown']</strong> is now obsolete.
-                    Use options: <strong>\$config['frontpage']['device_status']['ports']</strong> and <strong>\$config['frontpage']['device_status']['errors']</strong>
-                    To remove this message, delete <strong>\$config['warn']['ifdown']</strong> from configuration file.");
-    }
-
     $query = 'SELECT * FROM `ports` AS I ';
     if ($status['links']) { $query .= 'INNER JOIN `links` as L ON I.`port_id` = L.`local_port_id` '; }
     $query .= 'LEFT JOIN `devices` AS D ON I.`device_id` = D.`device_id` ';
-    $query .= "WHERE D.`status` = 1 AND I.`ifOperStatus` = 'down' AND I.`ifAdminStatus` = 'up' ";
+    $query .= "WHERE D.`status` = 1 AND I.`ifAdminStatus` = 'up' AND (I.`ifOperStatus` = 'lowerLayerDown' OR I.`ifOperStatus` = 'down') ";
     if ($status['links']) { $query .= ' AND L.`active` = 1 '; }
     $query .= $query_port_permitted;
     $query .= ' AND I.`ifLastChange` >= DATE_SUB(NOW(), INTERVAL '.$max_interval.' HOUR) ';
@@ -360,6 +343,8 @@ function get_status_array($status)
   {
     foreach ($cache['ports']['errored'] as $port_id)
     {
+      if (in_array($port_id, $cache['ports']['ignored'])) { continue; } // Skip ignored ports
+
       $port   = get_port_by_id($port_id);
       $device = device_by_id_cache($port['device_id']);
       humanize_port($port);
@@ -369,8 +354,8 @@ function get_status_array($status)
       if ($port['ifOutErrors_delta']) { $port['string'] .= 'Tx: ' . format_number($port['ifOutErrors_delta']); }
 
       $boxes[] = array('sev' => 75, 'class' => 'Port', 'event' => 'Errors', 'device_link' => generate_device_link($device, short_hostname($device['hostname'])),
-                     'entity_link' => generate_port_link($port, short_ifname($port['label'], 13)),
-                     'time' => $port['string'], 'location' => $device['location']);
+                       'entity_link' => generate_port_link($port, short_ifname($port['label'], 13)),
+                       'time' => $port['string'], 'location' => $device['location']);
     }
   }
 

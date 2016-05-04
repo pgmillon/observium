@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -206,14 +206,14 @@ if (isset($agent_data['distro']) && isset($agent_data['distro']['SCRIPTVER']))
   if (!$os_data || strpos($os_data, "/usr/bin/distro") !== FALSE)
   {
     unset($os_data);
-  } else {
-    list($distro, $distro_ver) = explode(" ", $os_data);
   }
-
-  // "Linux|3.2.0-4-amd64|amd64|Debian|7.5"
-  if (strpos($os_data, "|"))
+  else if (strpos($os_data, '|'))
   {
+    // "Linux|3.2.0-4-amd64|amd64|Debian|7.5"
     list($osname,$kernel,$arch,$distro,$distro_ver) = explode('|', $os_data, 5);
+  } else {
+    // Old distro, not supported now: "Ubuntu 12.04"
+    list($distro, $distro_ver) = explode(" ", $os_data);
   }
 }
 

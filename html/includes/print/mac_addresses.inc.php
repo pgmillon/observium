@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage web
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -47,8 +47,7 @@ function print_mac_addresses($vars)
           break;
         case 'address':
           $where .= ' AND `ifPhysAddress` LIKE ?';
-          # FIXME hm? mres in a dbFacile parameter?
-          $param[] = '%'.str_replace(array(':', ' ', '-', '.', '0x'),'',mres($value)).'%';
+          $param[] = '%'.str_replace(array(':', ' ', '-', '.', '0x'),'', $value).'%';
           break;
       }
     }
@@ -104,7 +103,7 @@ function print_mac_addresses($vars)
         $port_error = generate_port_link($entry, '<span class="label label-important">Errors</span>', 'port_errors');
       }
       $string .= '    <td class="entity">' . generate_port_link($entry, short_ifname($entry['label'])) . ' ' . $port_error . '</td>' . PHP_EOL;
-      $string .= '    <td style="width: 160px;">' . $entry['human_mac'] . '</td>' . PHP_EOL;
+      $string .= '    <td style="width: 160px;">' . generate_popup_link('mac', $entry['human_mac']) . '</td>' . PHP_EOL;
       $string .= '    <td>' . $entry['ifAlias'] . '</td>' . PHP_EOL;
       $string .= '  </tr>' . PHP_EOL;
     }

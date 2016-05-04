@@ -2,12 +2,12 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -49,9 +49,12 @@ $ifalias = $port['name'];
 if ($port['ifPhysAddress']) { $mac = $port['ifPhysAddress']; }
 
 $color = "black";
-if ($port['ifAdminStatus'] == "down") { $status = "<span class='grey'>Disabled</span>"; }
-if ($port['ifAdminStatus'] == "up" && $port['ifOperStatus'] == "down") { $status = "<span class='red'>Enabled / Disconnected</span>"; }
-if ($port['ifAdminStatus'] == "up" && $port['ifOperStatus'] == "up") { $status = "<span class='green'>Enabled / Connected</span>"; }
+if      ($port['ifAdminStatus'] == "down") { $status = "<span class='grey'>Disabled</span>"; }
+else if ($port['ifAdminStatus'] == "up")
+{
+  if ($port['ifOperStatus'] == "down" || $port['ifOperStatus'] == "lowerLayerDown") { $status = "<span class='red'>Enabled / Disconnected</span>"; }
+  else                                                                              { $status = "<span class='green'>Enabled / Connected</span>"; }
+}
 
 $i = 1;
 $inf = rewrite_ifname($ifname);

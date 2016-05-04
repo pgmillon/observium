@@ -2,29 +2,29 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
-$pagetitle[] = "User preferences";
+$page_title[] = "User preferences";
 
 // Change password
-if ($_POST['password'] == "save")
+if ($vars['password'] == "save")
 {
-  if (authenticate($_SESSION['username'],$_POST['old_pass']))
+  if (authenticate($_SESSION['username'], $vars['old_pass']))
   {
-    if ($_POST['new_pass'] == "" || $_POST['new_pass2'] == "")
+    if ($vars['new_pass'] == "" || $vars['new_pass2'] == "")
     {
       print_warning("Password must not be blank.");
     }
-    elseif ($_POST['new_pass'] == $_POST['new_pass2'])
+    elseif ($vars['new_pass'] == $vars['new_pass2'])
     {
-      auth_change_password($_SESSION['username'], $_POST['new_pass']);
+      auth_change_password($_SESSION['username'], $vars['new_pass']);
       print_success("Password Changed.");
     }
     else
@@ -43,7 +43,7 @@ if (is_numeric($_SESSION['user_id']))
   $prefs = get_user_prefs($user_id);
 
   // Reset RSS/Atom key
-  if ($_POST['atom_key'] == "toggle")
+  if ($vars['atom_key'] == "toggle")
   {
     if (set_user_pref($user_id, 'atom_key', md5(strgen())))
     {
@@ -55,7 +55,7 @@ if (is_numeric($_SESSION['user_id']))
   }
 
   // Reset API key
-  if ($_POST['api_key'] == "toggle")
+  if ($vars['api_key'] == "toggle")
   {
     if (set_user_pref($user_id, 'api_key', md5(strgen())))
     {

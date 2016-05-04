@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -40,7 +40,7 @@ foreach ($oids as $index => $entry)
 
   if (is_numeric($value))
   {
-    discover_sensor($valid['sensor'], 'current', $device, $oid, $index, 'juniper-dom', $descr, $scale, $value * $scale, $options);
+    discover_sensor($valid['sensor'], 'current', $device, $oid, $index, 'juniper-dom', $descr, $scale, $value, $options);
   }
 }
 
@@ -108,7 +108,7 @@ foreach ($oids as $index => $entry)
 
   if (is_numeric($value))
   {
-    discover_sensor($valid['sensor'], 'dbm', $device, $oid, $index, 'juniper-dom-rx', $descr, $scale, $value * $scale, $options);
+    discover_sensor($valid['sensor'], 'dbm', $device, $oid, $index, 'juniper-dom-rx', $descr, $scale, $value, $options);
   }
 }
 
@@ -141,7 +141,7 @@ foreach ($oids as $index => $entry)
 
   if (is_numeric($value))
   {
-    discover_sensor($valid['sensor'], 'dbm', $device, $oid, $index, 'juniper-dom-tx', $descr, $scale, $value * $scale, $options);
+    discover_sensor($valid['sensor'], 'dbm', $device, $oid, $index, 'juniper-dom-tx', $descr, $scale, $value, $options);
   }
 }
 

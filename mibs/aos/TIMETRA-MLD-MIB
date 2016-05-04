@@ -1,0 +1,1812 @@
+TIMETRA-MLD-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+        MODULE-IDENTITY,
+        OBJECT-TYPE, Unsigned32, Counter32, 
+        Gauge32, NOTIFICATION-TYPE                      FROM SNMPv2-SMI
+
+        MODULE-COMPLIANCE, OBJECT-GROUP,                 
+        NOTIFICATION-GROUP                              FROM SNMPv2-CONF
+
+        RowStatus, TimeStamp, TruthValue,
+        TimeInterval                                    FROM SNMPv2-TC
+
+        timetraSRMIBModules, tmnxSRObjs, 
+        tmnxSRNotifyPrefix, tmnxSRConfs                 FROM TIMETRA-GLOBAL-MIB
+
+        InetAddressType, InetAddress                    FROM INET-ADDRESS-MIB 
+
+        TmnxAdminState, TmnxOperState,
+        TPolicyStatementNameOrEmpty,
+        TmnxMldVersion                                  FROM TIMETRA-TC-MIB
+
+        vRtrID, vRtrIfIndex                             FROM TIMETRA-VRTR-MIB
+        ;
+
+timetraMldMIBModule MODULE-IDENTITY
+        LAST-UPDATED    "0807010000Z"
+        ORGANIZATION    "Alcatel-Lucent"
+        CONTACT-INFO
+            "Alcatel-Lucent SROS Support
+             Web: http://support.alcatel-lucent.com"
+        DESCRIPTION
+            "This document is the SNMP MIB module to manage and provision
+             the Multicast Listener Discovery (MLD) feature protocol
+             for the Alcatel-Lucent SROS device.
+
+             Copyright 2008-2011 Alcatel-Lucent. All rights reserved.
+             Reproduction of this document is authorized on the condition that
+             the foregoing copyright notice is included.
+
+             This SNMP MIB module (Specification) embodies Alcatel-Lucents's
+             proprietary intellectual property. Alcatel-Lucent retains all 
+             title and ownership in the Specification, including any revisions.
+
+             Alcatel-Lucent grants all interested parties a non-exclusive
+             license to use and distribute an unmodified copy of this
+             Specification in connection with management of Alcatel-Lucent
+             products, and without fee, provided this copyright notice and 
+             license appear on all copies.
+
+             This Specification is supplied 'as is', and Alcatel-Lucent
+             makes no warranty, either express or implied, as to the use,
+             operation, condition, or performance of the Specification."
+
+        REVISION     "0807010000Z"
+        DESCRIPTION  "Rev 6.1                01 Jul 2008 00:00
+                      6.1 release of the TIMETRA-MLD-MIB."
+
+        REVISION     "0801010000Z"
+        DESCRIPTION  "Rev 0.1                01 Jan 2008 00:00
+                      Initial version of the TIMETRA-MLD-MIB."
+
+        ::= { timetraSRMIBModules 46 }
+
+--%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+--
+--  Alcatel 77x0 SR series MLD protocol extensions
+--
+
+tmnxMldObjs                OBJECT IDENTIFIER ::= { tmnxSRObjs 46 }
+    vRtrMldProtocolObjs          OBJECT IDENTIFIER ::= { tmnxMldObjs 1 }
+    vRtrMldIfObjs                OBJECT IDENTIFIER ::= { tmnxMldObjs 2 }
+    vRtrMldNotificationObjs      OBJECT IDENTIFIER ::= { tmnxMldObjs 3 }
+
+tmnxMldConformance         OBJECT IDENTIFIER ::= { tmnxSRConfs 46 }
+
+vRtrMldNotifyPrefix     OBJECT IDENTIFIER ::= { tmnxSRNotifyPrefix 46 }
+    vRtrMldNotifications        OBJECT IDENTIFIER ::= { vRtrMldNotifyPrefix 0 }
+
+--
+-- The MLD General Table
+--
+
+vRtrMldGeneralTableLastChanged OBJECT-TYPE
+    SYNTAX       TimeStamp
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldGeneralTableLastChanged indicates the sysUpTime
+         at the time of the last modification of an entry in the
+         vRtrMldGeneralTable.
+
+         If no changes were made to the table since the last re-initialization
+         of the local network management subsystem, then this object
+         contains a zero value."
+    ::= { vRtrMldProtocolObjs 1 }
+
+vRtrMldGeneralTable   OBJECT-TYPE
+    SYNTAX      SEQUENCE OF VRtrMldGeneralEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The vRtrMldGeneralTable contains objects for general control and
+         management of the MLD protocol instance within a virtual router."
+    ::= { vRtrMldProtocolObjs 2 }
+
+vRtrMldGeneralEntry   OBJECT-TYPE
+    SYNTAX      VRtrMldGeneralEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each row entry represents an instance of the MLD protocol running
+         within a virtual router.  Entries in this table cannot be 
+         created and deleted via SNMP SET operations.  An entry in this table
+         is created by the agent when TIMETRA-VRTR-MIB::vRtrMldStatus in the 
+         vRtrConfTable is set to 'create'.  The entry is destroyed when 
+         vRtrMldStatus is set to 'delete'."
+    INDEX { vRtrID }
+    ::= { vRtrMldGeneralTable 1 }
+
+VRtrMldGeneralEntry ::=    SEQUENCE {
+    vRtrMldGenQueryInterval         Unsigned32,
+    vRtrMldGenLastMembQueryIntvl    Unsigned32,
+    vRtrMldGenQueryResponseIntvl    Unsigned32,
+    vRtrMldGenRobustCount           Unsigned32,
+    vRtrMldGenLastChange            TimeStamp,
+    vRtrMldGenAdminState            TmnxAdminState,
+    vRtrMldGenOperState             TmnxOperState
+}
+
+vRtrMldGenQueryInterval OBJECT-TYPE
+    SYNTAX     Unsigned32 (2..1024)
+    UNITS      "seconds"
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldGenQueryInterval specifies the frequency at 
+         which the MLD Host-Query packets are transmitted."
+    DEFVAL { 125 }
+    ::= { vRtrMldGeneralEntry 1 }
+
+vRtrMldGenLastMembQueryIntvl OBJECT-TYPE
+    SYNTAX     Unsigned32 (1..1023)
+    UNITS      "seconds"
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldGenLastMembQueryIntvl specifies the Max Response 
+         Time inserted into Group-Specific Queries sent in response to
+         Leave Group messages, and is also the amount of time between
+         Group-Specific Query messages.  This value may be tuned to
+         modify the leave latency of the network.  A reduced value
+         results in reduced time to detect the loss of the last
+         member of a group."
+    DEFVAL { 1 }
+    ::= { vRtrMldGeneralEntry 2 }
+
+vRtrMldGenQueryResponseIntvl OBJECT-TYPE
+    SYNTAX     Unsigned32 (1..1023)
+    UNITS      "seconds"
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldGenQueryResponseIntvl specifies 
+         maximum query response time advertised in Mldv2 queries."
+    DEFVAL { 10 }
+    ::= { vRtrMldGeneralEntry 3 }
+
+vRtrMldGenRobustCount OBJECT-TYPE
+    SYNTAX     Unsigned32 (2..10)
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldGenRobustCount specifies the allowed tuning
+         for the expected packet loss on a subnet. If a subnet is expected
+         to be lossy, the Robustness Variable may be increased.  MLD is
+         robust to (Robustness Variable-1) packet losses."
+    DEFVAL { 2 }
+    ::= { vRtrMldGeneralEntry 4 }
+
+vRtrMldGenLastChange       OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of vRtrMldGenLastChange indicates the sysUpTime 
+         when this row was last modified."
+    ::= { vRtrMldGeneralEntry 5 }
+
+vRtrMldGenAdminState   OBJECT-TYPE
+    SYNTAX      TmnxAdminState
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of vRtrMldGenAdminState specifies the current administrative 
+         state of the MLD protocol instance on this virtual router.
+
+         When vRtrMldGenAdminState is set to 'inService', the agent
+         attempts to enable the MLD protocol instance on this virtual router.
+             
+         When vRtrMldGenAdminState is set to 'outOfService', the
+         agent attempts to disable the MLD protocol instance on this
+         router."
+    DEFVAL { outOfService }
+    ::= { vRtrMldGeneralEntry 6 }
+                   
+vRtrMldGenOperState    OBJECT-TYPE
+    SYNTAX      TmnxOperState
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of vRtrMldGenOperState indicates the current operating state
+         of this MLD protocol instance on this router."
+    ::= { vRtrMldGeneralEntry 7 }
+
+
+--
+--  The MLD Source Group Global Database
+--
+
+vRtrMldGrpSrcTable OBJECT-TYPE
+    SYNTAX     SEQUENCE OF VRtrMldGrpSrcEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The vRtrMldGrpSrcTable lists the IP multicast sources 
+         corresponding to the IP multicast groups. This table represents 
+         the global MLD source, group database."
+    ::= { vRtrMldProtocolObjs 3 }
+
+vRtrMldGrpSrcEntry OBJECT-TYPE
+    SYNTAX     VRtrMldGrpSrcEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "An entry in the vRtrMldGrpSrcTable. Each entry represents a source 
+         address from which receivers are interested or not interested in 
+         receiving multicast traffic."
+    INDEX      { vRtrID,
+                 vRtrMldGrpSrcGroupAddrType,
+                 vRtrMldGrpSrcGroupAddress, 
+                 vRtrMldGrpSrcSourceAddrType,
+                 vRtrMldGrpSrcSourceAddress, 
+                 vRtrMldGrpSrcFwdOrBlk, 
+                 vRtrIfIndex }
+    ::= { vRtrMldGrpSrcTable 1 }
+
+VRtrMldGrpSrcEntry ::= SEQUENCE {
+    vRtrMldGrpSrcGroupAddrType      InetAddressType,
+    vRtrMldGrpSrcGroupAddress       InetAddress,
+    vRtrMldGrpSrcSourceAddrType     InetAddressType,
+    vRtrMldGrpSrcSourceAddress      InetAddress,
+    vRtrMldGrpSrcFwdOrBlk           INTEGER,
+    vRtrMldGrpSrcUpTime             Unsigned32
+}
+
+vRtrMldGrpSrcGroupAddrType OBJECT-TYPE
+    SYNTAX     InetAddressType
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldGrpSrcGroupAddrType indicates the type of 
+         address to be used for IP multicast group address."         
+    ::= { vRtrMldGrpSrcEntry 1 }
+
+vRtrMldGrpSrcGroupAddress OBJECT-TYPE
+    SYNTAX     InetAddress (SIZE(16))
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldGrpSrcGroupAddress indicates the IP multicast 
+         group address for which this entry contains information."
+    ::= { vRtrMldGrpSrcEntry 2 }
+
+vRtrMldGrpSrcSourceAddrType OBJECT-TYPE
+    SYNTAX     InetAddressType
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldGrpSrcSourceAddrType indicates the type of 
+         address to be used for source address."
+    ::= { vRtrMldGrpSrcEntry 3 }
+
+vRtrMldGrpSrcSourceAddress OBJECT-TYPE
+    SYNTAX     InetAddress (SIZE(16))
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldGrpSrcSourceAddress indicates the source address 
+         for which this entry contains information."
+    ::= { vRtrMldGrpSrcEntry 4 }
+
+vRtrMldGrpSrcFwdOrBlk OBJECT-TYPE
+    SYNTAX     INTEGER {
+                   forward (1),
+                   block (2)
+               }
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldGrpSrcFwdOrBlk indicates whether this entry is 
+         on the forward list or block list."
+    ::= { vRtrMldGrpSrcEntry 5 }
+
+vRtrMldGrpSrcUpTime    OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of vRtrMldGrpSrcUpTime indicates the time since 
+         this source group entry was created."
+    ::= { vRtrMldGrpSrcEntry 6 }
+
+
+--
+--  The MLD Source Specific Multicast (SSM) Translate Table
+--
+
+vRtrMldSsmTransTableLastChanged OBJECT-TYPE
+    SYNTAX       TimeStamp
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldSsmTransTableLastChanged indicates the
+         sysUpTime value at the time of the last modification of an entry
+         in the vRtrMldSsmTransTable.
+        
+         If no changes were made to the table since the last re-initialization
+         of the local network management subsystem, then this object
+         contains a zero value."
+    ::= { vRtrMldProtocolObjs 4 }
+
+vRtrMldSsmTransTable OBJECT-TYPE
+    SYNTAX     SEQUENCE OF VRtrMldSsmTransEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The vRtrMldSsmTransTable is used to configure group ranges which
+         are translated to SSM (S,G) entries."
+    ::= { vRtrMldProtocolObjs 5 }
+
+vRtrMldSsmTransEntry OBJECT-TYPE
+    SYNTAX     VRtrMldSsmTransEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "An entry in the vRtrMldSsmTransTable. Entries can         
+         be created or deleted by an SNMP SET request to 
+         vRtrMldSsmTransRowStatus."
+    INDEX      { vRtrID, 
+                 vRtrMldSsmTransGrpAddrType1,
+                 vRtrMldSsmTransGrpAddr1,
+                 vRtrMldSsmTransGrpAddrType2, 
+                 vRtrMldSsmTransGrpAddr2,
+                 vRtrMldSsmTransSrcAddrType, 
+                 vRtrMldSsmTransSrcAddr }
+    ::= { vRtrMldSsmTransTable 1 }
+
+VRtrMldSsmTransEntry ::= SEQUENCE {
+    vRtrMldSsmTransGrpAddrType1  InetAddressType, 
+    vRtrMldSsmTransGrpAddr1      InetAddress,
+    vRtrMldSsmTransGrpAddrType2  InetAddressType,    
+    vRtrMldSsmTransGrpAddr2      InetAddress,
+    vRtrMldSsmTransSrcAddrType   InetAddressType,
+    vRtrMldSsmTransSrcAddr       InetAddress,
+    vRtrMldSsmTransRowStatus     RowStatus,
+    vRtrMldSsmTransLastChanged   TimeStamp
+}
+
+vRtrMldSsmTransGrpAddrType1 OBJECT-TYPE
+    SYNTAX     InetAddressType
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldSsmTransGrpAddrType1 indicates the starting 
+         address type of the group range."
+    ::= { vRtrMldSsmTransEntry 1 }
+
+vRtrMldSsmTransGrpAddr1 OBJECT-TYPE
+    SYNTAX     InetAddress (SIZE(16))
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldSsmTransGrpAddr1 indicates the start of 
+         the group range."
+    ::= { vRtrMldSsmTransEntry 2 }
+
+vRtrMldSsmTransGrpAddrType2 OBJECT-TYPE
+    SYNTAX     InetAddressType
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldSsmTransGrpAddrType2 indicates the ending 
+         address type of the group range."
+    ::= { vRtrMldSsmTransEntry 3 }
+
+vRtrMldSsmTransGrpAddr2 OBJECT-TYPE
+    SYNTAX     InetAddress (SIZE(16))
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldSsmTransGrpAddr2 indicates the end 
+         of the group range."
+    ::= { vRtrMldSsmTransEntry 4 }
+
+vRtrMldSsmTransSrcAddrType OBJECT-TYPE
+    SYNTAX     InetAddressType
+    MAX-ACCESS not-accessible
+    STATUS     current 
+    DESCRIPTION
+        "The value of vRtrMldSsmTransSrcAddrType indicates the type of 
+         the source address for this group range."
+    ::= { vRtrMldSsmTransEntry 5 }
+
+vRtrMldSsmTransSrcAddr OBJECT-TYPE
+    SYNTAX     InetAddress (SIZE(16))
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldSsmTransSrcAddr indicates
+         the source address for this group range. Whenever a (*,G) report is
+         received in the range specified by vRtrMldSsmTransGrpAddr1 and
+         vRtrMldSsmTransGrpAddr2, it is translated to an (S,G) report
+         with the value of this object as the source address."
+    ::= { vRtrMldSsmTransEntry 6 }
+
+vRtrMldSsmTransRowStatus OBJECT-TYPE
+    SYNTAX     RowStatus
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldSsmTransRowStatus is used to 
+         create or delete an entry in this table."
+    ::= { vRtrMldSsmTransEntry 7 }
+
+vRtrMldSsmTransLastChanged OBJECT-TYPE
+    SYNTAX     TimeStamp
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldSsmTransLastChanged indicates the sysUpTime 
+         when this row was last modified."
+    ::= { vRtrMldSsmTransEntry 8 }
+
+--
+-- The MLD General Statistics Table
+--
+
+vRtrMldGenStatsTable   OBJECT-TYPE
+    SYNTAX      SEQUENCE OF VRtrMldGenStatsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The vRtrMldGenStatsTable contains objects for general statistics  
+        for the MLD protocol instance within a virtual router."
+    ::= { vRtrMldProtocolObjs 6 }
+
+vRtrMldGenStatsEntry   OBJECT-TYPE
+    SYNTAX      VRtrMldGenStatsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each row entry represents statistics for an instance of the 
+         MLD protocol running within a virtual router."
+    AUGMENTS      { vRtrMldGeneralEntry }
+    ::= { vRtrMldGenStatsTable 1 }
+
+VRtrMldGenStatsEntry ::=    SEQUENCE {
+    vRtrMldGenStatsStarGTypes       Gauge32,
+    vRtrMldGenStatsSGTypes          Gauge32
+}
+
+vRtrMldGenStatsStarGTypes OBJECT-TYPE
+    SYNTAX       Gauge32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldGenStatsStarGTypes indicates the number of 
+         entries in vRtrMldGrpSrcTable for which the source type is 'starG'."
+    ::= { vRtrMldGenStatsEntry 1 }
+
+vRtrMldGenStatsSGTypes OBJECT-TYPE
+    SYNTAX       Gauge32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldGenStatsSGTypes indicates the number of entries in
+         vRtrMldGrpSrcTable for which the source type is 'sg'."
+    ::= { vRtrMldGenStatsEntry 2 }
+
+--
+--  The MLD Interface Table
+--
+
+vRtrMldIfTableLastChanged OBJECT-TYPE
+    SYNTAX       TimeStamp
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldIfTableLastChanged indicates the sysUpTime
+         at the time of the last modification of an entry in the
+         vRtrMldIfTable.
+
+         If no changes were made to the table since the last re-initialization
+         of the local network management subsystem, then this object
+         contains a zero value."
+    ::= { vRtrMldIfObjs 1 }
+
+vRtrMldIfTable OBJECT-TYPE
+    SYNTAX     SEQUENCE OF VRtrMldIfEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The vRtrMldIfTable contains objects corresponding to the 
+         interfaces on which the MLD protocol operation is enabled."
+    ::= { vRtrMldIfObjs 2 }
+
+vRtrMldIfEntry OBJECT-TYPE
+    SYNTAX     VRtrMldIfEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "Each row entry in the vRtrMldIfTable represents an interface on
+         this router that participates in the MLD protocol.  An entry in
+         this table can be created or destroyed by an SNMP SET request to
+         vRtrMldIfRowStatus.  An attempt to destroy a row will fail if
+         vRtrMldIfAdminState has not first been set to 'outOfService'."
+    INDEX      { vRtrID, 
+                 vRtrIfIndex }
+    ::= { vRtrMldIfTable 1 }
+
+VRtrMldIfEntry ::= SEQUENCE {
+    vRtrMldIfRowStatus             RowStatus,
+    vRtrMldIfLastChanged           TimeStamp,
+    vRtrMldIfAdminState            TmnxAdminState,
+    vRtrMldIfOperState             TmnxOperState,
+    vRtrMldIfAdminVersion          TmnxMldVersion,
+    vRtrMldIfOperVersion           TmnxMldVersion,
+    vRtrMldIfQuerierType           InetAddressType,
+    vRtrMldIfQuerier               InetAddress,
+    vRtrMldIfImportPolicy          TPolicyStatementNameOrEmpty,
+    vRtrMldIfGroupCount            Gauge32,
+    vRtrMldIfQuerierUpTime         Unsigned32,
+    vRtrMldIfQuerierExpiryTime     Unsigned32,
+    vRtrMldIfNextGenQueryTime      Unsigned32,
+    vRtrMldIfMaxGroups             Unsigned32,
+    vRtrMldIfMaxGroupsTillNow      Counter32,
+    vRtrMldIfQueryInterval         Unsigned32,
+    vRtrMldIfLastMembQueryIntvl    Unsigned32,
+    vRtrMldIfQueryResponseIntvl    Unsigned32,
+    vRtrMldIfDisRtrAlertChk        TruthValue
+}
+
+vRtrMldIfRowStatus OBJECT-TYPE
+    SYNTAX     RowStatus
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfRowStatus is used to 
+         create or delete an entry in this table.
+         
+         The activation of a row enables the MLD on the interface. The
+         destruction of a row disables the MLD on the interface. Before 
+         this row can be destroyed, vRtrMldIfAdminState must have been 
+         set to 'outOfService'."
+    ::= { vRtrMldIfEntry 1 }
+
+vRtrMldIfLastChanged       OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of vRtrMldIfLastChanged indicates 
+         the sysUpTime when this row was last modified."
+    ::= { vRtrMldIfEntry 2 }
+
+vRtrMldIfAdminState       OBJECT-TYPE
+    SYNTAX      TmnxAdminState
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of vRtrMldIfAdminState specifies the desired 
+         administrative state for the MLD protocol on this interface."
+    DEFVAL { inService }
+    ::= { vRtrMldIfEntry 3 }
+
+vRtrMldIfOperState        OBJECT-TYPE
+    SYNTAX      TmnxOperState
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of vRtrMldIfOperState indicates the current operational 
+         state of the MLD protocol on this interface."
+    ::= { vRtrMldIfEntry 4 }
+
+vRtrMldIfAdminVersion OBJECT-TYPE
+    SYNTAX     TmnxMldVersion
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfAdminVersion specifies the configured version 
+         of the MLD which is running on this interface.
+         
+         This object can be used to configure a router capable of
+         running either value.  For the MLD to function correctly, all
+         routers on a LAN must be configured to run the same version
+         of the MLD on that LAN."
+    DEFVAL { version2 }
+    ::= { vRtrMldIfEntry 5 }
+
+vRtrMldIfOperVersion OBJECT-TYPE
+    SYNTAX     TmnxMldVersion
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfOperVersion indicates the operational version 
+         of the MLD which is running on this interface."
+    ::= { vRtrMldIfEntry 6 }
+
+vRtrMldIfQuerierType OBJECT-TYPE
+    SYNTAX     InetAddressType
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfQuerierType indicates the type of address of 
+         the MLD Querier on the IP subnet to which this interface is attached."
+    ::= { vRtrMldIfEntry 7 }
+
+vRtrMldIfQuerier OBJECT-TYPE
+    SYNTAX     InetAddress (SIZE(0|16))
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfQuerier indicates the address of the MLD Querier 
+         on the IP subnet to which this interface is attached."
+    ::= { vRtrMldIfEntry 8 }
+
+vRtrMldIfImportPolicy OBJECT-TYPE
+    SYNTAX     TPolicyStatementNameOrEmpty
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfImportPolicy specifies the policy 
+         that is to be applied on this interface."
+    DEFVAL { ''H }
+    ::= { vRtrMldIfEntry 9 }
+
+vRtrMldIfGroupCount OBJECT-TYPE
+    SYNTAX     Gauge32
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfGroupCount indicates the number of multicast 
+         groups which have been learned by the router on this interface."
+    ::= { vRtrMldIfEntry 10 }
+
+vRtrMldIfQuerierUpTime OBJECT-TYPE
+    SYNTAX     Unsigned32
+    UNITS      "seconds"
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfQuerierUpTime indicates the time since 
+         vRtrMldIfQuerier was last elected as querier."
+    ::= { vRtrMldIfEntry 11 }
+
+vRtrMldIfQuerierExpiryTime OBJECT-TYPE
+    SYNTAX     Unsigned32
+    UNITS      "seconds"
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfQuerierExpiryTime indicates the time remaining 
+         before vRtrMldIfQuerier is aged out. If vRtrMldIfQuerier is the local
+         interface address, the value of vRtrMldIfQuerierExpiryTime
+         will be zero."
+    ::= { vRtrMldIfEntry 12 }
+
+vRtrMldIfNextGenQueryTime OBJECT-TYPE
+    SYNTAX     Unsigned32
+    UNITS      "seconds"
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfNextGenQueryTime indicates the 
+         time remaining before the general query is sent on this interface
+         if this router is the querier(vRtrMldIfQuerier is a 
+         local address).
+
+         If this router is not the querier on the interface, the value
+         of this object will be zero."
+    ::= { vRtrMldIfEntry 13 }
+
+vRtrMldIfMaxGroups OBJECT-TYPE
+    SYNTAX     Unsigned32 (0|1..16000)
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfMaxGroups specifies the maximum number of groups
+         for which the MLD can have local receiver information based on received
+         MLD reports on this interface.  When this configuration is changed 
+         dynamically to a value lower than currently accepted number of groups,
+         the groups that are already accepted are not deleted.  Only new groups 
+         will not be allowed.  When this object has a value of 0, there is no 
+         limit to the number of groups."
+    DEFVAL { 0 }
+    ::= { vRtrMldIfEntry 14 }
+
+vRtrMldIfMaxGroupsTillNow OBJECT-TYPE
+    SYNTAX     Counter32
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfMaxGroupsTillNow indicates the highest value 
+         that vRtrMldIfMaxGroups had till now.
+
+         If the value of vRtrMldIfMaxGroups is set to 0, the value of 
+         vRtrMldIfMaxGroupsTillNow is 0, which means there is no limit to
+         the number of groups till now."
+    ::= { vRtrMldIfEntry 15 }
+
+vRtrMldIfQueryInterval OBJECT-TYPE
+    SYNTAX     Unsigned32 (0 | 2..1024)
+    UNITS      "seconds"
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfQueryInterval specifies the frequency at 
+         which the MLD Host-Query packets are transmitted on this interface."
+    DEFVAL { 0 }
+    ::= { vRtrMldIfEntry 16 }
+
+vRtrMldIfLastMembQueryIntvl OBJECT-TYPE
+    SYNTAX     Unsigned32 (0 | 1..1023)
+    UNITS      "seconds"
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfLastMembQueryIntvl specifies the Max Response 
+         Time inserted into Group-Specific Queries sent in response to
+         Leave Group messages, and is also the amount of time between
+         Group-Specific Query messages.  This value may be tuned to
+         modify the leave latency of the network.  A reduced value
+         results in reduced time to detect the loss of the last
+         member of a group."
+    DEFVAL { 0 }
+    ::= { vRtrMldIfEntry 17 }
+
+vRtrMldIfQueryResponseIntvl OBJECT-TYPE
+    SYNTAX     Unsigned32 (0 | 1..1023)
+    UNITS      "seconds"
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfQueryResponseIntvl specifies 
+         maximum query response time advertised in Mldv2 queries
+         on this interface."
+    DEFVAL { 0 }
+    ::= { vRtrMldIfEntry 18 }
+
+vRtrMldIfDisRtrAlertChk OBJECT-TYPE
+    SYNTAX     TruthValue
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+        "vRtrMldIfDisRtrAlertChk is used to enable/disable router
+         alert checking for IGMP messages received on this interface.
+
+         If this flag is set to 'true', checking is disabled." 
+    DEFVAL     { false }
+    ::= { vRtrMldIfEntry 19 }
+
+--
+--  The MLD Interface Group Table
+--
+
+vRtrMldIfGroupTable OBJECT-TYPE
+    SYNTAX     SEQUENCE OF VRtrMldIfGroupEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The vRtrMldIfGroupTable contains objects for the 
+         IP multicast groups for which there are members 
+         on a particular interface. This table represents 
+         the MLD group database."
+    ::= { vRtrMldIfObjs 3 }
+
+vRtrMldIfGroupEntry OBJECT-TYPE
+    SYNTAX     VRtrMldIfGroupEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "An entry in the vRtrMldIfGroupTable. Each entry represents a 
+         group address for which receivers are interested or not interested in 
+         receiving multicast traffic."
+    INDEX      { vRtrID, 
+                 vRtrIfIndex,
+                 vRtrMldIfGroupAddressType, 
+                 vRtrMldIfGroupAddress }
+    ::= { vRtrMldIfGroupTable 1 }
+
+VRtrMldIfGroupEntry ::= SEQUENCE {
+    vRtrMldIfGroupAddressType      InetAddressType, 
+    vRtrMldIfGroupAddress          InetAddress,
+    vRtrMldIfGroupType             INTEGER,
+    vRtrMldIfGroupUpTime           TimeInterval,
+    vRtrMldIfGroupExpiryTime       TimeInterval,
+    vRtrMldIfGroupVer1HostTimer    TimeInterval,
+    vRtrMldIfGroupMode             INTEGER,
+    vRtrMldIfGroupCompatMode       TmnxMldVersion,
+    vRtrMldIfGroupVer2HostTimer    TimeInterval,
+    vRtrMldIfGroupLstRprtrType     InetAddressType,
+    vRtrMldIfGroupLastReporter     InetAddress
+}
+
+vRtrMldIfGroupAddressType OBJECT-TYPE
+    SYNTAX     InetAddressType
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfGroupAddressType indicates the type of 
+         IP multicast group address for which this entry contains information."
+    ::= { vRtrMldIfGroupEntry 1 }  
+
+vRtrMldIfGroupAddress OBJECT-TYPE
+    SYNTAX     InetAddress (SIZE(16))
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfGroupAddress indicates the IP multicast group 
+         address for which this entry contains information."
+    ::= { vRtrMldIfGroupEntry 2 }
+
+vRtrMldIfGroupType OBJECT-TYPE
+    SYNTAX     INTEGER {
+                   static(1),
+                   dynamic(2)
+               }
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfGroupType indicates how this group entry 
+         was learned. If this group entry was learned by the MLD, it will be set to
+         'dynamic'. For statically configured groups, the value will be 
+         set to 'static'."
+    ::= { vRtrMldIfGroupEntry 3 }
+
+vRtrMldIfGroupUpTime OBJECT-TYPE
+    SYNTAX     TimeInterval
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfGroupUpTime indicates the time elapsed since 
+         this entry was created."
+    ::= { vRtrMldIfGroupEntry 4 }
+
+vRtrMldIfGroupExpiryTime OBJECT-TYPE
+    SYNTAX     TimeInterval
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfGroupExpiryTime indicates the minimum amount 
+         of time remaining before this entry will be aged out.
+
+         If the value of vRtrMldIfGroupType is 'static', the value of 
+         vRtrMldIfGroupExpiryTime will be set to maximum, which is 2147483647." 
+    ::= { vRtrMldIfGroupEntry 5 }
+
+vRtrMldIfGroupVer1HostTimer OBJECT-TYPE
+    SYNTAX     TimeInterval
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfGroupVer1HostTimer indicates the time remaining 
+         until the local router will assume that there are no longer any 
+         MLD version 1 members on the IP subnet attached to this interface.  
+         Upon hearing any MLDv1 Membership Report, this value is reset to 
+         the group membership timer.  While this time remaining is non-zero,
+         the local router ignores any MLDv2 Leave messages for this
+         group that it receives on this interface."
+    ::= { vRtrMldIfGroupEntry 6 }
+
+vRtrMldIfGroupMode OBJECT-TYPE
+    SYNTAX     INTEGER {
+                   include (1),
+                   exclude (2)
+               }
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfGroupMode is based on the type of 
+         membership report(s) received on the interface for the group. 
+         In the 'include' mode, reception of packets sent to the 
+         specified multicast address is requested only from those 
+         IP source addresses listed in the source-list parameter of 
+         the MLD membership report. 
+
+         In 'exclude' mode, reception of packets sent to the given
+         multicast address is requested from all IP source addresses 
+         except those listed in the source-list parameter.
+
+         vRtrMldIfGrpSrcTable lists the sources corresponding to this group,
+         if any."
+    ::= { vRtrMldIfGroupEntry 7 }
+
+vRtrMldIfGroupCompatMode OBJECT-TYPE
+    SYNTAX     TmnxMldVersion
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfGroupCompatMode is used in order for routers 
+         to be compatible with older version routers. MLDv2 hosts MUST operate 
+         in version 1 and version 2 compatibility modes.  MLDv2 hosts MUST 
+         keep state per local interface regarding the compatibility mode of 
+         each attached network.  A host's compatibility mode is determined 
+         from the Host Compatibility Mode variable which can be in
+         one of two states:  MLDv1 or MLDv2.  This variable is
+         kept per interface and is dependent on the version of General Queries
+         heard on that interface as well as the Older Version Querier Present
+         timers for the interface."
+    ::= { vRtrMldIfGroupEntry 8 }
+
+vRtrMldIfGroupVer2HostTimer OBJECT-TYPE
+    SYNTAX     TimeInterval
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfGroupVer2HostTimer indicates 
+         the time remaining until the local router will assume that
+         there are no longer any MLD version 2 members on the IP
+         subnet attached to this interface.  Upon hearing any MLDv2
+         Membership Report, this value is reset to the group
+         membership timer.  While this time remaining is non-zero,
+         the local router ignores any MLDv3 Leave messages for this
+         group that it receives on this interface."
+    ::= { vRtrMldIfGroupEntry 9 }
+
+vRtrMldIfGroupLstRprtrType   OBJECT-TYPE
+    SYNTAX     InetAddressType
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfGroupLstRprtrType indicates 
+         the Address type of vRtrMldIfGroupLastReporter."
+    ::= { vRtrMldIfGroupEntry 10 }
+
+vRtrMldIfGroupLastReporter    OBJECT-TYPE
+    SYNTAX     InetAddress (SIZE(0|16))
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfGroupLastReporter indicates 
+         the IP address of the source of the last membership report
+         received for this IP Multicast group address on this
+         interface."
+    ::= { vRtrMldIfGroupEntry 11 }
+
+
+--
+--  The MLD Interface Source Group Table
+--
+
+vRtrMldIfGrpSrcTable OBJECT-TYPE
+    SYNTAX     SEQUENCE OF VRtrMldIfGrpSrcEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The vRtrMldIfGrpSrcTable contains objects for 
+         the IP multicast sources corresponding to the 
+         IP multicast groups for which there are members 
+         on a particular interface. This table represents
+         the MLD source, group database."
+    ::= { vRtrMldIfObjs 4 }
+
+vRtrMldIfGrpSrcEntry OBJECT-TYPE
+    SYNTAX     VRtrMldIfGrpSrcEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "An entry in the vRtrMldIfGrpSrcTable. 
+         Each entry represents a source address from which receivers are
+         interested or not interested in receiving multicast traffic from."
+    INDEX      { vRtrID, 
+                 vRtrIfIndex, 
+                 vRtrMldIfGroupAddressType,
+                 vRtrMldIfGroupAddress,
+                 vRtrMldIfGrpSrcAddrType,  
+                 vRtrMldIfGrpSrcAddress }
+    ::= { vRtrMldIfGrpSrcTable 1 }
+
+VRtrMldIfGrpSrcEntry ::= SEQUENCE {
+    vRtrMldIfGrpSrcAddrType         InetAddressType,
+    vRtrMldIfGrpSrcAddress          InetAddress,
+    vRtrMldIfGrpSrcExpiryTime       TimeInterval,
+    vRtrMldIfGrpSrcType             INTEGER
+}
+
+vRtrMldIfGrpSrcAddrType OBJECT-TYPE
+    SYNTAX     InetAddressType
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfGrpSrcAddrType indicates the address type of 
+         vRtrMldIfGrpSrcAddress."
+    ::= { vRtrMldIfGrpSrcEntry 1 }
+
+vRtrMldIfGrpSrcAddress OBJECT-TYPE
+    SYNTAX     InetAddress (SIZE(16))
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfGrpSrcAddress indicates the address of the 
+         source sending multicast traffic to the group identified by 
+         vRtrMldIfGroupAddress.
+         
+         If the value of vRtrMldIfGroupMode corresponding to this entry is 
+         'include', the receivers are interested in receiving traffic 
+         from this source.
+         
+         If the value of vRtrMldIfGroupMode corresponding to this entry is 
+         'exclude' and if the value of vRtrMldIfGrpSrcExpiryTime is '0',
+         the receivers are not interested in receiving traffic from this 
+         source."
+    ::= { vRtrMldIfGrpSrcEntry 2 }
+
+vRtrMldIfGrpSrcExpiryTime OBJECT-TYPE
+    SYNTAX     TimeInterval
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfGrpSrcExpiryTime indicates the minimum amount 
+         of time remaining before this entry will be aged out.
+         
+         If the value of vRtrMldIfGrpSrcExpiryTime is non-zero and the 
+         value of vRtrMldIfGroupMode corresponding to this entry is 'include',
+         it means that there are currently one or more systems which desire 
+         to receive multicast traffic for this source. If this timer expires 
+         and the value of vRtrMldIfGroupMode is 'include', the router 
+         concludes that traffic from this particular source is no longer 
+         desired on the attached network, and deletes this entry.
+         This timer is treated differently when the value of vRtrMldIfGroupMode
+         is 'exclude'. If the value of vRtrMldIfGrpSrcExpiryTime is non-zero 
+         and router filter-mode for the group is 'exclude', it means that at 
+         least one system desires to receive multicast traffic from this source.
+         It should therefore be forwarded by a router on the network."
+    ::= { vRtrMldIfGrpSrcEntry 3 }
+
+vRtrMldIfGrpSrcType OBJECT-TYPE
+    SYNTAX     INTEGER {
+                   static(1),
+                   dynamic(2)
+               }
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfGrpSrcType indicates how this source entry 
+         was learned. If this source entry was learned by the MLD, it will be 
+         set to 'dynamic'. For statically configured sources, the value 
+         will be set to 'static'."
+    ::= { vRtrMldIfGrpSrcEntry 4 }
+
+
+--
+--  The MLD Interface Static Source Group Table
+--
+
+vRtrMldIfStatcGrpSrcTblLstChngd OBJECT-TYPE
+    SYNTAX       TimeStamp
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldIfStatcGrpSrcTblLstChngd indicates 
+         the sysUpTime at the time of the last modification of 
+         an entry in the vRtrMldIfStaticGrpSrcTable.
+
+         If no changes were made to the table since the last re-initialization
+         of the local network management subsystem, then this object
+         contains a zero value."
+    ::= { vRtrMldIfObjs 5 }
+
+vRtrMldIfStaticGrpSrcTable OBJECT-TYPE
+    SYNTAX     SEQUENCE OF VRtrMldIfStaticGrpSrcEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The vRtrMldIfStaticGrpSrcTable contains objects for 
+         the IP multicast sources corresponding to the 
+         IP multicast groups which are statically configured."
+    ::= { vRtrMldIfObjs 6 }
+
+vRtrMldIfStaticGrpSrcEntry OBJECT-TYPE
+    SYNTAX     VRtrMldIfStaticGrpSrcEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "An entry in the vRtrMldIfStaticGrpSrcTable. Entries can         
+         be created or deleted by an SNMP SET request to
+         vRtrMldIfStaticGrpSrcRowStatus."
+    INDEX      { vRtrID, 
+                 vRtrIfIndex, 
+                 vRtrMldIfGroupAddressType,
+                 vRtrMldIfGroupAddress,
+                 vRtrMldIfGrpSrcAddrType, 
+                 vRtrMldIfGrpSrcAddress }
+    ::= { vRtrMldIfStaticGrpSrcTable 1 }
+
+VRtrMldIfStaticGrpSrcEntry ::= SEQUENCE {
+    vRtrMldIfStaticGrpSrcRowStatus       RowStatus,
+    vRtrMldIfStaticGrpSrcLstChanged      TimeStamp
+}
+
+vRtrMldIfStaticGrpSrcRowStatus OBJECT-TYPE
+    SYNTAX     RowStatus
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfStaticGrpSrcRowStatus speficies 
+         the row status used for creation or deletion of
+         vRtrMldIfStaticGrpSrcTable entries."
+    ::= { vRtrMldIfStaticGrpSrcEntry 1 }
+
+vRtrMldIfStaticGrpSrcLstChanged       OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of vRtrMldIfStaticGrpSrcLstChanged indicates 
+         the sysUpTime when this row was last modified."
+    ::= { vRtrMldIfStaticGrpSrcEntry 2 }
+
+--
+--  The MLD Interface Statistics Table
+--
+
+vRtrMldIfStatsTable OBJECT-TYPE
+    SYNTAX     SEQUENCE OF VRtrMldIfStatsEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The vRtrMldIfStatsTable contains objects corresponding
+         to the MLD statistics for a particular interface."
+    ::= { vRtrMldIfObjs 7 }
+
+vRtrMldIfStatsEntry OBJECT-TYPE
+    SYNTAX     VRtrMldIfStatsEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "An entry in the vRtrMldIfStatsTable."
+    AUGMENTS      { vRtrMldIfEntry }
+    ::= { vRtrMldIfStatsTable 1 }
+
+VRtrMldIfStatsEntry ::= SEQUENCE {
+    vRtrMldIfTxGenQueries         Counter32,
+    vRtrMldIfTxGrpQueries         Counter32,
+    vRtrMldIfTxGrpSrcQueries      Counter32,
+    vRtrMldIfTxV1Reports          Counter32,
+    vRtrMldIfTxV2Reports          Counter32,
+    vRtrMldIfTxLeaves             Counter32,
+    vRtrMldIfTxErrors             Counter32,
+    vRtrMldIfRxGenQueries         Counter32,
+    vRtrMldIfRxGrpQueries         Counter32,
+    vRtrMldIfRxGrpSrcQueries      Counter32,
+    vRtrMldIfRxV1Reports          Counter32,
+    vRtrMldIfRxV2Reports          Counter32,
+    vRtrMldIfRxLeaves             Counter32,
+    vRtrMldIfRxBadLenPkts         Counter32,
+    vRtrMldIfRxBadChecksumPkts    Counter32,
+    vRtrMldIfRxUnknownTypePkts    Counter32,
+    vRtrMldIfRxBadReceiveIfPkts   Counter32,
+    vRtrMldIfRxNonLocal           Counter32,
+    vRtrMldIfRxWrongVersions      Counter32,
+    vRtrMldIfImportPolicyDrops    Counter32,
+    vRtrMldIfRxNoRtrAlertPkts     Counter32,
+    vRtrMldIfRxBadEncodings       Counter32,
+    vRtrMldIfRxPktDrops           Counter32,
+    vRtrMldIfStatsStarGTypes      Gauge32,
+    vRtrMldIfStatsSGTypes         Gauge32,
+    vRtrMldIfRxLocalScopePkts     Counter32,
+    vRtrMldIfRxRsvdScopePkts      Counter32  
+}
+
+vRtrMldIfTxGenQueries OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldIfTxGenQueries indicates the number of MLD 
+         General Queries transmitted on this interface."
+    ::= { vRtrMldIfStatsEntry 1 }
+
+vRtrMldIfTxGrpQueries OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldIfTxGrpQueries indicates the number of MLD 
+         Group Specific Queries transmitted on this interface."
+    ::= { vRtrMldIfStatsEntry 2 }
+
+vRtrMldIfTxGrpSrcQueries OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldIfTxGrpSrcQueries indicates the number of MLD 
+         Group and Source Specific Queries transmitted on this interface."
+    ::= { vRtrMldIfStatsEntry 3 }
+
+vRtrMldIfTxV1Reports OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldIfTxV1Reports indicates the total number of 
+         MLD V1 Reports transmitted on this interface."
+    ::= { vRtrMldIfStatsEntry 4 }
+
+vRtrMldIfTxV2Reports OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldIfTxV2Reports indicates the total number of 
+         MLD V2 Reports transmitted on this interface."
+    ::= { vRtrMldIfStatsEntry 5 }
+
+vRtrMldIfTxLeaves OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldIfTxLeaves indicates the total number of MLD
+         Leaves transmitted on this interface."
+    ::= { vRtrMldIfStatsEntry 6 }
+
+vRtrMldIfTxErrors OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldIfTxErrors indicates the total number of times
+         there was an error transmitting the MLD packets on this interface."
+    ::= { vRtrMldIfStatsEntry 7 }
+
+vRtrMldIfRxGenQueries OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldIfRxGenQueries indicates the total number of MLD 
+         General Queries received on this interface."
+    ::= { vRtrMldIfStatsEntry 8 }
+
+vRtrMldIfRxGrpQueries OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldIfRxGrpQueries indicates the number of MLD 
+         Group Specific Queries received on this interface."
+    ::= { vRtrMldIfStatsEntry 9 }
+
+vRtrMldIfRxGrpSrcQueries OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldIfRxGrpSrcQueries indicates the number of MLD 
+         Group and Source Specific Queries received on this interface."
+    ::= { vRtrMldIfStatsEntry 10 }
+
+vRtrMldIfRxV1Reports OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldIfRxV1Reports indicates the total number of 
+         MLD V1 Reports received on this interface."
+    ::= { vRtrMldIfStatsEntry 11 }
+
+vRtrMldIfRxV2Reports OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldIfRxV2Reports indicates the total number of 
+         MLD V2 Reports received on this interface."
+    ::= { vRtrMldIfStatsEntry 12 }
+
+vRtrMldIfRxLeaves OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldIfRxLeaves indicates the total number of 
+         MLD V2 Leaves received on this interface."
+    ::= { vRtrMldIfStatsEntry 13 }
+
+vRtrMldIfRxBadLenPkts OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldIfRxBadLenPkts indicates the total number of 
+         MLD packets with bad length received on this interface."
+    ::= { vRtrMldIfStatsEntry 14 }
+
+vRtrMldIfRxBadChecksumPkts OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldIfRxBadChecksumPkts indicates the total number of 
+         MLD packets with bad checksum received on this interface."
+    ::= { vRtrMldIfStatsEntry 15 }
+
+vRtrMldIfRxUnknownTypePkts OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldIfRxUnknownTypePkts indicates the total number of 
+         MLD packets with unknown type received on this interface."
+    ::= { vRtrMldIfStatsEntry 16 }
+
+vRtrMldIfRxBadReceiveIfPkts OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldIfRxBadReceiveIfPkts indicates the total 
+         number of MLD packets incorrectly received on this interface."
+    ::= { vRtrMldIfStatsEntry 17 }
+
+vRtrMldIfRxNonLocal OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldIfRxNonLocal indicates the total number of 
+         MLD packets received from a non-local sender."
+    ::= { vRtrMldIfStatsEntry 18 }
+
+vRtrMldIfRxWrongVersions OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldIfRxWrongVersions indicates the total number of 
+         MLD packets with wrong versions received on this interface."
+    ::= { vRtrMldIfStatsEntry 19 }
+
+vRtrMldIfImportPolicyDrops OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldIfImportPolicyDrops indicates the total number of 
+         times the MLD protocol instance matched the host IP address or 
+         group or source addresses specified in the import policy
+         vRtrMldIfImportPolicy."
+    ::= { vRtrMldIfStatsEntry 20 }
+
+vRtrMldIfRxNoRtrAlertPkts OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldIfRxNoRtrAlertPkts indicates the total number of 
+         MLDv3 packets received on this interface which did not have the 
+         router alert flag set."
+    ::= { vRtrMldIfStatsEntry 21 }
+
+vRtrMldIfRxBadEncodings OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldIfRxBadEncodings indicates the total number of 
+         MLD packets received on this interface which were not encoded
+         correctly."
+    ::= { vRtrMldIfStatsEntry 22 }
+
+vRtrMldIfRxPktDrops OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldIfRxPktDrops indicates the total number of 
+         MLD packets that were received on this interface but were dropped."
+    ::= { vRtrMldIfStatsEntry 23 }
+
+vRtrMldIfStatsStarGTypes OBJECT-TYPE
+    SYNTAX       Gauge32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "vRtrMldIfStatsStarGTypes indicates the number of entries on 
+         this interface for which the source type is 'starG'."
+    ::= { vRtrMldIfStatsEntry 24 }
+
+vRtrMldIfStatsSGTypes OBJECT-TYPE
+    SYNTAX       Gauge32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldIfStatsSGTypes indicates the number of entries on 
+         this interface for which the source type is 'sg'."
+    ::= { vRtrMldIfStatsEntry 25 }
+
+vRtrMldIfRxLocalScopePkts OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of the object vRtrMldIfRxLocalScopePkts indicates 
+         the number of MLD packets received on the link-local scope IPv6 
+         multicast address."
+    ::= { vRtrMldIfStatsEntry 26 }
+
+vRtrMldIfRxRsvdScopePkts OBJECT-TYPE
+    SYNTAX       Counter32
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of the object vRtrMldIfRxRsvdScopePkts indicates 
+         the number of MLD packets received on the reserved scope
+         IPv6 multicast address."
+    ::= { vRtrMldIfStatsEntry 27 }
+
+--
+--  The MLD Interface Source Specific Multicast (SSM) Translate Table
+--
+
+vRtrMldIfSsmTltTableLastChanged OBJECT-TYPE
+    SYNTAX       TimeStamp
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The value of vRtrMldIfSsmTltTableLastChanged indicates the
+         sysUpTime value at the time of the last modification of an entry
+         in the vRtrMldIfSsmTransTable.
+        
+         If no changes were made to the table since the last re-initialization
+         of the local network management subsystem, then this object
+         contains a zero value."
+    ::= { vRtrMldIfObjs 8 }
+
+vRtrMldIfSsmTransTable OBJECT-TYPE
+    SYNTAX     SEQUENCE OF VRtrMldIfSsmTransEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The vRtrMldIfSsmTransTable is used to configure group ranges which
+         are translated to SSM (S,G) entries for interface."
+    ::= { vRtrMldIfObjs 9 }
+
+vRtrMldIfSsmTransEntry OBJECT-TYPE
+    SYNTAX     VRtrMldIfSsmTransEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "An entry in the vRtrMldIfSsmTransTable. Entries can         
+         be created or deleted by an SNMP SET request to 
+         vRtrMldIfSsmTransRowStatus."
+    INDEX      { vRtrID, 
+                 vRtrIfIndex,
+                 vRtrMldIfSsmTransGrpAddrType1,
+                 vRtrMldIfSsmTransGrpAddr1,
+                 vRtrMldIfSsmTransGrpAddrType2, 
+                 vRtrMldIfSsmTransGrpAddr2,
+                 vRtrMldIfSsmTransSrcAddrType, 
+                 vRtrMldIfSsmTransSrcAddr }
+    ::= { vRtrMldIfSsmTransTable 1 }
+
+VRtrMldIfSsmTransEntry ::= SEQUENCE {
+    vRtrMldIfSsmTransGrpAddrType1  InetAddressType, 
+    vRtrMldIfSsmTransGrpAddr1      InetAddress,
+    vRtrMldIfSsmTransGrpAddrType2  InetAddressType,    
+    vRtrMldIfSsmTransGrpAddr2      InetAddress,
+    vRtrMldIfSsmTransSrcAddrType   InetAddressType,
+    vRtrMldIfSsmTransSrcAddr       InetAddress,
+    vRtrMldIfSsmTransRowStatus     RowStatus
+}
+
+vRtrMldIfSsmTransGrpAddrType1 OBJECT-TYPE
+    SYNTAX     InetAddressType
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfSsmTransGrpAddrType1 indicates the starting 
+         address type of the group range."
+    ::= { vRtrMldIfSsmTransEntry 1 }
+
+vRtrMldIfSsmTransGrpAddr1 OBJECT-TYPE
+    SYNTAX     InetAddress (SIZE(16))
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfSsmTransGrpAddr1 indicates the start of 
+         the group range."
+    ::= { vRtrMldIfSsmTransEntry 2 }
+
+vRtrMldIfSsmTransGrpAddrType2 OBJECT-TYPE
+    SYNTAX     InetAddressType
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfSsmTransGrpAddrType2 indicates the ending 
+         address type of the group range."
+    ::= { vRtrMldIfSsmTransEntry 3 }
+
+vRtrMldIfSsmTransGrpAddr2 OBJECT-TYPE
+    SYNTAX     InetAddress (SIZE(16))
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfSsmTransGrpAddr2 indicates the end 
+         of the group range."
+    ::= { vRtrMldIfSsmTransEntry 4 }
+
+vRtrMldIfSsmTransSrcAddrType OBJECT-TYPE
+    SYNTAX     InetAddressType
+    MAX-ACCESS not-accessible
+    STATUS     current 
+    DESCRIPTION
+        "The value of vRtrMldIfSsmTransSrcAddrType indicates the type of 
+         the source address for this group range."
+    ::= { vRtrMldIfSsmTransEntry 5 }
+
+vRtrMldIfSsmTransSrcAddr OBJECT-TYPE
+    SYNTAX     InetAddress (SIZE(16))
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfSsmTransSrcAddr indicates
+         the source address for this group range. Whenever a (*,G) report is
+         received in the range specified by vRtrMldIfSsmTransGrpAddr1 and
+         vRtrMldIfSsmTransGrpAddr2, it is translated to an (S,G) report
+         with the value of this object as the source address."
+    ::= { vRtrMldIfSsmTransEntry 6 }
+
+vRtrMldIfSsmTransRowStatus OBJECT-TYPE
+    SYNTAX     RowStatus
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+        "The value of vRtrMldIfSsmTransRowStatus is used to 
+         create or delete an entry in this table."
+    ::= { vRtrMldIfSsmTransEntry 7 }
+
+--
+--     Notification Objects
+--
+
+vRtrMldNotifyQueryVersion OBJECT-TYPE
+    SYNTAX     Unsigned32
+    MAX-ACCESS accessible-for-notify
+    STATUS     current
+    DESCRIPTION
+        "vRtrMldNotifyQueryVersion is used by vRtrMldIfRxQueryVerMismatch
+         to notify the version of the query received by the router."
+    ::= { vRtrMldNotificationObjs 1 }
+
+
+--
+--     Notification Definition
+--
+
+vRtrMldIfRxQueryVerMismatch NOTIFICATION-TYPE
+    OBJECTS {
+        vRtrID,
+        vRtrIfIndex,
+        vRtrMldIfAdminVersion,
+        vRtrMldNotifyQueryVersion
+    }
+    STATUS  current
+    DESCRIPTION
+        "A vRtrMldIfRxQueryVerMismatch notification is generated when the
+         MLD interface is configured as MLDv2 but the router receives a 
+         MLDv1 Query on the interface.
+
+         vRtrIfIndex will identify the router interface on which the query is
+         received. vRtrMldIfAdminVersion will contain the configured
+         version of the interface and vRtrMldNotifyQueryVersion
+         will contain the version of the received query."
+    ::= { vRtrMldNotifications 1 }
+
+vRtrMldIfCModeRxQueryMismatch NOTIFICATION-TYPE
+    OBJECTS {
+        vRtrID,
+        vRtrIfIndex,
+        vRtrMldIfOperVersion,
+        vRtrMldNotifyQueryVersion
+    }
+    STATUS  current
+    DESCRIPTION
+        "A vRtrMldIfCModeRxQueryMismatch notification is generated 
+         when there is a mismatch between the compatible mode of the interface
+         and the version of the received query.
+
+         It is generated when the MLD interface is in MLDv1 compatible mode 
+         but it receives a MLDv2 Query on the interface.
+
+         vRtrIfIndex will identify the router interface on which the query is
+         received. vRtrMldIfOperVersion will indicate the compatibility mode
+         of the interface and vRtrMldNotifyQueryVersion will contain the 
+         version of the received query."
+    ::= { vRtrMldNotifications 2 }
+
+vRtrMldMaxGrpsLimitExceeded NOTIFICATION-TYPE
+    OBJECTS {
+        vRtrMldIfMaxGroups
+    }
+    STATUS  current
+    DESCRIPTION
+        "The vRtrMldMaxGrpsLimitExceeded event is generated when an 
+         attempt is made to configure a group when vRtrMldIfGroupCount, 
+         the number of groups configured on the PIM interface, is equal 
+         to vRtrMldIfMaxGroups, the maximum number of groups supported 
+         on the system."
+    ::= { vRtrMldNotifications 3 }
+
+
+--
+-- Conformance Information
+--
+tmnxMldCompliances OBJECT IDENTIFIER ::= { tmnxMldConformance 1 }
+tmnxMldGroups      OBJECT IDENTIFIER ::= { tmnxMldConformance 2 }
+
+-- compliance statements
+tmnxMldCompliance  MODULE-COMPLIANCE
+    STATUS  obsolete
+    DESCRIPTION
+            "The compliance statement for management of extended the MLD
+             protocol on Alcatel 77x0 SR series systems."
+    MODULE  -- this module
+        MANDATORY-GROUPS { 
+            tmnxMldGlobalGroup,
+            tmnxMldIfGroup,
+            tmnxMldNotificationGroup
+        }
+    ::= { tmnxMldCompliances 1 }
+
+tmnxMldV6v1Compliance  MODULE-COMPLIANCE
+    STATUS  current
+    DESCRIPTION
+            "The compliance statement for management of extended the MLD
+             protocol on Alcatel 77x0 SR series systems."
+    MODULE  -- this module
+        MANDATORY-GROUPS { 
+            tmnxMldGlobalGroup,
+            tmnxMldIfGroup,
+            tmnxMldNotificationGroup,
+            tmnxMldIfV6v1Group
+        }
+    ::= { tmnxMldCompliances 2 }
+
+tmnxMldV8v0Compliance  MODULE-COMPLIANCE
+    STATUS  current
+    DESCRIPTION
+            "The compliance statement for management of extended the MLD
+             protocol on Alcatel 77x0 SR series systems."
+    MODULE  -- this module
+        MANDATORY-GROUPS { 
+            tmnxMldGlobalGroup,
+            tmnxMldIfGroup,
+            tmnxMldNotificationGroup,
+            tmnxMldIfV6v1Group,
+            tmnxMldIfV8v0Group
+        }
+    ::= { tmnxMldCompliances 3 }
+
+-- units of conformance
+
+tmnxMldGlobalGroup   OBJECT-GROUP
+    OBJECTS {   vRtrMldGeneralTableLastChanged,
+                vRtrMldGenQueryInterval,
+                vRtrMldGenLastMembQueryIntvl,
+                vRtrMldGenQueryResponseIntvl,
+                vRtrMldGenRobustCount,
+                vRtrMldGenLastChange,
+                vRtrMldGenAdminState,
+                vRtrMldGenOperState,
+                vRtrMldGrpSrcUpTime,
+                vRtrMldSsmTransTableLastChanged,
+                vRtrMldSsmTransRowStatus,
+                vRtrMldSsmTransLastChanged,
+                vRtrMldGenStatsStarGTypes,
+                vRtrMldGenStatsSGTypes
+            }
+    STATUS      current
+    DESCRIPTION
+        "The group of objects supporting management of extended the MLD general 
+         capabilities on Alcatel 77x0 SR series systems."
+    ::= { tmnxMldGroups 1 }
+
+tmnxMldIfGroup     OBJECT-GROUP
+    OBJECTS {   vRtrMldIfTableLastChanged,
+                vRtrMldIfRowStatus,
+                vRtrMldIfLastChanged,
+                vRtrMldIfAdminState,
+                vRtrMldIfOperState,
+                vRtrMldIfAdminVersion,
+                vRtrMldIfOperVersion,
+                vRtrMldIfQuerierType,
+                vRtrMldIfQuerier,
+                vRtrMldIfImportPolicy,
+                vRtrMldIfGroupCount,
+                vRtrMldIfQuerierUpTime,
+                vRtrMldIfQuerierExpiryTime,
+                vRtrMldIfNextGenQueryTime,
+                vRtrMldIfMaxGroups,
+                vRtrMldIfMaxGroupsTillNow,
+                vRtrMldIfQueryInterval,
+                vRtrMldIfLastMembQueryIntvl,
+                vRtrMldIfQueryResponseIntvl,                
+                vRtrMldIfGroupType,
+                vRtrMldIfGroupUpTime,
+                vRtrMldIfGroupExpiryTime,
+                vRtrMldIfGroupVer1HostTimer,
+                vRtrMldIfGroupMode,
+                vRtrMldIfGroupCompatMode,
+                vRtrMldIfGroupVer2HostTimer,
+                vRtrMldIfGroupLstRprtrType,
+                vRtrMldIfGroupLastReporter,
+                vRtrMldIfGrpSrcExpiryTime,
+                vRtrMldIfGrpSrcType,
+                vRtrMldIfStatcGrpSrcTblLstChngd,  
+                vRtrMldIfStaticGrpSrcRowStatus,
+                vRtrMldIfStaticGrpSrcLstChanged,
+                vRtrMldIfTxGenQueries,
+                vRtrMldIfTxGrpQueries,
+                vRtrMldIfTxGrpSrcQueries,
+                vRtrMldIfTxV1Reports,
+                vRtrMldIfTxV2Reports,
+                vRtrMldIfTxLeaves,
+                vRtrMldIfTxErrors,
+                vRtrMldIfRxGenQueries,
+                vRtrMldIfRxGrpQueries,
+                vRtrMldIfRxGrpSrcQueries,
+                vRtrMldIfRxV1Reports,
+                vRtrMldIfRxV2Reports,
+                vRtrMldIfRxLeaves,
+                vRtrMldIfRxBadLenPkts,
+                vRtrMldIfRxBadChecksumPkts,
+                vRtrMldIfRxUnknownTypePkts,
+                vRtrMldIfRxBadReceiveIfPkts,
+                vRtrMldIfRxNonLocal,
+                vRtrMldIfRxWrongVersions,
+                vRtrMldIfImportPolicyDrops,
+                vRtrMldIfRxNoRtrAlertPkts,
+                vRtrMldIfRxBadEncodings,
+                vRtrMldIfRxPktDrops,
+                vRtrMldIfStatsStarGTypes,
+                vRtrMldIfStatsSGTypes,
+                vRtrMldIfRxLocalScopePkts,
+                vRtrMldIfRxRsvdScopePkts
+            }
+    STATUS        current
+    DESCRIPTION
+        "The group of objects supporting management of extended the MLD
+         interfaces on Alcatel 77x0 SR series systems."
+    ::= { tmnxMldGroups 2 }
+
+tmnxMldNotifyObjsGroup   OBJECT-GROUP
+    OBJECTS {   
+               vRtrMldNotifyQueryVersion
+            }
+    STATUS        current
+    DESCRIPTION
+        "The group of objects supporting the MLD notifications 
+         on Alcatel 77x0 SR series systems."
+    ::= { tmnxMldGroups 3 }
+
+tmnxMldNotificationGroup NOTIFICATION-GROUP
+    NOTIFICATIONS { 
+                      vRtrMldIfRxQueryVerMismatch,
+                      vRtrMldIfCModeRxQueryMismatch,
+                      vRtrMldMaxGrpsLimitExceeded
+                  }
+    STATUS        current
+    DESCRIPTION
+        "The group of notifications supporting the MLD feature
+         on Alcatel 77x0 SR series systems."
+    ::= { tmnxMldGroups 4 }
+
+tmnxMldIfV6v1Group     OBJECT-GROUP
+    OBJECTS {   vRtrMldIfSsmTltTableLastChanged,
+                vRtrMldIfSsmTransRowStatus
+            }
+    STATUS        current
+    DESCRIPTION
+        "The group of objects supporting management of SSM Translate
+         feature on extended MLD interfaces on 6.1 release Alcatel 7xxx
+         SR series systems."
+    ::= { tmnxMldGroups 5 }
+
+tmnxMldIfV8v0Group     OBJECT-GROUP
+    OBJECTS {   vRtrMldIfDisRtrAlertChk
+            }
+    STATUS        current
+    DESCRIPTION
+        "The group of objects supporting management of SSM Translate
+         feature on extended MLD interfaces on 8.0 release Alcatel 7xxx
+         SR series systems."
+    ::= { tmnxMldGroups 6 }
+
+END
+

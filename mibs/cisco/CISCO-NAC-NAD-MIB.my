@@ -3,9 +3,7 @@
 --   
 -- July, 2005 Liwei Lue
 --   
--- Copyright (c) 2005-2007 by Cisco Systems, Inc.
---   
-
+-- Copyright (c) 2005-2008 by Cisco Systems, Inc.
 -- All rights reserved.
 -- *****************************************************************
 
@@ -52,7 +50,7 @@ IMPORTS
 
 
 ciscoNacNadMIB MODULE-IDENTITY
-    LAST-UPDATED    "200711120000Z"
+    LAST-UPDATED    "200806230000Z"
     ORGANIZATION    "Cisco Systems, Inc."
     CONTACT-INFO
             "Cisco Systems
@@ -192,7 +190,37 @@ ciscoNacNadMIB MODULE-IDENTITY
 
         UCT - Un Conditional Transition.
 
-        Clientless - Client without Cisco Posture Agent."
+        Clientless - Client without Cisco Posture Agent.
+
+        Tag - Tag is a policy specifier which is mapped  to a 
+        policy template based on specific rules. The Tag allows 
+        network administrators to define enforcement policies
+        on local device and have a RADIUS server specify the
+        policy Template to be enforced."
+    REVISION        "200806230000Z"
+    DESCRIPTION
+        "Added following enumerations to the object
+         cnnEouIfTimeoutGlobalConfig
+         - maxRetry(5), 
+         - clientless(6),
+         - ipStationId(7).
+   
+         Added the following objects to cnnEouIfConfigTable
+         - cnnEouIfAllowClientless,
+         - cnnEouIfAllowIpStationId
+
+         Added the following objects to cnnEouHostResultTable
+         - cnnEouHostResultUrlRedirectAcl,
+         - cnnEouHostResultTagName,
+         - cnnEouHostResultAuditSessionId,
+         - cnnEouHostResultAaaFailPolicy  
+
+         Added following OBJECT-GROUPs 
+         - ciscoNacNadRevalidateConfigGrp,
+         - ciscoNacNadEouHostGroup1,
+         - ciscoNacNadEouIfExtGroup.
+         
+         Added ciscoNacNadMIBCompliance4 MODULE-COMPLIANCE."
     REVISION        "200711120000Z"
     DESCRIPTION
         "Add cnnEouIfIpDevTrackConfigGrp MIB group."
@@ -296,7 +324,7 @@ cnnEouAllowIpStationId OBJECT-TYPE
     STATUS          current
     DESCRIPTION
         "It indicates whether to send the host IP address in the
-        calling station ID field of Radius request." 
+        calling station ID field of RADIUS request." 
     ::= { cnnEouGlobalObjects 4 }
 
 cnnEouLoggingEnabled OBJECT-TYPE
@@ -399,8 +427,17 @@ cnnEouCriticalRecoveryDelay OBJECT-TYPE
     DESCRIPTION
         "This object specifies the EOU critical recovery delay time for
         the device.  A value of zero indicates that critical recovery
-        delay feature is disabled." 
+        delay feature is disabled."
     ::= { cnnEouGlobalObjects 14 }
+
+cnnEouRevalidationEnabled OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "Indicates whether the EOU revalidation is globally enabled
+        or disabled in the device." 
+    ::= { cnnEouGlobalObjects 15 }
 
 -- The cnnIpDeviceTrackingObjects group
 
@@ -773,16 +810,18 @@ cnnEouIfConfigEntry OBJECT-TYPE
     ::= { cnnEouIfConfigTable 1 }
 
 CnnEouIfConfigEntry ::= SEQUENCE {
-        cnnEouIfAdminStatus         INTEGER ,
+        cnnEouIfAdminStatus         INTEGER,
         cnnEouIfMaxRetry            Integer32,
-        cnnEouIfValidateAction      INTEGER ,
+        cnnEouIfValidateAction      INTEGER,
         cnnEouIfTimeoutGlobalConfig BITS,
         cnnEouIfTimeoutAAA          Unsigned32,
         cnnEouIfTimeoutHoldPeriod   Unsigned32,
         cnnEouIfTimeoutRetransmit   Unsigned32,
         cnnEouIfTimeoutRevalidation Unsigned32,
         cnnEouIfTimeoutStatusQuery  Unsigned32,
-        cnnEouIfAaaFailPolicy       CpgPolicyNameOrEmpty
+        cnnEouIfAaaFailPolicy       CpgPolicyNameOrEmpty,
+        cnnEouIfAllowClientless     TruthValue,
+        cnnEouIfAllowIpStationId    TruthValue
 }
 
 cnnEouIfAdminStatus OBJECT-TYPE
@@ -850,7 +889,10 @@ cnnEouIfTimeoutGlobalConfig OBJECT-TYPE
                         holdPeriod(1),
                         retransmit(2),
                         revalidation(3),
-                        statusQuery(4)
+                        statusQuery(4),
+                        maxRetry(5),
+                        clientless(6),
+                        ipStationId(7)
                     }
     MAX-ACCESS      read-write
     STATUS          current
@@ -878,6 +920,18 @@ cnnEouIfTimeoutGlobalConfig OBJECT-TYPE
         statusQuery(4)   If this bit is set, the value of
                          cnnEouIfTimeoutStatusQuery is based on the
                          value of cnnEouTimeoutStatusQuery.
+
+        maxRetry(5)      If this bit is set, the value of
+                         cnnEouIfMaxRetry is based on the
+                         value of cnnEouMaxRetry.
+
+        clientless(6)    If this bit is set, the value of
+                         cnnEouIfAllowClientless is based on the
+                         value of cnnEouAllowClientless.
+
+        ipStationId(7)   If this bit is set, the value of
+                         cnnEouIfAllowIpStationId is based on the
+                         value of cnnEouAllowIpStationId.
 
         If a bit is not set, the value of the corresponding object
         in the same conceptual row is not based on its corresponding
@@ -952,8 +1006,26 @@ cnnEouIfAaaFailPolicy OBJECT-TYPE
         cnnEouHostResultState is 'aaaFail'.  The specified policy name
         must exist in cpgPolicyTable if it is not empty string." 
     ::= { cnnEouIfConfigEntry 10 }
- 
 
+cnnEouIfAllowClientless OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies whether to allow authentication of
+        clientless hosts (system that does not run Cisco Trust Agent)
+        on the interface."
+    ::= { cnnEouIfConfigEntry 11 }
+
+cnnEouIfAllowIpStationId OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object specifies whether to send the host IP address
+        in the calling station ID field of RADIUS request for hosts
+        on the interface." 
+    ::= { cnnEouIfConfigEntry 12 }
 
 -- Validation Action: Initialize, Revalidate, noRevalidate
 
@@ -966,21 +1038,21 @@ cnnEouHostValidateAction OBJECT-TYPE
                         initializeAuthStatic(5),
                         initializeIp(6),
                         initializeMac(7),
-                        initializePostureToken(8),
+                        initializePostureToken(8), -- deprecated
                         revalidateAll(9),
                         revalidateAuthClientless(10),
                         revalidateAuthEap(11),
                         revalidateAuthStatic(12),
                         revalidateIp(13),
                         revalidateMac(14),
-                        revalidatePostureToken(15),
+                        revalidatePostureToken(15), -- deprecated
                         noRevalidateAll(16),
                         noRevalidateAuthClientless(17),
                         noRevalidateAuthEap(18),
                         noRevalidateAuthStatic(19),
                         noRevalidateIp(20),
                         noRevalidateMac(21),
-                        noRevalidatePostureToken(22),
+                        noRevalidatePostureToken(22), -- deprecated
                         initializePostureTokenStr(23),
                         revalidatePostureTokenStr(24),
                         noRevalidatePostureTokenStr(25)
@@ -1032,7 +1104,7 @@ cnnEouHostValidateAction OBJECT-TYPE
                   operation.  
 
                   This enumerated integer is deprecated and replaced by
-                  initializePostureTokenStr(23).
+                  initializePostureTokenStr.
 
         revalidateAll(9) - to revalidate EOU posture credentials of all
                   devices on the system.
@@ -1063,7 +1135,7 @@ cnnEouHostValidateAction OBJECT-TYPE
                   operation.
 
                   This enumerated integer is deprecated and replaced by
-                  revalidatePostureTokenStr(24).
+                  revalidatePostureTokenStr.
 
         noRevalidateAll(16) -  to disable revalidation of all devices on
                   the system.
@@ -1091,7 +1163,7 @@ cnnEouHostValidateAction OBJECT-TYPE
                   this operation.
 
                   This enumerated integer is deprecated and replaced by 
-                  noRevalidatePostureTokenStr(25).
+                  noRevalidatePostureTokenStr.
 
         initializePostureTokenStr(23) - to manually initiates
                   reauthentication of the endpoint device(s) with a
@@ -1192,7 +1264,7 @@ cnnEouHostQueryEntry OBJECT-TYPE
 
 CnnEouHostQueryEntry ::= SEQUENCE {
         cnnEouHostQueryIndex           Unsigned32,
-        cnnEouHostQueryMask            INTEGER ,
+        cnnEouHostQueryMask            INTEGER,
         cnnEouHostQueryInterface       InterfaceIndexOrZero,
         cnnEouHostQueryIpAddrType      InetAddressType,
         cnnEouHostQueryIpAddr          InetAddress,
@@ -1224,7 +1296,7 @@ cnnEouHostQueryMask OBJECT-TYPE
                         interface(4),
                         ip(5),
                         mac(6),
-                        postureToken(7),
+                        postureToken(7), -- deprecated
                         all(8),
                         postureTokenString(9)
                     }
@@ -1494,8 +1566,12 @@ CnnEouHostResultEntry ::= SEQUENCE {
         cnnEouHostResultStatusQryPeriod  Unsigned32,
         cnnEouHostResultRevalidatePeriod Unsigned32,
         cnnEouHostResultState            CnnEouState,
-        cnnEouHostResultPostureTokenStr  CnnEouPostureTokenString
-}
+        cnnEouHostResultPostureTokenStr  CnnEouPostureTokenString,
+        cnnEouHostResultUrlRedirectAcl   SnmpAdminString,
+        cnnEouHostResultTagName          SnmpAdminString,
+        cnnEouHostResultAuditSessionId   SnmpAdminString,
+        cnnEouHostResultAaaFailPolicy    SnmpAdminString
+        }
 
 cnnEouHostResultIndex OBJECT-TYPE
     SYNTAX          Unsigned32
@@ -1644,6 +1720,45 @@ cnnEouHostResultPostureTokenStr OBJECT-TYPE
         that is resident on the host.  The host will have specific
         right to access network based on the token assigned." 
     ::= { cnnEouHostResultEntry 14 }
+
+cnnEouHostResultUrlRedirectAcl OBJECT-TYPE
+    SYNTAX          SnmpAdminString
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "Indicates the name of the access control list(ACL) for URL
+        redirection.  Any ingress HTTP from the host that matches this
+        ACL will be subjected to redirection to the URL (Web page)
+        specified in cnnEouHostResultUrlRedir." 
+    ::= { cnnEouHostResultEntry 15 }
+
+cnnEouHostResultTagName OBJECT-TYPE
+    SYNTAX          SnmpAdminString
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "Indicates the tag which is received as a policy response from
+        the ACS server for the detected host." 
+    ::= { cnnEouHostResultEntry 16 }
+
+cnnEouHostResultAuditSessionId OBJECT-TYPE
+    SYNTAX          SnmpAdminString
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object uniquely identifies a host session.  Session ID is
+        included in access requests to AAA server and in Web requests
+        to Audit server." 
+    ::= { cnnEouHostResultEntry 17 }
+
+cnnEouHostResultAaaFailPolicy OBJECT-TYPE
+    SYNTAX          SnmpAdminString
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates the name of policy template to be
+        applied when EouHostResultState is 'aaaFail'." 
+    ::= { cnnEouHostResultEntry 18 }
  
 
 
@@ -1892,7 +2007,7 @@ ciscoNacNadMIBCompliance2 MODULE-COMPLIANCE
     ::= { ciscoNacNadMIBCompliances 2 }
 
 ciscoNacNadMIBCompliance3 MODULE-COMPLIANCE
-    STATUS          current
+    STATUS          deprecated
     DESCRIPTION
         "The compliance statement for the CISCO-NAC-NAD-MIB.
 
@@ -2015,6 +2130,143 @@ ciscoNacNadMIBCompliance3 MODULE-COMPLIANCE
     DESCRIPTION
         "Write access is not required."
     ::= { ciscoNacNadMIBCompliances 3 }
+
+ciscoNacNadMIBCompliance4 MODULE-COMPLIANCE
+    STATUS          current
+    DESCRIPTION
+        "The compliance statement for the CISCO-NAC-NAD-MIB.
+
+        OBJECT cnnEouAuthIpAddrType
+        SYNTAX  InetAddressType { ipv4(1) }
+        DESCRIPTION
+            An implementation is only required to support IPv4
+            addresses."
+    MODULE          -- this module
+    MANDATORY-GROUPS {
+                        ciscoNacNadEouGlobalGroup,
+                        ciscoNacNadEouAuthIpGroup,
+                        ciscoNacNadEouIfConfigGroup,
+                        ciscoNacNadEouHostGrp
+                    }
+
+    GROUP           ciscoNacNadEouIfTimeoutGroup
+    DESCRIPTION
+        "This group is mandatory only for the platforms which
+        support the timeout configuration on interface."
+
+    GROUP           ciscoNacNadEouIfMaxRetryGroup
+    DESCRIPTION
+        "This group is mandatory only for the platforms which
+        support the max-retry configuration on interface."
+
+    GROUP           ciscoNacNadEouRateLimitGroup
+    DESCRIPTION
+        "This group is mandatory only for the platforms which
+        support the rate-limit configuration."
+
+    GROUP           ciscoNacNadEouIfAdminGroup
+    DESCRIPTION
+        "This group is mandatory only for the platforms which
+        support enabled/disabled/bypassed EOU feature on the
+        interface."
+
+    GROUP           ciscoNacNadEouAuthMacGroup
+    DESCRIPTION
+        "This group is mandatory only for the platforms which
+        support the exempted MAC device with a policy associated."
+
+    GROUP           ciscoNacNadEouAuthDeviceTypeGrp
+    DESCRIPTION
+        "This group is mandatory only for the platforms which support
+        statically authorize device identified by device type."
+
+    GROUP           ciscoNacNadEouHostAgeGroup
+    DESCRIPTION
+        "This group is mandatory only for the platforms which
+        support the age information on the interface."
+
+    GROUP           ciscoNacNadEouHostUrlRedir
+    DESCRIPTION
+        "This group is mandatory only for the platforms which
+        support the redirection URL information on the interface."
+
+    GROUP           ciscoNacNadEouHostAclGroup
+    DESCRIPTION
+        "This group is mandatory only for the platforms which
+        support the ACL(Access Control List) information on the
+        interface."
+
+    GROUP           ciscoNacNadEouIfAaaFailPolicyGrp
+    DESCRIPTION
+        "This group is mandatory only for the platforms which
+        support IAB(Inaccessible Authentication Bypass) feature
+        on the interface."
+
+    GROUP           cnnIpDeviceTrackingConfigGrp
+    DESCRIPTION
+        "This group is mandatory only for the platforms which
+        support IP device tracking feature."
+
+    GROUP           cnnEouCriticalRecoveryDelayGrp
+    DESCRIPTION
+        "This group is mandatory only for the platforms which
+        support critical recovery delay feature."
+
+    GROUP           cnnEouIfIpDevTrackConfigGrp
+    DESCRIPTION
+        "This group is mandatory only for the platforms which
+        support EOU IP Device Tracking per interface in the device."
+
+    GROUP          ciscoNacNadRevalidateConfigGrp
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP          ciscoNacNadEouHostGroup1
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP          ciscoNacNadEouIfExtGroup
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    OBJECT          cnnEouEnabled
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cnnEouAllowIpStationId
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cnnEouPort
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cnnEouHostResultIpAddrType
+    SYNTAX          INTEGER  {
+                        ipv4(1)
+                    }
+    DESCRIPTION
+        "An implementation is only required to support IPv4
+        addresses."
+
+    OBJECT          cnnEouAuthIpStorageType
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cnnEouAuthMacStorageType
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+
+    OBJECT          cnnEouAuthDeviceTypeStorageType
+    MIN-ACCESS      read-only
+    DESCRIPTION
+        "Write access is not required."
+    ::= { ciscoNacNadMIBCompliances 4 }
 
 -- Units of Conformance
 
@@ -2255,4 +2507,40 @@ cnnEouIfIpDevTrackConfigGrp OBJECT-GROUP
         per interface in the device."
     ::= { ciscoNacNadMIBGroups 18 }
 
+ciscoNacNadRevalidateConfigGrp OBJECT-GROUP
+    OBJECTS         { cnnEouRevalidationEnabled }
+    STATUS          current
+    DESCRIPTION
+        "A collection of objects providing the globally configuration
+        for the system."
+    ::= { ciscoNacNadMIBGroups 19 }
+
+ciscoNacNadEouHostGroup1 OBJECT-GROUP
+    OBJECTS         {
+                        cnnEouHostResultUrlRedirectAcl,
+                        cnnEouHostResultTagName,
+                        cnnEouHostResultAuditSessionId,
+                        cnnEouHostResultAaaFailPolicy
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A collection of objects providing the host extension
+        configuration on the NAD."
+    ::= { ciscoNacNadMIBGroups 20 }
+
+ciscoNacNadEouIfExtGroup OBJECT-GROUP
+    OBJECTS         {
+                        cnnEouIfAllowClientless,
+                        cnnEouIfAllowIpStationId
+                    }
+    STATUS          current
+    DESCRIPTION
+        "A collection of objects providing the interface extension
+        configuration on the NAD."
+    ::= { ciscoNacNadMIBGroups 21 }
+
 END
+
+
+
+

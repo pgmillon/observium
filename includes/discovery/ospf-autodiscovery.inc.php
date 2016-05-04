@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -18,7 +18,7 @@ if ($config['autodiscovery']['ospf'] != FALSE)
 
   echo("OSPF Neighbours: \n");
 
-  $ips = snmpwalk_values($device, "OSPF-MIB::ospfNbrIpAddr", array(), "OSPF-MIB");
+  $ips = snmpwalk_values($device, "ospfNbrIpAddr", array(), "OSPF-MIB", mib_dirs());
 
   foreach ($ips as $ip)
   {

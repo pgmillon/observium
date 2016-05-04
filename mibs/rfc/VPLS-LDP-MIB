@@ -1,0 +1,271 @@
+VPLS-LDP-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+
+MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE,
+Unsigned32, transmission
+   FROM SNMPv2-SMI                    -- RFC 2578
+
+MODULE-COMPLIANCE, OBJECT-GROUP, NOTIFICATION-GROUP
+   FROM SNMPv2-CONF                   -- RFC 2580
+
+TruthValue
+   FROM SNMPv2-TC                     -- RFC 2579
+
+pwIndex, pwID
+   FROM PW-STD-MIB                    -- RFC 5601
+
+vplsConfigIndex, vplsConfigName
+   FROM VPLS-GENERIC-MIB;
+
+vplsLdpMIB MODULE-IDENTITY
+   LAST-UPDATED "201405191200Z"  -- 19 May 2014 12:00:00 GMT
+   ORGANIZATION "Layer 2 Virtual Private Networks (L2VPN)
+                 Working Group"
+
+   CONTACT-INFO
+       "
+        Rohit Mediratta
+        Email:  romedira@cisco.com
+
+        The L2VPN Working Group
+        (email distribution l2vpn@ietf.org,
+        http://www.ietf.org/wg/l2vpn/charter/)
+        "
+   DESCRIPTION
+       "Copyright (c) 2014 IETF Trust and the persons
+        identified as authors of the code.  All rights reserved.
+
+        Redistribution and use in source and binary forms, with
+        or without modification, is permitted pursuant to, and
+        subject to the license terms contained in, the Simplified
+        BSD License set forth in Section 4.c of the IETF Trust's
+        Legal Provisions Relating to IETF Documents
+        (http://trustee.ietf.org/license-info).
+
+        The initial version of this MIB module was published in
+        RFC 7257; for full legal notices see the RFC itself.
+
+        This MIB module contains managed object definitions for
+        LDP-signaled Virtual Private LAN Services as in
+        RFC 4762.
+
+        This MIB module enables the use of any
+        underlying pseudowire network."
+
+   -- Revision history.
+   REVISION
+       "201405191200Z"  -- 19 May 2014 12:00:00 GMT
+   DESCRIPTION "Initial version published as part of RFC 7257."
+       ::= { transmission 275 }
+
+-- Top-level components of this MIB.
+-- Notifications
+
+vplsLdpNotifications OBJECT IDENTIFIER
+                              ::= { vplsLdpMIB 0 }
+
+-- Tables, Scalars
+vplsLdpObjects       OBJECT IDENTIFIER
+                              ::= { vplsLdpMIB 1 }
+-- Conformance
+
+vplsLdpConformance   OBJECT IDENTIFIER
+                              ::= { vplsLdpMIB 2 }
+
+   vplsLdpConfigTable OBJECT-TYPE
+       SYNTAX          SEQUENCE OF VplsLdpConfigEntry
+       MAX-ACCESS      not-accessible
+       STATUS          current
+       DESCRIPTION
+            "This table specifies information for configuring
+             and monitoring LDP-specific parameters for
+             Virtual Private LAN Service (VPLS)."
+       ::= { vplsLdpObjects 1 }
+
+   vplsLdpConfigEntry OBJECT-TYPE
+       SYNTAX          VplsLdpConfigEntry
+       MAX-ACCESS      not-accessible
+       STATUS          current
+       DESCRIPTION
+        "A row in this table represents LDP-specific information
+        for Virtual Private LAN Service (VPLS) in a packet
+        network.  It is indexed by vplsConfigIndex, which uniquely
+        identifies a single VPLS.
+
+        A row is automatically created when a VPLS service is
+        configured using LDP signaling.
+
+        All of the writable objects values can be
+        changed when vplsConfigRowStatus is in the active(1)
+        state.
+        "
+       INDEX           { vplsConfigIndex }
+       ::= { vplsLdpConfigTable 1 }
+
+  VplsLdpConfigEntry ::=
+     SEQUENCE {
+      vplsLdpConfigMacAddrWithdraw                   TruthValue
+       }
+
+   vplsLdpConfigMacAddrWithdraw OBJECT-TYPE
+       SYNTAX          TruthValue
+       MAX-ACCESS      read-write
+       STATUS          current
+       DESCRIPTION
+            "This object specifies if MAC address withdrawal
+             is enabled in this service.  If this object is 'true',
+             then MAC address withdrawal is enabled.  If 'false',
+             then MAC address withdrawal is disabled."
+       DEFVAL          { true }
+       ::= { vplsLdpConfigEntry 1 }
+
+   -- VPLS LDP PW Binding Table
+
+   vplsLdpPwBindTable OBJECT-TYPE
+       SYNTAX          SEQUENCE OF VplsLdpPwBindEntry
+       MAX-ACCESS      not-accessible
+       STATUS          current
+       DESCRIPTION
+            "This table provides LDP-specific information for
+             an association between a VPLS service and the
+             corresponding pseudowires.  A service can have more
+             than one pseudowire association.  Pseudowires are
+             defined in the pwTable."
+       ::= { vplsLdpObjects 2 }
+
+   vplsLdpPwBindEntry OBJECT-TYPE
+       SYNTAX          VplsLdpPwBindEntry
+       MAX-ACCESS      not-accessible
+       STATUS          current
+       DESCRIPTION
+            "Each row represents an association between a
+             VPLS instance and one or more pseudowires
+             defined in the pwTable.  Each index is unique
+             in describing an entry in this table.  However,
+             both indexes are required to define the
+             one-to-many association of service to pseudowire.
+
+             An entry in this table in instantiated only when
+             LDP signaling is used to configure VPLS service.
+
+             Each entry in this table provides LDP-specific
+             information for the VPLS represented by
+             vplsConfigIndex."
+       INDEX  { vplsConfigIndex, pwIndex }
+       ::= { vplsLdpPwBindTable 1 }
+
+   VplsLdpPwBindEntry ::=
+       SEQUENCE {
+           vplsLdpPwBindMacAddressLimit       Unsigned32
+       }
+
+   vplsLdpPwBindMacAddressLimit OBJECT-TYPE
+       SYNTAX          Unsigned32 (0..4294967295)
+       MAX-ACCESS      read-write
+       STATUS          current
+       DESCRIPTION
+            "The value of this object specifies the maximum
+
+             number of learned and static entries allowed in the
+             Forwarding database for this PW Binding.  The value 0
+             means there is no limit for this PW Binding."
+       DEFVAL          { 0 }
+       ::= { vplsLdpPwBindEntry 1 }
+
+   -- VPLS LDP Service Notifications
+
+   vplsLdpPwBindMacTableFull NOTIFICATION-TYPE
+       OBJECTS {
+           vplsConfigName,
+           pwID
+       }
+       STATUS          current
+       DESCRIPTION
+            "The vplsLdpPwBindMacTableFull notification is generated
+             when the number of learned MAC addresses increases to
+             the value specified in vplsLdpPwBindMacAddressLimit."
+       ::= { vplsLdpNotifications 1 }
+
+-- Conformance Section
+
+vplsLdpCompliances
+  OBJECT IDENTIFIER ::= { vplsLdpConformance 1 }
+
+-- Compliance requirement for fully compliant implementations
+
+vplsLdpModuleFullCompliance MODULE-COMPLIANCE
+   STATUS current
+   DESCRIPTION
+        "Compliance requirement for implementations that
+         provide full support for VPLS-LDP-MIB.
+
+         Such devices can then be monitored and configured using
+         this MIB module."
+
+   MODULE -- this module
+
+       MANDATORY-GROUPS {
+            vplsLdpGroup,
+            vplsLdpNotificationGroup
+        }
+   ::= { vplsLdpCompliances 1 }
+
+-- Compliance requirement for read-only implementations.
+
+vplsLdpModuleReadOnlyCompliance MODULE-COMPLIANCE
+   STATUS current
+   DESCRIPTION
+        "Compliance requirement for implementations that only
+         provide read-only support for VPLS-LDP-MIB.
+
+         Such devices can then be monitored but cannot be
+         configured using this MIB modules."
+
+   MODULE -- this module
+
+       MANDATORY-GROUPS {
+            vplsLdpGroup,
+            vplsLdpNotificationGroup
+        }
+
+        OBJECT          vplsLdpConfigMacAddrWithdraw
+        MIN-ACCESS      read-only
+        DESCRIPTION
+            "Write access is not required."
+
+        OBJECT          vplsLdpPwBindMacAddressLimit
+        MIN-ACCESS      read-only
+        DESCRIPTION
+            "Write access is not required."
+     ::= { vplsLdpCompliances 2 }
+
+-- Units of conformance.
+
+ vplsLdpGroups
+   OBJECT IDENTIFIER ::= { vplsLdpConformance 2 }
+
+ vplsLdpGroup OBJECT-GROUP
+     OBJECTS {
+         vplsLdpConfigMacAddrWithdraw,
+         vplsLdpPwBindMacAddressLimit
+     }
+     STATUS          current
+     DESCRIPTION
+          "The group of objects supporting
+           management of L2VPN VPLS services using LDP."
+     ::= { vplsLdpGroups 1 }
+
+  vplsLdpNotificationGroup NOTIFICATION-GROUP
+     NOTIFICATIONS   {
+         vplsLdpPwBindMacTableFull
+
+     }
+     STATUS          current
+     DESCRIPTION
+          "The group of notifications supporting
+           the  Notifications generated for
+           VPLS LDP Service."
+     ::= { vplsLdpGroups 2 }
+
+END

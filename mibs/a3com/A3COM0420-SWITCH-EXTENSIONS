@@ -1,0 +1,1627 @@
+-- *********************************************************************
+
+--
+
+-- Name:        3Com SuperStack II Switch Configuration Extension MIB
+
+--
+
+-- Description:
+
+--
+
+-- This MIB has been created by extending the MIB which is described in
+
+-- 3Com RFC 0054.  Additional objects have been added to support later
+
+-- products.  This MIB may be used to manage products which only support
+
+-- the 0054 MIB.  However, the additional items defined by this MIB will
+
+-- return a 'no-such-name' error on such earlier products.
+
+--
+
+--
+
+-- This MIB is intended to be used with the MIB specified in the 3Com
+
+-- RFC 0352.  That MIB allows the individual units in a stack to be
+
+-- configured.  This MIB allows the switches in the stack to be
+
+-- configured - it will be ignored by any repeaters in the stack.
+
+--
+
+-- The stackConfigGroup provides objects which configure all of the
+
+-- switches in the stack.  Thus setting the prConStackFwdingMode to
+
+-- fast-Forward will set all of the switches in the stack that support
+
+-- fast forwarding of frames into the fast forwarding mode.  Where
+
+-- different units in the stack would return a different enumeration
+
+-- for an object, the enumeration with the greatest numerical value
+
+-- is returned.
+
+--
+
+-- The switchConfigGroup provides two tables for the configuration of
+
+-- the individual switches in the stack.  The group contains the
+
+-- following tables:
+
+--
+
+--    The prConfigPortTable provides configuration information for the
+
+--    switch ports.  The ports are referenced by their ifIndex.
+
+--
+
+--    The prConPortFdbTable allows the MAC addresses learnt against port
+
+--    to be displayed in port order.  Apart from the ordering of the
+
+--    rows in the table, this table is similar to the dot1qTpFdbTable
+
+--    as defined in the draft Bridge Extensions MIB, dated January 1999.
+
+--
+
+--    The prConIfIndexTable is indexed by unit.port and is a means of
+
+--    retrieving the corresponding ifIndex associated with each port.
+
+--
+
+--    The prConfigAggTable is indexed by aggregation ifIndex and 
+--    contains configuration or status information for each aggregation.
+
+--
+
+-- History  Date        Reason for Change
+
+--
+
+-- 1.00     2000-08-29  Created from 3Com RFC 0353 v1.08.
+
+--                      Added prConStackStpProtocolVersion,
+
+--                      prConPortStpFastStartOper,
+
+--                      prConPortStpProtocolMigration,
+
+--                      prConPortStpAdminPointToPoint,
+
+--                      prConPortStpOperPointToPoint.
+
+--                      Tidied layout with max 72 chars per line.
+
+-- 1.01     2000-09-08  Added prConStackStpPathCostDefault,
+
+--                      prConPortLacp.
+
+-- 1.02     2000-11-23  Added prConPortStpProtocolOper.
+
+-- 1.03     2001-10-02  Added prConStackLacpOperInfo
+
+-- 1.04     2002-05-10  Added prConfigAggTable and item 
+--                      prConfigAggStatus.
+-- 1.05     2002-05-17  Added prConPortStpAdminPathCost item.
+-- 1.06     2002-06-19  Corrected typos in DESCRIPTION for prConPortIFM 
+
+-- 1.07     2002-10-21  Added prConPortCascadeMode item.
+-- *********************************************************************
+
+-- Copyright (c) 3Com Corporation. All Rights Reserved.
+
+-- *********************************************************************
+
+
+
+A3COM0420-SWITCH-EXTENSIONS DEFINITIONS ::= BEGIN
+
+
+
+    IMPORTS
+
+        brasica2 FROM A3COM0004-GENERIC
+
+        MacAddress FROM SNMPv2-TC
+
+        OBJECT-TYPE FROM RFC-1212
+
+        ifIndex FROM RFC1213-MIB
+
+        ;
+
+
+
+stackConfigGroup  OBJECT IDENTIFIER ::= { brasica2 1 }
+
+
+
+-- ------------------------------------------------------------------ --
+
+--      Stack Configuration Group
+
+-- ------------------------------------------------------------------ --
+
+--      This group provides details on the configuration of the Switches
+
+--      in a Stack.
+
+-- ------------------------------------------------------------------ --
+
+
+
+prConStackFwdingMode OBJECT-TYPE
+
+    SYNTAX      INTEGER  {
+
+                    fastForward(1),
+
+                    fragmentFree(2),
+
+                    storeAndForward(3),
+
+                    intelligent(4)
+
+                }
+
+    ACCESS      read-write
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "This object controls whether cut-thru is enabled on the stack.
+
+        Enabling cut-through can help to minimise the delay experienced
+
+        by packets before they are forwarded to their destination.
+
+        Setting the mode to 'fastForward' causes frame forwarding to
+
+        begin as soon as 32 bytes of the frame have been received.
+
+        Setting it to 'fragmentFree' causes frame forwarding to begin
+
+        when 64 bytes have been received. This is slower, but eliminates
+
+        the risk of forwarding an illegally short frame to the
+
+        destination port, however a valid length frame might still be
+
+        forwarded even though it had a CRC error. Setting this object to
+
+        'storeAndForward' disables the cut-through completely, and
+
+        frames will not be forwarded until they have been received in
+
+        their entirety.
+
+
+
+        When the mode is set to intelligent, the effective switching
+
+        mode is set initially to fast forward.  The switch then monitors
+
+        the total error rate of frames received on each port, and if it
+
+        exceeds, say 20 error frames a second, it changes the effective
+
+        mode for the port to store and forward. If the error rate then
+
+        drops to zero the effective mode is restored to fast forward.
+
+        The actual error rates may differ for different switches.
+
+
+
+        Whatever forwarding mode is selected, cut-through cannot operate
+
+        if the destination port is currently involved in 'cut-through'
+
+        from another port.  In this case the device will process the
+
+        frame in store and forward mode."
+
+    ::= { stackConfigGroup 1 }
+
+
+
+prConStackPaceMode OBJECT-TYPE
+
+    SYNTAX      INTEGER  {
+
+                    notApplicable(1),
+
+                    normalEthernet(2),
+
+                    lowLatency(3)
+
+                }
+
+    ACCESS      read-write
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "This object specifies the type of backoff algorithm used on the
+
+        units in the stack. Any suitable port can use the standard
+
+        ethernet algorithm or, for PACE applications, it can be set into
+
+        low latency mode. In this mode, the backoff algorithm is
+
+        optimised to minimise the possibility of collisions. The value
+
+        of this object defines the setting that those ports will use
+
+        which have prConPortPaceMode set to useDefault(2).
+
+
+
+        PACE mode can be set for the whole stack or for individual
+
+        ports.  When a unit is initialised to factory defaults,
+
+        prconPortPaceMode for every port is set to useDefault(2), and
+
+        the actual setting for the port is decided by the value of this
+
+        object.  The manager has the choice, therefore, of varying the
+
+        mode for every port in the stack, or for individual ports only."
+
+    ::= { stackConfigGroup 2 }
+
+
+
+prConStackVLANConfigMode OBJECT-TYPE
+
+    SYNTAX      INTEGER  {
+
+                    notApplicable(1),
+
+                    portMode(2),
+
+                    autoSelect(3)
+
+                }
+
+    ACCESS      read-write
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "This object specifies the VLAN mode to be used. Setting it to
+
+        portMode(2) requires the user to configure each port's VLAN
+
+        membership individually,  whereas autoSelect(3) causes it to
+
+        acquire its membership from the VLAN Server. The value of this
+
+        object defines the setting that those ports will use which have
+
+        prConPortVLANConfigMode set to useDefault(2).
+
+
+
+        VLAN mode can be set for the whole stack or for individual
+
+        ports.  When a unit is initialised to factory defaults,
+
+        prconPortVLANConfigMode for every port is set to useDefault(2),
+
+        and the actual setting for the port is decided by the value of
+
+        this object.  The manager has the choice, therefore, of varying
+
+        the mode for every port in the stack, or for individual ports
+
+        only."
+
+    ::= { stackConfigGroup 3 }
+
+
+
+prConStackRAPStudyPort OBJECT-TYPE
+
+    SYNTAX      INTEGER
+
+    ACCESS      read-write
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "This determines the ifIndex of the port a user wishes to
+
+        monitor on the copy port.  Monitoring causes all data from the
+
+        study port to be copied to the copy port.  The port is specified
+
+        using its ifIndex because that uniquely identifies a single port
+
+        in the stack."
+
+    ::= { stackConfigGroup 4 }
+
+
+
+prConStackRAPCopyPort OBJECT-TYPE
+
+    SYNTAX      INTEGER
+
+    ACCESS      read-write
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "This is the value of ifIndex specifying the port to which data
+
+        will be copied (mirrored), and must be set to a valid value,
+
+        along with the study port, before monitoring can be enabled."
+
+    ::= { stackConfigGroup 5 }
+
+
+
+prConStackRAPEnable OBJECT-TYPE
+
+    SYNTAX      INTEGER  {
+
+                    off(1),
+
+                    on(2)
+
+                }
+
+    ACCESS      read-write
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "This object controls the Roving Analysis Port (RAP) feature in
+
+        conjunction with prConStackRAPStudyPort and
+
+        prConStackRAPCopyPort.  The RAP feature allows all frames sent
+
+        and received on the study port to be copied to the copy port,
+
+        where they can be observed.  Setting this object to on(2) will
+
+        enable monitoring.  To succeed both prConStackRAPStudyPort and
+
+        prConStackRAPCopyPort must have been set to the ifIndex values
+
+        of suitable ports, and if either are invalid this operation will
+
+        fail."
+
+    ::= { stackConfigGroup 6 }
+
+
+
+prConStackBridgeMode OBJECT-TYPE
+
+    SYNTAX      INTEGER  {
+
+                    single(1),
+
+                    multiple(2)
+
+                }
+
+    ACCESS      read-write
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "The value of this object determines whether the switch is to
+
+        operate as a single bridge or as a bridge per VLAN (the
+
+        default).  In multiple bridge mode the switch maintains a
+
+        separate filtering database for each VLAN, whereas in single
+
+        bridge mode it uses a single database for them all.  Thus in
+
+        multiple bridge mode the MAC address of a station can be learnt
+
+        on more than one port provided they are in separate VLANs,
+
+        while in single bridge mode the switch makes just one entry for
+
+        each address. Multiple bridge mode is useful in that separate
+
+        VLANs may be joined by a bridge external to the switch,  whereas
+
+        in single bridge mode VLANs may only be connected by routers.
+
+        Not all switches will support both modes, and any attempt to set
+
+        the mode to an unsupported value will be rejected.
+
+
+
+        Note: This object only applies to bridges operating in the
+
+        dot1Qmode."
+
+    ::= { stackConfigGroup 7 }
+
+
+
+prConStackIpTos OBJECT-TYPE
+
+    SYNTAX      INTEGER  {
+
+                    notApplicable(1),
+
+                    enable(2),
+
+                    disable(3)
+
+                }
+
+    ACCESS      read-write
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "This object is used to enable the classification of packets
+
+        based upon the value of their IPToS field. When enabled, the
+
+        packet's Traffic Classification will be derived from both the
+
+        802.1D user_priority and the IPToS field. Where the two methods
+
+        indicate different Traffic Classifications, then higher of the
+
+        two will be selected. Each device will only support the
+
+        enumerations that are applicable to that device.  Attempting to
+
+        set the object to a non-supported mode will be rejected."
+
+    ::= { stackConfigGroup 9 }
+
+
+
+prConStackPktRateControl OBJECT-TYPE
+
+    SYNTAX      INTEGER {
+
+                    notApplicable(1),
+
+                    disable(2),
+
+                    limitUnknownDAs(3),
+
+                    limitMcasts(4),
+
+                    limitMcastsAndUnknownDAs(5),
+
+                    limitBcasts(6),
+
+                    limitBcastsAndUnknownDAs(7),
+
+                    limitBcastsAndMcasts(8),
+
+                    limitBcastsMcastsAndUnknownDAs(9)
+
+                }
+
+    ACCESS      read-write
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "This object controls whether the packet rate control feature is
+
+        enabled or disabled.  Products which do not support this feature
+
+        will return notApplicable(1) and reject any attempt to set it
+
+        to a different value.  When set to disable(2) the switch will
+
+        not perform any rate limiting.  If set to any of the remaining
+
+        values the switch will monitor the throughput of the specified
+
+        type(s) of frame and discard some if necessary to reduce the
+
+        throughput to the amount specified by the value of
+
+        prConStackPktRateLimit.  The enumerations select which types of
+
+        packet are to be rate limited as follows:-
+
+
+
+          limitUnknownDAs(3)
+
+                  Unicast Frames with a destination address not in the
+
+                  filtering database
+
+          limitMcasts(4)
+
+                  Multicasts
+
+          limitMcastsAndUnknownDAs(5)
+
+                  Multicasts, and unicasts with unknown destination
+
+                  addresses
+
+          limitBcasts(6)
+
+                  Broadcasts
+
+          limitBcastsAndUnknownDAs(7)
+
+                  Broadcasts, and unicasts with unknown destination
+
+                  addresses
+
+          limitMcastsAndBcasts(8)
+
+                  Multicasts and Broadcasts
+
+          limitMcastsBcastsAndUnknownDAs(9)
+
+                  All the above types of frame"
+
+    ::= { stackConfigGroup 10 }
+
+
+
+prConStackPktRateLimit OBJECT-TYPE
+
+    SYNTAX      INTEGER (0..262143)
+
+    ACCESS      read-write
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "This object specifies the maximum rate at which the selected
+
+        types of packet may be received from a port before excess
+
+        packets are discarded.  The limit is specified in packets per
+
+        second.  To assist in calculating a suitable limit, note that
+
+        the absolute maximum transmission rates of packets on an
+
+        ethernet network is
+
+                10Mbps:  14880
+
+            and 100Mbps: 148800"
+
+    ::= { stackConfigGroup 11 }
+
+
+
+prConStackStpProtocolVersion OBJECT-TYPE
+
+    SYNTAX      INTEGER {
+
+                    stpVersion0(0),
+
+                    rstpVersion2(2)
+
+                }
+
+    ACCESS      read-write
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "The version of the Spanning Tree Protocol that is to be used by
+
+        this Bridge.
+
+            stpVersion0(0)      The original version of Spanning Tree,
+
+                                defined by IEEE Std. 802.1D-1998.
+
+            stpVersion2(2)      The Rapid Spanning Tree Protocol,
+
+                                defined by IEEE Std. 802.1w."
+
+    ::= { stackConfigGroup 12 }
+
+
+
+prConStackStpPathCostDefault OBJECT-TYPE
+
+    SYNTAX      INTEGER {
+
+                    stp8021d1998(1),
+
+                    stp8021t2000(2)
+
+                }
+
+    ACCESS      read-write
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "The version of the Spanning Tree default Path Costs that are to
+
+        be used by this Bridge.
+
+            stp8021d1998(1)     Path Costs from IEEE Std. 802.1D-1998.
+
+            stp8021t2000(2)     Path Costs from IEEE Std. 802.1t-2000."
+
+    ::= { stackConfigGroup 13 }
+
+
+
+prConStackLacpOperInfo OBJECT-TYPE
+
+    SYNTAX      INTEGER  {
+
+                    notOperational (1),
+
+                    operational (2)
+
+                }
+
+    ACCESS      read-only
+
+    STATUS      mandatory
+
+    DESCRIPTION 
+
+        "This object shall contain a value indicating that LACP is 
+
+        operational, or not operational. If not operational, all units 
+
+        need to be upgraded to the latest agent version. For example, 
+
+        this value shall be set to 'not operational' if any unit in the stack
+
+        does not have the capability to support LACP."
+
+    ::= { stackConfigGroup 14 }
+
+
+
+switchConfigGroup OBJECT IDENTIFIER ::= { brasica2 2 }
+
+
+
+-- ------------------------------------------------------------------ --
+
+--      Switch Configuration Group
+
+-- ------------------------------------------------------------------ --
+
+--      Port Configuration Table
+
+--
+
+--      This table provides details of the configuration of a port on a
+
+--      Switch unit.
+
+-- ------------------------------------------------------------------ --
+
+
+
+prConfigPortTable OBJECT-TYPE
+
+    SYNTAX      SEQUENCE OF PrConfigPortEntry
+
+    ACCESS      not-accessible
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "Table providing configuration information about a port on a
+
+        Switch unit."
+
+    ::= { switchConfigGroup 1 }
+
+
+
+prConfigPortEntry OBJECT-TYPE
+
+    SYNTAX      PrConfigPortEntry
+
+    ACCESS      not-accessible
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "Configuration options for a single port."
+
+    INDEX       { ifIndex }
+
+    ::= { prConfigPortTable 1 }
+
+
+
+PrConfigPortEntry ::=
+
+    SEQUENCE {
+
+        prConPortVLANConfigMode         INTEGER,
+
+        prConPortIFM                    INTEGER,
+
+        prConPortDiscardOnTx            INTEGER,
+
+        prConPortPaceMode               INTEGER,
+
+        prConPortStpFastStart           INTEGER,
+
+        prConPortFlowCntlStatus         INTEGER,
+
+        prConPortFlowCntlDefaultStatus  INTEGER,
+
+        prConPortBroadcastFilter        INTEGER,
+
+        prConPortStpFastStartOper       INTEGER,
+
+        prConPortStpMigrationCheck      INTEGER,
+
+        prConPortAdminPointToPointMAC   INTEGER,
+
+        prConPortOperPointToPointMAC    INTEGER,
+
+        prConPortStpProtocolOper        INTEGER,
+
+        prConPortLacp                   INTEGER,
+        prConPortStpAdminPathCost       INTEGER,
+        prConPortCascadeMode            INTEGER
+ 
+    }
+
+
+
+prConPortVLANConfigMode OBJECT-TYPE
+
+    SYNTAX      INTEGER  {
+
+                    notApplicable(1),
+
+                    useDefault(2),
+
+                    portMode(3),
+
+                    autoSelect(4)
+
+    }
+
+    ACCESS      read-write
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "This object specifies the VLAN mode to be used.  Setting it to
+
+        portMode(3) requires the user to configure the port's VLAN
+
+        membership explicitly, whereas autoSelect(4) causes it to
+
+        acquire its membership from the VLAN Server.
+
+
+
+        VLAN mode can be set for the whole stack or for individual
+
+        ports.  When a unit is initialised to factory defaults,
+
+        prConPortVLANConfigMode for every port is set to useDefault(2),
+
+        and the actual setting for the port is decided by the value of
+
+        prConStackVLANConfigMode.  The other values of this object allow
+
+        the setting to be varied for the individual port."
+
+    ::= { prConfigPortEntry 1 }
+
+
+
+prConPortIFM OBJECT-TYPE
+
+    SYNTAX      INTEGER  {
+
+                    notApplicable(1),
+
+                    off(2),
+
+                    maxJams6(3),
+
+                    maxJams7(4),
+
+                    maxJams8(5),
+
+                    maxJams9(6),
+
+                    maxJams10(7),
+
+                    maxJams11(8),
+
+                    maxJams12(9),
+
+                    maxJams13(10)
+
+                }
+
+    ACCESS      read-write
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "This object controls Intelligent Flow Management for the port,
+
+        which specifies what action the port takes whenever it is unable
+
+        to receive a packet because its buffers are full. When set to
+
+        off(2), the packet is dropped immediately.  If it is set to any
+
+        of the values maxJams6(3) to maxJams13(10), a jam signal is
+
+        transmitted to the segment attached to the port to force a
+
+        collision so that the originator will stop and retransmit the
+
+        frame.  This will be repeated a maximum of 6 to 13 times
+
+        depending on the setting.  If the port is then still unable to
+
+        receive the packet it is dropped.  Intelligent Flow Management
+
+        should be disabled on ports which are connected to ree Rapid Spanning Tree Protocol,
+
+                                defined by IEEE Std. 802.1w."
+
+::= { prConfigPortEntry 13 }
+
+
+
+prConPortLacp OBJECT-TYPE
+
+    SYNTAX      INTEGER  {
+
+                    enable(1),
+
+                    disable(2)
+
+                }
+
+    ACCESS      read-write
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "This object specifies whether a port will use LACP.  When
+
+        enabled LACP will be active on the port.  When disabled LACP
+
+        will cease this may cause a port to be taken out of an
+
+        aggregation."
+
+    ::= { prConfigPortEntry 14 }
+
+prConPortStpAdminPathCost OBJECT-TYPE
+    SYNTAX  INTEGER (0..200000000)
+    ACCESS  read-write
+    STATUS  mandatory
+    DESCRIPTION
+            "The administratively assigned value of the path cost for
+            this port. The contribution of this port to the path cost of
+            paths towards the spanning tree root which include this port.
+            802.1D-1990 recommends that the default value of this parameter
+            be in inverse proportion to the speed of the attached LAN.
+            This is similar to the dot1dStpPortPathCost MIB item, except
+            that writing a value of '0' assigns the port to use the
+            automatically calculated default Path Cost value.  If the
+            default Path Cost is being used, this item returns '0'."
+    ::= { prConfigPortEntry 15 }
+
+
+prConPortCascadeMode OBJECT-TYPE
+    SYNTAX      INTEGER  {
+                    enabled(1),
+                    disabled(2)
+                }
+    ACCESS      read-only
+    STATUS      mandatory
+    DESCRIPTION
+        "This object specifies whether the port is a cascade port
+        or not.  If enabled, the port is operating as a cascade
+        port.  If disabled, the port is not operating as a 
+        cascade port."
+    ::= { prConfigPortEntry 16 }
+
+
+-- ------------------------------------------------------------------ --
+
+
+
+--      Switch Configuration Group                                    
+
+
+
+-- ------------------------------------------------------------------ --
+
+--    Address Configuration Table
+
+--
+
+--    This table reflects the forwarding table information provided by
+
+--    the dot1qTpFdbTable in the Bridge Extension MIB.  This table
+
+--    allows the CLI to display the inforation in port order.
+
+-- ------------------------------------------------------------------ --
+
+
+
+prConPortFdbTable OBJECT-TYPE
+
+    SYNTAX      SEQUENCE OF PrConPortFdbEntry
+
+    ACCESS      not-accessible
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "This table provides the same information as that held in the
+
+        dot1qTpFdbTable in the Bridge Extension MIB."
+
+    ::= { switchConfigGroup 2 }
+
+
+
+prConPortFdbEntry OBJECT-TYPE
+
+    SYNTAX      PrConPortFdbEntry
+
+    ACCESS      not-accessible
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "Information about a specific unicast MAC address."
+
+    INDEX       { prConPortFdbPort, prConPortFdbId, prConPortFdbAddress }
+
+    ::= { prConPortFdbTable 1 }
+
+
+
+PrConPortFdbEntry ::=
+
+    SEQUENCE {
+
+        prConPortFdbPort                INTEGER,
+
+        prConPortFdbId                  INTEGER,
+
+        prConPortFdbAddress             MacAddress,
+
+        prConPortFdbStatus              INTEGER
+
+    }
+
+
+
+prConPortFdbPort OBJECT-TYPE
+
+    SYNTAX      INTEGER (0..65535)
+
+    ACCESS      not-accessible
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "This contains the port number that this address has been seen
+
+        on.  It is similar to dot1qTpFdbPort in the Bridge Extensions
+
+        MIB but may not be the value zero."
+
+    ::= { prConPortFdbEntry 1 }
+
+
+
+prConPortFdbId OBJECT-TYPE
+
+    SYNTAX      INTEGER
+
+    ACCESS      not-accessible
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "The identity of this filtering database.  This shall have the
+
+        same value as is defined for dot1qFdbId in the bridge MIB
+
+        extensions MIB."
+
+    ::= { prConPortFdbEntry 2 }
+
+prConPortFdbAddress OBJECT-TYPE
+
+    SYNTAX      MacAddress
+
+    ACCESS      not-accessible
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "This object contains the unicast MAC address of the entry.
+
+        This contains the same value as dot1qTpFdbAddress in the Bridge
+
+        Extensions MIB."
+
+    ::= { prConPortFdbEntry 3 }
+
+
+
+prConPortFdbStatus OBJECT-TYPE
+
+    SYNTAX      INTEGER  {
+
+                    other(1),
+
+                    invalid(2),
+
+                    learned(3),
+
+                    self(4),
+
+                    mgmt(5)
+
+                }
+
+    ACCESS      read-only
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "This contains the same information as dot1qTpFdbStatus in the
+
+        Bridge Extensions MIB."
+
+    ::= { prConPortFdbEntry 4 }
+
+
+
+-- ------------------------------------------------------------------ --
+
+--      Switch Configuration Group
+
+-- ------------------------------------------------------------------ --
+
+--    Trunk Multicast Table
+
+--
+
+--    This table contains Forwarding Database multicast entries which
+
+--    include at least one trunk port within the list of ports the
+
+--    Multicast address is associated with.
+
+-- ------------------------------------------------------------------ --
+
+
+
+prConTrunkMulticastTable OBJECT-TYPE
+
+    SYNTAX      SEQUENCE OF PrConTrunkMulticastEntry
+
+    ACCESS      not-accessible
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "Table for distributing multicast addresses on trunks across a
+
+        stack."
+
+    ::= { switchConfigGroup 3 }
+
+
+prConTrunkMulticastEntry OBJECT-TYPE
+
+    SYNTAX      PrConTrunkMulticastEntry
+
+    ACCESS      not-accessible
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "Information associated with a single multicast entry."
+
+    INDEX       { prConTrunkMulticastFdbId, prConTrunkMulticastAddress }
+
+    ::= { prConTrunkMulticastTable 1 }
+
+
+
+PrConTrunkMulticastEntry ::=
+
+    SEQUENCE {
+
+        prConTrunkMulticastFdbId        INTEGER,
+
+        prConTrunkMulticastAddress      MacAddress,
+
+        prConTrunkMulticastPortlist     OCTET STRING ,
+
+        prConTrunkMulticastStatus       INTEGER,
+
+        prConTrunkMulticastType         INTEGER,
+
+        prConTrunkMulticastRobp         INTEGER
+
+    }
+
+
+
+prConTrunkMulticastFdbId OBJECT-TYPE
+
+    SYNTAX      INTEGER
+
+    ACCESS      not-accessible
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "The identity of the filtering database. This contains the same
+
+        value as dot1qFdbId in the Bridge Extensions MIB."
+
+    ::= { prConTrunkMulticastEntry 1 }
+
+
+
+prConTrunkMulticastAddress OBJECT-TYPE
+
+    SYNTAX      MacAddress
+
+    ACCESS      not-accessible
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "This object contains the multicast MAC address of the entry.
+
+        This contains the same value as the dot1qTpGroupAddress in the
+
+        Bridge Extensions MIB"
+
+    ::= { prConTrunkMulticastEntry 2 }
+
+
+
+prConTrunkMulticastPortlist OBJECT-TYPE
+
+    SYNTAX      OCTET STRING
+
+    ACCESS      read-write
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "The set of trunk ports to which frames destined for this
+
+        multicast address should be forwarded.  Each octet within the
+
+        value of this object specifies a set or eight trunk ports, with
+
+        the first octet specifiying trunk ports 1 through 8, the second
+
+        octet specifying ports 9 through 16, etc.  Within each octet the
+
+        most significant bit represents the lowest numbered port, and
+
+        the least significant bit represents the highest numbered port.
+
+        Thus, each trunk port is represented by a single bit within the
+
+        value of this object.  If that bit has a value of '1' then that
+
+        trunk port is included in the set of ports; the trunk port is
+
+        not included if its bit has a value of '0'. The default value of
+
+        this object is a string of ones of appropriate length."
+
+    ::= { prConTrunkMulticastEntry 3 }
+
+
+
+prConTrunkMulticastStatus OBJECT-TYPE
+
+    SYNTAX      INTEGER  {
+
+                    other(1),
+
+                    invalid(2),
+
+                    permanent(3),
+
+                    deleteOnReset(4),
+
+                    deleteOnTimeout(5)
+
+                }
+
+    ACCESS      read-write
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "This object specifies the status of the entry. The default
+
+        value is other(1).  This object contains the same information as
+
+        dot1dStaticStatus in RFC1493."
+
+    ::= { prConTrunkMulticastEntry 4 }
+
+
+
+prConTrunkMulticastType OBJECT-TYPE
+
+    SYNTAX      INTEGER  {
+
+                    other(1),
+
+                    invalid(2),
+
+                    learned(3),
+
+                    self(4),
+
+                    mgmt(5)
+
+                }
+
+    ACCESS      read-write
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "This object contains the same information as dot1qTpFdbStatus
+
+        in the Bridge Extensions MIB."
+
+    ::= { prConTrunkMulticastEntry 5 }
+
+
+
+prConTrunkMulticastRobp OBJECT-TYPE
+
+    SYNTAX      INTEGER  {
+
+                    true(1),
+
+                    false(2)
+
+                }
+
+    ACCESS      read-only
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "This object contains the Receive on Blocked port setting."
+
+    ::= { prConTrunkMulticastEntry 6 }
+
+
+
+-- ------------------------------------------------------------------ --
+
+--    Unit-and-Port to ifIndex translation Table
+
+--
+
+--    This table is indexed by unit.port and it provides a cross
+
+--    reference to the ifIndex and bridge port number associated with
+
+--    each port.
+
+-- ------------------------------------------------------------------ --
+
+
+prConIfIndexTable OBJECT-TYPE
+
+    SYNTAX      SEQUENCE OF PrConIfIndexEntry
+
+    ACCESS      not-accessible
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "Table for translating between unit.port and ifIndex or bridge
+
+        port number."
+
+    ::= { switchConfigGroup 4 }
+
+
+
+prConIfIndexEntry OBJECT-TYPE
+
+    SYNTAX      PrConIfIndexEntry
+
+    ACCESS      not-accessible
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "The IfIndex and bridge port number associated with a port
+
+        entry."
+
+    INDEX       { prConIfIndexGroupIndex, prConIfIndexPortIndex }
+
+    ::= { prConIfIndexTable 1 }
+
+
+
+PrConIfIndexEntry ::=
+
+    SEQUENCE {
+
+        prConIfIndexGroupIndex  INTEGER,
+
+        prConIfIndexPortIndex   INTEGER,
+
+        prConIfIndex            INTEGER,
+
+        prConIfIndexBridgePort  INTEGER
+
+    }
+
+
+
+prConIfIndexGroupIndex OBJECT-TYPE
+
+    SYNTAX      INTEGER (1..1024)
+
+    ACCESS      not-accessible
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "This object identifies the group, unit or blade containing the
+
+        port for which this entry contains information."
+
+    ::= { prConIfIndexEntry 1 }
+
+
+
+prConIfIndexPortIndex OBJECT-TYPE
+
+   SYNTAX      INTEGER (1..1024)
+
+   ACCESS      not-accessible
+
+   STATUS      mandatory
+
+   DESCRIPTION
+
+        "This object identifies the port within the group for which this
+
+        entry contains information."
+
+    ::= { prConIfIndexEntry 2 }
+
+
+
+prConIfIndex OBJECT-TYPE
+
+    SYNTAX      INTEGER
+
+    ACCESS      read-only
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "This object contains the corresponding ifIndex value."
+
+    ::= { prConIfIndexEntry 3 }
+
+
+
+prConIfIndexBridgePort OBJECT-TYPE
+
+    SYNTAX    INTEGER (1..65535)
+
+    ACCESS    read-only
+
+    STATUS    mandatory
+
+    DESCRIPTION
+
+        "The corresponding bridge port number, which is the number of
+
+        the port as defined by RFC1493.  If a port is a member of an
+
+        aggregation, the value will be that of the aggregation rather
+
+        than the port itself."
+
+    ::= { prConIfIndexEntry 4 }
+
+
+
+-- ------------------------------------------------------------------ --
+
+--      Switch Configuration Group
+
+-- ------------------------------------------------------------------ --
+
+--      Aggregation Configuration Table
+
+--
+
+--      This table provides details of the configuration of aggregations
+--      on a Switch unit.
+
+-- ------------------------------------------------------------------ --
+
+
+
+prConfigAggTable OBJECT-TYPE
+
+    SYNTAX      SEQUENCE OF PrConfigAggEntry
+
+    ACCESS      not-accessible
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "Table providing configuration information about an aggregation
+        on a Switch unit."
+
+    ::= { switchConfigGroup 5 }
+
+
+
+prConfigAggEntry OBJECT-TYPE
+
+    SYNTAX      PrConfigAggEntry
+
+    ACCESS      not-accessible
+
+    STATUS      mandatory
+
+    DESCRIPTION
+
+        "Configuration information for a single aggregation."
+
+    INDEX       { ifIndex }
+
+    ::= { prConfigAggTable 1 }
+
+
+
+PrConfigAggEntry ::=
+
+    SEQUENCE {
+
+        prConfigAggStatus              INTEGER
+
+    }
+
+
+
+prConfigAggStatus OBJECT-TYPE
+
+    SYNTAX      INTEGER  {
+                    unused(1),
+                    autoInUse(2),
+                    autoAgeing(3),
+                    autoReusable(4),
+                    manual(5)
+                }
+
+    ACCESS      read-only
+    STATUS      mandatory
+
+    DESCRIPTION
+
+
+        
+        "This object specifies the aggregation status.  The status
+        is indicated as follows:
+            unused(1)         the aggregation is not presently in use.
+            autoInUse(2)      the aggregation was selected as a result of
+                              receiving LACP Partner ID information from a
+                              remote partner, and currently has ports.
+            autoAgeing(3)     the aggregation was selected as a result of
+                              receiving LACP Partner ID information from a
+                              remote partner, and is currently within its ageing
+                              timeout period (typically 10 minutes).
+            autoReusable(4)   the aggregation was selected as a result of
+                              receiving LACP Partner ID information from a
+                              remote partner, and its ageing timeout period
+                              (typically 10 minutes) has expired.
+            manual(5)         the aggregation was pre-configured using 
+                              administrative Partner ID information."
+
+
+
+    ::= { prConfigAggEntry 1 }
+
+
+
+END
+

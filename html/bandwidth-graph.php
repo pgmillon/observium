@@ -8,31 +8,15 @@
  * @package    observium
  * @subpackage webinterface
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 ini_set('allow_url_fopen', 0);
-ini_set('display_errors', 0);
 
-if (strpos($_SERVER['REQUEST_URI'], "debug"))
-{
-  $debug = "1";
-  ini_set('display_errors', 1);
-  ini_set('display_startup_errors', 1);
-  ini_set('log_errors', 1);
-  ini_set('error_reporting', E_ALL);
-} else {
-  $debug = FALSE;
-  ini_set('display_errors', 0);
-  ini_set('display_startup_errors', 0);
-  ini_set('log_errors', 0);
-  ini_set('error_reporting', 0);
-}
-
-include("../includes/defaults.inc.php");
-include("../config.php");
-include("../includes/definitions.inc.php");
+include_once("../includes/defaults.inc.php");
+include_once("../config.php");
+include_once("../includes/definitions.inc.php");
 include("../includes/functions.inc.php");
 include("includes/functions.inc.php");
 include("includes/authenticate.inc.php");
@@ -44,36 +28,38 @@ require_once("includes/jpgraph/src/jpgraph_bar.php");
 require_once("includes/jpgraph/src/jpgraph_utils.inc.php");
 require_once("includes/jpgraph/src/jpgraph_date.php");
 
-if (is_numeric($_GET['bill_id']))
+$vars = get_vars('GET');
+
+if (is_numeric($vars['bill_id']))
 {
   if ($_SERVER['REMOTE_ADDR'] != $_SERVER['SERVER_ADDR'])
   {
-    if (bill_permitted($_GET['bill_id']))
+    if (bill_permitted($vars['bill_id']))
     {
-      $bill_id = $_GET['bill_id'];
+      $bill_id = $vars['bill_id'];
     } else {
       echo("Unauthorised Access Prohibited.");
       exit;
     }
   } else {
-    $bill_id = $_GET['bill_id'];
+    $bill_id = $vars['bill_id'];
   }
 } else {
   echo("Unauthorised Access Prohibited.");
   exit;
 }
 
-$start        = $_GET['from'];
-$end          = $_GET['to'];
-$xsize        = (is_numeric($_GET['x']) ? $_GET['x'] : "800" );
-$ysize        = (is_numeric($_GET['y']) ? $_GET['y'] : "250" );
+$start        = $vars['from'];
+$end          = $vars['to'];
+$xsize        = (is_numeric($vars['x']) ? $vars['x'] : "800" );
+$ysize        = (is_numeric($vars['y']) ? $vars['y'] : "250" );
 //$count        = (is_numeric($_GET['count']) ? $_GET['count'] : "0" );
 //$type         = (isset($_GET['type']) ? $_GET['type'] : "date" );
 //$dur          = $end - $start;
 //$datefrom     = date('Ymthis', $start);
 //$dateto       = date('Ymthis', $end);
-$imgtype      = (isset($_GET['type']) ? $_GET['type'] : "historical" );
-$imgbill      = (isset($_GET['imgbill']) ? $_GET['imgbill'] : false);
+$imgtype      = (isset($vars['type'])    ? $vars['type'] : "historical" );
+$imgbill      = (isset($vars['imgbill']) ? $vars['imgbill'] : false);
 $yaxistitle   = "Bytes";
 
 $in_data      = array();
@@ -165,22 +151,22 @@ if ($imgtype == "historical")
   {
     foreach (dbFetch("SELECT DISTINCT UNIX_TIMESTAMP(timestamp) as timestamp, SUM(delta) as traf_total, SUM(in_delta) as traf_in, SUM(out_delta) as traf_out FROM bill_data WHERE `bill_id` = ? AND `timestamp` >= FROM_UNIXTIME(?) AND `timestamp` <= FROM_UNIXTIME(?) GROUP BY HOUR(timestamp) ORDER BY timestamp ASC", array($bill_id, $start, $end)) as $data)
     {
-      $traf['in']        = (isset($data['traf_in']) ? $data['traf_in'] : 0);
-      $traf['out']        = (isset($data['traf_out']) ? $data['traf_out'] : 0);
-      $traf['total']        = (isset($data['traf_total']) ? $data['traf_total'] : 0);
-      $datelabel        = strftime("%H:%M", $data['timestamp']);
+      $traf['in']    = (isset($data['traf_in']) ? $data['traf_in'] : 0);
+      $traf['out']   = (isset($data['traf_out']) ? $data['traf_out'] : 0);
+      $traf['total'] = (isset($data['traf_total']) ? $data['traf_total'] : 0);
+      $datelabel     = strftime("%H:%M", $data['timestamp']);
       array_push($ticklabels, $datelabel);
       array_push($in_data, $traf['in']);
       array_push($out_data, $traf['out']);
       array_push($tot_data, $traf['total']);
       $average += $data['traf_total'];
     }
-    $ave_count                = count($tot_data);
+    $ave_count       = count($tot_data);
   }
 
   $decimal    = 0;
   $average    = $average / $ave_count;
-  for ($x=0;$x<=count($tot_data);$x++)
+  for ($x = 0; $x <= count($tot_data); $x++)
   {
     array_push($ave_data, $average);
   }
@@ -227,14 +213,14 @@ $barplot_tot->value->SetFormatCallback('format_bytes_billing_short');
 
 $barplot_in = new BarPlot($in_data);
 $barplot_in->SetLegend("Traffic In");
-$barplot_in->SetColor('darkgreen');
-$barplot_in->SetFillColor('lightgreen@0.4');
+$barplot_in->SetColor('#'.$config['graph_colours']['greens'][1]);
+$barplot_in->SetFillColor('#'.$config['graph_colours']['greens'][0]);
 $barplot_in->SetWeight(1);
 
 $barplot_out = new BarPlot($out_data);
 $barplot_out->SetLegend("Traffic Out");
-$barplot_out->SetColor('darkblue');
-$barplot_out->SetFillColor('lightblue@0.4');
+$barplot_out->SetColor('#'.$config['graph_colours']['blues'][0]);
+$barplot_out->SetFillColor('#'.$config['graph_colours']['blues'][1]);
 $barplot_out->SetWeight(1);
 
 if ($imgtype == "historical")
@@ -267,4 +253,4 @@ $graph->Add($lineplot_allow);
 // Display the graph
 $graph->Stroke();
 
-?>
+// EOF

@@ -112,6 +112,6 @@ echo('<table class="table table-bordered table-condensed table-striped table-hov
 
 echo('</table>');
 
-$pagetitle[] = "CollectD";
+$page_title[] = "CollectD";
 
 // EOF

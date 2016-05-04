@@ -24,9 +24,15 @@ IMPORTS
     TimeStamp,
     TimeInterval
         FROM SNMPv2-TC
+    SnmpAdminString
+        FROM SNMP-FRAMEWORK-MIB
     cLApSysMacAddress,
-    cLApName
+    cLApName,
+    cLApDot11RadioRole
         FROM CISCO-LWAPP-AP-MIB
+    clMeshNeighborMacAddress,
+    clMeshNodeBackhaul
+        FROM CISCO-LWAPP-MESH-MIB
     ciscoMgmt
         FROM CISCO-SMI;
 
@@ -227,6 +233,16 @@ ciscoLwappMeshStatsMIB MODULE-IDENTITY
 
         [2] Draft-obara-capwap-lwapp-00.txt, IETF Light 
         Weight Access Point Protocol"
+    REVISION        "200708010000Z"
+    DESCRIPTION
+        "Added the following notifications and the associated thresholds
+        and controls:
+            ciscoLwappMeshExcessiveAssociation,
+            ciscoLwappMeshSecBackhaulChange.
+        Added the following objects to clMeshNodeStatsTable table:
+            clMeshNodeParentChanges,
+            clMeshNodeSecBackhaulCount,
+            clMeshNodeAssociationCount"
     REVISION        "200703120000Z"
     DESCRIPTION
         "Initial version of this MIB module."
@@ -248,6 +264,18 @@ ciscoLwappMeshStatsMIBConform  OBJECT IDENTIFIER
 ciscoLwappMeshNodeStats  OBJECT IDENTIFIER
     ::= { ciscoLwappMeshStatsMIBObjects 1 }
 
+ciscoLwappMeshNeighStats  OBJECT IDENTIFIER
+    ::= { ciscoLwappMeshStatsMIBObjects 2 }
+
+ciscoLwappMeshStatsMIBNotifObjects  OBJECT IDENTIFIER
+    ::= { ciscoLwappMeshStatsMIBObjects 3 }
+
+ciscoLwappMeshAccessClass OBJECT IDENTIFIER
+    ::= { ciscoLwappMeshStatsMIBObjects 4 }
+    
+ciscoLwappMeshDataRateStats OBJECT IDENTIFIER
+    ::= { ciscoLwappMeshStatsMIBObjects 5 }     
+
 -- ********************************************************************
 -- * Mesh Node Statistics
 -- ********************************************************************
@@ -257,8 +285,10 @@ clMeshNodeStatsTable OBJECT-TYPE
     MAX-ACCESS      not-accessible
     STATUS          current
     DESCRIPTION
-        "This table represents information about packets
-        that were transmitted to or received from a mesh node. 
+        "This table represents statistics information about a mesh
+        node such as the number of that were transmitted to or received
+        from the mesh node, number association attempts, packets
+        transmitted on secondary backhaul etc.
         An entry in this table gets added when a mesh node 
         associates to the controller and entry gets removed 
         when mesh node disassociates from the controller."
@@ -282,7 +312,9 @@ ClMeshNodeStatsEntry ::= SEQUENCE {
         clMeshNodeRxNeighRsp         Counter32,
         clMeshNodeTxNeighReq         Counter32,
         clMeshNodeTxNeighRsp         Counter32,
-        clMeshNodeParentChanges      Counter32
+        clMeshNodeParentChanges      Counter32,
+        clMeshNodeSecBackhaulCount   Counter32,
+        clMeshNodeAssociationCount   Counter32
 }
 
 clMeshNodeMalformedNeighPkts OBJECT-TYPE
@@ -369,6 +401,27 @@ clMeshNodeParentChanges OBJECT-TYPE
         "This object represents total number of times
         this mesh node has changed its parent." 
     ::= { clMeshNodeStatsEntry 8 }
+
+clMeshNodeSecBackhaulCount OBJECT-TYPE
+    SYNTAX          Counter32
+    UNITS           "packets"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the number of packets sent on the
+        secondary backhaul after the change, and is also sent as a part
+        of the 'ciscoLwappMeshSecBackhaulChange' notification." 
+    ::= { clMeshNodeStatsEntry 9 }
+
+clMeshNodeAssociationCount OBJECT-TYPE
+    SYNTAX          Counter32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the number of association attempts
+        of children nodes at a parent node and is also sent as a part
+        of the ciscoLwappMeshExcessiveAssociation notification" 
+    ::= { clMeshNodeStatsEntry 10 }
  
 
 -- ********************************************************************
@@ -771,6 +824,256 @@ clMeshNodeInvalidReassocReq OBJECT-TYPE
     ::= { clMeshNodeSecStatsEntry 20 }
  
 
+-- ********************************************************************
+-- *    Neighbor Statistics
+-- ********************************************************************
+
+clMeshNeighStatsTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF ClMeshNeighStatsEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This table represents information about packets
+        transmitted to neighbor mesh node in wirless mesh
+        network."
+    ::= { ciscoLwappMeshNeighStats 1 }
+
+clMeshNeighStatsEntry OBJECT-TYPE
+    SYNTAX          ClMeshNeighStatsEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "An (conceptual) entry in this table is created
+        when a mesh node transmit packets to another
+        neighbor mesh node. Neighbor mesh node can be 
+        parent, child or neighbor.
+        Entries are removed when the mesh node does not see 
+        another mesh node as neighbor."
+    INDEX           {
+                        cLApSysMacAddress,
+                        clMeshNeighborMacAddress
+                    } 
+    ::= { clMeshNeighStatsTable 1 }
+
+ClMeshNeighStatsEntry ::= SEQUENCE {
+        clMeshNeighAsParentTxPkts Counter32,
+        clMeshNeighAsParentRxPkts Counter32,
+        clMeshNeighTotalTxPkts    Counter32,
+        clMeshNeighSuccessTxPkts  Counter32,
+        clMeshNeighRetriesTxPkts  Counter32,
+        clMeshNeighPoorSnrRxPkts  Counter32
+}
+
+clMeshNeighAsParentTxPkts OBJECT-TYPE
+    SYNTAX          Counter32
+    UNITS           "packets"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates number of packets
+        transmitted as a parent to a neighbor mesh node." 
+    ::= { clMeshNeighStatsEntry 1 }
+
+clMeshNeighAsParentRxPkts OBJECT-TYPE
+    SYNTAX          Counter32
+    UNITS           "packets"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates total number of packets
+        received as a parent to a neighbor mesh node." 
+    ::= { clMeshNeighStatsEntry 2 }
+
+clMeshNeighTotalTxPkts OBJECT-TYPE
+    SYNTAX          Counter32
+    UNITS           "packets"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates total number of packets
+        transmitted to a neighbor mesh node." 
+    ::= { clMeshNeighStatsEntry 3 }
+
+clMeshNeighSuccessTxPkts OBJECT-TYPE
+    SYNTAX          Counter32
+    UNITS           "packets"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates total number of successful
+        packets transmitted to a neighbor mesh node." 
+    ::= { clMeshNeighStatsEntry 4 }
+
+clMeshNeighRetriesTxPkts OBJECT-TYPE
+    SYNTAX          Counter32
+    UNITS           "packets"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates total number of retries were
+        made at MAC layer to send the packet to a neighbor
+        mesh node." 
+    ::= { clMeshNeighStatsEntry 5 }
+
+clMeshNeighPoorSnrRxPkts OBJECT-TYPE
+    SYNTAX          Counter32
+    UNITS           "packets"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object indicates total number of packets
+        received from a neighbor mesh node whose SNR value 
+        were lower than threshold value" 
+    ::= { clMeshNeighStatsEntry 6 }
+ 
+
+-- ********************************************************************
+-- *    Mesh Backhaul Access Class 
+-- ********************************************************************
+
+clMeshAccessClassTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF ClMeshAccessClassEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This table represents statistics information about a mesh
+        node such as the number of that were successful transmitted, 
+        number of dropped packets, retried packets etc.
+        An entry in this table gets added when a mesh node 
+        associates to the controller and entry gets removed 
+        when mesh node disassociates from the controller."
+    ::= { ciscoLwappMeshAccessClass 1 }
+
+clMeshAccessClassEntry OBJECT-TYPE
+    SYNTAX          ClMeshAccessClassEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "An (conceptual) entry in this table represents mesh backhaul access class statistics
+        for a mesh node."
+    INDEX           { cLApSysMacAddress,
+		      clMeshNeighborMacAddress 
+		    } 
+    ::= { clMeshAccessClassTable 1 }
+
+ClMeshAccessClassEntry ::= SEQUENCE {
+	clMeshAccessClassTotalTxPkts  Counter32,
+        clMeshAccessClassSuccTxPkts  Counter32,
+        clMeshAccessClassRetryPkts   Counter32,
+        clMeshAccessClassRTSAttempts Counter32,
+        clMeshAccessClassRTSSuccess  Counter32 
+}
+
+clMeshAccessClassTotalTxPkts OBJECT-TYPE
+    SYNTAX          Counter32
+    UNITS           "packets"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object represents total number of packets transmitted." 
+    ::= { clMeshAccessClassEntry 1 }
+    
+clMeshAccessClassSuccTxPkts OBJECT-TYPE
+    SYNTAX          Counter32
+    UNITS           "packets"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object represents total number of successed packets." 
+    ::= { clMeshAccessClassEntry 2 }
+ 
+  
+clMeshAccessClassRetryPkts OBJECT-TYPE
+    SYNTAX          Counter32
+    UNITS           "packets"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object represents total number of retried packets." 
+    ::= { clMeshAccessClassEntry 3 }    
+
+
+clMeshAccessClassRTSAttempts OBJECT-TYPE
+    SYNTAX          Counter32
+    UNITS           "packets"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object represents total number of RTS attemts." 
+    ::= { clMeshAccessClassEntry 4 }
+
+clMeshAccessClassRTSSuccess OBJECT-TYPE
+    SYNTAX          Counter32
+    UNITS           "packets"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object represents total number of successful RTS packets." 
+    ::= { clMeshAccessClassEntry 5 }
+
+-- ********************************************************************
+-- *    Mesh Backhaul Data Rate  Statistics
+-- ********************************************************************
+
+clMeshDataRateStatsTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF ClMeshDataRateStatsEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This table represents statistics information about a mesh
+        node the number of that were successful transmitted packets, 
+        of each data rate.
+        An entry in this table gets added when a mesh node 
+        associates to the controller and entry gets removed 
+        when mesh node disassociates from the controller."
+    ::= { ciscoLwappMeshDataRateStats 1 }
+
+clMeshDataRateStatsEntry OBJECT-TYPE
+    SYNTAX          ClMeshDataRateStatsEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "An (conceptual) entry in this table represents mesh backhaul data Rate statistics
+        for a mesh node."
+    INDEX           {   cLApSysMacAddress,
+			clMeshNeighborMacAddress,
+			cLMeshDataRateIndex 
+		    } 
+    ::= { clMeshDataRateStatsTable 1 }
+
+ClMeshDataRateStatsEntry ::= SEQUENCE {
+	cLMeshDataRateIndex		Unsigned32,
+	clMeshDataRateSuccTxPkts 	Counter32,
+	clMeshDataRateTxAttempts	Counter32
+ }
+
+  
+cLMeshDataRateIndex OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS	    "Mbps"				  
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This object represents supported data Rates of the access point." 
+    ::= { clMeshDataRateStatsEntry 1 }
+    
+clMeshDataRateSuccTxPkts OBJECT-TYPE
+    SYNTAX          Counter32
+    UNITS           "packets"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object represents total number of successfully transmitted packets ." 
+    ::= { clMeshDataRateStatsEntry 2 }
+
+clMeshDataRateTxAttempts OBJECT-TYPE
+    SYNTAX          Counter32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This object represents total number of transmitted Attempts." 
+    ::= { clMeshDataRateStatsEntry 3 }
+
 
 -- ********************************************************************
 -- *    Config objects
@@ -803,6 +1106,57 @@ clMeshNodeStatsTimeInterval OBJECT-TYPE
     DEFVAL          { 18000 } 
     ::= { ciscoLwappMeshStatsMIBConfigObjects 2 }
 
+clMeshNodeSecBackhaulChangeNotifEnabled OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object controls the generation of
+        'ciscoLwappMeshSecBackhaulChange' notification.
+        A value of 'true' indicates this notification will be generated.
+        A value of 'false' indicates this notification will not be generated."
+    DEFVAL          { true } 
+    ::= { ciscoLwappMeshStatsMIBConfigObjects 3 }
+
+clMeshNodeExcessiveAssociationNotifEnabled OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object controls the generation of
+        'ciscoLwappMeshExcessiveAssociation' notification.       
+        A value of 'true' indicates notification will 
+        be generated.
+        A value of 'false' indicates notification will 
+        be not be generated."
+    DEFVAL          { true } 
+    ::= { ciscoLwappMeshStatsMIBConfigObjects 4 }
+
+clMeshNodeExcessiveAssociationThreshold OBJECT-TYPE
+    SYNTAX          Unsigned32 (1..50 )
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object represents cumulative association
+        at parent by different child mesh nodes. Notification 
+        'ciscoLwappMeshExcessiveAssociation' is raised 
+        when this number is crossed in one hour."
+    DEFVAL          { 25 } 
+    ::= { ciscoLwappMeshStatsMIBConfigObjects 5 }
+
+-- ********************************************************************
+-- *    NOTIFICATION objects
+-- ********************************************************************
+
+clMeshInitiatingApName OBJECT-TYPE
+    SYNTAX          SnmpAdminString (SIZE  (0..32))
+    MAX-ACCESS      accessible-for-notify
+    STATUS          current
+    DESCRIPTION
+        "This object specifies the name of the AP that initiated the
+        backhaul Change." 
+    ::= { ciscoLwappMeshStatsMIBNotifObjects 1 }
+
 -- ********************************************************************
 -- *    NOTIFICATION TYPE objects
 -- ********************************************************************
@@ -825,6 +1179,49 @@ ciscoLwappMeshQueueOverflow NOTIFICATION-TYPE
         is higher than the previous time notification generated 
         then this notification is raised.."
    ::= { ciscoLwappMeshStatsMIBNotifs 1 }
+
+ciscoLwappMeshExcessiveAssociation NOTIFICATION-TYPE
+    OBJECTS         {
+                        cLApName,
+                        clMeshNodeAssociationCount
+                    }
+    STATUS          current
+    DESCRIPTION
+        "This notification is sent by the agent when cumulative
+        association counter at parent mesh node exceeds value
+        configured in 'clMeshNodeExcessiveAssociationThreshold'.
+        cLApName is the name of the parent mesh node."
+   ::= { ciscoLwappMeshStatsMIBNotifs 2 }
+
+ciscoLwappMeshSecBackhaulChange NOTIFICATION-TYPE
+    OBJECTS         {
+                        clMeshInitiatingApName,
+                        cLApName,
+                        clMeshNodeBackhaul,
+                        clMeshNodeSecBackhaulCount
+                    }
+    STATUS          current
+    DESCRIPTION
+        "This notification is sent by the agent when the MAP identified by
+        clApName intiates the backhaul change from primary to
+        secondary. cLApName identifies the AP that receives the
+        change.  The MAC address of the initiating AP is sent as a part of the
+        index of clMeshNodeBackhaul. clMeshNodeBackhaul identifies the
+        secondary backhaul channel used. The MAC address of the receiving AP
+        is sent as a part of the index of cLApName."
+   ::= { ciscoLwappMeshStatsMIBNotifs 3 }
+
+ciscoLwappMeshRadioRoleChange NOTIFICATION-TYPE
+    OBJECTS         {
+                    cLApName,
+                    cLApDot11RadioRole    
+                    }
+    STATUS          current
+    DESCRIPTION
+        "This notification is sent by the agent when the mesh radio role
+        is set or unset."
+   ::= { ciscoLwappMeshStatsMIBNotifs 4 }
+
 -- ********************************************************************
 -- *    Compliance statements
 -- ********************************************************************
@@ -847,7 +1244,9 @@ ciscoLwappMeshStatsMIBCompliance MODULE-COMPLIANCE
                         ciscoLwappMeshNodePktQueueStatsGroup,
                         ciscoLwappMeshNodeSecStatsGroup,
                         ciscoLwappMeshStatsConfigObjsGroup,
-                        ciscoLwappMeshStatsNotifsGroup
+                        ciscoLwappMeshStatsNotifsGroup,
+                        ciscoLwappMeshNeighStatsGroup,
+                        ciscoLwappMeshStatsNotifObjsGroup
                     }
     ::= { ciscoLwappMeshStatsMIBCompliances 1 }
 
@@ -864,13 +1263,16 @@ ciscoLwappMeshNodeStatsGroup OBJECT-GROUP
                         clMeshNodeRxNeighRsp,
                         clMeshNodeTxNeighReq,
                         clMeshNodeTxNeighRsp,
-                        clMeshNodeParentChanges
+                        clMeshNodeParentChanges,
+                        clMeshNodeSecBackhaulCount,
+                        clMeshNodeAssociationCount
                     }
     STATUS          current
     DESCRIPTION
-        "This collection of objects represent packets
-        that were transmitted or received between neighbor 
-        mesh nodes."
+        "This collection of  represents statistics information about
+        a mesh node such as the number of that were transmitted to
+        or received from the mesh node, number association attempts,
+        packets transmitted on secondary backhaul etc."
     ::= { ciscoLwappMeshStatsMIBGroups 1 }
 
 ciscoLwappMeshNodePktQueueStatsGroup OBJECT-GROUP
@@ -921,7 +1323,10 @@ ciscoLwappMeshNodeSecStatsGroup OBJECT-GROUP
 ciscoLwappMeshStatsConfigObjsGroup OBJECT-GROUP
     OBJECTS         {
                         clMeshNodeQueueOverflowNotifEnabled,
-                        clMeshNodeStatsTimeInterval
+                        clMeshNodeStatsTimeInterval,
+                        clMeshNodeSecBackhaulChangeNotifEnabled,
+                        clMeshNodeExcessiveAssociationNotifEnabled,
+                        clMeshNodeExcessiveAssociationThreshold
                     }
     STATUS          current
     DESCRIPTION
@@ -930,7 +1335,11 @@ ciscoLwappMeshStatsConfigObjsGroup OBJECT-GROUP
     ::= { ciscoLwappMeshStatsMIBGroups 4 }
 
 ciscoLwappMeshStatsNotifsGroup NOTIFICATION-GROUP
-   NOTIFICATIONS    { ciscoLwappMeshQueueOverflow }
+   NOTIFICATIONS    {
+                        ciscoLwappMeshQueueOverflow,
+                        ciscoLwappMeshExcessiveAssociation,
+                        ciscoLwappMeshSecBackhaulChange
+                    }
     STATUS          current
     DESCRIPTION
         "This collection of objects represent the mesh network
@@ -938,7 +1347,30 @@ ciscoLwappMeshStatsNotifsGroup NOTIFICATION-GROUP
         network management station."
     ::= { ciscoLwappMeshStatsMIBGroups 5 }
 
+ciscoLwappMeshNeighStatsGroup OBJECT-GROUP
+    OBJECTS         {
+                        clMeshNeighAsParentTxPkts,
+                        clMeshNeighAsParentRxPkts,
+                        clMeshNeighTotalTxPkts,
+                        clMeshNeighSuccessTxPkts,
+                        clMeshNeighRetriesTxPkts,
+                        clMeshNeighPoorSnrRxPkts
+                    }
+    STATUS          current
+    DESCRIPTION
+        "This collection of objects represent packets
+        transmitted or received by a mesh node to or from 
+        a neighbor mesh node."
+    ::= { ciscoLwappMeshStatsMIBGroups 6 }
+
+ciscoLwappMeshStatsNotifObjsGroup OBJECT-GROUP
+    OBJECTS         { clMeshInitiatingApName }
+    STATUS          current
+    DESCRIPTION
+        "This collection of objects represent the information
+        carried by the mesh network statistics related notifications sent
+        by the agent to a network management station."
+    ::= { ciscoLwappMeshStatsMIBGroups 7 }
+
 END
-
-
 

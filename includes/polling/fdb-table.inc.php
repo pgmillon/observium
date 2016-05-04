@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -38,7 +38,7 @@ if ($device['os_group'] == 'cisco')
   {
     list($ios_version) = explode('(', $device['version']);
     // vlan context not worked on Cisco IOS <= 12.1 (SNMPv3)
-    if ($device['snmpver'] == 'v3' && $device['os'] == "ios" && ($ios_version * 10) <= 121)
+    if ($device['snmp_version'] == 'v3' && $device['os'] == "ios" && ($ios_version * 10) <= 121)
     {
       print_error("ERROR: For proper work please use SNMP v2/v1 for this device.");
       break;
@@ -47,8 +47,8 @@ if ($device['os_group'] == 'cisco')
     $vlan = $cisco_vlan['vlan_vlan'];
     if (!is_numeric($vlan) || ($vlan >= 1002 && $vlan <= 1005)) { continue; }
     $device_context = $device;
-    $device_context['snmpcontext'] = $vlan; // Add vlan context for snmp auth
-    $device_context['retries'] = 0;         // Set retries to 0 for speedup walking
+    $device_context['snmp_context'] = $vlan; // Add vlan context for snmp auth
+    $device_context['snmp_retries'] = 0;         // Set retries to 0 for speedup walking
 
     //dot1dTpFdbAddress[0:7:e:6d:55:41] 0:7:e:6d:55:41
     //dot1dTpFdbPort[0:7:e:6d:55:41] 28
@@ -58,7 +58,7 @@ if ($device['os_group'] == 'cisco')
     if ($exec_status['exitcode'] != 0)
     {
       unset($device_context);
-      if ($device['snmpver'] == 'v3')
+      if ($device['snmp_version'] == 'v3')
       {
         print_error("ERROR: For proper work of 'vlan-' context on cisco device with SNMPv3, it is necessary to add 'match prefix' in snmp-server config.");
       } else {
@@ -97,6 +97,29 @@ if ($device['os_group'] == 'cisco')
 } else {
   //dot1qTpFdbPort[1][0:0:5e:0:1:1] 50
   //dot1qTpFdbStatus[1][0:0:5e:0:1:1] learned
+
+  if ($device['os'] == 'junos')
+  {
+    // JUNOS doesn't use the actual vlan ids for much in Q-BRIDGE-MIB
+    // but we can get the vlan names and use that to lookup the actual
+    // vlan ids that were found with JUNIPER-VLAN-MIB during discovery
+
+    // Fetch list of active VLANs
+    foreach (dbFetchRows('SELECT `vlan_vlan`,`vlan_name` FROM `vlans` WHERE (`vlan_status` = ? OR `vlan_status` = ?) AND `device_id` = ?', array('active', 'operational', $device['device_id'])) as $vlannameandid)
+    {
+      $vlanidsbyname[$vlannameandid['vlan_name']]=$vlannameandid['vlan_vlan'];
+    }
+    // getting the names as listed by Q-BRIDGE-MIB
+    // and making a mapping to the real vlan ids
+    $dot1qVlanStaticName_table = snmp_walk($device, 'dot1qVlanStaticName', '-OqsX', 'Q-BRIDGE-MIB', mib_dirs());
+    foreach (explode("\n", $dot1qVlanStaticName_table) as $text)
+    {
+      list($oid, $value) = explode(" ", $text);
+      preg_match('/(\w+)\[(\d+)\]\s+/', $text, $oid);
+      $fakejunipervlans[$oid[2]]=$vlanidsbyname[$value];
+    }
+  }
+
   $dot1qTpFdbEntry_table = snmp_walk($device, 'dot1qTpFdbEntry', '-OqsX', 'Q-BRIDGE-MIB');
   if ($GLOBALS['snmp_status'] !== FALSE)
   {
@@ -106,11 +129,19 @@ if ($device['os_group'] == 'cisco')
       $dot1dBasePort_table[$dot1dbaseport] = $port_ifIndex_table[$data['dot1dBasePortIfIndex']];
     }
 
-    foreach (explode("\n", $dot1qTpFdbEntry_table) as $text) {
+    foreach (explode("\n", $dot1qTpFdbEntry_table) as $text)
+    {
       list($oid, $value) = explode(" ", $text);
       preg_match('/(\w+)\[(\d+)\]\[([a-f0-9:]+)\]/', $text, $oid);
-      if (!empty($value)) {
-        $vlan = $oid[2];
+      if (!empty($value))
+      {
+        if (isset($fakejunipervlans[$oid[2]]))
+        {
+          // if we have a translated vlan id for juniper, use it
+          $vlan = $fakejunipervlans[$oid[2]];
+        } else {
+          $vlan = $oid[2];
+        }
         $mac = '';
         foreach (explode(':', $oid[3]) as $m) { $mac .= zeropad($m); }
         $fdbs[$vlan][$mac][$oid[1]] = $value;

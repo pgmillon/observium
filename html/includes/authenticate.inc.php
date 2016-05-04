@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage authentication
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -118,7 +118,10 @@ else if ($mcrypt_exists && !$_SESSION['authenticated'] && isset($_COOKIE['ckey']
       $_SESSION['password']     = decrypt($ckey['user_encpass'], $_COOKIE['dkey']);
       $_SESSION['user_ckey_id'] = $ckey['user_ckey_id'];
       $_SESSION['cookie_auth']  = TRUE;
-      dbInsert(array('user' => $_SESSION['username'], 'address' => $_SERVER["REMOTE_ADDR"], 'result' => 'Logged in (cookie)'), 'authlog');
+      dbInsert(array('user'       => $_SESSION['username'],
+                     'address'    => $_SERVER['REMOTE_ADDR'],
+                     'user_agent' => $_SERVER['HTTP_USER_AGENT'],
+                     'result'     => 'Logged In (cookie)'), 'authlog');
     }
   }
 }
@@ -145,7 +148,10 @@ if (isset($_SESSION['username']))
   {
     $_SESSION['authenticated'] = TRUE;
     $auth_success              = TRUE;
-    dbInsert(array('user' => $_SESSION['username'], 'address' => $_SERVER["REMOTE_ADDR"], 'result' => 'Logged In'), 'authlog');
+    dbInsert(array('user'       => $_SESSION['username'],
+                   'address'    => $_SERVER['REMOTE_ADDR'],
+                   'user_agent' => $_SERVER['HTTP_USER_AGENT'],
+                   'result'     => 'Logged In'), 'authlog');
 
     // Generate keys for cookie auth
     if (isset($_POST['remember']) && $mcrypt_exists)
@@ -181,7 +187,7 @@ if (isset($_SESSION['username']))
   else if (isset($_SESSION['username']))
   {
     $auth_message = "Authentication Failed";
-    dbInsert(array('user' => $_SESSION['username'], 'address' => $_SERVER["REMOTE_ADDR"], 'result' => 'Authentication Failure'), 'authlog');
+    //dbInsert(array('user' => $_SESSION['username'], 'address' => $_SERVER["REMOTE_ADDR"], 'result' => 'Authentication Failure'), 'authlog');
     session_logout(function_exists('auth_require_login'));
   }
 
@@ -194,7 +200,7 @@ if (isset($_SESSION['username']))
   if ($auth_success)
   {
     // If just logged in go to request uri
-    if (!$debug)
+    if (!OBS_DEBUG)
     {
       header("Location: ".$_SERVER['REQUEST_URI']);
     } else {
@@ -210,7 +216,16 @@ if (isset($_SESSION['username']))
 // DOCME needs phpdoc block
 function session_logout($relogin = FALSE)
 {
-  dbInsert(array('user' => $_SESSION['username'], 'address' => $_SERVER["REMOTE_ADDR"], 'result' => 'Logged Out'), 'authlog');
+  if ($_SESSION['authenticated'])
+  {
+    $auth_log = 'Logged Out';
+  } else {
+    $auth_log = 'Authentication Failure';
+  }
+  dbInsert(array('user'       => $_SESSION['username'],
+                 'address'    => $_SERVER['REMOTE_ADDR'],
+                 'user_agent' => $_SERVER['HTTP_USER_AGENT'],
+                 'result'     => $auth_log), 'authlog');
   if (isset($_COOKIE['ckey'])) dbDelete('users_ckeys', "`username` = ? AND `user_ckey` = ?", array($_SESSION['username'], $_COOKIE['ckey'])); // Remove old ckeys from DB
   // Unset cookies
   $cookie_params = session_get_cookie_params();

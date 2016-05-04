@@ -2,12 +2,12 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -24,10 +24,14 @@ foreach (array_keys($config['sensor_types']) as $sensor_type)
   {
 ?>
 
-<div class="well info_box">
-    <div class="title"><a href="<?php echo(generate_url(array('page' => 'device', 'device' => $device['device_id'], 'tab' => 'health', 'metric' => $sensor_type))); ?>">
-      <i class="<?php echo($config['sensor_types'][$sensor_type]['icon']); ?>"></i> <?php echo(nicecase($sensor_type)) ?></a></div>
-    <div class="content">
+  <div class="widget widget-table">
+    <div class="widget-header">
+      <a href="<?php echo(generate_url(array('page' => 'device', 'device' => $device['device_id'], 'tab' => 'health', 'metric' => $sensor_type))); ?>">
+        <i class="<?php echo($config['sensor_types'][$sensor_type]['icon']); ?>"></i><h3><?php echo(nicecase($sensor_type)) ?></h3>
+      </a>
+    </div>
+    <div class="widget-content">
+
 
 <?php
 
@@ -61,21 +65,16 @@ foreach (array_keys($config['sensor_types']) as $sensor_type)
       $graph_array['from'] = $config['time']['day'];
 //      $graph_array['style'][] = 'margin-top: -6px';
 
-      $sensor['sensor_descr'] = truncate($sensor['sensor_descr'], 48, '');
-      if ($sensor['sensor_state'])
-      {
-        $sensor_value = $sensor['state_name'];
-        $sensor_minigraph = overlib_link($link, generate_graph_tag($graph_array), $overlib_content);
-      } else {
-        $sensor_value = $sensor['human_value'];
-        $sensor_minigraph = overlib_link($link, generate_graph_tag($graph_array), $overlib_content);
-      }
+      $sensor['sensor_descr'] = truncate($sensor['sensor_descr'], 50, '');
+      $sensor_minigraph = overlib_link($link, generate_graph_tag($graph_array), $overlib_content);
 
-      echo('<tr class="device-overview">
-            <td><strong>'.overlib_link($link, htmlentities($sensor['sensor_descr']), $overlib_content).'</strong></td>
-            <td style="width: 90px; align: right;">'.$sensor_minigraph.'</td>
-            <td style="width: 80px; align: right;">'.overlib_link($link, '<span class="'.$sensor['state_class'].'">' . $sensor_value . $sensor['sensor_symbol'] . '</span>', $overlib_content).'</td>
-            </tr>'.PHP_EOL);
+      echo('
+      <tr class="'.$sensor['row_class'].'">
+        <td class="state-marker"></td>
+        <td><strong>'.overlib_link($link, htmlentities($sensor['sensor_descr']), $overlib_content).'</strong></td>
+        <td style="width: 90px; text-align: right;">'.$sensor_minigraph.'</td>
+        <td style="width: 80px; text-align: right;">'.overlib_link($link, '<span class="'.$sensor['state_class'].'">' . $sensor['human_value'] . $sensor['sensor_symbol'] . '</span>', $overlib_content).'</td>
+      </tr>'.PHP_EOL);
     }
 
     echo("</table>");

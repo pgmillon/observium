@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -57,7 +57,7 @@ foreach ($cache['supermicro'] as $index => $sensor_data)
 
   if ($monitor)
   {
-    discover_sensor($valid['sensor'], $sensortype, $device, $oid, $index, $mibtype, $descr, $scale, $value * $scale, $limits);
+    discover_sensor($valid['sensor'], $sensortype, $device, $oid, $index, $mibtype, $descr, $scale, $value, $limits);
   }
 }
 

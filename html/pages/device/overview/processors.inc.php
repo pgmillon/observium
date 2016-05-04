@@ -2,12 +2,12 @@
 
 /**
  * Observium Network Management and Monitoring System
- * Copyright (C) 2006-2014, Adam Armstrong - http://www.observium.org
+ * Copyright (C) 2006-2015, Adam Armstrong - http://www.observium.org
  *
  * @package    observium
  * @subpackage webui
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -32,10 +32,14 @@ if (count($processors_db))
     $processors[$text_descr]['count']++;
   }
 ?>
-<div class="well info_box">
-    <div class="title"><a href="<?php echo(generate_url(array('page' => 'device', 'device' => $device['device_id'], 'tab' => 'health', 'metric' => 'processor'))); ?>">
-       <i class="oicon-processor"></i> Processors</a></div>
-    <div class="content">
+
+        <div class="widget widget-table">
+          <div class="widget-header">
+            <a href="<?php echo(generate_url(array('page' => 'device', 'device' => $device['device_id'], 'tab' => 'health', 'metric' => 'processor'))); ?>">
+              <i class="oicon-processor"></i><h3>Processors</h3>
+            </a>
+          </div>
+          <div class="widget-content">
 
 <?php
   echo('<table class="table table-condensed-more table-striped table-bordered">');

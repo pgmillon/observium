@@ -9,23 +9,22 @@
  * @package    observium
  * @subpackage services
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 // This file is deprecated and pending rewrite.
 
 chdir(dirname($argv[0]));
+$scriptname = basename($argv[0]);
 
-  echo("DEBUG!\n");
-  $debug = TRUE;
-  ini_set('display_errors', 1);
-  ini_set('display_startup_errors', 1);
-  ini_set('log_errors', 1);
+include_once("includes/defaults.inc.php");
+include_once("config.php");
 
-include("includes/defaults.inc.php");
-include("config.php");
-include("includes/definitions.inc.php");
+$options = getopt("d");
+if (isset($options['d'])) { array_shift($argv); } // for compatability
+
+include_once("includes/definitions.inc.php");
 include("includes/functions.inc.php");
 
 foreach (dbFetchRows("SELECT * FROM `devices` AS D, `services` AS S WHERE S.device_id = D.device_id ORDER by D.device_id DESC") as $service)

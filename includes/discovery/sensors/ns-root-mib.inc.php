@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -39,22 +39,37 @@ foreach ($ns_sensor_array as $descr => $data)
   }
   else if (is_numeric($value))
   {
-    discover_sensor($valid['sensor'], $type, $device, $oid, $descr, 'netscaler-health', $descr, $scale, $value * $scale);
+    discover_sensor($valid['sensor'], $type, $device, $oid, $descr, 'netscaler-health', $descr, $scale, $value);
   }
 }
 
 unset($ns_sensor_array);
 
+// Collect HAMode
+
 $sysHighAvailabilityMode = snmp_get($device, 'sysHighAvailabilityMode.0', '-Ovq', 'NS-ROOT-MIB', mib_dirs('citrix'));
 
-if ($sysHighAvailabilityMode)
+if ($sysHighAvailabilityMode !== '')
 {
   $descr = 'HA Mode';
   $oid   = '.1.3.6.1.4.1.5951.4.1.1.6.0';
-  $value = state_string_to_numeric('netscaler-ha-state', $sysHighAvailabilityMode);
-  discover_sensor($valid['sensor'], 'state', $device, $oid, 'sysHighAvailabilityMode.0', 'netscaler-ha-state', $descr, NULL, $value, array('entPhysicalClass' => 'other'));
+  $value = $sysHighAvailabilityMode;
+  discover_sensor($valid['sensor'], 'state', $device, $oid, 'sysHighAvailabilityMode.0', 'netscaler-ha-mode', $descr, NULL, $value, array('entPhysicalClass' => 'other'));
 }
 
 unset($sysHighAvailabilityMode);
+
+// Collect HAState
+
+$haCurState = snmp_get($device, 'haCurState.0', '-Ovq', 'NS-ROOT-MIB', mib_dirs('citrix'));
+
+if ($haCurState !== '')
+{
+  $descr = 'HA State';
+  $oid   = '1.3.6.1.4.1.5951.4.1.1.23.24.0';
+  $value = $haCurState;
+  discover_sensor($valid['sensor'], 'state', $device, $oid, 'haCurState.0', 'netscaler-ha-state', $descr, NULL, $value, array('entPhysicalClass' => 'other'));
+}
+
 
 // EOF

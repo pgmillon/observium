@@ -1,11 +1,14 @@
 <?php
 
-/* Observium Network Management and Monitoring System
+/**
+ * Observium
+ *
+ *   This file is part of Observium.
  *
  * @package    observium
  * @subpackage poller
  * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -26,64 +29,143 @@ if (strpos($poll_device['sysObjectID'], 'Wrong Type') !== FALSE)
 $poll_device['snmpEngineID'] = snmp_cache_snmpEngineID($device);
 $poll_device['sysName'] = strtolower($poll_device['sysName']);
 
-if (isset($agent_data['uptime'])) { list($agent_data['uptime']) = explode(' ', $agent_data['uptime']); }
-if (is_numeric($agent_data['uptime']))
+// Uptime data and reboot triggers
+
+// SNMPv2-MIB::sysUpTime.0 = Timeticks: (2542831) 7:03:48.31
+$uptimes = array('sysUpTime' => timeticks_to_sec($poll_device['sysUpTime']));
+
+if (isset($agent_data['uptime']))
 {
-  $uptime = round($agent_data['uptime']);
-  $uptime_msg = "Using UNIX Agent Uptime";
-} else  {
-  $hrSystemUptime = snmp_get($device, "hrSystemUptime.0", "-Oqv", "HOST-RESOURCES-MIB", mib_dirs());
-  if (!empty($hrSystemUptime) && strpos($hrSystemUptime, "No") === FALSE && ($device['os'] != "windows"))
+  list($agent_data['uptime']) = explode(' ', $agent_data['uptime']);
+  $uptimes['unix-agent'] = round($agent_data['uptime']);
+}
+if (is_numeric($agent_data['uptime']) && $agent_data['uptime'] > 0)
+{
+  // Unix-agent uptime is highest priority
+  $uptimes['use']     = 'unix-agent';
+  $uptimes['message'] = 'Using UNIX Agent Uptime';
+} else {
+  if ($device['os'] != 'windows' && $device['snmp_version'] != 'v1' && is_device_mib($device, 'HOST-RESOURCES-MIB'))
   {
-    $agent_uptime = $uptime; // Move uptime into agent_uptime
-    $polled = time();
+    // HOST-RESOURCES-MIB::hrSystemUptime.0 = Wrong Type (should be Timeticks): 1632295600
+    // HOST-RESOURCES-MIB::hrSystemUptime.0 = Timeticks: (63050465) 7 days, 7:08:24.65
+    $hrSystemUptime = snmp_get($device, "hrSystemUptime.0", "-Oqv", "HOST-RESOURCES-MIB", mib_dirs());
+    $uptimes['hrSystemUptime'] = timeticks_to_sec($hrSystemUptime);
 
-    // Some Unixes return hrSystemUptime as an integer count of ten millisecond ticks instead of the
-    // as a Timetick type
-    if (strstr($hrSystemUptime, 'Wrong Type'))
+    if (is_numeric($uptimes['hrSystemUptime']) && $uptimes['hrSystemUptime'] > 0)
     {
-      // HOST-RESOURCES-MIB::hrSystemUptime.0 = Wrong Type (should be Timeticks): 1632295600
-      list($type_msg,$ten_ms) = explode(":", $hrSystemUptime);
-      $uptime = $ten_ms/100;
-      echo("Found Wrong type: interpreting as seconds instead of timeticks ($uptime seconds)\n");
-      $uptime_msg = "Using integer SNMP Agent hrSystemUptime";
-    } else {
-      // HOST-RESOURCES-MIB::hrSystemUptime.0 = Timeticks: (63050465) 7 days, 7:08:24.65
-      $uptime = timeticks_to_sec($hrSystemUptime);
-      $uptime_msg = "Using SNMP Agent hrSystemUptime";
+      // hrSystemUptime have second priority on unix systems
+      $uptimes['use'] = 'hrSystemUptime';
     }
+  }
 
-  } else {
-    // SNMPv2-MIB::sysUpTime.0 = Timeticks: (2542831) 7:03:48.31
-    $uptime = timeticks_to_sec($poll_device['sysUpTime']);
-    $uptime_msg = "Using SNMP Agent sysUpTime";
+  if ($uptimes['use'] != 'hrSystemUptime')
+  {
+    // sysUpTime used by default if all other agents data unavialable
+    $uptimes['use']   = 'sysUpTime';
 
-    // Last check snmpEngineTime and fix if needed uptime (sysUpTime 68 year rollover issue)
+    // Last check snmpEngineTime
     // SNMP-FRAMEWORK-MIB::snmpEngineTime.0 = INTEGER: 72393514 seconds
     $snmpEngineTime = snmp_get($device, "snmpEngineTime.0", "-OUqv", "SNMP-FRAMEWORK-MIB", mib_dirs());
-    if ($device['os'] == 'aos' && strlen($snmpEngineTime) > 8)
+    if (is_numeric($snmpEngineTime) && $snmpEngineTime > 0)
     {
-      // Some Alcatel have bug with snmpEngineTime
-      // http://jira.observium.org/browse/OBSERVIUM-763
-      $snmpEngineTime = 0;
-    }
-    else if (is_numeric($snmpEngineTime) && $snmpEngineTime > 0 && $snmpEngineTime > $uptime)
-    {
-      $polled = time();
-      $uptime = $snmpEngineTime;
-      $uptime_msg = "Using SNMP Agent snmpEngineTime";
+      if ($device['os'] == 'aos' && strlen($snmpEngineTime) > 8)
+      {
+        // Some Alcatel have bug with snmpEngineTime
+        // See: http://jira.observium.org/browse/OBSERVIUM-763
+        $snmpEngineTime = 0;
+      }
+      else if ($device['os'] == 'ironware')
+      {
+        // Check if version correct like "07.4.00fT7f3"
+        $ironware_version = explode('.', $device['version']);
+        if (count($ironware_version) > 2 && $ironware_version[0] > 0 && version_compare($device['version'], '5.1.0') === -1)
+        {
+          // IronWare before Release 05.1.00b have bug (firmware returning snmpEngineTime * 10)
+          // See: http://jira.observium.org/browse/OBSERVIUM-1199
+          $snmpEngineTime = $snmpEngineTime / 10;
+        }
+      }
+      $uptimes['snmpEngineTime'] = $snmpEngineTime;
+
+      if ($uptimes['snmpEngineTime'] > $uptimes['sysUpTime'])
+      {
+        $uptimes['use'] = 'snmpEngineTime';
+      }
     }
   }
 }
-print_debug("$uptime_msg ($uptime seconds)");
 
-if (is_numeric($uptime))
+$uptimes['uptime']    = $uptimes[$uptimes['use']];        // Get actual uptime based on use flag
+$uptimes['formatted'] = formatUptime($uptimes['uptime']); // Human readable uptime
+if (!isset($uptimes['message'])) { $uptimes['message'] = 'Using SNMP Agent '.$uptimes['use']; }
+
+$uptime = $uptimes['uptime'];
+print_debug($uptimes['message']." ($uptime sec. => ".$uptimes['formatted'].")");
+
+if (is_numeric($uptime) && $uptime > 0) // it really is very impossible case for $uptime equals to zero
 {
-  // Notify only if current uptime less than one month (eg if changed from sysUpTime to snmpEngineTime)
-  if ($uptime < $device['uptime'] && $uptime < 2628000)
+  $uptimes['previous'] = $device['uptime'];              // Uptime from previous device poll
+  $uptimes['diff']     = $uptimes['previous'] - $uptime; // Difference betwen previous and current uptimes
+
+  // Notify only if current uptime less than one week (eg if changed from sysUpTime to snmpEngineTime)
+  $rebooted = 0;
+  if ($uptime < 604800)
   {
-    log_event('Device rebooted: after '.formatUptime($device['uptime']), $device, 'system', $device['uptime']);
+    if ($uptimes['diff'] > 60)
+    {
+      // If difference betwen old uptime ($device['uptime']) and new ($uptime)
+      // greater than 60 sec, than device truly rebooted
+      $rebooted = 1;
+    }
+    else if ($uptimes['previous'] < 300 && abs($uptimes['diff']) < 280)
+    {
+      // This is rare, boundary case, when device rebooted multiple times betwen polling runs
+      $rebooted = 1;
+    }
+
+    // Fix reboot flag with some borderline states (roll over counters)
+    if ($rebooted)
+    {
+      switch($uptimes['use'])
+      {
+        case 'hrSystemUptime':
+          $uptimes['max'] = 42949673; // 497 days 2 hours 27 minutes 53 seconds, counter 2^32 (4294967296) divided by 100
+          if ($device['os'] == 'windows')
+          {
+            // 49 days 17 hours 2 minutes 47 seconds, counter 2^32 (4294967296) divided by 1000
+            $uptimes['max'] = 4294967;
+          }
+          break;
+        case 'sysUpTime':
+          $uptimes['max'] = 42949673; // 497 days 2 hours 27 minutes 53 seconds, counter 2^32 (4294967296) divided by 100
+          if ($device['os'] == 'apc')
+          {
+            // APC hack, 49 days 17 hours 2 minutes 47 seconds, counter 2^32 (4294967296) divided by 1000
+            $uptimes['max'] = 4294967;
+          }
+          break;
+        case 'snmpEngineTime':
+          $uptimes['max'] = 2147483647; // Average 68.05 years, counter is 2^32 (4294967296) divided by 2
+          break;
+        default:
+          // By default uptime limited only by PHP max values
+          // Usually int(2147483647) in 32 bit systems and int(9223372036854775807) in 64 bit systems
+          $uptimes['max'] = PHP_INT_MAX;
+      }
+      if ($uptimes['previous'] > ($uptimes['max'] - 300) && $uptimes['previous'] < ($uptimes['max'] + 300))
+      {
+        // Exclude (+|- 5min) from maximal
+        $rebooted = 0;
+      }
+    }
+
+    if ($rebooted)
+    {
+      log_event('Device rebooted: after '.formatUptime($uptimes['previous']), $device, 'device', $device['device_id'], 4);
+    }
   }
+  $uptimes['rebooted'] = $rebooted;
 
   $uptime_rrd = "uptime.rrd";
 
@@ -92,27 +174,20 @@ if (is_numeric($uptime))
 
   $graphs['uptime'] = TRUE;
 
-  print_message("Uptime: ".formatUptime($uptime));
+  print_message("Uptime: ".$uptimes['formatted']);
 
   $update_array['uptime'] = $uptime;
   $cache['devices']['uptime'][$device['device_id']]['uptime'] = $uptime;
   $cache['devices']['uptime'][$device['device_id']]['polled'] = $polled;
+} else {
+  print_warning("Device not have any uptime counter or uptime equals to zero.");
 }
+if (OBS_DEBUG) { print_vars($uptimes); }
 
-$poll_device['sysLocation'] = str_replace(array('\"', '"'), "", $poll_device['sysLocation']);
-
-// Rewrite sysLocation if there is a mapping array (database too?)
-if (!empty($poll_device['sysLocation']))
-{
-  $poll_device['sysLocation'] = rewrite_location($poll_device['sysLocation']);
-}
+// Rewrite sysLocation if there is a mapping array or DB override
+$poll_device['sysLocation'] = rewrite_location($poll_device['sysLocation']);
 
 $poll_device['sysContact']  = str_replace(array('\"', '"') ,"", $poll_device['sysContact']);
-
-if ($poll_device['sysLocation'] == "not set")
-{
-  $poll_device['sysLocation'] = "";
-}
 
 if ($poll_device['sysContact'] == "not set")
 {
@@ -126,49 +201,110 @@ if ($poll_device['snmpEngineID'] && $poll_device['snmpEngineID'] != $device['snm
   if ($device['snmpEngineID'])
   {
     // snmpEngineID changed frome one to other
-    log_event('snmpEngineID changed: '.$device['snmpEngineID'].' -> '.$poll_device['snmpEngineID'].' (probably the device was replaced). The device will be rediscovered.', $device, 'system');
+    log_event('snmpEngineID changed: '.$device['snmpEngineID'].' -> '.$poll_device['snmpEngineID'].' (probably the device was replaced). The device will be rediscovered.', $device, 'device', $device['device_id'], 4);
     // Reset device discover time for full re-discovery
     dbUpdate(array('last_discovered' => array('NULL')), 'devices', '`device_id` = ?', array($device['device_id']));
   } else {
-    log_event("snmpEngineID -> ".$poll_device['snmpEngineID'], $device, 'system');
+    log_event("snmpEngineID -> ".$poll_device['snmpEngineID'], $device, 'device', $device['device_id']);
   }
 }
 
 $oids = array('sysObjectID', 'sysContact', 'sysName', 'sysDescr');
 foreach ($oids as $oid)
 {
-  if ($poll_device[$oid] && $poll_device[$oid] != $device[$oid])
+  if ($poll_device[$oid] != $device[$oid])
   {
-    $update_array[$oid] = $poll_device[$oid];
-    log_event("$oid -> ".$poll_device[$oid], $device, 'system');
+    $update_array[$oid] = ($poll_device[$oid] ? $poll_device[$oid] : array('NULL'));
+    log_event("$oid -> '".$poll_device[$oid]."'", $device, 'device', $device['device_id']);
   }
 }
 
-// Allow override of sysLocation.
-
-if ($attribs['override_sysLocation_bool'])
-{
-  $poll_device['sysLocation'] = $attribs['override_sysLocation_string'];
-}
-
-if ($poll_device['sysLocation'] && $device['location'] != $poll_device['sysLocation'])
+$geo_detect = FALSE;
+if ($device['location'] != $poll_device['sysLocation'])
 {
   // Reset geolocation when location changes - triggers re-geolocation
-  $update_array['location_lat'] = array(NULL);
-  $update_array['location_lon'] = array(NULL);
+  $geo_detect = TRUE;
 
   $update_array['location'] = $poll_device['sysLocation'];
-  log_event("Location -> ".$poll_device['sysLocation'], $device, 'system');
+  log_event("Location -> '".$poll_device['sysLocation']."'", $device, 'device', $device['device_id']);
 }
 
 if ($config['geocoding']['enable'])
 {
-  if (($poll_device['sysLocation'] && $device['location'] != $poll_device['sysLocation']) ||
-      !$device['location_lat'] || !$device['location_lon'] ||
-      ($device['location_geoapi'] != strtolower($config['geocoding']['api'])))
+  $db_version = get_db_version(); // Need for detect old geo DB schema
+
+  if ($db_version < 169)
   {
-    $update_array = array_merge($update_array, get_geolocation($poll_device['sysLocation'], $device['hostname']));
+    // FIXME. remove this part in r7000
+    if ($geo_detect)
+    {
+      $update_array['location_lat'] = array('NULL');
+      $update_array['location_lon'] = array('NULL');
+    }
+    $geo_db = array();
+    foreach ($device as $k => $value)
+    {
+      if (strpos($k, 'location') !== FALSE)
+      {
+        $geo_db[$k] = $value; // GEO array for compatibility
+      }
+    }
+  } else {
+    $geo_db = dbFetchRow("SELECT * FROM `devices_locations` WHERE `device_id` = ?", array($device['device_id']));
+    if (OBS_DEBUG > 1 && count($geo_db)) { print_vars($geo_db); }
+  }
+  $geo_db['hostname'] = $device['hostname']; // Hostname required for detect by DNS
+
+  if (!(is_numeric($geo_db['location_lat']) && is_numeric($geo_db['location_lon'])))
+  {
+    // Redetect geolocation if coordinates still empty, no more frequently than once a day
+    $geo_updated = $config['time']['now'] - strtotime($geo_db['location_updated']);
+    $geo_detect = $geo_detect || ($geo_updated > 86400);
+  }
+
+  $geo_detect = $geo_detect || ($poll_device['sysLocation'] && $device['location'] != $poll_device['sysLocation']);
+  $geo_detect = $geo_detect || ($geo_db['location_geoapi'] != strtolower($config['geocoding']['api']));
+  $geo_detect = $geo_detect || ($geo_db['location_manual'] && (!$geo_db['location_country'] || $geo_db['location_country'] == 'Unknown'));
+
+  if ($geo_detect)
+  {
+    $update_geo = get_geolocation($poll_device['sysLocation'], $geo_db);
+    if (OBS_DEBUG && count($update_geo)) { print_vars($update_geo); }
+    if (is_numeric($update_geo['location_lat']) && is_numeric($update_geo['location_lon']) && $update_geo['location_country'] != 'Unknown')
+    {
+      $geo_msg  = 'Geolocation ('.strtoupper($update_geo['location_geoapi']).') -> ';
+      $geo_msg .= '['.sprintf('%f', $update_geo['location_lat']) .', ' .sprintf('%f', $update_geo['location_lon']) .'] ';
+      $geo_msg .= country_from_code($update_geo['location_country']).' (Country), '.$update_geo['location_state'].' (State), ';
+      $geo_msg .= $update_geo['location_county'] .' (County), ' .$update_geo['location_city'] .' (City)';
+    } else {
+      $geo_msg  = FALSE;
+    }
+    if ($db_version < 169)
+    {
+      // FIXME. remove this part in r7000
+      $update_array = array_merge($update_array, $update_geo);
+      log_event("Geolocation -> $geo_msg", $device, 'device', $device['device_id']);
+    } else {
+      if (is_numeric($geo_db['location_id']))
+      {
+        foreach($update_geo as $k => $value)
+        {
+          if ($geo_db[$k] == $value) { unset($update_geo[$k]); }
+        }
+        if ($update_geo)
+        {
+          dbUpdate($update_geo, 'devices_locations', '`location_id` = ?', array($geo_db['location_id']));
+          if ($geo_msg) { log_event($geo_msg, $device, 'device', $device['device_id']); }
+        } // else not changed
+      } else {
+        $update_geo['device_id'] = $device['device_id'];
+        dbInsert($update_geo, 'devices_locations');
+        if ($geo_msg) { log_event($geo_msg, $device, 'device', $device['device_id']); }
+      }
+    }
   }
 }
+
+unset($geo_detect, $geo_db, $update_geo);
 
 // EOF

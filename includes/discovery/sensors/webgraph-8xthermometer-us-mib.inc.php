@@ -7,14 +7,14 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
 echo(" WebGraph-8xThermometer-US-MIB ");
 
 $oids = snmp_walk($device, ".1.3.6.1.4.1.5040.1.2.6.3.2.1.1.1", "-Osqn", "us_an8graph_mib_130.mib");
-if ($debug) { echo($oids."\n"); }
+
 $oids = trim($oids);
 if ($oids)
 {

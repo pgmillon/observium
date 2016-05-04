@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -34,9 +34,9 @@ if (is_numeric($eqlgrpmemid))
       $descr = 'Disk '.$entry['eqlDiskId'] . ': ' . trim($entry['eqlDiskModelNumber']);
 
       $oid   = '.1.3.6.1.4.1.12740.3.1.1.1.8.'.$index;
-      $value = state_string_to_numeric('eql-disk-state', $entry['eqlDiskStatus']);
+      $value = $entry['eqlDiskStatus'];
 
-      if ($value != '')
+      if ($value !== '')
       {
         discover_sensor($valid['sensor'], 'state', $device, $oid, 'eqlDiskStatus.'.$index, 'eql-disk-state', $descr, NULL, $value, array('entPhysicalClass' => 'storage'));
       }

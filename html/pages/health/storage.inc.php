@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -94,7 +94,7 @@ foreach ($storages as $storage)
 
   $link = generate_url( array("page" => "device", "device" => $storage['device_id'], "tab" => "health", "metric" => 'storage'));
 
-  $overlib_content = generate_overlib_content($graph_array, $storage['hostname'] ." - " . htmlentities($storage['storage_descr']), NULL);
+  $overlib_content = generate_overlib_content($graph_array, $storage['hostname'] . ' - ' . $storage['storage_descr']);
 
   $graph_array['width'] = 80; $graph_array['height'] = 20; $graph_array['bg'] = 'ffffff00'; # the 00 at the end makes the area transparent.
   $graph_array['from'] = $config['time']['day'];

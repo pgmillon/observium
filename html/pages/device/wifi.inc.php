@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2014 Adam Armstrong
+ * @copyright  (C) 2006-2015 Adam Armstrong
  *
  */
 
@@ -15,10 +15,13 @@ $link_array = array('page'    => 'device',
                     'device'  => $device['device_id'],
                     'tab' => 'wifi');
 
-$navbar = array('brand' => "Wifi", 'class' => "navbar-narrow");
+$navbar = array('brand' => "WiFi", 'class' => "navbar-narrow");
 
-$navbar['options']['overview']['text']   = 'Overview';
-$navbar['options']['accesspoints']['text']   = 'Access Points';
+$navbar['options']['overview']['text']       = 'Overview';
+if ($device_ap_count > 0) { $navbar['options']['accesspoints']['text'] = 'Access Points'; }
+if ($device_radio_count > 0) { $navbar['options']['radios']['text']       = 'Radios'; }
+if ($device_wlan_count > 0) { $navbar['options']['wlans']['text']        = 'WLANs'; }
+$navbar['options']['clients']['text']      = 'Clients';
 
 foreach ($navbar['options'] as $option => $array)
 {
@@ -32,13 +35,22 @@ if ($vars['view'] == "accesspoint") { $navbar['options']['accesspoints']['class'
 print_navbar($navbar);
 unset($navbar);
 
-if ($vars['view'] == "accesspoints"  || $vars['view'] == "accesspoint" || $vars['view'] == "overview" )
-{
-  include("wifi/".$vars['view'].".inc.php");
-} else {
-  include("wifi/overview.inc.php");
-}
+$page_title[] = "Wifi";
 
-$pagetitle[] = "Wifi";
+print_warning("Please be aware that the WiFi section is currently under development and is subject to change and breakage.");
+
+switch ($vars['view'])
+{
+  case 'overview':
+  case 'accesspoints':
+  case 'radios':
+  case 'wlans':
+  case 'clients':
+    include("wifi/".$vars['view'].".inc.php");
+    break;
+  default:
+    echo('<h2>Error. No section '.$vars['view'].'.<br /> Please report this to observium developers.</h2>');
+    break;
+}
 
 // EOF
