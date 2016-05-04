@@ -130,7 +130,7 @@ function print_events($vars)
       }
       if ($events['short'])
       {
-        $string .= '    <td nowrap class="syslog">';
+        $string .= '    <td class="syslog">';
         if (strpos($entry['message'], $entry['link']) !== 0)
         {
           $string .= $entry['link'] . ' ';
