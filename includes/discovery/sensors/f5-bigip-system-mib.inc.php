@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -109,7 +109,7 @@ foreach ($oids as $index => $entry)
       default:
         continue 2; // Skip all other
     }
-  
+
     if ($class == 'state')
     {
       discover_sensor($valid['sensor'], $class, $device, $oid, "$oid_name.$index", 'f5-bigip-state',  $descr, NULL, $value, array('entPhysicalClass' => $physical));
@@ -122,5 +122,29 @@ foreach ($oids as $index => $entry)
 }
 
 unset($oids, $oid_name, $entry, $oid, $index, $class, $sysPlatform_oid);
+
+// HA state
+// F5-BIGIP-SYSTEM-MIB::sysCmSyncStatusId.0 = INTEGER: inSync(3)
+// F5-BIGIP-SYSTEM-MIB::sysCmSyncStatusStatus.0 = STRING: In Sync
+// F5-BIGIP-SYSTEM-MIB::sysCmSyncStatusColor.0 = INTEGER: green(0)
+// F5-BIGIP-SYSTEM-MIB::sysCmSyncStatusSummary.0 = STRING: All devices in the device group are in sync
+// F5-BIGIP-SYSTEM-MIB::sysCmFailoverStatusId.0 = INTEGER: active(4)
+// F5-BIGIP-SYSTEM-MIB::sysCmFailoverStatusStatus.0 = STRING: ACTIVE
+// F5-BIGIP-SYSTEM-MIB::sysCmFailoverStatusColor.0 = INTEGER: green(0)
+// F5-BIGIP-SYSTEM-MIB::sysCmFailoverStatusSummary.0 = STRING: 1/1 active
+
+$f5state['ha'] = snmp_get_multi($device, 'sysCmSyncStatusId.0 sysCmSyncStatusStatus.0 sysCmFailoverStatusId.0 sysCmFailoverStatusStatus.0', '-OQUs', $mib, mib_dirs('f5'));
+
+if (isset($f5state['ha'][0])) {
+  $descr = 'Config Sync ('.$f5state['ha'][0]['sysCmSyncStatusStatus'].')';
+  $oid   = '.1.3.6.1.4.1.3375.2.1.14.1.1.0';
+  $value = $f5state['ha'][0]['sysCmSyncStatusId'];
+  discover_sensor($valid['sensor'], 'state', $device, $oid, 'sysCmSyncStatusId', 'f5-config-sync-state', $descr, NULL, $value, array('entPhysicalClass' => 'other'));
+
+  $descr = 'HA State ('.$f5state['ha'][0]['sysCmFailoverStatusStatus'].')';
+  $oid   = '.1.3.6.1.4.1.3375.2.1.14.3.1.0';
+  $value = $f5state['ha'][0]['sysCmFailoverStatusId'];
+  discover_sensor($valid['sensor'], 'state', $device, $oid, 'sysCmFailoverStatusId', 'f5-ha-state', $descr, NULL, $value, array('entPhysicalClass' => 'other'));
+}
 
 // EOF

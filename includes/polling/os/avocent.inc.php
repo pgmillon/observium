@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -17,6 +17,13 @@ if (strstr($poll_device['sysDescr'], "AlterPath"))
   $hardware = trim($hardware);
   $version  = trim($version);
   $features = trim(str_replace("#1", "", $version));
+}
+
+if (strstr($poll_device['sysDescr'], "DSR"))
+{
+  list($hardware, $version) = explode(" ", $poll_device['sysDescr']);
+  $hardware = trim($hardware);
+  $version  = trim($version);
 }
 
 // EOF

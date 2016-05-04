@@ -6,32 +6,35 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-if ($_SESSION['userlevel'] < '5')
+// FIXME, obsolete
+
+if ($_SESSION['userlevel'] <= 7)
 {
-  include("includes/error-no-perm.inc.php");
-} else {
+  print_error_permission();
+  return;
+}
+
+// User level 8-9 only can see config
+$readonly = $_SESSION['userlevel'] < 10;
 
   $page_title[] = "Delete service";
 
-  if ($_POST['delsrv'])
+  if ($vars['delsrv'] && !$readonly)
   {
-    if ($_SESSION['userlevel'] > "5")
-    {
-      include("includes/service-delete.inc.php");
-    }
+    include($config['html_dir']."/includes/service-delete.inc.php");
+
+    if ($updated) { print_success("Service Deleted!"); }
   }
 
   foreach (dbFetchRows("SELECT * FROM `services` AS S, `devices` AS D WHERE S.device_id = D.device_id ORDER BY hostname") as $device)
   {
     $servicesform .= "<option value='" . $device['service_id'] . "'>" . $device['service_id'] .  "." . $device['hostname'] . " - " . $device['service_type'] .  "</option>";
   }
-
-  if ($updated) { print_message("Service Deleted!"); }
 
   echo("
 <h4>Delete Service</h4>
@@ -51,7 +54,5 @@ if ($_SESSION['userlevel'] < '5')
   </table>
 <input type='submit' name='Submit' value='Delete' />
 </form>");
-
-}
 
 // EOF

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -27,20 +27,25 @@
 #F5-BIGIP-SYSTEM-MIB::sysModuleAllocationProvisionLevel."ltm" = INTEGER: nominal(3)
 #F5-BIGIP-SYSTEM-MIB::sysModuleAllocationProvisionLevel."psm" = INTEGER: none(1)
 
-$hardware = trim(snmp_get($device, "sysPlatformInfoMarketingName.0", "-OQv", 'F5-BIGIP-SYSTEM-MIB', mib_dirs('f5')),'"');
+$hardware = snmp_get($device, "sysPlatformInfoMarketingName.0", "-OQv", 'F5-BIGIP-SYSTEM-MIB', mib_dirs('f5'));
 
-$version = trim(snmp_get($device, "sysProductVersion.0", "-OQv", 'F5-BIGIP-SYSTEM-MIB', mib_dirs('f5')),'"');
-$version .= " Build " . trim(snmp_get($device, "sysProductBuild.0", "-OQv", 'F5-BIGIP-SYSTEM-MIB', mib_dirs('f5')),'"');
-$version .= " " . trim(snmp_get($device, "sysProductEdition.0", "-OQv", 'F5-BIGIP-SYSTEM-MIB', mib_dirs('f5')),'"');
+$version = snmp_get($device, "sysProductVersion.0", "-OQv", 'F5-BIGIP-SYSTEM-MIB', mib_dirs('f5'));
+$version .= " Build " . snmp_get($device, "sysProductBuild.0", "-OQv", 'F5-BIGIP-SYSTEM-MIB', mib_dirs('f5'));
+$version .= " " . snmp_get($device, "sysProductEdition.0", "-OQv", 'F5-BIGIP-SYSTEM-MIB', mib_dirs('f5'));
 
-$serial .= trim(snmp_get($device, "sysGeneralChassisSerialNum.0", "-OQv", 'F5-BIGIP-SYSTEM-MIB', mib_dirs('f5')),'"');
+$serial .= snmp_get($device, "sysGeneralChassisSerialNum.0", "-OQv", 'F5-BIGIP-SYSTEM-MIB', mib_dirs('f5'));
 
+$data = snmpwalk_cache_oid($device, 'sysModuleAllocationProvisionLevel', array(), 'F5-BIGIP-SYSTEM-MIB', mib_dirs('f5'));
 $all_features = array("am", "lc", "afm", "apm", "asm", "avr", "gtm", "ltm", "psm");
-foreach ($all_features as $feature) {
-  $enabled = trim(snmp_get($device, "'sysModuleAllocationProvisionLevel.\"$feature\"'", "-OQv", 'F5-BIGIP-SYSTEM-MIB', mib_dirs('f5')),'"');
-  if ($enabled != "" && $enabled != "none")
+foreach ($all_features as $feature)
+{
+  if (isset($data[$feature]))
   {
-    $features .= " " . $feature;
+    $enabled = $data[$feature]['sysModuleAllocationProvisionLevel'];
+    if ($enabled != "" && $enabled != "none")
+    {
+      $features .= " " . $feature;
+    }
   }
 }
 $features = trim($features);

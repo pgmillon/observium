@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -15,7 +15,7 @@
 //
 // WATCHGUARD-SYSTEM-STATISTICS-MIB::wgSystemCpuUtil5.0 = COUNTER: 123
 
-echo(" WATCHGUARD-SYSTEM-STATISTICS-MIB ");
+echo("WATCHGUARD-SYSTEM-STATISTICS-MIB ");
 
 $descr = "Processor";
 $usage = snmp_get($device, ".1.3.6.1.4.1.3097.6.3.78.0", "-OQUvs", "WATCHGUARD-SYSTEM-STATISTICS-MIB", $config['mib_dir'].':'.mib_dirs('watchguard'));

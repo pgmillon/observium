@@ -7,20 +7,20 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-echo(" TIMETRA-CHASSIS-MIB ");
+echo("TIMETRA-CHASSIS-MIB ");
 
 if (!isset($cache_discovery['timetra-chassis-mib']))
 {
   $cache_discovery['timetra-chassis-mib'] = snmpwalk_cache_twopart_oid($device, 'tmnxHwTable', NULL, 'TIMETRA-CHASSIS-MIB');
 }
 
-foreach($cache_discovery['timetra-chassis-mib'] as $chassis => $entries)
+foreach ($cache_discovery['timetra-chassis-mib'] as $chassis => $entries)
 {
-  foreach($entries as $index => $entry)
+  foreach ($entries as $index => $entry)
   {
     $inventory[$index] = array(
       'entPhysicalDescr'        => $entry['tmnxHwName'],

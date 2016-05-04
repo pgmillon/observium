@@ -6,22 +6,29 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 echo('<div style="padding: 10px;">');
 
-if ($vars['addsrv']) {
-  if ($_SESSION['userlevel'] == '10') {
-    include("includes/service-add.inc.php");
+if ($vars['addsrv'])
+{
+  if ($readonly)
+  {
+    print_error_permission('You have insufficient permissions to edit settings.');
+  } else {
+    include($config['html_dir']."/includes/service-add.inc.php");
   }
 }
-
-if ($vars['delsrv']) {
-  if ($_SESSION['userlevel'] == '10') {
-    include("includes/service-delete.inc.php");
+else if ($vars['delsrv'])
+{
+  if ($readonly)
+  {
+    print_error_permission('You have insufficient permissions to edit settings.');
+  } else {
+    include($config['html_dir']."/includes/service-delete.inc.php");
   }
 }
 

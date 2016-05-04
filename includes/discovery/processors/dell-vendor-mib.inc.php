@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -15,7 +15,7 @@
 //
 //  Dell-Vendor-MIB::dellLanExtension.6132.1.1.1.1.4.4.0 = STRING: "5 Sec (6.99%),    1 Min (6.72%),   5 Min (9.06%)"
 
-echo(" Dell-Vendor-MIB ");
+echo("Dell-Vendor-MIB ");
 
 $descr = "Processor";
 $usage = trim(snmp_get($device, "dellLanExtension.6132.1.1.1.1.4.4.0", "-OQUvs", "Dell-Vendor-MIB", mib_dirs('dell')),'"');

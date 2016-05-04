@@ -102,7 +102,6 @@ if (isset($MetaGraphDefs[$type])) {
 
 if(isset($rrd_cmd))
 {
-   # FIXME mres? wtf.
    if ($vars['from'])  { $from   = $vars['from'];   }
    if ($vars['to'])    { $to     = $vars['to'];   }
    $rrd_cmd .= " -s " . escapeshellarg($from) . " -e " . escapeshellarg($to);
@@ -117,4 +116,4 @@ else {                         $rrd_cmd .= " --font LEGEND:8:" . $config['mono_f
 $rt = 0;
 $rrd_options = $rrd_cmd;
 
-?>
+// EOF

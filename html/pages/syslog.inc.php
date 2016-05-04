@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -17,18 +17,11 @@
 
 <?php
 
-///FIXME. Mike: should be more checks, at least a confirmation click.
-//if ($vars['action'] == "expunge" && $_SESSION['userlevel'] >= '10')
-//{
-//  dbFetchCell("TRUNCATE TABLE `syslog`");
-//  print_message('Syslog truncated');
-//}
-
 unset($search, $devices_array, $priorities, $programs);
 
 $where = ' WHERE 1 ' . generate_query_permitted();
 
-//Device field
+// Device field
 // Show devices only with syslog messages
 foreach (dbFetchRows('SELECT `device_id` FROM `syslog`' . $where .
                      'GROUP BY `device_id`') as $data)
@@ -53,20 +46,21 @@ if (isset($vars['device_id']))
   $where .= generate_query_values($vars['device_id'], 'device_id');
 }
 
-//Message field
+// Message field
 $search[] = array('type'    => 'text',
                   'name'    => 'Message',
                   'id'      => 'message',
                   'placeholder' => 'Message',
                   'width'   => '130px',
                   'value'   => $vars['message']);
-//Priority field
-//$priorities[''] = 'All Priorities';
+// Priority field
+// $priorities[''] = 'All Priorities';
 foreach ($config['syslog']['priorities'] as $p => $priority)
 {
   if ($p > 7) { continue; }
   $priorities[$p] = ucfirst($priority['name']);
 }
+
 $search[] = array('type'    => 'multiselect',
                   'name'    => 'Priorities',
                   'id'      => 'priority',
@@ -74,8 +68,8 @@ $search[] = array('type'    => 'multiselect',
                   'subtext' => TRUE,
                   'value'   => $vars['priority'],
                   'values'  => $priorities);
-//Program field
-//$programs[''] = 'All Programs';
+// Program field
+// $programs[''] = 'All Programs';
 foreach (dbFetchColumn('SELECT `program` FROM `syslog` IGNORE INDEX (`program`)' . // Use index 'program_device' for speedup
                        $where . 'GROUP BY `program`;') as $program)
 {

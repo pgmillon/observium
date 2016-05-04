@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -28,7 +28,7 @@ $drums = array(
 foreach ($drums as $drum => $letter)
 {
   $descr = rrdtool_escape("$drum Drum",16);
-  $colour = toner2colour($descr);
+  $colour = toner_to_colour($descr);
 
   $hostname = get_device_by_device_id($device['device_id']);
 

@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -46,12 +46,16 @@ foreach (array('graphs') as $type)
 print_navbar($navbar);
 unset($navbar);
 
-echo('<table class="table table-bordered table-striped">');
+echo generate_box_open();
+
+echo('<table class="table  table-striped">');
 foreach (dbFetchRows("SELECT * FROM `vrfs` WHERE `device_id` = ? ORDER BY `vrf_name`", array($device['device_id'])) as $vrf)
 {
-  include("includes/print-vrf.inc.php");
+  include($config['html_dir']."/includes/print-vrf.inc.php");
 }
 
 echo("</table>");
+
+echo generate_box_close();
 
 // EOF

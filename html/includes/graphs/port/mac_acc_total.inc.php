@@ -7,12 +7,11 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-# FIXME mres? wtf. check for numeric!
-$port      = $_GET['id'];
+$port      = (int)$_GET['id'];
 if ($_GET['stat']) { $stat      = $_GET['stat']; } else { $stat = "bits"; }
 $sort      = $_GET['sort'];
 

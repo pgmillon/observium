@@ -7,11 +7,13 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-echo('<table class="table table-hover table-bordered table-striped table-condensed table-rounded">');
+echo generate_box_open();
+
+echo('<table class="table table-hover table-striped table-condensed">');
 echo('<thead><tr><th>Device</th><th>Router Id</th><th>Status</th><th>ABR</th><th>ASBR</th><th>Areas</th><th>Ports</th><th>Neighbours</th></tr></thead>');
 
 // Loop Instances
@@ -68,5 +70,7 @@ foreach (dbFetchRows("SELECT * FROM `ospf_instances` WHERE `ospfAdminStat` IN ('
 } // End loop instances
 
 echo('</table>');
+
+echo generate_box_close();
 
 // EOF

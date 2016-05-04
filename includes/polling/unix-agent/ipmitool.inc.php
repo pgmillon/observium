@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -22,4 +22,4 @@ if ($agent_data['ipmitool']['sensor'] != '|')
   $agent_sensors = array_merge_recursive($agent_sensors,parse_ipmitool_sensor($device, $agent_data['ipmitool']['sensor'], 'agent'));
 }
 
-?>
+// EOF

@@ -1,9 +1,9 @@
 -- ==================================================================
--- Copyright (c) 2004-2010 Hangzhou H3C Tech. Co., Ltd. All rights reserved.
+-- Copyright (c) 2004-2013 Hangzhou H3C Tech. Co., Ltd.  All rights reserved.
 --
 -- Description: Lan Switch VLAN MIB
 -- Reference:
--- Version: V2.0
+-- Version: V2.1
 -- History:
 -- (1) Created by Zhangshilin, 2001.06.29
 -- (2) Revised by Qi Zhenglin, 2002.01.08
@@ -16,9 +16,9 @@
 --   V1.4 2004-12-28 modified by jiaoyi
 --          Add hh3cdot1qVlanMulticast in hh3cdot1qVlanMIBTable
 --        2005-01-22 update by wangyingxia
---          Add all objects of hh3cLswVlanMngObject from H3C-LswINF-MIB into this MIB
+--          Add all objects of hh3cLswVlanMngObject from HH3C-LswINF-MIB into this MIB
 --          Add TruthValue, RowStatus, TimeTicks, IpAddress, SnmpAdminString, VlanIndex, PortList
---          Remove InterfaceIndex and import it from H3C-LswINF-MIB
+--          Remove InterfaceIndex and import it from HH3C-LswINF-MIB
 --   V1.5 2005-01-22
 --        Add superVlan to hh3cdot1qVlanType by sunqiang
 --   V1.6 2005-05-18
@@ -36,6 +36,10 @@
 --        hh3cDot1qVlanBatchMIBTable and hh3cDot1qVlanBatchMIBEntry by hejunwei
 --   V1.9 2007-12-18 Add enmu 'vrrp' for hh3cVlanInterfaceIpType by Zhangyinfei
 --   V2.0 2010-01-18 Add hh3cdot1qVlanPortIndexs and hh3cVlanInterfaceIfIndex by duyanbing
+--   V2.1 2012-06-11 Modify hh3cVlanInterfaceIpAddr, hh3cVlanInterfaceIpMask and hh3cVlanInterfaceIpType by liuxibo
+--        2012-08-13
+--        Add hh3cPrivateVlanMappingTable by chenkaiping
+--        Add primaryVlan for hh3cdot1qVlanType by xiedong
 -- ==================================================================
 HH3C-LswVLAN-MIB DEFINITIONS ::= BEGIN
 IMPORTS
@@ -55,9 +59,9 @@ IMPORTS
     hh3cLswVlan MODULE-IDENTITY
             LAST-UPDATED "200112261452Z"
             ORGANIZATION
-                "Hangzhou H3C Tech. Co., Ltd."
+                "Hangzhou H3C Technologies Co., Ltd."
             CONTACT-INFO
-                "Platform Team Hangzhou H3C Tech. Co., Ltd.
+                "Platform Team Hangzhou H3C Technologies Co., Ltd.
                  Hai-Dian District Beijing P.R. China
                  http://www.h3c.com
                  Zip:100085"
@@ -168,7 +172,8 @@ IMPORTS
         common-vlan (2),
         sub-vlan    (3),
         isolate-user-vlan(4),
-        secondary-vlan(5)
+        secondary-vlan(5),
+        primaryVlan(6)
         }
         MAX-ACCESS read-write
         STATUS current
@@ -552,17 +557,15 @@ IMPORTS
 
     hh3cVlanInterfaceIpAddr OBJECT-TYPE
         SYNTAX  IpAddress
-        MAX-ACCESS read-write
+        MAX-ACCESS read-only
         STATUS current
         DESCRIPTION
-            "IP address of VLAN interface. When taking destory operation,
-            you could set it zero to destory all IP addresses(but cluster
-            IP address) in this VLAN interface."
+            "IP address of VLAN interface."
         ::= { hh3cVlanInterfaceAddrEntry 2 }
 
     hh3cVlanInterfaceIpMask OBJECT-TYPE
         SYNTAX  IpAddress
-        MAX-ACCESS read-write
+        MAX-ACCESS read-create
         STATUS current
         DESCRIPTION
             "IP address mask of VLAN interface. When destory single IP address,
@@ -577,12 +580,10 @@ IMPORTS
         cluster     (3),
         vrrp        (4)
         }
-        MAX-ACCESS read-write
+        MAX-ACCESS read-create
         STATUS current
         DESCRIPTION
-            "IP address type. cluster(3) will only be set when taking GET or
-            GET NEXT operation. primary(1) is optional when taking SET primary
-            IP address operation."
+            "IP address type."
         ::= { hh3cVlanInterfaceAddrEntry 4 }
 
     hh3cVlanInterfaceIpRowStatus OBJECT-TYPE
@@ -779,6 +780,74 @@ IMPORTS
             VLAN is not a sub VLAN of the super VLAN if its bit has
             a value of '0'."
         ::= { hh3cifSuperVlanMappingEntry 3 }
+
+    hh3cPrivateVlanMappingTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Hh3cPrivateVlanMappingEntry
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION
+            "Secondary vlan lists of Primary-VLANs."
+        ::= { hh3cLswVlanMngObject  8 }
+
+    hh3cPrivateVlanMappingEntry OBJECT-TYPE
+        SYNTAX Hh3cPrivateVlanMappingEntry
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION
+             "Secondary vlan lists of Primary-VLANs."
+        INDEX   { hh3cPrimaryVlanID }
+        ::= { hh3cPrivateVlanMappingTable 1}
+
+    Hh3cPrivateVlanMappingEntry   ::=
+    SEQUENCE {
+        hh3cPrimaryVlanID  Hh3cVlanIndex,
+        hh3cSecondaryVlanlistLow   OCTET STRING,
+        hh3cSecondaryVlanlistHigh OCTET STRING
+        }
+
+    hh3cPrimaryVlanID OBJECT-TYPE
+        SYNTAX  Hh3cVlanIndex
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "Primary VLAN-ID."
+        ::= { hh3cPrivateVlanMappingEntry 1 }
+
+    hh3cSecondaryVlanlistLow OBJECT-TYPE
+        SYNTAX  OCTET STRING(SIZE(0..256))
+        MAX-ACCESS read-write
+        STATUS current
+        DESCRIPTION
+            "Each octet within this value specifies a set of eight
+            VLANs, with the first octet specifying VLANs 1 through
+            8, the second octet specifying VLANs 9 through 16, etc.  
+            Within each octet, the most significant bit represents
+            the highest numbered VLAN, and the least significant bit
+            represents the lowest numbered VLAN.  Thus, each secondary
+            VLAN of the primary VLAN is represented by a single bit
+            within the value of this object.  If that bit has a value
+            of '1' then that VLAN is secondary VLAN in the set of VLANs;
+            the VLAN is not secondary VLAN if its bit has a value of
+            '0'."
+        ::= { hh3cPrivateVlanMappingEntry 2 }
+
+    hh3cSecondaryVlanlistHigh OBJECT-TYPE
+        SYNTAX  OCTET STRING(SIZE(0..256))
+        MAX-ACCESS read-write
+        STATUS current
+        DESCRIPTION
+            "Each octet within this value specifies a set of eight
+            VLANs, with the first octet specifying VLANs 2049 through
+            2056, the second octet specifying VLANs 2057 through 2064,
+            etc.  Within each octet, the most significant bit represents
+            the highest numbered VLAN, and the least significant bit
+            represents the lowest numbered VLAN.  Thus, each secondary
+            VLAN of the primary VLAN is represented by a single bit
+            within the value of this object.  If that bit has a value
+            of '1' then that VLAN is secondary VLAN in the set of VLANs;
+            the VLAN is not secondary VLAN if its bit has a value of
+            '0'."
+        ::= { hh3cPrivateVlanMappingEntry 3 }
 
     hh3cLswVlanProtoObject OBJECT-IDENTITY
             STATUS current

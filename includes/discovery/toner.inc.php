@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -39,10 +39,11 @@ if ($config['enable_printers'] && $device['os_group'] == 'printer')
       $index = $split_oid[count($split_oid)-1];
       if (is_numeric($role))
       {
-        $type_oid     = ".1.3.6.1.2.1.43.11.1.1.5.1.$index";
-        $descr_oid    = ".1.3.6.1.2.1.43.11.1.1.6.1.$index";
-        $capacity_oid = ".1.3.6.1.2.1.43.11.1.1.8.1.$index";
-        $toner_oid    = ".1.3.6.1.2.1.43.11.1.1.9.1.$index";
+        $class_oid    = ".1.3.6.1.2.1.43.11.1.1.4.1.$index"; // prtMarkerSuppliesClass (supplyThatIsConsumed(3), receptacleThatIsFilled(4))
+        $type_oid     = ".1.3.6.1.2.1.43.11.1.1.5.1.$index"; // prtMarkerSuppliesType
+        $descr_oid    = ".1.3.6.1.2.1.43.11.1.1.6.1.$index"; // prtMarkerSuppliesDescription
+        $capacity_oid = ".1.3.6.1.2.1.43.11.1.1.8.1.$index"; // prtMarkerSuppliesMaxCapacity
+        $toner_oid    = ".1.3.6.1.2.1.43.11.1.1.9.1.$index"; // prtMarkerSuppliesLevel
 
         $resourcetype = snmp_get($device, $type_oid, "-Oqv");
 
@@ -52,8 +53,10 @@ if ($config['enable_printers'] && $device['os_group'] == 'printer')
         {
           switch ($resourcetype)
           {
-            case 3:
-            case 21:
+            case 3: // Toner
+            case 5: // Ink or particulate
+            case 6: // InkCardridge 
+            case 21: // Toner Cardridge
               /* .1.3.6.1.2.1.43.11.1.1.8 prtMarkerSuppliesMaxCapacity
                *  The value (-1) means other and specifically indicates that the sub-unit places
                *  no restrictions on this parameter. The value (-2) means unknown.
@@ -133,8 +136,10 @@ if ($config['enable_printers'] && $device['os_group'] == 'printer')
                 set_dev_attrib($device, "transferroller_cap_oid", $capacity_oid);
               }
             break;
-            case 4:
-              if (stristr($descr, 'waste') !== FALSE)
+            case 4: // Waste Toner
+            case 8: // Waste Ink or toner
+            case 24: // Waste liquid or Ink
+              if (stristr($descr, 'waste') !== FALSE || stristr($descr, 'absorber') == FALSE || $classtype == 3)
               {
                 echo(" WasteTonerBox");
                 set_dev_attrib($device, "wastebox_oid", $toner_oid);

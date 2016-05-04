@@ -1,0 +1,809 @@
+--/* 
+-- *
+
+-- *
+-- */
+
+-- ################################################################################
+
+A3COM51-SS9000SX DEFINITIONS ::= BEGIN
+
+-- 
+-- 3Com - ss9000 Private MIB
+-- 
+-- Copyright (c) 1997 by 3Com
+-- 
+-- 
+-- HISTORY LOG
+-- ===========
+-- 03/20/97  GWH - Created v0.1 - This MIB is under contruction
+-- 				and is subject to change.
+-- 05/16/97  GWH - Add PACE, trap destination & security tables.
+-- 06/05/97  GWH - Move mib to brighton enterprise branch.  Remove
+--                  unused objects.  Add 64 bit counters as 32 bit pairs.
+-- 06/10/97  GWH - Move traps to superStackSwitch9000SX-mib id.  Remove unused
+--                  objects.  Prefix all tables with ss9000 to avoid conflicts.
+-- 06/11/97  GWH - Fix compilation errors.  Move traps to extreme identifier.
+--                  Import sysDescr, sysUpTime.
+-- 12/06/97  P.Biti - Fixed mismatching names and realigned tabs
+-- 30/06/97  PB  - Taken out security portion as it did not contain
+-- 		   an object for community string.  Improved descriptions
+-- 10/07/97  PB  - issued. Changed integer to counter in ss9000PortTable
+-- 	   	   changed Ss9000PortTable name to ss9000PortTable
+-- 		   deleted trap destination table - switch now supporting
+-- 		   table in rfc 2021.
+-- 22/07/97  PB  -  Changed MIB definition title from superstackswitch9000sx to A3Com51. Taken 
+--                           out spurious imports.  Changed ss9000PortIndex type to INTEGER.
+-- 07/24/97  GWH - Add configuration save and check object
+-- 06-aug-97 AHS - Add MAU-type definitions per e-mail from PB 06-aug-97
+-- 20-aug-97 AHS - Add invalidLoginAttempt trap
+--
+
+     IMPORTS
+	enterprises, Counter
+     FROM RFC1155-SMI
+	sysUpTime, sysDescr
+     FROM RFC1213-MIB
+	TRAP-TYPE
+     FROM RFC-1215
+	OBJECT-TYPE
+     FROM RFC-1212;
+
+-- 
+--  Organization & Product branches
+-- 
+    extreme	    OBJECT IDENTIFIER ::= { enterprises 1916 }
+    a3Com	    OBJECT IDENTIFIER ::= { enterprises 43 }
+    products        OBJECT IDENTIFIER ::= { a3Com 1 }
+    hub             OBJECT IDENTIFIER ::= { products 8 }
+
+    superStackSwitch9000SX OBJECT IDENTIFIER ::=     { hub 32 }
+    superStackSwitch3800 OBJECT IDENTIFIER ::=     { hub 34 }
+	superStackSwitch9100 OBJECT IDENTIFIER ::=		{ hub 36 }
+    superStackSwitch9000SX-mib OBJECT IDENTIFIER ::= { a3Com 27 }
+   
+-- 
+-- Traps
+-- 
+          overheat TRAP-TYPE
+              ENTERPRISE  extreme
+              VARIABLES   { sysUpTime, sysDescr }
+              DESCRIPTION
+                          "A overheat trap indicates that the on board
+                          tempature sensor has reported a overheat 
+                          condition.  System will shutdown until unit has
+						  suficiently cooled such that operation may begin
+                          again.  A cold start trap will be issued when
+                          the unit has come back on line."						                            
+              ::= 1
+
+          fanfailed TRAP-TYPE
+              ENTERPRISE  extreme
+              VARIABLES   { sysUpTime, sysDescr }
+              DESCRIPTION
+                          "A fan failed trap indicates one or more of the
+                          cooling fans inside the device has failed.  A
+                          fanOK trap will be sent once the fan has attained
+                          normal operation."
+              ::= 2
+
+          fanOK TRAP-TYPE
+              ENTERPRISE  extreme
+              VARIABLES   { sysUpTime, sysDescr }
+              DESCRIPTION
+                          "A fan has tansitioned out of a failure state and
+                          is now operating correctly."
+              ::= 3
+
+          invalidLoginAttempt TRAP-TYPE
+              ENTERPRISE  extreme
+              VARIABLES   { sysUpTime, sysDescr }
+              DESCRIPTION
+                          "A user attempted to login to console or by telnet but was refused
+                           access due to incorrect username or password"
+              ::= 4
+
+-- 
+-- superStackSwitch 9000SX-mib objects
+-- 
+
+		ss9000UnitPaceMode OBJECT-TYPE
+        	SYNTAX INTEGER {
+            	notApplicable(1),
+                normalEthernet(2),
+                lowLatency(3)
+			}
+            ACCESS	read-write
+            STATUS mandatory
+            DESCRIPTION
+            	"This object specifies the type of backoff algorithm.  
+		Any port can use the standard ethernet
+                algorithm or, for PACE applications, it can be set into low
+                latency mode.  In this mode, the backoff algorithm is optimized
+                to minimize the possibility of collisions.
+                
+                PACE mode can be set for the whole unit only."
+			::= { superStackSwitch9000SX-mib 1 }                
+                                
+
+
+-- 
+--  superStackSwitch9000SX-mib PORT counters - NOTE: A "get" op on any 
+--  of these objects will return the current value of the counter 
+--  from the Hardware.
+-- 
+        
+	    ss9000PortTable OBJECT-TYPE
+		    SYNTAX   SEQUENCE OF Ss9000PortTableEntry
+		    ACCESS   not-accessible
+		    STATUS   mandatory
+            DESCRIPTION
+            	"The port management table."
+		::= { superStackSwitch9000SX-mib 2 }
+
+		ss9000PortTableEntry OBJECT-TYPE
+		    SYNTAX   Ss9000PortTableEntry
+		    ACCESS   not-accessible
+		    STATUS   mandatory
+		    DESCRIPTION
+        	      	 "This table contains pairs of 32-bit counters which
+		    map to RMON 2 64-bit counters"
+		    INDEX    { ss9000PortIndex }
+		    ::= { ss9000PortTable 1 }
+
+		 Ss9000PortTableEntry ::=
+		      SEQUENCE {
+		 ss9000PortIndex                   INTEGER,
+                	ss9000PortRxPktCtLow         Counter,
+                	ss9000PortRxPktCtHigh        Counter,
+                 	ss9000PortRxByteCtLow        Counter,
+                	ss9000PortRxByteCtHigh       Counter,
+                	ss9000PortTxPktCtLow         Counter,
+                 	ss9000PortTxPktCtHigh        Counter,
+                 	ss9000PortTxByteCtLow        Counter,
+                	ss9000PortTxByteCtHigh       Counter
+	         }
+
+		ss9000PortIndex OBJECT-TYPE
+		 	SYNTAX   INTEGER
+		    ACCESS   read-only
+		    STATUS   mandatory
+		    DESCRIPTION
+        	       "The index of this table entry."
+		    ::= { ss9000PortTableEntry 1 }
+
+
+        ss9000PortRxPktCtLow OBJECT-TYPE
+            SYNTAX Counter
+            ACCESS read-only
+            STATUS mandatory
+            DESCRIPTION
+                "The lower 32 bits of the 64 bit receive packet counter 
+                for this port"
+            ::= { ss9000PortTableEntry 2 }
+                            
+        ss9000PortRxPktCtHigh  OBJECT-TYPE
+            SYNTAX Counter
+            ACCESS read-only
+            STATUS mandatory
+            DESCRIPTION
+                "The upper 32 bits of the 64 bit receive packet counter 
+                for this port"
+            ::= { ss9000PortTableEntry 3 }
+
+        ss9000PortRxByteCtLow  OBJECT-TYPE
+            SYNTAX Counter
+            ACCESS read-only
+            STATUS mandatory
+            DESCRIPTION
+                "The lower 32 bits of the 64 bit receive byte counter 
+                for this port"
+            ::= { ss9000PortTableEntry 4 }
+
+        ss9000PortRxByteCtHigh OBJECT-TYPE
+            SYNTAX Counter
+            ACCESS read-only
+            STATUS mandatory
+            DESCRIPTION
+                "The upper 32 bits of the 64 bit receive byte counter 
+                for this port"
+            ::= { ss9000PortTableEntry 5 }
+
+        ss9000PortTxPktCtLow OBJECT-TYPE
+            SYNTAX Counter
+            ACCESS read-only
+            STATUS mandatory
+            DESCRIPTION
+                "The lower 32 bits of the 64 bit transmit packet counter 
+                for this port"
+            ::= { ss9000PortTableEntry 6 }
+                            
+        ss9000PortTxPktCtHigh  OBJECT-TYPE
+            SYNTAX Counter
+            ACCESS read-only
+            STATUS mandatory
+            DESCRIPTION
+                "The upper 32 bits of the 64 bit transmit packet counter 
+                for this port"
+            ::= { ss9000PortTableEntry 7 }
+
+        ss9000PortTxByteCtLow  OBJECT-TYPE
+            SYNTAX Counter
+            ACCESS read-only
+            STATUS mandatory
+            DESCRIPTION
+                "The lower 32 bits of the 64 bit transmit byte counter 
+                for this port"
+            ::= { ss9000PortTableEntry 8 }
+
+        ss9000PortTxByteCtHigh OBJECT-TYPE
+            SYNTAX Counter
+            ACCESS read-only
+            STATUS mandatory
+            DESCRIPTION
+                "The upper 32 bits of the 64 bit transmit byte counter 
+                for this port"
+            ::= { ss9000PortTableEntry 9 }
+
+--
+--	Configuration save objects.  These objects are used by the network
+--  management application to save configuration changes into the
+--  persistant store.  There are 2 stores on the SS9000; a primary and
+--  a secondary.
+--
+
+		ss9000SaveConfiguration OBJECT-TYPE
+        	SYNTAX INTEGER {
+            	saveToPrimary(1),
+                saveToSecondary(2)
+			}
+            ACCESS	write-only
+            STATUS mandatory
+            DESCRIPTION
+            	"When this object is set, the device will copy the contents
+				of the configuration database to a buffer and save it to the 
+				persistant store specified by the value of the object.  The 
+				save is	performed asynchronously, and the snmp agent will continue
+				to respond to both gets and sets while the save is taking
+				place.  A network management application may use the
+				ss9000SaveStatus object to determine when the asynchronous
+				save operation has completed."
+			::= { superStackSwitch9000SX-mib 3 }                
+
+		ss9000SaveStatus OBJECT-TYPE
+        	SYNTAX INTEGER {
+            	saveInProgress(1),
+                saveNotInProgress(2)
+			}
+            ACCESS	read-only
+            STATUS mandatory
+            DESCRIPTION
+            	"This object will return the status of a save operation invoked
+				by setting the ss9000SaveConfiguration object.  A network
+				management application can read this object to determine that a
+				save operation has completed."
+			::= { superStackSwitch9000SX-mib 4 }                
+
+
+--
+-- We place here some OIDs for as-yet-unstandardised 802.3 MAU types
+--     (see MAU MIB for usages)
+--
+
+          ss9000MauType
+              OBJECT IDENTIFIER ::= { superStackSwitch9000SX-mib 5 }
+
+--                      "X fiber over short-wavelength laser PMD as specified
+--                        in clause 38, duplex mode unknown"
+          ss9000MauType1000BaseSX OBJECT IDENTIFIER
+              ::= { ss9000MauType 1 }
+
+
+
+END	
+
+
+
+-- ################################################################################
+
+EXTREME-CABLE-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS  
+        MODULE-IDENTITY     FROM SNMPv2-SMI
+		OBJECT-TYPE         FROM SNMPv2-SMI
+        TruthValue          FROM SNMPv2-TC
+		extremeAgent        FROM EXTREME-BASE-MIB
+		extremeV2Traps		FROM EXTREME-BASE-MIB
+        extremenetworks		FROM EXTREME-BASE-MIB
+		DisplayString       FROM RFC1213-MIB
+		NOTIFICATION-TYPE	FROM SNMPv2-SMI;
+            
+    extremeCable MODULE-IDENTITY
+                LAST-UPDATED "0007240000Z"
+                ORGANIZATION "Extreme Networks, Inc."
+                CONTACT-INFO "www.extremenetworks.com"
+                DESCRIPTION "Extreme-specific Cable objects"
+        ::= { extremeAgent 24 }
+
+        extremeDiagConfigGroup OBJECT IDENTIFIER
+	::= { extremeCable 1 }
+
+	extremeDiagConfigTime OBJECT-TYPE
+ 		SYNTAX DisplayString  (SIZE(16))
+		MAX-ACCESS read-write
+		STATUS current
+		DESCRIPTION
+	        "Indicates the time at which the Diagnostics information 
+		 will be collected for the ports which have 
+		 Auto-Diagnostics configured. Time must be given in hh:mm:ss format
+		 where hh, mm and ss are in decimals"
+		::= { extremeDiagConfigGroup 1  }
+		
+	extremeDiagConfigRoF OBJECT-TYPE
+		SYNTAX INTEGER {true (1), false (2)}
+		MAX-ACCESS read-write
+		STATUS current
+		DESCRIPTION
+	        "Indicates whether a port should return to INIT state on 
+		 Diagnostics Failure. If TRUE the port will be restarted 
+		 even if the Diagnostics indicate a Failure. If FALSE the 
+		 port will be moved to DIAG_FAIL state"
+		::= { extremeDiagConfigGroup 2  }
+
+	extremeDiagPortConfigTable OBJECT-TYPE
+		SYNTAX SEQUENCE OF ExtremeDiagPortCfgEntry
+		MAX-ACCESS not-accessible
+		STATUS current
+		DESCRIPTION
+	        "Table, which contains the diagnostic configuration 
+		 information for the ports"
+		::= { extremeCable 2  }
+
+	extremeDiagPortConfigEntry OBJECT-TYPE
+		SYNTAX ExtremeDiagPortCfgEntry
+		MAX-ACCESS not-accessible
+		STATUS current
+		DESCRIPTION
+	        "Each row represents port related diagnostics 
+		 configuration"
+		INDEX { extremeDiagPortCfgPortIfIndex, extremeDiagPortCfgMode }
+		::= { extremeDiagPortConfigTable 1  }
+
+	ExtremeDiagPortCfgEntry ::=
+		SEQUENCE {
+				extremeDiagPortCfgPortIfIndex
+					INTEGER,
+				extremeDiagPortCfgMode
+					INTEGER,
+				extremeDiagPortCfgStatus
+					INTEGER 
+			}
+
+	extremeDiagPortCfgPortIfIndex OBJECT-TYPE
+		SYNTAX INTEGER
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+	        "IfIndex of the Port for which the information in this row applies"
+		::= { extremeDiagPortConfigEntry 1  }
+
+	extremeDiagPortCfgMode OBJECT-TYPE
+		SYNTAX INTEGER {auto (1), manual (2)}
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+	        "The mode of operation. The port can be configured to have
+		 either manual diagnostics or auto-diagnostics collected."
+		::= { extremeDiagPortConfigEntry 2 }
+
+	extremeDiagPortCfgStatus OBJECT-TYPE
+		SYNTAX INTEGER {enable (1), disable (2), run (3), diagfail(4)}
+		MAX-ACCESS read-write
+		STATUS current
+		DESCRIPTION
+	        "Specifies whether Diagnostics are enabled or disabled for 
+		 the port. In the manual mode, enable and disable will disable the
+		 corresponding bit in the manual Diag portmask. Once the run command is
+		 given the Manual Diagnostics starts running. <diagfail> indicates the
+		 diagnostics for the port has failed. <diagfail> is a read-only value and
+		 cannot be used for setting the status of the port"
+		::= { extremeDiagPortConfigEntry 3  }
+
+    extremeDiagPortDiagTable OBJECT-TYPE
+		SYNTAX SEQUENCE OF ExtremeDiagPortDiagEntry
+		MAX-ACCESS not-accessible
+		STATUS current
+		DESCRIPTION
+		 "Table contains the diagnostic information for the ports"
+		::= { extremeCable 3  }
+
+        extremeDiagPortDiagEntry OBJECT-TYPE
+		SYNTAX ExtremeDiagPortDiagEntry
+		MAX-ACCESS not-accessible
+		STATUS current
+		DESCRIPTION
+		 "Each row represents port related diagnostics information"
+		INDEX { extremeDiagPortDiagPortIfIndex, extremeDiagPortDiagMode }
+		::= { extremeDiagPortDiagTable 1 }
+
+        ExtremeDiagPortDiagEntry ::=
+		SEQUENCE {
+				extremeDiagPortDiagPortIfIndex
+					INTEGER,
+				extremeDiagPortDiagMode
+					INTEGER,
+				extremeDiagPortSpeed
+				    INTEGER,
+				extremeDiagPortSwapAB
+					INTEGER,
+				extremeDiagPortSwapCD
+					INTEGER,
+				extremeDiagPortPairAPol
+					INTEGER,
+				extremeDiagPortPairAFlen
+					INTEGER,
+				extremeDiagPortPairALen
+					INTEGER,
+				extremeDiagPortPairASkew
+					INTEGER,
+				extremeDiagPortPairAStatus
+					INTEGER,
+				extremeDiagPortPairBPol
+					INTEGER,
+				extremeDiagPortPairBFlen
+					INTEGER,
+				extremeDiagPortPairBLen
+					INTEGER,
+				extremeDiagPortPairBSkew
+					INTEGER,
+				extremeDiagPortPairBStatus
+					INTEGER,
+				extremeDiagPortPairCPol
+					INTEGER,
+				extremeDiagPortPairCFlen
+					INTEGER,
+				extremeDiagPortPairCLen
+					INTEGER,
+				extremeDiagPortPairCSkew
+					INTEGER,
+				extremeDiagPortPairCStatus
+					INTEGER,
+				extremeDiagPortPairDPol
+					INTEGER,
+				extremeDiagPortPairDFlen
+					INTEGER,
+				extremeDiagPortPairDLen
+					INTEGER,
+				extremeDiagPortPairDSkew
+					INTEGER,
+				extremeDiagPortPairDStatus
+					INTEGER,
+				extremeDiagPortDateTime
+				    DisplayString	
+			}
+
+	extremeDiagPortDiagPortIfIndex OBJECT-TYPE
+		SYNTAX INTEGER
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+	        "IfIndex of the Port for which the information in this row applies"
+		::= { extremeDiagPortDiagEntry 1  }
+
+	extremeDiagPortDiagMode OBJECT-TYPE
+		SYNTAX INTEGER {auto (1), manual (2)}
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+	        "The mode of operation. The port can be configured to have
+		 either manual diagnostics or auto-diagnostics collected."
+		::= { extremeDiagPortDiagEntry 2 }
+
+	extremeDiagPortSpeed OBJECT-TYPE
+		SYNTAX INTEGER { speed10 (1), speed100 (2), speed1000 (3), unknown (4)}
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+		"Specifies the speed of the port"
+		::= { extremeDiagPortDiagEntry 3  }
+
+	extremeDiagPortSwapAB OBJECT-TYPE
+		SYNTAX INTEGER {swap(1), noswap(2), unknown(3)}
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+		"Specifies whether pairA pairB cables are swapped"
+		::= { extremeDiagPortDiagEntry 4  }
+
+	extremeDiagPortSwapCD OBJECT-TYPE
+		SYNTAX INTEGER {swap(1), noswap(2), unknown(3)}
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+		"Specifies whether pairC and pairD cables are swapped"
+		::= { extremeDiagPortDiagEntry 5  }
+
+	extremeDiagPortPairAPol OBJECT-TYPE
+		SYNTAX INTEGER {positive(1), negative(2), unknown(3)}
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+		"Specifies the polarity of pairA cables"
+		::= { extremeDiagPortDiagEntry 6  }
+
+	extremeDiagPortPairAFlen OBJECT-TYPE
+		SYNTAX INTEGER
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+		"Specifies the distance of Fault in the pairA cables"
+		::= { extremeDiagPortDiagEntry 7  }
+
+	extremeDiagPortPairALen OBJECT-TYPE
+		SYNTAX INTEGER
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+		"Specifies the length of the pairA cables"
+		::= { extremeDiagPortDiagEntry 8  }
+
+	extremeDiagPortPairASkew OBJECT-TYPE
+		SYNTAX INTEGER
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+	        "Skew of pairA cables with respect to the fastest pair"
+		::= { extremeDiagPortDiagEntry 9  }
+
+	extremeDiagPortPairAStatus OBJECT-TYPE
+		SYNTAX INTEGER {open(1), short(2), terminated(3), imperror(4), unknown(5)}
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+	        "Indicates whether pairA cables are properly terminated, 
+		 short or open"
+		::= { extremeDiagPortDiagEntry 10  }
+
+	extremeDiagPortPairBPol OBJECT-TYPE
+		SYNTAX INTEGER {positive(1), negative(2), unknown(3)}
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+		"Specifies the polarity of pairB cables"
+		::= { extremeDiagPortDiagEntry 11  }
+
+	extremeDiagPortPairBFlen OBJECT-TYPE
+		SYNTAX INTEGER
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+		"Specifies the distance of Fault in the pairB cables"
+		::= { extremeDiagPortDiagEntry 12  }
+
+	extremeDiagPortPairBLen OBJECT-TYPE
+		SYNTAX INTEGER
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+		"Specifies the length of the pairB cables"
+		::= { extremeDiagPortDiagEntry 13  }
+
+	extremeDiagPortPairBSkew OBJECT-TYPE
+		SYNTAX INTEGER
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+		"Skew of pairB cables with respect to the fastest pair"
+		::= {  extremeDiagPortDiagEntry 14 }
+
+	extremeDiagPortPairBStatus OBJECT-TYPE
+		SYNTAX INTEGER {open(1), short(2), terminated(3), imperror(4), unknown(5)}
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+	        "Indicates whether pairB cables are properly terminated, 
+		 short or open"
+		::= { extremeDiagPortDiagEntry 15 }
+
+	extremeDiagPortPairCPol OBJECT-TYPE
+		SYNTAX INTEGER {positive(1), negative(2), unknown(3)}
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+		"Specifies the polarity of pairC cables"
+		::= { extremeDiagPortDiagEntry 16  }
+
+	extremeDiagPortPairCFlen OBJECT-TYPE
+		SYNTAX INTEGER
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+		"Specifies the distance of Fault in the pairC cables"
+		::= { extremeDiagPortDiagEntry 17  }
+
+	extremeDiagPortPairCLen OBJECT-TYPE
+		SYNTAX INTEGER
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+		"Specifies the length of the pairC cables"
+		::= { extremeDiagPortDiagEntry 18 }
+
+	extremeDiagPortPairCSkew OBJECT-TYPE
+		SYNTAX INTEGER
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+	        "Skew of pairC cables with respect to the fastest pair"
+		::= { extremeDiagPortDiagEntry 19 }
+
+	extremeDiagPortPairCStatus OBJECT-TYPE
+		SYNTAX INTEGER {open(1), short(2), terminated(3), imperror(4), unknown(5)}
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+	        "Indicates whether pairC cables are properly terminated, 
+		 short or open"
+		::= {  extremeDiagPortDiagEntry 20}
+
+	extremeDiagPortPairDPol OBJECT-TYPE
+		SYNTAX INTEGER {positive(1), negative(2), unknown(3)}
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+		"Specifies the polarity of pairD cables"
+		::= { extremeDiagPortDiagEntry 21  }
+
+	extremeDiagPortPairDFlen OBJECT-TYPE
+		SYNTAX INTEGER
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+		"Specifies the distance of Fault in the pairD cables"
+		::= { extremeDiagPortDiagEntry 22  }
+
+	extremeDiagPortPairDLen OBJECT-TYPE
+		SYNTAX INTEGER
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+		"Specifies the length of the pairD cables"
+		::= { extremeDiagPortDiagEntry 23 }
+
+	extremeDiagPortPairDSkew OBJECT-TYPE
+		SYNTAX INTEGER
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+	        "Skew of pairD cables with respect to the fastest pair"
+		::= { extremeDiagPortDiagEntry 24 }
+
+	extremeDiagPortPairDStatus OBJECT-TYPE
+		SYNTAX INTEGER {open(1), short(2), terminated(3), imperror(4), unknown(5)}
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+	        "Indicates whether pairD cables are properly terminated, 
+		 short or open"
+		::= { extremeDiagPortDiagEntry 25 }
+
+	extremeDiagPortDateTime OBJECT-TYPE
+ 		SYNTAX DisplayString  (SIZE(64))
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+	        "Date and time at which the Diagnostic information was 
+		 collected"
+		::= { extremeDiagPortDiagEntry 26 }
+
+	extremeDiagPortStatsTable  OBJECT-TYPE
+		SYNTAX SEQUENCE OF ExtremeDiagPortStatsEntry
+		MAX-ACCESS not-accessible
+		STATUS current
+		DESCRIPTION
+	        "Table, which contains the diagnostic statistic information
+		 for the ports"
+		::= { extremeCable 4  }
+
+	extremeDiagPortStatsEntry OBJECT-TYPE
+		SYNTAX ExtremeDiagPortStatsEntry
+		MAX-ACCESS not-accessible
+		STATUS current
+		DESCRIPTION
+	        "Each row represents port related diagnostics statistics
+		 information"
+		INDEX { extremeDiagPortStatsPortIfIndex }
+		::= { extremeDiagPortStatsTable 1 }
+
+	ExtremeDiagPortStatsEntry ::=
+		SEQUENCE {
+				extremeDiagPortStatsPortIfIndex
+					INTEGER,
+				extremeDiagPortStatsNumDiag
+					INTEGER,
+				extremeDiagPortStatsNumSuccess
+					INTEGER,
+				extremeDiagPortStatsNumFail
+					INTEGER,
+				extremeDiagPortStatsNumChange
+					INTEGER,
+				extremeDiagPortStatsNumAbort
+					INTEGER
+			}
+
+	extremeDiagPortStatsPortIfIndex OBJECT-TYPE
+		SYNTAX INTEGER
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+	        "IfIndex of the Port for which the information in this row applies"
+		::= { extremeDiagPortStatsEntry 1  }
+
+	extremeDiagPortStatsNumDiag OBJECT-TYPE
+		SYNTAX INTEGER
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+	        "Number of times Diagnostics information collected for this
+		 port"
+		::= {   extremeDiagPortStatsEntry 2 }
+
+	extremeDiagPortStatsNumSuccess OBJECT-TYPE
+		SYNTAX INTEGER
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+	        "Number of times Diagnostics for this port completed 
+		 successfully without any errors"
+		::= {   extremeDiagPortStatsEntry 3 }
+
+	extremeDiagPortStatsNumFail OBJECT-TYPE
+		SYNTAX INTEGER
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+	        "Number of times Diagnostics for this port Failed due to 
+		 errors in the cable pairs"
+		::= {   extremeDiagPortStatsEntry 4 }
+
+	extremeDiagPortStatsNumChange OBJECT-TYPE
+		SYNTAX INTEGER
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+	        "Number of times Diagnostics Changed for this port"
+		::= {   extremeDiagPortStatsEntry 5 }
+
+	extremeDiagPortStatsNumAbort OBJECT-TYPE
+		SYNTAX INTEGER
+		MAX-ACCESS read-only
+		STATUS current
+		DESCRIPTION
+	        "Number of times Diagnostics was aborted by the user for this port"
+		::= {   extremeDiagPortStatsEntry 6 }
+
+--TRAPS MIB Definitions for CDM
+  
+--   extremeTrapDiagPortDiagnostics	TRAP-TYPE
+--   ENTERPRISE  extremenetworks
+--   VARIABLES   {extremeDiagPortCfgPortIfIndex, extremeDiagPortCfgMode, extremeDiagPortCfgStatus}
+--   DESCRIPTION
+--   	  "Indicates the status of Diagnostics for a port. The status indicates 
+--   	  whether Diagnostics for a particular port failed"
+--   ::= 22
+
+   extremeCableTraps 	OBJECT IDENTIFIER
+	::= { extremeV2Traps 13 }
+
+   extremeCableTrapsPrefix   OBJECT IDENTIFIER
+	::= { extremeCableTraps 0 }
+
+   extremeTrapDiagPortDiagnostics	NOTIFICATION-TYPE
+   	OBJECTS   {extremeDiagPortCfgPortIfIndex, extremeDiagPortCfgMode, extremeDiagPortCfgStatus}
+      STATUS current
+      DESCRIPTION
+   	  "Indicates the status of Diagnostics for a port. The status indicates 
+   	  whether Diagnostics for a particular port failed"
+      ::= { extremeCableTrapsPrefix 1 }
+
+END

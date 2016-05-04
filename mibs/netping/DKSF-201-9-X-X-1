@@ -1,0 +1,786 @@
+DKSF-201-9-X-X-1 DEFINITIONS ::= BEGIN
+ 
+IMPORTS
+        enterprises,
+        MODULE-IDENTITY,
+        OBJECT-TYPE,
+        Counter32,
+        Gauge32,
+        Counter64,
+        Integer32,
+        TimeTicks,
+        NOTIFICATION-TYPE 
+                FROM SNMPv2-SMI 
+        TEXTUAL-CONVENTION,
+        DisplayString,
+        TruthValue,
+        TimeStamp
+                FROM SNMPv2-TC 
+        snmpTraps 
+                FROM SNMPv2-MIB ;
+                
+ 
+netPing2PWR220SMSv3 MODULE-IDENTITY 
+        LAST-UPDATED "201508170000Z"  
+        ORGANIZATION "Alentis Electronics" 
+        CONTACT-INFO 
+                "developers@netping.ru" 
+        DESCRIPTION 
+                "Generic MIB for NetPing remote sensing and control" 
+
+        REVISION "201508170000Z"   
+        DESCRIPTION 
+                "changed npIoLevelOut value definitions"    
+               
+        REVISION "201411140000Z"   
+        DESCRIPTION 
+                "bugfix npRelayN range changed to (1..2)
+                 value name npNormRange changed to npSafeRange"
+
+        REVISION "201404140000Z"   
+        DESCRIPTION 
+                "rewrite for DKSF201.8"                  
+                
+        REVISION "201402020000Z"   
+        DESCRIPTION 
+                "npRelayMode valid values changed, (3) excluded "                  
+                
+        REVISION "201401290000Z"   
+        DESCRIPTION 
+                "npCurLoop, npRelHumidity, npIr branches has added"                  
+                
+        REVISION "201401210000Z"   
+        DESCRIPTION 
+                "partial rewrite for DKSF 70"  
+                
+        REVISION "201304110000Z"   
+        DESCRIPTION 
+                "partial rewrite for DKSF 48"                
+				
+        REVISION "201205310000Z"   
+        DESCRIPTION 
+                "npPwrRelayState branch was added"
+				
+        REVISION "201204170000Z"   
+        DESCRIPTION 
+                "npReboot branch was added"
+
+		REVISION "201203230000Z"   
+        DESCRIPTION 
+                "Minor changes to IR module for IRC-TRv2"				
+				
+        REVISION "201109230000Z"   
+        DESCRIPTION 
+                "4 IO lines,
+                 Identification is changed from DKSF 52.4 to DKSF 52.5"
+                 
+        REVISION "201103240000Z"   
+        DESCRIPTION 
+                "npIoPulseCounter, npIoSinglePulseDuration, npIoSinglePulseStart is added
+                 Identification is changed from DKSF 52.3 to DKSF 52.4"
+                
+        REVISION "201010140000Z"   
+        DESCRIPTION 
+                "IR module support" 
+
+        REVISION "201009200000Z"   
+        DESCRIPTION 
+                "dksf 52.3 subversion" 
+
+        REVISION "201005310000Z"   
+        DESCRIPTION 
+                "dksf 51.3 subversion" 
+                
+        REVISION "201004140000Z"   
+        DESCRIPTION 
+                "SMIv2-style rewrite" 
+                
+        ::= { lightcom 201 }
+
+
+                
+lightcom OBJECT IDENTIFIER::={enterprises 25728 }
+
+
+npTrapInfo OBJECT IDENTIFIER::={lightcom 90}
+
+npTrapEmailTo OBJECT-TYPE
+     SYNTAX     DisplayString
+     MAX-ACCESS     read-only
+     STATUS     current
+     DESCRIPTION     "user-specified e-mail for NetPing Trap Forwarding Service"
+     ::={npTrapInfo 1}   
+
+
+npRelay OBJECT IDENTIFIER::={ lightcom 5500 }
+
+npRelayTable       OBJECT-TYPE 
+    SYNTAX     SEQUENCE OF NpRelayEntry
+    MAX-ACCESS     not-accessible 
+    STATUS     current 
+    DESCRIPTION  "Watchdog and outlet/relay control table"     
+    ::= { npRelay 5 } 
+
+npRelayEntry     OBJECT-TYPE 
+    SYNTAX     NpRelayEntry 
+    MAX-ACCESS     not-accessible 
+    STATUS     current 
+    DESCRIPTION  "Relay/outlet table row"  
+    INDEX     { npRelayN } 
+    ::= { npRelayTable 1 } 
+
+NpRelayEntry     ::= SEQUENCE { 
+    npRelayN               INTEGER,
+    npRelayMode            INTEGER,
+    npRelayStartReset      INTEGER,
+    npRelayMemo            DisplayString,
+    npRelayFlip            INTEGER,
+    npRelayState           INTEGER
+-- npRelayPowered INTEGER
+    } 
+    
+npRelayN  OBJECT-TYPE 
+    SYNTAX     INTEGER  (1..2)
+    MAX-ACCESS     read-only 
+    STATUS     current 
+    DESCRIPTION  "The N of output relay" 
+    ::= { npRelayEntry 1 }
+    
+npRelayMode  OBJECT-TYPE
+     SYNTAX     INTEGER {
+                   off(0),
+                   on(1),
+                   watchdog(2),
+                   schedule(3),
+                   scheduleAndWatchdog(4),
+                   logic(5)
+     }
+     MAX-ACCESS     read-write
+     STATUS     current
+     DESCRIPTION     "Control of relay:
+                      0 - manual off 
+                      1 - manual on
+                      2 - watchdog
+                      3 - schedule
+                      4 - both schedule and watchdog (while switched on by schedule)
+                      5 - logic"
+     ::={npRelayEntry  2}
+     
+npRelayStartReset  OBJECT-TYPE
+     SYNTAX     INTEGER
+     MAX-ACCESS read-write
+     STATUS     current
+     DESCRIPTION     "Write 1 to start reset (switch relay off for some time)"
+     ::={npRelayEntry 3}    
+    
+npRelayMemo  OBJECT-TYPE
+     SYNTAX     DisplayString
+     MAX-ACCESS     read-only
+     STATUS     current
+     DESCRIPTION     "Relay memo"
+     ::={npRelayEntry 6}
+     
+npRelayFlip  OBJECT-TYPE
+     SYNTAX     INTEGER {
+                   flip(-1)
+     }
+     MAX-ACCESS     read-only
+     STATUS     current
+     DESCRIPTION     "Write -1 to flip between manual on and manual off states of relay"
+     ::={npRelayEntry  14}     
+
+npRelayState  OBJECT-TYPE
+     SYNTAX     INTEGER {
+                   off(0),
+                   on(1)
+     }
+     MAX-ACCESS     read-only
+     STATUS     current
+     DESCRIPTION     "Actual relay state at the moment, 
+                      regardless of source of control.
+                      0 - relay is off 
+                      1 - relay is on"
+     ::={npRelayEntry  15}
+
+-- npRelayPowered OBJECT-TYPE
+--     SYNTAX     INTEGER {
+--                   no(0),
+--                 yes(1)
+--     }
+--     MAX-ACCESS     read-only
+--     STATUS     current
+--     DESCRIPTION     "AC presence on output.
+--                      0 - no AC dew to relay switched off or no ac on input
+--                      1 - AC is present"
+--     ::={npRelayEntry  16}
+
+
+npPwr OBJECT IDENTIFIER::={ lightcom 5800 }
+
+npPwrTable       OBJECT-TYPE 
+    SYNTAX     SEQUENCE OF NpPwrEntry
+    MAX-ACCESS     not-accessible 
+    STATUS     current 
+    DESCRIPTION  "Watchdog and outlet/relay control table"     
+    ::= { npPwr 3 } 
+
+npPwrEntry     OBJECT-TYPE 
+    SYNTAX     NpPwrEntry 
+    MAX-ACCESS     not-accessible 
+    STATUS     current 
+    DESCRIPTION  "Watchdog and outlet/relay control table row"  
+    INDEX     { npPwrChannelN } 
+    ::= { npPwrTable 1 } 
+
+NpPwrEntry     ::= SEQUENCE { 
+    npPwrChannelN               INTEGER,
+    npPwrStartReset             INTEGER,
+    npPwrManualMode             INTEGER,
+    npPwrResetsCounter          INTEGER,
+    npPwrRepeatingResetsCounter INTEGER,
+    npPwrMemo                   DisplayString,
+    npPwrRelayState		INTEGER,
+    npPwrRelayFlip              INTEGER
+    } 
+    
+npPwrChannelN  OBJECT-TYPE 
+    SYNTAX     INTEGER  (1..2)
+    MAX-ACCESS     read-only 
+    STATUS     current 
+    DESCRIPTION  "The id of watchdog/power channel" 
+    ::= { npPwrEntry 1 }
+    
+npPwrStartReset  OBJECT-TYPE
+     SYNTAX     INTEGER (0..2)
+     MAX-ACCESS read-write
+     STATUS     current
+     DESCRIPTION     "Write 1 to start forced reset
+                      On read:
+                      0 - normal operation
+                      1 - reset is active
+                      2 - reboot pause is active or watchdog is inactive"
+     ::={npPwrEntry 2}    
+    
+npPwrManualMode  OBJECT-TYPE
+     SYNTAX     INTEGER {
+                   off(0),
+                   on(1),
+                   watchdog(2),
+                   schedule(3),
+                   scheduleAndWatchdog(4),
+                   logic(5)
+     }
+     MAX-ACCESS     read-write
+     STATUS     current
+     DESCRIPTION     "Mode of power channel 
+                      0 - manual off 
+                      1 - manual on
+                      2 - watchdog
+                      3 - schedule
+                      4 - schedule and watchdog
+                      5 - controlled by Logic"
+     ::={npPwrEntry  3}
+    
+npPwrResetsCounter  OBJECT-TYPE
+     SYNTAX     INTEGER (0..65535)
+     MAX-ACCESS     read-write
+     STATUS     current
+     DESCRIPTION     "Counter of watchdog resets
+                      Write 0 to clear."
+     ::={npPwrEntry 4}
+
+npPwrRepeatingResetsCounter  OBJECT-TYPE
+     SYNTAX     INTEGER (0..65535)
+     MAX-ACCESS read-only
+     STATUS     current
+     DESCRIPTION     "Counter of continous failed 
+                      watchdog resets"
+     ::={npPwrEntry 5}
+     
+npPwrMemo  OBJECT-TYPE
+     SYNTAX     DisplayString
+     MAX-ACCESS     read-only
+     STATUS     current
+     DESCRIPTION     "Relay channel memo"
+     ::={npPwrEntry 6}     
+
+npPwrRelayFlip  OBJECT-TYPE
+     SYNTAX     INTEGER { 
+                   flip(-1)
+     }
+     MAX-ACCESS     read-write
+     STATUS     current
+     DESCRIPTION     "Write -1 to flip between manual on and manual off states of relay"
+     ::={npPwrEntry  14} 
+
+npPwrRelayState  OBJECT-TYPE
+     SYNTAX     INTEGER {
+                   off(0),
+                   on(1)
+     }
+     MAX-ACCESS     read-only
+     STATUS     current
+     DESCRIPTION     "Actual relay state at the moment, 
+	                 regardless of source of control.
+                      0 - relay is off 
+                      1 - relay is on"
+     ::={npPwrEntry  15}
+
+      
+ 
+ 
+npThermo OBJECT IDENTIFIER::={lightcom 8800}
+     
+npThermoTable       OBJECT-TYPE 
+    SYNTAX     SEQUENCE OF NpThermoEntry 
+    MAX-ACCESS     not-accessible 
+    STATUS     current 
+    DESCRIPTION  "Thermo Sensors Table"     
+    ::= { npThermo 1 } 
+
+npThermoEntry       OBJECT-TYPE 
+    SYNTAX     NpThermoEntry 
+    MAX-ACCESS     not-accessible 
+    STATUS     current 
+    DESCRIPTION  "Thermo Sensors Table Row"     
+    INDEX     { npThermoSensorN } 
+    ::= { npThermoTable 1 } 
+
+NpThermoEntry     ::= SEQUENCE { 
+    npThermoSensorN INTEGER,
+    npThermoValue   INTEGER,
+    npThermoStatus  INTEGER,
+    npThermoLow     INTEGER,
+    npThermoHigh    INTEGER,
+    npThermoMemo    DisplayString 
+    } 
+
+npThermoSensorN          OBJECT-TYPE 
+    SYNTAX     INTEGER (1..8)
+    MAX-ACCESS     read-only 
+    STATUS     current 
+    DESCRIPTION  "The id of temperature sensor, 1 to 8" 
+    ::= { npThermoEntry 1 }
+
+npThermoValue     OBJECT-TYPE 
+    SYNTAX     INTEGER (-60..280)
+    MAX-ACCESS     read-only 
+    STATUS     current 
+    DESCRIPTION  "Temperature, deg.C" 
+    ::= { npThermoEntry 2 }      
+     
+npThermoStatus    OBJECT-TYPE 
+    SYNTAX     INTEGER {
+                  failed(0),
+                  low(1),
+                  norm(2),
+                  high(3)
+                }     
+    MAX-ACCESS     read-only 
+    STATUS     current 
+    DESCRIPTION  "Temperature status (0=fault, 1=underheat, 2=normal, 3=overheat)" 
+    ::= { npThermoEntry 3 }      
+
+npThermoLow      OBJECT-TYPE 
+    SYNTAX     INTEGER (-60..280)
+    MAX-ACCESS     read-only 
+    STATUS     current 
+    DESCRIPTION  "Bottom margin of normal temperature range, deg.C" 
+    ::= { npThermoEntry 4 } 
+
+npThermoHigh     OBJECT-TYPE 
+    SYNTAX     INTEGER (-60..280)
+    MAX-ACCESS     read-only 
+    STATUS     current 
+    DESCRIPTION  "Top margin of normal temperature range, deg.C" 
+    ::= { npThermoEntry 5 } 
+    
+npThermoMemo    OBJECT-TYPE 
+    SYNTAX     DisplayString 
+    MAX-ACCESS     read-only 
+    STATUS     current 
+    DESCRIPTION  "T channel memo" 
+    ::= { npThermoEntry 6 } 
+    
+    
+npThermoTraps      OBJECT IDENTIFIER::={npThermo 2} 
+npThermoTrapPrefix OBJECT IDENTIFIER::={npThermoTraps 0} 
+
+npThermoTrapSensorN          OBJECT-TYPE 
+    SYNTAX     INTEGER (1..8)
+    MAX-ACCESS     read-only 
+    STATUS     current 
+    DESCRIPTION  "The id of temperature sensor, 1 to 8" 
+    ::= { npThermoTraps 1 }
+
+npThermoTrapValue     OBJECT-TYPE 
+    SYNTAX     INTEGER (-60..280)
+    MAX-ACCESS     read-only 
+    STATUS     current 
+    DESCRIPTION  "Temperature, deg.C" 
+    ::= { npThermoTraps 2 }      
+     
+npThermoTrapStatus    OBJECT-TYPE 
+    SYNTAX     INTEGER {
+                  failed(0),
+                  low(1),
+                  norm(2),
+                  high(3)
+                }     
+    MAX-ACCESS     read-only 
+    STATUS     current 
+    DESCRIPTION  "Temperature status (0=fault, 1=underheat, 2=normal, 3=overheat)" 
+    ::= { npThermoTraps 3 }      
+
+npThermoTrapLow      OBJECT-TYPE 
+    SYNTAX     INTEGER (-60..280)
+    MAX-ACCESS     read-only 
+    STATUS     current 
+    DESCRIPTION  "Bottom margin of normal temperature range, deg.C" 
+    ::= { npThermoTraps 4 } 
+
+npThermoTrapHigh     OBJECT-TYPE 
+    SYNTAX     INTEGER (-60..280)
+    MAX-ACCESS     read-only 
+    STATUS     current 
+    DESCRIPTION  "Top margin of normal temperature range, deg.C" 
+    ::= { npThermoTraps 5 } 
+    
+npThermoTrapMemo    OBJECT-TYPE 
+    SYNTAX     DisplayString 
+    MAX-ACCESS     read-only 
+    STATUS     current 
+    DESCRIPTION  "T channel memo" 
+    ::= { npThermoTraps 6 } 
+    
+npThermoTrap NOTIFICATION-TYPE
+OBJECTS { 
+    npThermoTrapSensorN,
+    npThermoTrapValue,
+    npThermoTrapStatus,
+    npThermoTrapLow,
+    npThermoTrapHigh,
+    npThermoTrapMemo 
+        }
+STATUS  current
+DESCRIPTION
+        "Status of Thermo sensor is changed (crossing of normal temp. range)"
+::= { npThermoTrapPrefix 1 }
+
+
+
+npIo  OBJECT IDENTIFIER::={lightcom 8900}
+     
+npIoTable       OBJECT-TYPE 
+    SYNTAX     SEQUENCE OF NpIoEntry 
+    MAX-ACCESS     not-accessible 
+    STATUS     current 
+    DESCRIPTION  "Digital Input/output Table"     
+    ::= { npIo 1 } 
+
+npIoEntry        OBJECT-TYPE 
+    SYNTAX     NpIoEntry
+    MAX-ACCESS     not-accessible 
+    STATUS     current 
+    DESCRIPTION  "Digital Input/output Table Row"     
+    INDEX     { npIoLineN } 
+    ::= { npIoTable 1 } 
+
+NpIoEntry   ::= SEQUENCE { 
+    npIoLineN    INTEGER,
+    npIoLevelIn  INTEGER,
+    npIoLevelOut INTEGER,
+    npIoMemo     DisplayString,
+    npIoPulseCounter        Counter32,
+    npIoSinglePulseDuration INTEGER,
+    npIoSinglePulseStart    INTEGER
+    } 
+
+npIoLineN      OBJECT-TYPE 
+    SYNTAX     INTEGER (1..4)
+    MAX-ACCESS     read-only 
+    STATUS     current 
+    DESCRIPTION  "Number of IO line, from 1 to max supported" 
+    ::= { npIoEntry 1 }
+
+npIoLevelIn    OBJECT-TYPE 
+    SYNTAX     INTEGER (0..1)
+    MAX-ACCESS     read-only 
+    STATUS     current 
+    DESCRIPTION  "Input level, 0 or 1" 
+    ::= { npIoEntry 2 }
+    
+npIoLevelOut   OBJECT-TYPE 
+    SYNTAX     INTEGER {
+                  flip(-1),
+                  low(0),
+                  high(1)
+                }     
+    MAX-ACCESS     read-write 
+    STATUS     current 
+    DESCRIPTION  "Output level" 
+    ::= { npIoEntry 3 }  
+
+npIoMemo    OBJECT-TYPE 
+    SYNTAX     DisplayString 
+    MAX-ACCESS     read-only 
+    STATUS     current 
+    DESCRIPTION  "IO line memo" 
+    ::= { npIoEntry 6 }    
+
+npIoPulseCounter   OBJECT-TYPE 
+    SYNTAX     Counter32
+    MAX-ACCESS     read-write 
+    STATUS     current 
+    DESCRIPTION  "Pulse Counter on IO input line (counts positive fronts)
+                  Write 0 to reset." 
+    ::= { npIoEntry 9 }     
+
+npIoSinglePulseDuration   OBJECT-TYPE 
+    SYNTAX     INTEGER (100..25500)
+    MAX-ACCESS    read-write 
+    STATUS     current 
+    DESCRIPTION  "Set duration of single pulse on IO output line,
+                  100ms to 25500ms, min. step is 100ms" 
+    ::= { npIoEntry 12 }     
+
+npIoSinglePulseStart    OBJECT-TYPE     
+    SYNTAX     INTEGER
+    MAX-ACCESS    read-write 
+    STATUS     current 
+    DESCRIPTION  "Write 1 to start single pulse on IO output. 
+                  Output will be inverted for time, specified by npIoSinglePulseDuration"
+    ::= { npIoEntry 13 } 
+
+npIoTraps      OBJECT IDENTIFIER::={npIo 2} 
+npIoTrapPrefix OBJECT IDENTIFIER::={npIoTraps 0} 
+
+npIoTrapLineN OBJECT-TYPE 
+    SYNTAX     INTEGER (1..2)
+    MAX-ACCESS     read-only 
+    STATUS     current 
+    DESCRIPTION  "Trap data, Number of IO line" 
+    ::= { npIoTraps 1 }
+
+npIoTrapLevelIn OBJECT-TYPE 
+    SYNTAX     INTEGER (0..1)
+    MAX-ACCESS     read-only 
+    STATUS     current 
+    DESCRIPTION  "Trap data, new Input level, 0 or 1" 
+    ::= { npIoTraps 2 }
+
+npIoTrapMemo OBJECT-TYPE 
+    SYNTAX     DisplayString 
+    MAX-ACCESS     read-only 
+    STATUS     current 
+    DESCRIPTION  "Trap data, IO line memo" 
+    ::= { npIoTraps 6 }
+    
+npIoTrap NOTIFICATION-TYPE
+    OBJECTS { 
+          npIoTrapLineN,
+          npIoTrapLevelIn,
+          npIoTrapMemo
+        }
+    STATUS  current
+    DESCRIPTION
+        "Input state of IO line is changed"
+    ::= { npIoTrapPrefix 1 }
+
+   
+npRelHumidity OBJECT IDENTIFIER::={lightcom 8400}
+npRelHumSensor OBJECT IDENTIFIER::={npRelHumidity 2}
+
+npRelHumSensorStatus     OBJECT-TYPE 
+    SYNTAX     INTEGER {
+      ok (0),
+      error(1)
+      }
+    MAX-ACCESS     read-only 
+    STATUS     current 
+    DESCRIPTION  "Status of the Rel.Humidity Sensor One
+                  0=Normal, 1=Error or Sensor isn't connected"
+    ::= { npRelHumSensor 3 } 
+    
+npRelHumSensorValueH    OBJECT-TYPE 
+    SYNTAX     INTEGER (0..100)
+    MAX-ACCESS     read-only 
+    STATUS     current 
+    DESCRIPTION  "Relative humidity value, %" 
+    ::= { npRelHumSensor 2 } 
+    
+npRelHumSensorValueT     OBJECT-TYPE 
+    SYNTAX     INTEGER (-60..200)
+    MAX-ACCESS     read-only 
+    STATUS     current 
+    DESCRIPTION  "Sensor temperature, deg.C" 
+    ::= { npRelHumSensor 4 }     
+
+npRelHumSensorStatusH     OBJECT-TYPE 
+    SYNTAX     INTEGER {
+                  sensorFailed(0),
+                  belowSafeRange(1),
+                  inSafeRange(2),
+                  aboveSafeRange(3)
+                }  
+    MAX-ACCESS     read-only 
+    STATUS     current 
+    DESCRIPTION  "Status of Relative Humiduty" 
+    ::= { npRelHumSensor 5 } 
+	
+npRelHumSafeRangeHigh    OBJECT-TYPE 
+    SYNTAX     INTEGER (0..100)
+    MAX-ACCESS     read-only 
+    STATUS     current 
+    DESCRIPTION  "Relative Humidity safe range, top margin, %RH" 
+    ::= { npRelHumSensor 7 } 	
+	
+npRelHumSafeRangeLow    OBJECT-TYPE 
+    SYNTAX     INTEGER (0..100)
+    MAX-ACCESS     read-only 
+    STATUS     current 
+    DESCRIPTION  "Relative Humidity safe range, bottom margin, %RH" 
+    ::= { npRelHumSensor 8 } 		
+
+npRelHumSensorValueT100   OBJECT-TYPE 
+    SYNTAX     Integer32
+    MAX-ACCESS     read-only 
+    STATUS     current 
+    DESCRIPTION  "Sensor temperature, deg.C * 100 (fixed point two decimal places)
+                  Used to get access to the fractional part of T value" 
+    ::= { npRelHumSensor 9 } 
+
+npRelHumTraps   OBJECT IDENTIFIER::={npRelHumidity 9} 
+npRelHumTrapPrefix OBJECT IDENTIFIER::={npRelHumTraps 0} 	
+
+npRelHumTrap NOTIFICATION-TYPE
+    OBJECTS { 
+	npRelHumSensorStatusH,
+    npRelHumSensorValueH,
+	npRelHumSafeRangeHigh,
+	npRelHumSafeRangeLow,
+	npTrapEmailTo	
+        }
+    STATUS  current
+    DESCRIPTION
+        "Status of Relative Humidity RH sensor has changed!"
+    ::= { npRelHumTrapPrefix 1 }
+
+
+
+
+npGsm  OBJECT IDENTIFIER::={lightcom 3800}
+npGsmInfo OBJECT IDENTIFIER::={npGsm 1}
+
+npGsmFailed  OBJECT-TYPE 
+    SYNTAX     INTEGER {
+                        ok (0), 
+                        failed (1),
+                        fatalError (2)
+                       }
+    MAX-ACCESS  read-only
+    STATUS     current 
+    DESCRIPTION  "Firmware's GSM module status" 
+    ::= { npGsmInfo 1 }   
+
+npGsmRegistration OBJECT-TYPE 
+    SYNTAX     INTEGER {
+                        impossible (0), 
+                        homeNetwork (1),
+                        searching (2),
+                        denied (3),
+                        unknown (4),
+                        roaming (5),
+                        infoUpdate (255)
+                       }
+    MAX-ACCESS  read-only
+    STATUS     current 
+    DESCRIPTION  "Status of modem registration in GSM network (AT+CREG? result)" 
+    ::= { npGsmInfo 2 } 
+    
+npGsmStrength  OBJECT-TYPE 
+    SYNTAX     INTEGER (0..255)
+    MAX-ACCESS  read-only
+    STATUS     current 
+    DESCRIPTION  "GSM signal strength.
+                  0..31 = 0..100%, 
+                  99 = unknown or n/a, 
+                  255 = updating info" 
+    ::= { npGsmInfo 3 } 
+
+
+npGsmTraps      OBJECT IDENTIFIER::={npGsm 2} 
+npGsmTrapPrefix OBJECT IDENTIFIER::={npGsmTraps 0} 
+
+npGsmTrap NOTIFICATION-TYPE
+    OBJECTS { 
+          npGsmFailed,
+          npGsmRegistration,
+          npGsmStrength
+        }
+    STATUS  current
+    DESCRIPTION
+        "GSM modem or SMS firmware problems"
+    ::= { npGsmTrapPrefix 1 }
+
+
+    
+npIr  OBJECT IDENTIFIER::={lightcom 7900}
+npIrCtrl OBJECT IDENTIFIER::={npIr 1}
+
+npIrPlayCmd OBJECT-TYPE 
+    SYNTAX     INTEGER (1..16)
+    MAX-ACCESS     read-write 
+    STATUS     current 
+    DESCRIPTION  "Write IR command number to send IR command" 
+    ::= { npIrCtrl 1 }
+
+npIrReset  OBJECT-TYPE 
+    SYNTAX     INTEGER (0..1)
+    MAX-ACCESS  read-write 
+    STATUS     current 
+    DESCRIPTION  "Write 1 to reset IR transiever.
+                  After reset, send IR command and check npIrStatus." 
+    ::= { npIrCtrl 2 }   
+    
+npIrStatus  OBJECT-TYPE 
+    SYNTAX     INTEGER {
+                  ok (0),
+                  busyCaptureWaitingButton (1),
+                  busyCaptureWaitingIr (2),
+                  busyPlayback (3),
+                  error (255)
+                } 
+    MAX-ACCESS  read-only
+    STATUS     current 
+    DESCRIPTION  "IR transiever status" 
+    ::= { npIrCtrl 3 } 
+        
+    
+    
+npReboot OBJECT IDENTIFIER::={ lightcom 911 }   
+
+npSoftReboot OBJECT-TYPE 
+    SYNTAX     INTEGER
+    MAX-ACCESS read-write 
+    STATUS     current 
+    DESCRIPTION  "Write 1 to reboot device after 
+                  current operations completition" 
+    ::= { npReboot 1 }
+
+npResetStack OBJECT-TYPE 
+    SYNTAX     INTEGER
+    MAX-ACCESS read-write 
+    STATUS     current 
+    DESCRIPTION  "Write 1 to re-initialize network 
+                  stack" 
+    ::= { npReboot 2 }    
+
+npForcedReboot OBJECT-TYPE 
+    SYNTAX     INTEGER
+    MAX-ACCESS read-write 
+    STATUS     current 
+    DESCRIPTION  "Write 1 to immediate forced reboot" 
+    ::= { npReboot 3 } 
+	
+END

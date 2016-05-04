@@ -7,8 +7,8 @@
  *
  * @package    observium
  * @subpackage discovery
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -28,6 +28,7 @@ foreach ($ports_vlans_db_raw as $vlan_db)
 {
   $ports_vlans_db[$vlan_db['port_id']][$vlan_db['vlan']] = $vlan_db;
 }
+#if (OBS_DEBUG > 1 && count($ports_vlans_db)) { var_dump($ports_vlans_db); }
 
 // Create an empty array to record what VLANs we discover this session.
 $device['vlans'] = array();
@@ -48,7 +49,7 @@ foreach ($device['vlans'] as $domain_id => $vlans)
     // FIXME - do this only when vlan type == ethernet?
     if (is_numeric($vlan_id) && ($vlan_id <1002 || $vlan_id > 1105)) // Ignore reserved VLAN IDs
     {
-      if ($device['os_group'] == "cisco" && $device['os'] != 'ciscosb')  // This shit only seems to work on Cisco
+      if ($device['os_group'] == "cisco" && $device['os'] != 'ciscosb') // This shit only seems to work on Cisco
       {
         list($ios_version) = explode('(', $device['version']);
 
@@ -59,7 +60,8 @@ foreach ($device['vlans'] as $domain_id => $vlans)
           break;
         }
         $device_context = $device;
-        $device_context['snmp_context'] = $vlan_id;
+        $device_context['snmp_context'] = $vlan_id;  // Add vlan context
+        $device_context['snmp_retries'] = 0;         // Set retries to 0 for speedup walking
         $vlan_data = snmpwalk_cache_oid($device_context, "dot1dStpPortEntry", array(), "BRIDGE-MIB:Q-BRIDGE-MIB", mib_dirs());
 
         // Detection shit snmpv3 authorization errors for contexts
@@ -87,6 +89,8 @@ foreach ($device['vlans'] as $domain_id => $vlans)
       foreach ($vlan_data as $vlan_port_id => $vlan_port)
       {
         $port = get_port_by_index_cache($device, $vlan_port['dot1dBasePortIfIndex']);
+        if (!is_array($port)) { continue; } // Port not founded, skip
+
         print_debug(str_pad($vlan_port_id, 10).str_pad($vlan_port['dot1dBasePortIfIndex'], 10).
                     str_pad($port['ifDescr'],25).str_pad($vlan_port['dot1dStpPortPriority'], 10).
                     str_pad($vlan_port['dot1dStpPortState'], 15).str_pad($vlan_port['dot1dStpPortPathCost'], 10));

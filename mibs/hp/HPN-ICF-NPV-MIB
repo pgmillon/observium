@@ -1,0 +1,235 @@
+-- =====================================================================
+-- Copyright (c) 2010-2013 Hewlett-Packard Development Company, L.P.
+--
+-- Description:
+--      This MIB module is for the management of N_Port Virtualization or
+--      NPV within the framework of N_Port virtualization(NPV) architecture.
+-- Reference:
+-- Version: V1.0
+-- History:
+--      V1.0 Initial version created by wangxu 2013-04-02
+-- =====================================================================
+HPN-ICF-NPV-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE
+        FROM SNMPv2-SMI
+    TEXTUAL-CONVENTION, RowStatus, TimeStamp
+        FROM SNMPv2-TC
+    ifIndex, InterfaceIndex
+        FROM IF-MIB
+    HpnicfFcVsanIndex
+        FROM HPN-ICF-FC-TC-MIB
+    hpnicfSan, hpnicfVsanIndex
+        FROM HPN-ICF-VSAN-MIB;
+
+hpnicfNpv  MODULE-IDENTITY
+    LAST-UPDATED "201304020000Z"
+    ORGANIZATION
+        ""
+    CONTACT-INFO
+        ""
+    DESCRIPTION
+        "This MIB module is for the management of N_Port Virtualization
+         or NPV within the framework of N_Port virtualization(NPV)
+         architecture.
+
+         N_Port virtualization reduces the number of Fibre Channel
+         domain IDs in SANs(Storage Aera Network).  Switches operating
+         in the NPV mode do not join a fabric; rather, they pass traffic
+         between NPV core switch links and end-devices, which eliminates
+         the domain IDs for these edge switches.  NPV core switch is a
+         fibre channel edge switch connected to one or more NPV devices."
+    REVISION "201304020000Z"
+    DESCRIPTION
+        "Initial version of this MIB module."
+    ::= { hpnicfSan 6 }
+
+HpnicfNpvIfIndexList ::= TEXTUAL-CONVENTION
+    STATUS          current
+    DESCRIPTION
+        "This textual convention defines a list of 'ifIndex'.
+
+        Each 4 octets within this value are combined together
+        to represent the 'ifIndex' of a particular port in the
+        module.
+
+        For example, the first 4 octets (byte 1, byte 2, byte 3
+        and byte 4) represent the 'ifIndex' of one interface, while
+        the second 4 octets (byte 5, byte 6, byte 7 and byte 8)
+        represent the 'ifIndex' for another interface in the module,
+        and so on."
+    SYNTAX          OCTET STRING (SIZE (4..65535))
+
+hpnicfNpvMibObjects             OBJECT IDENTIFIER
+    ::= { hpnicfNpv 1 }
+hpnicfNpvConfiguration          OBJECT IDENTIFIER
+    ::= { hpnicfNpvMibObjects 1 }
+hpnicfNpvGlobalObjects          OBJECT IDENTIFIER
+    ::= { hpnicfNpvConfiguration 1 }
+
+-- NPV Traffic Loadbalance
+
+hpnicfNpvLoadbalanceVsan OBJECT-TYPE
+    SYNTAX          HpnicfFcVsanIndex
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "Used to trigger a load-banlancing in the specified VSAN (Virtual
+         Storage Area Network).
+
+         When the hpnicfNpvLoadbalanceVsan is set to a specific VSAN, a
+         disruptive load-balancing process will be initiated in the VSAN
+         so that all nodes in the VSAN will re-login to the core switch.
+
+         This load-balancing process redistributes downlink traffic across
+         all uplink interfaces for better load balancing, but it causes
+         traffic interruption."
+    ::= { hpnicfNpvGlobalObjects 1 }
+
+-- NPV Traffic Map configuration
+
+hpnicfNpvTrafficMapConfigTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF HpnicfNpvTrafficMapConfigEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "A table containing information on the assignment of
+        traffic map interfaces to an interface."
+    ::= { hpnicfNpvConfiguration 2 }
+
+hpnicfNpvTrafficMapConfigEntry OBJECT-TYPE
+    SYNTAX          HpnicfNpvTrafficMapConfigEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "An entry in the hpnicfNpvTrafficMapConfigTable.
+
+        This table contains entries for each of the interfaces
+        which has been assigned a set of interfaces for traffic
+        mapping in the VSAN.
+
+        Traffic mapping is a technique used in NPV device to
+        restrict the usage of external interface(s) for forwarding
+        the traffic from server interface to the fibre channel fabric.
+
+        If an interface comes up as a server interface and finds
+        a corresponding entry in this table, then the switch
+        software will assign a valid external interface from
+        this list, if any.  Once assigned, that assigned external
+        interface will be used for forwarding the traffic from
+        the server interface to the fibre channel fabric.
+
+        If an interface comes up as a server interface and
+        finds an entry in this table, but with no valid list of
+        external interfaces, then the switch software keeps the
+        server interface in operationally down state until
+        at least one of the interface in the list becomes a
+        valid external interface.
+
+        If an interface comes up as a server interface and it
+        can not find an entry in this table, then any of the
+        available external interfaces can be assigned to that
+        server interface.
+
+        Entries in this table can be created or destroyed via
+        hpnicfNpvTrafficMapRowStatus object.  Columnar objects can be
+        modified when the corresponding hpnicfNpvTrafficMapRowStatus
+        is 'active'."
+    INDEX           { ifIndex,
+                      hpnicfVsanIndex }
+    ::= { hpnicfNpvTrafficMapConfigTable 1 }
+
+HpnicfNpvTrafficMapConfigEntry ::= SEQUENCE {
+    hpnicfNpvTrafficMapExternalIfIndexList HpnicfNpvIfIndexList,
+    hpnicfNpvTrafficMapLastChange          TimeStamp,
+    hpnicfNpvTrafficMapRowStatus           RowStatus
+}
+
+hpnicfNpvTrafficMapExternalIfIndexList OBJECT-TYPE
+    SYNTAX          HpnicfNpvIfIndexList
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "The list of external interfaces which the traffic needs
+         to be mapped to.
+
+         This object is a list of interfaces presented as
+         an octet string of interface indices or ifindex-es.
+
+         The list should contain at least one interface and at most
+         all the interfaces in the switch up to 16384 interfaces.
+         The 16384 interfaces max-limit is due to the size of this
+         object.
+
+         Specifying this object is mandatory for the creation of a
+         row in hpnicfNpvTrafficMapConfigTable."
+    ::= { hpnicfNpvTrafficMapConfigEntry 1 }
+
+hpnicfNpvTrafficMapLastChange OBJECT-TYPE
+    SYNTAX          TimeStamp
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The value of sysUpTime at the time of the latest
+        change to this traffic map entry.
+
+        When there has not been any change to the traffic
+        map entry, the value of this field will be that
+        of the entry creation time."
+    ::= { hpnicfNpvTrafficMapConfigEntry 2 }
+
+hpnicfNpvTrafficMapRowStatus OBJECT-TYPE
+    SYNTAX          RowStatus
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "The status of this conceptual row.
+
+         The row can be made 'active' only if value of corresponding
+         instance of hpnicfNpvTrafficMapExternalIfIndexList is provided."
+    ::= { hpnicfNpvTrafficMapConfigEntry 3 }
+
+-- Per Server Interface NPV Information
+
+hpnicfNpvServerIfTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF HpnicfNpvServerIfEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This table contains, one entry for each server
+        interface(FC-port configured in F-port mode) in
+        this VSAN in the Fabric element.
+
+        Each entry contains NPV related information like
+        external interface assigned for the server interface
+        in the VSAN."
+
+    ::= { hpnicfNpvConfiguration 3 }
+
+hpnicfNpvServerIfEntry OBJECT-TYPE
+    SYNTAX          HpnicfNpvServerIfEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "An entry in the hpnicfNpvServerIfTable, containing NPV
+        related parameters established by a server interface
+        indicated by ifIndex."
+    INDEX           { ifIndex,
+                      hpnicfVsanIndex }
+    ::= { hpnicfNpvServerIfTable 1 }
+
+HpnicfNpvServerIfEntry ::= SEQUENCE {
+    hpnicfNpvExternalIfIndex  InterfaceIndex
+}
+
+hpnicfNpvExternalIfIndex OBJECT-TYPE
+    SYNTAX          InterfaceIndex
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This value of this object is the external interface assigned
+        for the server interface associated with the server interface."
+    ::= { hpnicfNpvServerIfEntry 1 }
+
+END

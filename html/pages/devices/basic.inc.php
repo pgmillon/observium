@@ -7,11 +7,13 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-echo('<table class="table table-hover table-striped table-bordered table-condensed table-rounded" style="margin-top: 10px;">');
+echo('
+<div class="box box-solid">
+  <table class="table table-hover table-striped  table-condensed " style="margin-top: 10px;">');
 
 foreach ($devices as $device)
 {
@@ -19,12 +21,13 @@ foreach ($devices as $device)
   {
     if (!$location_filter || $device['location'] == $location_filter)
     {
-      print_device_hostbox($device, 'basic');
+      print_device_row($device, 'basic');
       //include("includes/hostbox-basic.inc.php");
     }
   }
 }
 
-echo("</table>");
+echo("  </table>
+</div>");
 
 // EOF

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -24,7 +24,7 @@
 
 //  Hardcoded discovery of cpu usage on Alliedware/Alliedwareplus devices using AT-SYSINFO-MIB
 
-echo(" AT-SYSINFO-MIB ");
+echo("AT-SYSINFO-MIB ");
 
 $descr = "Processor";
 $usage = snmp_get($device, "cpuUtilisationAvgLast5Minutes.0", "-OQUvs", "AT-SYSINFO-MIB");
@@ -35,4 +35,3 @@ if (is_numeric($usage))
 }
 
 // EOF
-

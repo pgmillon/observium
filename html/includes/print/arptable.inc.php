@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage web
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -43,27 +43,56 @@ function print_arptable($vars)
           break;
         case 'port':
         case 'port_id':
-          $where .= ' AND I.`port_id` = ?';
-          $param[] = $value;
+          $where .= generate_query_values($value, 'I.port_id');
           break;
         case 'ip_version':
-          $where .= ' AND `ip_version` = ?';
-          $param[] = $value;
+          $where .= generate_query_values($value, 'ip_version');
           break;
         case 'address':
           if (isset($vars['searchby']) && $vars['searchby'] == 'ip')
           {
-            $where .= ' AND `ip_address` LIKE ?';
             $value = trim($value);
-            // FIXME. Need another conversion ("2001:b08:b08" -> "2001:0b08:0b08") -- mike
-            if (Net_IPv6::checkIPv6($value)) { $value = Net_IPv6::uncompress($value, true); }
-            $param[] = '%'.$value.'%';
+            if (strpos($value, ':') !== FALSE)
+            {
+              if (Net_IPv6::checkIPv6($value))
+              {
+                $value = Net_IPv6::uncompress($value, TRUE);
+              } else {
+                // FIXME. Need another conversion ("2001:b08:b08" -> "2001:0b08:0b08") -- mike
+              }
+            }
+            $where .= generate_query_values($value, 'ip_address', '%LIKE%');
           } else {
-            $where .= ' AND `mac_address` LIKE ?';
-            $param[] = '%'.str_replace(array(':', ' ', '-', '.', '0x'),'', $value).'%';
+            // MAC Addresses
+            $value = str_replace(array(':', ' ', '-', '.', '0x'), '', $value);
+            $where .= generate_query_values($value, 'mac_address', '%LIKE%');
           }
           break;
       }
+    }
+  }
+
+  if(isset($vars['sort']))
+  {
+    switch($vars['sort'])
+    {
+      case "port":
+        $sort = " ORDER BY `I`.`port_label`";
+        break;
+
+      case "ip_version":
+        $sort = " ORDER BY `ip_version`";
+        break;
+
+      case "ip":
+      case "address":
+        $sort = " ORDER BY `ip_address`";
+        break;
+
+      case "mac":
+      default:
+        $sort = " ORDER BY `mac_address`";
+
     }
   }
 
@@ -75,7 +104,7 @@ function print_arptable($vars)
   $query .= $where . $query_permitted;
   $query_count = 'SELECT COUNT(`mac_id`) ' . $query;
   $query =  'SELECT * ' . $query;
-  $query .= ' ORDER BY M.`mac_address`';
+  $query .= $sort;
   $query .= " LIMIT $start,$pagesize";
 
   // Query ARP/NDP table addresses
@@ -87,21 +116,26 @@ function print_arptable($vars)
   if (!isset($vars['device']) || empty($vars['device']) || $vars['page'] == 'search') { $list['device'] = TRUE; }
   if (!isset($vars['port']) || empty($vars['port']) || $vars['page'] == 'search') { $list['port'] = TRUE; }
 
-  $string = '<table class="table table-bordered table-striped table-hover table-condensed">' . PHP_EOL;
+  $string = generate_box_open();
+
+  $string .= '<table class="table  table-striped table-hover table-condensed">' . PHP_EOL;
+
+  $cols = array(
+    'mac'            => 'MAC Address',
+    'ip'             => 'IP Address',
+    'device'         => 'Device',
+    'port'           => 'Port',
+    '!remote_device' => 'Remote Device',
+    '!remote_port'   => 'Remote Port',
+  );
+
+  if (!$list['device']) { unset($cols['device']); }
+  if (!$list['port'])   { unset($cols['port']); }
+
   if (!$short)
   {
-    $string .= '  <thead>' . PHP_EOL;
-    $string .= '    <tr>' . PHP_EOL;
-    $string .= '      <th>MAC Address</th>' . PHP_EOL;
-    $string .= '      <th>IP Address</th>' . PHP_EOL;
-    if ($list['device']) { $string .= '      <th>Device</th>' . PHP_EOL; }
-    if ($list['port']) { $string .= '      <th>Interface</th>' . PHP_EOL; }
-    $string .= '      <th>Remote Device</th>' . PHP_EOL;
-    $string .= '      <th>Remote Interface</th>' . PHP_EOL;
-    $string .= '    </tr>' . PHP_EOL;
-    $string .= '  </thead>' . PHP_EOL;
+    $string .= get_table_header($cols, $vars); // Currently sorting is not available
   }
-  $string .= '  <tbody>' . PHP_EOL;
 
   foreach ($entries as $entry)
   {
@@ -118,8 +152,8 @@ function print_arptable($vars)
     if ($arp_host['port_id'] == $entry['port_id']) { $arp_if = 'Self Port'; }
 
     $string .= '  <tr>' . PHP_EOL;
-    $string .= '    <td style="width: 160px;">' . generate_popup_link('mac', format_mac($entry['mac_address'])) . '</td>' . PHP_EOL;
-    $string .= '    <td style="width: 140px;">' . $ip_address . '</td>' . PHP_EOL;
+    $string .= '    <td style="width: 160px;" class="entity">' . generate_popup_link('mac', format_mac($entry['mac_address'])) . '</td>' . PHP_EOL;
+    $string .= '    <td style="width: 140px;">' . generate_popup_link('ip', $ip_address) . '</td>' . PHP_EOL;
     if ($list['device'])
     {
       $dev = device_by_id_cache($entry['device_id']);
@@ -131,7 +165,7 @@ function print_arptable($vars)
       {
         $port_error = generate_port_link($entry, '<span class="label label-important">Errors</span>', 'port_errors');
       }
-      $string .= '    <td class="entity">' . generate_port_link($entry, short_ifname($entry['label'])) . ' ' . $port_error . '</td>' . PHP_EOL;
+      $string .= '    <td class="entity">' . generate_port_link($entry, $entry['port_label_short']) . ' ' . $port_error . '</td>' . PHP_EOL;
     }
     $string .= '    <td class="entity" style="width: 200px;">' . $arp_name . '</td>' . PHP_EOL;
     $string .= '    <td class="entity">' . $arp_if . '</td>' . PHP_EOL;
@@ -140,6 +174,8 @@ function print_arptable($vars)
 
   $string .= '  </tbody>' . PHP_EOL;
   $string .= '</table>';
+
+  $string .= generate_box_close();
 
   // Print pagination header
   if ($pagination) { $string = pagination($vars, $count) . $string . pagination($vars, $count); }

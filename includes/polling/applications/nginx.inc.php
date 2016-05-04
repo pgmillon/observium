@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -15,7 +15,9 @@ if (!empty($agent_data['app']['nginx']))
 {
   $nginx = $agent_data['app']['nginx'];
 
-  $rrd_filename = "app-nginx-".$app['app_id'].".rrd";
+  $app_id = discover_app($device, 'nginx');
+
+  $rrd_filename = "app-nginx-$app_id.rrd";
 
   echo(" nginx statistics".PHP_EOL);
 

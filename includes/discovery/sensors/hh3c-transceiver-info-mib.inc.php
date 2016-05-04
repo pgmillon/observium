@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -20,7 +20,7 @@
 // hh3cTransceiverTransferDistance.54 = INTEGER: 80
 // hh3cTransceiverDiagnostic.54 = INTEGER: true(1)
 
-// FIXME; Above data is (currently) not used here, serial number is present in ENTITY-MIB for inventory, other data is not. 
+// FIXME; Above data is (currently) not used here, serial number is present in ENTITY-MIB for inventory, other data is not.
 //        Possibly useful to include there as well (somehow?)?
 
 echo(" HH3C-TRANSCEIVER-INFO-MIB ");
@@ -51,7 +51,7 @@ foreach ($oids as $index => $entry)
   $scale = 1;
   $oid   = "1.3.6.1.4.1.25506.2.70.1.1.1.15.$index";
 
-  if ($value != 0)
+  if ($value != 0 && $value < 2147483647)
   {
     discover_sensor($valid['sensor'], 'temperature', $device, $oid, "hh3cTransceiverTemperature.$index", 'hh3c-transceiver-info-mib', $descr, $scale, $value, $options);
   }
@@ -62,7 +62,7 @@ foreach ($oids as $index => $entry)
   $scale = 0.00001;
   $oid   = "1.3.6.1.4.1.25506.2.70.1.1.1.17.$index";
 
-  if ($value != 0)
+  if ($value != 0 && $value < 2147483647)
   {
     discover_sensor($valid['sensor'], 'current', $device, $oid, "hh3cTransceiverBiasCurrent.$index", 'hh3c-transceiver-info-mib', $descr, $scale, $value, $options);
   }
@@ -73,18 +73,18 @@ foreach ($oids as $index => $entry)
   $scale = 0.01;
   $oid   = "1.3.6.1.4.1.25506.2.70.1.1.1.16.$index";
 
-  if ($value != 0)
+  if ($value != 0 && $value < 2147483647)
   {
     discover_sensor($valid['sensor'], 'voltage', $device, $oid, "hh3cTransceiverVoltage.$index", 'hh3c-transceiver-info-mib', $descr, $scale, $value, $options);
   }
 
-  // hh3cTransceiverCurTXPower.54 = INTEGER: -251  
+  // hh3cTransceiverCurTXPower.54 = INTEGER: -251
   $descr = $ifDescr . " TX Power";
   $value = $entry['hh3cTransceiverCurTXPower'];
   $scale = 0.01;
   $oid   = "1.3.6.1.4.1.25506.2.70.1.1.1.9.$index";
 
-  if ($value != 0)
+  if ($value != 0 && $value < 2147483647)
   {
     discover_sensor($valid['sensor'], 'dbm', $device, $oid, "hh3cTransceiverCurTXPower.$index", 'hh3c-transceiver-info-mib', $descr, $scale, $value, $options);
   }
@@ -95,7 +95,7 @@ foreach ($oids as $index => $entry)
   $scale = 0.01;
   $oid   = "1.3.6.1.4.1.25506.2.70.1.1.1.12.$index";
 
-  if ($value != 0)
+  if ($value != 0 && $value < 2147483647)
   {
     discover_sensor($valid['sensor'], 'dbm', $device, $oid, "hh3cTransceiverCurRXPower.$index", 'hh3c-transceiver-info-mib', $descr, $scale, $value, $options);
   }

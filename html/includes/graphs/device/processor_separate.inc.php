@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -33,7 +33,7 @@ $unit_text = 'Usage';
 
 $units = '%';
 $total_units = '%';
-$colours ='mixed';
+$colours ='mixed-10c';
 
 $scale_min = "0";
 $scale_max = "100";

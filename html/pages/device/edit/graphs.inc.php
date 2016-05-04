@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -23,37 +23,47 @@ foreach (dbFetchRows("SELECT `graph`,`enabled` FROM `device_graphs` WHERE `devic
   $graphs_sections[$section][$graph] = (bool)$entry['enabled'];
 }
 
-$graph = $vars['toggle_graph'];
-if ($graph && isset($graphs_db[$graph]) &&
-    !in_array($config['graph_types']['device'][$graph]['section'], array('poller', 'system')))
+if ($vars['submit'])
 {
-  $value = (int)!$graphs_db[$graph]; // Toggle current 'enabled' value
-  $updated = dbUpdate(array('enabled' => $value), 'device_graphs', '`device_id` = ? AND `graph` = ?', array($device['device_id'], $graph));
-  if ($updated)
+  if ($readonly)
   {
-    print_success("Graph '$graph' ".($value ? 'enabled' : 'disabled').'.');
-    $graphs_sections[$config['graph_types']['device'][$graph]['section']][$graph] = (bool)$value;
+    print_error_permission('You have insufficient permissions to edit settings.');
+  } else {
+    $graph = $vars['toggle_graph'];
+    if ($graph && isset($graphs_db[$graph]) &&
+        !in_array($config['graph_types']['device'][$graph]['section'], array('poller', 'system')))
+    {
+      $value = (int)!$graphs_db[$graph]; // Toggle current 'enabled' value
+      $updated = dbUpdate(array('enabled' => $value), 'device_graphs', '`device_id` = ? AND `graph` = ?', array($device['device_id'], $graph));
+      if ($updated)
+      {
+        print_success("Graph '$graph' ".($value ? 'enabled' : 'disabled').'.');
+        $graphs_sections[$config['graph_types']['device'][$graph]['section']][$graph] = (bool)$value;
+      }
+    }
   }
 }
 
 ?>
 
 <div class="row"> <!-- begin row -->
-
   <div class="col-md-6"> <!-- begin poller options -->
 
-<fieldset>
-  <legend>Device Graphs</legend>
-</fieldset>
+    <div class="box box-solid">
 
-<table class="table table-bordered table-striped table-condensed table-rounded">
+      <div class="box-header with-border">
+        <!-- <i class="oicon-gear"></i> --><h3 class="box-title">Device Graphs</h3>
+      </div>
+      <div class="box-body no-padding">
+
+<table class="table table-striped table-condensed-more">
   <thead>
     <tr>
       <th>Name</th>
       <th>Description</th>
       <th>Section</th>
-      <th style="width: 80;">Status</th>
-      <th style="width: 80;"></th>
+      <th style="width: 60px;">Status</th>
+      <th style="width: 80px;"></th>
     </tr>
   </thead>
   <tbody>
@@ -70,24 +80,31 @@ foreach ($graphs_sections as $section => $entry)
 
     if (!$enabled)
     {
-      $attrib_status = '<span class="text-danger">disabled</span>';
-      $toggle = 'Enable';
-      $btn_class = 'btn-success';
+      $attrib_status = '<span class="label label-important">disabled</span>';
+      $toggle = 'Enable'; $btn_class = 'btn-success'; $btn_icon = 'icon-ok';
     } else {
-      $attrib_status = '<span class="text-success">enabled</span>';
-      $toggle = "Disable";
-      $btn_class = "btn-danger";
+      $attrib_status = '<span class="label label-success">enabled</span>';
+      $toggle = "Disable"; $btn_class = "btn-danger"; $btn_icon = 'icon-remove';
     }
 
     echo($attrib_status.'</td><td>');
 
     if (!in_array($section, array('poller', 'system')))
     {
-      echo('<form id="toggle_graph" name="toggle_graph" style="margin: 0px;" method="post" action="">
-      <input type="hidden" name="toggle_graph" value="'.$graph.'">
-      <button type="submit" class="btn btn-mini '.$btn_class.'" name="Submit">'.$toggle.'</button></form>');
+      $form = array('type'  => 'simple');
+      // Elements
+      $form['row'][0]['toggle_graph'] = array('type'    => 'hidden',
+                                             'value'    => $graph);
+      $form['row'][0]['submit']      = array('type'     => 'submit',
+                                             'name'     => $toggle,
+                                             'class'    => 'btn-mini '.$btn_class,
+                                             'icon'     => $btn_icon,
+                                             'right'    => TRUE,
+                                             'readonly' => $readonly,
+                                             'value'    => 'graph_toggle');
+      print_form($form); unset($form);
     } else {
-      echo('<span class="btn btn-mini disabled">Required</span>');
+      echo('<span style="line-height: 20px;" class="btn btn-mini disabled pull-right"><i class="icon-lock"></i>&nbsp;Required</span>');
     }
 
     echo('</td></tr>');
@@ -97,6 +114,7 @@ foreach ($graphs_sections as $section => $entry)
   </tbody>
 </table>
 
+  </div> </div>
 </div> <!-- end poller options -->
 
   </div> <!-- end row -->

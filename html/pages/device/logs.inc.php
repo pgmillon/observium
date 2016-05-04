@@ -6,18 +6,19 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 if (!isset($vars['section'])) { $vars['section'] = 'eventlog'; }
 
 $sections = array('eventlog');
-
 if ($config['enable_syslog']) { $sections[] = 'syslog'; }
-
-if (OBSERVIUM_EDITION != 'community') { $sections[] = 'alertlog'; }
+//if (OBSERVIUM_EDITION != 'community')
+//{
+  $sections[] = 'alertlog';
+//}
 
 $navbar['brand'] = "Logging";
 $navbar['class'] = "navbar-narrow";
@@ -39,7 +40,7 @@ switch ($vars['section'])
   case 'syslog':
   case 'eventlog':
   case 'alertlog':
-    include('pages/device/logs/'.$vars['section'].'.inc.php');
+    include($config['html_dir'].'/pages/device/logs/'.$vars['section'].'.inc.php');
     break;
   default:
     echo('<h2>Error. No section '.$vars['section'].'.<br /> Please report this to observium developers.</h2>');

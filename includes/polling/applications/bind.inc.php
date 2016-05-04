@@ -7,13 +7,13 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 if (!empty($agent_data['app']['bind']['global']))
 {
-  $app_id = dbFetchCell("SELECT app_id FROM `applications` WHERE `device_id` = ? AND `app_instance` = ?", array($device['device_id'], $memcached_host));
+  $app_id = discover_app($device, 'bind');
 
   // Prepare data arrays
   // -------------------
@@ -272,7 +272,7 @@ if (!empty($agent_data['app']['bind']['global']))
   }
 
   // req-in
-  $rrd_filename = "app-bind-".$app['app_id']."-req-in.rrd";
+  $rrd_filename = "app-bind-$app_id-req-in.rrd";
 
   rrdtool_create($device, $rrd_filename, " \
         DS:query:DERIVE:600:0:7500000 \
@@ -283,7 +283,7 @@ if (!empty($agent_data['app']['bind']['global']))
   rrdtool_update($device, $rrd_filename, 'N:'.$req_in['QUERY'].':'.$req_in['STATUS'].':'.$req_in['NOTIFY'].':'.$req_in['UPDATE']);
 
   // query-in
-  $rrd_filename = "app-bind-".$app['app_id']."-query-in.rrd";
+  $rrd_filename = "app-bind-$app_id-query-in.rrd";
 
   rrdtool_create($device, $rrd_filename, " $rrdcreate_rrtypes ");
 
@@ -295,7 +295,7 @@ if (!empty($agent_data['app']['bind']['global']))
   rrdtool_update($device, $rrd_filename,  "N".$rrd_data);
 
   // ns-stats
-  $rrd_filename = "app-bind-".$app['app_id']."-ns-stats.rrd";
+  $rrd_filename = "app-bind-$app_id-ns-stats.rrd";
 
   // rrdcreate list of fields
   $rrdcreate_ns_stats = "";
@@ -314,7 +314,7 @@ if (!empty($agent_data['app']['bind']['global']))
   rrdtool_update($device, $rrd_filename,  "N".$rrd_data);
 
   // zone-maint
-  $rrd_filename = "app-bind-".$app['app_id']."-zone-maint.rrd";
+  $rrd_filename = "app-bind-$app_id-zone-maint.rrd";
 
   // rrdcreate list of fields
   $rrdcreate_zone_maint = "";
@@ -334,7 +334,7 @@ if (!empty($agent_data['app']['bind']['global']))
   // query-out
   foreach ($query_out as $view => $view_data)
   {
-    $rrd_filename = "app-bind-".$app['app_id']."-query-out-".$view.".rrd";
+    $rrd_filename = "app-bind-$app_id-query-out-".$view.".rrd";
 
     rrdtool_create($device, $rrd_filename, " $rrdcreate_rrtypes ");
 
@@ -349,7 +349,7 @@ if (!empty($agent_data['app']['bind']['global']))
   // resolver
   foreach ($resolver as $view => $view_data)
   {
-    $rrd_filename = "app-bind-".$app['app_id']."-resolver-".$view.".rrd";
+    $rrd_filename = "app-bind-$app_id-resolver-$view.rrd";
 
     // rrdcreate list of fields
     $rrdcreate_resolver = "";
@@ -370,7 +370,7 @@ if (!empty($agent_data['app']['bind']['global']))
   // cache
   foreach ($cache as $view => $view_data)
   {
-    $rrd_filename = "app-bind-".$app['app_id']."-cache-".$view.".rrd";
+    $rrd_filename = "app-bind-$app_id-cache-$view.rrd";
 
     $rrdcreate_cache = "";
     foreach ($rrtypes as $rrtype)

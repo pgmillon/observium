@@ -7,11 +7,11 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-include_once($config['html_dir']."/includes/graphs/common.inc.php");
+include($config['html_dir']."/includes/graphs/common.inc.php");
 
 #$graph_return['valid_options'][] = "previous";
 #$graph_return['valid_options'][] = "total";
@@ -120,7 +120,8 @@ $rrd_options .= " CDEF:outbits=outoctets,8,*";
 $rrd_options .= " CDEF:doutbits=doutoctets,8,*";
 $rrd_options .= " VDEF:95thin=inbits,95,PERCENT";
 $rrd_options .= " VDEF:95thout=outbits,95,PERCENT";
-$rrd_options .= " VDEF:d95thout=doutbits,5,PERCENT";
+$rrd_options .= " CDEF:pout_tmp=doutbits,-1,* VDEF:dpout_tmp=pout_tmp,95,PERCENT CDEF:dpout_tmp2=doutbits,doutbits,-,dpout_tmp,-1,*,+ VDEF:d95thout=dpout_tmp2,FIRST";
+
 $rrd_options .= " VDEF:totin=inoctets,TOTAL";
 $rrd_options .= " VDEF:totout=outoctets,TOTAL";
 

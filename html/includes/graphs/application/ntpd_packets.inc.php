@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -22,10 +22,10 @@ $array        = array(
                       'packets_ignore' => array('descr' => 'Ignored', 'colour' => 'FF8800FF')
                      );
 
-$i            = 0;
-
 if (is_file($rrd_filename))
 {
+  $i = 0;
+
   foreach ($array as $ds => $data)
   {
     $rrd_list[$i]['filename']  = $rrd_filename;
@@ -37,8 +37,6 @@ if (is_file($rrd_filename))
 } else {
   echo("file missing: $file");
 }
-
-//    include("includes/graphs/generic_multi_line.inc.php");
 
 include("includes/graphs/generic_multi_simplex_separated.inc.php");
 

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -17,7 +17,7 @@
 #F10-C-SERIES-CHASSIS-MIB::chRpmMemUsageUtil.1 = 5
 
 $mib = 'F10-C-SERIES-CHASSIS-MIB';
-echo(" $mib ");
+echo("$mib ");
 
 $mempool_array = snmpwalk_cache_oid($device, "chRpmMemUsageUtil", NULL, $mib, mib_dirs('force10'));
 if (is_array($mempool_array))
@@ -32,7 +32,7 @@ if (is_array($mempool_array))
       {
         $precision = 1024 * 1024;
         $total     = $total_array[$index]['chSysProcessorMemSize']; // FTOS display memory in MB
-        $total    *= $precision;
+        //$total    *= $precision;
       } else {
         $precision = 1;
         $total     = 1090519040; // Hardcoded total. See FIXME above.

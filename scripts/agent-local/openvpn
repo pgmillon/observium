@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Check global openvpn load stats
+
+# Default settings
+OPENVPN_DIR=/etc/openvpn
+OPENVPN_TIMEOUT=2
+
+# Find script's directory to load the configuration
+SCRIPT_DIR=$(dirname $0)
+
+# Load overrides if needed - redir to null in case file does not exist and we use defaults
+. $SCRIPT_DIR/openvpn.cfg 2>/dev/null
+
+for CONFIG in $OPENVPN_DIR/*.conf
+do
+	if [ -e $CONFIG ];
+	then
+		INSTANCE=$(basename $CONFIG .conf)
+
+		OPENVPN_MGMT=$(grep ^management $CONFIG)
+		OPENVPN_HOST=$(echo $OPENVPN_MGMT|awk '{print $2}')
+		OPENVPN_PORT=$(echo $OPENVPN_MGMT|awk '{print $3}')
+
+		OPENVPN_PASSWORD_FILE=$(echo $OPENVPN_MGMT|awk '{print $4}')
+		if [ "$OPENVPN_PASSWORD_FILE" != "" ];
+		then
+			OPENVPN_PASSWORD=$(cat $OPENVPN_PASSWORD_FILE)
+		else
+			OPENVPN_PASSWORD=""
+		fi
+
+		LOAD=$(echo -e "${OPENVPN_PASSWORD}\nload-stats"|nc -q ${OPENVPN_TIMEOUT} ${OPENVPN_HOST} ${OPENVPN_PORT} 2>/dev/null|grep ^SUCCESS)
+
+		if [ "$LOAD" != "" ];
+		then
+			echo '<<<app-openvpn-loadstats-'$INSTANCE$'>>>'
+			echo $LOAD
+		fi
+	fi
+done

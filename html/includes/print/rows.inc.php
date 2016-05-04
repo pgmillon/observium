@@ -7,9 +7,99 @@
  *
  * @package    observium
  * @subpackage web
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
+
+// These functions are used to generate our boxes. It's probably easier to put this into functions.
+
+function generate_box_open($args = array())
+{
+  // r($args);
+
+  $return = '<div ';
+  if (isset($args['id'])) {  $return .= 'id="' . $args['id'] . '" '; }
+
+  $return .= 'class="' . OBS_CLASS_BOX . '" '.($args['box-style'] ? 'style="'.$args['box-style'].'"' : ''). '>' . PHP_EOL;
+
+  if (isset($args['title']))
+  {
+    $return .= '  <div class="box-header' . ($args['header-border'] ? ' with-border' : '') . '">'.PHP_EOL;
+    if(isset($args['url'])) {  $return .= '<a href="'.$args['url'].'">'; }
+    if(isset($args['icon'])) {  $return .= '<i class="'.$args['icon'].'"></i> '; }
+    $return .= '    <h3 class="box-title">';
+    $return .= $args['title'].'</h3>'.PHP_EOL;
+    if(isset($args['url'])) {  $return .= '</a>'; }
+
+    if (isset($args['header-controls']) && is_array($args['header-controls']['controls']))
+    {
+      $return .= '    <div class="box-tools pull-right">';
+
+      foreach($args['header-controls']['controls'] as $control)
+      {
+        if (isset($control['anchor']) && $control['anchor'] == TRUE)
+        {
+          $return .= ' <a role="button"';
+        } else {
+          $return .= '<button type="button"';
+        }
+        if (isset($control['url']) && strlen($control['url']) && $control['url'] != '#')
+        {
+          $return .= ' href="'.$control['url'].'"';
+        } else {
+          $return .= ' onclick="return false;"';
+        }
+
+        $return .= ' class="btn btn-box-tool';
+        if (isset($control['class'])) { $return .= ' '.$control['class']; }
+        $return .= '"';
+
+        if (isset($control['data']))  { $return .= ' '.$control['data']; }
+        $return .= '>';
+
+        if (isset($control['icon'])) { $return .= '<i class="'.$control['icon'].'"></i> '; }
+        if (isset($control['text'])) { $return .= $control['text']; }
+
+        if (isset($control['anchor']) && $control['anchor'] == TRUE)
+        {
+          $return .= '</a>';
+        } else {
+          $return .= '</button>';
+        }
+      }
+
+      $return .= '    </div>';
+    }
+    $return .= '  </div>'.PHP_EOL;
+  }
+
+  $return .= '  <div class="box-body'.($args['padding'] ? '' : ' no-padding').'"';
+  if (isset($args['body-style']))
+  {
+    $return .= 'style="'.$args['body-style'].'"';
+  }
+  $return .= '>'.PHP_EOL;
+  return $return;
+
+}
+
+function generate_box_close($args = array())
+{
+  $return  = '  </div>' . PHP_EOL;
+
+  if(isset($args['footer_content']))
+  {
+    $return .= '  <div class="box-footer no-padding';
+    if(isset($args['footer_nopadding'])) { $return .= ' no-padding'; }
+    $return .= '">';
+    $return .= $args['footer_content'];
+    $return .= '  </div>' . PHP_EOL;
+  }
+
+  $return .= '</div>' . PHP_EOL;
+  return $return;
+}
+
 
 // DOCME needs phpdoc block
 function print_graph_row_port($graph_array, $port)
@@ -24,7 +114,7 @@ function print_graph_row_port($graph_array, $port)
 }
 
 // DOCME needs phpdoc block
-function get_graph_row($graph_array, $state_marker = FALSE)
+function generate_graph_row($graph_array, $state_marker = FALSE)
 {
   global $config;
 
@@ -33,12 +123,12 @@ function get_graph_row($graph_array, $state_marker = FALSE)
     if ($_SESSION['big_graphs'])
     {
       if (!$graph_array['height']) { $graph_array['height'] = "110"; }
-      if (!$graph_array['width']) { $graph_array['width']  = "353"; }
-      $periods = array('sixhour', 'week', 'month', 'year');
+      if (!$graph_array['width']) { $graph_array['width']  = "372"; }
+      $periods = array('day', 'week', 'month', 'year');
     } else {
       if (!$graph_array['height']) { $graph_array['height'] = "110"; }
-      if (!$graph_array['width']) { $graph_array['width']  = "215"; }
-      $periods = array('sixhour', 'day', 'week', 'month', 'year', 'twoyear');
+      if (!$graph_array['width']) { $graph_array['width']  = "287"; }
+      $periods = array('day', 'week', 'month', 'year', 'twoyear');
     }
   } else {
     if ($_SESSION['big_graphs'])
@@ -81,7 +171,7 @@ function get_graph_row($graph_array, $state_marker = FALSE)
 
 function print_graph_row($graph_array, $state_marker = FALSE)
 {
-  echo(get_graph_row($graph_array, $state_marker));
+  echo(generate_graph_row($graph_array, $state_marker));
 }
 
 // DOCME needs phpdoc block
@@ -89,48 +179,43 @@ function print_vm_row($vm, $device = NULL)
 {
   echo('<tr>');
 
-  echo('<td>');
-
-  if (get_device_id_by_hostname($vm['vmwVmDisplayName']))
+  echo('  <td>');
+  // If we know this device by its vm name in our system, create a link to it, else just print the name.
+  if (get_device_id_by_hostname($vm['vm_name']))
   {
-    echo(generate_device_link(device_by_name($vm['vmwVmDisplayName'])));
+    echo(generate_device_link(device_by_name($vm['vm_name'])));
   } else {
-    echo $vm['vmwVmDisplayName'];
+    echo $vm['vm_name'];
+  }
+  echo('  </td>');
+
+  echo('  <td>' . nicecase($vm['vm_state']) . '</td>');
+
+  switch ($vm['vm_guestos'])
+  {
+    case 'E: tools not installed':
+      echo('  <td class="small">Unknown (VMware Tools not installed)</td>');
+      break;
+    case 'E: tools not running':
+      echo('  <td class="small">Unknown (VMware Tools not running)</td>');
+      break;
+    case '':
+      echo('  <td class="small"><i>(Unknown)</i></td>');
+      break;
+    default:
+      if (isset($config['vmware_guestid'][$vm['vm_guestos']]))
+      {
+        echo('  <td>' . $config['vmware_guestid'][$vm['vm_guestos']] . '</td>');
+      } else {
+        echo('  <td>' . $vm['vm_guestos'] . '</td>');
+      }
+      break;
   }
 
-  echo("</td>");
-  echo('<td>' . $vm['vmwVmState'] . "</td>");
+  echo('  <td class="list">' . format_bi($vm['vm_memory'] * 1024 * 1024, 3, 3) . 'B</td>');
 
-  if ($vm['vmwVmGuestOS'] == "E: tools not installed")
-  {
-    echo('<td class="small">Unknown (VMware Tools not installed)</td>');
-  }
-  else if ($vm['vmwVmGuestOS'] == "E: tools not running")
-  {
-    echo('<td class="small">Unknown (VMware Tools not running)</td>');
-  }
-  else if ($vm['vmwVmGuestOS'] == "")
-  {
-    echo('<td class="small"><i>(Unknown)</i></td>');
-  }
-  elseif (isset($config['vmware_guestid'][$vm['vmwVmGuestOS']]))
-  {
-    echo('<td>' . $config['vmware_guestid'][$vm['vmwVmGuestOS']] . "</td>");
-  }
-  else
-  {
-    echo('<td>' . $vm['vmwVmGuestOS'] . "</td>");
-  }
-
-  if ($vm['vmwVmMemSize'] >= 1024)
-  {
-    echo("<td class=list>" . sprintf("%.2f",$vm['vmwVmMemSize']/1024) . " GB</td>");
-  } else {
-    echo("<td class=list>" . sprintf("%.2f",$vm['vmwVmMemSize']) . " MB</td>");
-  }
-
-  echo('<td>' . $vm['vmwVmCpus'] . " CPU</td>");
-
+  echo('  <td>' . $vm['vm_cpucount'] . ' CPU</td>');
+  echo('</tr>');
 }
 
 // EOF

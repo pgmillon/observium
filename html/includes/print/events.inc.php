@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage web
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -28,7 +28,6 @@
  */
 function print_events($vars)
 {
-
   global $config;
 
   // Get events array
@@ -44,7 +43,9 @@ function print_events($vars)
     if (!isset($vars['device']) || empty($vars['device']) || $vars['page'] == 'eventlog') { $list['device'] = TRUE; }
     if ($events['short'] || !isset($vars['port']) || empty($vars['port'])) { $list['entity'] = TRUE; }
 
-    $string = '<table class="table table-bordered table-striped table-hover table-condensed-more">' . PHP_EOL;
+    $string = generate_box_open($vars['header']);
+
+    $string .= '<table class="'.OBS_CLASS_TABLE_STRIPED_MORE.'">' . PHP_EOL;
     if (!$events['short'])
     {
       $string .= '  <thead>' . PHP_EOL;
@@ -61,10 +62,6 @@ function print_events($vars)
 
     foreach ($events['entries'] as $entry)
     {
-
-      #$icon = geteventicon($entry['message']);
-      #if ($icon) { $icon = '<img src="images/16/' . $icon . '" />'; }
-
       switch ($entry['severity'])
       {
         case "0": // Emergency
@@ -95,7 +92,7 @@ function print_events($vars)
       {
         $string .= '    <td class="syslog" style="white-space: nowrap">';
         $timediff = $GLOBALS['config']['time']['now'] - strtotime($entry['timestamp']);
-        $string .= overlib_link('', formatUptime($timediff, "short-3"), format_timestamp($entry['timestamp']), NULL) . '</td>' . PHP_EOL;
+        $string .= generate_tooltip_link('', formatUptime($timediff, "short-3"), format_timestamp($entry['timestamp']), NULL) . '</td>' . PHP_EOL;
       } else {
         $string .= '    <td style="width: 160px">';
         $string .= format_timestamp($entry['timestamp']) . '</td>' . PHP_EOL;
@@ -116,7 +113,7 @@ function print_events($vars)
         if ($entry['entity_type'] == 'port')
         {
           $this_if = get_port_by_id_cache($entry['entity_id']);
-          $entry['link'] = '<span class="entity"><i class="' . $config['entities']['port']['icon'] . '"></i> ' . generate_port_link($this_if, short_ifname($this_if['label'])) . '</span>';
+          $entry['link'] = '<span class="entity"><i class="' . $config['entities']['port']['icon'] . '"></i> ' . generate_port_link($this_if, $this_if['port_label_short']) . '</span>';
         } else {
           if (!empty($config['entities'][$entry['entity_type']]['icon']))
           {
@@ -126,7 +123,7 @@ function print_events($vars)
           }
 
         }
-        if (!$events['short']) { $string .= '    <td nowrap>' . $entry['link'] . '</td>' . PHP_EOL; }
+        if (!$events['short']) { $string .= '    <td style="white-space: nowrap">' . $entry['link'] . '</td>' . PHP_EOL; }
       }
       if ($events['short'])
       {
@@ -144,6 +141,8 @@ function print_events($vars)
 
     $string .= '  </tbody>' . PHP_EOL;
     $string .= '</table>';
+
+    $string .= generate_box_close();
 
     // Print pagination header
     if ($events['pagination_html']) { $string = $events['pagination_html'] . $string . $events['pagination_html']; }
@@ -225,6 +224,12 @@ function get_events_array($vars)
           $where .= ' AND `timestamp` <= ?';
           $param[] = $value;
           break;
+        case "group":
+        case "group_id":
+          $values = get_group_entities($value);
+          $where .= generate_query_values($values, 'entity_id');
+          $where .= generate_query_values(get_group_entity_type($value), 'entity_type');
+          break;
       }
     }
   }
@@ -254,7 +259,7 @@ function get_events_array($vars)
   }
 
   // Query for last timestamp
-  $array['updated'] = dbFetchCell($query_updated, $param);
+  //$array['updated'] = dbFetchCell($query_updated, $param);
 
   return $array;
 }

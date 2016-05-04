@@ -1,0 +1,1653 @@
+AVAYA-WLAN-MOB-SW-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, Unsigned32, Integer32, Counter32, Counter64
+        FROM SNMPv2-SMI
+    MacAddress, TruthValue, RowStatus
+        FROM SNMPv2-TC
+    SnmpAdminString
+        FROM SNMP-FRAMEWORK-MIB
+    InetAddressType, InetAddress, InetPortNumber
+        FROM INET-ADDRESS-MIB
+    VlanIdOrNone, PortList
+        FROM Q-BRIDGE-MIB
+    CounterBasedGauge64
+        FROM HCNUM-TC
+    avayaWlanMibs
+        FROM SYNOPTICS-ROOT-MIB;
+
+avayaWlanMobSwMib MODULE-IDENTITY
+    LAST-UPDATED "201006090000Z" -- 9 June 2010
+    ORGANIZATION "Avaya"
+    CONTACT-INFO "Avaya"
+    DESCRIPTION
+        "Avaya WLAN Mobility Switch MIB
+
+        Copyright 2010 Avaya, Inc.
+        All rights reserved.
+        This Avaya SNMP Management Information Base Specification
+        (Specification) embodies Avaya's confidential and
+        proprietary intellectual property. Avaya retains all
+        title and ownership in the Specification, including any
+        revisions.
+
+        This Specification is supplied 'AS IS,' and Avaya makes
+        no warranty, either express or implied, as to the use,
+        operation, condition, or performance of the Specification."
+
+    REVISION "201003300000Z" -- 30 Mar 2010
+    DESCRIPTION  "v1:  Initial version."
+
+    ::= { avayaWlanMibs 10 }
+
+avWlanMobSwObjects       OBJECT IDENTIFIER ::= { avayaWlanMobSwMib 1 }
+
+-- ===========================================================================
+-- Groups
+-- ===========================================================================
+
+avWlanMobAgentObjects OBJECT IDENTIFIER ::= { avWlanMobSwObjects 1 }
+
+-- ============================================================================
+--    avWlanMobAgentVlanTable
+-- ============================================================================
+
+avWlanMobAgentVlanTable OBJECT-TYPE
+    SYNTAX       SEQUENCE OF AvWlanMobAgentVlanEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "This is the configuration table for mobility VLANs."
+    ::= { avWlanMobAgentObjects 1 }
+
+avWlanMobAgentVlanEntry OBJECT-TYPE
+    SYNTAX       AvWlanMobAgentVlanEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "Configuration settings for a mobility VLAN."
+    INDEX { IMPLIED avWlanMobAgentVlanName }
+    ::= { avWlanMobAgentVlanTable 1 }
+
+AvWlanMobAgentVlanEntry ::=
+    SEQUENCE {
+        avWlanMobAgentVlanName         SnmpAdminString,
+        avWlanMobAgentVlanLVID         VlanIdOrNone,
+        avWlanMobAgentVlanL3Mobility   INTEGER,
+        avWlanMobAgentVlanWeight       Unsigned32,
+        avWlanMobAgentVlanTrack        PortList,
+        avWlanMobAgentVlanScope        INTEGER,
+        avWlanMobAgentVlanWcValidated  TruthValue,
+        avWlanMobAgentVlanAdminMapped  TruthValue,
+        avWlanMobAgentVlanActive       TruthValue,
+        avWlanMobAgentVlanRowStatus    RowStatus
+    }
+
+avWlanMobAgentVlanName OBJECT-TYPE
+    SYNTAX       SnmpAdminString (SIZE(1..32))
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "This object uniquely identifies a mobility VLAN."
+    ::= { avWlanMobAgentVlanEntry 1 }
+
+avWlanMobAgentVlanLVID OBJECT-TYPE
+    SYNTAX       VlanIdOrNone
+    MAX-ACCESS   read-create
+    STATUS       current
+    DESCRIPTION
+        "The local VLAN ID.  This maps the global VLAN to a locally defined
+        VLAN."
+    ::= { avWlanMobAgentVlanEntry 2 }
+
+avWlanMobAgentVlanL3Mobility	OBJECT-TYPE
+	SYNTAX		INTEGER {
+				none(1),
+				server(2),
+				client(3)
+			}
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"This object indicates the L3 mobility mode for the VLAN.
+	    The meaning of the values is:
+
+            none(1) - L3 mobility is not enabled for this VLAN (L2 mobility is
+                      supported, which is the default behaviour when a VLAN
+                      is mapped).
+
+            server(2) - L3 mobility is enabled for this VLAN, and this switch
+                        can act as a server for this mobility VLAN.  The rest
+                        of the parameters for the VLAN are valid.
+
+            client(3) - L3 mobility is enabled for this VLAN, and this switch
+                        is configured as a static client for this VLAN.  All
+                        ports in the mapped Local VLAN will be remotely
+                        connected to this mobility VLAN."
+	DEFVAL { none }
+	::= { avWlanMobAgentVlanEntry 3 }
+
+avWlanMobAgentVlanWeight OBJECT-TYPE
+    SYNTAX       Unsigned32 (0..7)
+    MAX-ACCESS   read-create
+    STATUS       current
+    DESCRIPTION
+        "This object specifies a weight value to be used to compute the
+        priority used to determine the winning server amongst a number of
+        switches configured as server for this VLAN."
+    DEFVAL       { 1 }
+    ::= { avWlanMobAgentVlanEntry 4 }
+
+avWlanMobAgentVlanTrack OBJECT-TYPE
+    SYNTAX       PortList
+    MAX-ACCESS   read-create
+    STATUS       current
+    DESCRIPTION
+        "The objects specifies a list of ports whose status will be tracked
+        to determine the priority used to elect the VLAN server for this VLAN.
+        This list must be a subset of the member ports of the local VLAN
+        mapped to this mobility VLAN.  The default value for this object is
+        the complete set of member ports of the local VLAN."
+    ::= { avWlanMobAgentVlanEntry 5 }
+
+avWlanMobAgentVlanScope OBJECT-TYPE
+    SYNTAX       INTEGER {
+                     domain(1),
+                     enterprise(2)
+                 }
+    MAX-ACCESS   read-create
+    STATUS       current
+    DESCRIPTION
+        "for future use"
+    DEFVAL       { domain }
+    ::= { avWlanMobAgentVlanEntry 6 }
+
+avWlanMobAgentVlanWcValidated OBJECT-TYPE
+    SYNTAX       TruthValue
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Indicates whether the Mobility VLAN name for this entry was
+        received from (and thus validated by) the managing controller.
+        Mostly useful for validating mappings that were manually added 
+        offline before the switch associated to the controller."
+    ::= { avWlanMobAgentVlanEntry 7 }
+
+avWlanMobAgentVlanAdminMapped OBJECT-TYPE
+    SYNTAX       TruthValue
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Indicates whether the LVID mapping for this entry was 
+        set by admin or auto-assigned by the switch itself.
+        Has no meaning if the LVID value is 0"
+    ::= { avWlanMobAgentVlanEntry 8 }
+
+avWlanMobAgentVlanActive OBJECT-TYPE
+    SYNTAX       TruthValue
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Indicates whether the LVID mapping is in 'Active' state.
+        For mapping to be 'Active', the following conditions have 
+        to be satisfied:
+          - Mobility VLAN has to be received from (validated by) WC.
+          - LVID element has to be mapped a value other than 0.
+          - LVID has to represent a valid local VLAN on this switch."
+    ::= { avWlanMobAgentVlanEntry 9 }
+
+avWlanMobAgentVlanRowStatus OBJECT-TYPE
+    SYNTAX       RowStatus
+    MAX-ACCESS   read-create
+    STATUS       current
+    DESCRIPTION
+        "This variable is used to create or delete entries in the table.
+        
+        Only the entries manually added offline that have not (yet) been 
+        'validated' by the managing Controller can be deleted from this
+        table."
+    ::= { avWlanMobAgentVlanEntry  10 }
+
+
+-- =====================================================================
+-- avWlanMobSwScalars
+-- =====================================================================
+
+
+avWlanMobSwScalars OBJECT IDENTIFIER ::= { avWlanMobSwObjects 2 }
+
+avWlanMobSwVLANPeriodicAdvInterval OBJECT-TYPE
+    SYNTAX       Unsigned32 (0..4294967295)
+    UNITS        "seconds"
+    MAX-ACCESS   read-write
+    STATUS       current
+    DESCRIPTION
+        "Period for sending VLAN advertisements."
+    DEFVAL       { 30 }
+    ::= { avWlanMobSwScalars 1 }
+
+avWlanMobSwVMMMaxRetransmits OBJECT-TYPE
+    SYNTAX       Unsigned32 (0..65535)
+    MAX-ACCESS   read-write
+    STATUS       current
+    DESCRIPTION
+        "VMM max retransmits."
+    DEFVAL       { 3 }
+    ::= { avWlanMobSwScalars 2 }
+
+avWlanMobSwKeepAliveInterval OBJECT-TYPE
+    SYNTAX       Unsigned32 (0..65535)
+    UNITS        "milliseconds"
+    MAX-ACCESS   read-write
+    STATUS       current
+    DESCRIPTION
+        "Keep alive interval."
+    DEFVAL       { 3000 }
+    ::= { avWlanMobSwScalars 3 }
+
+avWlanMobSwKeepAliveNumRetries OBJECT-TYPE
+    SYNTAX       Unsigned32 (0..65535)
+    MAX-ACCESS   read-write
+    STATUS       current
+    DESCRIPTION
+        "Kepp alive number of retries."
+    DEFVAL       { 5 }
+    ::= { avWlanMobSwScalars 4 }
+
+avWlanMobSwTransMaxRetransmits OBJECT-TYPE
+    SYNTAX       Unsigned32 (0..65535)
+    MAX-ACCESS   read-write
+    STATUS       current
+    DESCRIPTION
+        "Trans max retransmits."
+    DEFVAL       { 3 }
+    ::= { avWlanMobSwScalars 5 }
+
+avWlanMobSwLocalDeviceId OBJECT-TYPE
+    SYNTAX       MacAddress
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "This object contains the MAC address that uniquely identifies the
+         local mobility switch.  This value is what is used to identify
+         this switch in peer switches and controllers, and is used as an
+         index value in various MIBs to identify entries that pertain to
+         the local switch."
+    ::= { avWlanMobSwScalars 6 }
+
+avWlanMobSwAllStatisticsReset OBJECT-TYPE
+    SYNTAX       INTEGER {
+                     none(1),
+                     reset(2)
+                 }
+    MAX-ACCESS   read-write
+    STATUS       current
+    DESCRIPTION
+        "When we set this object to reset, all the statistics for every tunnel 
+         will be cleared. Read on this object will always return none."
+    ::= { avWlanMobSwScalars 7 }
+
+avWlanMobSwAllStatisticsResetStatus OBJECT-TYPE
+    SYNTAX       INTEGER {
+                     notStarted(1),
+                     requested(2),
+                     inProgress(3),
+                     success(4),
+                     partialSuccess(5),
+                     failure(6)
+                 }
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "This object indicates the current status of the switch statistics 
+         reset request. Default value is not started."
+    ::= {avWlanMobSwScalars 8}
+
+avWlanMobSwCtrlAddrType OBJECT-TYPE
+     SYNTAX      InetAddressType
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION  
+        "The type of internet address contained in the corresponding
+        instance of avWlanMobSwCtrlAddr.  Currently only
+        ipv4(1) and ipv6(2) are allowed."
+     ::= { avWlanMobSwScalars 9 }
+
+avWlanMobSwCtrlAddr OBJECT-TYPE
+     SYNTAX      InetAddress (SIZE(4|16))
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION  
+        "The System internet address of the controller that is managing
+        this mobility switch. The type of address contained
+        in this object is indicated by the corresponding instance of
+        avWlanMobSwCtrlAddrType."
+     ::= { avWlanMobSwScalars 10 }
+
+avWlanMobSwNumMobilityTunnels OBJECT-TYPE
+     SYNTAX      Counter32
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION  
+         "The current number of Mobility tunnels establisted on this switch."
+     ::= { avWlanMobSwScalars 11 }
+
+avWlanMobSwNumAccessTunnels OBJECT-TYPE
+     SYNTAX      Counter32
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION  
+         "The current number of Access tunnels establisted on this switch."
+     ::= { avWlanMobSwScalars 12 }
+
+avWlanMobSwNumResPeerAccessTunnels OBJECT-TYPE
+     SYNTAX      Counter32
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION  
+         "The current number of Access tunnels establisted on this switch
+         that are managed by its resiliency peer.
+         Initially intended for switches running as SMLT pairs."
+     ::= { avWlanMobSwScalars 13 }
+
+
+avWlanMobSwFdbGlobalFlushAction OBJECT-TYPE
+    SYNTAX       INTEGER {
+                     none(1),
+                     flushAll(2)
+                 }
+    MAX-ACCESS   read-write
+    STATUS       current
+    DESCRIPTION
+        "When we set this object to flushAll(2), all the FDB entries learned 
+	by mobility switch will be flushed. Read on this object will always 
+	return none."
+    ::= { avWlanMobSwScalars 14 }
+
+
+avWlanMobSwFdbGlobalFlushActionStatus OBJECT-TYPE
+    SYNTAX       INTEGER {
+                     notStarted(1),
+                     inProgress(2),
+                     success(3),
+                     partialFailure(4),
+                     failure(5)
+                 }
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "This object indicates the current status of flushing all fdb
+         entries learned by the mobility swithc request. Default value is not started."
+    ::= {avWlanMobSwScalars 15}
+
+avWlanMobSwPurgeInactiveMaps  OBJECT-TYPE
+    SYNTAX       INTEGER {
+                     none(1),
+                     purge(2)
+                 }     
+    MAX-ACCESS   read-write
+    STATUS       current
+    DESCRIPTION
+        "Setting this object would purge all the inactive mappings from the mobility 
+	agent vlan table (avWlanMobAgentVlanTable) ie entries whose value of 
+	avWlanMobAgentVlanActive is False.
+        Read from this field always returns none (1)."
+   ::= { avWlanMobSwScalars 16 }
+
+-- ============================================================================
+--    avWlanMobSwDeviceTable
+-- ============================================================================
+
+avWlanMobSwDeviceTable OBJECT-TYPE
+    SYNTAX       SEQUENCE OF AvWlanMobSwDeviceEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "Despite the somewhat misleading name, this table contains status 
+        entries of the Access and Mobility tunnels that are established 
+        at the local switch."
+    ::= { avWlanMobSwObjects 3 }
+
+avWlanMobSwDeviceEntry OBJECT-TYPE
+    SYNTAX       AvWlanMobSwDeviceEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "A peer mobility switch or an access point."
+    INDEX { avWlanMobSwDeviceType, avWlanMobSwDeviceId }
+    ::= { avWlanMobSwDeviceTable 1 }
+
+AvWlanMobSwDeviceEntry ::=
+    SEQUENCE {
+        avWlanMobSwDeviceType   	INTEGER,
+        avWlanMobSwDeviceId       	MacAddress,
+        avWlanMobSwDeviceAddrType 	InetAddressType,
+        avWlanMobSwDeviceAddr     	InetAddress,
+        avWlanMobSwDeviceUdpPort  	InetPortNumber,
+        avWlanMobSwDeviceStatus   	INTEGER,
+        avWlanMobSwDeviceLocalUdpPort	InetPortNumber,
+        avWlanMobSwDeviceInterfaceId 	Integer32
+    }
+
+avWlanMobSwDeviceType OBJECT-TYPE
+    SYNTAX       INTEGER {
+                     mobTunnel(1),
+                     accessTunnel(2),
+		     resPeerAccessTunnel(3)	
+                 }
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "The tunnel type."
+    ::= { avWlanMobSwDeviceEntry 1 }
+
+avWlanMobSwDeviceId OBJECT-TYPE
+    SYNTAX       MacAddress
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "The MAC address that uniquely identifies the peer mobility switch
+        or access point on the other side of the tunnel."
+    ::= { avWlanMobSwDeviceEntry 2 }
+
+avWlanMobSwDeviceAddrType OBJECT-TYPE
+    SYNTAX       InetAddressType
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "This object indicates the type of internet address in the
+        corresponding instance of avWlanMobSwDeviceAddr.  Currently,
+        only the values ipv4(1) and ipv6(2) are allowed."
+    ::= { avWlanMobSwDeviceEntry 3 }
+
+avWlanMobSwDeviceAddr OBJECT-TYPE
+    SYNTAX       InetAddress (SIZE(4|16))
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The address of the peer mobility switch or access point.  The type of
+        address is indicated by the corresponding instance of
+        avWlanMobSwDeviceAddrType."
+    ::= { avWlanMobSwDeviceEntry 4 }
+
+avWlanMobSwDeviceUdpPort OBJECT-TYPE
+    SYNTAX       InetPortNumber
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Indicates the UDP port which the peer mobility switch or access
+        point will use for control protocol communication with the local
+        switch."
+    ::= { avWlanMobSwDeviceEntry 5 }
+
+avWlanMobSwDeviceStatus OBJECT-TYPE
+    SYNTAX       INTEGER {
+                     up(1),
+                     down(2)
+                 }
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Indicates the status of the mobility tunnel connection to this
+        peer mobility switch, or the access tunnel to this access point."
+    ::= { avWlanMobSwDeviceEntry 6 }
+
+avWlanMobSwDeviceLocalUdpPort OBJECT-TYPE
+    SYNTAX       InetPortNumber
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Indicates the local UDP port through which the current Mobility
+        Tunnel(or Resiliency Tunnel) or Access Tunnel is connected."
+    ::= { avWlanMobSwDeviceEntry 7 }
+
+avWlanMobSwDeviceInterfaceId OBJECT-TYPE  
+     SYNTAX         	Integer32  
+     MAX-ACCESS     	read-only  
+     STATUS        	current  
+     DESCRIPTION   	"Used to display Logical Port for the tunnel."    
+        ::= { avWlanMobSwDeviceEntry  8 }
+
+
+-- ============================================================================
+--    avWlanMobPeerVlansAdvertisedTable
+-- ============================================================================
+
+avWlanMobPeerVlansAdvertisedTable	OBJECT-TYPE
+	SYNTAX		SEQUENCE OF AvWlanMobPeerVlansAdvertisedEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"This table contains a list of the Mobility VLANs that are advertised
+		by each peer Mobility Switch with which the local mobility switch
+		has established a mobility tunnel."
+	::= { avWlanMobSwObjects 4 }
+
+avWlanMobPeerVlansAdvertisedEntry	OBJECT-TYPE
+	SYNTAX		AvWlanMobPeerVlansAdvertisedEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"A mobility vlan advertised by a peer mobility switch."
+	INDEX	{ avWlanMobPeerVlansAdvertisedId,
+		  IMPLIED avWlanMobPeerVlansAdvertisedVlanName }
+	::= { avWlanMobPeerVlansAdvertisedTable 1 }
+
+AvWlanMobPeerVlansAdvertisedEntry ::=
+	SEQUENCE {
+		avWlanMobPeerVlansAdvertisedId        MacAddress,
+		avWlanMobPeerVlansAdvertisedVlanName  SnmpAdminString,
+		avWlanMobPeerVlansAdvertisedPriority  Unsigned32
+	}
+
+avWlanMobPeerVlansAdvertisedId	OBJECT-TYPE
+	SYNTAX		MacAddress
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"The MAC address that uniquely identifies the peer mobility switch."
+	::= { avWlanMobPeerVlansAdvertisedEntry 1 }
+
+avWlanMobPeerVlansAdvertisedVlanName	OBJECT-TYPE
+	SYNTAX		SnmpAdminString (SIZE(1..32))
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION	
+		"This object indicates the name of the advertised mobility VLAN."
+	::= { avWlanMobPeerVlansAdvertisedEntry 2 }
+
+avWlanMobPeerVlansAdvertisedPriority	OBJECT-TYPE
+	SYNTAX		Unsigned32 (0..65535)
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION	
+		"This object indicates the priority of the advertised mobility VLAN."
+	::= { avWlanMobPeerVlansAdvertisedEntry 3 }
+
+-- ============================================================================
+--    avWlanMobVlanServerTable
+-- ============================================================================
+
+avWlanMobVlanServerTable OBJECT-TYPE
+    SYNTAX       SEQUENCE OF AvWlanMobVlanServerEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "This table contains the currently selected server for each
+        mobility vlan."
+    ::= { avWlanMobSwObjects 5 }
+
+avWlanMobVlanServerEntry OBJECT-TYPE
+    SYNTAX       AvWlanMobVlanServerEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "A mobility vlan advertised by a peer mobility switch."
+    INDEX { IMPLIED avWlanMobVlanServerVlanName }
+    ::= { avWlanMobVlanServerTable 1 }
+
+AvWlanMobVlanServerEntry ::=
+    SEQUENCE {
+        avWlanMobVlanServerVlanName  SnmpAdminString,
+        avWlanMobVlanServerId        MacAddress,
+        avWlanMobVlanServerPriority  Unsigned32
+    }
+
+avWlanMobVlanServerVlanName OBJECT-TYPE
+    SYNTAX       SnmpAdminString (SIZE(1..32))
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "This object identifies the mobility vlan."
+    ::= { avWlanMobVlanServerEntry 1 }
+
+avWlanMobVlanServerId OBJECT-TYPE
+    SYNTAX       MacAddress
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "This object identifies the currently selected server for this
+        mobility vlan.  Note that the internet address and status of
+        this server can be retrieved from the corresponding entry in
+        the avWlanMobSwDeviceTable."
+    ::= { avWlanMobVlanServerEntry 2 }
+
+avWlanMobVlanServerPriority OBJECT-TYPE
+    SYNTAX       Unsigned32 (0..65535)
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "This object indicates the priority of the VLAN."
+    ::= { avWlanMobVlanServerEntry 3 }
+
+-- =====================================================================
+--   avWlanMobVlanPeerAdvertiserTable
+-- =====================================================================
+
+avWlanMobVlanPeerAdvertiserTable OBJECT-TYPE
+    SYNTAX       SEQUENCE OF AvWlanMobVlanPeerAdvertiserEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "This table contains a list of all peer mobility switches that
+        are advertising each mobility vlan."
+    ::= { avWlanMobSwObjects 6 }
+
+avWlanMobVlanPeerAdvertiserEntry OBJECT-TYPE
+    SYNTAX       AvWlanMobVlanPeerAdvertiserEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "A mobility switch that is advertising a particular mobility vlan."
+    INDEX { avWlanMobVlanPeerAdvertiserVlanName,
+            avWlanMobVlanPeerAdvertiserId }
+    ::= { avWlanMobVlanPeerAdvertiserTable 1 }
+
+AvWlanMobVlanPeerAdvertiserEntry ::=
+    SEQUENCE {
+        avWlanMobVlanPeerAdvertiserVlanName  SnmpAdminString,
+        avWlanMobVlanPeerAdvertiserId        MacAddress,
+        avWlanMobVlanPeerAdvertiserPriority  Unsigned32
+    }
+
+avWlanMobVlanPeerAdvertiserVlanName OBJECT-TYPE
+    SYNTAX       SnmpAdminString (SIZE(1..32))
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "This object identifies the mobility vlan."
+    ::= { avWlanMobVlanPeerAdvertiserEntry 1 }
+
+avWlanMobVlanPeerAdvertiserId OBJECT-TYPE
+    SYNTAX       MacAddress
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "This object identifies a peer mobility switch that is advertising
+        this mobility vlan.  Note that the internet address and status of
+        this peer can be retrieved from the corresponding entry in
+        the avWlanMobSwDeviceTable."
+    ::= { avWlanMobVlanPeerAdvertiserEntry 2 }
+
+avWlanMobVlanPeerAdvertiserPriority OBJECT-TYPE
+    SYNTAX       Unsigned32 (0..65535)
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "This object indicates the priority of the VLAN."
+    ::= { avWlanMobVlanPeerAdvertiserEntry 3 }
+
+-- ============================================================================
+--    avWlanMobTunnelStatsTable
+-- ============================================================================
+
+avWlanMobTunnelStatsTable OBJECT-TYPE
+    SYNTAX       SEQUENCE OF AvWlanMobTunnelStatsEntry
+    MAX-ACCESS   not-accessible
+    STATUS       deprecated
+    DESCRIPTION
+        "This table contains statistics for each mobility tunnel."
+    ::= { avWlanMobSwObjects 7 }
+
+avWlanMobTunnelStatsEntry OBJECT-TYPE
+    SYNTAX       AvWlanMobTunnelStatsEntry
+    MAX-ACCESS   not-accessible
+    STATUS       deprecated
+    DESCRIPTION
+        "mobility/access tunnel statistics"
+    INDEX { avWlanMobTunnelStatsDeviceId }
+    ::= { avWlanMobTunnelStatsTable 1 }
+
+AvWlanMobTunnelStatsEntry ::=
+    SEQUENCE {
+        avWlanMobTunnelStatsDeviceId              MacAddress,
+        avWlanMobTunnelStatsIngressPkts           Counter64,
+        avWlanMobTunnelStatsIngressMcast          Counter64,
+        avWlanMobTunnelStatsIngressBcast          Counter64,
+        avWlanMobTunnelStatsIngressOctets         Counter64,
+        avWlanMobTunnelStatsIngressError          Counter64,
+        avWlanMobTunnelStatsIngressDropped        Counter64,
+        avWlanMobTunnelStatsIngressPkts64         Counter64,
+        avWlanMobTunnelStatsIngressPkts65to127    Counter64,
+        avWlanMobTunnelStatsIngressPkts128to255   Counter64,
+        avWlanMobTunnelStatsIngressPkts256to511   Counter64,
+        avWlanMobTunnelStatsIngressPkts512to1023  Counter64,
+        avWlanMobTunnelStatsIngressPkts1024to1518 Counter64,
+        avWlanMobTunnelStatsIngressPkts1522to9216 Counter64,
+        avWlanMobTunnelStatsIngressFragments      Counter64,
+        avWlanMobTunnelStatsIngressFragmentsDrop  Counter64,
+        avWlanMobTunnelStatsIngressKeepAliveReq   Counter64,
+        avWlanMobTunnelStatsIngressKeepAliveRsp   Counter64,
+        avWlanMobTunnelStatsIngressDataRate       CounterBasedGauge64,
+        avWlanMobTunnelStatsEgressPkts            Counter64,
+        avWlanMobTunnelStatsEgressMcast           Counter64,
+        avWlanMobTunnelStatsEgressBcast           Counter64,
+        avWlanMobTunnelStatsEgressOctets          Counter64,
+        avWlanMobTunnelStatsEgressError           Counter64,
+        avWlanMobTunnelStatsEgressDropped         Counter64,
+        avWlanMobTunnelStatsEgressPkts64          Counter64,
+        avWlanMobTunnelStatsEgressPkts65to127     Counter64,
+        avWlanMobTunnelStatsEgressPkts128to255    Counter64,
+        avWlanMobTunnelStatsEgressPkts256to511    Counter64,
+        avWlanMobTunnelStatsEgressPkts512to1023   Counter64,
+        avWlanMobTunnelStatsEgressPkts1024to1518  Counter64,
+        avWlanMobTunnelStatsEgressPkts1522to9216  Counter64,
+        avWlanMobTunnelStatsEgressFragments       Counter64,
+        avWlanMobTunnelStatsEgressKeepAliveReq    Counter64,
+        avWlanMobTunnelStatsEgressKeepAliveRsp    Counter64,
+        avWlanMobTunnelStatsEgressDataRate        CounterBasedGauge64,
+        avWlanMobTunnelStatsReset                 INTEGER
+    }
+
+avWlanMobTunnelStatsDeviceId OBJECT-TYPE
+    SYNTAX       MacAddress
+    MAX-ACCESS   not-accessible
+    STATUS       deprecated
+    DESCRIPTION
+        "This object identifies the peer mobility switch to which this
+        tunnel is connected."
+    ::= { avWlanMobTunnelStatsEntry 1 }
+
+avWlanMobTunnelStatsIngressPkts OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Total packets received on the tunnel."
+    ::= { avWlanMobTunnelStatsEntry 2 }
+
+avWlanMobTunnelStatsIngressMcast OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Multicast packets recvd on the tunnel."
+    ::= { avWlanMobTunnelStatsEntry 3 }
+
+avWlanMobTunnelStatsIngressBcast OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Broadcasts recvd on the tunnel."
+    ::= { avWlanMobTunnelStatsEntry 4 }
+
+avWlanMobTunnelStatsIngressOctets OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Total octets recvd on the tunnel."
+    ::= { avWlanMobTunnelStatsEntry 5 }
+
+avWlanMobTunnelStatsIngressError OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Total packets with errors recvd on tunnel."
+    ::= { avWlanMobTunnelStatsEntry 6 }
+
+avWlanMobTunnelStatsIngressDropped OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Total packets that were dropped by ingress processing
+            - e.g. incorrect vlan or WDP disabled or rate limited."
+    ::= { avWlanMobTunnelStatsEntry 7 }
+
+avWlanMobTunnelStatsIngressPkts64 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Total number of 64 byte packets received on tunnel."
+    ::= { avWlanMobTunnelStatsEntry 8 }
+
+avWlanMobTunnelStatsIngressPkts65to127 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Total number of 65 byte to 127 byte packets received on the tunnel."
+    ::= { avWlanMobTunnelStatsEntry 9 }
+
+avWlanMobTunnelStatsIngressPkts128to255 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Total number of 128 byte to 255 byte packets recvd."
+    ::= { avWlanMobTunnelStatsEntry 10 }
+
+avWlanMobTunnelStatsIngressPkts256to511 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Total number of 256 byte to 511 byte packets recvd."
+    ::= { avWlanMobTunnelStatsEntry 11 }
+
+avWlanMobTunnelStatsIngressPkts512to1023 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Total number of 512 byte to 1023 byte packets recvd."
+    ::= { avWlanMobTunnelStatsEntry 12 }
+
+avWlanMobTunnelStatsIngressPkts1024to1518 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Total number of 1024 byte to 1518 byte packets recvd."
+    ::= { avWlanMobTunnelStatsEntry 13 }
+
+avWlanMobTunnelStatsIngressPkts1522to9216 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Jumbo frames ingressing on the tunnel."
+    ::= { avWlanMobTunnelStatsEntry 14 }
+
+avWlanMobTunnelStatsIngressFragments OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Total CAPWAP fragments ingressing on the tunnel."
+    ::= { avWlanMobTunnelStatsEntry 15 }
+
+avWlanMobTunnelStatsIngressFragmentsDrop OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Total number of CAPWAP fragments dropped because they could not
+        be re-assembled."
+    ::= { avWlanMobTunnelStatsEntry 16 }
+
+avWlanMobTunnelStatsIngressKeepAliveReq OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Total keep alive requests received on this tunnel."
+    ::= { avWlanMobTunnelStatsEntry 17 }
+
+avWlanMobTunnelStatsIngressKeepAliveRsp OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Total keep alive responses received on this tunnel."
+    ::= { avWlanMobTunnelStatsEntry 18 }
+
+avWlanMobTunnelStatsIngressDataRate OBJECT-TYPE
+    SYNTAX       CounterBasedGauge64
+    UNITS        "bits/seconds"
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Data rate of ingress traffic over the past second."
+    ::= { avWlanMobTunnelStatsEntry 19 }
+
+avWlanMobTunnelStatsEgressPkts OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Total packets egressing on the tunnel."
+    ::= { avWlanMobTunnelStatsEntry 20 }
+
+avWlanMobTunnelStatsEgressMcast OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Multicast packets egressing on the tunnel."
+    ::= { avWlanMobTunnelStatsEntry 21 }
+
+avWlanMobTunnelStatsEgressBcast OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Broadcast packets egressing on the tunnel."
+    ::= { avWlanMobTunnelStatsEntry 22 }
+
+avWlanMobTunnelStatsEgressOctets OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Total octets egressing on the tunnel."
+    ::= { avWlanMobTunnelStatsEntry 23 }
+
+avWlanMobTunnelStatsEgressError OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Total packets with errors sent on tunnel."
+    ::= { avWlanMobTunnelStatsEntry 24 }
+
+avWlanMobTunnelStatsEgressDropped OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Total packets dropped on the egress due to e.g. rate limiting
+        or vlan filtering."
+    ::= { avWlanMobTunnelStatsEntry 25 }
+
+avWlanMobTunnelStatsEgressPkts64 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Total 64 byte packets egressing on the tunnel."
+    ::= { avWlanMobTunnelStatsEntry 26 }
+
+avWlanMobTunnelStatsEgressPkts65to127 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Total 65 byte to 127 byte packets egressing on the tunnel."
+    ::= { avWlanMobTunnelStatsEntry 27 }
+
+avWlanMobTunnelStatsEgressPkts128to255 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Total 128 byte to 255 byte packets egressing on the tunnel."
+    ::= { avWlanMobTunnelStatsEntry 28 }
+
+avWlanMobTunnelStatsEgressPkts256to511 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Total 256 byte to 511 byte packets egressing on the tunnel."
+    ::= { avWlanMobTunnelStatsEntry 29 }
+
+avWlanMobTunnelStatsEgressPkts512to1023 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Total 512 byte to 1023 byte packets egressing on the tunnel."
+    ::= { avWlanMobTunnelStatsEntry 30 }
+
+avWlanMobTunnelStatsEgressPkts1024to1518 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Total 1024 byte to 1518 byte packets egressing on the tunnel."
+    ::= { avWlanMobTunnelStatsEntry 31 }
+
+avWlanMobTunnelStatsEgressPkts1522to9216 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Jumbo frame egressing on the tunnel."
+    ::= { avWlanMobTunnelStatsEntry 32 }
+
+avWlanMobTunnelStatsEgressFragments OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Total number of CAPWAP fragments transmitted."
+    ::= { avWlanMobTunnelStatsEntry 33 }
+
+avWlanMobTunnelStatsEgressKeepAliveReq OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Total keep alive requests transmitted from this tunnel."
+    ::= { avWlanMobTunnelStatsEntry 34 }
+
+avWlanMobTunnelStatsEgressKeepAliveRsp OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Total keep alive responses transmitted from this tunnel."
+    ::= { avWlanMobTunnelStatsEntry 35 }
+
+avWlanMobTunnelStatsEgressDataRate OBJECT-TYPE
+    SYNTAX       CounterBasedGauge64
+    UNITS        "bits/seconds"
+    MAX-ACCESS   read-only
+    STATUS       deprecated
+    DESCRIPTION
+        "Data rate of egress traffic over the past second."
+    ::= { avWlanMobTunnelStatsEntry 36 }
+
+avWlanMobTunnelStatsReset OBJECT-TYPE
+    SYNTAX       INTEGER {
+                     none(1),
+                     reset(2)
+                 }
+    MAX-ACCESS   read-write
+    STATUS       deprecated
+    DESCRIPTION
+        "This is an action object. When this object is set to reset(2), 
+         statistics for the tunnel will be cleared. 
+         Read on this object always returns none(1)."
+    ::= { avWlanMobTunnelStatsEntry 37 }
+
+
+-- ============================================================================
+--    avWlanMobSwTunnelStatisticsTable
+-- ============================================================================
+
+avWlanMobSwTunnelStatisticsTable OBJECT-TYPE
+    SYNTAX       SEQUENCE OF AvWlanMobSwTunnelStatisticsEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "This table contains statistics for each mobility/access tunnel."
+    ::= { avWlanMobSwObjects 8 }
+
+avWlanMobSwTunnelStatisticsEntry OBJECT-TYPE
+    SYNTAX       AvWlanMobSwTunnelStatisticsEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "Each entry in this table contain statistics available for each 
+         mobility/access tunnel established at the switch."
+    INDEX { avWlanMobSwDeviceType,
+            avWlanMobSwDeviceId }
+    ::= { avWlanMobSwTunnelStatisticsTable 1 }
+
+AvWlanMobSwTunnelStatisticsEntry ::=
+    SEQUENCE {
+        avWlanMobSwTunnelIngressPkts           Counter64,
+        avWlanMobSwTunnelIngressMcast          Counter64,
+        avWlanMobSwTunnelIngressBcast          Counter64,
+        avWlanMobSwTunnelIngressOctets         Counter64,
+        avWlanMobSwTunnelIngressError          Counter64,
+        avWlanMobSwTunnelIngressDropped        Counter64,
+        avWlanMobSwTunnelIngressPkts64         Counter64,
+        avWlanMobSwTunnelIngressPkts65to127    Counter64,
+        avWlanMobSwTunnelIngressPkts128to255   Counter64,
+        avWlanMobSwTunnelIngressPkts256to511   Counter64,
+        avWlanMobSwTunnelIngressPkts512to1023  Counter64,
+        avWlanMobSwTunnelIngressPkts1024to1518 Counter64,
+        avWlanMobSwTunnelIngressPkts1522to9216 Counter64,
+        avWlanMobSwTunnelIngressFragments      Counter64,
+        avWlanMobSwTunnelIngressFragmentsDrop  Counter64,
+        avWlanMobSwTunnelIngressKeepAliveReq   Counter64,
+        avWlanMobSwTunnelIngressKeepAliveRsp   Counter64,
+        avWlanMobSwTunnelIngressDataRate       CounterBasedGauge64,
+        avWlanMobSwTunnelEgressPkts            Counter64,
+        avWlanMobSwTunnelEgressMcast           Counter64,
+        avWlanMobSwTunnelEgressBcast           Counter64,
+        avWlanMobSwTunnelEgressOctets          Counter64,
+        avWlanMobSwTunnelEgressError           Counter64,
+        avWlanMobSwTunnelEgressDropped         Counter64,
+        avWlanMobSwTunnelEgressPkts64          Counter64,
+        avWlanMobSwTunnelEgressPkts65to127     Counter64,
+        avWlanMobSwTunnelEgressPkts128to255    Counter64,
+        avWlanMobSwTunnelEgressPkts256to511    Counter64,
+        avWlanMobSwTunnelEgressPkts512to1023   Counter64,
+        avWlanMobSwTunnelEgressPkts1024to1518  Counter64,
+        avWlanMobSwTunnelEgressPkts1522to9216  Counter64,
+        avWlanMobSwTunnelEgressFragments       Counter64,
+        avWlanMobSwTunnelEgressKeepAliveReq    Counter64,
+        avWlanMobSwTunnelEgressKeepAliveRsp    Counter64,
+        avWlanMobSwTunnelEgressDataRate        CounterBasedGauge64,
+        avWlanMobSwTunnelResetStats            INTEGER,
+        avWlanMobSwTunnelIpAddressType         InetAddressType,
+        avWlanMobSwTunnelIpAddress             InetAddress,
+        avWlanMobSwTunnelInterfaceId           Integer32
+    }
+
+avWlanMobSwTunnelIngressPkts OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Total packets received on the tunnel."
+    ::= { avWlanMobSwTunnelStatisticsEntry 1 }
+
+avWlanMobSwTunnelIngressMcast OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Multicast packets recvd on the tunnel."
+    ::= { avWlanMobSwTunnelStatisticsEntry 2 }
+
+avWlanMobSwTunnelIngressBcast OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Broadcasts recvd on the tunnel."
+    ::= { avWlanMobSwTunnelStatisticsEntry 3 }
+
+avWlanMobSwTunnelIngressOctets OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Total octets recvd on the tunnel."
+    ::= { avWlanMobSwTunnelStatisticsEntry 4 }
+
+avWlanMobSwTunnelIngressError OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Total packets with errors recvd on tunnel."
+    ::= { avWlanMobSwTunnelStatisticsEntry 5 }
+
+avWlanMobSwTunnelIngressDropped OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Total packets that were dropped by ingress processing
+            - e.g. incorrect vlan or WDP disabled or rate limited."
+    ::= { avWlanMobSwTunnelStatisticsEntry 6 }
+
+avWlanMobSwTunnelIngressPkts64 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Total number of 64 byte packets received on tunnel."
+    ::= { avWlanMobSwTunnelStatisticsEntry 7 }
+
+avWlanMobSwTunnelIngressPkts65to127 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Total number of 65 byte to 127 byte packets received on the tunnel."
+    ::= { avWlanMobSwTunnelStatisticsEntry 8 }
+
+avWlanMobSwTunnelIngressPkts128to255 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Total number of 128 byte to 255 byte packets recvd."
+    ::= { avWlanMobSwTunnelStatisticsEntry 9 }
+
+avWlanMobSwTunnelIngressPkts256to511 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Total number of 256 byte to 511 byte packets recvd."
+    ::= { avWlanMobSwTunnelStatisticsEntry 10 }
+
+avWlanMobSwTunnelIngressPkts512to1023 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Total number of 512 byte to 1023 byte packets recvd."
+    ::= { avWlanMobSwTunnelStatisticsEntry 11 }
+
+avWlanMobSwTunnelIngressPkts1024to1518 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Total number of 1024 byte to 1518 byte packets recvd."
+    ::= { avWlanMobSwTunnelStatisticsEntry 12 }
+
+avWlanMobSwTunnelIngressPkts1522to9216 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Jumbo frames ingressing on the tunnel."
+    ::= { avWlanMobSwTunnelStatisticsEntry 13 }
+
+avWlanMobSwTunnelIngressFragments OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Total CAPWAP fragments ingressing on the tunnel."
+    ::= { avWlanMobSwTunnelStatisticsEntry 14 }
+
+avWlanMobSwTunnelIngressFragmentsDrop OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Total number of CAPWAP fragments dropped because they could not
+        be re-assembled."
+    ::= { avWlanMobSwTunnelStatisticsEntry 15 }
+
+avWlanMobSwTunnelIngressKeepAliveReq OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Total keep alive requests received on this tunnel."
+    ::= { avWlanMobSwTunnelStatisticsEntry 16 }
+
+avWlanMobSwTunnelIngressKeepAliveRsp OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Total keep alive responses received on this tunnel."
+    ::= { avWlanMobSwTunnelStatisticsEntry 17 }
+
+avWlanMobSwTunnelIngressDataRate OBJECT-TYPE
+    SYNTAX       CounterBasedGauge64
+    UNITS        "bits/seconds"
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Data rate of ingress traffic over the past second."
+    ::= { avWlanMobSwTunnelStatisticsEntry 18 }
+
+avWlanMobSwTunnelEgressPkts OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Total packets egressing on the tunnel."
+    ::= { avWlanMobSwTunnelStatisticsEntry 19 }
+
+avWlanMobSwTunnelEgressMcast OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Multicast packets egressing on the tunnel."
+    ::= { avWlanMobSwTunnelStatisticsEntry 20 }
+
+avWlanMobSwTunnelEgressBcast OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Broadcast packets egressing on the tunnel."
+    ::= { avWlanMobSwTunnelStatisticsEntry 21 }
+
+avWlanMobSwTunnelEgressOctets OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Total octets egressing on the tunnel."
+    ::= { avWlanMobSwTunnelStatisticsEntry 22 }
+
+avWlanMobSwTunnelEgressError OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Total packets with errors sent on tunnel."
+    ::= { avWlanMobSwTunnelStatisticsEntry 23 }
+
+avWlanMobSwTunnelEgressDropped OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Total packets dropped on the egress due to e.g. rate limiting
+        or vlan filtering."
+    ::= { avWlanMobSwTunnelStatisticsEntry 24 }
+
+avWlanMobSwTunnelEgressPkts64 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Total 64 byte packets egressing on the tunnel."
+    ::= { avWlanMobSwTunnelStatisticsEntry 25 }
+
+avWlanMobSwTunnelEgressPkts65to127 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Total 65 byte to 127 byte packets egressing on the tunnel."
+    ::= { avWlanMobSwTunnelStatisticsEntry 26 }
+
+avWlanMobSwTunnelEgressPkts128to255 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Total 128 byte to 255 byte packets egressing on the tunnel."
+    ::= { avWlanMobSwTunnelStatisticsEntry 27 }
+
+avWlanMobSwTunnelEgressPkts256to511 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Total 256 byte to 511 byte packets egressing on the tunnel."
+    ::= { avWlanMobSwTunnelStatisticsEntry 28 }
+
+avWlanMobSwTunnelEgressPkts512to1023 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Total 512 byte to 1023 byte packets egressing on the tunnel."
+    ::= { avWlanMobSwTunnelStatisticsEntry 29 }
+
+avWlanMobSwTunnelEgressPkts1024to1518 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Total 1024 byte to 1518 byte packets egressing on the tunnel."
+    ::= { avWlanMobSwTunnelStatisticsEntry 30 }
+
+avWlanMobSwTunnelEgressPkts1522to9216 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Jumbo frame egressing on the tunnel."
+    ::= { avWlanMobSwTunnelStatisticsEntry 31 }
+
+avWlanMobSwTunnelEgressFragments OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Total number of CAPWAP fragments transmitted."
+    ::= { avWlanMobSwTunnelStatisticsEntry 32 }
+
+avWlanMobSwTunnelEgressKeepAliveReq OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Total keep alive requests transmitted from this tunnel."
+    ::= { avWlanMobSwTunnelStatisticsEntry 33 }
+
+avWlanMobSwTunnelEgressKeepAliveRsp OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Total keep alive responses transmitted from this tunnel."
+    ::= { avWlanMobSwTunnelStatisticsEntry 34 }
+
+avWlanMobSwTunnelEgressDataRate OBJECT-TYPE
+    SYNTAX       CounterBasedGauge64
+    UNITS        "bits/seconds"
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Data rate of egress traffic over the past second."
+    ::= { avWlanMobSwTunnelStatisticsEntry 35 }
+
+avWlanMobSwTunnelResetStats OBJECT-TYPE
+    SYNTAX       INTEGER {
+                     none(1),
+                     reset(2)
+                 }
+    MAX-ACCESS   read-write
+    STATUS       current
+    DESCRIPTION
+        "This is an action object. When this object is set to reset(2), 
+         statistics for the tunnel will be cleared. 
+         Read on this object always returns none(1)."
+    ::= { avWlanMobSwTunnelStatisticsEntry 36 }
+
+avWlanMobSwTunnelIpAddressType OBJECT-TYPE
+      SYNTAX       InetAddressType
+      MAX-ACCESS   read-only
+      STATUS       current
+      DESCRIPTION  "This object indicates the type of internet address in the
+                                   corresponding instance of rcWlanMobSwTunnelIPAddress. 
+                                   Currently, only the values ipv4(1) and ipv6(2) are allowed."
+        ::= { avWlanMobSwTunnelStatisticsEntry 37 }
+
+avWlanMobSwTunnelIpAddress OBJECT-TYPE
+      SYNTAX       InetAddress (SIZE(4|16))
+      MAX-ACCESS   read-only
+      STATUS       current
+      DESCRIPTION "This object contains the IP address that will be used  
+                                   to display Wireless LAN switch tunnel."       
+         ::= { avWlanMobSwTunnelStatisticsEntry 38}
+
+avWlanMobSwTunnelInterfaceId OBJECT-TYPE  
+     SYNTAX         	Integer32  
+     MAX-ACCESS     	read-only  
+     STATUS        	current  
+     DESCRIPTION   	"Used to display Logical Port for the tunnel."    
+        ::= { avWlanMobSwTunnelStatisticsEntry 39 }
+
+
+-- ====================================================================
+--    avWlanMobSwControllerTable  
+-- =====================================================================
+ 
+avWlanMobSwControllerTable      OBJECT-TYPE
+     SYNTAX      SEQUENCE OF AvWlanMobSwControllerEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION        
+         "The table defines System IPs of the Controllers for this switch.
+          The controllers are used in the round robin fashion."
+     ::= { avWlanMobSwObjects 9 }
+ 
+avWlanMobSwControllerEntry       OBJECT-TYPE
+     SYNTAX      AvWlanMobSwControllerEntry 
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION 
+         "Entry containing configuration information for
+          a particular Controller."
+     INDEX { avWlanMobSwControllerId }
+     ::= { avWlanMobSwControllerTable 1 }
+ 
+AvWlanMobSwControllerEntry  ::= SEQUENCE {
+        avWlanMobSwControllerId                  Integer32,
+        avWlanMobSwControllerAddrType            InetAddressType,
+        avWlanMobSwControllerAddr                InetAddress,
+        avWlanMobSwControllerRowStatus           RowStatus
+        }
+ 
+avWlanMobSwControllerId OBJECT-TYPE
+    SYNTAX        Integer32(1..4)
+    MAX-ACCESS    not-accessible 
+    STATUS        current
+    DESCRIPTION   
+        "Index into the table."
+    ::= { avWlanMobSwControllerEntry  1 }
+ 
+avWlanMobSwControllerAddrType OBJECT-TYPE
+    SYNTAX        InetAddressType
+    MAX-ACCESS    read-create 
+    STATUS        current
+    DESCRIPTION   
+        "The type of internet address contained in the corresponding
+        instance of avWlanMobSwControllerAddr.  Currently only
+        ipv4(1) and ipv6(2) are allowed."
+    ::= { avWlanMobSwControllerEntry  2 }
+
+ avWlanMobSwControllerAddr OBJECT-TYPE
+    SYNTAX        InetAddress (SIZE(0|4|16))
+    MAX-ACCESS    read-create 
+    STATUS        current
+    DESCRIPTION   
+        "The internet address of the configured Controller IP address.
+        The type of address contained in this object is indicated by 
+        the corresponding instance of avWlanMobSwControllerAddrType."  
+    ::= { avWlanMobSwControllerEntry 3 }
+
+avWlanMobSwControllerRowStatus OBJECT-TYPE
+    SYNTAX       RowStatus
+    MAX-ACCESS   read-create
+    STATUS       current
+    DESCRIPTION
+        "This variable is used to create or delete entries in the table."
+    ::= { avWlanMobSwControllerEntry  4 }
+
+
+avWlanMobSwFdbTable OBJECT-TYPE
+	SYNTAX  	SEQUENCE OF AvWlanMobSwFdbEntry
+	MAX-ACCESS  	not-accessible
+	STATUS  	current
+	DESCRIPTION 	
+            "This table contains FDB entries for wireless traffic."
+	::= { avWlanMobSwObjects 10 }
+
+avWlanMobSwFdbEntry OBJECT-TYPE
+	SYNTAX  	AvWlanMobSwFdbEntry
+	MAX-ACCESS  	not-accessible
+	STATUS  	current
+        DESCRIPTION 	
+            "Information about a specific unicast MAC address
+             for which the mobility switch has forwarding information."
+	INDEX { avWlanMobSwFdbVlanId , 
+                avWlanMobSwFdbMacAddress }
+	::= { avWlanMobSwFdbTable 1 }
+
+AvWlanMobSwFdbEntry ::=
+	SEQUENCE {
+                  avWlanMobSwFdbVlanId                 VlanIdOrNone,
+                  avWlanMobSwFdbMacAddress             MacAddress,
+                  avWlanMobSwFdbType                   INTEGER,
+                  avWlanMobSwFdbTunnelType             INTEGER,
+	      	  avWlanMobSwFdbRemoteEndpointId       MacAddress,
+	          avWlanMobSwFdbRemoteEndpointAddrType InetAddressType,
+        	  avWlanMobSwFdbRemoteEndpointAddr     InetAddress,
+        	  avWlanMobSwFdbRemoteEndpointUdpPort  InetPortNumber,
+                  avWlanMobSwFdbLocalEndpointUdpPort   InetPortNumber,
+	          avWlanMobSwFdbInterfaceId            Integer32,
+		  avWlanMobSwFdbFlushAction            INTEGER	
+                }
+ 
+avWlanMobSwFdbVlanId OBJECT-TYPE
+        SYNTAX      VlanIdOrNone 
+	MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION 
+             "Local VLAN ID"
+        ::= { avWlanMobSwFdbEntry 1 }
+
+avWlanMobSwFdbMacAddress OBJECT-TYPE
+        SYNTAX  	MacAddress
+	MAX-ACCESS 	not-accessible
+        STATUS  	current
+        DESCRIPTION 	
+               "A unicast MAC address for which the mobility switch 
+	     	has forwarding and/or filtering information."
+        REFERENCE "IEEE 802.1D-1990: Section 3.9.1, 3.9.2"
+        ::= { avWlanMobSwFdbEntry 2 }
+
+avWlanMobSwFdbType OBJECT-TYPE
+        SYNTAX  	INTEGER {
+			      other(1),
+			      invalid(2),
+			      learned(3),
+                              self(4),		    
+			      static(5)
+			}
+        MAX-ACCESS 	read-only
+        STATUS 	 	current
+        DESCRIPTION 	
+                "This object indicates the type of this entry 
+                  other(1)   - 
+                  invalid(2) -
+                  learned(3) -
+                  self(4)    -
+                  static(5)  - 
+                "
+        ::= { avWlanMobSwFdbEntry 3 }
+
+avWlanMobSwFdbTunnelType OBJECT-TYPE
+    SYNTAX       INTEGER {
+			mobTunnel(1),
+			accessTunnel(2),
+			resPeerAccessTunnel(3)
+                 }
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "This indicates the type of the tunnel the entry is learned on"
+    ::= { avWlanMobSwFdbEntry 4 }
+
+
+avWlanMobSwFdbRemoteEndpointId OBJECT-TYPE
+        SYNTAX  	MacAddress
+        MAX-ACCESS  	read-only
+        STATUS          current
+        DESCRIPTION 	
+           "The MAC address of the FDB entry's remote end point."
+        ::= { avWlanMobSwFdbEntry 5 }
+
+
+avWlanMobSwFdbRemoteEndpointAddrType OBJECT-TYPE
+    SYNTAX       InetAddressType
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "This object indicates the type of internet address of the FDB entry's remote end point ."
+    ::= { avWlanMobSwFdbEntry 6 }
+
+avWlanMobSwFdbRemoteEndpointAddr OBJECT-TYPE
+    SYNTAX       InetAddress (SIZE(4|16))
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The address of the remote end point(mobility switch or access point).  The type of
+        address is indicated by the corresponding instance of
+        avWlanMobSwRemoteEndPointAddrType."
+    ::= { avWlanMobSwFdbEntry 7 }
+
+avWlanMobSwFdbRemoteEndpointUdpPort OBJECT-TYPE
+    SYNTAX       InetPortNumber
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Indicates the UDP port used by the remote end point of the tunnel."
+    ::= { avWlanMobSwFdbEntry 8 }
+
+avWlanMobSwFdbLocalEndpointUdpPort  OBJECT-TYPE
+    SYNTAX       InetPortNumber
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "Indicates the UDP port used by the local end point of the tunnel."
+    ::= { avWlanMobSwFdbEntry 9 }
+
+avWlanMobSwFdbInterfaceId OBJECT-TYPE  
+     SYNTAX         	Integer32  
+     MAX-ACCESS     	read-only  
+     STATUS        	current  
+     DESCRIPTION   	"Used to display Logical Port for the tunnel."    
+        ::= { avWlanMobSwFdbEntry 10 }
+
+avWlanMobSwFdbFlushAction OBJECT-TYPE
+    SYNTAX       INTEGER {
+                     none(1),
+                     flush(2)
+                 }
+    MAX-ACCESS   read-write
+    STATUS       current
+    DESCRIPTION
+        "When this object is set to flush(2), the FDB entry learned by mobility switch
+         will be flushed. Read on this object will always return none(1)."
+    ::= { avWlanMobSwFdbEntry 11 }
+
+END

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -34,7 +34,7 @@ if (empty($os))
   );
   foreach ($cisco_os_descr as $cos => $cdescr)
   {
-    foreach($cdescr as $descr)
+    foreach ($cdescr as $descr)
     {
       if (strpos($sysDescr, $descr) !== FALSE)
       {
@@ -43,7 +43,7 @@ if (empty($os))
       }
     }
   }
-  
+
   if (!$os && strpos($sysObjectId, '.1.3.6.1.4.1.9.10.56') !== FALSE)
   {
     // This sysObjectId intersects with Cisco ACS

@@ -7,7 +7,7 @@
  * @package    observium
  * @subpackage applications
  * @author     Solomon Seal <slm4996+observium@gmail.com> 2014-04
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -34,3 +34,5 @@ $app_graphs['buffers'] = array(
                 'mssql_buffer_pglife' => 'Page Life Expectancy',
                 'mssql_buffer_stalls' => 'Free List Stalls'
                 );
+
+// EOF

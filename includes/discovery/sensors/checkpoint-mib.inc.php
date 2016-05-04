@@ -7,16 +7,17 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 $mib = 'CHECKPOINT-MIB';
+
 echo(" $mib ");
 
-$chkpnt['temp'] = snmpwalk_cache_oid($device, 'tempertureSensorEntry', array(), $mib, mib_dirs('checkpoint'));
-$chkpnt['fan']  = snmpwalk_cache_oid($device, 'fanSpeedSensorEntry',  array(), $mib, mib_dirs('checkpoint'));
-$chkpnt['volt'] = snmpwalk_cache_oid($device, 'voltageSensorEntry', array(), $mib, mib_dirs('checkpoint'));
+$chkpnt['temp'] = snmpwalk_cache_oid($device, 'tempertureSensorEntry', array(), $mib);
+$chkpnt['fan']  = snmpwalk_cache_oid($device, 'fanSpeedSensorEntry',  array(), $mib);
+$chkpnt['volt'] = snmpwalk_cache_oid($device, 'voltageSensorEntry', array(), $mib);
 
 foreach ($chkpnt['temp'] as $index => $entry)
 {
@@ -45,7 +46,7 @@ foreach ($chkpnt['volt'] as $index => $entry)
   $oid   = '.1.3.6.1.4.1.2620.1.6.7.8.3.1.3.'.$index;
   $descr = $entry['voltageSensorName'];
   $value = $entry['voltageSensorValue'];
-  if (is_numeric($entry['voltageSensorValue']))
+  if (is_numeric($value) && $value > 0)
   {
     discover_sensor($valid['sensor'], 'voltage', $device, $oid, $index, 'checkpoint', $descr, 1, $value);
   }
@@ -56,7 +57,7 @@ foreach ($chkpnt['volt'] as $index => $entry)
 # CHECKPOINT-MIB::haStarted.0 = STRING: yes
 # CHECKPOINT-MIB::haState.0 = STRING: standby
 # CHECKPOINT-MIB::haStatCode.0 = INTEGER: 0
-$chkpnt['ha'] = snmp_get_multi($device, 'haProdName.0 haStarted.0 haState.0 haStatCode.0', '-OQUs', $mib, mib_dirs('checkpoint'));
+$chkpnt['ha'] = snmp_get_multi($device, 'haProdName.0 haStarted.0 haState.0 haStatCode.0', '-OQUs', $mib);
 
 if (isset($chkpnt['ha'][0]) && $chkpnt['ha'][0]['haStarted'] == 'yes')
 {

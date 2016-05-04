@@ -1,5 +1,16 @@
 <?php
 
+/**
+ * Observium
+ *
+ *   This file is part of Observium.
+ *
+ * @package    observium
+ * @subpackage discovery
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
+ *
+ */
+
 function discover_wifi_wlan($device_id, $wlan)
 {
 

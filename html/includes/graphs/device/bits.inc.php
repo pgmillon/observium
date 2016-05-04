@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -18,7 +18,7 @@ $ds_out = "OUTOCTETS";
 
 $graph_return = array('descr' => 'Device total traffic in bits/sec.');
 
-foreach (dbFetchRows("SELECT * FROM `ports` WHERE `device_id` = ?", array($device['device_id'])) as $port)
+foreach (dbFetchRows("SELECT * FROM `ports` WHERE `device_id` = ? AND `deleted` != ?;", array($device['device_id'], '1')) as $port)
 {
   $ignore = FALSE;
   $debug_msg = '[Port (id='.$port['port_id'].', ifIndex='.$port['ifIndex'].') ignored by ';
@@ -34,7 +34,7 @@ foreach (dbFetchRows("SELECT * FROM `ports` WHERE `device_id` = ?", array($devic
       }
     }
   }
-  if (!$ignore && is_array($config['device_traffic_descr']))
+  if (!$ignore && !$config['os'][$device['os']]['ports_unignore_descr'] && is_array($config['device_traffic_descr']))
   {
     foreach ($config['device_traffic_descr'] as $ifdescr)
     {
@@ -62,12 +62,11 @@ foreach (dbFetchRows("SELECT * FROM `ports` WHERE `device_id` = ?", array($devic
   $rrd_filename = get_port_rrdfilename($port, NULL, TRUE);
   if (!$ignore && is_file($rrd_filename))
   {
-    humanize_port($port);   // Fix Labels! ARGH. This needs to be in the bloody database!
 
     $rrd_filenames[] = $rrd_filename;
     $rrd_list[$i]['filename'] = $rrd_filename;
-    $rrd_list[$i]['descr']    = short_ifname($port['label'], NULL, FALSE); // Options sets for skip htmlentities
-    $rrd_list[$i]['descr_in'] = short_ifname($port['label'], NULL, FALSE); // Options sets for skip htmlentities
+    $rrd_list[$i]['descr']    = $port['port_label_short'];
+    $rrd_list[$i]['descr_in'] = $port['port_label_short'];
     $rrd_list[$i]['descr_out'] = $port['ifAlias'];
     $rrd_list[$i]['ds_in'] = $ds_in;
     $rrd_list[$i]['ds_out'] = $ds_out;

@@ -7,15 +7,18 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
+if ($_SESSION['userlevel'] < 5)
+{
+  print_error_permission();
+  return;
+}
+
 $link_array = array('page'    => 'routing',
                     'protocol' => 'vrf');
-
-if ($_SESSION['userlevel'] >= '5')
-{
 
   $navbar = array('brand' => "VRFs", 'class' => "navbar-narrow");
 
@@ -84,14 +87,20 @@ if ($_SESSION['userlevel'] >= '5')
       }
     }
 
-    echo('<table class="table table-bordered table-striped">');
+    echo generate_box_open();
+
+    echo('<table class="table  table-striped">');
     foreach (dbFetchRows("SELECT * FROM `vrfs` WHERE 1".$GLOBALS['cache']['where']['devices_permitted']." GROUP BY `mplsVpnVrfRouteDistinguisher`") as $vrf)
     {
       echo('<tr>');
       echo('<td style="width: 240px;"><a class="entity" href="'.generate_url($link_array,array('vrf' => $vrf['mplsVpnVrfRouteDistinguisher'])).'">' . $vrf['vrf_name'] . '</a><br /><span class="small">' . $vrf['mplsVpnVrfDescription'] . '</span></td>');
       echo('<td style="width: 100px;" class="small">' . $vrf['mplsVpnVrfRouteDistinguisher'] . '</td>');
       #echo('<td style="width: 200px;" class="small">' . $vrf['mplsVpnVrfDescription'] . '</td>');
-      echo('<td><table class="table table-striped table-bordered table-condensed">');
+      echo('<td>');
+
+      echo generate_box_open();
+
+      echo('<table class="table table-striped  table-condensed">');
       $x=1;
       foreach ($vrf_devices[$vrf['mplsVpnVrfRouteDistinguisher']] as $device)
       {
@@ -135,40 +144,43 @@ if ($_SESSION['userlevel'] >= '5')
          $x++;
        } // End While
 
-       echo("</table></td>");
+       echo '</table>';
+       echo generate_box_close();
+       echo '</td>';
 
        $i++;
      }
      echo("</table>");
 
+     echo print_box_close();
+
   } else {
 
     // Print single VRF
 
-    echo("<div style='background: $list_colour_a; padding: 10px;'><table cellspacing=0 cellpadding=5 width=100%>");
+    echo('<table class="table  table-striped">');
     $vrf = dbFetchRow("SELECT * FROM `vrfs` WHERE `mplsVpnVrfRouteDistinguisher` = ? ".$GLOBALS['cache']['where']['devices_permitted'], array($vars['vrf']));
     echo('<tr>');
     echo('<td style="width: 200px;" class="entity-title"><a href="'.generate_url($link_array,array('vrf' => $vrf['mplsVpnVrfRouteDistinguisher'])).'">' . $vrf['vrf_name'] . '</a></td>');
     echo('<td style="width: 100px;" class="small">' . $vrf['mplsVpnVrfRouteDistinguisher'] . '</td>');
     echo('<td style="width: 200px;" class="small">' . $vrf['mplsVpnVrfDescription'] . '</td>');
-    echo('</table></div>');
+    echo('</table>');
 
     $vrf_devices = dbFetchRows("SELECT * FROM `vrfs` LEFT JOIN `devices` USING (`device_id`) WHERE `mplsVpnVrfRouteDistinguisher` = ? ".$GLOBALS['cache']['where']['devices_permitted'], array($vrf['mplsVpnVrfRouteDistinguisher']));
     foreach ($vrf_devices as $device)
     {
       $hostname = $device['hostname'];
-      echo('<table cellpadding="10" cellspacing="0" class="devicetable" width="100%">');
+      echo('<table cellpadding="10" cellspacing="0" class="table  table-striped" width="100%">');
 
-      print_device_header($device);
+      print_device_row($device);
 
       echo('</table>');
       unset($seperator);
-      echo('<div style="margin: 10px;"><table class="table table-bordered table-striped">');
+      echo('<div style="margin: 10px;"><table class="table  table-striped">');
       $i=1;
       foreach (dbFetchRows("SELECT * FROM `ports` WHERE `ifVrf` = ? AND `device_id` = ?".$GLOBALS['cache']['where']['ports_permitted'], array($device['vrf_id'], $device['device_id'])) as $port)
       {
-
-        include("includes/print-interface.inc.php");
+        print_port_row($port);
 
         $i++;
       }
@@ -178,8 +190,5 @@ if ($_SESSION['userlevel'] >= '5')
       echo('<div style="height: 10px;"></div>');
     }
   }
-} else {
-  include("includes/error-no-perm.inc.php");
-} // End Permission if
 
 // EOF

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage map
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -51,7 +51,7 @@
   <?php
   if ($config['frontpage']['map']['clouds'])
   {
-    echo '<script src="https://maps.googleapis.com/maps/api/js?v=3.exp&sensor=false&libraries=weather"></script>';
+    echo '<script src="//maps.googleapis.com/maps/api/js?v=3.exp&sensor=false&libraries=weather"></script>';
   } else {
     echo '<script src="//maps.google.com/maps/api/js?sensor=false"></script>';
   }

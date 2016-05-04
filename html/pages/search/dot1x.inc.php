@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -41,13 +41,27 @@ $search[] = array('type'    => 'select',
                   'name'    => 'Search By',
                   'id'      => 'searchby',
                   'width'   => '120px',
+                  'onchange' => "$('#address').prop('placeholder', $('#searchby option:selected').text())",
                   'value'   => $vars['searchby'],
                   'values'  => array('mac' => 'MAC Address', 'ip' => 'IP Address', 'username' => 'Username'));
+if ($vars['searchby'] == 'mac')
+{
+  $name = 'MAC Address';
+}
+else if ($vars['searchby'] == 'ip')
+{
+  $name = 'IP Address';
+} else {
+  $name = 'Username';
+}
+
 //Address field
 $search[] = array('type'    => 'text',
-                  'name'    => 'Address',
+                  'name'    => $name,
                   'id'      => 'address',
-                  'width'   => '120px',
+                  'placeholder' => TRUE,
+                  'submit_by_key' => TRUE,
+                  'width'   => '200px',
                   'value'   => $vars['address']);
 
 print_search($search, '802.1x', NULL, 'search/search=dot1x/');
@@ -63,3 +77,7 @@ $page_title[] = '.1x Session Search';
 
   </div> <!-- col-md-12 -->
 </div> <!-- row -->
+
+<?php
+
+// EOF

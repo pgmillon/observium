@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -43,13 +43,6 @@ $search[] = array('type'    => 'multiselect',
                   'width'   => '130px',
                   'value'   => $vars['device_id'],
                   'values'  => $devices_array);
-//Search by field
-$search[] = array('type'    => 'select',
-                  'name'    => 'Search By',
-                  'id'      => 'searchby',
-                  'width'   => '120px',
-                  'value'   => $vars['searchby'],
-                  'values'  => array('mac' => 'MAC Address', 'ip' => 'IP Address'));
 //IP version field
 $search[] = array('type'    => 'select',
                   'name'    => 'IP',
@@ -57,11 +50,21 @@ $search[] = array('type'    => 'select',
                   'width'   => '120px',
                   'value'   => $vars['ip_version'],
                   'values'  => array('' => 'IPv4 & IPv6', '4' => 'IPv4 only', '6' => 'IPv6 only'));
+//Search by field
+$search[] = array('type'    => 'select',
+                  'title'   => 'Search By',
+                  'id'      => 'searchby',
+                  'width'   => '120px',
+                  'onchange' => "$('#address').prop('placeholder', $('#searchby option:selected').text())",
+                  'value'   => $vars['searchby'],
+                  'values'  => array('mac' => 'MAC Address', 'ip' => 'IP Address'));
 //Address field
 $search[] = array('type'    => 'text',
-                  'name'    => 'Address',
+                  'name'    => ($vars['searchby'] == 'ip' ? 'IP Address' : 'MAC Address'),
                   'id'      => 'address',
-                  'width'   => '120px',
+                  'placeholder' => TRUE,
+                  'submit_by_key' => TRUE,
+                  'width'   => '200px',
                   'value'   => $vars['address']);
 
 print_search($search, 'ARP/NDP', NULL, 'search/search=arp/');
@@ -77,3 +80,7 @@ $page_title[] = 'ARP/NDP Search';
 
   </div> <!-- col-md-12 -->
 </div> <!-- row -->
+
+<?php
+
+// EOF

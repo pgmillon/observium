@@ -8,28 +8,30 @@
  *
  * @package    observium
  * @subpackage cli
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 chdir(dirname($argv[0]));
 $scriptname = basename($argv[0]);
 
-include_once("includes/defaults.inc.php");
-include_once("config.php");
-
-$options = getopt("d");
+$options = getopt("dp");
 if (isset($options['d'])) { array_shift($argv); } // for compatability
 
-include_once("includes/definitions.inc.php");
-include("includes/functions.inc.php");
+include("includes/sql-config.inc.php");
 
 print_message("%g".OBSERVIUM_PRODUCT." ".OBSERVIUM_VERSION."\n%WRename Device%n\n", 'color');
 if (OBS_DEBUG) { print_versions(); }
 
-// Remove a host and all related data from the system
+$options = array();
+if (isset($options['p']))
+{
+  $options['ping_skip'] = 1;
+  array_shift($argv);
+}
 
+// Remove a host and all related data from the system
 if ($argv[1] && $argv[2])
 {
   $host = strtolower($argv[1]);
@@ -42,7 +44,7 @@ if ($argv[1] && $argv[2])
     {
       print_error("NOT renamed. New hostname $tohost already exists.");
     } else {
-      if (renamehost($id, $tohost, 'console'))
+      if (renamehost($id, $tohost, 'console', $options))
       {
         print_message("Host $host renamed to $tohost.");
       }
@@ -54,6 +56,13 @@ if ($argv[1] && $argv[2])
     print_message("%n
 USAGE:
 $scriptname <old hostname> <new hostname>
+
+OPTIONS:
+ -p                                          Skip icmp echo checks, device renamed only by SNMP checks
+
+DEBUGGING OPTIONS:
+ -d                                          Enable debugging output.
+ -dd                                         More verbose debugging output.
 
 %rInvalid arguments!%n", 'color', FALSE);
 }

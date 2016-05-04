@@ -1,0 +1,1372 @@
+NETI-DTM-MIB DEFINITIONS ::= BEGIN
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, Integer32, Gauge32, Unsigned32
+        FROM SNMPv2-SMI
+
+    TEXTUAL-CONVENTION, RowStatus, TruthValue, MacAddress,
+    DisplayString, DateAndTime, RowPointer
+        FROM SNMPv2-TC
+
+    SnmpAdminString
+        FROM SNMP-FRAMEWORK-MIB
+
+    netiExperimentalGeneric, FaultStatus
+        FROM NETI-COMMON-MIB;
+
+netiDTMMIB MODULE-IDENTITY
+    LAST-UPDATED
+        "201311120800Z"
+    ORGANIZATION
+        "Net Insight AB"
+    CONTACT-INFO
+        "Net Insight AB
+         Box 42093
+         SE-126 14 Stockholm
+         Sweden
+         Tel +46-8-685 0400
+         info@netinsight.net"
+    DESCRIPTION
+        "The Net Insight DTM MIB. The MIB implements objects for
+         managing the DTM configuration in a network element."
+
+    REVISION "201311120800Z"
+    DESCRIPTION
+         "Updated descriptions."
+         
+    REVISION "201309101300Z"
+    DESCRIPTION
+         "Added support for time transfer sources (the dtmTimeSourceTable
+          and dtmTimeSourceCalibrationReference) to the dtmSyncGroup."
+
+    REVISION "201009011400Z"
+    DESCRIPTION
+         "Added dtmIfSyncEnabled"
+
+    REVISION "201003030900Z"
+    DESCRIPTION
+         "Added dtmTimeScaleStatus.
+
+          Following objects are obsoleted:
+          dtmIfTxCapacityOwnedFirstSlot"
+
+    REVISION "200906251400Z"
+    DESCRIPTION
+         "Added dtmIfPurpose.
+          Added lowerLayerDown in dtmIfOperStatus.
+
+          Following objects are obsoleted:
+          dtmIfTxCapacityBorrowed 
+          dtmIfTxCapacityMaxLend 
+          dtmIfTxCapacityLent
+          dtmIfAbsent
+          dtmIfIfIndex"
+
+    REVISION "200802061700Z"
+    DESCRIPTION
+         "Added dtmNodeId.
+          Added dtmSyncGroup and its objects.
+          Corrected some typos in descriptions."
+
+    REVISION "200608221000Z"
+    DESCRIPTION
+         "Added hosts to address resolution table dtmHostsTable."
+
+    REVISION "200605161300Z"
+    DESCRIPTION
+         "Added objects for Persistent Channel functionality:
+          dtmIfLinkClass
+          dtmLinkStateLocalSubIf
+          dtmLinkStateIfNodeStatus
+          dtmNodeStatus
+          dtmNodeRestartOnError
+
+          Added objects for configuration of DRP:
+          dtmIfRouteMetric
+          dtmDrpNodeRouteMetric
+          dtmDrpNodeType
+          dtmDrpAreaNumber
+          dtmDrpDetectAreaNumber
+          dtmDrpDetectDefaultGateway
+
+          Removed all objects in obsoleted history group (dtmHistroyGroup)."
+
+    REVISION "200409290000Z"
+    DESCRIPTION
+        "The history group (dtmHistoryGroup) is obsoleted."
+
+    REVISION "200302280000Z"
+    DESCRIPTION
+        "dtmRouteTable was never implemented, and is therefore removed."
+
+
+
+    ::= { netiExperimentalGeneric 4 }
+
+netiDTMMIBObjects OBJECT IDENTIFIER ::= { netiDTMMIB 1 }
+
+
+-- -------------------------------------------------------------
+-- Groups in the NETI-DTM-MIB
+-- -------------------------------------------------------------
+
+dtmAddrGroup      OBJECT IDENTIFIER ::= { netiDTMMIBObjects 1 }
+dtmIfGroup        OBJECT IDENTIFIER ::= { netiDTMMIBObjects 2 }
+dtmLinkStateGroup OBJECT IDENTIFIER ::= { netiDTMMIBObjects 3 }
+dtmRouteGroup     OBJECT IDENTIFIER ::= { netiDTMMIBObjects 4 }
+dtmHistoryGroup   OBJECT IDENTIFIER ::= { netiDTMMIBObjects 5 } -- Obsolete
+dtmNodeGroup      OBJECT IDENTIFIER ::= { netiDTMMIBObjects 6 }
+dtmSyncGroup      OBJECT IDENTIFIER ::= { netiDTMMIBObjects 7 }
+
+-- -------------------------------------------------------------
+-- Textual Conventions
+-- -------------------------------------------------------------
+
+DtmAddress ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT "1x."
+    STATUS  current
+    DESCRIPTION
+        "A (Net Insight) DTM address is 64 bits."
+    SYNTAX  OCTET STRING (SIZE(8))
+
+DtmSourceRoute ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT "1x.1x.1x.1x.1x.1x.1x.1x 1x:1x"
+    STATUS  current
+    DESCRIPTION
+        "A (Net Insight) DTM source route specification.
+
+         The source route specification is composed of a list
+         of intermediate nodes and optionally outgoing interface
+         for the same node. This means that the destination
+         should typically not be included in the route specification.
+
+         To specify the outgoing interface in the source node
+         add the originating node as the first entry in the route.
+
+         The string is composed of one (zero) or more 10 byte
+         sequences of the following format:
+
+           field        octets  description             range
+           1            0-7     DTM address             -
+           2            8       Card position           0, 1-255
+           3            9       Port position           0, 1-255
+
+         The address denotes the next hop address for an intermediate
+         note. The interface identifier identifies the outgoing
+         interface of the intermediate node.
+         For the interface 'dtm2.1' field 2 should contain 2 and field
+         3 should contain 1.
+         To user any interface is denoted assign 0 to both card and
+         interface position.
+
+         The empty route is specified by an empty string.
+
+         The application using a source route should specify whether
+         strict or loose source routing is used or provide a separate
+         parameter to configure the type of routing."
+    SYNTAX  OCTET STRING
+
+
+
+-- -------------------------------------------------------------
+-- The DTM address group
+-- -------------------------------------------------------------
+
+-- The DTM address table
+
+-- The DTM address table contains a list of the DTM addresses
+-- assigned to this entity.
+
+dtmAddrTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF DtmAddrEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The table of addressing information relevant to
+         this entity's DTM addresses."
+    ::= { dtmAddrGroup 1 }
+
+dtmAddrEntry OBJECT-TYPE
+    SYNTAX      DtmAddrEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The addressing information for one of this
+         entity's DTM addresses."
+    INDEX { dtmAddrEntryIndex }
+    ::= { dtmAddrTable 1 }
+
+DtmAddrEntry ::= SEQUENCE {
+    dtmAddrEntryIndex           Unsigned32,
+    dtmAddrEntryAddr            DtmAddress,
+    dtmAddrEntryIsAlias         TruthValue,
+    dtmAddrEntryAddrType        INTEGER,
+    dtmAddrEntryRowStatus       RowStatus }
+
+dtmAddrEntryIndex OBJECT-TYPE
+    SYNTAX      Unsigned32 (1..65535)
+    MAX-ACCESS  read-only
+    STATUS  current
+    DESCRIPTION
+        "An arbitrary index in the link table."
+    ::= { dtmAddrEntry 1 }
+
+dtmAddrEntryAddr OBJECT-TYPE
+    SYNTAX      DtmAddress
+    MAX-ACCESS  read-create
+        STATUS  current
+    DESCRIPTION
+        "The DTM address to which this entry's addressing
+         information pertains."
+    ::= { dtmAddrEntry 2 }
+
+dtmAddrEntryIsAlias OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Indicates if this address is the network address for this
+         entity. There is only one network address for each entity.
+         Values:
+
+         true(1)
+         This address is an alias.
+
+         false(2)
+         This address is the 'real' address for this entity."
+    DEFVAL { true }
+    ::= { dtmAddrEntry 3 }
+
+dtmAddrEntryAddrType OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    unspecified(1),
+                    loopback(2),
+                    local(3),
+                    multicast(4),
+                    global(5) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Indicates the type of address. This type is derived from the
+         prefixes defined below, so this is really just a more
+         user-friendly manner of presenting the address type.
+
+         unspecified(1)
+         The unspecified address; does not really belong
+         in the address table. Prefix 00.00.00.00.00.00.00.00-64.
+
+         loopback(2)
+         The loopback address; always assigned to the local node.
+         Prefix 00.00.00.00.00.00.00.01-64.
+
+         local(3)
+         Site local addresses, prefix 00.00.00.00.00.00.00.00-16
+         (except the unspecified and loopback addresses).
+
+         multicast(4)
+         Multicast addresses, prefix
+         FF.00.00.00.00.00.00.00-8.
+
+         global(5)
+         Global addresses, all other prefixes."
+    ::= { dtmAddrEntry 4 }
+
+dtmAddrEntryRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "See SNMPv2-TC."
+    ::= { dtmAddrEntry 5 }
+
+
+-- The DTM hosts table
+
+-- The DTM hosts table contains a list of DTM address to DTM host
+-- name known by this entity.
+
+dtmHostsTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF DtmHostsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The table of addressing information relevant to
+         this entity's DTM addresses."
+    ::= { dtmAddrGroup 2 }
+
+dtmHostsEntry OBJECT-TYPE
+    SYNTAX      DtmHostsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The addressing information for one of this
+         entity's DTM addresses."
+    INDEX { dtmHostsEntryIndex }
+    ::= { dtmHostsTable 1 }
+
+DtmHostsEntry ::= SEQUENCE {
+    dtmHostsEntryIndex          Unsigned32,
+    dtmHostsEntryAddr           DtmAddress,
+    dtmHostsEntryName           DisplayString,
+    dtmHostsEntryRowStatus      RowStatus }
+
+dtmHostsEntryIndex OBJECT-TYPE
+    SYNTAX      Unsigned32 (1..65535)
+    MAX-ACCESS  not-accessible
+    STATUS  current
+    DESCRIPTION
+        "An arbitrary index in the hosts database table."
+    ::= { dtmHostsEntry 1 }
+
+dtmHostsEntryAddr OBJECT-TYPE
+    SYNTAX      DtmAddress
+    MAX-ACCESS  read-create
+        STATUS  current
+    DESCRIPTION
+        "The DTM address to which this hosts name is mapped."
+    ::= { dtmHostsEntry 2 }
+
+dtmHostsEntryName OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-create
+        STATUS  current
+    DESCRIPTION
+        "The hosts name representing the DTM address. The host name is
+         a text string up to 64 characters drawn from the alphabet
+         (A-Z, a-z), digits (0-9), and minus sign (-). No blank or
+         space characters are permitted as part of a name. No
+         distinction is made between upper and lower case. The first
+         character must be an alpha character. The last character must
+         not be a minus sign or period."
+    ::= { dtmHostsEntry 3 }
+
+dtmHostsEntryRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "See SNMPv2-TC. The following values are supported:
+
+         createAndGo(4). 
+
+         A new conceptual row is created representing the mapping
+         between DTM address and DTM host name.
+
+         destroy(6). 
+         The conceptual row is deleted."
+    ::= { dtmHostsEntry 4 }
+
+
+-- -------------------------------------------------------------
+-- The DTM interface group
+-- -------------------------------------------------------------
+
+dtmIfTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF DtmIfEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+       "A conceptual table containing with DTM interfaces."
+    ::= { dtmIfGroup 1 }
+
+dtmIfEntry OBJECT-TYPE
+    SYNTAX      DtmIfEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+       "An entry in the DTM interface table."
+    INDEX { dtmIfIndex }
+    ::= { dtmIfTable 1 }
+
+DtmIfEntry ::= SEQUENCE {
+    dtmIfIndex                  Integer32,
+    dtmIfName                   DisplayString,
+    dtmIfMacAddress             MacAddress,
+    dtmIfTxCapacity             Gauge32,
+    dtmIfTxCapacityCtrl         Gauge32,
+    dtmIfTxCapacityStart        Gauge32, -- deprecated;
+    dtmIfTxCapacityOwned        Gauge32, -- deprecated; dtmIfTxCapacityOwnedLastSlot
+    dtmIfTxCapacityBorrowed     Gauge32, -- deprecated; 
+    dtmIfTxCapacityMaxLend      Gauge32, -- deprecated; 
+    dtmIfTxCapacityLent         Gauge32, -- deprecated; 
+    dtmIfTxCapacityUsed         Gauge32,
+    dtmIfRxCapacity             Gauge32,
+    dtmIfRxCapacityUsed         Gauge32,
+    dtmIfIfIndex                Integer32, -- deprecated; 
+    dtmIfAdminStatus            INTEGER,
+    dtmIfOperStatus             INTEGER,
+    dtmIfRowStatus              RowStatus,
+    dtmIfAbsent                 FaultStatus, -- deprecated; 
+    dtmIfLOS                    FaultStatus,
+    dtmIfReducedCtrlCapacity    FaultStatus,
+    dtmIfTxCapacityOwnedFirstSlot       Gauge32, -- deprecated; 
+    dtmIfTxCapacityOwnedLastSlot        Gauge32,
+    dtmIfRouteMetric            Unsigned32,
+    dtmIfLinkClass              INTEGER,
+    dtmIfPurpose                SnmpAdminString,
+    dtmIfSyncEnabled            INTEGER }
+
+dtmIfIndex OBJECT-TYPE
+    SYNTAX      Integer32 (1..2147483647)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Index in to the table."
+    ::= { dtmIfEntry 1 }
+
+dtmIfName OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The interface name, on the form <type><card position>:<port>,
+         for example 'dtm4:1'. Should correlate to what it says on the
+         front of the actual hardware."
+    ::= { dtmIfEntry 2 }
+
+dtmIfMacAddress OBJECT-TYPE
+    SYNTAX      MacAddress
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+         "The interfaces DTM physical address, i.e. a MAC identity."
+    ::= { dtmIfEntry 3 }
+
+dtmIfTxCapacity OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The upper transmit capability (in slots) for this interface.
+         Set to 0 if not known."
+    ::= { dtmIfEntry 4 }
+
+dtmIfTxCapacityCtrl OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The transmit capability (in slots) used for control traffic
+         (when dedicated control channels are used). See also
+         dtmIfreducedCtrlCapacity."
+    DEFVAL { 5 }
+    ::= { dtmIfEntry 5 }
+
+dtmIfTxCapacityStart OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      deprecated
+    DESCRIPTION
+        "The start slot for owned transmit capability (in slots) for
+         this interface.  Valid range is between 1 and the upper
+         transmit capacity of the interface - 1."
+    DEFVAL { 1 }
+    ::= { dtmIfEntry 6 }
+
+dtmIfTxCapacityOwned OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      deprecated
+    DESCRIPTION
+        "The owned transmit capability (in slots) for this
+         interface. Total capacity for use is Owned + Borrowed - Lent.
+         Set to 0 if not known."
+    DEFVAL { 0 }
+    ::= { dtmIfEntry 7 }
+
+dtmIfTxCapacityBorrowed OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      deprecated
+    DESCRIPTION
+        "The borrowed transmit capability (in slots) for this
+         interface.  Set to 0 if not known."
+    ::= { dtmIfEntry 8 }
+
+dtmIfTxCapacityMaxLend OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-create
+    STATUS      deprecated
+    DESCRIPTION
+        "The maximum amount of transmit capability (in slots) that
+         this interface will lend to other interfaces.  Set to 0 if
+         not known."
+    DEFVAL { 0 }
+    ::= { dtmIfEntry 9 }
+
+dtmIfTxCapacityLent OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      deprecated
+    DESCRIPTION
+        "The lent transmit capability (in slots) for this interface.
+         Set to 0 if not known."
+    ::= { dtmIfEntry 10 }
+
+dtmIfTxCapacityUsed OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The transmit capability (in slots) used for data traffic for
+         this interface."
+    ::= { dtmIfEntry 11 }
+
+dtmIfRxCapacity OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The upper receive capability (in slots) for this interface.
+         Set to 0 if not known."
+    ::= { dtmIfEntry 12 }
+
+dtmIfRxCapacityUsed OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The receive capability (in slots) used for data traffic for
+         this interface."
+    ::= { dtmIfEntry 13 }
+
+dtmIfIfIndex OBJECT-TYPE
+    SYNTAX      Integer32 (0..2147483647)
+    MAX-ACCESS  read-only
+    STATUS      deprecated
+    DESCRIPTION
+        "Index in to the MIB-II ifTable. Set to 0 if not known."
+    DEFVAL { 0 }
+    ::= { dtmIfEntry 14 }
+
+dtmIfAdminStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    up(1),
+                    down(2) }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The desired state of the interface. The administrative status
+         controls whether the interface should be active or not."
+    DEFVAL { down }
+    ::= { dtmIfEntry 15 }
+
+dtmIfOperStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    up(1),
+                    down(2),
+                    absent(3),
+                    lowerLayerDown(4) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The actual state of the interface. The value should follow
+         the state of the Administrative Status (dtmIfAdminStatus)
+         unless something fails, or be `absent' if the interface is
+         absent."
+    ::= { dtmIfEntry 16 }
+
+dtmIfRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "See SNMPv2-TC."
+    ::= { dtmIfEntry 17 }
+
+dtmIfAbsent OBJECT-TYPE
+    SYNTAX      FaultStatus
+    MAX-ACCESS  read-only
+    STATUS      deprecated
+    DESCRIPTION
+        "Indicates that a configured interface can not be activated
+         because there are no hardware resources. This happens if the
+         dtmIfAdminStatus is set to `up', and the interface is
+         absent."
+    ::= { dtmIfEntry 18 }
+
+dtmIfLOS OBJECT-TYPE
+    SYNTAX      FaultStatus
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Indicates Loss Of Signal from the DTM domain."
+    ::= { dtmIfEntry 19 }
+
+dtmIfReducedCtrlCapacity OBJECT-TYPE
+    SYNTAX      FaultStatus
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Indicates that the node has not been able to allocate
+         dedicated capacity for control traffic."
+    ::= { dtmIfEntry 20 }
+
+dtmIfTxCapacityOwnedFirstSlot OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-create
+    STATUS      deprecated
+    DESCRIPTION
+        "The lower end of the transmit capability range (in slots) for
+         this interface."
+    DEFVAL { 0 }
+    ::= { dtmIfEntry 21 }
+
+dtmIfTxCapacityOwnedLastSlot OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The upper end of the transmit capability range (in slots) for
+         this interface."
+    DEFVAL { 0 }
+    ::= { dtmIfEntry 22 }
+
+dtmIfRouteMetric OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The route metric used by the DTM Routing Protocol (DRP) when
+         calculating cost for routing through this interface. The value
+         zero (0) indicates that the DRP protocol shall be disabled
+         for this interface and no routing information shall be
+         exchanged."
+    DEFVAL { 1 }
+    ::= { dtmIfEntry 23 }
+
+dtmIfLinkClass OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    normal(1),
+                    persistent(2),
+                    nailed(3) }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The link class controls the behavior of a link when a failure
+         is detected on the link or on the node connected to the
+         remote end of the link. The link class decides which values
+         the dtmLinkStateNodeStatus object can take.  
+
+         A link is monitored with the following mechanisms:
+
+         - The underlying trunk interface will detect when the signal
+           on the receiving interface disappears or is impossible to
+           use due to errors. This is called a Signal Failure.
+
+         - The communication with the node at the remote end of the
+           link is monitored by periodically sending messages, and
+           expecting responses. If no response is received within a
+           reasonable time, a failure is assumed. This is called a
+           Supervision Failure.
+
+         The error detection mechanisms can detect failures in one or
+         both directions of a bi-directional link. If a failure is
+         detected in only one direction of a bi-directional link and
+         there is another fully working link in the opposite
+         direction, the remaining working links will all have status
+         `up'.
+
+         The link classes are:
+
+         normal(1)
+         If either a Signal Failure or Supervision Failure is detected
+         on the link, the link is considered as `down' and its entry
+         is removed from the dtmLinkStateTable.
+
+         persistent(2)
+         If a Signal Failure is detected on the link, the link is
+         considered as `down' and its entry is removed from the
+         dtmLinkStateTable. If a Supervision Failure is detected on
+         the link, the object dtmLinkStateIfNodeStatus for the link is
+         assigned `noControl'.
+
+         nailed(3)
+         If a Signal Failure is detected on the link, the object
+         dtmLinkStateIfNodeStatus for the link is assigned `downKeep'.
+         If a Supervision Failure is detected on the link, the object
+         dtmLinkStateIfNodeStatus for the link is assigned
+         `noControl'. "
+
+    DEFVAL { normal }
+    ::= { dtmIfEntry 24 }
+
+dtmIfPurpose OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "A string describing the purpose of the interface. The string 
+         is for administrative use."
+    DEFVAL { ''H }
+    ::= { dtmIfEntry 25 }
+
+dtmIfSyncEnabled OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    disabled(1),
+                    enabled(2) }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Controls if the trunk interface on which this interface is
+         stacked on top, can be considered a source for synchronization.
+
+         disabled(1) The interface shall not be considered.
+
+         enabled(2). The interface shall be considered."
+    DEFVAL { enabled }
+    ::= { dtmIfEntry 26 }
+
+
+
+-- -------------------------------------------------------------
+-- dtmLinkStateGroup
+-- -------------------------------------------------------------
+
+dtmLinkStateTableLastChangedTime OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This is the time the link information table last changed."
+    ::= { dtmLinkStateGroup 1 }
+
+dtmLinkStateNrOfLinks OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The number of entries in the link table."
+    ::= { dtmLinkStateGroup 2 }
+
+dtmLinkStateTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF DtmLinkEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The link information table."
+    ::= { dtmLinkStateGroup 3 }
+
+dtmLinkStateEntry OBJECT-TYPE
+    SYNTAX      DtmLinkEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "One entry per discovered link."
+    INDEX { dtmLinkStateIndex }
+    ::= { dtmLinkStateTable 1 }
+
+DtmLinkEntry ::= SEQUENCE {
+    dtmLinkStateIndex    Unsigned32,
+    dtmLinkStateType     INTEGER,
+    dtmLinkStateLocalIf  DisplayString }
+
+dtmLinkStateIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "An arbitrary index in the link table."
+    ::= { dtmLinkStateEntry 1 }
+
+dtmLinkStateType OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    unknown(1),
+                    looped(2),
+                    open(3) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The 'simple' topological type of the link:
+
+         unknown(1)
+         Type cannot be determined.
+
+         looped(2)
+         Looped topology; i.e. a ring.
+
+         open(3)
+         Open topology; i.e. part of a bus."
+    ::= { dtmLinkStateEntry 2 }
+
+dtmLinkStateLocalIf OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The name of the local interface that belongs to the link."
+    ::= { dtmLinkStateEntry 3 }
+
+dtmLinkStateNrOfIfs OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The number of entries in the link interface table."
+    ::= { dtmLinkStateGroup 4 }
+
+dtmLinkStateIfTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF DtmLinkStateIfEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The link interface information table."
+    ::= { dtmLinkStateGroup 5 }
+
+dtmLinkStateIfEntry OBJECT-TYPE
+    SYNTAX      DtmLinkStateIfEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "One entry for every interface on each link. On each link the
+         interfaces are ordered in downstream order."
+    INDEX { dtmLinkStateIndex, dtmLinkStateIfIndex }
+    ::= { dtmLinkStateIfTable 1 }
+
+DtmLinkStateIfEntry ::= SEQUENCE {
+    dtmLinkStateIfIndex                  Unsigned32,
+    dtmLinkStateIfMacAddress             MacAddress,
+    dtmLinkStateIfNodeMacAddress         MacAddress,
+    dtmLinkStateIfNodeAddress            DtmAddress,
+    dtmLinkStateLocalSubIf               DisplayString,
+    dtmLinkStateIfNodeStatus             INTEGER }
+
+dtmLinkStateIfIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "An arbitrary index in the link interface table."
+    ::= { dtmLinkStateIfEntry 1 }
+
+dtmLinkStateIfMacAddress OBJECT-TYPE
+    SYNTAX      MacAddress
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+         "The interfaces DTM physical address, i.e. a MAC identity."
+    ::= { dtmLinkStateIfEntry 2 }
+
+dtmLinkStateIfNodeMacAddress OBJECT-TYPE
+    SYNTAX      MacAddress
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+         "The node DTM physical address, i.e. a MAC identity."
+    ::= { dtmLinkStateIfEntry 3 }
+
+dtmLinkStateIfNodeAddress OBJECT-TYPE
+    SYNTAX      DtmAddress
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The nodes network DTM address. Returns the unspecified
+         address (00.00.00.00.00.00.00.00) if unknown."
+    ::= { dtmLinkStateIfEntry 4 }
+
+dtmLinkStateLocalSubIf OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The name of the sub-interface that is connected to this link,
+         e.g. 'dtm2:1/rx' for a receiving part of an interface, or
+         dtm2:1/tx for a transmitting part of an interface."
+    ::= { dtmLinkStateIfEntry 5 }
+
+dtmLinkStateIfNodeStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    notApplicable(0),
+                    up(1),
+                    recover(2),
+                    limited(3),
+                    noControl(4),
+                    downKeep(5),
+                    pending(6),
+                    loopback(7) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The status of the communication with the neighboring node via
+         this link. The link entry is removed from this table when
+         the link is down.
+
+         notApplicable(0)
+         This value notApplicable(0) is always set for the entry
+         representing the local node, and never set for any other
+         entry.
+
+         up(1)
+         The communication with the neighboring node is fully
+         functioning. This is the only state where it is possible to
+         establish new channels over the link.
+
+         recover(2)
+         The neighboring node is in a recovery state after a node or
+         control function sub-system failure, where it is in the
+         process of recovering the state of all channels. When the
+         process of recovering the channels is completed, the state
+         will change to either up(1) if all channels state were
+         successfully recovered, or limited(3) if the state of any
+         channels failed to be recovered.
+
+         limited(3)
+         The neighboring node is not or has not been able to recover
+         the state of all its channels after a node or control
+         function sub-system failure. The already existing channels
+         over the link may be fully functional, but the neighboring
+         node is not accepting any channel signaling. The link must be
+         taken down by the neighboring node for its control function
+         sub-system to be able to assume a known state, which
+         typically requires operator intervention.
+
+         noControl(4)
+         A valid signal is detected from the neighboring node, but the
+         control function sub-system on the neighboring node is not
+         responding, indicating a remote node or control function
+         sub-system failure. Signaling to the neighboring node is thus
+         not possible. Already existing channels over the link may be
+         fully functional.
+
+         downKeep(5)
+         The bi-directional communication with the neighboring node is
+         lost. The link is not removed because the interface link
+         class is configured as nailed.
+
+         pending(6)
+         This status is only valid for the entry representing the
+         receiving sub-interface. Indicates that a neighbor has been
+         detected on the receiving part of an interface, but no
+         bi-directional communication has yet been established with
+         the neighboring node.
+
+         loopback(7)
+         This status is only valid for the entry representing the
+         receiving sub-interface. The link is connected from an
+         interface located on the local node.
+"
+    ::= { dtmLinkStateIfEntry 6 }
+
+
+-- -------------------------------------------------------------
+-- dtmRouteGroup
+-- -------------------------------------------------------------
+
+-- dtmRouteGroup.1 is reserved, hence not included in this document.
+
+
+dtmDrpNodeRouteMetric OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The route metric used by the DTM Routing Protocol (DRP) when
+         calculating cost for routing through this node. The value
+         zero (0) means no cost."
+    ::= { dtmRouteGroup 2 }
+
+dtmDrpNodeType OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    switch(1),
+                    endNode(2) }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The type of node as seen by the DTM Routing Protocol (DRP).
+
+         switch(1)
+         The node is to be considered located within the network,
+         where channels may be switched via this node.
+
+         endNode(2)
+         The node is to be considered located the edge of a network,
+         and channels only originates or terminates on this node. The
+         node does not participate in DRP."
+     ::= { dtmRouteGroup 3 }
+
+dtmDrpAreaNumber OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The DTM Routing Protocol (DRP) area number. The value zero
+         (0) indicates that the area number is unconfigured."
+    ::= { dtmRouteGroup 4 }
+
+dtmDrpDetectAreaNumber OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Defines if the area number shall be detected automatically.
+
+         true(1)
+         If set to `true', and if the area number (dtmDrpAreaNumber)
+         is unconfigured, then the node will assume the area number of
+         its neighboring nodes.
+
+         false(2)
+         The area number is not automatically detected."
+
+    ::= { dtmRouteGroup 5 }
+
+dtmDrpDetectDefaultGateway OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Defines if the default gateway shall be detected
+         automatically by DTM Routing Protocol (DRP).
+
+         true(1)
+         The default gateway is automatically detected.
+
+         false(2)
+         The default gateway is not automatically detected."
+    ::= { dtmRouteGroup 6 }
+
+
+-- -------------------------------------------------------------
+-- dtmNodeGroup
+-- -------------------------------------------------------------
+
+dtmNodeStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    up(1),
+                    recover(2),
+                    limited(3),
+                    noControl(4) }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This object describes and controls the control function
+         sub-system on the node.
+
+         up(1)
+         The control function sub-system is fully functioning. This is
+         the only state where it is possible to establish new
+         channels. This is the only value possible to write to this
+         object. When writing this value, the control function
+         sub-system is forced to this state, which may result in all
+         established channels to be removed or re-established.
+
+         recover(2)
+         The control function sub-system is in the process of
+         recovering the state of all channels after a node or control
+         function sub-system failure, where it is When the process of
+         recovering the channels is completed, the state will change
+         to either up(1) if all channels state were successfully
+         recovered, or limited(3) if the state of any channels failed
+         to be recovered.
+
+         limited(3)
+         The control function sub-system is not or has not been able
+         to recover the state of all its channels after a node or
+         control function sub-system failure. The already existing
+         channels through the node may be fully functional, but it is
+         not accepting any channel signaling. All link must be taken
+         down for the control function sub-system to be able to assume
+         a known state, which typically requires operator
+         intervention. This state can be exited by writing up(1) to
+         the object.
+
+         noControl(4)
+         The control function sub-system is failing and is not
+         responding. Signaling to the neighboring node is thus not
+         possible. Already existing channels through the node may
+         still be fully functional, but their state is not known. This
+         state can be exited by writing up(1) to the object."
+    ::= { dtmNodeGroup 1 }
+
+dtmNodeRestartOnError OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of this object is only used if any DTM interface
+         (table dtmIfTable) is configured as persistent
+         (e.g. dtmIfLinkClass is `persistent' or `nailed'). It is
+         controlling what status (dtmNodeStatus) the node shall enter
+         when it reboots or the control function sub-system
+         restarts. Note that the node always enters status `up' at
+         cold-start.
+
+         true(1)
+         The node shall enter the status (dtmNodeStatus) `up'. All
+         channels are torn down.
+
+         false(2)
+         The node shall enter the status (dtmNodeStatus) `noControl'
+         or `limited', as applicable."
+    ::= { dtmNodeGroup 2 }
+
+dtmNodeId OBJECT-TYPE
+    SYNTAX      MacAddress
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The physical identity of the node. This is a fixed, unique
+         address for each node."
+    ::= { dtmNodeGroup 3 }
+
+
+-- -------------------------------------------------------------
+-- dtmSyncGroup
+-- -------------------------------------------------------------
+
+dtmSyncNodeId OBJECT-TYPE
+    SYNTAX      MacAddress
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The physical identity of the node that is the origin of the
+         synchronization of this node, i.e. the node where the timing
+         reference is connected."
+    ::= { dtmSyncGroup 1 }
+
+dtmCurrentTimingSourceName OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The name of the currently used timing source. If the node is
+         synchronized from an interface that is derived from a DTM
+         interface, then this name is the name of the DTM interface."
+    ::= { dtmSyncGroup 2 }
+
+dtmCurrentTimingSourcePeerId OBJECT-TYPE
+    SYNTAX      MacAddress
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The physical identity of the node on the peering side of the
+         interface identified by dtmCurrentTimingSourceName. This
+         identifies the neighboring node from where the
+         synchronization is taken. If the node is synchronized from a
+         local interface, i.e. not from a timing source derived from a
+         trunk interface but instead from a connected timing reference
+         or the local oscillator, then the this is the id of the local
+         node (dtmNodeId)."
+    ::= { dtmSyncGroup 3 }
+
+dtmTimeScaleStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    notSupported(1),
+                    uninitiated(2),
+                    reassigned(3),
+                    compensated(4) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The time scale status of the synchronization clock of this node.
+        
+         notSupported(1)
+         Time Transfer is not supported or not enabled.
+
+         uninitiated(2)
+         The initial state which indicates that the time of the time
+         scale is not initiated and may not be used for any time
+         keeping.  The time scale is however running, so it may be
+         used for relative measures such as those used in round-trip
+         estimates.  During the uninitiated state the Time Transfer
+         Control Processing attempts to initiate the TAI/UTC time from
+         either another DTM node in state compensated, or some local
+         UTC source.  When the such a source is available, it
+         reassigns the time scale and enters the reassigned state.
+
+         reassigned(3)
+         When the time scale of this node have a degenerated
+         time-offset from neighbor nodes being compensated, or a local
+         TAI/UTC source, the node reassigns the time scale and enters
+         the reassigned state, during which the time scale may not be
+         used for precision time-keeping.  During the reassigned state
+         the Time Transfer Control Processing attempts to retrace the
+         TAI/UTC time from either another DTM node in state
+         compensated, or some local TAI/UTC source. When the retracing
+         have reduced the time error to within defined limits (1 us),
+         it enters the compensated state.
+
+         compensated(4)
+         When the time scale of the node has been initiated to
+         TAI/UTC, it can be used for time keeping, but the time error
+         of the time scale is too high (and thus stability and
+         precision is limited).  During the compensated state the Time
+         Transfer Control Processing will use the TLL to maintain the
+         TAI/UTC time scale from any neighboring nodes in the
+         compensated state."  
+     ::= { dtmSyncGroup 4 }
+
+dtmTimeSourceCalibrationReference OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The index of the dtmTimeSourceEntry of the time source that
+         is used as calibration reference.  The special value 0 is
+         used if the field is not set, and means that the node clock
+         is used as reference."
+    ::= { dtmSyncGroup 5 }
+
+dtmTimeSourceTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF DtmTimeSourceEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+       "A conceptual table containing time sources associated to time
+        transfer capable interfaces."
+    ::= { dtmSyncGroup 6 }
+
+dtmTimeSourceEntry OBJECT-TYPE
+    SYNTAX      DtmTimeSourceEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+       "An entry in the time source table."
+    INDEX { dtmTimeSourceIndex }
+    ::= { dtmTimeSourceTable 1 }
+
+DtmTimeSourceEntry ::= SEQUENCE {
+    dtmTimeSourceIndex                Integer32,
+    dtmTimeSourceName                 DisplayString,
+    dtmTimeSourceAdminStatus          INTEGER,
+    dtmTimeSourceOperStatus           INTEGER,
+    dtmTimeSourceType                 INTEGER,
+    dtmTimeSourceRef                  RowPointer,
+    dtmTimeSourceRoundTripTime        Unsigned32,
+    dtmTimeSourceTimeError            Integer32,
+    dtmTimeSourceCalibrationTimeError Integer32,
+    dtmTimeSourceCalibrationRatio     Integer32 }
+
+dtmTimeSourceIndex OBJECT-TYPE
+    SYNTAX      Integer32 (1..2147483647)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Index in the dtmTimeSourceTable."
+    ::= { dtmTimeSourceEntry 1 }
+
+dtmTimeSourceName OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The name of the time source."
+    ::= { dtmTimeSourceEntry 2 }
+
+dtmTimeSourceAdminStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    up(1),
+                    down(2) }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The desired state of the interface.  The administrative
+         status controls whether the time source should be active or
+         not."
+    ::= { dtmTimeSourceEntry 3 }
+
+dtmTimeSourceOperStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    up(1),
+                    down(2),
+                    absent(3),
+                    lowerLayerDown(4),
+                    dormant(5) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The actual state of the time source.  The value should follow
+         the state of the Administrative Status (dtmIfAdminStatus)
+         unless something fails (dtmTimeSourceOperStatus=down),
+         `dormant' if another time source is the active time source or
+         be `absent' if the associated interface is not present."
+    ::= { dtmTimeSourceEntry 4 }
+
+dtmTimeSourceType OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    dsyp(1),
+                    sqc(2),
+                    ssm(3),
+                    internal(4) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The type of time interface that provides the time source
+         represented by this entry.
+
+         dsyp(1)
+         A DTM synchronization source (dsyp) represents a DTM
+         interface timing source and the synchronization control
+         information is distributed using the DTM Synchronization
+         Protocol (DSYP).
+
+         sqc(2)
+         A squelchable clock (sqc) represents a clock interface that
+         squelches its output to announce that it can not provide a
+         source at the expected quality level.
+
+         ssm(3)
+         An SSM clock (ssm) represents a clock interface that also
+         transports the Quality Level (QL) as a 4-bit Synchronization
+         Signal Marker (SSM).
+
+         internal(4)
+         An internal clock (internal) represents a holdover clock that
+         is internal to the node."
+    ::= { dtmTimeSourceEntry 5 }
+
+dtmTimeSourceRef OBJECT-TYPE
+    SYNTAX      RowPointer   
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A reference to the time interface that provides the time
+         source represented by this entry.  The value .0.0 is used
+         when no such reference is available."
+    ::= { dtmTimeSourceEntry 6 }
+
+dtmTimeSourceRoundTripTime OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The round trip time in nanoseconds for sending data to the
+        peer of the time interface providing this time source and
+        back.  The value 0 is used, the round trip time is not
+        available."
+    ::= { dtmTimeSourceEntry 7 }
+
+dtmTimeSourceTimeError OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The time error in nanoseconds of the time source relative the
+         node clock.  The value 0 is used when the time error is not
+         available."
+    ::= { dtmTimeSourceEntry 8 }
+
+dtmTimeSourceCalibrationTimeError OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The time error in nanoseconds of the time source relative the
+         calibration reference.  The value 0 is used when the time
+         error is not available."
+    ::= { dtmTimeSourceEntry 9 }
+
+dtmTimeSourceCalibrationRatio OBJECT-TYPE
+    SYNTAX      Integer32 (-499999..499999)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The configured calibration offset in ppm compared to the
+          nominal value of of the one-way (i.e. remote to local) to
+          round trip time ratio.  The nominal value of the ratio is
+          1/2, which is equivalent to a value of 0."
+    ::= { dtmTimeSourceEntry 10 }
+
+-- End of table dtmTimeSourceEntry
+
+
+END

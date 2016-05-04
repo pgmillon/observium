@@ -1,0 +1,656 @@
+PDN-MGMT-IP-MIB DEFINITIONS ::= BEGIN
+-- 
+-- 
+--                    SNMPv2 Management Information Base
+--                  for Managing Classical IP and ARP over
+--                     ATM PVCs for management purposes
+-- 
+-- Note:
+-- 
+--    The IP, UDP, and TCP MIB modules currently support only IPv4. These
+--    three modules use the IpAddress type defined as an OCTET STRING of
+--    length 4 to represent the IPv4 32-bit internet addresses.  (See RFC
+--    2578, SMI for SNMPv2.)  They do not support the new 128-bit IPv6
+--    internet addresses.
+-- 
+-- Table of Contents
+-- 
+--    1. Introduction
+--    2. The Management IP Model
+--    3. Structure of the MIB
+--    4. Definitions
+-- 
+-- 1.  Introduction
+-- 
+--    The primary purpose of this document is to define MIBs for
+--    configuration and management of Classical IP ports (also called
+--    IP interfaces) that are used for managing a DSLAM device. Currently
+--    the issues addressed are only those pertaining to managing a DSLAM
+--    through IP over Ethernet and ATM PVCs only. Use and interpretation
+--    of the MIBs defined in this document for managing IP over other
+--    transports (eg. Frame Relay, ATM SVCs, etc) is beyond the current
+--    scope of this document.
+-- 
+-- 2.  The Management IP Model
+-- 
+--    A DSLAM is considered to have one or more 'IP Ports'. These IP
+--    Ports could either be standard Ethernet based IP Ports or those
+--    operating over ATM PVCs (with RFC 2684 encapsulation).
+-- 
+--    Each IP Port is associated with an interface index (ifIndex of
+--    RFC 2863), an IP address (Ipv4, IpAddress of RFC 2578), and an
+--    IP Network Mask among other things. The ipAddrTable (defined in
+--    RFC 2011) comes close to handling most of these parameters, but is
+--    indexed on the IP address itself. Since it is our requirement that
+--    the IP port exist whether an IP address has been assigned to it or
+--    not (eg. a port configured to obtain the IP address through DHCP
+--    or BOOTP), a new table has been defined in this document, which is
+--    indexed on the interface index of the IP port itself.
+-- 
+--    In case of IP ports that are associated with ATM PVCs, each IP port
+--    consists of one or more point-to-point PVC links. RFC 2320 has a
+--    set of MIB tables defined for managing IP and ARP over ATM, but
+--    they are better suited for systems that do InATMARP (RFC 2225)
+--    and over SVCs. Unlike ARP in ethernet based IP systems, ATM ARP is
+--    not very common and is not implemented in most networks. Hence a
+--    MIB table is defined in this document to manually add, delete or
+--    manage these PVCs for the sole purpose of carrying IP based
+--    management traffic.
+-- 
+--    The management IP model used in this document could be depicted
+--    in a couple of diagrams as shown below
+-- 
+-- 
+--    Case #1 : Ethernet based IP
+-- 
+--           _________________________________ 
+--          /                                 \
+--          | IP Port ifIndex : 1001802       |    IP Port (covered by
+--          | IP Address      : 135.26.25.1   |          this document)
+--          | Subnet Mask     : 255.255.255.0 |
+--          | Physical Address: 00-E0-39-87-  |
+--          |                         BC-40   |
+--          \_________________________________/
+--                           |
+--                           |
+--                           | Ethernet
+--                           | Media
+--                           |
+--          _________________________________________________
+--         |                |               |                |
+--         |                |               |                |
+--     ___________    ____________     ___________      ____________
+--    /           \  /            \   /           \    /            \
+--    |  Host #1  |  |   Host #2  |   |  Host #3  |    |   Host #4  |
+--    |135.26.25.2|  |IP Gateway 1|   |135.26.25.4|    |IP Gateway 2|
+--    |           |  | 135.26.25.3|   |           |    | 135.26.25.5|
+--    |00-E0-39-  |  |00-E0-49-   |   |00-12-3A-  |    |00-5D-65-   |
+--    |   11-11-11|  |   22-22-22 |   |   33-33-33|    |   44-44-44 |
+--    \___________/  \____________/   \___________/    \____________/
+--                          |                                |
+--                          |                                |
+--                To other nets/subnets            To other nets/subnets
+-- 
+--    The Ethernet ARP Table for this IP Port would look like
+--               ________________________________
+--              /                                \
+--              | &lt;Next Hop IP,  mac Address&gt;    |
+--              | 135.26.25.2, 00-E0-39-11-11-11 |
+--              | 135.26.25.3, 00-E0-49-22-22-22 |
+--              | 135.26.25.4, 00-12-3A-33-33-33 |
+--              | 135.26.25.5, 00-5D-65-44-44-44 |
+--              \________________________________/
+--    Note : The Ethernet ARP Table is not covered by this document.
+-- 
+-- 
+--    Case #2 : ATM PVC based IP
+-- 
+--           ___________________________________
+--          /                                   \
+--          | IP Port ifIndex : 1005101         | IP Port  (covered by
+--          | IP Address      : 135.26.26.1     |        this document)
+--          | Subnet Mask     : 255.255.255.255 |
+--          | Physical Address: 11-11-11-11-11- |
+--          |  (8 octets)              11-11-11 |
+--          \___________________________________/
+--         ATM  |             |A           |  ATM
+--        PVC#1 |             |T           | PVC#3
+--          ____/             |M           \_______________
+--         |ifIndex:1003901   |            ifIndex:1003902 |
+--         |VPI:0, VCI:32     |P           VPI:46, VCI:124 |
+--     __________________     |V                  ___________________
+--    /                  \    |C                 /                   \
+--    |     Host #1      |    |#                 |      Host #3      |
+--    |   135.26.26.2    |    |2                 |    135.26.26.4    |
+--    | 22-22-22-22-22-22|    |                  | 44-44-44-44-44-44 |
+--    |            -22-22|    |                  |            -44-44 |
+--    \__________________/    |ifIndex:1003901   \___________________/
+--                            |VPI:10, VCI:54
+--                   ___________________
+--                  /                   \
+--                  |      Host #2      |
+--                  |    135.26.26.3    |
+--                  | 33-33-33-33-33-33 |
+--                  |            -33-33 |
+--                  \___________________/
+-- 
+--    The ATM ARP Table for this IP Port would look like
+--               _______________________________________________________
+--              /                                                       \
+--              | &lt;Next Hop IP, IP Port ifIndex, atm ifIndex, vpi, vci&gt; |
+--              | 135.26.26.2,      1005101,      1003901,     0,   32  |
+--              | 135.26.26.3,      1005101,      1003901,    10,   54  |
+--              | 135.26.26.4,      1005101,      1003902,    46,  124  |
+--              \_______________________________________________________/
+--    Note : The ATM ARP Table is covered by this document in the form of
+--           an Inverse ARP Table. ie. the table is indexed on the
+--           &lt;atmIfIndex, atmVpi, atmVci&gt; combination.
+-- 
+-- 3.  Structure of the MIB
+-- 
+--    The MIB consists of two tables and other common object(s).
+-- 
+--    The first table is the IP Port Table. There is one entry per IP
+--    port/interface in the system. This table contains the configuration
+--    details of the port. This table is indexed on the interface index
+--    of the IP port. The interface index of the IP Port may or may not
+--    be represented in the ifTable of RFC2863.
+-- 
+--    The syntax and meaning of pdnMgmtIpPhysAddress is identical to
+--    that of ifPhysAddress (defined in ifTable - RFC 2863), with the
+--    following properties
+--        1. pdnMgmtIpPhysAddress is writeable, in case of non-ethernet
+--           type of media.
+--        2. In case of ethernet type of media, pdnMgmtIpPhysAddress is
+--           read-only and has the ethernet MAC address of the underlying
+--           ethernet data link.
+-- 
+--    The second table is the ATM Inverse ARP Table. This table contains
+--    one entry per ATM PVC that has been designated to carry IP
+--    management traffic. This table is indexed on the user side
+--    ATM ifIndex (usually one of the Uplinks), VPI &amp; VCI of the PVC.
+--    Entries in this table can be dynamically created modified or
+--    destroyed as required. An SNMP agent operating on this table
+--    utilizes the standard ATM MIBs (RFC 2515) to create and manage
+--    the PVCs. Creation of a new entry in this table could fail,
+--    if the PVC is either already in use or the PVC is a data PVC.
+-- 
+--    Apart from the these two tables, this MIB also defines a "Default
+--    Router" for the system. All management IP packets with unknown
+--    routes to their destinations will be forwarded to this router for
+--    further routing.
+-- 
+-- 4.  Definitions
+ 
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, IpAddress
+        FROM SNMPv2-SMI
+    MODULE-COMPLIANCE, OBJECT-GROUP
+        FROM SNMPv2-CONF
+    PhysAddress, RowStatus
+        FROM SNMPv2-TC
+    AtmVpIdentifier, AtmVcIdentifier
+        FROM ATM-TC-MIB
+    InterfaceIndex
+        FROM IF-MIB
+    pdn-interfaces
+        FROM PDN-HEADER-MIB;
+
+pdnMgmtIpMIB MODULE-IDENTITY
+    LAST-UPDATED "200206051500Z"
+    ORGANIZATION "Paradyne Corporation MIB Working Group"
+    CONTACT-INFO
+            "         Paradyne Networks Inc.
+
+             Postal:  8545, 126th Ave. N.
+                      Largo, FL 33779
+                      US
+             Editors: Daniel M.V.
+                      Jesus Pinto
+             Email:   mibwg_team@eng.paradyne.com"
+
+    DESCRIPTION
+            "The MIB module for configuration and management of IP
+             interfaces/ports used for managing a DSLAM."
+    ::= { pdn-interfaces 21 }
+
+pdnMgmtIpConfObjects OBJECT IDENTIFIER ::= { pdnMgmtIpMIB 1 }
+
+pdnMgmtIpPortTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PdnMgmtIpPortEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+            "This table contains one row per IP port in the system."
+    ::= { pdnMgmtIpConfObjects 1 }
+
+pdnMgmtIpPortEntry OBJECT-TYPE
+    SYNTAX      PdnMgmtIpPortEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+            "Configuration information about a particular IP port
+             in the system."
+    INDEX   { pdnMgmtIpPortIndex }
+    ::= { pdnMgmtIpPortTable 1 }
+
+PdnMgmtIpPortEntry ::=
+    SEQUENCE {
+        pdnMgmtIpPortIndex    InterfaceIndex,
+        pdnMgmtIpAddress      IpAddress,
+        pdnMgmtIpNetMask      IpAddress,
+        pdnMgmtIpEthGateway   IpAddress,
+        pdnMgmtIpPhysAddress  PhysAddress,
+        pdnMgmtIpConfigMode   INTEGER,
+        pdnMgmtBootIfIndex    InterfaceIndex,
+        pdnMgmtBootVpi        AtmVpIdentifier,
+        pdnMgmtBootVci        AtmVcIdentifier,
+        pdnMgmtIpAdminStatus  INTEGER
+}
+
+pdnMgmtIpPortIndex OBJECT-TYPE
+    SYNTAX      InterfaceIndex
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+            "The index for this entry."
+    ::= { pdnMgmtIpPortEntry 1 }
+
+pdnMgmtIpAddress OBJECT-TYPE
+    SYNTAX      IpAddress
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+            "The IP address assigned to this port.
+
+             If the pdnMgmtIpConfigMode is set to modes other than
+             'manual', then the MAX-ACCESS for this object is
+             read-only and the value of the object represents the
+             actual IP address assigned to the port by the DHCP
+             or BOOTP client (or 0.0.0.0, if none assigned).
+
+             A 0.0.0.0 for this object indicates that no IP
+             address is assigned to the port.
+
+             Changes to this object could disrupt data flow
+             through the port as the IP port tears down the
+             IP stack first before instantiating the stack
+             again with the new IP address."
+    ::= { pdnMgmtIpPortEntry 2 }
+
+pdnMgmtIpNetMask OBJECT-TYPE
+    SYNTAX      IpAddress
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+            "The IP subnet mask assigned to this port.
+
+             If the pdnMgmtIpConfigMode is set to modes other than
+             'manual', then the MAX-ACCESS for this object is
+             read-only and the value of the object represents the
+             actual IP subnet mask assigned to the port by the DHCP
+             or BOOTP client (or 0.0.0.0, if none assigned).
+
+             A 0.0.0.0 for the this object indicates that no IP
+             subnet mask is assigned to the port.
+
+             Changes to this object could disrupt data flow
+             through the port as the IP port tears down the
+             IP stack first before instantiating the stack
+             again with the new IP subnet mask."
+    ::= { pdnMgmtIpPortEntry 3 }
+
+pdnMgmtIpEthGateway OBJECT-TYPE
+    SYNTAX      IpAddress
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+            "The IP Gateway for an ethernet based IP port.
+
+             This object is supported only on IP ports that are
+             configured to run over ethernet type of media.
+             This object would be set to 0.0.0.0 for other types of
+             interfaces and is not valid.
+
+             Furthermore, if the pdnMgmtIpConfigMode is set to
+             modes other than 'manual', then the MAX-ACCESS for this
+             object is read-only and the value of the object represents
+             the actual IP Gateway mask assigned to the port by the
+             DHCP or BOOTP client (or 0.0.0.0, if none assigned).
+
+             A 0.0.0.0 for this object indicates that no IP
+             Gateway is assigned to the port."
+    ::= { pdnMgmtIpPortEntry 4 }
+
+pdnMgmtIpPhysAddress OBJECT-TYPE
+    SYNTAX      PhysAddress
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+            "The physical address associated with the media.
+
+             For IP Ports with Ethernet type of media, the
+             MAX-ACCESS for this object is restricted to read-only.
+             In such cases, this object would reflect the MAC address
+             of the underlying ethernet data link.
+
+             For IP Ports that run over ATM PVCs, this object is
+             writable."
+    ::= { pdnMgmtIpPortEntry 5 }
+
+pdnMgmtIpConfigMode OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    manual(1),  -- IP configuration is manual
+                    dhcp(2),    -- IP config by DHCP protocol
+                    bootp(3)    -- IP config by BOOTP protocol
+                }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+            "The IP configuration mode for the port.
+
+             In 'manual' mode, it is upto the user to provide
+             the IP address &amp; IP subnet mask of the port.
+
+             In 'dhcp' or 'bootp' modes, the respective
+             protocols are resposible to obtain and populate
+             the IP address &amp; IP subnet mask for the port.
+
+             Whenever the config mode is changed from 'manual'
+             mode, the IP address and the IP subnet mask for
+             the port would automatically be reset to 0.0.0.0.
+
+             The external agent (SNMP or others) SHOULD NOT
+             attempt to write the IP address or the IP subnet
+             mask of the port when this object is not in
+             'manual' mode."
+    ::= { pdnMgmtIpPortEntry 6 }
+
+pdnMgmtBootIfIndex OBJECT-TYPE
+    SYNTAX      InterfaceIndex
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+            "The interface index of the ATM interface to be used
+             by BOOTP or DHCP client, if the pdnMgmtIpConfigMode
+             is set to 'bootp' or 'dhcp' respectively.
+
+             Even if the IP port (interface) is configured for
+             'manual' configuration, the value of this object can
+             be modified to indicate the default ATM ifIndex for
+             BOOTP or DHCP to operate on.
+
+             This object is valid only if the IP Port has ATM PVC(s)
+             as the underlying data link media. For IP Ports over
+             ethernet type of media, the MAX-ACCESS for this object
+             is read-only, and the object is set to 0 always."
+    ::= { pdnMgmtIpPortEntry 7 }
+
+pdnMgmtBootVpi OBJECT-TYPE
+    SYNTAX      AtmVpIdentifier
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+            "The VPI of the ATM PVC to be used by BOOTP or DHCP
+             client, if the pdnMgmtIpConfigMode is set to 'bootp'
+             or 'dhcp' respectively.
+
+             Even if the IP port (interface) is configured for
+             'manual' configuration, the value of this object can
+             be modified to indicate the default ATM PVC's VPI for
+             BOOTP or DHCP to operate on.
+
+             This object is valid only if the IP Port has ATM PVC(s)
+             as the underlying data link media. For IP Ports over
+             ethernet type of media, the MAX-ACCESS for this object
+             is read-only, and the object is set to 0 always."
+    ::= { pdnMgmtIpPortEntry 8 }
+
+pdnMgmtBootVci OBJECT-TYPE
+    SYNTAX      AtmVcIdentifier
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+            "The VCI of the ATM PVC to be used by BOOTP or DHCP
+             client, if the pdnMgmtIpConfigMode is set to 'bootp' or
+             'dhcp' respectively.
+
+             Even if the IP port (interface) is configured for
+             'manual' configuration, the value of this object can
+             be modified to indicate the default ATM PVC's VCI for
+             BOOTP or DHCP to operate on.
+
+             This object is valid only if the IP Port has ATM PVC(s)
+             as the underlying data link media. For IP Ports over
+             ethernet type of media, the MAX-ACCESS for this object
+             is read-only, and the object is set to 0 always."
+    ::= { pdnMgmtIpPortEntry 9 }
+
+pdnMgmtIpAdminStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    up(1),
+                    down(2)
+                }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+            "The status of the IP Port (interface).
+
+             Data flow through the IP Port is possible only if this
+             object is set to 'up'.
+
+             When this object is set to 'down', the interface SHALL
+             be torn down and all routes (associated with this port)
+             be purged automatically, until the port is set to 'up'
+             state again."
+    ::= { pdnMgmtIpPortEntry 10 }
+
+pdnMgmtAtmInvArpTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PdnMgmtAtmInvArpEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+            "This table contains one row per Inverse ATM ARP entry
+             in the system. This table maps the &lt;ifIndex, vpi, vci&gt;
+             index to corresponding &lt;ipPortIndex, remoteIp&gt;."
+    ::= { pdnMgmtIpConfObjects 2 }
+
+pdnMgmtAtmInvArpEntry OBJECT-TYPE
+    SYNTAX      PdnMgmtAtmInvArpEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+            "ATM Inverse ARP entry corresponding to a particular
+             ATM PVC that is being used by management IP traffic."
+    INDEX   { pdnMgmtAtmIfIndex, pdnMgmtAtmVpi, pdnMgmtAtmVci }
+    ::= { pdnMgmtAtmInvArpTable 1 }
+
+PdnMgmtAtmInvArpEntry ::=
+    SEQUENCE {
+        pdnMgmtAtmIfIndex         InterfaceIndex,
+        pdnMgmtAtmVpi             AtmVpIdentifier,
+        pdnMgmtAtmVci             AtmVcIdentifier,
+        pdnMgmtIpPortIfIndex      InterfaceIndex,
+        pdnMgmtNextHopIp          IpAddress,
+        pdnMgmtAtmInvArpRowStatus RowStatus
+}
+
+pdnMgmtAtmIfIndex OBJECT-TYPE
+    SYNTAX      InterfaceIndex
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+            "The interface index associated with the ATM PVC."
+    ::= { pdnMgmtAtmInvArpEntry 1 }
+
+pdnMgmtAtmVpi OBJECT-TYPE
+    SYNTAX      AtmVpIdentifier
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+            "The VPI associated with the ATM PVC."
+    ::= { pdnMgmtAtmInvArpEntry 2 }
+
+pdnMgmtAtmVci OBJECT-TYPE
+    SYNTAX      AtmVcIdentifier
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+            "The VCI associated with the ATM PVC."
+    ::= { pdnMgmtAtmInvArpEntry 3 }
+
+pdnMgmtIpPortIfIndex OBJECT-TYPE
+    SYNTAX      InterfaceIndex
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+            "The Interface Index of the IP port to which
+             this inverse ARP entry is associated with."
+    ::= { pdnMgmtAtmInvArpEntry 4 }
+
+pdnMgmtNextHopIp OBJECT-TYPE
+    SYNTAX      IpAddress
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+            "The IP address of the unit at the other end of
+             this ATM PVC. This represents the IP Gateway
+             equivalent for IP traffic on this specific ATM PVC."
+    ::= { pdnMgmtAtmInvArpEntry 5 }
+
+pdnMgmtAtmInvArpRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+            "This object is used to create/delete the ATM inverse
+             ARP entry in this table. "
+    ::= { pdnMgmtAtmInvArpEntry 6 }
+
+pdnMgmtIpDefaultRouter OBJECT-TYPE
+    SYNTAX      IpAddress
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+            "This object identifies the default IP router to use for
+             IP packets with no other known route.
+
+             An IP address of 0.0.0.0 would disable and delete the
+             default route from the system."
+    ::= { pdnMgmtIpConfObjects 3 }
+
+-- Conformance Information
+
+pdnMgmtIpConformance OBJECT IDENTIFIER ::= { pdnMgmtIpMIB 2 }
+
+pdnMgmtIpGroups OBJECT IDENTIFIER
+    ::= { pdnMgmtIpConformance 1 }
+pdnMgmtIpCompliances OBJECT IDENTIFIER
+    ::= { pdnMgmtIpConformance 2 }
+
+-- Compliance Statements
+
+pdnMgmtIpConfigCompliance MODULE-COMPLIANCE
+    STATUS current
+    DESCRIPTION
+            "The compliance statement for SNMP entities which
+             manage the configuration parameters on a Management
+             IP port/interface."
+    MODULE   -- this module
+    MANDATORY-GROUPS {
+        pdnMgmtIpConfigGroup
+    }
+
+    OBJECT  pdnMgmtIpAddress
+    MIN-ACCESS read-only
+    DESCRIPTION
+            " Write access is not required."
+
+    OBJECT pdnMgmtIpNetMask
+    MIN-ACCESS read-only
+    DESCRIPTION
+            "Write access is not required."
+
+    OBJECT pdnMgmtIpEthGateway
+    MIN-ACCESS read-only
+    DESCRIPTION
+            "Write access is not required."
+
+    OBJECT pdnMgmtIpPhysAddress
+    MIN-ACCESS read-only
+    DESCRIPTION
+            "Write access is not required."
+
+    OBJECT pdnMgmtIpConfigMode
+    MIN-ACCESS read-only
+    DESCRIPTION
+            "Write access is not required."
+
+    OBJECT pdnMgmtBootIfIndex
+    MIN-ACCESS read-only
+    DESCRIPTION
+            "Write access is not required."
+
+    OBJECT pdnMgmtBootVpi
+    MIN-ACCESS read-only
+    DESCRIPTION
+            "Write access is not required."
+
+    OBJECT pdnMgmtBootVci
+    MIN-ACCESS read-only
+    DESCRIPTION
+            "Write access is not required."
+
+    OBJECT pdnMgmtIpAdminStatus
+    MIN-ACCESS read-only
+    DESCRIPTION
+            "Write access is not required."
+
+    OBJECT pdnMgmtIpPortIfIndex
+    MIN-ACCESS read-only
+    DESCRIPTION
+            "Write access is not required."
+
+    OBJECT pdnMgmtNextHopIp
+    MIN-ACCESS read-only
+    DESCRIPTION
+            "Write access is not required."
+
+    OBJECT pdnMgmtAtmInvArpRowStatus
+    MIN-ACCESS read-only
+    DESCRIPTION
+            "Write access is not required."
+
+    OBJECT pdnMgmtIpDefaultRouter
+    MIN-ACCESS read-only
+    DESCRIPTION
+            "Write access is not required."
+
+    ::= { pdnMgmtIpCompliances 1 }
+
+-- Units of Conformance
+
+pdnMgmtIpConfigGroup OBJECT-GROUP
+    OBJECTS {
+        pdnMgmtIpAddress,
+        pdnMgmtIpNetMask,
+        pdnMgmtIpEthGateway,
+        pdnMgmtIpPhysAddress,
+        pdnMgmtIpConfigMode,
+        pdnMgmtBootIfIndex,
+        pdnMgmtBootVpi,
+        pdnMgmtBootVci,
+        pdnMgmtIpAdminStatus,
+        pdnMgmtIpPortIfIndex,
+        pdnMgmtNextHopIp,
+        pdnMgmtAtmInvArpRowStatus,
+        pdnMgmtIpDefaultRouter
+    }
+    STATUS current
+    DESCRIPTION
+            "A collection of Management IP configuration objects
+             that are required to configure the device."
+    ::= { pdnMgmtIpGroups 1 }
+
+END

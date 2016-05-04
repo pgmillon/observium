@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -43,20 +43,47 @@ foreach ($datas as $type => $options)
   $navbar['options'][$type]['text'] = nicecase($type);
 }
 
-$navbar['options']['group'] = array('text' => 'Groups', 'right' => 'true');
+// Add filter by Physical Class for statuses
+if ($vars['metric'] == 'status')
+{
+  $navbar['options']['class'] = array('text' => 'Physical Class', 'right' => 'true');
+  $sql = 'SELECT DISTINCT `entPhysicalClass` FROM `status` WHERE 1' . $cache['where']['devices_permitted'];
+  $classes = dbFetchColumn($sql);
+  asort($classes);
+  foreach ($classes as $class)
+  {
+    if ($class == '') { $class = OBS_VAR_UNSET; }
+    $name = nicecase($class);
+
+    if (isset($navbar['options']['class']['suboptions'][$class])) { continue; } // Heh, class can be NULL and ''
+    if ($class == $vars['class'] || (is_array($vars['class']) && in_array($class, $vars['class'])))
+    {
+      $navbar['options']['class']['class'] = 'active';
+      $navbar['options']['class']['text'] .= " (".$name.')';
+      $navbar['options']['class']['suboptions'][$class]['url'] = generate_url($vars, array('class' => NULL));
+      $navbar['options']['class']['suboptions'][$class]['class'] = 'active';
+    } else {
+      $navbar['options']['class']['suboptions'][$class]['url'] = generate_url($vars, array('class' => $class));
+    }
+    $navbar['options']['class']['suboptions'][$class]['text'] = $name;
+  }
+}
 
 $groups = get_type_groups($vars['metric']);
 
-foreach (get_type_groups($vars['metric']) as $group)
+$navbar['options']['group'] = array('text' => 'Groups', 'right' => TRUE, 'community' => FALSE);
+foreach ($groups as $group)
 {
   if ($group['group_id'] == $vars['group'] || in_array($group['group_id'], $vars['group']) )
   {
     $navbar['options']['group']['class'] = 'active';
-    $navbar['options']['group']['text'] .= " (".$group['group_name'].')';
+    $navbar['options']['group']['text'] .= ' ('.escape_html($group['group_name']).')';
     $navbar['options']['group']['suboptions'][$group['group_id']]['url'] = generate_url($vars, array('group' => NULL));
+    $navbar['options']['group']['suboptions'][$group['group_id']]['class'] = 'active';
+  } else {
+    $navbar['options']['group']['suboptions'][$group['group_id']]['url'] = generate_url($vars, array('group' => $group['group_id']));
   }
-  $navbar['options']['group']['suboptions'][$group['group_id']]['text'] = $group['group_name'];
-  $navbar['options']['group']['suboptions'][$group['group_id']]['url'] = generate_url($vars, array('group' => $group['group_id']));
+  $navbar['options']['group']['suboptions'][$group['group_id']]['text'] = escape_html($group['group_name']);
 }
 
 $navbar['options']['graphs']['text']  = 'Graphs';
@@ -73,15 +100,15 @@ if ($vars['view'] == "graphs")
 
 print_navbar($navbar);
 
-if (isset($datas[$vars['metric']]))
+if (isset($datas[$vars['metric']]) || $vars['metric'] == "sensors")
 {
   if (is_file('pages/health/'.$vars['metric'].'.inc.php'))
   {
-    include('pages/health/'.$vars['metric'].'.inc.php');
+    include($config['html_dir'].'/pages/health/'.$vars['metric'].'.inc.php');
   } else {
     $sensor_type = $vars['metric'];
 
-    include('pages/health/sensors.inc.php');
+    include($config['html_dir'].'/pages/health/sensors.inc.php');
   }
 } else {
   print_warning("No sensors of type " . $vars['metric'] . " found.");

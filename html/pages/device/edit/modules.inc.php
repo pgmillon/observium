@@ -6,102 +6,133 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 include($config['install_dir'] . '/includes/polling/functions.inc.php');
+include($config['install_dir'] . '/includes/discovery/functions.inc.php');
 
-if($vars['toggle_poller'] && isset($config['poller_modules'][$vars['toggle_poller']]))
+if ($vars['submit'])
 {
-  $module = $vars['toggle_poller'];
-  if (isset($attribs['poll_'.$module]) && $attribs['poll_'.$module] != $config['poller_modules'][$module])
+  if ($readonly)
   {
-    del_dev_attrib($device, 'poll_' . $module);
-  } elseif ($config['poller_modules'][$module] == 0) {
-    set_dev_attrib($device, 'poll_' . $module, "1");
+    print_error_permission('You have insufficient permissions to edit settings.');
   } else {
-    set_dev_attrib($device, 'poll_' . $module, "0");
+    if ($vars['toggle_poller'] && isset($config['poller_modules'][$vars['toggle_poller']]))
+    {
+      $module = $vars['toggle_poller'];
+      if (isset($attribs['poll_'.$module]) && $attribs['poll_'.$module] != $config['poller_modules'][$module])
+      {
+        del_dev_attrib($device, 'poll_' . $module);
+      } elseif ($config['poller_modules'][$module] == 0) {
+        set_dev_attrib($device, 'poll_' . $module, "1");
+      } else {
+        set_dev_attrib($device, 'poll_' . $module, "0");
+      }
+      $attribs = get_dev_attribs($device['device_id']);
+    }
+
+    if ($vars['toggle_ports'] && isset($config[$vars['toggle_ports']]) && strpos($vars['toggle_ports'], 'enable_ports_') === 0)
+    {
+      $module = $vars['toggle_ports'];
+      if (isset($attribs[$module]) && $attribs[$module] != $config[$module])
+      {
+        del_dev_attrib($device, $module);
+      } elseif ($config[$module] == 0) {
+        set_dev_attrib($device, $module, "1");
+      } else {
+        set_dev_attrib($device, $module, "0");
+      }
+      $attribs = get_dev_attribs($device['device_id']);
+    }
+
+    if ($vars['toggle_discovery'] && isset($config['discovery_modules'][$vars['toggle_discovery']]))
+    {
+      $module = $vars['toggle_discovery'];
+      if (isset($attribs['discover_'.$module]) && $attribs['discover_'.$module] != $config['discovery_modules'][$module])
+      {
+        del_dev_attrib($device, 'discover_' . $module);
+      } elseif ($config['discovery_modules'][$module] == 0) {
+        set_dev_attrib($device, 'discover_' . $module, "1");
+      } else {
+        set_dev_attrib($device, 'discover_' . $module, "0");
+      }
+      $attribs = get_dev_attribs($device['device_id']);
+    }
   }
-  $attribs = get_dev_attribs($device['device_id']);
 }
 
-if($vars['toggle_ports'] && isset($config[$vars['toggle_ports']]) && strpos($vars['toggle_ports'], 'enable_ports_') === 0)
-{
-  $module = $vars['toggle_ports'];
-  if (isset($attribs[$module]) && $attribs[$module] != $config[$module])
-  {
-    del_dev_attrib($device, $module);
-  } elseif ($config[$module] == 0) {
-    set_dev_attrib($device, $module, "1");
-  } else {
-    set_dev_attrib($device, $module, "0");
-  }
-  $attribs = get_dev_attribs($device['device_id']);
-}
-
-if($vars['toggle_discovery'] && isset($config['discovery_modules'][$vars['toggle_discovery']]))
-{
-  $module = $vars['toggle_discovery'];
-  if (isset($attribs['discover_'.$module]) && $attribs['discover_'.$module] != $config['discovery_modules'][$module])
-  {
-    del_dev_attrib($device, 'discover_' . $module);
-  } elseif ($config['discovery_modules'][$module] == 0) {
-    set_dev_attrib($device, 'discover_' . $module, "1");
-  } else {
-    set_dev_attrib($device, 'discover_' . $module, "0");
-  }
-  $attribs = get_dev_attribs($device['device_id']);
-}
 ?>
 
 <div class="row"> <!-- begin row -->
 
   <div class="col-md-6"> <!-- begin poller options -->
 
-<fieldset>
-  <legend>Poller Modules</legend>
-</fieldset>
+    <div class="box box-solid">
 
-<table class="table table-bordered table-striped table-condensed table-rounded">
+      <div class="box-header with-border">
+        <h3 class="box-title">Poller Modules</h3>
+      </div>
+      <div class="box-body no-padding">
+
+<table class="table table-striped table-condensed">
   <thead>
     <tr>
       <th>Module</th>
-      <th style="width: 80px;">Global</th>
-      <th style="width: 80px;">Device</th>
+      <th style="width: 60px;">Global</th>
+      <th style="width: 60px;">Device</th>
       <th style="width: 80px;"></th>
     </tr>
   </thead>
   <tbody>
 
 <?php
-foreach ($config['poller_modules'] as $module => $module_status)
+foreach (array_merge(array('os' => 1, 'system' => 1), $config['poller_modules']) as $module => $module_status)
 {
   $attrib_set = isset($attribs['poll_'.$module]);
 
   echo('<tr><td><strong>'.$module.'</strong></td><td>');
-  echo(($module_status ? '<span class="text-success">enabled</span>' : '<span class="text-danger">disabled</span>'));
+  echo(($module_status ? '<span class="label label-success">enabled</span>' : '<span class="label label-important">disabled</span>'));
   echo('</td><td>');
 
-  $attrib_status = '<span class="text-danger">disabled</span>'; $toggle = 'Enable';
-  $btn_class = 'btn-success'; $btn_toggle = 'value="Toggle"';
-  if (poller_module_excluded($device, $module))
+  $attrib_status = '<span class="label label-important">disabled</span>';
+  $toggle = 'Enable'; $btn_class = 'btn-success'; $btn_icon = 'icon-ok';
+  $disabled = FALSE;
+  if ($module == 'os' || $module == 'system')
   {
-    $attrib_status = '<span class="text-disabled">excluded</span>'; $toggle = "Excluded";
-    $btn_class = ''; $btn_toggle = 'disabled="disabled"';
+    $attrib_status = '<span class="label label-default">locked</span>';
+    $toggle = "Locked"; $btn_class = ''; $btn_icon = 'icon-lock';
+    $disabled = TRUE;
   }
-  elseif (($attrib_set && $attribs['poll_'.$module]) || (!$attrib_set && $module_status))
+  else if (poller_module_excluded($device, $module))
   {
-    $attrib_status = '<span class="text-success">enabled</span>'; $toggle = "Disable"; $btn_class = "btn-danger";
+    $attrib_status = '<span class="label label-default">excluded</span>';
+    $toggle = "Excluded"; $btn_class = ''; $btn_icon = 'icon-lock';
+    $disabled = TRUE;
+  }
+  else if (($attrib_set && $attribs['poll_'.$module]) || (!$attrib_set && $module_status))
+  {
+    $attrib_status = '<span class="label label-success">enabled</span>';
+    $toggle = "Disable"; $btn_class = "btn-danger"; $btn_icon = 'icon-remove';
   }
 
   echo($attrib_status.'</td><td>');
 
-  echo('<form id="toggle_poller" name="toggle_poller" method="post" action="">
-  <input type="hidden" name="toggle_poller" value="'.$module.'">
-  <button type="submit" class="btn btn-mini '.$btn_class.'" name="Submit" '.$btn_toggle.'>'.$toggle.'</button>
-</form>');
+      $form = array('type'  => 'simple');
+      // Elements
+      $form['row'][0]['toggle_poller'] = array('type'    => 'hidden',
+                                             'value'    => $module);
+      $form['row'][0]['submit']      = array('type'     => 'submit',
+                                             'name'     => $toggle,
+                                             'class'    => 'btn-mini '.$btn_class,
+                                             'icon'     => $btn_icon,
+                                             'right'    => TRUE,
+                                             'readonly' => $readonly,
+                                             'disabled' => $disabled,
+                                             'value'    => 'Toggle');
+      print_form($form); unset($form);
 
   echo('</td></tr>');
 }
@@ -109,20 +140,24 @@ foreach ($config['poller_modules'] as $module => $module_status)
   </tbody>
 </table>
 
+  </div> </div>
 </div> <!-- end poller options -->
 
 <div class="col-md-6"> <!-- begin ports options -->
 
-<fieldset>
-  <legend>Ports polling options</legend>
-</fieldset>
+    <div class="box box-solid">
 
-<table class="table table-bordered table-striped table-condensed table-rounded">
+      <div class="box-header with-border">
+        <h3 class="box-title">Ports polling options</h3>
+      </div>
+      <div class="box-body no-padding">
+
+<table class="table table-striped table-condensed">
   <thead>
     <tr>
       <th>Module</th>
-      <th style="width: 80px;">Global</th>
-      <th style="width: 80px;">Device</th>
+      <th style="width: 60px;">Global</th>
+      <th style="width: 60px;">Device</th>
       <th style="width: 80px;"></th>
     </tr>
   </thead>
@@ -137,27 +172,45 @@ foreach (array_keys($config) as $module)
   $attrib_set = isset($attribs[$module]);
 
   echo('<tr><td><strong>'.str_replace('enable_ports_', '', $module).'</strong></td><td>');
-  echo(($module_status ? '<span class="text-success">enabled</span>' : '<span class="text-danger">disabled</span>'));
+  echo(($module_status ? '<span class="label label-success">enabled</span>' : '<span class="label label-important">disabled</span>'));
   echo('</td><td>');
 
-  $attrib_status = '<span class="text-danger">disabled</span>'; $toggle = 'Enable';
-  $btn_class = 'btn-success'; $btn_toggle = 'value="Toggle"';
+  $attrib_status = '<span class="label label-important">disabled</span>';
+  $toggle = 'Enable'; $btn_class = 'btn-success'; $btn_icon = 'icon-ok';
+  $disabled = FALSE;
   if ($module == 'enable_ports_junoseatmvp' && $device['os'] != 'junose') /// FIXME. see here includes/discovery/junose-atm-vp.inc.php
   {
-    $attrib_status = '<span class="text-disabled">excluded</span>'; $toggle = "Excluded";
-    $btn_class = ''; $btn_toggle = 'disabled="disabled"';
+    $attrib_status = '<span class="label label-default">excluded</span>';
+    $toggle = "Excluded"; $btn_class = ''; $btn_icon = 'icon-lock';
+    $disabled = TRUE;
   }
-  elseif (($attrib_set && $attribs[$module]) || (!$attrib_set && $module_status))
+  else if (discovery_module_excluded($device, $module)) // What? This is ports options..
   {
-    $attrib_status = '<span class="text-success">enabled</span>'; $toggle = "Disable"; $btn_class = "btn-danger";
+    $attrib_status = '<span class="label label-disabled">excluded</span>';
+    $toggle = "Excluded"; $btn_class = ''; $btn_icon = 'icon-lock';
+    $disabled = TRUE;
+  }
+  else if (($attrib_set && $attribs[$module]) || (!$attrib_set && $module_status))
+  {
+    $attrib_status = '<span class="label label-success">enabled</span>';
+    $toggle = "Disable"; $btn_class = "btn-danger"; $btn_icon = 'icon-remove';
   }
 
   echo($attrib_status . '</td><td>');
 
-  echo('<form id="toggle_ports" name="toggle_ports" method="POST" action="">
-  <input type="hidden" name="toggle_ports" value="'.$module.'">
-  <button type="submit" class="btn btn-mini '.$btn_class.'" name="Submit" '.$btn_toggle.'>'.$toggle.'</button>
-</form>');
+      $form = array('type'  => 'simple');
+      // Elements
+      $form['row'][0]['toggle_ports'] = array('type'    => 'hidden',
+                                             'value'    => $module);
+      $form['row'][0]['submit']      = array('type'     => 'submit',
+                                             'name'     => $toggle,
+                                             'class'    => 'btn-mini '.$btn_class,
+                                             'icon'     => $btn_icon,
+                                             'right'    => TRUE,
+                                             'readonly' => $readonly,
+                                             'disabled' => $disabled,
+                                             'value'    => 'Toggle');
+      print_form($form); unset($form);
 
   echo('</td></tr>');
 }
@@ -165,20 +218,24 @@ foreach (array_keys($config) as $module)
   </tbody>
 </table>
 
+  </div> </div>
 </div> <!-- end ports options -->
 
 <div class="col-md-6"> <!-- begin discovery options -->
 
-<fieldset>
-  <legend>Discovery Modules</legend>
-</fieldset>
+    <div class="box box-solid">
 
-<table class="table table-bordered table-striped table-condensed table-rounded">
+      <div class="box-header with-border">
+        <h3 class="box-title">Discovery Modules</h3>
+      </div>
+      <div class="box-body no-padding">
+
+<table class="table table-striped table-condensed">
   <thead>
     <tr>
       <th>Module</th>
-      <th style="width: 80px;">Global</th>
-      <th style="width: 80px;">Device</th>
+      <th style="width: 60px;">Global</th>
+      <th style="width: 60px;">Device</th>
       <th style="width: 80px;"></th>
     </tr>
   </thead>
@@ -190,22 +247,39 @@ foreach ($config['discovery_modules'] as $module => $module_status)
   $attrib_set = isset($attribs['discover_'.$module]);
 
   echo('<tr><td><strong>'.$module.'</strong></td><td>');
-  echo(($module_status ? '<span class="text-success">enabled</span>' : '<span class="text-danger">disabled</span>'));
+  echo(($module_status ? '<span class="label label-success">enabled</span>' : '<span class="label label-important">disabled</span>'));
   echo('</td><td>');
 
-  $attrib_status = '<span class="text-danger">disabled</span>'; $toggle = 'Enable';
-  $btn_class = 'btn-success'; $btn_toggle = 'value="Toggle"';
-  if (($attrib_set && $attribs['discover_'.$module]) || (!$attrib_set && $module_status))
+  $attrib_status = '<span class="label label-important">disabled</span>';
+  $toggle = 'Enable'; $btn_class = 'btn-success'; $btn_icon = 'icon-ok';
+  $disabled = FALSE;
+  if (discovery_module_excluded($device,$module))
   {
-    $attrib_status = '<span class="text-success">enabled</span>'; $toggle = "Disable"; $btn_class = "btn-danger";
+    $attrib_status = '<span class="label label-disabled">excluded</span>';
+    $toggle = "Excluded"; $btn_class = ''; $btn_icon = 'icon-lock';
+    $disabled = TRUE;
+  }
+  else if (($attrib_set && $attribs['discover_'.$module]) || (!$attrib_set && $module_status))
+  {
+    $attrib_status = '<span class="label label-success">enabled</span>';
+    $toggle = "Disable"; $btn_class = "btn-danger"; $btn_icon = 'icon-remove';
   }
 
   echo($attrib_status . '</td><td>');
 
-  echo('<form id="toggle_discovery" name="toggle_discovery" method="post" action="">
-  <input type="hidden" name="toggle_discovery" value="'.$module.'">
-  <button type="submit" class="btn btn-mini '.$btn_class.'" name="Submit" '.$btn_toggle.'>'.$toggle.'</button>
-</form>');
+      $form = array('type'  => 'simple');
+      // Elements
+      $form['row'][0]['toggle_discovery'] = array('type'    => 'hidden',
+                                             'value'    => $module);
+      $form['row'][0]['submit']      = array('type'     => 'submit',
+                                             'name'     => $toggle,
+                                             'class'    => 'btn-mini '.$btn_class,
+                                             'icon'     => $btn_icon,
+                                             'right'    => TRUE,
+                                             'readonly' => $readonly,
+                                             'disabled' => $disabled,
+                                             'value'    => 'Toggle');
+      print_form($form); unset($form);
 
   echo('</td></tr>');
 }
@@ -213,6 +287,7 @@ foreach ($config['discovery_modules'] as $module => $module_status)
   </tbody>
 </table>
 
+  </div> </div>
 </div> <!-- end discovery options -->
 
   </div> <!-- end row -->

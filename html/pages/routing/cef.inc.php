@@ -7,13 +7,15 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 $i_i = 0;
 
-echo('<table width=100% border=0 cellpadding=10 class="table table-hover table-bordered table-striped table-condensed">');
+echo generate_box_open();
+
+echo('<table width=100% border=0 cellpadding=10 class="table table-hover  table-striped table-condensed">');
 echo('<thead><tr><th>Device</th>
          <th>AFI</th>
          <th>Prefixes</th>
@@ -41,7 +43,7 @@ foreach (dbFetchRows($cef_query) as $instance)
   echo('<tr>');
   echo('  <td class="entity-title">'.generate_device_link($device, 0, array('tab' => 'routing', 'proto' => 'cef')). '</td>');
   echo '  <td>';
-  if ($instance['afi'] == "ipv4") { echo '<span class="green">IPv4</span>'; } elseif($instance['afi'] == "ipv6") { echo '<span class="blue">IPv6</span>'; } else { echo $instance['afi']; }
+  if ($instance['afi'] == "ipv4") { echo '<span class="label label-success">IPv4</span>'; } elseif($instance['afi'] == "ipv6") { echo '<span class="label label-info">IPv6</span>'; } else { echo $instance['afi']; }
   echo '</td>';
   echo('  <td>'.$instance['cef_pfx'] . '</td>');
   echo('  <td>'.$instance['paths'] . '</td>');
@@ -53,5 +55,7 @@ foreach (dbFetchRows($cef_query) as $instance)
 } // End loop instances
 
 echo('</table>');
+
+echo generate_box_close();
 
 // EOF

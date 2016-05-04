@@ -1,0 +1,286 @@
+-- ==================================================================
+-- Copyright (c) 2010-2013 Hewlett-Packard Development Company, L.P.
+--
+-- Description: Storm-Constrain MIB
+-- Reference:
+-- Version: V1.1
+-- History:
+-- V1.0 2005-11-19 Created by XueCong
+-- V1.1 2008-06-06 Modified the description of HpnicfStormConstrainUnit
+--                 add hpnicfStormCtrlPortMode by jinyi
+-- ==================================================================
+HPN-ICF-STORM-CONSTRAIN-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+
+    MODULE-IDENTITY, OBJECT-TYPE, Integer32, OBJECT-IDENTITY,
+    NOTIFICATION-TYPE
+        FROM SNMPv2-SMI
+
+    RowStatus, TEXTUAL-CONVENTION
+        FROM SNMPv2-TC
+
+    ifIndex
+        FROM RFC1213-MIB
+
+    hpnicfCommon
+        FROM HPN-ICF-OID-MIB;
+
+hpnicfStormConstrain MODULE-IDENTITY
+    LAST-UPDATED "200806060000Z"
+    ORGANIZATION
+        ""
+    CONTACT-INFO
+        ""
+    DESCRIPTION
+        "The Storm-Constrain function is used to avoid the
+         packet-storm on a port.  Three types of flux can be
+         set observed respectively: broadcast, multicast and
+         unicast.  If an observed flux exceeds its upper limit,
+         this kind of flux will be recognized as over-upper-flux.
+         This kind of flux will be considered as normal-flux
+         until it falls below its lower limit.  If any type of
+         observed flux is over-upper-flux, the port will change
+         its status to controlled-status, that is to stop packet
+         forwarding to avoid storm.  Only when all the observed
+         fluxes are not over-upper-flux, will the port return to
+         normal(forwarding) status."
+    ::= { hpnicfCommon  66 }
+
+HpnicfStormConstrainUnit ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "The unit of the flux.
+         none: not define.
+         packetsPerSecond: packets per second.
+         ratio: unit is 1%. For example, if the value is 40, it means 40%.
+         bytesPerSecond: bytes per second.
+         kbitsPerSecond: kilobits per second."
+    SYNTAX INTEGER
+        {
+        none(1),
+        packetsPerSecond(2),
+        ratio(3),
+        bytesPerSecond(4),
+        kbitsPerSecond(5)
+        }
+
+-- ==================================================================
+--
+-- ======================= definition begin =========================
+--
+-- ==================================================================
+
+hpnicfStormScalarGroup OBJECT IDENTIFIER ::= {  hpnicfStormConstrain 1  }
+
+hpnicfStormTrapType OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        broadcast(1),
+        multicast(2),
+        unicast(3)
+        }
+    MAX-ACCESS      accessible-for-notify
+    STATUS          current
+    DESCRIPTION
+        "This value is used to identify the type of trap.
+         broadcast: trap message is generated for broadcast flux exceeds
+                    upper limit or falls under lower limit on a port.
+         multicast: trap message is generated for multicast flux exceeds
+                    upper limit or falls under lower limit on a port.
+         unicast  : trap message is generated for unicast flux exceeds
+                    upper limit or falls under lower limit on a port."
+    ::= { hpnicfStormScalarGroup 1 }
+
+hpnicfStormTrapThreshold OBJECT-TYPE
+    SYNTAX          Integer32
+    MAX-ACCESS      accessible-for-notify
+    STATUS          current
+    DESCRIPTION
+        "This value is used to figure the threshold of flux in
+         trap message.
+         For example, when the trap is generated for broadcast
+         flux exceeds upper limit on a port, this value is
+         equal to upper limit value configured.  And when the
+         trap is generated for broadcast flux fell under lower
+         limit, this value is equal to lower limit value configured."
+    ::= { hpnicfStormScalarGroup 2 }
+
+hpnicfStormTableGroup OBJECT IDENTIFIER ::= {  hpnicfStormConstrain 2  }
+
+hpnicfStormCtrlTable  OBJECT-TYPE
+    SYNTAX          SEQUENCE OF HpnicfStormCtrlEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "A table containing configurations of storm-constrain."
+    ::= { hpnicfStormTableGroup  1 }
+
+hpnicfStormCtrlEntry  OBJECT-TYPE
+    SYNTAX          HpnicfStormCtrlEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "Detailed information of storm-constrain configurations."
+    INDEX { ifIndex }
+    ::= { hpnicfStormCtrlTable 1 }
+
+HpnicfStormCtrlEntry  ::=
+    SEQUENCE {
+        hpnicfStormCtrlPortStatus                      INTEGER,
+        hpnicfStormCtrlBroadcastUnit                   HpnicfStormConstrainUnit,
+        hpnicfStormCtrlBroadcastUpper                  Integer32,
+        hpnicfStormCtrlBroadcastLower                  Integer32,
+        hpnicfStormCtrlMulticastUnit                   HpnicfStormConstrainUnit,
+        hpnicfStormCtrlMulticastUpper                  Integer32,
+        hpnicfStormCtrlMulticastLower                  Integer32,
+        hpnicfStormCtrlUnicastUnit                     HpnicfStormConstrainUnit,
+        hpnicfStormCtrlUnicastUpper                    Integer32,
+        hpnicfStormCtrlUnicastLower                    Integer32,
+        hpnicfStormCtrlRowStatus                       RowStatus,
+        hpnicfStormCtrlPortMode                        INTEGER
+             }
+
+hpnicfStormCtrlPortStatus OBJECT-TYPE
+    SYNTAX          INTEGER{ controlled(1), normal(2)}
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "Status of the port:
+         controlled: indicate that the port is in controlled status.
+                     Port which is in this status will not forward some type
+                     of packet.
+         normal    : indicate that the port is in normal status."
+    ::= { hpnicfStormCtrlEntry 1 }
+
+hpnicfStormCtrlBroadcastUnit OBJECT-TYPE
+    SYNTAX          HpnicfStormConstrainUnit
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "The unit of the broadcast flux.
+         This value must be set together with hpnicfStormCtrlBroadcastUpper
+         and hpnicfStormCtrlBroadcastLower."
+    ::= { hpnicfStormCtrlEntry 2 }
+
+hpnicfStormCtrlBroadcastUpper  OBJECT-TYPE
+    SYNTAX          Integer32
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "The upper-limit of incoming broadcast taffic at a port
+         within 1 second interval.
+         Its unit depends on hpnicfStormCtrlBroadcastUnit value."
+    ::= { hpnicfStormCtrlEntry 3 }
+
+hpnicfStormCtrlBroadcastLower  OBJECT-TYPE
+    SYNTAX          Integer32
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "The lower-limit of incoming broadcast taffic at a port
+         within 1 second interval.
+         This value must be lower than hpnicfStormCtrlBroadcastUpper value.
+         Its unit depends on hpnicfStormCtrlBroadcastUnit value."
+    ::= { hpnicfStormCtrlEntry 4 }
+
+hpnicfStormCtrlMulticastUnit  OBJECT-TYPE
+    SYNTAX          HpnicfStormConstrainUnit
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "The unit of the multicast flux.
+         This value must be set together with hpnicfStormCtrlMulticastUpper
+         and hpnicfStormCtrlMulticastLower."
+    ::= { hpnicfStormCtrlEntry 5 }
+
+hpnicfStormCtrlMulticastUpper  OBJECT-TYPE
+    SYNTAX          Integer32
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "The upper-limit of incoming multicast taffic at a port
+         within 1 second interval.
+         Its unit depends on hpnicfStormCtrlMulticastUnit value."
+    ::= { hpnicfStormCtrlEntry 6 }
+
+hpnicfStormCtrlMulticastLower  OBJECT-TYPE
+    SYNTAX          Integer32
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "The lower-limit of incoming multicast taffic at a port
+         within 1 second interval.
+         This value must be lower than hpnicfStormCtrlMulticastUpper value.
+         Its unit depends on hpnicfStormCtrlMulticastUnit value."
+    ::= { hpnicfStormCtrlEntry 7 }
+
+hpnicfStormCtrlUnicastUnit  OBJECT-TYPE
+    SYNTAX          HpnicfStormConstrainUnit
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "The unit of the unicast flux.
+         This value must be set together with hpnicfStormCtrlUnicastUpper
+         and hpnicfStormCtrlUnicastLower."
+    ::= { hpnicfStormCtrlEntry 8 }
+
+hpnicfStormCtrlUnicastUpper  OBJECT-TYPE
+    SYNTAX          Integer32
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "The upper-limit of incoming unicast taffic at a port
+         within 1 second interval.
+         Its unit depends on hpnicfStormCtrlUnicastUnit value."
+    ::= { hpnicfStormCtrlEntry 9 }
+
+hpnicfStormCtrlUnicastLower  OBJECT-TYPE
+    SYNTAX          Integer32
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "The lower-limit of incoming unicast taffic at a port
+         within 1 second interval.
+         This value must be lower than hpnicfStormCtrlUnicastUpper value.
+         Its unit depends on hpnicfStormCtrlUnicastUnit value."
+    ::= { hpnicfStormCtrlEntry 10 }
+
+hpnicfStormCtrlRowStatus OBJECT-TYPE
+    SYNTAX          RowStatus
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "This object is responsible for managing the creation,
+         deletion and modification of rows, which supports active
+         status and CreatAndGo, destroy operation."
+    ::= { hpnicfStormCtrlEntry 11 }
+
+hpnicfStormCtrlPortMode OBJECT-TYPE
+    SYNTAX          INTEGER{ none(1), block(2), shutdown(3) }
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+        "The storm control mode of the port."
+    ::= { hpnicfStormCtrlEntry 12 }
+
+hpnicfStormNotifications OBJECT IDENTIFIER ::= {  hpnicfStormConstrain 3  }
+
+hpnicfStormRising NOTIFICATION-TYPE
+    OBJECTS  { ifIndex, hpnicfStormTrapType, hpnicfStormTrapThreshold, hpnicfStormCtrlPortStatus }
+    STATUS          current
+    DESCRIPTION
+        "This trap message is generated when any type of the
+         flux exceeds its upper limit on a port."
+    ::= { hpnicfStormNotifications 1 }
+
+hpnicfStormFalling NOTIFICATION-TYPE
+    OBJECTS  { ifIndex, hpnicfStormTrapType, hpnicfStormTrapThreshold, hpnicfStormCtrlPortStatus }
+    STATUS          current
+    DESCRIPTION
+        "This trap message is generated when a flux which used
+         to overflow its upper limit, falls below its lower
+         limit on a port."
+    ::= { hpnicfStormNotifications 2 }
+
+END

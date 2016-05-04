@@ -1,0 +1,1478 @@
+-- ===============================================================
+-- Copyright (C) 2004 Paradyne Corporation.
+-- ===============================================================
+PDN-CP-IWF-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    OBJECT-GROUP, MODULE-COMPLIANCE
+        FROM SNMPv2-CONF
+    pdnCpIwf
+        FROM PDN-HEADER-MIB
+    SwitchState
+        FROM PDN-TC
+    InterfaceIndex, ifIndex
+        FROM IF-MIB
+    Integer32, Counter32,
+    OBJECT-TYPE, MODULE-IDENTITY
+        FROM SNMPv2-SMI
+    RowStatus, TEXTUAL-CONVENTION, DisplayString, TruthValue
+        FROM SNMPv2-TC;
+
+pdnCpIwfMIB MODULE-IDENTITY
+    LAST-UPDATED "200412021700Z"  -- Dec 02, 2004
+    ORGANIZATION "Paradyne Networks
+                  MIB Working Group
+                  Other information about group editing the MIB"
+    CONTACT-INFO "Paradyne Networks, Inc.
+                  8545 126th Avenue North
+                  Largo, FL 33773
+                  www.paradyne.com
+        
+                  General Comments to: mibwg_team@paradyne.com
+
+                  Editor
+                      Jesus Pinto"
+
+    DESCRIPTION
+        "This module defines a portion of the management information base (MIB)
+	for managing multiple Loop Emulation Service (LES) Customer Premises
+	Interworking Functions (CP-IWF). The mib recommended by the ATM forum
+	(af-vmoa-0145.000) lacks the ability to manage multiple CP-IWFs as
+	required by the Paradyne DSLAM products. 
+
+	This enterprise mib is meant to be used in connection with RFC 2863
+	which defines the ifTable.
+	"
+
+    REVISION "200412021700Z"  -- Dec 02, 2004
+    DESCRIPTION "Added the following objects for the POTS IAD config:
+		o pdnPotsIadJitterBufferLength
+	
+		Added groundstart value to PotsSignaling.
+
+		Create a new POTS port packet statistics group that includes:
+                o pdnPotsPortPacketsSent
+                o pdnPotsPortPacketsReceived
+                o pdnPotsPortPacketsLost
+                o pdnPotsPortBytesSent
+                o pdnPotsPortBytesReceived
+
+                "
+
+    REVISION "200410071100Z"  -- Oct 07, 2004
+    DESCRIPTION "Added the following objects for the POTS port config:
+		 pdnPotsPortActiveSoftswitch to provide status of the
+                 active softswitch on per port basis.
+                "
+
+    REVISION "200408301100Z"  -- Aug 30, 2004
+    DESCRIPTION "Added the following objects for the POTS port config:
+		o pdnPotsPortCustInfo
+                o pdnPotsPortG729VoiceCodec
+                o pdnPotsPortPreferredVoiceCodec
+                o pdnPotsPortSilenceSuppresion
+                o pdnPotsPortActualVoiceCodec
+                o pdnPotsPortCallElapsedTime
+                o pdnPotsPortModemDetected
+                o pdnPotsPortEchoCanceller
+                o pdnPotsPortLocalEndName
+
+                Added the following objects for the POTS port stats:
+                o pdnPotsPortTotalCallsFailure
+                o pdnPotsPortInCallsReceived
+                o pdnPotsPortInCallsAnswered
+                o pdnPotsPortInCallsConnected
+                o pdnPotsPortInCallsFailure
+                o pdnPotsPortOutCallsAttempted
+                o pdnPotsPortOutCallsAnswered
+                o pdnPotsPortOutCallsConnected
+                o pdnPotsPortOutCallsFailure
+                o pdnPotsPortOutCallsDropped
+
+                Added a new POTS test table:
+                o pdnPotsPortTestTable
+
+                "
+
+    REVISION "200407150000Z"  -- July 15, 2004
+    DESCRIPTION "Remove VoiceCodec g.711 and g.726 codecs
+                 Added pdnCpIwfScssPredefinedProfile object"
+
+    REVISION "200403220000Z"  -- March 22, 2004
+    DESCRIPTION "Initial release."
+
+::=  { pdnCpIwf 1 }
+
+pdnCpIwfNotifications    OBJECT IDENTIFIER ::= { pdnCpIwfMIB 0 }
+pdnCpIwfMIBObjects       OBJECT IDENTIFIER ::= { pdnCpIwfMIB 1 }
+pdnCpIwfMIBConformance   OBJECT IDENTIFIER ::= { pdnCpIwfMIB 2 }
+
+pdnCpIwfConfigObjects	 OBJECT IDENTIFIER ::= { pdnCpIwfMIBObjects 1 }
+pdnCpIwfTestObjects      OBJECT IDENTIFIER ::= { pdnCpIwfMIBObjects 2 }
+pdnCpIwfStatsObjects	 OBJECT IDENTIFIER ::= { pdnCpIwfMIBObjects 3 }
+
+--####################################
+--# Textual Conventions
+--####################################
+
+CpIwfRegion ::= TEXTUAL-CONVENTION
+	STATUS	 current
+	DESCRIPTION
+		"Different regions define an specific group of parameters"
+
+	SYNTAX	INTEGER {
+		  usa   (1),
+		  canada(2)
+		}
+
+GatewayProtocol ::= TEXTUAL-CONVENTION
+	STATUS	 current
+	DESCRIPTION
+		"Gateway protocols supported by CPIWF running on this agent"
+
+	SYNTAX	INTEGER {
+		  lescas    (1), -- atm
+		  voiceband (2), -- atm
+		  mgcp      (3), -- ip's Media Gateway Control Protocol
+		  sip       (4)  -- ip's Session Initiation Protocol
+		}
+
+HookState ::= TEXTUAL-CONVENTION
+	STATUS	 current
+	DESCRIPTION
+		"This textual convention defines the different hook status for
+		 POTS ports."
+
+	SYNTAX	INTEGER {
+		  onhook    (1), 
+		  offhook   (2),
+		  ringground(3)
+		}
+
+PotsSignaling ::= TEXTUAL-CONVENTION
+	STATUS	 current
+	DESCRIPTION
+		"This textual convention defines the possible signaling types 
+		 for POTS ports.
+		"
+
+	SYNTAX	INTEGER {
+		  loopstart(1),
+		  groundstart(2)
+		}
+
+ControlProtocol ::= TEXTUAL-CONVENTION
+	STATUS	 current
+	DESCRIPTION
+		"This textual convention defines the control protocol
+		 capabilities of the CpIwf.
+
+	         Each bit position in the bitmap corresponds to an
+		 specific protocol. If the bit is 1, that protocol
+		 is supported.
+
+                     Bit 0 : cas 	(channel associated signaling)
+                     Bit 1 : eoc 	(embedded operation channel)
+                     Bit 2 : ccs/elcp  	(common signaling channel/
+					emulated loop control protocol)
+
+                     Bit 3 : Not used (Future)
+                     Bit 4 : Not used (Future)
+                     Bit 5 : Not used (Future)
+                     Bit 6 : Not used (Future)
+                     Bit 7 : Not used (Future)
+
+                  "
+        SYNTAX      BITS {
+                cas(0),
+                eoc(1),
+		ccselcp(2)
+        }
+
+VoiceEncoding ::= TEXTUAL-CONVENTION
+	STATUS	 current
+	DESCRIPTION
+		"This textual convention defines the voice encoding
+		 capabilities of the POTS port.
+                "
+        SYNTAX  INTEGER {
+                g711(0), -- G.711
+                g726(1), -- G.726
+		g729(2)  -- G.729
+        }
+
+PdnPotsTestTypes  ::= TEXTUAL-CONVENTION
+	STATUS	 current
+	DESCRIPTION
+  	  "This textual convention defines the possible test
+	  types for POTS ports.
+	  "
+
+	SYNTAX	INTEGER {
+		  noTest    (1), -- no test running (default)
+		  loopback  (2), -- Loopback toward Wan Network
+		  ringsignal(3)  -- Ring Signal
+		}
+
+
+--####################################
+--# Configuration
+--####################################
+
+
+--
+-- Customer Premises Interworking Function (CP-IWF) 
+-- (also refer as IADs).
+--
+pdnCpIwfTotalNumber OBJECT-TYPE        
+      SYNTAX      Integer32 (1..2147483647)
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+        "Indicates the total number of CpIwfs correctly configured
+	in this system.
+	"
+      ::= { pdnCpIwfConfigObjects 1 }
+
+--
+-- Next available CPIWF to be created.
+--
+pdnCpIwfIndexNext OBJECT-TYPE        
+    SYNTAX      Integer32 (0..2147483647)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+           "This object contains an appropriate value to
+            be used for pdnCpIwfIndex when creating
+            entries in the pdnCpIwfTable.  The value
+            0 indicates that no unassigned entries are
+            available. To obtain the pdnCpIwfIndexNext
+            value for a new entry, the manager issues a
+            management protocol retrieval operation to obtain
+            the current value of this object.  After each
+            retrieval, the agent should modify the value to
+            the next unassigned index.
+            After a manager retrieves a value the agent will
+            determine through its local policy when this index
+            value will be made available for reuse."
+      ::= { pdnCpIwfConfigObjects 2 }
+
+--
+-- Region Settings
+--
+pdnCpIwfRegion OBJECT-TYPE
+    SYNTAX      CpIwfRegion
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION 
+        "This object permits the selection of a regional set of
+	parameters that apply to the  entire device."
+    ::= { pdnCpIwfConfigObjects 3 } 
+
+--
+-- Table to configure CPIWFs
+--
+pdnCpIwfTable OBJECT-TYPE
+      SYNTAX      SEQUENCE OF PdnCpIwfEntry
+      MAX-ACCESS  not-accessible
+      STATUS      current
+      DESCRIPTION
+        "The Cp-Iwf Configuration table."
+      ::= { pdnCpIwfConfigObjects 4 }
+
+pdnCpIwfEntry OBJECT-TYPE
+      SYNTAX      PdnCpIwfEntry
+      MAX-ACCESS  not-accessible
+      STATUS      current
+      DESCRIPTION
+        "An entry in the Cp-Iwf configuration table.
+	"
+      INDEX       { pdnCpIwfIndex }
+      ::= { pdnCpIwfTable 1 }
+
+PdnCpIwfEntry ::= SEQUENCE {
+      pdnCpIwfIndex                  Integer32,
+      pdnCpIwfIfIndex                InterfaceIndex,
+      pdnCpIwfRowStatus 	     RowStatus,
+      pdnCpIwfNumPotsAssigned	     Integer32,
+      pdnCpIwfGatewayProtocol        GatewayProtocol,
+      pdnCpIwfAtmBLESCapability      ControlProtocol,
+      pdnCpIwfSscsPredefinedProfile  Integer32,
+      pdnCpIwfJitterBufferLength     Integer32
+}
+
+pdnCpIwfIndex OBJECT-TYPE
+    SYNTAX      Integer32 (1..2147483647)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION 
+        "This object is an arbitrary index assigned by the agent.
+
+	When a client wishes to add an entry to this pdnCpIwfTable, first 
+	it must	do a get to the pdnCpIwfIndexNext and use the returned
+	value as the table's index for the new entry.
+	"
+    ::= { pdnCpIwfEntry 1 }
+
+pdnCpIwfIfIndex OBJECT-TYPE
+    SYNTAX      InterfaceIndex
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+	"This object displays the interface index from the ifTable
+	assigned by the SNMP agent upon creation of this CPIWF."
+    ::= { pdnCpIwfEntry 2 }
+
+pdnCpIwfRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION 
+        "rowStatus object that allows creation and deletion of CpIwfs."
+    ::= { pdnCpIwfEntry 3 }
+
+pdnCpIwfNumPotsAssigned OBJECT-TYPE
+    SYNTAX      Integer32 (0..24)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "This object maintains the number of pots ports currently
+	assigned to this CpIwf.
+	
+	It is not required that a new created CpIwf has Pots ports
+	assigned to it. Moreover, the default value for this object
+	can be implementation specific, for example:
+        
+	- assign all 24 POTS ports to the CpIwf port upon creation.
+
+	- assign a minimum number of POTS to the CpIwf port.
+	"
+
+    ::= { pdnCpIwfEntry 4 }
+
+pdnCpIwfGatewayProtocol OBJECT-TYPE
+    SYNTAX      GatewayProtocol
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION 
+        "This is the Gateway protocol configured for this CPIWF."
+    ::= { pdnCpIwfEntry 5 }
+
+pdnCpIwfAtmBLESCapability OBJECT-TYPE
+    SYNTAX      ControlProtocol
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "This object indicates whether this CP-IWF supports the
+	ATM Forum BLES standard with CCS and ELCP and EOC."
+    ::= { pdnCpIwfEntry 6 }
+
+pdnCpIwfSscsPredefinedProfile OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION 
+        "This object allows selection of predefined profiles for use by 
+        voice/voiceband data connections using UUI codepoints 0-15 with 
+        type 1 packets. The ATM Forum predefined profiles are specified
+        in Annex A: ATM Forum Predefined Profiles (see reference below).
+
+        Implementations are not required to support every profile. Thus,
+        an SNMP set on this object to an unsupported profile must result
+        in an SNMP Response with error status of badValue(3).
+
+        Examples of profiles and its attributes values:
+
+
+    <<Profile 9>> (PCM-64, 44 Octet packets, without silence):
+    
+-------------------------------------------------------------------------------
+ UUI       | Packet   | Encoding        | Description   |   | Packet | Seq.No
+ Codepoint | Length   | Format          |     of        | M |  Time  | Interval
+ Range     | (octets) | Reference       |  Algorithm    |   |  (ms)  |   (ms)
+-------------------------------------------------------------------------------
+    0-15       44      Fig B-1/I.366.2   PCM, G.711-64,   1    5.5      5.5
+                                         Generic 
+
+    <<Profile 10>> (PCM-64 and ADPCM-32, 44 Octet packets, without silence):
+    
+-------------------------------------------------------------------------------
+ UUI       | Packet   | Encoding        | Description   |   | Packet | Seq.No
+ Codepoint | Length   | Format          |     of        | M |  Time  | Interval
+ Range     | (octets) | Reference       |  Algorithm    |   |  (ms)  |   (ms)
+-------------------------------------------------------------------------------
+    0-7        44      Fig B-1/I.366.2   PCM, G.711-64,   1    5.5      5.5
+                                         Generic 
+
+    7-15       44      Fig E-2/I.366.2   ADPCM, G.726-32  1    5.5      5.5
+
+    "
+
+    REFERENCE "Loop Emulation Service Using AAL2 -Rev 1 (af-vmoa-0145.001)
+               February 2003, Page 92."
+    
+    ::= { pdnCpIwfEntry 7 }
+
+
+pdnCpIwfJitterBufferLength OBJECT-TYPE
+    SYNTAX      Integer32 (10..120)
+    UNITS       "Milliseconds"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION 
+        "This object allows the configuration of the jitter buffer
+	length."
+
+    ::= { pdnCpIwfEntry 8 }
+
+
+--
+-- This table permits mapping between CPIWF's interface index (ifIndex)
+-- and agent assigned (arbitrary) pdnIwfIndex.
+--
+pdnCpIwfMappingTable OBJECT-TYPE
+      SYNTAX      SEQUENCE OF PdnCpIwfMappingEntry
+      MAX-ACCESS  not-accessible
+      STATUS      current
+      DESCRIPTION
+        "A table mapping the 'ifIndex' values of 'pdnCpIwfIfIndex'
+        to the 'pdnCpIwfIndex' values of the corresponding CpIwf."
+      ::= { pdnCpIwfConfigObjects 5 }
+
+pdnCpIwfMappingEntry OBJECT-TYPE
+      SYNTAX      PdnCpIwfMappingEntry
+      MAX-ACCESS  not-accessible
+      STATUS      current
+      DESCRIPTION
+        "Each row describes the mapping of one ifIndex to a pdnCpIwfIndex."
+      INDEX       { ifIndex }
+      ::= { pdnCpIwfMappingTable 1 }
+
+PdnCpIwfMappingEntry ::= SEQUENCE {
+      	pdnCpIwfMappingIndex    Integer32
+}
+
+pdnCpIwfMappingIndex OBJECT-TYPE
+      SYNTAX      Integer32 (1..2147483647)
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+        "The index assigned to the Cp-Iwf's interface upon creation."
+      ::= { pdnCpIwfMappingEntry 1 }
+
+
+--
+-- Pots Ports configuration
+--
+pdnPotsPortTable OBJECT-TYPE
+      SYNTAX      SEQUENCE OF PdnPotsPortEntry
+      MAX-ACCESS  not-accessible
+      STATUS      current
+      DESCRIPTION
+        "The Pots port Configuration table."
+      ::= { pdnCpIwfConfigObjects 6 }
+
+pdnPotsPortEntry OBJECT-TYPE
+      SYNTAX      PdnPotsPortEntry
+      MAX-ACCESS  not-accessible
+      STATUS      current
+      DESCRIPTION
+        "An entry in the Pots Port configuration table."
+      INDEX       { pdnPotsPortIfIndex }
+      ::= { pdnPotsPortTable 1 }
+
+PdnPotsPortEntry ::= SEQUENCE {
+      pdnPotsPortIfIndex               InterfaceIndex,
+      pdnPotsPortCpIwfIndex	       Integer32,
+      pdnPotsPortHookStatus            HookState,
+      pdnPotsPortSignalingMethod       PotsSignaling,
+      pdnPotsPortTxGain	    	       Integer32,
+      pdnPotsPortRxGain	    	       Integer32,
+      pdnPotsPortCustInfo              DisplayString,
+      pdnPotsPortG729VoiceCodec        SwitchState,
+      pdnPotsPortPreferedVoiceCodec    VoiceEncoding,
+      pdnPotsPortPreferredPacketPeriod Integer32,
+      pdnPotsPortSilenceSuppression    SwitchState,
+      pdnPotsPortActualVoiceCodec      VoiceEncoding,
+      pdnPotsPortCallElapsedTime       Integer32,
+      pdnPotsPortModemDetected	       TruthValue,
+      pdnPotsPortEchoCanceller         INTEGER,
+      pdnPotsPortLocalEndName          DisplayString,
+      pdnPotsPortActiveSoftswitch      INTEGER
+	
+}
+
+pdnPotsPortIfIndex OBJECT-TYPE
+    SYNTAX      InterfaceIndex
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION 
+        "ifIndex value from ifTable for this POTS port."
+    ::= { pdnPotsPortEntry 1 }
+
+pdnPotsPortCpIwfIndex OBJECT-TYPE
+    SYNTAX      Integer32 (0..2147483647)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION 
+	"The value of this object corresponds to a valid 
+	pdnCpIwfIndex in the pdnCpIwfTable or '0' which has
+	the meaning of 'not-assigned'. 
+
+	The value 0 is expected to be used during changes on the
+	assignment of Pots ports, that is, a Pots port initially
+	assigned to a CpIwf port needs to be un-assigned first and 
+	then assigned to the new CpIwf Port.
+	"
+    ::= { pdnPotsPortEntry 2 }
+
+pdnPotsPortHookStatus OBJECT-TYPE
+    SYNTAX      HookState
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Current hook status of this POTS port."
+    ::= { pdnPotsPortEntry 3 }
+
+pdnPotsPortSignalingMethod OBJECT-TYPE
+    SYNTAX      PotsSignaling
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION 
+        "Signaling method selected for this POTS port."
+    ::= { pdnPotsPortEntry 4 }
+
+pdnPotsPortTxGain OBJECT-TYPE
+    SYNTAX      Integer32 (-24..23)
+    UNITS       "dB"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This is the gain in the analog-to-digital direction
+	(towards the uplink).
+	"
+    ::= { pdnPotsPortEntry 5 }
+
+pdnPotsPortRxGain OBJECT-TYPE
+    SYNTAX      Integer32 (-24..23)
+    UNITS       "dB"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This is the gain in the digital-to-analog direction
+	(towards the loop).
+	"
+    ::= { pdnPotsPortEntry 6 }
+
+pdnPotsPortCustInfo OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This object represents textual information about
+	an user, typically user name and directory number.
+	"
+    ::= { pdnPotsPortEntry 7 }
+
+pdnPotsPortG729VoiceCodec OBJECT-TYPE
+    SYNTAX      SwitchState
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This object is used to enable or disable G.729 codec
+	on this POTS port.
+	"
+    ::= { pdnPotsPortEntry 8 }
+
+pdnPotsPortPreferedVoiceCodec OBJECT-TYPE
+    SYNTAX      VoiceEncoding
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This object is the preferable voice encoding 
+	configured for this port.
+	"
+    ::= { pdnPotsPortEntry 9 }
+
+pdnPotsPortPreferredPacketPeriod OBJECT-TYPE
+    SYNTAX      Integer32 (0..2147483647)
+    UNITS       "Milliseconds"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of this object contains the preferred
+	packetization period in milliseconds.
+	"
+    ::= { pdnPotsPortEntry 10 }
+
+pdnPotsPortSilenceSuppression OBJECT-TYPE
+    SYNTAX      SwitchState
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This object allows users to enable or disable silence
+	suppression. If the value of the object is 'enabled (1)'
+	silence suppression will be performed for a call placed
+	on this port if agreed via negotiation with the far end.
+	"
+    ::= { pdnPotsPortEntry 11 }
+
+pdnPotsPortActualVoiceCodec OBJECT-TYPE
+    SYNTAX      VoiceEncoding
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This object is the actual voice encoding being used on 
+	this port as determined by the device in real-time.
+
+	This object may differ from the configurable 
+	'pdnPotsPortPreferedVoiceCodec' object.
+	"
+    ::= { pdnPotsPortEntry 12 }
+
+pdnPotsPortCallElapsedTime OBJECT-TYPE
+    SYNTAX      Integer32 (0..65535)
+    UNITS       "Seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This value is the number of seconds that have elapsed
+	since the start of the current call.
+	If no active call is in progress on this port, this
+	object should be zero.
+	"
+    ::= { pdnPotsPortEntry 13 }
+
+pdnPotsPortModemDetected OBJECT-TYPE
+    SYNTAX	TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This object displays the status of the modem/fax
+	connected on this port. If the value of this object
+	is 'enabled (1)' the modem or fax answer tone has
+	been detected. Otherwise this object will return
+	'disabled (2)'.
+	"
+    ::= { pdnPotsPortEntry 14 }
+
+pdnPotsPortEchoCanceller OBJECT-TYPE
+    SYNTAX	INTEGER { 
+		  enabled    (1),
+		  disabled   (2)
+		}
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This object displays the current status of the
+	echo canceller.
+	"
+    ::= { pdnPotsPortEntry 15 }
+
+pdnPotsPortLocalEndName OBJECT-TYPE
+      SYNTAX      DisplayString (SIZE(0..64))
+      MAX-ACCESS  read-write
+      STATUS      current
+      DESCRIPTION 
+        "This object contains a descriptive text 
+	identifying the local endpoint's name.
+	"
+    ::= { pdnPotsPortEntry 16 }
+
+
+pdnPotsPortActiveSoftswitch OBJECT-TYPE
+      SYNTAX      INTEGER {
+                   primary   (1),
+                   secondary (2),
+		   none      (3)
+		}
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION 
+	"This object displays the active selection for the
+        Softswitch (e.g., Call Agent, Proxy Agent, etc.)
+	for this Pots port. 
+
+        The possible values for this object are:
+
+        primary   --> Primary   Softswitch is selected
+        secondary --> Secondary Softswitch is selected
+        none      --> no softswitch is currently selected.
+
+	The configuration of the primary/secondary softswitches
+        are found in objects outside this document 
+        (e.g., pdnCpIwfIpMgcpPriAgentName, etc...)
+
+        If the SNMP agent can not determine an active
+	softswitch for this Pots port (e.g, lost communication
+        with the Call Agent), the value of this object will be
+        set to 'none (3)'.
+	"
+    ::= { pdnPotsPortEntry 17 }
+
+--####################################
+--# Statistics
+--####################################
+
+--
+-- Aal2 Statistics
+--
+pdnCpIwfAal2StatsTable OBJECT-TYPE
+   SYNTAX SEQUENCE OF PdnCpIwfAal2StatsEntry
+   MAX-ACCESS 	not-accessible
+   STATUS 	current
+   DESCRIPTION
+	"This table is used to maintain AAL2-Customer Part Sublayer (CPS)
+	statistics per VCC associated to each CpIwf port.
+
+	An entry in this table represents the AAL2 statistics maintained 
+	for this circuit.
+	"
+    ::= { pdnCpIwfStatsObjects 1 }
+
+pdnCpIwfAal2StatsEntry OBJECT-TYPE
+   SYNTAX PdnCpIwfAal2StatsEntry
+   MAX-ACCESS not-accessible
+   STATUS current
+   DESCRIPTION
+     	"Contained AAL2 stats for a VCC defined on this cpIwf."
+
+   INDEX { ifIndex }
+
+    ::= { pdnCpIwfAal2StatsTable 1 }
+
+PdnCpIwfAal2StatsEntry ::= SEQUENCE {
+    pdnCpIwfAal2CpsRxPkts 		Counter32,
+    pdnCpIwfAal2CpsTxPkts 		Counter32,
+    pdnCpIwfAal2CpsParityErrors 	Counter32,
+    pdnCpIwfAal2CpsSeqNumErrors 	Counter32,
+    pdnCpIwfAal2CpsOsfMismatchErrors 	Counter32,
+    pdnCpIwfAal2CpsOsfErrors		Counter32,
+    pdnCpIwfAal2CpsHecErrors		Counter32,
+    pdnCpIwfAal2CpsOversizeSduErrors 	Counter32,
+    pdnCpIwfAal2CpsReassemblyErrors 	Counter32,
+    pdnCpIwfAal2CpsHecOverlapErrors	Counter32,
+    pdnCpIwfAal2CpsUuiErrors		Counter32,
+    pdnCpIwfAal2CpsCidErrors		Counter32
+}
+
+pdnCpIwfAal2CpsRxPkts OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Number of CPS Received."
+    ::= { pdnCpIwfAal2StatsEntry 1 }
+
+pdnCpIwfAal2CpsTxPkts OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Number of CPS Transmitted."
+    ::= { pdnCpIwfAal2StatsEntry 2 }
+
+pdnCpIwfAal2CpsParityErrors OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Number of errors encountered as specified in Table 6/I.363.2
+	(errnum=0)"
+    REFERENCE   "Table 7 I.363.2"
+    ::= { pdnCpIwfAal2StatsEntry 3 }
+
+pdnCpIwfAal2CpsSeqNumErrors OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Number of errors encountered as specified in Table 6/I.363.2
+	(errnum=1)"
+    REFERENCE   "Table 6 I.363.2"
+    ::= { pdnCpIwfAal2StatsEntry 4 }
+
+pdnCpIwfAal2CpsOsfMismatchErrors OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Number of errors encountered as specified in Table 6/I.363.2
+	(errnum=2)"
+    REFERENCE   "Table 6 I.363.2"
+    ::= { pdnCpIwfAal2StatsEntry 5 }
+
+pdnCpIwfAal2CpsOsfErrors OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Number of errors encountered as specified in Table 6/I.363.2
+	(errnum=3)"
+    REFERENCE   "Table 6 I.363.2"
+    ::= { pdnCpIwfAal2StatsEntry 6 }
+
+pdnCpIwfAal2CpsHecErrors OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Number of errors encountered as specified in Table 6/I.363.2
+	(errnum=4)"
+    REFERENCE   "Table 6 I.363.2"
+    ::= { pdnCpIwfAal2StatsEntry 7 }
+
+pdnCpIwfAal2CpsOversizeSduErrors OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Number of errors encountered as specified in Table 6/I.363.2
+	(errnum=5)"
+    REFERENCE   "Table 6 I.363.2"
+    ::= { pdnCpIwfAal2StatsEntry 8 }
+
+pdnCpIwfAal2CpsReassemblyErrors OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Number of errors encountered as specified in Table 6/I.363.2
+	(errnum=6)"
+    ::= { pdnCpIwfAal2StatsEntry 9 }
+
+pdnCpIwfAal2CpsHecOverlapErrors OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Number of errors encountered as specified in Table 6/I.363.2
+	(errnum=7)"
+    REFERENCE   "Table 6 I.363.2"
+    ::= { pdnCpIwfAal2StatsEntry 10 }
+
+pdnCpIwfAal2CpsUuiErrors OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Number of errors encountered as specified in Table 6/I.363.2
+	(errnum=8)"
+    REFERENCE   "Table 6 I.363.2"
+    ::= { pdnCpIwfAal2StatsEntry 11 }
+
+pdnCpIwfAal2CpsCidErrors OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Number of errors encountered as specified in Table 6/I.363.2
+	(errnum=9)"
+    REFERENCE   "Table 6 I.363.2"
+    ::= { pdnCpIwfAal2StatsEntry 12 }
+
+--
+-- Pots Port Statistics
+--
+pdnPotsPortStatsTable OBJECT-TYPE
+   SYNTAX SEQUENCE OF PdnPotsPortStatsEntry
+   MAX-ACCESS 	not-accessible
+   STATUS 	current
+   DESCRIPTION
+	"This table is used to maintain statistics per Pots port."
+   ::= { pdnCpIwfStatsObjects 2 }
+
+pdnPotsPortStatsEntry OBJECT-TYPE
+   SYNTAX PdnPotsPortStatsEntry
+   MAX-ACCESS not-accessible
+   STATUS current
+   DESCRIPTION
+     	"Contained statistics per Pots Port."
+
+   INDEX { ifIndex }
+
+    ::= { pdnPotsPortStatsTable 1 }
+
+PdnPotsPortStatsEntry ::= SEQUENCE {
+    pdnPotsPortTotalCalls  	 Counter32,
+    pdnPotsPortTotalCallsFailure Counter32,
+    pdnPotsPortTotalCallsDropped Counter32,
+    pdnPotsPortInCallsReceived	 Counter32,
+    pdnPotsPortInCallsAnswered	 Counter32,
+    pdnPotsPortInCallsConnected	 Counter32,
+    pdnPotsPortInCallsFailure	 Counter32,
+    pdnPotsPortOutCallsAttempted Counter32,
+    pdnPotsPortOutCallsAnswered	 Counter32,
+    pdnPotsPortOutCallsConnected Counter32,
+    pdnPotsPortOutCallsFailure	 Counter32,
+    pdnPotsPortPacketsSent	 Counter32,
+    pdnPotsPortPacketsReceived   Counter32,
+    pdnPotsPortPacketsLost       Counter32,
+    pdnPotsPortBytesSent         Counter32,
+    pdnPotsPortBytesReceived     Counter32
+}
+
+pdnPotsPortTotalCalls OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Total Number of successfull calls performed on this POTS port."
+    ::= { pdnPotsPortStatsEntry 1 }
+
+pdnPotsPortTotalCallsFailure OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Total number of calls that failed on this POTS port."
+    ::= { pdnPotsPortStatsEntry 2 }
+
+pdnPotsPortTotalCallsDropped  OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Total number of calls  (in/out) that were dropped on
+	this POTS port."
+    ::= { pdnPotsPortStatsEntry 3 }
+
+-- In Calls
+
+pdnPotsPortInCallsReceived OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Total number of incoming calls received on this POTS port."
+    ::= { pdnPotsPortStatsEntry 4 }
+
+pdnPotsPortInCallsAnswered OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Total number of incoming calls answered on this POTS port."
+    ::= { pdnPotsPortStatsEntry 5 }
+
+pdnPotsPortInCallsConnected OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Total number of incoming calls connected on this POTS port."
+    ::= { pdnPotsPortStatsEntry 6 }
+
+
+pdnPotsPortInCallsFailure OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Total number of incoming calls that failed on this POTS port."
+    ::= { pdnPotsPortStatsEntry 7 }
+
+-- Out Calls
+
+pdnPotsPortOutCallsAttempted OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Total number of outgoing calls that were attempted on
+	this POTS port."
+    ::= { pdnPotsPortStatsEntry 8 }
+
+pdnPotsPortOutCallsAnswered OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Total number of outgoing calls that were answered on
+	this POTS port."
+    ::= { pdnPotsPortStatsEntry 9 }
+
+pdnPotsPortOutCallsConnected OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Total number of outgoing calls that were connected on
+	this POTS port."
+    ::= { pdnPotsPortStatsEntry 10 }
+
+pdnPotsPortOutCallsFailure OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Total number of outgoing calls that failed on
+	this POTS port."
+    ::= { pdnPotsPortStatsEntry 11 }
+
+
+pdnPotsPortPacketsSent OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Total number of packets transmitted by this POTS port."
+    ::= { pdnPotsPortStatsEntry 12 }
+
+
+pdnPotsPortPacketsReceived OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Total number of packets received by this POTS port."
+    ::= { pdnPotsPortStatsEntry 13 }
+
+
+pdnPotsPortPacketsLost OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Total number of packets lost by this POTS port."
+    ::= { pdnPotsPortStatsEntry 14 }
+
+
+pdnPotsPortBytesSent OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Total number of bytes transmitted by this POTS port."
+    ::= { pdnPotsPortStatsEntry 15 }
+
+
+pdnPotsPortBytesReceived OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "Total number of bytes received by this POTS port."
+    ::= { pdnPotsPortStatsEntry 16 }
+
+
+--####################################
+--# Tests
+--####################################
+--
+-- The Paradyne Pots Interface Test Table.
+--
+-- This table is used to define objects which allow a network
+-- manager to instruct the agent to test a Pots Port interface
+-- for various faults.
+--
+pdnPotsTestTable OBJECT-TYPE
+    SYNTAX  SEQUENCE OF PdnPotsTestEntry
+    MAX-ACCESS  not-accessible
+    STATUS  current
+    DESCRIPTION
+           "The Paradyne Pots Port Interface Test Table."
+    ::= { pdnCpIwfTestObjects 1 }
+
+pdnPotsTestEntry OBJECT-TYPE
+    SYNTAX  PdnPotsTestEntry
+    MAX-ACCESS  not-accessible
+    STATUS  current
+    DESCRIPTION
+           "An entry in the Paradyne POTS Interface Test Table.
+	    
+	    Only 1 test can be run at a time per POTS interface
+	    index (ifIndex).
+	    "
+    INDEX   { ifIndex }
+    ::= { pdnPotsTestTable 1 }
+
+-- Layout of one entry in pdnPotsTestTable
+
+PdnPotsTestEntry ::=
+    SEQUENCE {
+        pdnPotsTestType		PdnPotsTestTypes,
+        pdnPotsTestCmd		INTEGER,
+        pdnPotsTestStatus       INTEGER
+    }
+
+pdnPotsTestType OBJECT-TYPE
+    SYNTAX  PdnPotsTestTypes
+    MAX-ACCESS  read-write
+    STATUS  current
+    DESCRIPTION
+           "This object is used to specify the test type 
+	    in this interface.
+
+	    If no test is active on this port, the agent
+	    should return the value of 'noTest (1)'
+	   "
+    ::= { pdnPotsTestEntry 1 }
+
+pdnPotsTestCmd OBJECT-TYPE
+    SYNTAX  INTEGER {
+	      noOp      (1), -- does nothing
+	      start     (2), -- initiates test
+	      stop      (3), -- terminates test
+	      keepAlive (4)  -- keep a test running
+            }
+    MAX-ACCESS  read-write
+    STATUS  current
+    DESCRIPTION
+           "This object can be set to initiate and/or terminate
+	    the test running on this interface.
+
+	    If no test is 'active' on this interface, the agent
+	    should return the value of 'noOp(1)'.
+
+	    Only if a test is 'active' on this interface, the
+	    agent should process a 'keepAlive (4)' command. 
+	    Otherwise, this command should be rejected.
+	   "
+    ::= { pdnPotsTestEntry 2 }
+
+pdnPotsTestStatus OBJECT-TYPE
+    SYNTAX  INTEGER {
+	      active  (1),
+	      inactive(2)
+            }
+    MAX-ACCESS  read-only
+    STATUS  current
+    DESCRIPTION
+           "This object displays the current status of this entry.
+	    
+	    If no test is running on this interface, the agent
+	    should return the value 'inactive (2)'.
+	   "
+    ::= { pdnPotsTestEntry 3 }
+
+--============================================================================
+--==                 Conformance Information                                ==
+--============================================================================
+
+pdnCpIwfMIBCompliances  OBJECT IDENTIFIER ::= { pdnCpIwfMIBConformance 1 }
+pdnCpIwfMIBGroups       OBJECT IDENTIFIER ::= { pdnCpIwfMIBConformance 2 }
+
+-- ===========================
+-- == Compliance Statements ==
+-- ===========================
+
+pdnCpIwfMIBCompliance MODULE-COMPLIANCE
+    STATUS      deprecated
+    DESCRIPTION 
+	"The compliance statement for SNMP entities that support LES
+	as specified in af-vmoa-0145.000 of the ATM Forum.
+
+        This compliance has been deprecated and replaced by V2 below.
+	"
+
+    MODULE      -- this module
+	MANDATORY-GROUPS { 
+		pdnCpIwfGeneralConfigGroup,
+		pdnCpIwfPotsPortConfigGroup
+	}
+
+	GROUP pdnCpIwfAal2StatsGroup
+	DESCRIPTION
+		"Implementation of this group is optional for
+		CpIwf that provide AAL2 statistics"
+
+	GROUP pdnCpIwfPotsPortStatsGroup
+	DESCRIPTION
+		"Implementation of this group is optional for 
+		Pots port that provide port statistics"
+        
+    ::= { pdnCpIwfMIBCompliances 1 }
+
+pdnCpIwfMIBComplianceV2 MODULE-COMPLIANCE
+    STATUS      deprecated
+    DESCRIPTION 
+	"The compliance statement for SNMP entities that support LES
+	as specified in af-vmoa-0145.000 of the ATM Forum.
+
+        This compliance statement superseeds the pdnCpIwfMIBCompliance.
+
+        This compliance has been deprecated and replaced by V3 below.
+	"
+
+    MODULE      -- this module
+	MANDATORY-GROUPS { 
+		pdnCpIwfGeneralConfigGroupV2,
+		pdnCpIwfIADConfigGroupV2
+	}
+
+	GROUP pdnCpIwfAal2StatsGroup
+	DESCRIPTION
+		"Implementation of this group is optional for
+		CpIwf that provide AAL2 statistics"
+
+	GROUP pdnCpIwfPotsPortStatsGroupV2
+	DESCRIPTION
+		"Implementation of this group is optional for 
+		Pots port that provide port statistics"
+
+	GROUP pdnCpIwfPotsPortConfigGroupV2
+	DESCRIPTION
+		"Implementation of this group is optional for 
+		Pots port that provide port configuration"
+
+	GROUP pdnCpIwfPotsPortTestGroupV2
+	DESCRIPTION
+		"Implementation of this group is optional for 
+		Pots port that provide port tests"
+         
+    ::= { pdnCpIwfMIBCompliances 2 }
+
+
+pdnCpIwfMIBComplianceV3 MODULE-COMPLIANCE
+    STATUS      current
+    DESCRIPTION 
+	"The compliance statement for SNMP entities that support LES
+	as specified in af-vmoa-0145.000 of the ATM Forum.
+
+        This compliance statement superseeds the pdnCpIwfMIBComplianceV2.
+	"
+
+    MODULE      -- this module
+	MANDATORY-GROUPS { 
+		pdnCpIwfGeneralConfigGroupV2,
+		pdnCpIwfIADConfigGroupV3
+	}
+
+	GROUP pdnCpIwfAal2StatsGroup
+	DESCRIPTION
+		"Implementation of this group is optional for
+		CpIwf that provide AAL2 statistics"
+
+	GROUP pdnCpIwfPotsPortStatsGroupV2
+	DESCRIPTION
+		"Implementation of this group is optional for 
+		Pots port that provide port statistics"
+
+	GROUP pdnCpIwfPotsPortConfigGroupV2
+	DESCRIPTION
+		"Implementation of this group is optional for 
+		Pots port that provide port configuration"
+
+	GROUP pdnCpIwfPotsPortTestGroupV2
+	DESCRIPTION
+		"Implementation of this group is optional for 
+		Pots port that provide port tests"
+         
+	GROUP pdnCpIwfPotsPortPacketStatsGroup
+	DESCRIPTION
+		"Implementation of this group is optional for 
+		Pots port that provide port packet statistics"
+
+    ::= { pdnCpIwfMIBCompliances 3 }
+
+-- ==========================
+-- == Units of Conformance ==
+-- ==========================
+
+pdnCpIwfGeneralConfigGroup OBJECT-GROUP
+	OBJECTS {
+		pdnCpIwfTotalNumber,
+		pdnCpIwfIndexNext,
+      	        pdnCpIwfRegion,
+
+		pdnCpIwfIfIndex,
+	        pdnCpIwfRowStatus,
+		pdnCpIwfNumPotsAssigned,
+                pdnCpIwfGatewayProtocol,
+		pdnCpIwfAtmBLESCapability,
+                pdnCpIwfSscsPredefinedProfile,
+		pdnCpIwfMappingIndex
+	}
+
+	STATUS  deprecated
+	DESCRIPTION
+		"General Configuration of CpIwf ports"
+	::= { pdnCpIwfMIBGroups 1 }
+
+pdnCpIwfPotsPortConfigGroup OBJECT-GROUP
+	OBJECTS {
+      	        pdnPotsPortCpIwfIndex,
+		pdnPotsPortHookStatus,
+      	        pdnPotsPortSignalingMethod,
+       	        pdnPotsPortTxGain,
+       	        pdnPotsPortRxGain
+	}
+
+	STATUS  deprecated
+	DESCRIPTION
+		"Configuration group for Pots ports
+                 
+                 This group is now deprecated by
+	         pdnCpIwfPotsPortConfigGroupV2.
+                "
+	::= { pdnCpIwfMIBGroups 2 }
+
+pdnCpIwfAal2StatsGroup OBJECT-GROUP
+	OBJECTS {
+    	        pdnCpIwfAal2CpsRxPkts,
+		pdnCpIwfAal2CpsTxPkts, 	
+  		pdnCpIwfAal2CpsParityErrors, 
+  		pdnCpIwfAal2CpsSeqNumErrors, 
+   		pdnCpIwfAal2CpsOsfMismatchErrors,
+   		pdnCpIwfAal2CpsOsfErrors,
+   		pdnCpIwfAal2CpsHecErrors,	
+   		pdnCpIwfAal2CpsOversizeSduErrors,
+   		pdnCpIwfAal2CpsReassemblyErrors,
+   		pdnCpIwfAal2CpsHecOverlapErrors,
+   		pdnCpIwfAal2CpsUuiErrors,
+   		pdnCpIwfAal2CpsCidErrors
+	}
+
+	STATUS  current
+	DESCRIPTION
+		"Aal2 stats per CpIwf"
+	::= { pdnCpIwfMIBGroups 3 }
+
+pdnCpIwfPotsPortStatsGroup OBJECT-GROUP
+	OBJECTS {
+		pdnPotsPortTotalCalls
+	}
+
+	STATUS  deprecated
+	DESCRIPTION
+		"Pots Ports stats group"
+	::= { pdnCpIwfMIBGroups 4 }
+
+pdnCpIwfGeneralConfigGroupV2 OBJECT-GROUP
+	OBJECTS {
+		pdnCpIwfTotalNumber,
+		pdnCpIwfIndexNext,
+      	        pdnCpIwfRegion
+	}
+
+	STATUS  current
+	DESCRIPTION
+		"Configuration of general parameters related to the CpIwf.
+
+		This group superseeds the pdnCpIwfGeneralConfigGroup
+		which was splitted in two groups."
+	::= { pdnCpIwfMIBGroups 5 }
+
+pdnCpIwfIADConfigGroupV2 OBJECT-GROUP
+	OBJECTS {
+		pdnCpIwfIfIndex,
+	        pdnCpIwfRowStatus,
+		pdnCpIwfNumPotsAssigned,
+                pdnCpIwfGatewayProtocol,
+		pdnCpIwfAtmBLESCapability,
+                pdnCpIwfSscsPredefinedProfile,
+		pdnCpIwfMappingIndex
+	}
+
+	STATUS  current
+	DESCRIPTION
+		"Configuration of each CpIwf interfaces in the device.
+
+		This group superseeds the pdnCpIwfGeneralConfigGroup
+		which was splitted in two groups.
+
+                This group is now deprecated by 
+		pdnCpIwfPotsPortConfigGroupV3."
+	::= { pdnCpIwfMIBGroups 6 }
+
+pdnCpIwfPotsPortStatsGroupV2 OBJECT-GROUP
+	OBJECTS {
+	        pdnPotsPortTotalCalls,
+	        pdnPotsPortTotalCallsFailure,
+	        pdnPotsPortTotalCallsDropped,
+
+	        pdnPotsPortInCallsReceived,
+	        pdnPotsPortInCallsAnswered,
+	        pdnPotsPortInCallsConnected,
+	        pdnPotsPortInCallsFailure,
+	
+	        pdnPotsPortOutCallsAttempted,
+	        pdnPotsPortOutCallsAnswered,
+	        pdnPotsPortOutCallsConnected,
+	        pdnPotsPortOutCallsFailure,
+
+                pdnPotsPortPacketsSent,
+                pdnPotsPortPacketsReceived,
+                pdnPotsPortPacketsLost,
+                pdnPotsPortBytesSent,
+                pdnPotsPortBytesReceived
+	}
+
+	STATUS  current
+	DESCRIPTION
+		"Pots Ports stats group"
+	::= { pdnCpIwfMIBGroups 7 }
+
+pdnCpIwfPotsPortConfigGroupV2 OBJECT-GROUP
+	OBJECTS {
+                pdnPotsPortCpIwfIndex,
+                pdnPotsPortHookStatus,
+                pdnPotsPortSignalingMethod,
+                pdnPotsPortTxGain,
+                pdnPotsPortRxGain,
+                pdnPotsPortCustInfo,
+	        pdnPotsPortG729VoiceCodec,
+                pdnPotsPortPreferedVoiceCodec,
+                pdnPotsPortPreferredPacketPeriod,
+                pdnPotsPortSilenceSuppression,
+                pdnPotsPortActualVoiceCodec,
+                pdnPotsPortCallElapsedTime,
+                pdnPotsPortModemDetected,
+                pdnPotsPortEchoCanceller,
+		pdnPotsPortLocalEndName,
+                pdnPotsPortActiveSoftswitch
+	}
+
+	STATUS  current
+	DESCRIPTION
+		"Configuration group for Pots ports"
+	::= { pdnCpIwfMIBGroups 8 }
+
+pdnCpIwfPotsPortTestGroupV2 OBJECT-GROUP
+	OBJECTS {
+        pdnPotsTestType,
+        pdnPotsTestCmd,
+        pdnPotsTestStatus
+	}
+
+	STATUS  current
+	DESCRIPTION
+		"Pots Ports test group"
+	::= { pdnCpIwfMIBGroups 9 }
+
+pdnCpIwfIADConfigGroupV3 OBJECT-GROUP
+	OBJECTS {
+		pdnCpIwfIfIndex,
+	        pdnCpIwfRowStatus,
+		pdnCpIwfNumPotsAssigned,
+                pdnCpIwfGatewayProtocol,
+		pdnCpIwfAtmBLESCapability,
+                pdnCpIwfSscsPredefinedProfile,
+		pdnCpIwfJitterBufferLength,
+		pdnCpIwfMappingIndex
+	}
+
+	STATUS  current
+	DESCRIPTION
+		"Configuration of each CpIwf interfaces in the device.
+
+		This group superseeds the pdnCpIwfGeneralConfigGroupV2.
+		"
+	::= { pdnCpIwfMIBGroups 10 }
+
+pdnCpIwfPotsPortPacketStatsGroup OBJECT-GROUP
+	OBJECTS {
+                pdnPotsPortPacketsSent,
+                pdnPotsPortPacketsReceived,
+                pdnPotsPortPacketsLost,
+                pdnPotsPortBytesSent,
+                pdnPotsPortBytesReceived
+	}
+
+	STATUS  current
+	DESCRIPTION
+		"Pots Ports packet statistics group"
+	::= { pdnCpIwfMIBGroups 11 }
+
+END -- end of module PDN-CP-IWF-MIB

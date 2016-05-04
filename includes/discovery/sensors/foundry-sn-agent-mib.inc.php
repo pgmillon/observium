@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -15,7 +15,7 @@ echo(" FOUNDRY-SN-AGENT-MIB ");
 
 // FIXME This could do with a decent rewrite using SNMP multi functions, instead of trim() and str_replace() voodoo.
 
-$oids = trim(snmp_walk($device,"snAgentTempSensorDescr","-Osqn","FOUNDRY-SN-AGENT-MIB:FOUNDRY-SN-ROOT-MIB",mib_dirs('foundry')));
+$oids = trim(snmp_walk($device, "snAgentTempSensorDescr", "-Osqn", "FOUNDRY-SN-AGENT-MIB:FOUNDRY-SN-ROOT-MIB", mib_dirs('foundry')));
 $oids = str_replace(".1.3.6.1.4.1.1991.1.1.2.13.1.1.3.", "", $oids);
 
 foreach (explode("\n", $oids) as $data)
@@ -60,7 +60,7 @@ $stackable = 0;
 foreach (array("snChasPwrSupply2Table") as $table)
 {
   echo("$table ");
-  $cache['fnsnagent'] = snmpwalk_cache_multi_oid($device, $table, $cache['fnsnagent'], "FOUNDRY-SN-AGENT-MIB:FOUNDRY-SN-ROOT-MIB", mib_dirs('foundry'), TRUE);
+  $cache['fnsnagent'] = snmpwalk_cache_multi_oid($device, $table, $cache['fnsnagent'], "FOUNDRY-SN-AGENT-MIB:FOUNDRY-SN-ROOT-MIB", mib_dirs('foundry'), OBS_SNMP_ALL_NUMERIC);
 }
 
 foreach ($cache['fnsnagent'] as $index => $entry)
@@ -68,7 +68,7 @@ foreach ($cache['fnsnagent'] as $index => $entry)
   $descr = "Power Supply $index";
   $oid   = ".1.3.6.1.4.1.1991.1.1.1.2.2.1.4.$index";
   $value = $entry['snChasPwrSupply2OperStatus'];
-  discover_sensor($valid['sensor'], 'state', $device, $oid, "snChasPwrSupply2OperStatus.$index", 'foundry-sn-agent-oper-state', $descr, NULL, $value, array('entPhysicalClass' => 'powerSupply'));
+  discover_status($device, $oid, "snChasPwrSupply2OperStatus.$index", 'foundry-sn-agent-oper-state', $descr, $value, array('entPhysicalClass' => 'powerSupply'));
   $stackable = 1;
 }
 
@@ -80,7 +80,7 @@ if ($stackable == 0)
   foreach (array("snChasPwrSupplyTable") as $table)
   {
     echo("$table ");
-    $cache['fnsnagent'] = snmpwalk_cache_multi_oid($device, $table, $cache['fnsnagent'], "FOUNDRY-SN-AGENT-MIB:FOUNDRY-SN-ROOT-MIB", mib_dirs('foundry'), TRUE);
+    $cache['fnsnagent'] = snmpwalk_cache_multi_oid($device, $table, $cache['fnsnagent'], "FOUNDRY-SN-AGENT-MIB:FOUNDRY-SN-ROOT-MIB", mib_dirs('foundry'), OBS_SNMP_ALL_NUMERIC);
   }
 
   foreach ($cache['fnsnagent'] as $index => $entry)
@@ -88,17 +88,20 @@ if ($stackable == 0)
     $descr = "Power Supply $index";
     $oid   = ".1.3.6.1.4.1.1991.1.1.1.2.1.1.3.$index";
     $value = $entry['snChasPwrSupplyOperStatus'];
-    discover_sensor($valid['sensor'], 'state', $device, $oid, "snChasPwrSupplyOperStatus.$index", 'foundry-sn-agent-oper-state', $descr, NULL, $value, array('entPhysicalClass' => 'powerSupply'));
+    discover_status($device, $oid, "snChasPwrSupplyOperStatus.$index", 'foundry-sn-agent-oper-state', $descr, $value, array('entPhysicalClass' => 'powerSupply'));
   }
 }
 
 // Fans
 
+$cache['fnsnagent'] = array();
+$stackable = 0;
+
 // Stackable Switches
 foreach (array("snChasFan2Table") as $table)
 {
   echo("$table ");
-  $cache['fnsnagent'] = snmpwalk_cache_multi_oid($device, $table, $cache['fnsnagent'], "FOUNDRY-SN-AGENT-MIB:FOUNDRY-SN-ROOT-MIB", mib_dirs('foundry'), TRUE);
+  $cache['fnsnagent'] = snmpwalk_cache_multi_oid($device, $table, $cache['fnsnagent'], "FOUNDRY-SN-AGENT-MIB:FOUNDRY-SN-ROOT-MIB", mib_dirs('foundry'), OBS_SNMP_ALL_NUMERIC);
 }
 
 foreach ($cache['fnsnagent'] as $index => $entry)
@@ -106,7 +109,7 @@ foreach ($cache['fnsnagent'] as $index => $entry)
   $descr = "Fan $index";
   $oid   = ".1.3.6.1.4.1.1991.1.1.1.3.2.1.4.$index";
   $value = $entry['snChasFan2OperStatus'];
-  discover_sensor($valid['sensor'], 'state', $device, $oid, "snChasFan2OperStatus.$index", 'foundry-sn-agent-oper-state', $descr, NULL, $value, array('entPhysicalClass' => 'fan'));
+  discover_status($device, $oid, "snChasFan2OperStatus.$index", 'foundry-sn-agent-oper-state', $descr, $value, array('entPhysicalClass' => 'fan'));
   $stackable = 1;
 }
 
@@ -118,7 +121,7 @@ if ($stackable == 0)
   foreach (array("snChasPwrSupplyTable") as $table)
   {
     echo("$table ");
-    $cache['fnsnagent'] = snmpwalk_cache_multi_oid($device, $table, $cache['fnsnagent'], "FOUNDRY-SN-AGENT-MIB:FOUNDRY-SN-ROOT-MIB", mib_dirs('foundry'), TRUE);
+    $cache['fnsnagent'] = snmpwalk_cache_multi_oid($device, $table, $cache['fnsnagent'], "FOUNDRY-SN-AGENT-MIB:FOUNDRY-SN-ROOT-MIB", mib_dirs('foundry'), OBS_SNMP_ALL_NUMERIC);
   }
 
   foreach ($cache['fnsnagent'] as $index => $entry)
@@ -126,7 +129,7 @@ if ($stackable == 0)
     $descr = "Fan $index";
     $oid   = ".1.3.6.1.4.1.1991.1.1.1.2.1.1.3.$index";
     $value = $entry['snChasFanOperStatus'];
-    discover_sensor($valid['sensor'], 'state', $device, $oid, "snChasFanOperStatus.$index", 'foundry-sn-agent-oper-state', $descr, NULL, $value, array('entPhysicalClass' => 'fan'));
+    discover_status($device, $oid, "snChasFanOperStatus.$index", 'foundry-sn-agent-oper-state', $descr, $value, array('entPhysicalClass' => 'fan'));
   }
 }
 

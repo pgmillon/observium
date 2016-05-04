@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -24,7 +24,7 @@
 # AGENT-GENERAL-MIB::agentDRAMutilization.1 = INTEGER: 55
 
 $mib = 'AGENT-GENERAL-MIB';
-echo(" $mib ");
+echo("$mib ");
 
 $mempool_array = snmpwalk_cache_oid($device, "agentDRAMutilizationEntry", NULL, $mib, mib_dirs('d-link'));
 
@@ -38,8 +38,8 @@ if (is_array($mempool_array))
       $used      = $entry['agentDRAMutilizationUsedDRAM'];
       $total     = $entry['agentDRAMutilizationTotalDRAM'];
       $precision = (strlen($total) > 7 ? 1 : 1024); // Stacking swiches uses wrong units
-      $used     *= $precision;
-      $total    *= $precision;
+      //$used     *= $precision;
+      //$total    *= $precision;
       discover_mempool($valid['mempool'], $device, $index, $mib, $descr, $precision, $total, $used);
     }
   }

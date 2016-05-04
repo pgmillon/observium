@@ -133,6 +133,37 @@ class IncludesCommonTest extends PHPUnit_Framework_TestCase
     );
   }
 
+  /* This test not work for now */
+  ///**
+  // * @dataProvider providerExternalExecHideAuth
+  // * @group exechide
+  // */
+  //public function testExternalExecHideAuth($hide, $cmd, $result)
+  //{
+  //  $GLOBALS['config']['snmp']['hide_auth'] = $hide;
+  //
+  //  $test = external_exec($cmd);
+  //  $this->assertSame($result, $GLOBALS['exec_status']['command']);
+  //}
+  //
+  //public function providerExternalExecHideAuth()
+  //{
+  //  return array(
+  //    // hide auth
+  //    array(
+  //      TRUE,
+  //      "/usr/bin/snmpget -v2c -c 'public' -Pu  -Oqv -m CPQSINFO-MIB -M /opt/observium/mibs/rfc:/opt/observium/mibs/net-snmp:/opt/observium/mibs/hp 'udp':'host':'161' cpqSiProductName.0",
+  //      "/usr/bin/snmpget -v2c -c *** -Pu  -Oqv -m CPQSINFO-MIB -M /opt/observium/mibs/rfc:/opt/observium/mibs/net-snmp:/opt/observium/mibs/hp 'udp':'host':'161' cpqSiProductName.0",
+  //    ),
+  //    // not hide auth
+  //    array(
+  //      FALSE,
+  //      "/usr/bin/snmpget -v2c -c 'public' -Pu  -Oqv -m CPQSINFO-MIB -M /opt/observium/mibs/rfc:/opt/observium/mibs/net-snmp:/opt/observium/mibs/hp 'udp':'host':'161' cpqSiProductName.0",
+  //      "/usr/bin/snmpget -v2c -c *** -Pu  -Oqv -m CPQSINFO-MIB -M /opt/observium/mibs/rfc:/opt/observium/mibs/net-snmp:/opt/observium/mibs/hp 'udp':'host':'161' cpqSiProductName.0",
+  //    ),
+  //  );
+  //}
+
   /**
    * @dataProvider providerPercentClass
    */
@@ -475,18 +506,18 @@ class IncludesCommonTest extends PHPUnit_Framework_TestCase
    */
   public function testIfclass($ifOperStatus, $ifAdminStatus, $result)
   {
-    $this->assertSame($result, ifclass($ifOperStatus, $ifAdminStatus));
+    $this->assertSame($result, port_html_class($ifOperStatus, $ifAdminStatus));
   }
 
   public function providerIfclass()
   {
     return array(
-      array(             '-',   'up', 'interface-upup'),
-      array(            'up', 'down',           'gray'),
-      array(          'down',   'up',            'red'),
-      array('lowerLayerDown',   'up',         'orange'),
-      array(    'monitoring',   'up',          'green'),
-      array(            'up',   'up',               ''),
+      array(             '-',   'up', 'purple'),
+      array(            'up', 'down',   'gray'),
+      array(          'down',   'up',    'red'),
+      array('lowerLayerDown',   'up', 'orange'),
+      array(    'monitoring',   'up',  'green'),
+      array(            'up',   'up',       ''),
     );
   }
 
@@ -743,6 +774,7 @@ class IncludesCommonTest extends PHPUnit_Framework_TestCase
 
   /**
    * @dataProvider providerIsValidHostname
+   * @group hostname
    */
   public function testIsValidHostname($value, $result)
   {
@@ -755,17 +787,20 @@ class IncludesCommonTest extends PHPUnit_Framework_TestCase
       array('router1',          TRUE),
       array('1router',          TRUE),
       array('router-1',         TRUE),
-      array('router_1',         TRUE),
       array('router.1',         TRUE),
 
       array('router1.a.com',    TRUE),
       array('1router.a.com',    TRUE),
       array('router-1.a.com',   TRUE),
-      array('router_1.a.com',   TRUE),
       array('router.1.a.com',   TRUE),
 
+      // Domains with underscores, see: http://stackoverflow.com/a/2183140
+      array('router_1',         TRUE),
+      array('router_1.a.com',   TRUE),
+      array('_router1',         TRUE),
+      array('_sip._udp.apnic.net', TRUE),
+
       array('-router1',        FALSE),
-      array('_router1',        FALSE),
       array('.router1',        FALSE),
 
       array('router~1',        FALSE),
@@ -773,6 +808,34 @@ class IncludesCommonTest extends PHPUnit_Framework_TestCase
       array('router,1',        FALSE),
       array('router;1',        FALSE),
       array('router 1',        FALSE),
+
+      // Long hostnames
+      array('aaa' . str_repeat('.bb.cc.com', 25),   TRUE), // total 253
+      array(str_repeat('a', 63) . '.com',           TRUE), // per level 63
+      array('aaaa' . str_repeat('.bb.cc.com', 25), FALSE), // total 254
+      array(str_repeat('a', 64) . '.com',          FALSE), // per level 64
+
+      // Test cases from http://stackoverflow.com/a/4694816
+      array('a',                TRUE),
+      array('0',                TRUE),
+      array('a.b',              TRUE),
+      array('localhost',        TRUE),
+      array('google.com',       TRUE),
+      array('news.google.co.uk',       TRUE),
+      array('xn--fsqu00a.xn--0zwm56d', TRUE),
+      array('goo gle.com',     FALSE),
+      array('google..com',     FALSE),
+      array('google.com ',     FALSE),
+      array('google-.com',     FALSE),
+      array('.google.com',     FALSE),
+      array('<script',         FALSE),
+      array('alert(',          FALSE),
+      array('.',               FALSE),
+      array('..',              FALSE),
+      array(' ',               FALSE),
+      array('-',               FALSE),
+      array('',                FALSE),
+      array('__',              FALSE),
     );
   }
 
@@ -919,14 +982,17 @@ class IncludesCommonTest extends PHPUnit_Framework_TestCase
           'os'        => 'test_generic'
         ),
         array(
+          'UCD-SNMP-MIB',
+          'HOST-RESOURCES-MIB',
+          'LSI-MegaRAID-SAS-MIB',
           'ENTITY-MIB',
           'ENTITY-SENSOR-MIB',
-          'HOST-RESOURCES-MIB',
           'Q-BRIDGE-MIB',
           'LLDP-MIB',
-          'UCD-SNMP-MIB',
+          'EtherLike-MIB',
           'CISCO-CDP-MIB',
           'PW-STD-MIB',
+          'DISMAN-PING-MIB',
           'BGP4-MIB',
         )
       ),
@@ -953,9 +1019,10 @@ class IncludesCommonTest extends PHPUnit_Framework_TestCase
           'HOST-RESOURCES-MIB',
           'Q-BRIDGE-MIB',
           'LLDP-MIB',
-          'UCD-SNMP-MIB',
+          'EtherLike-MIB',
           'CISCO-CDP-MIB',
           'PW-STD-MIB',
+          'DISMAN-PING-MIB',
           'BGP4-MIB',
         )
       ),
@@ -972,15 +1039,17 @@ class IncludesCommonTest extends PHPUnit_Framework_TestCase
           'MIB-Dell-10892',
           'CPQHLTH-MIB',
           'CPQIDA-MIB',
+          'UCD-SNMP-MIB',
+          'HOST-RESOURCES-MIB',
           'LSI-MegaRAID-SAS-MIB',
           'ENTITY-MIB',
           'ENTITY-SENSOR-MIB',
-          'HOST-RESOURCES-MIB',
           'Q-BRIDGE-MIB',
           'LLDP-MIB',
-          'UCD-SNMP-MIB',
+          'EtherLike-MIB',
           'CISCO-CDP-MIB',
           'PW-STD-MIB',
+          'DISMAN-PING-MIB',
           'BGP4-MIB',
         )
       ),
@@ -1002,9 +1071,10 @@ class IncludesCommonTest extends PHPUnit_Framework_TestCase
           'HOST-RESOURCES-MIB',
           'Q-BRIDGE-MIB',
           'LLDP-MIB',
-          'UCD-SNMP-MIB',
+          'EtherLike-MIB',
           'CISCO-CDP-MIB',
           'PW-STD-MIB',
+          'DISMAN-PING-MIB',
           'BGP4-MIB',
         )
       ),
@@ -1023,12 +1093,57 @@ class IncludesCommonTest extends PHPUnit_Framework_TestCase
           'HOST-RESOURCES-MIB',
           //'Q-BRIDGE-MIB',
           'LLDP-MIB',
-          'UCD-SNMP-MIB',
+          'EtherLike-MIB',
           'CISCO-CDP-MIB',
           'PW-STD-MIB',
+          'DISMAN-PING-MIB',
           'BGP4-MIB',
         )
       ),
+
+      // OS with per-HW mibs
+      array(
+        array(
+          'device_id' => 1,
+          'os'        => 'test_dlinkfw'
+        ),
+        array(
+          'JUST-TEST-MIB',
+          'ENTITY-MIB',
+          'ENTITY-SENSOR-MIB',
+          'HOST-RESOURCES-MIB',
+          'Q-BRIDGE-MIB',
+          'LLDP-MIB',
+          'EtherLike-MIB',
+          'CISCO-CDP-MIB',
+          'PW-STD-MIB',
+          'DISMAN-PING-MIB',
+          'BGP4-MIB',
+        )
+      ),
+      // OS with per-HW mibs, but with correct sysObjectID
+      array(
+        array(
+          'device_id' => 1,
+          'os'        => 'test_dlinkfw',
+          'sysObjectID' => '.1.3.6.1.4.1.171.20.1.2.1'
+        ),
+        array(
+          'DFL800-MIB', // HW specific MIB
+          'JUST-TEST-MIB',
+          'ENTITY-MIB',
+          'ENTITY-SENSOR-MIB',
+          'HOST-RESOURCES-MIB',
+          'Q-BRIDGE-MIB',
+          'LLDP-MIB',
+          'EtherLike-MIB',
+          'CISCO-CDP-MIB',
+          'PW-STD-MIB',
+          'DISMAN-PING-MIB',
+          'BGP4-MIB',
+        )
+      ),
+
     );
   }
 
@@ -1159,6 +1274,29 @@ class IncludesCommonTest extends PHPUnit_Framework_TestCase
       }
     }
     return $array;
+  }
+
+  /**
+   * @dataProvider providerIsArrayAssoc
+   * @group arrays
+   */
+  public function testIsArrayAssoc($result, $array)
+  {
+    $this->assertSame($result, is_array_assoc($array));
+  }
+
+  public function providerIsArrayAssoc()
+  {
+    return array(
+      array(FALSE, array('a', 'b', 'c')),
+      array(FALSE, array(array(), 1, 'c')),
+      array(FALSE, array("0" => 'a', "1" => array(), "2" => 2)),
+      array(FALSE, array("0" => 'a', "1" => 'b', "2" => 'c')),
+      array(TRUE, array("1" => 'a', "0" => 'b', "2" => 'c')),
+      array(TRUE, array("1" => 'a', "0" => 'b', "2" => 'c')),
+      array(TRUE, array("a" => 'a', "b" => 'b', "c" => 'c')),
+      array(TRUE, "string"),
+    );
   }
 
   /**
@@ -1329,6 +1467,27 @@ class IncludesCommonTest extends PHPUnit_Framework_TestCase
       <div>My test <br />
  is simple</div>
     </div>'.PHP_EOL),
+    );
+  }
+
+  /**
+   * @dataProvider providerReformatUSDate
+   * @group datetime
+   */
+  public function testReformatUSDate($value, $result)
+  {
+    $this->assertSame($result, reformat_us_date($value));
+  }
+
+  public function providerReformatUSDate()
+  {
+    return array(
+      array('07/01/12',   '2012-07-01'),
+      array('12/06/99',   '1999-12-06'),
+      array('03/05/2012', '2012-03-05'),
+      array('02/14/1995', '1995-02-14'),
+      array('Banana',     'Banana'),
+      array('Ob-servium', 'Ob-servium'),
     );
   }
 }

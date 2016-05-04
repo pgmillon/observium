@@ -7,11 +7,11 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-echo(" Juniper-System-MIB ");
+echo("Juniper-System-MIB ");
 
 $processors_array = snmpwalk_cache_double_oid($device, "juniSystemModule", $processors_array, "Juniper-System-MIB", mib_dirs('junose'));
 if (OBS_DEBUG > 1) { print_vars($processors_array); }

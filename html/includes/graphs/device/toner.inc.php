@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -19,7 +19,7 @@ $iter = "1";
 $rrd_options .= " COMMENT:'Toner level            Cur     Min      Max\\n'";
 foreach (dbFetchRows("SELECT * FROM toner where device_id = ?", array($device['device_id'])) as $toner)
 {
-  $colour = toner2colour($toner['toner_descr']);
+  $colour = toner_to_colour($toner['toner_descr']);
 
   if ($colour['left'] == NULL)
   {

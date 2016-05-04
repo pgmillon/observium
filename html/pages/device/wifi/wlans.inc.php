@@ -7,11 +7,11 @@
  *
  * @package        observium
  * @subpackage     webui
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-echo('<table class="table table-hover table-bordered table-condensed table-rounded table-striped"
+echo('<table class="table table-hover  table-condensed  table-striped"
              style="vertical-align: middle; margin-top: 5px; margin-bottom: 10px;">');
 
 echo('<thead><tr>
@@ -64,7 +64,6 @@ foreach ($wlans as $wlan)
       break;
   }
 
-
   if ($wlan['wlan_admin_status'] == "1")
   {
     $wlan['row_class'] = "up";
@@ -92,7 +91,6 @@ foreach ($wlans as $wlan)
     $wlan['ssid_bcast_label'] = '';
   }
 
-
   if ($port = get_port_by_ifIndex($device['device_id'], $wlan['wlan_index']))
   {
     $wlan['port_link'] = generate_entity_link('port', $port);
@@ -114,13 +112,12 @@ foreach ($wlans as $wlan)
 
 echo("</table>");
 
-
 $pagetitle[] = "Radios";
 
 // EOF
 
+// FIXME wot? vv
 function humanize_wifi_wlan(&$wlan)
 {
-
 
 }

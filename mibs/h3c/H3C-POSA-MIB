@@ -1,10 +1,10 @@
 -- =================================================================
--- Copyright (c) 2004-2010 Hangzhou H3C Tech. Co., Ltd. All rights reserved.
+-- Copyright (c) 2004-2012 Hangzhou H3C Tech. Co., Ltd. All rights reserved.
 --
 -- Description: This MIB is to provide the definition of the POSA
 --              (Point Of Sale Access) system.
 -- Reference:
--- Version: V1.2
+-- Version: V1.3
 -- History:
 -- V1.0 2008-03-12 Initial version, created by Lei Hao, Yang Xu
 -- V1.1 2008-09-22 updated by yangxu
@@ -39,13 +39,25 @@
 --      in h3cPosaAppTable
 --      h3cPosaTerminalName and h3cPosaTerminalCfgIfIndex in h3cPosaTerminalTable
 --      h3cPosaMapSrcCode in h3cPosaMapTable
+-- V1.3 2011-09-01 updated by he changfu,du pengfei
+--      Add new node h3cPosaBackupAppID,h3cPosaQuietTimeOut
+--      in h3cPosaAppTable
+--      Add a new value for H3cPeerState.
+--      2011-12-12 updated by lei hao,yang xu
+--      Add new node, h3cPosaFcmStatTransCnts, h3cPosaFcmStatTransSuccessCnts
+--      and h3cPosaFcmStatTransCntsClear in h3cPosaFcmStatTable
+--      2012-2-28 updated by zhangxianyi 
+--      Add new node h3cPosaAppHello, h3cPosaAppHelloInterval
+--      h3cPosaAppRouterPort
+--      in h3cPosaAppTable
 -- =================================================================
 H3C-POSA-MIB DEFINITIONS ::= BEGIN
 
 IMPORTS
     h3cCommon
         FROM HUAWEI-3COM-OID-MIB
-    Integer32, Counter32, OBJECT-TYPE, MODULE-IDENTITY, NOTIFICATION-TYPE, Counter64
+    Integer32, Counter32, OBJECT-TYPE, MODULE-IDENTITY, NOTIFICATION-TYPE,
+    Counter64, Gauge32
         FROM SNMPv2-SMI
     RowStatus, TruthValue, TEXTUAL-CONVENTION
         FROM SNMPv2-TC
@@ -121,6 +133,8 @@ H3cPeerState ::= TEXTUAL-CONVENTION
         linked(6)     The connection between router and the peer is
                       established.
         multilink(7)  There are multiple connections between router and the peer.
+        blocked(8)    The connection between router and the peer is
+                      unreachable.
 
         The status of down(2) and up(3) appear only when the router and the peer
         are connected with interface.
@@ -135,7 +149,8 @@ H3cPeerState ::= TEXTUAL-CONVENTION
         kept(4),
         linking(5),
         linked(6),
-        multilink(7)
+        multilink(7),
+        blocked(8)
         }
 
 H3cTerminalAccessType ::= TEXTUAL-CONVENTION
@@ -333,7 +348,17 @@ H3cPosaAppEntry ::=
         h3cPosaCallerIDTransEnable
             TruthValue,
         h3cPosaTpduChangeStrategy
-            H3cTpduChangeStrategy
+            H3cTpduChangeStrategy,
+        h3cPosaBackupAppID
+            Integer32,
+        h3cPosaQuietTimeOut
+            Integer32,
+        h3cPosaAppHello
+            TruthValue,
+        h3cPosaAppHelloInterval
+            Integer32, 
+        h3cPosaAppRouterPort
+            Integer32
      }
 
 h3cPosaAppID OBJECT-TYPE
@@ -502,6 +527,52 @@ h3cPosaTpduChangeStrategy OBJECT-TYPE
         before delivering it to application server."
     DEFVAL { changeTpduSrc }
     ::= { h3cPosaAppEntry 17 }
+
+h3cPosaBackupAppID OBJECT-TYPE
+    SYNTAX Integer32 (0..31)
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Specify the backup application ID, 0 indicates not using backup application.
+        It is invalid if the service type is flow(2)."
+    ::= { h3cPosaAppEntry 18 }
+
+h3cPosaQuietTimeOut OBJECT-TYPE
+    SYNTAX Integer32 (10..600)
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Specify the wait time for re-activating application server.
+        It is invalid if the service type is flow(2)."
+    ::= { h3cPosaAppEntry 19 }
+
+h3cPosaAppHello OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Specify the switch of hello packet for the application server."
+    DEFVAL { false }
+    ::= { h3cPosaAppEntry 20 }
+
+h3cPosaAppHelloInterval OBJECT-TYPE
+    SYNTAX Integer32 (1..600)
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Specify the interval time in minute(s) of hello packet."
+    DEFVAL { 1 }
+    ::= { h3cPosaAppEntry 21 }
+
+h3cPosaAppRouterPort OBJECT-TYPE
+    SYNTAX Integer32 (0..4999)
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The source port of access router used in connecting with
+        application server.  0 indicates not to specify the source port.
+        It is valid only if the service type is tcp(1) and mode is normal(1)."
+    ::= { h3cPosaAppEntry 22 }
 
 --
 -- definition of h3cPosaTerminalTable
@@ -738,7 +809,13 @@ H3cPosaFcmStatEntry ::=
         h3cPosaFcmStatTimeoutCnts
             Counter32,
         h3cPosaFcmStatConnectFailCnts
-            Counter32
+            Counter32,
+        h3cPosaFcmStatTransCnts
+            Gauge32,
+        h3cPosaFcmStatTransSuccessCnts
+            Gauge32,
+        h3cPosaFcmStatTransCntsClear
+            TruthValue
      }
 
 h3cPosaFcmStatIfIndex OBJECT-TYPE
@@ -764,6 +841,30 @@ h3cPosaFcmStatConnectFailCnts OBJECT-TYPE
     DESCRIPTION
         "The number of connection failures because of unsuccessful negotiations."
     ::= { h3cPosaFcmStatEntry 3 }
+h3cPosaFcmStatTransCnts OBJECT-TYPE
+    SYNTAX Gauge32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of all transactions made through the interface."
+    ::= { h3cPosaFcmStatEntry 4 }
+
+h3cPosaFcmStatTransSuccessCnts OBJECT-TYPE
+    SYNTAX Gauge32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of successful transactions made through the interface."
+    ::= { h3cPosaFcmStatEntry 5 }
+
+h3cPosaFcmStatTransCntsClear OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "Clear the number of successful transactions and all transactions."
+    DEFVAL { false }
+    ::= { h3cPosaFcmStatEntry 6 }
 
 --
 -- definition of h3cPosaAppStatTable

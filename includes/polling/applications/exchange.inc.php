@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -247,7 +247,7 @@ if ($app_found['exchange'] == TRUE)
 {
   $app['type'] = "exchange";
   $app['name'] = "Exchange";
-  wmi_dbAppInsert($device['device_id'], $app);
+  wmi_dbAppInsert($device['device_id'], $app); // FIXME discover_app ?
   unset($app);
 }
 

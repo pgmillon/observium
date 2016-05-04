@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -45,7 +45,7 @@ switch ($vars['view'])
     $table_class = 'table-striped';
 }
 
-echo('<table class="table table-hover table-bordered '.$table_class.' table-condensed table-rounded">
+echo('<table class="table table-hover  '.$table_class.' table-condensed ">
 <thead><tr><th>Local address</th><th></th><th>Peer address</th><th>Tunnel name</th><th>State</th></tr></thead>');
 
 foreach (dbFetchRows("SELECT * FROM `ipsec_tunnels` WHERE `device_id` = ? AND `peer_addr` != '' ORDER BY `peer_addr`", array($device['device_id'])) as $tunnel)

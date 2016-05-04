@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -56,4 +56,3 @@ $hardware = str_replace("\"","", $hardware);
 echo sprintf("Extreme Networks: Hardware: %s, Serial: %s, Version: %s, Features: %s", $hardware, $serial, $version, $features);
 
 // EOF
-

@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage applications
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -43,7 +43,7 @@ $percentage_bar['bars'][0] = array('percent' => $cpu_load_percent);
 
 echo(overlib_link($link, $graph, $overlib_content, NULL));
 ?>
-  <table width="100%" class="table table-striped table-condensed-more table-bordered">
+  <table width="100%" class="table table-striped table-condensed-more ">
     <tr>
       <td class="entity">Current CPU Load</td>
       <td style="width: 90px;"></td>

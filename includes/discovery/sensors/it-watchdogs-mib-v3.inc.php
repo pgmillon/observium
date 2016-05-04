@@ -1,6 +1,16 @@
 <?php
 
-// written by Nick Schmalenberger <nick@schmalenberger.us>
+/**
+ * Observium
+ *
+ *   This file is part of Observium.
+ *
+ * @package    observium
+ * @subpackage discovery
+ * @author Nick Schmalenberger <nick@schmalenberger.us>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
+ *
+ */
 
   echo(" IT-WATCHDOGS-MIB-V3 ");
 

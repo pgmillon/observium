@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -36,6 +36,11 @@ $hardware = snmp_get($device, 'productModel.0', '-Osqv', $mib, mib_dirs('netapp'
 $serial   = snmp_get($device, 'productSerialNum.0', '-Osqv', $mib, mib_dirs('netapp'));
 $firmware = snmp_get($device, 'productFirmwareVersion.0', '-Osqv', $mib, mib_dirs('netapp'));
 $features = snmp_get($device, 'productCPUArch.0', '-Osqv', $mib, mib_dirs('netapp'));
+
+// FIXME --- remove this stuff soon
+
+if(is_file($host_rrd . '/netapp_stats.rrd'))
+{
 
 /// FIXME. Move to graphs module.
 // 64-bit counters. We don't support the legacy 32-bit counters and their high-low maths.
@@ -74,6 +79,11 @@ $graphs['netapp_ops'] = TRUE;
 $graphs['netapp_disk_io'] = TRUE;
 $graphs['netapp_net_io'] = TRUE;
 $graphs['netapp_tape_io'] = TRUE;
+
+}
+
+if(is_file($host_rrd . '/netapp_cp.rrd'))
+{
 
 // Checkpoint Ops - use a separate RRD file
 //
@@ -114,4 +124,8 @@ rrdtool_update($device, $rrd_filename, array($snmpdata[0]['cpTime'], $snmpdata[0
 
 $graphs['netapp_cp_ops'] = TRUE;
 
+}
+
 unset($snmpdata, $rrd_filename, $rrd_create);
+
+// EOF

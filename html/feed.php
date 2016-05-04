@@ -7,7 +7,7 @@
  * @package    observium
  * @subpackage feed
  * @author     Mike Stupalov <mike@observium.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -20,24 +20,26 @@ if (isset($_GET['debug']) && $_GET['debug'])
   ini_set('error_reporting', E_ALL);
 }
 
-include_once("../includes/defaults.inc.php");
-include_once("../config.php");
-include_once("../includes/definitions.inc.php");
-include($config['install_dir'] . "/includes/common.inc.php");
-include($config['install_dir'] . "/includes/rewrites.inc.php");
-include($config['install_dir'] . "/includes/dbFacile.php");
+include_once("../includes/sql-config.inc.php");
 
-//include($config['install_dir'] . "/includes/functions.inc.php");
 include($config['html_dir'] . "/includes/functions.inc.php");
-
 //include($config['html_dir'] . "/includes/authenticate.inc.php"); // not for RSS!
 
 if (isset($_GET['hash']) && is_numeric($_GET['id']))
 {
   $key = get_user_pref($_GET['id'], 'atom_key');
-  list($user_id, $user_level) = explode('|', decrypt($_GET['hash'], $key)); // user_id|user_level
+  $data = explode('|', decrypt($_GET['hash'], $key)); // user_id|user_level|auth_mechanism
 
-  if ($user_id == $_GET['id'])
+  $user_id    = $data[0];
+  $user_level = $data[1]; // FIXME, need new way for check userlevel, because it can be changed
+  if (count($data) == 3)
+  {
+    $check_auth_mechanism = $config['auth_mechanism'] == $data[2];
+  } else {
+    $check_auth_mechanism = TRUE; // Old way
+  }
+
+  if ($user_id == $_GET['id'] && $check_auth_mechanism)
   {
     session_start();
     $_SESSION['user_id']   = $user_id;
@@ -104,8 +106,8 @@ if (isset($_GET['hash']) && is_numeric($_GET['id']))
                             'type'         => $entry['type'],
                             'timestamp_from' => $entry['timestamp'],
                             'timestamp_to' => $entry['timestamp']);
-      $entry_title = htmlentities('['.$entry_device['hostname'].'] '.$entry['message']);
-      $entry_description = htmlentities('['.$entry_device['hostname']."]\n".strtoupper($entry['type']).': '.$entry['message']);
+      $entry_title = escape_html('['.$entry_device['hostname'].'] '.$entry['message']);
+      $entry_description = escape_html('['.$entry_device['hostname']."]\n".strtoupper($entry['type']).': '.$entry['message']);
       $entry_link = $base_url.'/'.generate_device_url($entry_device, $entry_vars);
       $entry_id   = $entry_link.'guid='.md5($entry['event_id']);
 
@@ -138,7 +140,7 @@ if (isset($_GET['hash']) && is_numeric($_GET['id']))
     session_destroy();
 
     // Print feed
-    header('Content-Type: text/xml');
+    header('Content-Type: text/xml; charset=utf-8');
     echo $xml->asXML();
   } // else none returned
 }

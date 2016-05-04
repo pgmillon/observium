@@ -7,15 +7,15 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 $mib = 'DNOS-SWITCHING-MIB';
-echo(" $mib ");
+echo("$mib ");
 
 // CPU Memory
-// 
+//
 // agentSwitchCpuProcessMemFree.0 = INTEGER: 343320
 // agentSwitchCpuProcessMemAvailable.0 = INTEGER: 1034740
 
@@ -25,7 +25,7 @@ $used  = $total - $free;
 
 if (is_numeric($free))
 {
-  discover_mempool($valid['mempool'], $device, 0, $mib, 'CPU Memory', 1024, $total, $used);
+  discover_mempool($valid['mempool'], $device, 0, $mib, 'System Memory', 1024, $total, $used);
 }
 unset ($total, $used, $free);
 

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -15,7 +15,7 @@
 
 $mib = "F10-M-SERIES-CHASSIS-MIB";
 
-echo(" ".$mib." ");
+echo("$mib ");
 
 $processors_array = snmpwalk_cache_oid($device, "chStackUnitCpuUtil5Min", array(), $mib, mib_dirs('force10'));
 $processors_array = snmpwalk_cache_oid($device, "chStackUnitSysType", $processors_array, $mib, mib_dirs('force10'));

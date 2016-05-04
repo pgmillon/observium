@@ -1,46 +1,72 @@
-#!/usr/bin/env perl
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+#!/usr/bin/env php
+<?php
+/*
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
 
-use strict;
+/* Based on freeradius Perl script from observium_agent by Nikos Hasiotis
+ * 16/Feb/2014 by David Croft:
+ *  - Converted to PHP.
+ *  - Exit quietly if radclient can't be found.
+ *  - Allow override of timeout and retries.
+ *  - Allow configuration from an external configuration file.
+ */
 
-my($radclient)   = "/usr/bin/radclient";
-my($adminsecret) = "adminsecret";
-my($radiusport)  = "18121";
+/* Note that you will need to enable the FreeRADIUS status server and the status site, see
+ * http://wiki.freeradius.org/config/Status
+ *
+ * Configuration valus should be overridden in a file called freeradius.conf,
+ * which can be located either in this script's directory, or in /etc/observium_agent
+ */
 
-# http://wiki.freeradius.org/config/Status
-my($radcmd)  = "$radclient localhost:$radiusport status $adminsecret";
-my($radmsg1) = "Message-Authenticator = 0x00, FreeRADIUS-Statistics-Type = 1";
-my($radmsg2) = "Message-Authenticator = 0x00, FreeRADIUS-Statistics-Type = 2";
+$radclient      = "/usr/bin/radclient";
+$radius_secret  = "adminsecret";
+$radius_port    = "18120";
+$radius_timeout = 2; // Timeout for each attempt in seconds
+$radius_retries = 3; // Number of times to try
 
-my(@out1) = `echo "$radmsg1" | $radcmd`;
-my(@out2) = `echo "$radmsg2" | $radcmd`;
-
-my(%radval) = ();
-foreach my $line (@out1) {
-	$line =~ /\s*(.*) = (.*)$/;
-	my($key, $value) = ($1, $2);
-	if ($key =~ /^FreeRADIUS/) {
-		$radval{$key} = $value;
-	}
-}
-foreach my $line (@out2) {
-	$line =~ /\s*(.*) = (.*)$/;
-	my($key, $value) = ($1, $2);
-	if ($key =~ /^FreeRADIUS/) {
-		$radval{$key} = $value;
-	}
+if (file_exists(dirname(__FILE__) . '/freeradius.conf')) {
+  include dirname(__FILE__) . '/freeradius.conf';
 }
 
-print "<<<freeradius>>>\n";
-foreach my $key ( keys %radval ) {
-	printf("%s:%s\n", $key, $radval{$key});
+if (file_exists('/etc/observium_agent/freeradius.conf')) {
+  include '/etc/observium_agent/freeradius.conf';
+}
+
+if (!is_executable($radclient)) {
+  exit();
+}
+
+$radcmd  = "$radclient -t $radius_timeout -r $radius_retries localhost:$radius_port status $radius_secret";
+
+$out = array();
+
+foreach (array(1, 2) as $statstype) {
+  $radmsg = "Message-Authenticator = 0x00, FreeRADIUS-Statistics-Type = $statstype";
+  exec("echo '$radmsg' | $radcmd", &$out, $retval);
+  if ($retval != 0) exit($retval);
+}
+
+$radval = array();
+
+foreach ($out as $line) {
+  if (preg_match('/^\s*(.*) = (.*)$/', $line, $bits)) {
+    list (, $key, $value) = $bits;
+    if (preg_match('/^FreeRADIUS/', $key)) {
+      $radval[$key] = $value;
+    }
+  }
+}
+
+echo "<<<freeradius>>>\n";
+foreach ($radval as $key => $val) {
+  echo $key . ':' . $val . "\n";
 }

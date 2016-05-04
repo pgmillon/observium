@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -16,7 +16,7 @@
 ///
 //  FORTINET-FORTIGATE-MIB::fgSysCpuUsage.0
 
-echo(" FORTINET-FORTIGATE-MIB ");
+echo("FORTINET-FORTIGATE-MIB ");
 
 $descr = "Processor";
 $usage = snmp_get($device, ".1.3.6.1.4.1.12356.101.4.1.3.0", "-Ovq");

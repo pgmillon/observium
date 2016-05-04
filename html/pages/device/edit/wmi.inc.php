@@ -6,15 +6,17 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 if ($vars['editing'])
 {
-  if ($_SESSION['userlevel'] > "7")
+  if ($readonly)
   {
+    print_error_permission('You have insufficient permissions to edit settings.');
+  } else {
     $wmi_override = $vars['wmi_override'];
     if ($wmi_override)
     {
@@ -32,25 +34,21 @@ if ($vars['editing'])
 
     $update_message = "Device WMI data updated.";
     $updated = 1;
-  }
-  else
-  {
-    include("includes/error-no-perm.inc.php");
-  }
-}
 
-if($vars['toggle_poller'] && isset($GLOBALS['config']['wmi']['modules'][$vars['toggle_poller']]))
-{
-  $module = $vars['toggle_poller'];
-  if (isset($attribs['wmi_poll_'.$module]) && $attribs['wmi_poll_'.$module] != $GLOBALS['config']['wmi']['modules'][$vars['toggle_poller']])
-  {
-    del_dev_attrib($device, 'wmi_poll_' . $module);
-  } elseif ($GLOBALS['config']['wmi']['modules'][$vars['toggle_poller']] == 0) {
-    set_dev_attrib($device, 'wmi_poll_' . $module, "1");
-  } else {
-    set_dev_attrib($device, 'wmi_poll_' . $module, "0");
+    if ($vars['toggle_poller'] && isset($GLOBALS['config']['wmi']['modules'][$vars['toggle_poller']]))
+    {
+      $module = $vars['toggle_poller'];
+      if (isset($attribs['wmi_poll_'.$module]) && $attribs['wmi_poll_'.$module] != $GLOBALS['config']['wmi']['modules'][$vars['toggle_poller']])
+      {
+        del_dev_attrib($device, 'wmi_poll_' . $module);
+      } elseif ($GLOBALS['config']['wmi']['modules'][$vars['toggle_poller']] == 0) {
+        set_dev_attrib($device, 'wmi_poll_' . $module, "1");
+      } else {
+        set_dev_attrib($device, 'wmi_poll_' . $module, "0");
+      }
+      $attribs = get_dev_attribs($device['device_id']);
+    }
   }
-  $attribs = get_dev_attribs($device['device_id']);
 }
 
 ?>
@@ -74,11 +72,13 @@ if($vars['toggle_poller'] && isset($GLOBALS['config']['wmi']['modules'][$vars['t
     }
   }
 </script>
-<fieldset><legend>WMI Settings</legend></fieldset>
 <div class="row">
   <div class="col-md-6">
-    <div class="well info_box">
-      <div class="title"><i class="oicon-key"></i> Authentication</div>
+    <div class="box box-solid">
+    <div class="box-header with-border">
+      <!-- <i class="oicon-lock-warning"></i> --><h3 class="box-title">WMI Authentication</h3>
+    </div>
+    <div class="box-body" style="padding-top: 10px;">
       <form id="edit" name="edit" method="post" action="" class="form-horizontal">
         <fieldset>
           <input type="hidden" name="editing" value="yes">
@@ -124,10 +124,14 @@ if($vars['toggle_poller'] && isset($GLOBALS['config']['wmi']['modules'][$vars['t
       </form>
     </div>
   </div>
+  </div>
   <div class="col-md-6">
-    <div class="well info_box">
-      <div class="title"><i class="oicon-gear"></i> Poller Modules</div>
-      <table class="table table-bordered table-striped table-condensed table-rounded">
+    <div class="box box-solid">
+    <div class="box-header with-border">
+      <!-- <i class="oicon-gear"></i> --><h3 class="box-title">WMI Poller Modules</h3>
+    </div>
+    <div class="box-body no-padding">
+      <table class="table  table-striped table-condensed ">
         <thead>
         <tr>
           <th>Module</th>
@@ -143,32 +147,41 @@ foreach ($GLOBALS['config']['wmi']['modules'] as $module => $module_status)
 {
   echo('<tr><td><b>'.$module.'</b></td><td>');
 
-  echo(($module_status ? '<span class=green>enabled</span>' : '<span class=red>disabled</span>' ));
+  echo(($module_status ? '<span class="label label-success">enabled</span>' : '<span class="label label-important">disabled</span>' ));
 
   echo('</td><td>');
 
   if (isset($attribs['wmi_poll_'.$module]))
   {
-    if ($attribs['wmi_poll_'.$module]) { echo("<span class=green>enabled</span>"); $toggle = "Disable"; $btn_class = "btn-danger";
-    } else { echo('<span class=red>disabled</span>'); $toggle = "Enable"; $btn_class = "btn-success";}
+    if ($attribs['wmi_poll_'.$module]) { echo('<span class="label label-success">enabled</span>'); $toggle = "Disable"; $btn_class = "btn-danger";
+    } else { echo('<span class="label label-important">disabled</span>'); $toggle = "Enable"; $btn_class = "btn-success";}
   } else {
-    if ($module_status) { echo("<span class=green>enabled</span>"); $toggle = "Disable"; $btn_class = "btn-danger";
-    } else { echo('<span class=red>disabled</span>'); $toggle = "Enable"; $btn_class = "btn-success";}
+    if ($module_status) { echo('<span class="label label-success">enabled</span>'); $toggle = "Disable"; $btn_class = "btn-danger";
+    } else { echo('<span class="label label-important">disabled</span>'); $toggle = "Enable"; $btn_class = "btn-success";}
   }
 
   echo('</td><td>');
+  
+        $form = array('type'  => 'simple');
+      // Elements
+      $form['row'][0]['toggle_poller']  = array('type'     => 'hidden',
+                                             'value'    => $module);
+      $form['row'][0]['editing']      = array('type'     => 'submit',
+                                             'name'     => $toggle,
+                                             'class'    => 'btn-mini '.$btn_class,
+                                             //'icon'     => $btn_icon,
+                                             'right'    => TRUE,
+                                             'readonly' => $readonly,
+                                             'value'    => 'toggle_poller');
+      print_form($form); unset($form);
 
-  echo('<form id="toggle_poller" name="toggle_poller" method="post" action="">
-          <input type=hidden name="toggle_poller" value="'.$module.'" />
-          <button type="submit" class="btn btn-mini '.$btn_class.'" name="Submit" value="Toggle">'.$toggle.'</button>
-          </label>
-        </form>');
   echo('</td></tr>');
 }
 
 ?>
         </tbody>
       </table>
+    </div>
     </div>
   </div>
 </div>

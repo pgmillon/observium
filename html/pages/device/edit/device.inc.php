@@ -6,29 +6,43 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
+$ping_skip = get_entity_attrib('device', $device, 'ping_skip');
+
 if ($vars['editing'])
 {
-  if ($_SESSION['userlevel'] > "7")
+  if ($readonly)
   {
+    print_error_permission('You have insufficient permissions to edit settings.');
+  } else {
+    if (OBS_DEBUG) { print_vars($vars); }
     $updated = 0;
 
     $override_sysLocation_bool = $vars['override_sysLocation'];
     if (isset($vars['sysLocation'])) { $override_sysLocation_string = $vars['sysLocation']; }
 
-    if (get_dev_attrib($device,'override_sysLocation_bool') != $override_sysLocation_bool
-     || get_dev_attrib($device,'override_sysLocation_string') != $override_sysLocation_string)
+    if (get_entity_attrib('device', $device, 'override_sysLocation_bool')   != $override_sysLocation_bool ||
+        get_entity_attrib('device', $device, 'override_sysLocation_string') != $override_sysLocation_string)
     {
       $updated = 2;
     }
 
-    if ($override_sysLocation_bool) { set_dev_attrib($device, 'override_sysLocation_bool', '1'); } else { del_dev_attrib($device, 'override_sysLocation_bool'); }
-    if (isset($override_sysLocation_string)) { set_dev_attrib($device, 'override_sysLocation_string', $override_sysLocation_string); };
+    if ($override_sysLocation_bool) { set_entity_attrib('device', $device, 'override_sysLocation_bool', '1'); }
+    else                            { del_entity_attrib('device', $device, 'override_sysLocation_bool'); }
+    if (isset($override_sysLocation_string)) { set_entity_attrib('device', $device, 'override_sysLocation_string', $override_sysLocation_string); };
 
+    $ping_skip_set = isset($vars['ping_skip']) && ($vars['ping_skip'] == 'on' || $vars['ping_skip'] == '1');
+    if ($ping_skip != $ping_skip_set)
+    {
+      if ($ping_skip_set) { set_entity_attrib('device', $device, 'ping_skip', '1'); }
+      else                { del_entity_attrib('device', $device, 'ping_skip'); }
+      $ping_skip = get_entity_attrib('device', $device, 'ping_skip');
+      $updated++;
+    }
     # FIXME needs more sanity checking! and better feedback
     # FIXME -- update location too? Need to trigger geolocation!
 
@@ -57,110 +71,106 @@ if ($vars['editing'])
       $update_message = "Device record update error.";
     }
   }
-  else
-  {
-    include("includes/error-no-perm.inc.php");
-  }
 }
 
-$descr = $device['purpose'];
-
-$override_sysLocation_bool = get_dev_attrib($device,'override_sysLocation_bool');
-$override_sysLocation_string = get_dev_attrib($device,'override_sysLocation_string');
+$override_sysLocation_bool   = get_entity_attrib('device', $device, 'override_sysLocation_bool');
+$override_sysLocation_string = get_entity_attrib('device', $device, 'override_sysLocation_string');
 
 if ($updated && $update_message)
 {
   print_message($update_message);
-} elseif ($update_message) {
+}
+else if ($update_message)
+{
   print_error($update_message);
 }
 
-?>
-
- <form id="edit" name="edit" method="post" class="form-horizontal" action="<?php echo($url); ?>">
-
-  <fieldset>
-  <legend>Device Properties</legend>
-  <input type=hidden name="editing" value="yes">
-  <div class="control-group">
-    <label class="control-label" for="descr">Description</label>
-    <div class="controls">
-      <input name="descr" type=text size="32" value="<?php echo(escape_html($device['purpose'])); ?>" />
-    </div>
-  </div>
-
-  <div class="control-group">
-    <label class="control-label" for="type">Type</label>
-    <div class="controls">
-      <select class="selectpicker" name="type">
-<?php
-$unknown = 1;
+$types = array();
 foreach ($config['device_types'] as $type)
 {
-  echo('          <option value="'.$type['type'].'"');
-  if ($device['type'] == $type['type']) { echo(' selected="selected"'); $unknown = 0; }
-  echo(' >' . ucfirst($type['type']) . '</option>');
+  $types[$type['type']] = array('name' => nicecase($type['type']), 'icon' => $type['icon']);
 }
-if ($unknown) { echo('          <option value="other">Other</option>'); }
+if (!in_array($device['type'], array_keys($types)))
+{
+  $types[$device['type']] = array('name' => 'Other', 'icon' => 'oicon-question');
+}
 
-?>
-              </select>
-            </div>
-  </div>
+      $form = array('type'      => 'horizontal',
+                    'id'        => 'edit',
+                    //'space'     => '20px',
+                    'title'     => 'General Device Settings',
+                    'icon'      => 'oicon-gear',
+                    //'class'     => 'box box-solid',
+                    'fieldset'  => array('edit' => ''),
+                    );
 
-  <div class="control-group">
-    <label class="control-label" for="sysLocation">Override sysLocation</label>
+      $form['row'][0]['editing']   = array(
+                                      'type'        => 'hidden',
+                                      'value'       => 'yes');
+      $form['row'][1]['descr']     = array(
+                                      'type'        => 'text',
+                                      //'fieldset'    => 'edit',
+                                      'name'        => 'Description',
+                                      //'class'       => 'input-xlarge',
+                                      'width'       => '250px',
+                                      'readonly'    => $readonly,
+                                      'value'       => escape_html($device['purpose']));
+      $form['row'][2]['type']      = array(
+                                      'type'        => 'select',
+                                      //'fieldset'    => 'edit',
+                                      'name'        => 'Type',
+                                      'width'       => '250px',
+                                      'readonly'    => $readonly,
+                                      'values'      => $types,
+                                      'value'       => $device['type']);
+      $form['row'][3]['sysLocation'] = array(
+                                      'type'        => 'text',
+                                      //'fieldset'    => 'edit',
+                                      'name'        => 'Custom location',
+                                      'placeholder' => '',
+                                      'width'       => '250px',
+                                      'readonly'    => $readonly,
+                                      'disabled'    => !$override_sysLocation_bool,
+                                      'value'       => escape_html($override_sysLocation_string));
+      $form['row'][3]['override_sysLocation'] = array(
+                                      'type'        => 'switch',
+                                      //'fieldset'    => 'edit',
+                                      //'placeholder' => 'Use custom location below.',
+                                      'onchange'    => "toggleAttrib('disabled', 'sysLocation')",
+                                      'readonly'    => $readonly,
+                                      'value'       => $override_sysLocation_bool);
+      $form['row'][4]['ping_skip'] = array(
+                                      'type'        => 'checkbox',
+                                      'name'        => 'Skip ping',
+                                      //'fieldset'    => 'edit',
+                                      'placeholder' => 'Skip ICMP echo checks, only SNMP availability.',
+                                      'readonly'    => $readonly,
+                                      'value'       => $ping_skip);
+      // FIXME (Mike): $device['ignore'] and get_dev_attrib($device,'disable_notify') it is same/redundant options?
+      $form['row'][5]['ignore'] = array(
+                                      'type'        => 'checkbox',
+                                      'name'        => 'Device ignore',
+                                      //'fieldset'    => 'edit',
+                                      'placeholder' => 'Ignore device for alerting and notifications.',
+                                      'readonly'    => $readonly,
+                                      'value'       => $device['ignore']);
+      $form['row'][6]['disabled'] = array(
+                                      'type'        => 'checkbox',
+                                      'name'        => 'Disable',
+                                      //'fieldset'    => 'edit',
+                                      'placeholder' => 'Disables polling and discovery.',
+                                      'readonly'    => $readonly,
+                                      'value'       => $device['disabled']);
+      $form['row'][7]['submit']    = array(
+                                      'type'        => 'submit',
+                                      'name'        => 'Save Changes',
+                                      'icon'        => 'icon-ok icon-white',
+                                      //'right'       => TRUE,
+                                      'class'       => 'btn-primary',
+                                      'readonly'    => $readonly,
+                                      'value'       => 'save');
 
-    <div class="controls">
-      <input id="location_check" type="checkbox" onclick="edit.sysLocation.disabled=!edit.override_sysLocation.checked"
-            name="override_sysLocation" <?php if ($override_sysLocation_bool) { echo(' checked="checked"'); } ?> data-id="location_check" data-label="Use custom location below.">
-    </div>
-  </div>
-
-<script>
-
-$('#location_check').click(function() {
-    $('#location_text').attr('disabled',! this.checked)
-});
-
-</script>
-
-  <div class="control-group">
-    <label class="control-label" for="sysLocation">Custom location</label>
-    <div class="controls" id="location_text">
-      <input type=text name="sysLocation" size="32" <?php if (!$override_sysLocation_bool) { echo(' disabled="disabled"'); } ?>
-              value="<?php echo(escape_html($override_sysLocation_string)); ?>" />
-    </div>
-  </div>
-
-  <div class="control-group">
-    <label class="control-label" for="disabled">Disable</label>
-    <div class="controls">
-      <input name="disabled" type="checkbox" id="disabled" value="1" <?php if ($device["disabled"]) { echo("checked=checked"); } ?> />
-      <span class="help-inline">Disables polling and discovery.</span>
-    </div>
-  </div>
-  <?php // FIXME (Mike): $device['ignore'] and get_dev_attrib($device,'disable_notify') it is same/redundant options? ?>
-  <div class="control-group">
-    <label class="control-label" for="sysLocation">Device ignore</label>
-    <div class="controls">
-      <input name="ignore" type="checkbox" id="disable" value="1" <?php if ($device['ignore']) { echo("checked=checked"); } ?> />
-      <span class="help-inline">Device ignore.</span>
-    </div>
-  </div>
-  </fieldset>
-
-  <div class="form-actions">
-    <button type="submit" class="btn btn-primary" name="submit" value="save"><i class="icon-ok icon-white"></i> Save Changes</button>
-  </div>
-
-</form>
-
-<?php
-
-#print_optionbar_start();
-#list($sizeondisk, $numrrds) = foldersize($config['rrd_dir']."/".$device['hostname']);
-#echo("Size on Disk: <b>" . formatStorage($sizeondisk) . "</b> in <b>" . $numrrds . " RRD files</b>.");
-#print_optionbar_end();
+      print_form($form);
+      unset($form);
 
 // EOF

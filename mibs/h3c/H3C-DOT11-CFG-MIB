@@ -1,10 +1,10 @@
 -- =============================================================================
--- Copyright (c) 2004-2011 Hangzhou H3C Tech. Co., Ltd. All rights reserved.
+-- Copyright (c) 2004-2012 Hangzhou H3C Tech. Co., Ltd. All rights reserved.
 --
 -- Description:
 --   The file defines a MIB to provide WLAN configuration information.
 -- Reference:
--- Version: V2.5
+-- Version: V2.8
 -- History:
 --   V1.0 2006-05-10 Initial version, created by shiyang (Richard)
 --   V1.1 2007-02-01 modified by xingjichen(Daniel)
@@ -83,7 +83,7 @@
 --        Add h3cDot11RadioCfgOnly11gEnable to h3cDot11RadioIntfConfigTable.
 --        Add h3cDot11RadioWDSTable to h3cDot11RadioElementConfigGroup.
 --   V2.0 2009-03-20 modified by caizibin
---        Add value wapi(6) to h3cDot11PortSecurityMode
+--        Add value ext(6) to h3cDot11PortSecurityMode
 --   V2.1 2009-05-07 modified by Li Yugang, Wang Shaojie, Jin Yi
 --        Add h3cDot11APBSSIDSupportNum, h3cDot11APLastUpdateStatTime,
 --        h3cDot11APDoSProtectEnable, h3cDot11MaxAPPerIf to
@@ -140,6 +140,31 @@
 --        Add h3cDot11RCRadioStatus to h3cDot11RadioConfigTable
 --   V2.5 2010-09-25 Modified by Wu Xiaopeng
 --        Remove Size list of h3cDot11APName.
+--   V2.6 2011-05-23 Modified by Cui Kai
+--        Add new node h3cDot11WAPIAuthServerIP to h3cDot11ServicePolicyTable
+--        2011-07-08 Modified by Niu Jian
+--        Change type of h3cDot11CfgSTNASPortID to OCTET STRING
+--   V2.7 2011-07-13 Modified by Yu Bo
+--        Add new node h3cDot11RCRadioRate to h3cDot11RadioConfigTable
+--        Add new node h3cDot11RCPwrAdjustStepLength to h3cDot11RadioConfigTable
+--        2011-08-08 Modified by Xiao Min
+--        Add new table h3cDot11nRadioCfg2Table
+--        2011-08-10 Modified by limingjin
+--        Add h3cDot11RadioCfgType2 to h3cDot11RadioIntfConfigTable
+--        Add h3cDot11RCRadioType2 to h3cDot11RadioConfigTable
+--        Add h3cDot11CfgRadioType2 to h3cDot11RadioToConfigTable
+--   V2.8 2011-09-28 Modified by zhanghu
+--        Add h3cDot11ApTrapEnabled to h3cDot11APTemplateTable
+--        Add h3cDot11AllAPMonitorMode to h3cDot11APTemplateTable
+--        Add h3cDot11SIDAPTemplateName, h3cDot11SIDModelAlias, h3cDot11SIDAPDescription, h3cDot11SIDRowStatus,
+--        h3cDot11SIDAPName, h3cDot11SIDStatisInterv, h3cDot11SIDAPBroadcastProbeReply,
+--        h3cDot11SIDAPStaIdleTimerInterv, h3cDot11SIDStaKeepAliveTimerInterv,
+--        h3cDot11SIDAPCir, h3cDot11SIDAPCbs, h3cDot11SIDAPPriorityLevel,
+--        h3cDot11SIDAPElementID, h3cDot11SIDAPDevDetectEnable, h3cDot11SIDAPStatisIntervMode
+--        to h3cDot11APSerialIDTable
+--        2011-08-28 Modified by Wang Lu
+--        Add h3cDot11CfgSaEnable, h3cDot11CfgSaBand, h3cDot11CfgIDSEnable,
+--        h3cDot11CfgSaCltRtFFTData to h3cDot11RadioToConfigTable
 -- =============================================================================
 H3C-DOT11-CFG-MIB DEFINITIONS ::= BEGIN
 
@@ -148,7 +173,8 @@ IMPORTS
         RowStatus,
         DisplayString,
         DateAndTime,
-        MacAddress
+        MacAddress,
+        IpAddress
     FROM SNMPv2-TC
         ifIndex
     FROM RFC1213-MIB
@@ -176,7 +202,8 @@ IMPORTS
         H3cDot11WorkMode,
         H3cDot11CirMode,
         h3cDot11APElementIndex,
-        H3cDot11ObjectIDType
+        H3cDot11ObjectIDType,
+        H3cDot11RadioType2
     FROM H3C-DOT11-REF-MIB;
 
 h3cDot11CFG MODULE-IDENTITY
@@ -341,6 +368,7 @@ h3cDot11RadioElementConfigGroup OBJECT IDENTIFIER ::= { h3cDot11CFG 8 }
 --  Radio Element Config Group has the following children:
 --  h3cDot11nRadioCfgTable           ::= { h3cDot11RadioElementConfigGroup 1 }
 --  h3cDot11RadioWDSTable            ::= { h3cDot11RadioElementConfigGroup 2 }
+--  h3cDot11nRadioCfg2Table          ::= { h3cDot11RadioElementConfigGroup 3 }
 
 h3cDot11CfgNotifyGroup OBJECT IDENTIFIER ::= { h3cDot11CFG 9 }
 
@@ -627,6 +655,24 @@ h3cDot11AdjIntfTrapThreshold OBJECT-TYPE
         of the device exceeds this threshold, corresponding trap will be sent."
     ::= { h3cDot11GlobeConfigGroup 28 }
 
+h3cDot11AllAPMonitorMode OBJECT-TYPE
+    SYNTAX      INTEGER
+        {
+            normal(1),
+            monitor(2),
+            hybrid(3)
+        }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Represents what work mode for All AP.
+        The following values are supported:
+        normal,     - AP will supply WLAN service.
+        monitor     - AP will be a monitor to find attack.
+        hybrid      - AP will supply WLAN service and Device detection is
+        enabled."
+    DEFVAL      { normal }
+    ::= { h3cDot11GlobeConfigGroup 29 }
 -- *****************************************************************************
 -- * End of h3cDot11GlobeConfigGroup Definition
 -- *****************************************************************************
@@ -835,7 +881,8 @@ H3cDot11ServicePolicyEntry ::= SEQUENCE
         h3cDot11WlanInfPVID           Integer32,
         h3cDot11SPInCirStaticValue    Integer32,
         h3cDot11SPOutCirStaticValue   Integer32,
-        h3cDot11SPIsolate             TruthValue
+        h3cDot11SPIsolate             TruthValue,
+        h3cDot11WAPIAuthServerIP      IpAddress
     }
 
 h3cDot11ServicePolicyID OBJECT-TYPE
@@ -1006,6 +1053,14 @@ h3cDot11SPIsolate OBJECT-TYPE
          isolated."
     DEFVAL      { false }
     ::= { h3cDot11ServicePolicyEntry 17 }
+
+h3cDot11WAPIAuthServerIP OBJECT-TYPE
+    SYNTAX     IpAddress
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+        "Represents the IP address of the WAPI Authentication server"
+    ::= {  h3cDot11ServicePolicyEntry 18 }
 
 -- *****************************************************************************
 -- * End of h3cDot11ServicePolicyTable Definition
@@ -1320,7 +1375,7 @@ h3cDot11SrvPortSecurityMode OBJECT-TYPE
             psk(3),
             macAddressAndPsk(4),
             userLoginSecureExtOrPsk(5),
-            wapi(6)
+            ext(6)
         }
     MAX-ACCESS  read-write
     STATUS      current
@@ -1342,8 +1397,8 @@ h3cDot11SrvPortSecurityMode OBJECT-TYPE
         psk modes together such that either is allowed to authorized access.
         Which mode works for client depends on the client's choice.
 
-        wapi(6) Access to the port is denied until the port client is
-        authenticated (by WAPI).
+        ext(6) Access to the port is denied until the port client is
+        authenticated (by ext).
         "
     ::= { h3cDot11SrvPortSecurityEntry 2 }
 
@@ -1487,7 +1542,8 @@ H3cDot11APTemplateEntry ::= SEQUENCE
         h3cDot11APElementID                Integer32,
         h3cDot11APDevDetectEnable          TruthValue,
         h3cDot11APGetIPMethod              INTEGER,
-        h3cDot11StatisIntervMode           INTEGER
+        h3cDot11StatisIntervMode           INTEGER,
+        h3cDot11ApTrapEnabled              TruthValue
     }
 
 h3cDot11APTemplateName OBJECT-TYPE
@@ -1537,9 +1593,9 @@ h3cDot11APWorkMode OBJECT-TYPE
     DESCRIPTION
         "Represents what work mode for AP.
         The following values are supported:
-        normal(1),  - AP will supply WLAN service.
-        monitor(2)  - AP will be a monitor to find attack.
-        semiMonitor(3) - AP will supply WLAN service and Device detection is
+        normal      - AP will supply WLAN service.
+        monitor     - AP will be a monitor to find attack.
+        hybrid      - AP will supply WLAN service and Device detection is
         enabled."
     DEFVAL      { normal }
     ::= { h3cDot11APTemplateEntry 5 }
@@ -1650,8 +1706,7 @@ h3cDot11APDevDetectEnable OBJECT-TYPE
          By default, the AP only provides WLAN data services.  When an AP works
          in monitor mode, that is, the value of object h3cDot11APWorkMode is
          monitor, device detection can not be enabled with object
-         h3cDot11APDevDetectEnable.  Device detection in normal AP mode can be
-         enabled or disabled only when all radios of the AP are disabled."
+         h3cDot11APDevDetectEnable."
     DEFVAL      { false }
     ::= { h3cDot11APTemplateEntry 16 }
 
@@ -1678,11 +1733,21 @@ h3cDot11StatisIntervMode OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "This object represents the mode of statics interval.
-         normal(1) - statics interval value between 10s to 120s
-         realtime(2) - statics interval value between 2s to 5s"
+         normal    - statics interval value between 10s to 120s
+         realtime  - statics interval value between 2s to 5s"
     DEFVAL      { normal }
     ::= { h3cDot11APTemplateEntry 18 }
 
+h3cDot11ApTrapEnabled OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Represents whether the trap status is enabled or not.
+        'true'  : Enable  the trap status;
+        'false' : Disable the trap status."
+    DEFVAL      { true }
+    ::= { h3cDot11APTemplateEntry 19 }
 
 -- *****************************************************************************
 -- *  End of  h3cDot11APTemplateTable Definition
@@ -1730,7 +1795,12 @@ H3cDot11RadioToConfigEntry ::= SEQUENCE
         h3cDot11CfgChannelLockStat    INTEGER,
         h3cDot11CfgPowerLockStat      INTEGER,
         h3cDot11CfgLBRdGroupId        Unsigned32,
-        h3cDot11CfgRRMSDRdGroupId     Unsigned32
+        h3cDot11CfgRRMSDRdGroupId     Unsigned32,
+        h3cDot11CfgRadioType2         H3cDot11RadioType2,
+        h3cDot11CfgIDSEnable          TruthValue,
+        h3cDot11CfgSaEnable           TruthValue,
+        h3cDot11CfgSaCltRtFFTData     TruthValue,
+        h3cDot11CfgSaBand             INTEGER
     }
 
 h3cDot11APTemplateNameCfg OBJECT-TYPE
@@ -1887,6 +1957,59 @@ h3cDot11CfgRRMSDRdGroupId OBJECT-TYPE
     DESCRIPTION
         "Represents the RRM self-decisive group ID allocated for the radio."
     ::= { h3cDot11RadioToConfigEntry 16 }
+
+h3cDot11CfgRadioType2 OBJECT-TYPE
+    SYNTAX      H3cDot11RadioType2
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Represents the radio will work with which 802.11 radio type."
+    ::= { h3cDot11RadioToConfigEntry 17 }
+
+h3cDot11CfgIDSEnable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Represents whether intrusion detection is enabled for this radio."
+    ::= { h3cDot11RadioToConfigEntry 18 }
+
+h3cDot11CfgSaEnable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Represents whether spectrum analysis is enabled."
+    ::= { h3cDot11RadioToConfigEntry 19 }
+
+h3cDot11CfgSaCltRtFFTData OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Represents whether to collect real-time FFT data for this radio."
+    ::= { h3cDot11RadioToConfigEntry 20 }
+
+h3cDot11CfgSaBand OBJECT-TYPE
+    SYNTAX      INTEGER{
+       dot11g(1),
+       dot11aLower(2),
+       dot11aMiddle(3),
+       dot11aUpper(4)
+    }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Represents which band of channels will be monitored when collection
+        real-time FFT data is enabled for this radio.  Detection of
+        interference devices and air quality will also be affected.  Each band
+        responds to the following channels.
+         dot11g (Channels 1-14)
+         dot11aLower (channels 36-64)
+         dot11aMiddle (channels 100-140)
+         dot11aUpper (channels 149-165)."
+    ::= { h3cDot11RadioToConfigEntry 21 }
+
 -- *****************************************************************************
 -- *  End of  h3cDot11RadioToConfigTable Definition
 -- *****************************************************************************
@@ -1985,7 +2108,7 @@ h3cDot11APSTVlanEntry OBJECT-TYPE
 H3cDot11APSTVlanEntry ::= SEQUENCE
     {
         h3cDot11CfgSTVLANID           Integer32,
-        h3cDot11CfgSTNASPortID        Integer32,
+        h3cDot11CfgSTNASPortID        OCTET STRING,
         h3cDot11CfgServiceSetRowStatus    RowStatus
     }
 
@@ -1998,7 +2121,7 @@ h3cDot11CfgSTVLANID OBJECT-TYPE
     ::= { h3cDot11APSTVlanEntry 1 }
 
 h3cDot11CfgSTNASPortID OBJECT-TYPE
-    SYNTAX      Integer32(0..4094)
+    SYNTAX      OCTET STRING(SIZE(0..127))
     MAX-ACCESS  read-only
     STATUS      current
     DESCRIPTION
@@ -2298,16 +2421,19 @@ h3cDot11RadioConfigEntry OBJECT-TYPE
 
 H3cDot11RadioConfigEntry ::= SEQUENCE
     {
-        h3cDot11RCAPSerialID         OCTET STRING,
-        h3cDot11RCRadioID            H3cDot11RadioScopeType,
-        h3cDot11RCRadioType          H3cDot11RadioType,
-        h3cDot11RCChannel            H3cDot11ChannelScopeType,
-        h3cDot11RCPreambleLen        H3cDot11PreambleType,
-        h3cDot11RCPwrAttValue        Integer32,
-        h3cDot11RCApPowerLevel       H3cDot11TxPwrLevelScopeType,
-        h3cDot11RCDynamicChlState    TruthValue,
-        h3cDot11RCDynamicPowerState  TruthValue,
-        h3cDot11RCRadioStatus        TruthValue
+        h3cDot11RCAPSerialID               OCTET STRING,
+        h3cDot11RCRadioID                  H3cDot11RadioScopeType,
+        h3cDot11RCRadioType                H3cDot11RadioType,
+        h3cDot11RCChannel                  H3cDot11ChannelScopeType,
+        h3cDot11RCPreambleLen              H3cDot11PreambleType,
+        h3cDot11RCPwrAttValue              Integer32,
+        h3cDot11RCApPowerLevel             H3cDot11TxPwrLevelScopeType,
+        h3cDot11RCDynamicChlState          TruthValue,
+        h3cDot11RCDynamicPowerState        TruthValue,
+        h3cDot11RCRadioStatus              TruthValue,
+        h3cDot11RCRadioRate                OCTET STRING,
+        h3cDot11RCPwrAdjustStepLength      Integer32,
+        h3cDot11RCRadioType2               H3cDot11RadioType2
     }
 
 h3cDot11RCAPSerialID OBJECT-TYPE
@@ -2397,6 +2523,37 @@ h3cDot11RCRadioStatus OBJECT-TYPE
         "Represents the radio admin status whether is enabled
         or disabled."
     ::= { h3cDot11RadioConfigEntry 10 }
+
+h3cDot11RCRadioRate OBJECT-TYPE
+    SYNTAX      OCTET STRING(SIZE(0..255))
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Set data transmit rates for the radio, in the format of 1,2,5.5...
+        For 802.11n radios, the format can be MCS X. The data transmit rates
+        between AP and STA must fall into the configured rates.
+        (Note: For 802.11n radios, the first value will be treated as a mandatory rate,
+        and the second value will be treated as a supported rate.
+        If you configure more than two rates, the configuration cannot take effect.
+        If you configure only one rate, it is considered as the mandatory rate by default.)"
+    ::= { h3cDot11RadioConfigEntry 11 }
+
+h3cDot11RCPwrAdjustStepLength OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Power adjustment step-length in dBm."
+    ::= { h3cDot11RadioConfigEntry 12 }
+
+h3cDot11RCRadioType2 OBJECT-TYPE
+    SYNTAX      H3cDot11RadioType2
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This object represents the radio will work with which 802.11 radio
+         type."
+    ::= { h3cDot11RadioConfigEntry 13 }
 
 -- *****************************************************************************
 -- * End of h3cDot11RadioConfigTable Definition
@@ -2511,9 +2668,24 @@ h3cDot11APSerialIDEntry OBJECT-TYPE
 
 H3cDot11APSerialIDEntry ::= SEQUENCE
     {
-        h3cDot11SIDAPSerialID              OCTET STRING,
-        h3cDot11SIDAPWorkMode              INTEGER,
-        h3cDot11SIDAPGetIPMethod           INTEGER
+        h3cDot11SIDAPSerialID               OCTET STRING,
+        h3cDot11SIDAPWorkMode               INTEGER,
+        h3cDot11SIDAPGetIPMethod            INTEGER,
+        h3cDot11SIDAPTemplateName           OCTET STRING,
+        h3cDot11SIDModelAlias               OCTET STRING,
+        h3cDot11SIDAPDescription            OCTET STRING,
+        h3cDot11SIDRowStatus                RowStatus,
+        h3cDot11SIDAPName                   OCTET STRING,
+        h3cDot11SIDStatisInterv             Integer32,
+        h3cDot11SIDAPBroadcastProbeReply    TruthValue,
+        h3cDot11SIDAPStaIdleTimerInterv     Integer32,
+        h3cDot11SIDStaKeepAliveTimerInterv  Integer32,
+        h3cDot11SIDAPCir                    Integer32,
+        h3cDot11SIDAPCbs                    Integer32,
+        h3cDot11SIDAPPriorityLevel          Integer32,
+        h3cDot11SIDAPElementID              Integer32,
+        h3cDot11SIDAPDevDetectEnable        TruthValue,
+        h3cDot11SIDAPStatisIntervMode       INTEGER
     }
 
 h3cDot11SIDAPSerialID OBJECT-TYPE
@@ -2531,14 +2703,14 @@ h3cDot11SIDAPWorkMode OBJECT-TYPE
             monitor(2),
             hybrid(3)
         }
-    MAX-ACCESS  read-write
+    MAX-ACCESS  read-create
     STATUS      current
     DESCRIPTION
         "Represents what work mode for AP.
         The following values are supported:
-        normal(1),  - AP will supply WLAN service.
-        monitor(2)  - AP will be a monitor to find attack.
-        hybrid(3) - AP will supply WLAN service and Device detection is
+        normal   - AP will supply WLAN service.
+        monitor  - AP will be a monitor to find attack.
+        hybrid   - AP will supply WLAN service and Device detection is
         enabled."
     DEFVAL      { normal }
     ::= { h3cDot11APSerialIDEntry 2 }
@@ -2549,12 +2721,162 @@ h3cDot11SIDAPGetIPMethod OBJECT-TYPE
         dhcpAlloc(1),
         static(2)
     }
-    MAX-ACCESS  read-write
+    MAX-ACCESS  read-create
     STATUS      current
     DESCRIPTION
         "This object represents the method how AP gets IP address."
     DEFVAL      { dhcpAlloc }
     ::= { h3cDot11APSerialIDEntry 3 }
+h3cDot11SIDAPTemplateName OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Represents the name of AP template."
+    ::= { h3cDot11APSerialIDEntry 4 }
+h3cDot11SIDModelAlias OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Represents the alias of AP model name."
+    ::= { h3cDot11APSerialIDEntry 5 }
+
+h3cDot11SIDAPDescription OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "This attribute will give more information about AP.
+        Administrator could suggest the location, owner or
+        other information for each AP.
+        If the value is set to NULL, the description will be removed."
+    ::= { h3cDot11APSerialIDEntry 6 }
+
+h3cDot11SIDRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The status of this table entry."
+    ::= { h3cDot11APSerialIDEntry 7 }
+
+h3cDot11SIDAPName OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Represents the AP name."
+    ::= { h3cDot11APSerialIDEntry 8 }
+
+h3cDot11SIDStatisInterv OBJECT-TYPE
+    SYNTAX      Integer32
+    UNITS       "second"
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Represents the interval of radio statistic."
+    ::= { h3cDot11APSerialIDEntry 9 }
+
+h3cDot11SIDAPBroadcastProbeReply OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Represents enable the AP to reply broadcast probe or not.
+        'true' : The AP to reply broadcast probe is enabled.
+        'false': The AP to reply broadcast probe is disabled"
+    DEFVAL      { true }
+    ::= { h3cDot11APSerialIDEntry 10 }
+
+h3cDot11SIDAPStaIdleTimerInterv OBJECT-TYPE
+    SYNTAX      Integer32
+    UNITS       "second"
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Represents the interval for which the link between AP and STA
+        ( power-save or awake ) can be idle."
+    ::= { h3cDot11APSerialIDEntry 11 }
+
+h3cDot11SIDStaKeepAliveTimerInterv OBJECT-TYPE
+    SYNTAX      Integer32
+    UNITS       "second"
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Represents the interval of the keep alive requests sent between
+        AP and STA."
+    ::= { h3cDot11APSerialIDEntry 12 }
+
+h3cDot11SIDAPCir OBJECT-TYPE
+    SYNTAX      Integer32
+    UNITS       "Kbps"
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Represents the committed information rate between AP and AC."
+    ::= { h3cDot11APSerialIDEntry 13 }
+
+h3cDot11SIDAPCbs OBJECT-TYPE
+    SYNTAX      Integer32
+    UNITS       "Bytes"
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Represents the committed burst size between AP and AC."
+    ::= { h3cDot11APSerialIDEntry 14 }
+
+h3cDot11SIDAPPriorityLevel OBJECT-TYPE
+    SYNTAX      Integer32 (0..7)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "This object represents the connection priority for the AP.
+        If the connection priority is 7, the AC is considered as the
+        primary AC for the AP."
+    DEFVAL      { 4 }
+    ::= { h3cDot11APSerialIDEntry 15 }
+
+h3cDot11SIDAPElementID OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This object represents the AP element ID."
+    ::= { h3cDot11APSerialIDEntry 16 }
+
+h3cDot11SIDAPDevDetectEnable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Represents whether device detection is enabled or not.
+         'true' : Device detection is enabled.
+         'false': Device detection is disabled.
+         If device detection is enabled, the AP will provide both device
+         detection and WLAN data services.
+         By default, the AP only provides WLAN data services.  When an AP works
+         in monitor mode, that is, the value of object h3cDot11APWorkMode is
+         monitor, device detection can not be enabled with object
+         h3cDot11SIDAPDevDetectEnable."
+    DEFVAL      { false }
+    ::= { h3cDot11APSerialIDEntry 17 }
+
+h3cDot11SIDAPStatisIntervMode OBJECT-TYPE
+    SYNTAX      INTEGER
+    {
+        normal(1),
+        realtime(2)
+    }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "This object represents the mode of statics interval.
+         normal    - statics interval value between 10s to 120s
+         realtime  - statics interval value between 2s to 5s"
+    DEFVAL      { normal }
+    ::= { h3cDot11APSerialIDEntry 18 }
 
 -- *****************************************************************************
 -- *  h3cDot11RadioIntfConfigTable Definition
@@ -2595,7 +2917,8 @@ H3cDot11RadioIntfConfigEntry ::= SEQUENCE
         h3cDot11RadioCfgMaxTxPwrLvl      H3cDot11TxPwrLevelScopeType,
         h3cDot11RadioCfgPreambleLen      H3cDot11PreambleType,
         h3cDot11RadioCfgWorkMode         H3cDot11WorkMode,
-        h3cDot11RadioCfgOnly11gEnable    TruthValue
+        h3cDot11RadioCfgOnly11gEnable    TruthValue,
+        h3cDot11RadioCfgType2            H3cDot11RadioType2
     }
 
 h3cDot11RadioIfIdx OBJECT-TYPE
@@ -2744,6 +3067,14 @@ h3cDot11RadioCfgOnly11gEnable OBJECT-TYPE
         'false': Only 802.11g radio mode is disabled."
     DEFVAL { false }
     ::= { h3cDot11RadioIntfConfigEntry 14 }
+
+h3cDot11RadioCfgType2 OBJECT-TYPE
+    SYNTAX      H3cDot11RadioType2
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Represents the radio will work with which 802.11 radio type."
+    ::= { h3cDot11RadioIntfConfigEntry 15 }
 
 -- *****************************************************************************
 -- *  End of h3cDot11RadioIntfConfigTable Definition
@@ -3103,7 +3434,7 @@ h3cDot11PortSecurityMode OBJECT-TYPE
             psk(3),
             macAddressAndPsk(4),
             userLoginSecureExtOrPsk(5),
-            wapi(6)
+            ext(6)
         }
     MAX-ACCESS  read-write
     STATUS      current
@@ -3125,8 +3456,8 @@ h3cDot11PortSecurityMode OBJECT-TYPE
         psk modes together such that either is allowed to authorized access.
         Which mode works for client depends on the client's choice.
 
-        wapi(6) Access to the port is denied until the port client is
-        authenticated (by WAPI).
+        ext(6) Access to the port is denied until the port client is
+        authenticated (by ext).
         "
     ::= { h3cDot11PortSecurityEntry 1 }
 
@@ -3446,6 +3777,110 @@ h3cDot11WDSSecPskKeyString OBJECT-TYPE
 
 -- *****************************************************************************
 -- *  End of h3cDot11RadioWDSTable  Definition
+-- *****************************************************************************
+
+-- *****************************************************************************
+-- *  h3cDot11nRadioCfg2Table Definition
+-- *****************************************************************************
+
+h3cDot11nRadioCfg2Table OBJECT-TYPE
+    SYNTAX SEQUENCE OF H3cDot11nRadioCfg2Entry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table is used to configure dot11n on the radio."
+    ::= { h3cDot11RadioElementConfigGroup 3 }
+
+h3cDot11nRadioCfg2Entry OBJECT-TYPE
+    SYNTAX H3cDot11nRadioCfg2Entry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This entry contains the dot11n configuration on the radio."
+    INDEX {
+              h3cDot11nRadioCfg2APIDIndex,
+              h3cDot11nRadioCfg2RadioIDIndex
+          }
+    ::= { h3cDot11nRadioCfg2Table 1 }
+
+H3cDot11nRadioCfg2Entry ::= SEQUENCE
+    {
+        h3cDot11nRadioCfg2APIDIndex           H3cDot11ObjectIDType,
+        h3cDot11nRadioCfg2RadioIDIndex        H3cDot11RadioScopeType,
+        h3cDot11nRadioCfg2AMpduEnable         TruthValue,
+        h3cDot11nRadioCfg2AMsduEnable         TruthValue,
+        h3cDot11nRadioCfg2ClientDot11nOnly    TruthValue,
+        h3cDot11nRadioCfg2ChannelBand          INTEGER,
+        h3cDot11nRadioCfg2ShortGiEnable       TruthValue
+    }
+
+h3cDot11nRadioCfg2APIDIndex OBJECT-TYPE
+    SYNTAX H3cDot11ObjectIDType
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Represents index of the AP."
+    ::= { h3cDot11nRadioCfg2Entry 1 }
+
+h3cDot11nRadioCfg2RadioIDIndex OBJECT-TYPE
+    SYNTAX H3cDot11RadioScopeType
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Represents index of the radio."
+    ::= { h3cDot11nRadioCfg2Entry 2 }
+
+h3cDot11nRadioCfg2AMpduEnable OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "Enable the function of A-MPDU."
+        DEFVAL { true }
+    ::= { h3cDot11nRadioCfg2Entry 3 }
+
+h3cDot11nRadioCfg2AMsduEnable OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "Enable the function of A-MSDU."
+    DEFVAL { true }
+    ::= { h3cDot11nRadioCfg2Entry 4 }
+
+h3cDot11nRadioCfg2ClientDot11nOnly OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "Only permit clients of 11n mode."
+    DEFVAL { false }
+    ::= { h3cDot11nRadioCfg2Entry 5 }
+
+h3cDot11nRadioCfg2ChannelBand OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        mode20(1),
+        mode40(2)
+        }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "Specify the bandwidth mode."
+    ::= { h3cDot11nRadioCfg2Entry 6 }
+
+h3cDot11nRadioCfg2ShortGiEnable OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "Enable the function of Short GI."
+    DEFVAL { true }
+    ::= { h3cDot11nRadioCfg2Entry 7 }
+
+
+-- *****************************************************************************
+-- *  End of h3cDot11nRadioCfg2Table Definition
 -- *****************************************************************************
 
 -- *****************************************************************************

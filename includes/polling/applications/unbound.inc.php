@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -117,13 +117,13 @@ unwanted.replies=0
 
 if (!empty($agent_data['app']['unbound']))
 {
+  $app_id = discover_app($device, 'unbound');
+
   foreach (explode("\n",$agent_data['app']['unbound']) as $line)
   {
     list($key,$value) = explode("=",$line,2);
     $unbound[$key] = $value;
   }
-
-  # FIXME should we really use app_id here? means if app is disabled, then reenabled, we will lose the data as a new id will be created...
 
   while (1)
   {
@@ -139,7 +139,7 @@ if (!empty($agent_data['app']['unbound']))
 
     if (isset($unbound["$thread.num.queries"]))
     {
-      $rrd_filename = "app-unbound-".$app['app_id']."-$thread.rrd";
+      $rrd_filename = "app-unbound-$app_id-$thread.rrd";
 
       rrdtool_create($device, $rrd_filename, " \
           DS:numQueries:DERIVE:600:0:125000000000 \
@@ -176,7 +176,7 @@ if (!empty($agent_data['app']['unbound']))
 
   unset($threadnum);
 
-  $rrd_filename = "app-unbound-".$app['app_id']."-memory.rrd";
+  $rrd_filename = "app-unbound-$app_id-memory.rrd";
 
   rrdtool_create($device, $rrd_filename, " \
       DS:memTotal:GAUGE:600:0:125000000000 \
@@ -193,7 +193,7 @@ if (!empty($agent_data['app']['unbound']))
   rrdtool_update($device, $rrd_filename, "N:" . implode(':', $rrd_values));
   unset($rrd_values);
 
-  $rrd_filename = "app-unbound-".$app['app_id']."-queries.rrd";
+  $rrd_filename = "app-unbound-$app_id-queries.rrd";
 
   $dns_qtype = array('A', 'A6', 'AAAA', 'AFSDB', 'ANY', 'APL', 'ATMA', 'AXFR', 'CERT', 'CNAME', 'DHCID', 'DLV', 'DNAME', 'DNSKEY', 'DS', 'EID', 'GID',
     'GPOS', 'HINFO', 'IPSECKEY', 'ISDN', 'IXFR', 'KEY', 'KX', 'LOC', 'MAILA', 'MAILB', 'MB', 'MD', 'MF', 'MG', 'MINFO', 'MR', 'MX', 'NAPTR', 'NIMLOC',
@@ -208,7 +208,7 @@ if (!empty($agent_data['app']['unbound']))
 
   $dns_flags = array('QR', 'AA', 'TC', 'RD', 'RA', 'Z', 'AD', 'CD');
 
-  $rrd_filename = "app-unbound-".$app['app_id']."-queries.rrd";
+  $rrd_filename = "app-unbound-$app_id-queries.rrd";
   foreach ($dns_qtype as $qtype)
   {
     $rrd_queries .= "DS:qType$qtype:DERIVE:600:0:125000000000 ";

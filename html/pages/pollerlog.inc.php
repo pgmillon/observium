@@ -6,17 +6,18 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 $page_title[] = "Poller/Discovery Timing";
 
 $rrd_file = $config['rrd_dir'].'/poller-wrapper.rrd';
-if (is_file($rrd_file) && $_SESSION['userlevel'] > 5)
+if (is_file($rrd_file) && $_SESSION['userlevel'] >= 7)
 {
-  echo "<h3>Poller Wrapper Graphs</h3>";
+  echo generate_box_open(array('header-border' => TRUE, 'title' => 'Poller Wrapper Graphs'));
+
   $graph_array = array('type'   => 'poller_wrapper_threads',
                        //'operation' => 'poll',
                        'width'  => 1095,
@@ -37,16 +38,17 @@ if (is_file($rrd_file) && $_SESSION['userlevel'] > 5)
   echo('<blockquote>
   <footer><i>NOTE. Total time for poller wrapper not same as mentioned below.<br />Total poller wrapper time is real polling time for all devices considering threads. But below shows the amount of all polling times for all devices.</i></footer>
 </blockquote>');
+
+  echo generate_box_close();
 }
 
+echo generate_box_open(array('header-border' => TRUE, 'title' => 'Poller/Discovery Timing'));
+echo('<table class="'.OBS_CLASS_TABLE_STRIPED_MORE.'">' . PHP_EOL);
 ?>
 
-<h3>Poller/Discovery Timing</h3>
-
-<table class="table table-striped table-condensed-more table-bordered">
   <thead>
     <tr>
-      <th></th>
+      <th class="state-marker"></th>
       <th>Device</th>
       <th colspan="3">Last Polled</th>
       <th></th>
@@ -81,7 +83,6 @@ foreach ($cache['devices']['hostname'] as $hostname => $id)
 
   $poller_table[] = array(
     'html_row_class'            => $device['html_row_class'],
-    'html_tab_colour'           => $device['html_tab_colour'],
     'device_hostname'           => $device['hostname'],
     'device_link'               => generate_device_link($device),
     'last_polled_timetaken'     => $device['last_polled_timetaken'],
@@ -111,7 +112,7 @@ foreach ($poller_table as $row)
 
   // Poller times
   echo('    <tr class="'.$row['html_row_class'].'">
-      <td style="width: 1px; max-width: 1px; background-color: '.$row['html_tab_colour'].'; margin: 0px; padding: 0px"></td>
+      <td class="state-marker"></td>
       <td class="entity">'.$row['device_link'].'</td>
       <td style="width: 12%;">
         <div class="progress progress-'.$proc['color']['poller'].' active" style="margin: 2px 0 1px;"><div class="bar" style="text-align: right; width: '.$proc['time']['poller'].'%;"></div></div>
@@ -158,6 +159,9 @@ unset($poller_table, $proc, $row);
 ?>
   </tbody>
 </table>
+
 <?php
+
+echo generate_box_close();
 
 // EOF

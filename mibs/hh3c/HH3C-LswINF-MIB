@@ -1,9 +1,9 @@
 -- ==================================================================
--- Copyright (C) 2002 by  H3C TECHNOLOGIES. All rights reserved.
+-- Copyright (c) 2004-2014 Hangzhou H3C Tech. Co., Ltd.  All rights reserved.
 --
--- Description: H3C Lan Switch Interface Management MIB
+-- Description: Interface Management MIB
 -- Reference:
--- Version: V3.1
+-- Version: V3.6
 -- History:
 --      V1.0 (1) Created by Zhangshilin, 2001.06.29
 --           (2) Revised by Qizhenglin, 2002.01.08
@@ -91,6 +91,20 @@
 --      V3.2 2009-04-11
 --           Add hh3cifOutPayloadOctets, hh3cifInPayloadOctets, hh3cifInErrorPktsRate,
 --           hh3cifInPkts, hh3cifInNormalPkts, hh3cifOutPkts by lisong.
+--      V3.3 2011-11-08
+--           Add the value s40000M and s100000M to SpeedModeFlag and
+--           hh3cifEthernetSpeed by xiedong.
+--      V3.4 2012-09-29
+--           Modify description of hh3cifClearStat by xiedong.
+--           2012-11-03
+--           Add hh3cifPktBufTable, hh3cifPktBufEntry, hh3cifPktBufFree,
+--           hh3cifPktBufInit, hh3cifPktBufMin, hh3cifPktBufMiss by chenkaiping
+--      V3.5 2013-08-17
+--           Add hh3cifPortProtocolStatTable by yangxiaoren.
+--      V3.6 2014-02-08
+--           Modify description of hh3cifUniSuppression, hh3cifMulSuppression and
+--           hh3cifMcastControl, modify value list of hh3cifMcastControl by huhonghui,
+--           for supporting value 0.
 -- ==================================================================
 -- ==================================================================
 --
@@ -98,18 +112,14 @@
 --
 -- ==================================================================
 HH3C-LswINF-MIB DEFINITIONS ::= BEGIN
-IMPORTS
 
+IMPORTS
     RowStatus, DisplayString, TruthValue, TEXTUAL-CONVENTION
         FROM SNMPv2-TC
-
-    MODULE-IDENTITY, OBJECT-TYPE, Integer32, IpAddress, TimeTicks,
-    OBJECT-IDENTITY, Unsigned32
+    MODULE-IDENTITY, OBJECT-TYPE, Integer32, Counter64, Unsigned32
         FROM SNMPv2-SMI
-
-    ifEntry, ifIndex
-        FROM RFC1213-MIB
-
+    ifIndex, InterfaceIndex
+        FROM IF-MIB
     hh3clswCommon
         FROM HH3C-OID-MIB;
 
@@ -166,18 +176,6 @@ IMPORTS
             in the same way using this MIB."
         SYNTAX      Unsigned32 (0..4294967295)
 
-    InterfaceIndex ::= TEXTUAL-CONVENTION
-       DISPLAY-HINT "d"
-       STATUS       current
-       DESCRIPTION
-               "A unique value, greater than zero, for each interface or
-               interface sub-layer in the managed system.  It is
-               recommended that values are assigned contiguously starting
-               from 1.  The value for each interface sub-layer must remain
-               constant at least from one re-initialization of the entity's
-               network management system to the next re-initialization."
-       SYNTAX       Integer32
-
     DropDirection ::= TEXTUAL-CONVENTION
        STATUS  current
        DESCRIPTION
@@ -199,7 +197,9 @@ IMPORTS
                 s100M(1),      -- 100M speed
                 s1000M(2),     -- 1000M speed
                 s10000M(3),    -- 10000M speed
-                s24000M(4)     -- 24000M speed
+                s24000M(4),    -- 24000M speed
+                s40000M(5),    -- 40000M speed
+                s100000M(6)    -- 100000M speed
             }
 
 
@@ -214,7 +214,7 @@ IMPORTS
         SYNTAX SEQUENCE OF Hh3cIfXXEntry
         MAX-ACCESS not-accessible
         STATUS   current
-        DESCRIPTION "Extended H3C private interface information table."
+        DESCRIPTION "Extended interface information table."
         ::= { hh3cLswExtInterface  1 }
 
 
@@ -222,8 +222,8 @@ IMPORTS
         SYNTAX Hh3cIfXXEntry
         MAX-ACCESS not-accessible
         STATUS   current
-        DESCRIPTION "Entries of extended H3C private interface information table."
-        AUGMENTS    { ifEntry }
+        DESCRIPTION "Entries of extended interface information table."
+        INDEX { ifIndex }
         ::= { hh3cifXXTable 1}
 
     Hh3cIfXXEntry ::=
@@ -327,13 +327,13 @@ IMPORTS
 
 
     hh3cifMcastControl OBJECT-TYPE
-        SYNTAX  INTEGER (1..100)
+        SYNTAX  INTEGER (0..100)
         MAX-ACCESS read-write
         STATUS current
         DESCRIPTION
             "Broadcast storm suppression with the step length of 1,
-            ranging from 1 to 100 percent.
-            In some products the step is 5, ranging from 5 to 100."
+            ranging from 0 to 100 percent.
+            In some products the step is 5, ranging from 0 to 100."
         ::= { hh3cifXXEntry 6 }
 
     hh3cifFlowControl  OBJECT-TYPE
@@ -359,7 +359,7 @@ IMPORTS
         }
         MAX-ACCESS read-write
         STATUS current
-        DESCRIPTION "Clear all port statistics. Read operation not supported."
+        DESCRIPTION "Clear specify port statistics.  Operation read is not supported."
         ::= { hh3cifXXEntry 9 }
 
     hh3cifXXBasePortIndex OBJECT-TYPE
@@ -435,7 +435,7 @@ IMPORTS
         MAX-ACCESS read-write
         STATUS current
         DESCRIPTION
-            "The unicast suppression with the ranging from 1 to 100 percent
+            "The unicast suppression with the ranging from 0 to 100 percent
             in ratio mode.
             The step is determined by hh3cifUniSuppressionStep."
         ::= { hh3cifXXEntry 18 }
@@ -454,7 +454,7 @@ IMPORTS
         MAX-ACCESS read-write
         STATUS current
         DESCRIPTION
-            "The multicast suppression with ranging from 1 to 100 percent
+            "The multicast suppression with ranging from 0 to 100 percent
             in ratio mode.
             The step is determined by hh3cifMulSuppressionStep."
         ::= { hh3cifXXEntry 20 }
@@ -889,6 +889,63 @@ IMPORTS
             supported."
         ::= { hh3cifComboPortEntry 2 }
 
+-- ======================pkt buf table===============================
+    hh3cifPktBufTable  OBJECT-TYPE
+        SYNTAX SEQUENCE OF Hh3cifPktBufEntry
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION "Packet buffer table."
+        ::= { hh3cLswExtInterface  5 }
+
+    hh3cifPktBufEntry  OBJECT-TYPE
+        SYNTAX Hh3cifPktBufEntry
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION "The entry of hh3cifPktBufTable."
+        INDEX { ifIndex }
+        ::= { hh3cifPktBufTable 1}
+
+    Hh3cifPktBufEntry  ::=
+        SEQUENCE {
+            hh3cifPktBufFree      Integer32,
+            hh3cifPktBufInit      Integer32,
+            hh3cifPktBufMin       Integer32,
+            hh3cifPktBufMiss      Counter64
+            }
+
+    hh3cifPktBufFree OBJECT-TYPE
+        SYNTAX  Integer32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The number of packet buffers available for the interface."
+        ::= { hh3cifPktBufEntry 1 }
+
+    hh3cifPktBufInit OBJECT-TYPE
+        SYNTAX  Integer32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The number of packet buffers allocated when the interface was created."
+        ::= { hh3cifPktBufEntry 2 }
+
+    hh3cifPktBufMin OBJECT-TYPE
+        SYNTAX  Integer32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The smallest number of packet buffers available for the interface."
+        ::= { hh3cifPktBufEntry 3 }
+
+    hh3cifPktBufMiss OBJECT-TYPE
+        SYNTAX  Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The number of times that the interface failed to obtain a packet
+             buffer.  Failure to obtain a buffer indicates that buffers were busy."
+        ::= { hh3cifPktBufEntry 4 }
+
 -- ========================l2========================================
     hh3cLswL2InfMibObject OBJECT IDENTIFIER ::= {  hh3cLswL2InfMib 1  }
 
@@ -909,13 +966,13 @@ IMPORTS
     hh3cifVLANTrunkStatusTable  OBJECT-TYPE
         SYNTAX SEQUENCE OF Hh3cIfVLANTrunkStatusEntry
         MAX-ACCESS not-accessible STATUS   current
-        DESCRIPTION "Gmosaic attributes on the VlanTrunk port."
+        DESCRIPTION "Gvrp attributes on the VlanTrunk port."
         ::= { hh3cLswL2InfMibObject  3 }
 
     hh3cifVLANTrunkStatusEntry  OBJECT-TYPE
         SYNTAX Hh3cIfVLANTrunkStatusEntry
         MAX-ACCESS not-accessible STATUS   current
-        DESCRIPTION "Gmosaic attributes on the VlanTrunk port."
+        DESCRIPTION "Gvrp attributes on the VlanTrunk port."
         INDEX   { hh3cifVLANTrunkIndex }
         ::= { hh3cifVLANTrunkStatusTable 1}
 
@@ -949,7 +1006,7 @@ IMPORTS
         MAX-ACCESS read-write
         STATUS current
         DESCRIPTION
-            "GMOSAIC registration information
+            "GVRP registration information
             normal:     This is the default configuration. Allow create, register
                         and unregister vlans dynamiclly at this port.
             fixed:      Aallow create and register vlan manually at this port.
@@ -1042,7 +1099,7 @@ IMPORTS
         MAX-ACCESS not-accessible
         STATUS current
         DESCRIPTION "Entries of Ethernet port attribute table"
-        AUGMENTS    { ifEntry }
+        INDEX { ifIndex }
         ::= { hh3cethernetTable 1}
 
     Hh3cEthernetEntry ::=
@@ -1095,7 +1152,9 @@ IMPORTS
         s100M   (100),
         s1000M  (1000),
         s10000M (10000),
-        s24000M (24000)
+        s24000M (24000),
+        s40000M (40000),
+        s100000M (100000)
         }
         MAX-ACCESS read-write
         STATUS current
@@ -1423,4 +1482,250 @@ IMPORTS
         DESCRIPTION "The maximum number of MAC address that the port supports."
         ::= { hh3cLswL2InfMibObject  12 }
 
+
+    hh3cifPortProtocolStatTable  OBJECT-TYPE
+        SYNTAX SEQUENCE OF Hh3cifPortProtocolStatEntry
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION
+            "This table contains objects of port statistics information based on
+            IPv4 and IPv6 protocols."
+        ::= { hh3cLswL2InfMibObject  13 }
+
+    hh3cifPortProtocolStatEntry  OBJECT-TYPE
+        SYNTAX Hh3cifPortProtocolStatEntry
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION "The entry of hh3cifPortProtocolStatTable."
+        INDEX    { ifIndex }
+        ::= { hh3cifPortProtocolStatTable 1 }
+
+    Hh3cifPortProtocolStatEntry ::=
+        SEQUENCE {
+            hh3cifIPv4InOctets                        Counter64,
+            hh3cifIPv4InUcastPkts                     Counter64,
+            hh3cifIPv4InMultiPkts                     Counter64,
+            hh3cifIPv4InBroadcastPkts                 Counter64,
+            hh3cifIPv4InDiscards                      Counter64,
+            hh3cifIPv4InErrors                        Counter64,
+            hh3cifIPv4OutOctets                       Counter64,
+            hh3cifIPv4OutUcastPkts                    Counter64,
+            hh3cifIPv4OutMultiPkts                    Counter64,
+            hh3cifIPv4OutBroadcastPkts                Counter64,
+            hh3cifIPv4OutDiscards                     Counter64,
+            hh3cifIPv4OutErrors                       Counter64,
+            hh3cifIPv6InOctets                        Counter64,
+            hh3cifIPv6InUcastPkts                     Counter64,
+            hh3cifIPv6InMultiPkts                     Counter64,
+            hh3cifIPv6InAnycastPkts                   Counter64,
+            hh3cifIPv6InDiscards                      Counter64,
+            hh3cifIPv6InErrors                        Counter64,
+            hh3cifIPv6OutOctets                       Counter64,
+            hh3cifIPv6OutUcastPkts                    Counter64,
+            hh3cifIPv6OutMultiPkts                    Counter64,
+            hh3cifIPv6OutAnycastPkts                  Counter64,
+            hh3cifIPv6OutDiscards                     Counter64,
+            hh3cifIPv6OutErrors                       Counter64
+        }
+    hh3cifIPv4InOctets OBJECT-TYPE
+        SYNTAX  Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "Number of octets based on IPv4 received on the interface."
+        ::= { hh3cifPortProtocolStatEntry 1 }
+
+    hh3cifIPv4InUcastPkts OBJECT-TYPE
+        SYNTAX  Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "Number of unicast packets based on IPv4 received on the interface."
+        ::= { hh3cifPortProtocolStatEntry 2 }
+
+    hh3cifIPv4InMultiPkts OBJECT-TYPE
+        SYNTAX  Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "Number of multicast packets based on IPv4 received on the interface."
+        ::= { hh3cifPortProtocolStatEntry 3 }
+
+    hh3cifIPv4InBroadcastPkts OBJECT-TYPE
+        SYNTAX  Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "Number of broadcast packets based on IPv4 received on the interface."
+        ::= { hh3cifPortProtocolStatEntry 4 }
+
+    hh3cifIPv4InDiscards OBJECT-TYPE
+        SYNTAX  Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "Number of discard packets based on IPv4 received on the interface."
+        ::= { hh3cifPortProtocolStatEntry 5 }
+
+    hh3cifIPv4InErrors OBJECT-TYPE
+        SYNTAX  Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "Number of error packets based on IPv4 received on the interface."
+        ::= { hh3cifPortProtocolStatEntry 6 }
+
+    hh3cifIPv4OutOctets OBJECT-TYPE
+        SYNTAX  Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "Number of octets based on IPv4 transmitted out of the interface."
+        ::= { hh3cifPortProtocolStatEntry  7 }
+
+    hh3cifIPv4OutUcastPkts OBJECT-TYPE
+        SYNTAX  Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "Number of unicast packets based on IPv4 transmitted out of the
+            interface."
+        ::= { hh3cifPortProtocolStatEntry  8 }
+
+    hh3cifIPv4OutMultiPkts OBJECT-TYPE
+        SYNTAX  Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "Number of multicast packets based on IPv4 transmitted out of the
+            interface."
+        ::= { hh3cifPortProtocolStatEntry 9 }
+
+    hh3cifIPv4OutBroadcastPkts OBJECT-TYPE
+        SYNTAX  Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "Number of broadcast packets based on IPv4 transmitted out of the
+            interface."
+        ::= { hh3cifPortProtocolStatEntry 10 }
+
+    hh3cifIPv4OutDiscards OBJECT-TYPE
+        SYNTAX  Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "Number of discard packets based on IPv4 transmitted out of the
+            interface."
+        ::= { hh3cifPortProtocolStatEntry 11 }
+
+    hh3cifIPv4OutErrors OBJECT-TYPE
+        SYNTAX  Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "Number of error packets based on IPv4 transmitted out of the
+            interface."
+        ::= { hh3cifPortProtocolStatEntry 12 }
+
+    hh3cifIPv6InOctets OBJECT-TYPE
+        SYNTAX  Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "Number of octets based on IPv6 received on the interface."
+        ::= { hh3cifPortProtocolStatEntry 13 }
+
+    hh3cifIPv6InUcastPkts OBJECT-TYPE
+        SYNTAX  Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "Number of unicast packets based on IPv6 received on the interface."
+        ::= { hh3cifPortProtocolStatEntry 14 }
+
+    hh3cifIPv6InMultiPkts OBJECT-TYPE
+        SYNTAX  Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "Number of multicast packets based on IPv6 received on the interface."
+        ::= { hh3cifPortProtocolStatEntry 15 }
+
+    hh3cifIPv6InAnycastPkts OBJECT-TYPE
+        SYNTAX  Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "Number of anycast packets based on IPv6 received on the interface."
+        ::= { hh3cifPortProtocolStatEntry 16 }
+
+    hh3cifIPv6InDiscards OBJECT-TYPE
+        SYNTAX  Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "Number of discard packets based on IPv6 received on the interface."
+        ::= { hh3cifPortProtocolStatEntry 17 }
+
+    hh3cifIPv6InErrors OBJECT-TYPE
+        SYNTAX  Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "Number of error packets based on IPv6 received on the interface."
+        ::= { hh3cifPortProtocolStatEntry 18 }
+
+    hh3cifIPv6OutOctets OBJECT-TYPE
+        SYNTAX  Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "Number of octets based on IPv6 transmitted of the interface."
+        ::= { hh3cifPortProtocolStatEntry  19 }
+
+    hh3cifIPv6OutUcastPkts OBJECT-TYPE
+        SYNTAX  Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "Number of unicast packets based on IPv6 transmitted out of the
+            interface."
+        ::= { hh3cifPortProtocolStatEntry  20 }
+
+    hh3cifIPv6OutMultiPkts OBJECT-TYPE
+        SYNTAX  Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "Number of multicast packets based on IPv6 transmitted out of the
+            interface."
+        ::= { hh3cifPortProtocolStatEntry 21 }
+
+    hh3cifIPv6OutAnycastPkts OBJECT-TYPE
+        SYNTAX  Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "Number of anycast packets based on IPv6 transmitted out of the
+            interface."
+        ::= { hh3cifPortProtocolStatEntry 22 }
+
+    hh3cifIPv6OutDiscards OBJECT-TYPE
+        SYNTAX  Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "Number of discard packets based on IPv6 transmitted out of the
+            interface."
+        ::= { hh3cifPortProtocolStatEntry 23 }
+
+    hh3cifIPv6OutErrors OBJECT-TYPE
+        SYNTAX  Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "Number of error packets based on IPv6 transmitted out of the
+            interface."
+        ::= { hh3cifPortProtocolStatEntry 24 }
 END

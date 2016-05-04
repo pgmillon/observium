@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -66,7 +66,7 @@ foreach ($oids as $index => $entry)
     $descr = $ifDescr . " Rx Line Attenuation";
     $oid   = ".1.3.6.1.4.1.2544.1.11.2.6.2.156.1.11.".$index;
     $value = $entry['currentPmSnapshotRxLineAttenuation'];
-    
+
     discover_sensor($valid['sensor'], 'snr', $device, $oid, $index, 'adva-rx-attenuation', $descr, $scale, $value, $options);
   }
 

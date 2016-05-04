@@ -1,0 +1,523 @@
+TSL-MIB DEFINITIONS ::= BEGIN 
+ 
+IMPORTS 
+enterprises, Opaque
+FROM RFC1155-SMI
+OBJECT-TYPE 
+FROM RFC-1212
+TRAP-TYPE
+FROM RFC-1215;
+
+-- MODULE-IDENTITY
+-- FROM SNMPv2-SMI;
+
+-- TSL_MIB; SNMP v1 agent definitions.
+
+-- the following only allowed in SMIv2 (also 0 enumeration of integers)
+
+-- As of 08/08/03, includes enterprise specific trap definitions (RFC1215)
+
+-- As of 08/08/08, added current sense data
+
+-- As of 08/08/09, added voltage measure and trap
+
+-- As of 04/04/10, added currentAlarm to alarmType, new contact details
+
+-- tslMIB MODULE-IDENTITY
+--     LAST-UPDATED "1004040000Z"
+--     ORGANIZATION "Television Systems Ltd"
+--     CONTACT-INFO "
+--     Tony Orme
+--     Television Systems Ltd
+--     Vanwall Road
+--     Maidenhead
+--     Berkshire
+--     SL6 4UB
+-- 
+--     Tel + 44 1628 676200
+--     Email: tony.orme@tsl.co.uk"
+--     DESCRIPTION "MIB module for all TSL products"
+--     ::= { enterprises 6853 }
+
+DisplayString ::= OCTET STRING
+
+
+--  SMIv1 definition of module
+
+tslMIB OBJECT IDENTIFIER ::= { enterprises 6853 } 
+
+
+------------------ Winsoft specific MIB 
+
+-- DELETED for mdu12 hardware
+
+---------------------------------------------------
+
+-------------- generic alarm MIB (all TSL equipment capable of SNMP alarms)
+
+alarm OBJECT IDENTIFIER ::= { tslMIB 2 } 
+
+alarmIdent OBJECT-TYPE 
+    SYNTAX DisplayString
+    ACCESS read-only 
+    STATUS mandatory 
+    DESCRIPTION 
+    "Equipment alarms description and version"
+    ::= { alarm 1 } 
+ 
+------- alarm table 
+
+alarmTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF AlarmEntry
+    ACCESS not-accessible
+    STATUS mandatory
+    DESCRIPTION
+    "The table of alarm entries"
+    ::= { alarm 2 }
+
+alarmEntry OBJECT-TYPE
+    SYNTAX AlarmEntry
+    ACCESS not-accessible
+    STATUS mandatory
+    DESCRIPTION
+    " An alarm entry in the table"
+	INDEX { alarmTableIndex }
+    ::= { alarmTable 1}
+
+AlarmEntry ::= SEQUENCE
+	{
+		alarmTableIndex INTEGER,
+		alarmType INTEGER,
+		alarmIndex INTEGER,
+		alarmText DisplayString,
+		alarmState INTEGER,
+		alarmPolarity INTEGER,
+		alarmData Opaque
+	}
+
+alarmTableIndex OBJECT-TYPE
+    SYNTAX INTEGER (1..28)
+    ACCESS read-only
+    STATUS mandatory 
+    DESCRIPTION 
+    "The index into the table"
+    ::= { alarmEntry 1 }
+
+alarmType OBJECT-TYPE
+    SYNTAX INTEGER 
+    {
+		internal(1),	-- general internal to equipment alarm
+		gpi(2),			-- from external GPI, alarmPolarity determines alarmState
+		outputFail(3),	-- eg MDU12 output fuse, etc
+		psuFail(4),		-- alarmData is text describing failure (eg rail values etc)
+		currentAlarm(5) -- eg MDU12 output current
+    }
+    ACCESS read-only
+    STATUS mandatory 
+    DESCRIPTION 
+    "Alarm type"
+    ::= { alarmEntry 2 }
+
+alarmIndex OBJECT-TYPE
+    SYNTAX INTEGER 
+    ACCESS read-only
+    STATUS mandatory 
+    DESCRIPTION 
+    "Alarm type number"
+    ::= { alarmEntry 3 }
+
+alarmText OBJECT-TYPE 
+    SYNTAX DisplayString 
+    ACCESS read-write
+    STATUS mandatory 
+    DESCRIPTION 
+    "Alarm description"
+    ::= { alarmEntry 4 } 
+     
+alarmState OBJECT-TYPE
+    SYNTAX INTEGER 
+    {
+		inactive(1),
+        active(2)
+    }
+    ACCESS read-only
+    STATUS mandatory 
+    DESCRIPTION 
+    "Alarm state"
+    ::= { alarmEntry 5 }
+
+alarmPolarity OBJECT-TYPE
+    SYNTAX INTEGER 
+    {
+		notApplicable(1),		
+        normallyOpen(2),
+        normallyClosed(3)
+    }
+    ACCESS read-write
+    STATUS mandatory 
+    DESCRIPTION 
+    "Alarm active polarity (notApplicable for non-gpi alarms)"
+    ::= { alarmEntry 6 }
+
+
+alarmData OBJECT-TYPE
+    SYNTAX Opaque
+    ACCESS read-only
+    STATUS optional 
+    DESCRIPTION 
+    "Additional alarm data of variable length, according to alarm type."
+    ::= { alarmEntry 7 }
+
+
+------- end of table
+
+alarmTotal OBJECT-TYPE 
+    SYNTAX INTEGER 
+    ACCESS read-only
+    STATUS mandatory 
+    DESCRIPTION 
+    "The total number of alarms in the table"
+    ::= { alarm 3 } 
+
+alarmLocation OBJECT-TYPE 
+    SYNTAX DisplayString 
+    ACCESS read-write
+    STATUS mandatory 
+    DESCRIPTION 
+    "The physical location of the equipment generating the alarm"
+    ::= { alarm 4 } 
+
+
+alarmEqptTemp OBJECT-TYPE
+    SYNTAX INTEGER 
+    ACCESS read-only
+    STATUS optional 
+    DESCRIPTION 
+    "Equipment temperature (in degrees Centigrade)"
+    ::= { alarm 5 }
+
+alarmEqptTempHi OBJECT-TYPE
+    SYNTAX INTEGER 
+    ACCESS read-write
+    STATUS optional 
+    DESCRIPTION 
+    "Equipment temperature alarm point (degrees Centigrade)"
+    ::= { alarm 6 }
+
+alarmTrap TRAP-TYPE
+	ENTERPRISE	tslMIB
+	VARIABLES
+	{
+		alarmTableIndex,
+		alarmType,
+		alarmIndex,
+		alarmText,
+		alarmState,
+		alarmPolarity,
+		alarmData
+	}
+	DESCRIPTION
+	"An entry in the alarm table has changed state"
+	::= 4
+		
+alarmEqptTempHiTrap TRAP-TYPE
+	ENTERPRISE	tslMIB
+	VARIABLES
+	{
+		alarmEqptTemp
+	}
+	DESCRIPTION
+	"The equipment temperature has exceeded the maximum allowed"
+	::= 5
+		
+alarmEqptTempOkTrap TRAP-TYPE
+	ENTERPRISE	tslMIB
+	VARIABLES	
+	{
+		alarmEqptTemp
+	}
+	DESCRIPTION
+	"The equipment temperature is now within limits"
+	::= 6
+
+
+---------------------------------------------------
+
+-------------- MDU12 specific MIB
+
+mdu12 OBJECT IDENTIFIER ::= { tslMIB 3 }
+
+mdu12Ident OBJECT-TYPE 
+    SYNTAX DisplayString 
+    ACCESS read-only 
+    STATUS mandatory 
+    DESCRIPTION 
+    "Equipment description and version"
+    ::= { mdu12 1 } 
+
+
+mduPowerOn OBJECT-TYPE 
+    SYNTAX INTEGER 
+	{
+		simultaneous(1),
+		sequential(2),
+		delayed(3)
+	}		
+    ACCESS read-write
+    STATUS mandatory 
+    DESCRIPTION 
+    "MDU power-on output sequence"
+    ::= { mdu12 2 } 
+
+mduSeqDelay OBJECT-TYPE 
+    SYNTAX INTEGER 
+    ACCESS read-write
+    STATUS mandatory 
+    DESCRIPTION 
+    "Sequential mode delay between outputs"
+    ::= { mdu12 3 } 
+
+
+mduOutputTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF MduOutputEntry
+    ACCESS not-accessible
+    STATUS mandatory
+    DESCRIPTION
+    "Table of output controls"
+    ::= { mdu12 4 }
+
+mduOutputEntry OBJECT-TYPE
+    SYNTAX MduOutputEntry
+    ACCESS not-accessible
+    STATUS mandatory
+    DESCRIPTION
+    " An entry in the output table"
+    INDEX {mduOutputIndex}
+    ::= { mduOutputTable 1}
+
+MduOutputEntry ::= SEQUENCE
+	{
+        mduOutputIndex INTEGER,
+        mduOutputState  INTEGER,
+        mduOutputDelay  INTEGER,
+		mduOutputlowerCurrent  INTEGER,
+		mduOutputupperCurrent  INTEGER,
+		mduOutputCurrent  INTEGER,
+		mduOutputpowerFactor  INTEGER,
+		mduOutputVA  INTEGER,
+        mduOutputWatts  INTEGER,  
+        mduOutputCal  INTEGER  
+	}
+
+mduOutputIndex OBJECT-TYPE 
+    SYNTAX INTEGER(1..12)
+    ACCESS read-only
+    STATUS mandatory 
+    DESCRIPTION 
+    "Output number"
+    ::= { mduOutputEntry 1 } 
+
+mduOutputState OBJECT-TYPE 
+    SYNTAX INTEGER 
+	{
+		off(1),
+		on(2),
+		locked-Off(3),	-- locked by admin web page, cannot change via SNMP
+		locked-On(4)	-- locked by admin web page, cannot change via SNMP
+	}		
+    ACCESS read-write
+    STATUS mandatory 
+    DESCRIPTION 
+    "MDU Output status"
+    ::= { mduOutputEntry 2 } 
+
+mduOutputDelay OBJECT-TYPE 
+    SYNTAX INTEGER
+    ACCESS read-write
+    STATUS mandatory 
+    DESCRIPTION 
+    "Output on delay from power on (Delay mode only)"
+    ::= { mduOutputEntry 3 } 
+
+
+mduOutputlowerCurrent OBJECT-TYPE 
+    SYNTAX INTEGER
+    ACCESS read-write
+    STATUS mandatory 
+    DESCRIPTION 
+    "Lower current limit for output"
+    ::= { mduOutputEntry 4 } 
+
+mduOutputupperCurrent OBJECT-TYPE 
+    SYNTAX INTEGER
+    ACCESS read-write
+    STATUS mandatory 
+    DESCRIPTION 
+    "Upper current limit for output"
+    ::= { mduOutputEntry 5 } 
+
+mduOutputCurrent OBJECT-TYPE 
+    SYNTAX INTEGER
+    ACCESS read-only
+    STATUS mandatory 
+    DESCRIPTION 
+    "Output current"
+    ::= { mduOutputEntry 6 } 
+
+mduOutputpowerFactor OBJECT-TYPE 
+    SYNTAX INTEGER
+    ACCESS read-only
+    STATUS mandatory 
+    DESCRIPTION 
+    "Output power factor"
+    ::= { mduOutputEntry 7 } 
+
+mduOutputVA OBJECT-TYPE 
+    SYNTAX INTEGER
+    ACCESS read-only
+    STATUS mandatory 
+    DESCRIPTION 
+    "Output apparent power"
+    ::= { mduOutputEntry 8 } 
+
+mduOutputWatts OBJECT-TYPE 
+    SYNTAX INTEGER
+    ACCESS read-only
+    STATUS mandatory 
+    DESCRIPTION 
+    "Output real power"
+    ::= { mduOutputEntry 9 } 
+	
+mduOutputCal OBJECT-TYPE 
+    SYNTAX INTEGER
+    ACCESS read-write
+    STATUS mandatory 
+    DESCRIPTION 
+    "Output current measure calibration data"
+    ::= { mduOutputEntry 10 } 
+ 
+-- End of table
+
+mduPowerStatus OBJECT-TYPE 
+    SYNTAX INTEGER
+    {
+       	totalLoss(1),
+		input1OK(2),
+		input2OK(3),
+		allOk(4)		-- note: a single input MDU would report allOk if power is present
+	}
+    ACCESS read-only
+    STATUS mandatory 
+    DESCRIPTION 
+    "Status of MDU power inlets"
+    ::= { mdu12 5 } 
+
+mduVoltageCal OBJECT-TYPE 
+    SYNTAX INTEGER
+    ACCESS read-write
+    STATUS mandatory 
+    DESCRIPTION 
+    "Voltage measure calibration data"
+    ::= { mdu12 6 } 
+
+mduVoltage OBJECT-TYPE 
+    SYNTAX INTEGER
+    ACCESS read-only
+    STATUS mandatory 
+    DESCRIPTION 
+    "Voltage measurement"
+    ::= { mdu12 7 } 
+
+mduVoltageFloor OBJECT-TYPE 
+    SYNTAX INTEGER
+    ACCESS read-write
+    STATUS mandatory 
+    DESCRIPTION 
+    "Voltage lower limit"
+    ::= { mdu12 8 } 
+
+mduVoltageLimit OBJECT-TYPE 
+    SYNTAX INTEGER
+    ACCESS read-write
+    STATUS mandatory 
+    DESCRIPTION 
+    "Voltage upper limit"
+    ::= { mdu12 9 } 
+
+mduTotalCurrent OBJECT-TYPE 
+    SYNTAX INTEGER
+    ACCESS read-write
+    STATUS mandatory 
+    DESCRIPTION 
+    "Total current measurement"
+    ::= { mdu12 10 } 
+
+mduCurrentLimit OBJECT-TYPE 
+    SYNTAX INTEGER
+    ACCESS read-write
+    STATUS mandatory 
+    DESCRIPTION 
+    "Current total limit"
+    ::= { mdu12 11 } 
+
+mduAuxRly1 OBJECT-TYPE 
+    SYNTAX INTEGER
+    {
+       	off(1),
+		on(2)
+	}
+    ACCESS read-write
+    STATUS mandatory 
+    DESCRIPTION 
+    "Auxiliary Relay 1 state"
+    ::= { mdu12 12 } 
+
+mduAuxRly2 OBJECT-TYPE 
+    SYNTAX INTEGER
+    {
+       	off(1),
+		on(2)
+	}
+    ACCESS read-write
+    STATUS mandatory 
+    DESCRIPTION 
+    "Auxiliary Relay 2 state"
+    ::= { mdu12 13 } 
+
+
+mduPowerStatusTrap TRAP-TYPE
+	ENTERPRISE	tslMIB
+	VARIABLES	
+	{
+		mduPowerStatus
+	}
+	DESCRIPTION
+	"The power input to the MDU has changed state"
+	::= 7
+
+mduVoltageStatusTrap TRAP-TYPE
+	ENTERPRISE	tslMIB
+	VARIABLES	
+	{
+        mduVoltage
+	}
+	DESCRIPTION
+    "The voltage to the MDU has traversed a limit"
+    ::= 8
+
+mduTotalCurrentStatusTrap TRAP-TYPE
+	ENTERPRISE	tslMIB
+	VARIABLES	
+	{
+        mduTotalCurrent
+	}
+	DESCRIPTION
+    "The total current through the MDU has traversed a limit"
+    ::= 9
+
+
+------------
+
+END 
+
+

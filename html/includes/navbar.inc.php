@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -23,7 +23,7 @@
           <span class="oicon-bar"></span>
           <span class="oicon-bar"></span>
         </button>
-        <a class="brand brand-observium" href="<?php generate_url(''); ?>">&nbsp;</a>
+        <a class="brand brand-observium" href="/">&nbsp;</a>
         <div class="nav-collapse" id="main-nav">
           <ul class="nav">
 <?php
@@ -34,9 +34,46 @@ $navbar['observium'] = array('url' => generate_url(array('page' => 'overview')),
 $navbar['observium']['entries'][] = array('title' => 'Overview', 'url' => generate_url(array('page' => 'overview')), 'icon' => 'oicon-globe-model');
 $navbar['observium']['entries'][] = array('divider' => TRUE);
 
+// Show Groups
+if (OBSERVIUM_EDITION != 'community')
+{
+ if ($_SESSION['userlevel'] >= 5)
+ {
+  $group_menu = array();
+  $entity_group_menu = array();
+  foreach (get_type_groups() as $group)
+  {
+    $group['member_count'] = dbFetchCell("SELECT COUNT(*) FROM `group_table` WHERE `group_id` = ?", array($group['group_id']));
+    $entity_type           = $config['entities'][$group['entity_type']];
+
+    $group_menu[] = array('url' => generate_url(array('page' => 'group', 'group_id' => $group['group_id'])), 'title' => escape_html($group['group_name']), 'icon' => $config['entities'][$group['entity_type']]['icon'], 'count' => $group['member_count']);
+
+    $entity_group_menu[$group['entity_type']][] = array('url' => generate_url(array('page' => 'group', 'group_id' => $group['group_id'])), 'title' => escape_html($group['group_name']), 'icon' => $config['entities'][$group['entity_type']]['icon'], 'count' => $group['member_count']);
+  }
+
+  $navbar['observium']['entries'][] = array('title' => 'Groups', 'url' => generate_url(array('page' => 'groups')), 'icon' => 'oicon-category', 'count' => count($group_menu), 'entries' => $group_menu);
+  $navbar['observium']['entries'][] = array('divider' => TRUE);
+ }
+}
+
+$navbar['observium']['entries'][] = array('title' => 'Alerts', 'url' => generate_url(array('page' => 'alerts')), 'icon' => 'oicon-bell');
+if ($_SESSION['userlevel'] >= 5)
+{
+  $counts['alert_checks'] = dbFetchCell("SELECT COUNT(*) FROM `alert_tests`");
+  $navbar['observium']['entries'][] = array('title' => 'Alert Checks', 'url' => generate_url(array('page' => 'alert_checks')), 'count' => $counts['alert_checks'], 'icon' => 'oicon-eye');
+}
+
+if ($_SESSION['userlevel'] >= 7 && OBSERVIUM_EDITION != 'community')
+{
+  $navbar['observium']['entries'][] = array('title' => 'Scheduled Maintenance', 'url' => generate_url(array('page' => 'alert_maintenance')), 'icon' => 'oicon-clock--exclamation');
+}
+
+$navbar['observium']['entries'][] = array('title' => 'Alert Logs', 'url' => generate_url(array('page' => 'alert_log')), 'icon' => 'oicon-bell--exclamation');
+$navbar['observium']['entries'][] = array('divider' => TRUE);
+
 if (isset($config['enable_map']) && $config['enable_map'])
 { // FIXME link is wrong. Is this a supported feature?
-  $navbar['observium']['entries'][] = array('title' => 'Network Map', 'url' => generate_url(array('page' => 'overview')), 'icon' => 'oicon-map');
+  $navbar['observium']['entries'][] = array('title' => 'Network Map', 'url' => generate_url(array('page' => 'map')), 'icon' => 'oicon-map');
 }
 
 $navbar['observium']['entries'][] = array('title' => 'Event Log', 'url' => generate_url(array('page' => 'eventlog')), 'icon' => 'oicon-clipboard-audit');
@@ -49,14 +86,20 @@ if (isset($config['enable_syslog']) && $config['enable_syslog'])
 $navbar['observium']['entries'][] = array('title' => 'Polling Information', 'url' => generate_url(array('page' => 'pollerlog')), 'icon' => 'oicon-clipboard-report-bar');
 $navbar['observium']['entries'][] = array('divider' => TRUE);
 
-if (OBSERVIUM_EDITION != 'community')
+if ($_SESSION['userlevel'] >= 7)
 {
-  $navbar['observium']['entries'][] = array('title' => 'Alerts', 'url' => generate_url(array('page' => 'alerts')), 'icon' => 'oicon-bell');
-  $navbar['observium']['entries'][] = array('title' => 'Alert Checks', 'url' => generate_url(array('page' => 'alert_checks')), 'icon' => 'oicon-eye');
-  $navbar['observium']['entries'][] = array('title' => 'Alert Logs', 'url' => generate_url(array('page' => 'alert_log')), 'icon' => 'oicon-bell--exclamation');
+  // Print Contacts
+  $counts['contacts'] = dbFetchCell("SELECT COUNT(*) FROM `alert_contacts`");
+
+  $navbar['observium']['entries'][] = array('title' => 'Contacts', 'url' => generate_url(array('page' => 'contacts')), 'count' => $counts['contacts'], 'icon' => 'oicon-users');
   $navbar['observium']['entries'][] = array('divider' => TRUE);
-  $navbar['observium']['entries'][] = array('title' => 'Groups', 'url' => generate_url(array('page' => 'groups')), 'icon' => 'oicon-category');
-  $navbar['observium']['entries'][] = array('divider' => TRUE);
+
+  if (OBSERVIUM_EDITION != 'community')
+  {
+    // Custom OIDs
+    $navbar['observium']['entries'][] = array('title' => 'Custom OIDs', 'url' => generate_url(array('page' => 'customoids')), 'icon' => 'oicon-target');
+    $navbar['observium']['entries'][] = array('divider' => TRUE);
+  }
 }
 
 $navbar['observium']['entries'][] = array('title' => 'Inventory', 'url' => generate_url(array('page' => 'inventory')), 'icon' => 'oicon-wooden-box');
@@ -87,7 +130,16 @@ $navbar['devices'] = array('url' => generate_url(array('page' => 'devices')), 'i
 
 // FIXME In the old code the menu width was 200px specifically - we don't do this now but doesn't seem to be a problem?
 
-$navbar['devices']['entries'][] = array('title' => 'All Devices', 'url' => generate_url(array('page' => 'devices')), 'icon' => 'oicon-servers');
+$navbar['devices']['entries'][] = array('title' => 'All Devices', 'count' => $devices['count'], 'url' => generate_url(array('page' => 'devices')), 'icon' => 'oicon-servers');
+
+
+if(count($entity_group_menu['device']))
+{
+  $navbar['devices']['entries'][] = array('divider' => TRUE);
+  $navbar['devices']['entries'][] = array('title' => 'Groups', 'url' => generate_url(array('page' => 'groups', 'entity_type' => 'device')), 'icon' => 'oicon-category', 'count' => count($entity_group_menu['device']), 'entries' => $entity_group_menu['device']);
+}
+
+
 $navbar['devices']['entries'][] = array('divider' => TRUE);
 
 // Build location submenu
@@ -133,7 +185,7 @@ if ($devices['down']+$devices['ignored']+$devices['disabled'])
   }
 }
 
-if ($_SESSION['userlevel'] >= '5')
+if ($_SESSION['userlevel'] >= 10)
 {
   $navbar['devices']['entries'][] = array('divider' => TRUE);
   $navbar['devices']['entries'][] = array('url' => generate_url(array('page' => 'addhost')), 'icon' => 'oicon-server--plus', 'title' => 'Add Device');
@@ -146,20 +198,46 @@ $navbar['ports'] = array('url' => generate_url(array('page' => 'ports')), 'icon'
 $navbar['ports']['entries'][] = array('title' => 'All Ports', 'count' => $ports['count'], 'url' => generate_url(array('page' => 'ports')), 'icon' => 'oicon-network-ethernet');
 $navbar['ports']['entries'][] = array('divider' => TRUE);
 
+if(count($entity_group_menu['port']))
+{
+  $navbar['ports']['entries'][] = array('title' => 'Groups', 'url' => generate_url(array('page' => 'groups', 'entity_type' => 'device')), 'icon' => 'oicon-category', 'count' => count($entity_group_menu['port']), 'entries' => $entity_group_menu['port']);
+  $navbar['ports']['entries'][] = array('divider' => TRUE);
+}
+
+
+if ($cache['p2pradios']['count'])
+{
+  $navbar['ports']['entries'][] = array('title' => 'P2P Radios', 'count' => $cache['p2pradios']['count'], 'url' => generate_url(array('page' => 'p2pradios')), 'icon' => 'oicon-transmitter');
+  $navbar['ports']['entries'][] = array('divider' => TRUE);
+}
+
 if ($config['enable_billing'])
 {
   $navbar['ports']['entries'][] = array('title' => 'Traffic Accounting', 'url' => generate_url(array('page' => 'bills')), 'icon' => 'oicon-money-coin');
   $ifbreak = 1;
 }
 
-if ($config['enable_pseudowires'] && $cache['pseudowires']['count'])
+if ($cache['neighbours']['count'])
 {
-  $navbar['ports']['entries'][] = array('title' => 'Pseudowires ('.$cache['pseudowires']['count'].')', 'url' => generate_url(array('page' => 'pseudowires')), 'icon' => 'oicon-layer-shape-curve');
+  $navbar['ports']['entries'][] = array('title' => 'Neighbours', 'url' => generate_url(array('page' => 'neighbours')), 'icon' => 'oicon-node', 'count' => $cache['neighbours']['count']);
   $ifbreak = 1;
 }
+
+if ($config['enable_pseudowires'] && $cache['pseudowires']['count'])
+{
+  $navbar['ports']['entries'][] = array('title' => 'Pseudowires', 'count' => $cache['pseudowires']['count'], 'url' => generate_url(array('page' => 'pseudowires')), 'icon' => 'oicon-layer-shape-curve');
+  $ifbreak = 1;
+}
+
 if ($cache['cbqos']['count'])
 {
-  $navbar['ports']['entries'][] = array('title' => 'CBQoS ('.$cache['cbqos']['count'].')', 'url' => generate_url(array('page' => 'ports', 'cbqos' => 'yes')), 'icon' => 'oicon-category-group');
+  $navbar['ports']['entries'][] = array('title' => 'CBQoS', 'count' => $cache['cbqos']['count'], 'url' => generate_url(array('page' => 'ports', 'cbqos' => 'yes')), 'icon' => 'oicon-category-group');
+  $ifbreak = 1;
+}
+
+if ($cache['sla']['count'])
+{
+  $navbar['ports']['entries'][] = array('title' => 'IP SLA', 'count' => $cache['sla']['count'], 'url' => generate_url(array('page' => 'slas')), 'icon' => 'oicon-chart-up');
   $ifbreak = 1;
 }
 
@@ -172,59 +250,63 @@ if ($ifbreak)
 if ($_SESSION['userlevel'] >= '5')
 {
   // FIXME new icons
-  if ($config['int_customers']) { $navbar['ports']['entries'][] = array('url' => generate_url(array('page' => 'customers')), 'image' => "images/16/group_link.png", 'title' => 'Customers'); $ifbreak = 1; }
-  if ($config['int_l2tp'])      { $navbar['ports']['entries'][] = array('url' => generate_url(array('page' => 'iftype', 'type' => 'l2tp')), 'image' => "images/16/user.png", 'title' => 'L2TP'); $ifbreak = 1; }
-  if ($config['int_transit'])   { $navbar['ports']['entries'][] = array('url' => generate_url(array('page' => 'iftype', 'type' => 'transit')), 'image' => "images/16/lorry_link.png", 'title' => 'Transit');  $ifbreak = 1; }
-  if ($config['int_peering'])   { $navbar['ports']['entries'][] = array('url' => generate_url(array('page' => 'iftype', 'type' => 'peering')), 'image' => "images/16/bug_link.png", 'title' => 'Peering'); $ifbreak = 1; }
-  if ($config['int_peering'] && $config['int_transit']) { $navbar['ports']['entries'][] = array('url' => generate_url(array('page' => 'iftype', 'type' => 'peering,transit')), 'image' => "images/16/world_link.png", 'title' => 'Peering & Transit'); $ifbreak = 1; }
-  if ($config['int_core']) { $navbar['ports']['entries'][] = array('url' => generate_url(array('page' => 'iftype', 'type' => 'core')), 'image' => "images/16/brick_link.png", 'title' => 'Core'); $ifbreak = 1; }
+  if ($config['int_customers']) { $navbar['ports']['entries'][] = array('url' => generate_url(array('page' => 'customers')), 'icon' => 'oicon-user-business', 'title' => 'Customers'); $ifbreak = 1; }
+  if ($config['int_l2tp'])      { $navbar['ports']['entries'][] = array('url' => generate_url(array('page' => 'iftype', 'type' => 'l2tp')), 'icon' => "oicon-user-share", 'title' => 'L2TP'); $ifbreak = 1; }
+  if ($config['int_transit'])   { $navbar['ports']['entries'][] = array('url' => generate_url(array('page' => 'iftype', 'type' => 'transit')), 'icon' => "oicon-network-clouds", 'title' => 'Transit');  $ifbreak = 1; }
+  if ($config['int_peering'])   { $navbar['ports']['entries'][] = array('url' => generate_url(array('page' => 'iftype', 'type' => 'peering')), 'icon' => "oicon-network-cloud", 'title' => 'Peering'); $ifbreak = 1; }
+  if ($config['int_peering'] && $config['int_transit']) { $navbar['ports']['entries'][] = array('url' => generate_url(array('page' => 'iftype', 'type' => 'peering,transit')), 'icon' => "oicon-globe-network", 'title' => 'Peering & Transit'); $ifbreak = 1; }
+  if ($config['int_core']) { $navbar['ports']['entries'][] = array('url' => generate_url(array('page' => 'iftype', 'type' => 'core')), 'icon' => 'oicon-globe-network-ethernet', 'title' => 'Core'); $ifbreak = 1; }
 
   // Custom interface groups can be set - see Interface Description Parsing
   foreach ($config['int_groups'] as $int_type)
   {
-    $navbar['ports']['entries'][] = array('url' => generate_url(array('page' => 'iftype', 'type' => $int_type)), 'image' => "images/16/brick_link.png", 'title' => $int_type); $ifbreak = 1;
+    $navbar['ports']['entries'][] = array('url' => generate_url(array('page' => 'iftype', 'type' => $int_type)), 'icon' => "oicon-network-ethernet", 'title' => str_replace(",", " & ", $int_type)); $ifbreak = 1;
   }
 }
 
 if ($ifbreak) { $navbar['ports']['entries'][] = array('divider' => TRUE); }
 
+$navbar['ports']['entries']['statuses'] = array('title' => 'Status Breakdown', 'url' => generate_url(array('page' => '#')), 'icon' => 'oicon-network-ethernet', 'entries' => array());
+
 /// FIXME. Make Down/Ignored/Disabled ports as submenu. --mike
 if (isset($ports['alerts']))
 {
-  $navbar['ports']['entries'][] = array('url' => generate_url(array('page' => 'ports', 'alerted' => 'yes')), 'icon' => 'oicon-chain--exclamation', 'title' => 'Alerts', 'count' => $ports['alerts']);
+  $navbar['ports']['entries']['statuses']['entries'][] = array('url' => generate_url(array('page' => 'ports', 'alerted' => 'yes')), 'icon' => 'oicon-chain--exclamation', 'title' => 'Alerts', 'count' => $ports['alerts']);
 }
 
 if ($ports['errored'])
 {
-  $navbar['ports']['entries'][] = array('url' => generate_url(array('page' => 'ports', 'errors' => 'yes')), 'icon' => 'oicon-exclamation-button', 'title' => 'Errored', 'count' => $ports['errored']);
+  $navbar['ports']['entries']['statuses']['entries'][] = array('url' => generate_url(array('page' => 'ports', 'errors' => 'yes')), 'icon' => 'oicon-exclamation-button', 'title' => 'Errored', 'count' => $ports['errored']);
 }
 
 if ($ports['down'])
 {
-  $navbar['ports']['entries'][] = array('url' => generate_url(array('page' => 'ports', 'state' => 'down')), 'icon' => 'oicon-network-status-busy', 'title' => 'Down');
+  $navbar['ports']['entries']['statuses']['entries'][] = array('url' => generate_url(array('page' => 'ports', 'state' => 'down')), 'icon' => 'oicon-network-status-busy', 'title' => 'Down', 'count' => $ports['down']);
 }
 
 if ($ports['ignored'])
 {
-  $navbar['ports']['entries'][] = array('url' => generate_url(array('page' => 'ports', 'ignore' => '1')), 'icon' => 'oicon-network-status-away', 'title' => 'Ignored');
+  $navbar['ports']['entries']['statuses']['entries'][] = array('url' => generate_url(array('page' => 'ports', 'ignore' => '1')), 'icon' => 'oicon-network-status-away', 'title' => 'Ignored', 'count' => $ports['ignored']);
 }
 
 if ($ports['disabled'])
 {
-  $navbar['ports']['entries'][] = array('url' => generate_url(array('page' => 'ports', 'state' => 'admindown')), 'icon' => 'oicon-network-status-offline', 'title' => 'Disabled');
+  $navbar['ports']['entries']['statuses']['entries'][] = array('url' => generate_url(array('page' => 'ports', 'state' => 'admindown')), 'icon' => 'oicon-network-status-offline', 'title' => 'Disabled', 'count' => $ports['disabled']);
 }
 
 if ($ports['deleted'])
 {
-  $navbar['ports']['entries'][] = array('url' => generate_url(array('page' => 'deleted-ports')), 'icon' => 'oicon-badge-square-minus', 'title' => 'Deleted', 'count' => $ports['deleted']);
+  $navbar['ports']['entries']['statuses']['entries'][] = array('url' => generate_url(array('page' => 'deleted-ports')), 'icon' => 'oicon-badge-square-minus', 'title' => 'Deleted', 'count' => $ports['deleted']);
 }
+
+
 
 //////////// Build health menu
 $navbar['health'] = array('url' => '#', 'icon' => 'oicon-system-monitor', 'title' => 'Health');
 
 $health_items = array('processor' => array('text' => "Processors", 'icon' => 'oicon-processor'),
-               'mempool'   => array('text' => "Memory", 'icon' => 'oicon-memory'),
-               'storage'   => array('text' => "Storage", 'icon' => 'oicon-drive'));
+                      'mempool'   => array('text' => "Memory", 'icon' => 'oicon-memory'),
+                      'storage'   => array('text' => "Storage", 'icon' => 'oicon-drive'));
 
 if ($cache['toner']['count'])
 {
@@ -236,7 +318,6 @@ if ($cache['status']['count'])
   $health_items['status'] = array('text' => "Status", 'icon' => $config['entities']['status']['icon']);
 }
 
-
 foreach ($health_items as $item => $item_data)
 {
   $navbar['health']['entries'][] = array('url' => generate_url(array('page' => 'health', 'metric' => $item)), 'icon' => $item_data['icon'], 'title' => $item_data['text']);
@@ -244,7 +325,7 @@ foreach ($health_items as $item => $item_data)
 }
 
 $menu_items[0] = array('fanspeed','humidity','temperature','airflow');
-$menu_items[1] = array('current','voltage','power','apower','frequency');
+$menu_items[1] = array('current','voltage','power','apower','rpower','frequency');
 $menu_items[2] = array_diff(array_keys($cache['sensor_types']), $menu_items[0], $menu_items[1]);
 foreach ($menu_items as $items)
 {
@@ -273,7 +354,7 @@ if ($_SESSION['userlevel'] >= '5' && ($cache['applications']['count']) > 0)
   foreach ($app_list as $app)
   {
     $image = $config['html_dir']."/images/icons/".$app['app_type'].".png";
-    $icon = (file_exists($image) ? $app['app_type'] : "apps");
+    $icon = (is_file($image) ? $app['app_type'] : "apps");
     $navbar['apps']['entries'][] = array('url' => generate_url(array('page' => 'apps', 'app' => $app['app_type'])), 'image' => 'images/icons/'.$icon.'.png', 'title' => nicecase($app['app_type']));
   }
 }
@@ -287,7 +368,7 @@ if ($_SESSION['userlevel'] >= '5' && ($routing['bgp']['count']+$routing['ospf'][
 
   if ($routing['vrf']['count'])
   {
-    $navbar['routing']['entries'][] = array('url' => generate_url(array('page' => 'routing', 'protocol' => 'vrf')), 'icon' => 'oicon-arrow-branch-byr', 'title' => 'VRFs', 'count' => $routing['vrf']['count']);
+    $navbar['routing']['entries'][] = array('url' => generate_url(array('page' => 'routing', 'protocol' => 'vrf')), 'icon' => 'oicon-zones', 'title' => 'VRFs', 'count' => $routing['vrf']['count']);
     $separator++;
   }
 
@@ -311,7 +392,7 @@ if ($_SESSION['userlevel'] >= '5' && ($routing['bgp']['count']+$routing['ospf'][
       $separator = 0;
     }
 
-    $navbar['routing']['entries'][] = array('url' => generate_url(array('page' => 'routing', 'protocol' => 'ospf')), 'image' => 'images/16/text_letter_omega.png', 'title' => 'OSPF', 'count' => $routing['ospf']['count']);
+    $navbar['routing']['entries'][] = array('url' => generate_url(array('page' => 'routing', 'protocol' => 'ospf')), 'icon' => 'oicon-omega', 'title' => 'OSPF', 'count' => $routing['ospf']['count']);
     $separator++;
   }
 
@@ -324,16 +405,16 @@ if ($_SESSION['userlevel'] >= '5' && ($routing['bgp']['count']+$routing['ospf'][
       $separator = 0;
     }
 
-    $navbar['routing']['entries'][] = array('url' => generate_url(array('page' => 'routing', 'protocol' => 'bgp', 'type' => 'all', 'graph' => 'NULL')), 'image' => "images/16/link.png", 'title' => 'BGP All Sessions', 'count' => $routing['bgp']['count']);
-    $navbar['routing']['entries'][] = array('url' => generate_url(array('page' => 'routing', 'protocol' => 'bgp', 'type' => 'external', 'graph' => 'NULL')), 'image' => "images/16/world_link.png", 'title' => 'BGP External');
-    $navbar['routing']['entries'][] = array('url' => generate_url(array('page' => 'routing', 'protocol' => 'bgp', 'type' => 'internal', 'graph' => 'NULL')), 'image' => "images/16/brick_link.png", 'title' => 'BGP Internal');
+    $navbar['routing']['entries'][] = array('url' => generate_url(array('page' => 'routing', 'protocol' => 'bgp', 'type' => 'all', 'graph' => 'NULL')), 'icon' => 'oicon-chain', 'title' => 'BGP All Sessions', 'count' => $routing['bgp']['count']);
+    $navbar['routing']['entries'][] = array('url' => generate_url(array('page' => 'routing', 'protocol' => 'bgp', 'type' => 'external', 'graph' => 'NULL')), 'icon' => "oicon-globe-network", 'title' => 'BGP External');
+    $navbar['routing']['entries'][] = array('url' => generate_url(array('page' => 'routing', 'protocol' => 'bgp', 'type' => 'internal', 'graph' => 'NULL')), 'icon' => "oicon-network-hub", 'title' => 'BGP Internal');
   }
 
   // Do Alerts at the bottom
   if ($routing['bgp']['alerts'])
   {
     $navbar['routing']['entries'][] = array('divider' => TRUE);
-    $navbar['routing']['entries'][] = array('url' => generate_url(array('page' => 'routing', 'protocol' => 'bgp', 'adminstatus' => 'start', 'state' => 'down')), 'image' => "images/16/link_error.png", 'title' => 'BGP Alerts', 'count' => $routing['bgp']['alerts']);
+    $navbar['routing']['entries'][] = array('url' => generate_url(array('page' => 'routing', 'protocol' => 'bgp', 'adminstatus' => 'start', 'state' => 'down')), 'icon' => 'oicon-chain--exclamation', 'title' => 'BGP Alerts', 'count' => $routing['bgp']['alerts']);
   }
 }
 
@@ -350,9 +431,9 @@ function navbar_location_menu($array)
 
   ksort($array['entries']);
 
-  echo('<ul class="dropdown-menu">');
+  echo('<ul role="menu" class="dropdown-menu">');
 
-  if (count($array['entries']) > "3")
+  if (count($array['entries']) > "5")
   {
     foreach ($array['entries'] as $entry => $entry_data)
     {
@@ -363,16 +444,29 @@ function navbar_location_menu($array)
         $entry = country_from_code($entry);
         $image = '<i class="flag flag-'.$code.'"></i>';
       }
-      elseif ($entry_data['level'] == "location")
+      else if ($entry_data['level'] == "location")
       {
         $name = ($entry === '' ? OBS_VAR_UNSET : escape_html($entry));
-        echo('            <li><a href="' . generate_location_url($entry) . '"><i class="menu-icon oicon-building-small"></i> ' . $name . '&nbsp;['.$entry_data['count'].']</a></li>');
+        echo('            <li>' . generate_menu_link(generate_location_url($entry), '<i class="menu-icon oicon-building-small"></i>&nbsp;' . $name, $entry_data['count']) . '</li>');
         continue;
       }
 
-      $url = ($entry_data['level'] == 'location_country' ? $code : $entry);
-      echo('<li class="dropdown-submenu"><a href="' . generate_url(array('page' => 'devices', $entry_data['level'] => var_encode($url))) .
-           '">' . $image . ' ' . $entry . '&nbsp;['.$entry_data['count'].']</a>');
+      if ($entry_data['level'] == "location_country")
+      {
+        $url = $code;
+        // Attach country code to sublevel
+        $entry_data['country'] = strtolower($code);
+      } else {
+        $url = $entry;
+        // Attach country code to sublevel
+        $entry_data['country'] = $array['country'];
+      }
+      if ($url === '') { $url = array(''); }
+      $link_array = array('page' => 'devices',
+                          $entry_data['level'] => var_encode($url));
+      if (isset($array['country'])) { $link_array['location_country'] = var_encode($array['country']); }
+
+      echo('<li class="dropdown-submenu">' . generate_menu_link(generate_url($link_array), $image . '&nbsp;' . $entry, $entry_data['count']));
 
       navbar_location_menu($entry_data);
       echo('</li>');
@@ -391,7 +485,7 @@ function navbar_location_menu($array)
       elseif ($new_entry_data['level'] == "location")
       {
         $name = ($new_entry === '' ? OBS_VAR_UNSET : escape_html($new_entry));
-        echo('            <li><a href="' . generate_location_url($new_entry) . '"><i class="menu-icon oicon-building-small"></i> ' . $name . '&nbsp;['.$new_entry_data['count'].']</a></li>');
+        echo('            <li>' . generate_menu_link(generate_location_url($new_entry), '<i class="menu-icon oicon-building-small"></i>&nbsp;' . $name, $new_entry_data['count']) . '</li>');
         continue;
       }
 
@@ -400,12 +494,15 @@ function navbar_location_menu($array)
       {
         if (is_array($sub_entry_data['entries']))
         {
-          echo('<li class="dropdown-submenu"><a style="" href="' . generate_url(array('page'=>'devices', $sub_entry_data['level'] => var_encode($sub_entry))) . '">
-                <i class="menu-icon oicon-building"></i> ' . $sub_entry . '&nbsp;['.$sub_entry_data['count'].']</a>');
+          $link_array = array('page' => 'devices',
+                              $sub_entry_data['level'] => var_encode($sub_entry));
+          if (isset($array['country'])) { $link_array['location_country'] = var_encode($array['country']); }
+
+          echo('<li class="dropdown-submenu">' . generate_menu_link(generate_url($link_array), '<i class="menu-icon oicon-building"></i>&nbsp;' . $sub_entry, $sub_entry_data['count']));
           navbar_location_menu($sub_entry_data);
         } else {
           $name = ($sub_entry === '' ? OBS_VAR_UNSET : escape_html($sub_entry));
-          echo('            <li><a href="' . generate_location_url($sub_entry) . '"><i class="menu-icon oicon-building-small"></i> ' . $name . '&nbsp;['.$sub_entry_data['count'].']</a></li>');
+          echo('            <li>' . generate_menu_link(generate_location_url($sub_entry), '<i class="menu-icon oicon-building-small"></i>&nbsp;' . $name, $sub_entry_data['count']) . '</li>');
         }
       }
     }
@@ -416,8 +513,8 @@ function navbar_location_menu($array)
 // DOCME needs phpdoc block
 function navbar_submenu($entry, $level = 1)
 {
-  echo(str_pad('',($level-1)*2) . '                <li class="dropdown-submenu"><a href="' . $entry['url'] . '"><i class="menu-icon ' . $entry['icon'] . '"></i> ' . $entry['title'] . '</a>' . PHP_EOL);
-  echo(str_pad('',($level-1)*2) . '                  <ul class="dropdown-menu">' . PHP_EOL);
+  echo(str_pad('',($level-1)*2) . '                <li class="dropdown-submenu">' . generate_menu_link($entry['url'], '<i class="menu-icon ' . $entry['icon'] . '"></i>&nbsp;' . $entry['title'], $entry['count']) . PHP_EOL);
+  echo(str_pad('',($level-1)*2) . '                  <ul role="menu" class="dropdown-menu">' . PHP_EOL);
 
   foreach ($entry['entries'] as $subentry)
   {
@@ -443,28 +540,28 @@ function navbar_entry($entry, $level = 1)
     echo(str_pad('',($level-1)*2) . '                <li class="divider"></li>' . PHP_EOL);
   } elseif ($entry['locations']) { // Workaround until the menu builder returns an array instead of echo()
     echo(str_pad('',($level-1)*2) . '                <li class="dropdown-submenu">' . PHP_EOL);
-    echo(str_pad('',($level-1)*2) . '                  <a href="'.generate_url(array('page'=>'locations')).'"><i class="menu-icon oicon-building-hedge"></i> Locations</a>' . PHP_EOL);
+    echo(str_pad('',($level-1)*2) . '                  ' . generate_menu_link(generate_url(array('page'=>'locations')), '<i class="menu-icon oicon-building-hedge"></i> Locations') . PHP_EOL);
     navbar_location_menu($cache['locations']);
     echo(str_pad('',($level-1)*2) . '                </li>' . PHP_EOL);
   } else {
-    echo(str_pad('',($level-1)*2) . '                <li><a href="' . $entry['url'] . '"><i class="menu-icon ' . $entry['icon'] . '"></i> ');
-    if (isset($entry['image'])) { echo('<img src="' . $entry['image'] . '" alt="" /> '); }
-    echo($entry['title']);
-    if (isset($entry['count'])) { echo('&nbsp;<span class="right">(' . $entry['count'] . ')</span>'); }
-    echo(str_pad('',($level-1)*2) . '</a></li>' . PHP_EOL);
+    $entry_text = '<i class="menu-icon ' . $entry['icon'] . '"></i> ';
+    if (isset($entry['image'])) { $entry_text .= '<img src="' . $entry['image'] . '" alt="" /> '; }
+    $entry_text .= $entry['title'];
+
+    echo(str_pad('',($level-1)*2) . '                <li>' . generate_menu_link($entry['url'], $entry_text, $entry['count']) . '</li>' . PHP_EOL);
   }
 }
 
 // Build navbar from $navbar array
 foreach ($navbar as $dropdown)
 {
-  echo('            <li class="divider-vertical" style="margin: 0;"></li>' . PHP_EOL);
+//  echo('            <li class="divider-vertical" style="margin: 0;"></li>' . PHP_EOL);
   echo('            <li class="dropdown">' . PHP_EOL);
   echo('              <a href="' . $dropdown['url'] . '" class="hidden-sm dropdown-toggle" data-hover="dropdown" data-toggle="dropdown">' . PHP_EOL);
   echo('                <i class="' . $dropdown['icon'] . '"></i> ' . $dropdown['title'] . ' <b class="caret"></b></a>' . PHP_EOL);
   echo('              <a href="' . $dropdown['url'] . '" class="visible-sm dropdown-toggle" data-hover="dropdown" data-toggle="dropdown">' . PHP_EOL);
   echo('                <i class="' . $dropdown['icon'] . '"></i> <b class="caret"></b></a>' . PHP_EOL);
-  echo('              <ul class="dropdown-menu">' . PHP_EOL);
+  echo('              <ul role="menu" class="dropdown-menu">' . PHP_EOL);
 
   foreach ($dropdown['entries'] as $entry)
   {
@@ -495,20 +592,50 @@ unset($navbar);
           </li>
 <?php
 
+// Script for go to first founded link in search
+$GLOBALS['cache_html']['script'][] = '
+$(function() {
+  $(\'form#searchform\').each(function() {
+    $(this).find(\'input\').keypress(function(e) {
+      if (e.which==10 || e.which==13) {
+        //console.log($(\'div#suggestions > li > a\').first().prop(\'href\'));
+        $(\'form#searchform\').prop(\'action\', $(\'div#suggestions > li > a\').first().prop(\'href\'));
+        this.form.submit();
+      }
+    });
+  });
+});
+';
+
+$ua = array('browser' => detect_browser_type());
 if ($_SESSION['touch'] == "yes")
 {
-  $url = generate_url($vars, array('touch' => 'no'));
+  $ua['url'] = generate_url($vars, array('touch' => 'no'));
 } else {
-  $url = generate_url($vars, array('touch' => 'yes'));
+  $ua['url'] = generate_url($vars, array('touch' => 'yes'));
 }
 
-$browser = detect_browser();
-if ($vars['touch'] == 'yes')  { $icon = 'oicon-hand-point-090'; }
-elseif ($browser == 'mobile') { $icon = 'icon-mobile-phone'; }
-elseif ($browser == 'tablet') { $icon = 'icon-tablet'; }
-else                          { $icon = 'icon-laptop'; }
+if ($vars['touch'] == 'yes')        { $ua['icon'] = 'glyphicon glyphicon-hand-up'; }
+elseif ($ua['browser'] == 'mobile') { $ua['icon'] = 'glyphicon glyphicon-phone'; }
+elseif ($ua['browser'] == 'tablet') { $ua['icon'] = 'icon-tablet'; }
+else                                { $ua['icon'] = 'icon-laptop'; }
 
-echo('<li><a href="' . $url . '"> <i class="' . $icon . '"></i></a></li>');
+$ua['content']  = 'Your current IP:&nbsp;' . $_SERVER['REMOTE_ADDR'] . '<br />';
+if ($config['web_mouseover'] && $ua['browser'] != 'mobile')
+{
+  // Add popup with current IP and previous session
+  $last_id = dbFetchCell("SELECT `id` FROM `authlog` WHERE `user` = ? AND `result` LIKE 'Logged In%' ORDER BY `id` DESC LIMIT 1;", array($_SESSION['username']));
+  $ua['previous_session'] = dbFetchRow("SELECT * FROM `authlog` WHERE `user` = ? AND `id` < ? AND `result` LIKE 'Logged In%' ORDER BY `id` DESC LIMIT 1;", array($_SESSION['username'], $last_id));
+  if ($ua['previous_session'])
+  {
+    $ua['previous_browser'] = detect_browser($ua['previous_session']['user_agent']);
+    $ua['content'] .= '<hr><span class="small">Previous session from&nbsp;<em class="pull-right">' . ($_SESSION['userlevel'] > 5 ? $ua['previous_session']['address'] : preg_replace('/^\d+/', '*', $ua['previous_session']['address'])) . '</em></span>';
+    $ua['content'] .= '<br /><span class="small pull-right"><em> at ' . format_timestamp($ua['previous_session']['datetime']) . '</span>';
+    $ua['content'] .= '<br /><span class="small pull-right"><i class="' . $ua['previous_browser']['icon'] . '"></i>&nbsp;' . $ua['previous_browser']['browser_full'] . ' (' . $ua['previous_browser']['platform'] . ')' . '</em></span>';
+  }
+}
+
+echo('<li>' . generate_tooltip_link($ua['url'], ' <i class="' . $ua['icon'] . '"></i>', $ua['content']) . '</li>');
 
 ?>
             <li class="dropdown">
@@ -578,11 +705,19 @@ if ($_SESSION['userlevel'] >= 10)
   echo('    <li><a href="'.generate_url(array('page' => 'authlog')).'"><i class="oicon-user-detective"></i> Authentication Log</a></li>');
   echo('  </ul>');
   echo('</li>');
+
+  echo('<li class="dropdown-submenu">');
+  echo('  <a tabindex="-1" href="'.generate_url(array('page' => 'settings')).'"><i class="oicon-settings"></i> Global Settings</a>');
+  echo('  <ul class="dropdown-menu">');
+  echo('    <li><a href="'.generate_url(array('page' => 'settings')).'"><i class="oicon-settings"></i> Edit</a></li>');
+  echo('    <li><a href="'.generate_url(array('page' => 'settings', 'format' => 'config')).'"><i class="oicon-notebook"></i> Full Dump</a></li>');
+  echo('    <li><a href="'.generate_url(array('page' => 'settings', 'format' => 'changed_config')).'"><i class="oicon-notebook"></i> Changed Dump</a></li>');
+  echo('  </ul>');
+  echo('</li>');
 }
 ?>
                 <li class="divider"></li>
-                <li><a href="<?php echo(generate_url(array('page' => 'settings'))); ?>" title="Global Settings"><i class="oicon-wrench"></i> Global Settings</a></li>
-                <li><a href="<?php echo(generate_url(array('page' => 'preferences'))); ?>" title="My Settings "><i class="oicon-wrench-screwdriver"></i> My Settings</a></li>
+                <li><a href="<?php echo(generate_url(array('page' => 'preferences'))); ?>" title="My Profile"><i class="oicon-user--pencil"></i> My Profile</a></li>
 <?php
 if (auth_can_logout())
 {
@@ -593,7 +728,7 @@ if (auth_can_logout())
 }
 ?>
                 <li class="divider"></li>
-                <li><a href="<?php echo OBSERVIUM_URL; ?>/wiki/Documentation" title="Help"><i class="oicon-question"></i> Help</a></li>
+                <li><a href="<?php echo OBSERVIUM_URL; ?>/docs" title="Help"><i class="oicon-question"></i> Help</a></li>
                 <li><?php echo(generate_link('<i class="oicon-information"></i> About '.OBSERVIUM_PRODUCT, array('page' => 'about'), array(), FALSE)); ?></li>
               </ul>
             </li>

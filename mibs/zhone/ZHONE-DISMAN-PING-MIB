@@ -1,0 +1,973 @@
+ZHONE-DISMAN-PING-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, Integer32,
+    Unsigned32, mib-2,
+    NOTIFICATION-TYPE, OBJECT-IDENTITY
+        FROM SNMPv2-SMI                  -- RFC2578
+    TEXTUAL-CONVENTION, RowStatus,
+    StorageType, DateAndTime, TruthValue
+        FROM SNMPv2-TC                   -- RFC2579
+    MODULE-COMPLIANCE, OBJECT-GROUP,
+    NOTIFICATION-GROUP
+        FROM SNMPv2-CONF                 -- RFC2580
+    InterfaceIndexOrZero                 -- RFC2863
+        FROM IF-MIB
+    SnmpAdminString
+        FROM SNMP-FRAMEWORK-MIB          -- RFC2571
+    InetAddressType, InetAddress
+        FROM INET-ADDRESS-MIB            -- RFC2851
+    zhoneIp
+        FROM Zhone;
+
+
+
+
+
+ zhonePingMIB MODULE-IDENTITY
+    LAST-UPDATED "200301270000Z"         -- 27 Januar 2003
+    ORGANIZATION "IETF Distributed Management Working Group"
+    CONTACT-INFO
+        "Kenneth White
+
+        International Business Machines Corporation
+        Network Computing Software Division
+        Research Triangle Park, NC, USA
+
+        E-mail: wkenneth@us.ibm.com"
+    DESCRIPTION
+        "The Ping MIB (ZHONE-DISMAN-PING-MIB) provides the capability of
+        controlling the use of the ping function at a remote
+        host."
+
+     --  Revision history
+
+     REVISION     "200301270000Z"         -- 27 Januar 2003
+     DESCRIPTION
+         "Initial version, enterprised based on RFC 2925."
+
+    ::= { zhoneIp 19 }
+
+ -- Textual Conventions
+
+  OperationResponseStatus ::= TEXTUAL-CONVENTION
+    STATUS  current
+    DESCRIPTION
+        "Used to report the result of an operation:
+
+         responseReceived(1) - Operation completes successfully.
+         unknown(2) - Operation failed due to unknown error.
+         internalError(3) - An implementation detected an error
+              in its own processing that caused an operation
+              to fail.
+         requestTimedOut(4) - Operation failed to receive a
+              valid reply within the time limit imposed on it.
+         unknownDestinationAddress(5) - Invalid destination
+              address.
+         noRouteToTarget(6) - Could not find a route to target.
+         interfaceInactiveToTarget(7) - The interface to be
+              used in sending a probe is inactive without an
+              alternate route existing.
+         arpFailure(8) - Unable to resolve a target address to a
+              media specific address.
+         maxConcurrentLimitReached(9) - The maximum number of
+              concurrent active operations would have been exceeded
+              if the corresponding operation was allowed.
+         unableToResolveDnsName(10) - The DNS name specified was
+              unable to be mapped to an IP address.
+         invalidHostAddress(11) - The IP address for a host
+              has been determined to be invalid.  Examples of this
+              are broadcast or multicast addresses."
+    SYNTAX INTEGER {
+                 responseReceived(1),
+                 unknown(2),
+                 internalError(3),
+                 requestTimedOut(4),
+                 unknownDestinationAddress(5),
+                 noRouteToTarget(6),
+                 interfaceInactiveToTarget(7),
+                 arpFailure(8),
+                 maxConcurrentLimitReached(9),
+                 unableToResolveDnsName(10),
+                 invalidHostAddress(11)
+              }
+
+ -- Top level structure of the MIB	   
+
+ zhonePingNotifications              OBJECT IDENTIFIER ::= { zhonePingMIB 0 }
+ zhonePingObjects                    OBJECT IDENTIFIER ::= { zhonePingMIB 1 }
+ zhonePingConformance                OBJECT IDENTIFIER ::= { zhonePingMIB 2 }
+
+
+ -- The registration node (point) for ping implementation types
+
+ zhonePingImplementationTypeDomains  OBJECT IDENTIFIER ::= { zhonePingMIB 3 }
+
+ zhonePingIcmpEcho OBJECT-IDENTITY
+    STATUS      current
+    DESCRIPTION
+        "Indicates that an implementation is using the Internet
+        Control Message Protocol (ICMP) 'ECHO' facility."
+    ::= { zhonePingImplementationTypeDomains 1 }
+
+ zhonePingUdpEcho OBJECT-IDENTITY
+    STATUS      current
+    DESCRIPTION
+        "Indicates that an implementation is using the UDP echo
+        port (7)."
+    REFERENCE
+        "RFC 862, 'Echo Protocol'."
+    ::= { zhonePingImplementationTypeDomains 2 }
+
+ zhonePingSnmpQuery OBJECT-IDENTITY
+    STATUS      current
+    DESCRIPTION
+        "Indicates that an implementation is an SNMP query to
+        calculate a round trip time."
+    ::= { zhonePingImplementationTypeDomains 3 }
+
+ zhonePingTcpConnectionAttempt OBJECT-IDENTITY
+    STATUS      current
+    DESCRIPTION
+        "Indicates that an implementation is attempting to
+        connect to a TCP port in order to calculate a round
+        trip time."
+    ::= { zhonePingImplementationTypeDomains 4 }
+
+ -- Simple Object Definitions
+
+
+ zhonePingMaxConcurrentRequests OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "requests"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+       "The maximum number of concurrent active ping requests
+       that are allowed within an agent implementation.  A value
+       of 0 for this object implies that there is no limit for
+       the number of concurrent active requests in effect."
+    DEFVAL { 10 }
+    ::= { zhonePingObjects 1 }
+
+
+ zhonePingCtlIndexNext  OBJECT-TYPE
+      SYNTAX         INTEGER (0..2147483647)
+      MAX-ACCESS     read-only
+      STATUS         current
+      DESCRIPTION
+       "This object contains an appropriate value to
+        be used for zhonePingCtlIndex when creating
+        entries in the zhonePingCtlTable.  The value
+        0 indicates that no unassigned entries are
+        available. To obtain the zhonePingCtlIndex
+        value for a new entry, the manager issues a
+        management protocol retrieval operation to obtain
+        the current value of this object.  After each
+        retrieval, the agent should modify the value to
+        the next unassigned index.
+        After a manager retrieves a value the agent will
+        determine through its local policy when this index
+        value will be made available for reuse."
+      ::= { zhonePingObjects 2 }
+
+
+ -- Ping Control Table
+
+ zhonePingCtlTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF ZhonePingCtlEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Defines the ping Control Table for providing, via SNMP,
+        the capability of performing ping operations at
+        a remote host.  The results of these operations are
+        stored in the zhonePingResultsTable."
+   ::= { zhonePingObjects 3 }
+
+ zhonePingCtlEntry OBJECT-TYPE
+    SYNTAX      ZhonePingCtlEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "None"
+    INDEX {
+             zhonePingCtlIndex
+          }
+    ::= { zhonePingCtlTable 1 }
+
+ ZhonePingCtlEntry ::= SEQUENCE
+    {
+        zhonePingCtlIndex                  INTEGER,
+        zhonePingCtlTargetAddressType      InetAddressType,
+        zhonePingCtlTargetAddress          InetAddress,
+        zhonePingCtlDataSize               Unsigned32,
+        zhonePingCtlTimeOut                Unsigned32,
+        zhonePingCtlProbeCount             Unsigned32,
+        zhonePingCtlAdminStatus            INTEGER,
+        zhonePingCtlDataFill               OCTET STRING,
+        zhonePingCtlFrequency              Unsigned32,
+        zhonePingCtlMaxRows                Unsigned32,
+        zhonePingCtlStorageType            StorageType,
+        zhonePingCtlTrapGeneration         BITS,
+        zhonePingCtlTrapProbeFailureFilter Unsigned32,
+        zhonePingCtlTrapTestFailureFilter  Unsigned32,
+        zhonePingCtlType                   OBJECT IDENTIFIER,
+        zhonePingCtlDescr                  SnmpAdminString,
+        zhonePingCtlSourceAddressType      InetAddressType,
+        zhonePingCtlSourceAddress          InetAddress,
+        zhonePingCtlIfIndex                InterfaceIndexOrZero,
+        zhonePingCtlByPassRouteTable       TruthValue,
+        zhonePingCtlDSField                Unsigned32,
+        zhonePingCtlRowStatus              RowStatus
+    }
+
+
+
+ zhonePingCtlIndex OBJECT-TYPE
+    SYNTAX      INTEGER (0..2147483647)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+       "When used in conjunction with such a security policy all
+       entries in the table belonging to a particular user (or
+       group) will have the same value for this initial index.
+       For a given user's entries in a particular table, the
+       object identifiers for the information in these entries
+       will have the same subidentifiers (except for the 'column'
+       subidentifier) up to the end of the encoded owner index."
+    ::= { zhonePingCtlEntry 1 }
+
+ zhonePingCtlTargetAddressType OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Specifies the type of host address to be used at a remote
+        host for performing a ping operation."
+    DEFVAL { unknown }
+    ::= { zhonePingCtlEntry 2 }
+
+ 
+ zhonePingCtlTargetAddress OBJECT-TYPE
+    SYNTAX      InetAddress
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Specifies the host address to be used at a remote host for
+        performing a ping operation.  The host address type is
+        determined by the object value of corresponding
+        zhonePingCtlTargetAddressType.
+        A value for this object MUST be set prior to transitioning
+        its corresponding zhonePingCtlEntry to active(1) via
+        zhonePingCtlRowStatus."
+--    DEFVAL { 0 }
+    DEFVAL { '0'H }
+    ::= { zhonePingCtlEntry 3 }
+
+
+ zhonePingCtlDataSize OBJECT-TYPE
+    SYNTAX      Unsigned32 (0..65507)
+    UNITS       "octets"
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Specifies the size of the data portion to be
+        transmitted in a ping operation in octets.  A ping
+        request is usually an ICMP message encoded
+        into an IP packet.  An IP packet has a maximum size
+        of 65535 octets.  Subtracting the size of the ICMP
+        or UDP header (both 8 octets) and the size of the IP
+        header (20 octets) yields a maximum size of 65507
+        octets."
+    DEFVAL { 0 }					  
+    ::= { zhonePingCtlEntry 4 }
+
+
+ zhonePingCtlTimeOut OBJECT-TYPE
+    SYNTAX      Unsigned32 (1..60)
+    UNITS       "seconds"
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Specifies the time-out value, in seconds, for a
+        remote ping operation."
+    DEFVAL { 3 }
+    ::= { zhonePingCtlEntry 5 }
+
+
+ zhonePingCtlProbeCount OBJECT-TYPE
+    SYNTAX      Unsigned32 (1..15)
+    UNITS       "probes"
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Specifies the number of times to perform a ping
+        operation at a remote host."
+    DEFVAL { 1 }
+    ::= { zhonePingCtlEntry 6 }
+
+
+ zhonePingCtlAdminStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                          enabled(1), -- test should be started
+                          disabled(2) -- test should be stopped
+                        }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Reflects the desired state that a zhonePingCtlEntry should be
+        in:
+
+           enabled(1)  - Attempt to activate the test as defined by
+                         this zhonePingCtlEntry.
+           disabled(2) - Deactivate the test as defined by this
+                         zhonePingCtlEntry.
+
+        Refer to the corresponding zhonePingResultsOperStatus to
+        determine the operational state of the test defined by
+        this entry."
+     DEFVAL { disabled }
+    ::= { zhonePingCtlEntry 7 }
+
+ zhonePingCtlDataFill  OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(0..1024))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The content of this object is used together with the
+        corresponding zhonePingCtlDataSize value to determine how to
+        fill the data portion of a probe packet.  The option of
+        selecting a data fill pattern can be useful when links
+        are compressed or have data pattern sensitivities. The
+        contents of zhonePingCtlDataFill should be repeated in a ping
+        packet when the size of the data portion of the ping
+        packet is greater than the size of zhonePingCtlDataFill."
+    DEFVAL { '0'H }
+    ::= { zhonePingCtlEntry 8 }
+
+ zhonePingCtlFrequency  OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "seconds"
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The number of seconds to wait before repeating a ping test
+        as defined by the value of the various objects in the
+        corresponding row.
+
+        A single ping test consists of a series of ping probes.
+        The number of probes is determined by the value of the
+        corresponding zhonePingCtlProbeCount object.  After a single
+        test completes the number of seconds as defined by the
+        value of zhonePingCtlFrequency MUST elapse before the
+        next ping test is started.
+
+        A value of 0 for this object implies that the test
+        as defined by the corresponding entry will not be
+        repeated."
+    DEFVAL { 0 }
+    ::= { zhonePingCtlEntry 9 }
+
+ zhonePingCtlMaxRows OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "rows"
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+		"None"
+    DEFVAL      { 50 }
+    ::= { zhonePingCtlEntry 10 }
+
+ zhonePingCtlStorageType OBJECT-TYPE
+    SYNTAX      StorageType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The storage type for this conceptual row.
+        Conceptual rows having the value 'permanent' need not
+        allow write-access to any columnar objects in the row."
+    DEFVAL { nonVolatile }
+    ::= { zhonePingCtlEntry 11 }
+
+ zhonePingCtlTrapGeneration OBJECT-TYPE
+    SYNTAX      BITS {
+                   probeFailure(0),
+                   testFailure(1),
+                   testCompletion(2)
+                  }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of this object determines when and if
+        to generate a notification for this entry:
+
+        probeFailure(0)   - Generate a zhonePingProbeFailed
+            notification subject to the value of
+            zhonePingCtlTrapProbeFailureFilter.  The object
+            zhonePingCtlTrapProbeFailureFilter can be used
+            to specify the number of successive probe failures
+            that are required before a zhonePingProbeFailed
+            notification can be generated.
+        testFailure(1)    - Generate a zhonePingTestFailed
+            notification. In this instance the object
+            zhonePingCtlTrapTestFailureFilter can be used to
+            determine the number of probe failures that
+            signal when a test fails.
+        testCompletion(2) - Generate a zhonePingTestCompleted
+            notification.
+
+        The value of this object defaults to zero, indicating
+        that none of the above options have been selected."
+    ::= { zhonePingCtlEntry 12 }
+
+ zhonePingCtlTrapProbeFailureFilter OBJECT-TYPE
+    SYNTAX      Unsigned32 (0..15)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of this object is used to determine when
+        to generate a zhonePingProbeFailed NOTIFICATION.
+
+        Setting zhonePingCtlTrapGeneration
+        to probeFailure(0) implies that a zhonePingProbeFailed
+        NOTIFICATION is generated only when the number of
+        successive probe failures as indicated by the
+        value of zhonePingCtlTrapPrbefailureFilter fail within
+        a given ping test."
+    DEFVAL { 1 }
+    ::= { zhonePingCtlEntry 13 }
+
+ zhonePingCtlTrapTestFailureFilter OBJECT-TYPE
+    SYNTAX      Unsigned32 (0..15)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of this object is used to determine when
+        to generate a zhonePingTestFailed NOTIFICATION.
+
+        Setting zhonePingCtlTrapGeneration to testFailure(1)
+        implies that a pingTestFailed NOTIFICATION is
+        generated only when the number of ping failures
+        within a test exceed the value of
+        zhonePingCtlTrapTestFailureFilter."
+    DEFVAL { 1 }
+    ::= { zhonePingCtlEntry 14 }
+
+ zhonePingCtlType OBJECT-TYPE
+    SYNTAX      OBJECT IDENTIFIER
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The value of this object is used to either report or
+        select the implementation method to be used for
+        calculating a ping response time.  The value of this
+        object MAY be selected from zhonePingImplementationTypeDomains.
+
+        Additional implementation types SHOULD be allocated as
+        required by implementers of the ZHONE-DISMAN-PING-MIB under
+        their enterprise specific registration point and not
+        beneath zhonePingImplementationTypeDomains."
+    DEFVAL { zhonePingIcmpEcho }
+    ::= { zhonePingCtlEntry 15 }
+
+ zhonePingCtlDescr OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The purpose of this object is to provide a
+        descriptive name of the remote ping test."
+    DEFVAL { '0'H }
+    ::= { zhonePingCtlEntry 16 }
+
+ zhonePingCtlSourceAddressType OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Specifies the type of the source address,
+        zhonePingCtlSourceAddress, to be used at a remote host
+        when performing a ping operation."
+    DEFVAL { ipv4 }
+    ::= { zhonePingCtlEntry 17 }
+
+  zhonePingCtlSourceAddress OBJECT-TYPE
+    SYNTAX      InetAddress
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Use the specified IP address (which must be given
+        in numeric form, not as a hostname) as the source
+        address in outgoing probe packets.  On hosts with
+        more than one IP address, this option can be used
+        to force the source address to be something other
+        than the primary IP address of the interface the
+        probe packet is sent on.  If the IP address is not
+        one of this machine's interface addresses, an error
+        is returned and nothing is sent.  A zero length
+        octet string value for this object disables source
+        address specification.
+
+        The address type (InetAddressType) that relates to
+        this object is specified by the corresponding value
+        of zhonePingCtlSourceAddressType."
+    DEFVAL { '0'H }
+    ::= { zhonePingCtlEntry 18 }
+
+ zhonePingCtlIfIndex OBJECT-TYPE
+    SYNTAX      InterfaceIndexOrZero
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Setting this object to an interface's ifIndex prior
+        to starting a remote ping operation directs
+        the ping probes to be transmitted over the
+        specified interface.  A value of zero for this object
+        means that this option is not enabled."
+    DEFVAL { 0 }
+    ::= { zhonePingCtlEntry 19 }
+
+ zhonePingCtlByPassRouteTable OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+       "The purpose of this object is to optionally enable
+       bypassing the route table.  If enabled, the remote
+       host will bypass the normal routing tables and send
+       directly to a host on an attached network.  If the
+       host is not on a directly-attached network, an
+       error is returned.  This option can be used to perform
+       the ping operation to a local host through an
+       interface that has no route defined (e.g., after the
+       interface was dropped by routed)."
+    DEFVAL { false }
+    ::= { zhonePingCtlEntry 20 }
+
+ zhonePingCtlDSField OBJECT-TYPE
+    SYNTAX      Unsigned32 (0..255)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Specifies the value to store in the Differentiated
+        Services (DS) Field in the IP packet used to
+        encapsulate the ping probe.  The DS Field is defined
+        as the Type of Service (TOS) octet in a IPv4 header
+        or as the Traffic Class octet in a IPv6 header.
+
+        The value of this object must be a decimal integer
+        in the range from 0 to 255.  This option can be used
+        to determine what effect an explicit DS Field setting
+        has on a ping response.  Not all values are legal or
+        meaningful.  A value of 0 means that the function
+     represented by this option is not supported.  DS Field
+     usage is often not supported by IP implementations and
+     not all values are supported.  Refer to RFC 2474 for
+     guidance on usage of this field."
+    REFERENCE
+        "Refer to RFC 2474 for the definition of the
+        Differentiated Services Field and to RFC 1812
+        Section 5.3.2 for Type of Service (TOS)."
+    DEFVAL { 0 }
+    ::= { zhonePingCtlEntry 21 }
+
+
+ zhonePingCtlRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "This object allows entries to be created and deleted
+        in the zhonePingCtlTable.  Deletion of an entry in this
+        table results in all corresponding (same
+        zhonePingCtlOwnerIndex and zhonePingCtlTestName index values)
+        zhonePingResultsTable entries being deleted.
+
+        A value MUST be specified for zhonePingCtlTargetAddress
+        prior to a transition to active(1) state being
+        accepted.
+
+        Activation of a remote ping operation is controlled
+        via zhonePingCtlAdminStatus and not by changing
+        this object's value to active(1).
+
+        Transitions in and out of active(1) state are not
+        allowed while an entry's zhonePingResultsOperStatus is
+        active(1) with the exception that deletion of
+        an entry in this table by setting its RowStatus
+        object to destroy(6) will stop an active
+        ping operation.
+
+        The operational state of a ping operation
+        can be determined by examination of its
+        zhonePingResultsOperStatus object.
+        
+        NOTE: ROWS ARE AUTO-DELETED UP ON COMPLETION REGARDLESS OF OUTCOME"
+
+    REFERENCE
+        "See definition of RowStatus in RFC 2579, 'Textual
+        Conventions for SMIv2.'"
+    ::= { zhonePingCtlEntry 22 }
+
+-- Ping Results Table
+
+ zhonePingResultsTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF ZhonePingResultsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Defines the Ping Results Table for providing
+        the capability of performing ping operations at
+        a remote host.  The results of these operations are
+        stored in the zhonePingResultsTable and the zhonePingPastProbeTable.
+
+        An entry is added to the zhonePingResultsTable when an
+        zhonePingCtlEntry is started by successful transition
+        of its zhonePingCtlAdminStatus object to enabled(1).
+        An entry is removed from the zhonePingResultsTable when
+        its corresponding zhonePingCtlEntry is deleted."
+   ::= { zhonePingObjects 4 }
+
+ zhonePingResultsEntry OBJECT-TYPE
+    SYNTAX      ZhonePingResultsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Defines an entry in the zhonePingResultsTable.  The
+        zhonePingResultsTable has the same indexing as the
+        zhonePingCtlTable in order for a zhonePingResultsEntry to
+        correspond to the zhonePingCtlEntry that caused it to
+        be created."
+    INDEX {
+             zhonePingCtlIndex
+          }
+    ::= { zhonePingResultsTable 1 }
+
+ ZhonePingResultsEntry ::=
+    SEQUENCE {
+        zhonePingResultsOperStatus          INTEGER,
+        zhonePingResultsIpTargetAddressType InetAddressType,
+        zhonePingResultsIpTargetAddress     InetAddress,
+        zhonePingResultsMinRtt              Unsigned32,
+        zhonePingResultsMaxRtt              Unsigned32,
+        zhonePingResultsAverageRtt          Unsigned32,
+        zhonePingResultsProbeResponses      Unsigned32,
+        zhonePingResultsSentProbes          Unsigned32,
+        zhonePingResultsRttSumOfSquares     Unsigned32,
+        zhonePingResultsLastGoodProbe       DateAndTime
+     }
+
+
+ zhonePingResultsOperStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                          enabled(1),  -- test is in progress
+                          disabled(2)  -- test has stopped
+                        }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Reflects the operational state of a zhonePingCtlEntry:
+           enabled(1)   - Test is active.
+           disabled(2)  - Test has stopped."
+    ::= { zhonePingResultsEntry 1 }
+
+ zhonePingResultsIpTargetAddressType OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This objects indicates the type of address stored
+        in the corresponding zhonePingResultsIpTargetAddress
+        object."
+    DEFVAL { unknown }
+    ::= { zhonePingResultsEntry 2 }
+
+
+ zhonePingResultsIpTargetAddress OBJECT-TYPE
+    SYNTAX      InetAddress
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This objects reports the IP address associated
+        with a zhonePingCtlTargetAddress value when the destination
+        address is specified as a DNS name.  The value of
+        this object should be a zero length octet string
+        when a DNS name is not specified or when a
+        specified DNS name fails to resolve."
+    DEFVAL { '0'H }
+    ::= { zhonePingResultsEntry 3 }
+
+
+ zhonePingResultsMinRtt OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "milliseconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The minimum ping round-trip-time (RTT) received.  A value
+        of 0 for this object implies that no RTT has been received."
+    ::= { zhonePingResultsEntry 4 }
+
+
+ zhonePingResultsMaxRtt OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "milliseconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The maximum ping round-trip-time (RTT) received.  A value
+        of 0 for this object implies that no RTT has been received."
+    ::= { zhonePingResultsEntry 5 }
+
+
+  zhonePingResultsAverageRtt OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "milliseconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The current average ping round-trip-time (RTT)."
+    ::= { zhonePingResultsEntry 6 }
+
+
+  zhonePingResultsProbeResponses OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "responses"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of responses received for the corresponding
+        zhonePingCtlEntry and zhonePingResultsEntry.  The value of this object
+        MUST be reported as 0 when no probe responses have been
+        received."
+    ::= { zhonePingResultsEntry 7 }
+
+
+  zhonePingResultsSentProbes OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "probes"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of this object reflects the number of probes sent
+        for the corresponding zhonePingCtlEntry and zhonePingResultsEntry.
+        The value of this object MUST be reported as 0 when no probes
+        have been sent."
+    ::= { zhonePingResultsEntry 8 }
+
+  zhonePingResultsRttSumOfSquares OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "milliseconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This object contains the sum of the squares for all ping
+        responses received.  Its purpose is to enable standard
+        deviation calculation.  The value of this object MUST
+        be reported as 0 when no ping responses have been
+        received."
+    ::= { zhonePingResultsEntry 9 }
+
+ zhonePingResultsLastGoodProbe OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Date and time when the last response was received for
+        a probe."
+    ::= { zhonePingResultsEntry 10 }
+
+ -- Notification Definition section
+
+ zhonePingTestCompleted NOTIFICATION-TYPE
+      OBJECTS {
+        zhonePingResultsIpTargetAddress,
+        zhonePingResultsMinRtt,
+        zhonePingResultsMaxRtt,
+        zhonePingResultsAverageRtt,
+        zhonePingResultsProbeResponses,
+        zhonePingResultsSentProbes
+      }
+      STATUS  current
+      DESCRIPTION
+          "Generated at the completion of a ping test when the
+          corresponding zhonePingCtlTrapGeneration object is set to
+          testCompletion(4)."
+      ::= { zhonePingNotifications 1 }
+
+ -- Conformance information
+ -- Compliance statements
+
+-- zhonePingCompliances OBJECT IDENTIFIER ::= { zhonePingConformance 1 }
+zhonePingGroups      OBJECT IDENTIFIER ::= { zhonePingConformance 2 }
+
+-- Compliance statements
+
+-- zhonePingCompliance MODULE-COMPLIANCE
+--    STATUS  current
+--    DESCRIPTION
+--            "The compliance statement for the ZHONE-DISMAN-PING-MIB."
+--
+--
+--
+--    MODULE
+-- this module
+--        MANDATORY-GROUPS {
+--                            zhonePingGroup,
+--                            zhonePingNotificationsGroup
+--                          }
+--        GROUP zhonePingTimeStampGroup
+--        DESCRIPTION
+--            "This group is mandatory for implementations that have
+--            access to a system clock and are capable of setting
+--            the values for DateAndTime objects.  It is RECOMMENDED
+--            that when this group is not supported that the values
+--            for the objects in this group be reported as
+--            '0000000000000000'H."
+--
+--        OBJECT zhonePingMaxConcurrentRequests
+--        MIN-ACCESS  read-only
+--        DESCRIPTION
+--            "The agent is not required to support set
+--            operations to this object."
+--
+--        OBJECT zhonePingCtlStorageType
+--        MIN-ACCESS  read-only
+--        DESCRIPTION
+--            "Write access is not required.  It is also allowed
+--            for implementations to support only the volatile
+--            StorageType enumeration."
+--
+--        OBJECT zhonePingCtlType
+--        MIN-ACCESS  read-only
+--        DESCRIPTION
+--            "Write access is not required.  In addition, the only
+--            value that MUST be supported by an implementation is
+--            pingIcmpEcho."
+--
+--        OBJECT zhonePingCtlByPassRouteTable
+--        MIN-ACCESS  read-only
+--        DESCRIPTION
+--            "This object is not required by implementations that
+--            are not capable of its implementation.  The function
+--            represented by this object is implementable if the
+--            setsockopt SOL_SOCKET SO_DONTROUTE option is
+--            supported."
+--
+--        OBJECT zhonePingCtlSourceAddressType
+--        SYNTAX  InetAddressType
+--        SYNTAX  InetAddressType  { unknown(0), ipv4(1), ipv6(2) }
+--        MIN-ACCESS  read-only
+--        DESCRIPTION
+--            "This object is not required by implementations that
+--            are not capable of binding the send socket with a
+--            source address. An implementation is only required to
+--            support IPv4 and IPv6 addresses."
+--
+--        OBJECT zhonePingCtlSourceAddress
+--        SYNTAX  InetAddress
+--        SYNTAX  InetAddress (SIZE(0|4|16))
+--        MIN-ACCESS  read-only
+--        DESCRIPTION
+--            "This object is not required by implementations that
+--            are not capable of binding the send socket with a
+--            source address. An implementation is only required to
+--            support IPv4 and globally unique IPv6 addresses."
+--
+--        OBJECT zhonePingCtlIfIndex
+--        MIN-ACCESS  read-only
+--        DESCRIPTION
+--            "Write access is not required.   When write access is
+--            not supported return a 0 as the value of this object.
+--            A value of 0 means that the function represented by
+--            this option is not supported."
+--
+--        OBJECT zhonePingCtlDSField
+--        MIN-ACCESS  read-only
+--        DESCRIPTION
+--            "Write access is not required.   When write access is
+--            not supported return a 0 as the value of this object.
+--            A value of 0 means that the function represented by
+--            this option is not supported."
+--
+--        OBJECT zhonePingResultsIpTargetAddressType
+--        SYNTAX  InetAddressType 
+--        SYNTAX  InetAddressType { unknown(0), ipv4(1), ipv6(2) }
+--        DESCRIPTION
+--            "An implementation is only required to
+--            support IPv4 and IPv6 addresses."
+--
+--        OBJECT zhonePingResultsIpTargetAddress
+--        SYNTAX  InetAddress 
+--        SYNTAX  InetAddress (SIZE(0|4|16))
+--        DESCRIPTION
+--            "An implementation is only required to
+--            support IPv4 and globally unique IPv6 addresses."
+--
+--    ::= { zhonePingCompliances 1 }
+
+
+
+ -- MIB groupings
+
+ zhonePingGroup OBJECT-GROUP
+   OBJECTS {
+             zhonePingMaxConcurrentRequests,
+             zhonePingCtlTargetAddressType,
+             zhonePingCtlTargetAddress,
+             zhonePingCtlDataSize,
+             zhonePingCtlTimeOut,
+             zhonePingCtlProbeCount,
+             zhonePingCtlAdminStatus,
+             zhonePingCtlDataFill,
+             zhonePingCtlFrequency,
+             zhonePingCtlMaxRows,
+             zhonePingCtlStorageType,
+             zhonePingCtlTrapGeneration,
+             zhonePingCtlTrapProbeFailureFilter,
+             zhonePingCtlTrapTestFailureFilter,
+             zhonePingCtlType,
+             zhonePingCtlDescr,
+             zhonePingCtlByPassRouteTable,
+             zhonePingCtlSourceAddressType,
+             zhonePingCtlSourceAddress,
+             zhonePingCtlIfIndex,
+             zhonePingCtlDSField,
+             zhonePingCtlRowStatus,
+             zhonePingResultsOperStatus,
+             zhonePingResultsIpTargetAddressType,
+             zhonePingResultsIpTargetAddress,
+             zhonePingResultsMinRtt,
+             zhonePingResultsMaxRtt,
+             zhonePingResultsAverageRtt,
+             zhonePingResultsProbeResponses,
+             zhonePingResultsSentProbes,
+             zhonePingResultsRttSumOfSquares
+           }
+   STATUS  current
+   DESCRIPTION
+       "The group of objects that comprise the remote ping
+       capability."
+    ::= { zhonePingGroups 1 }
+
+ zhonePingTimeStampGroup OBJECT-GROUP
+   OBJECTS {
+             zhonePingResultsLastGoodProbe
+           }
+   STATUS  current
+   DESCRIPTION
+       "The group of DateAndTime objects."
+    ::= { zhonePingGroups 2 }
+
+ zhonePingNotificationsGroup NOTIFICATION-GROUP
+   NOTIFICATIONS {
+             zhonePingTestCompleted
+          }
+   STATUS        current
+   DESCRIPTION
+       "The notification which are required to be supported by
+       implementations of this MIB."
+   ::= { zhonePingGroups 3 }
+
+END

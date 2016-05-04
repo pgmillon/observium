@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -26,7 +26,7 @@ foreach ($sentry3_InfeedEntry as $tower => $feeds)
     $descr = str_replace('_', ', ', $entry['infeedName']);
     $index = "$tower.$feed";
 
-    //infeedLoadValue
+    // infeedLoadValue
     $oid   = '.1.3.6.1.4.1.1718.3.2.2.1.7.' . $index;
     if (isset($entry['infeedLoadValue']) && $entry['infeedLoadValue'] >= 0)
     {
@@ -36,10 +36,10 @@ foreach ($sentry3_InfeedEntry as $tower => $feeds)
 
       discover_sensor($valid['sensor'], 'current', $device, $oid, "infeedLoad.$index", 'sentry3', $descr, $scale, $value, $limits);
     } else {
-      /// FIXME. States for $entry['infeedLoadStatus']
+      // FIXME. States for $entry['infeedLoadStatus']
     }
 
-    //infeedVoltage
+    // infeedVoltage
     $oid   = '.1.3.6.1.4.1.1718.3.2.2.1.11.' . $index;
     if (isset($entry['infeedVoltage']) && $entry['infeedVoltage'] >= 0)
     {
@@ -48,7 +48,7 @@ foreach ($sentry3_InfeedEntry as $tower => $feeds)
       discover_sensor($valid['sensor'], 'voltage', $device, $oid, "infeedVoltage.$index", 'sentry3', $descr, $scale_voltage, $value);
     }
 
-    //infeedPower
+    // infeedPower
     $oid   = '.1.3.6.1.4.1.1718.3.2.2.1.12.' . $index;
     if (isset($entry['infeedPower']) && $entry['infeedPower'] >= 0)
     {
@@ -57,7 +57,7 @@ foreach ($sentry3_InfeedEntry as $tower => $feeds)
       discover_sensor($valid['sensor'], 'power', $device, $oid, "infeedPower.$index", 'sentry3', $descr, 1, $value);
     }
 
-    //outletLoadValue
+    // outletLoadValue
     foreach ($sentry3_OutletEntry[$tower][$feed] as $outlet => $ou_entry)
     {
       $descr = str_replace('_', ', ', $ou_entry['outletName']);
@@ -73,7 +73,7 @@ foreach ($sentry3_InfeedEntry as $tower => $feeds)
 
         discover_sensor($valid['sensor'], 'current', $device, $oid, "outletLoad.$index", 'sentry3', $descr, $scale, $value, $limits);
       } else {
-        /// FIXME. States for $ou_entry['outletLoadStatus'], $ou_entry['outletStatus']
+        // FIXME. States for $ou_entry['outletLoadStatus'], $ou_entry['outletStatus']
       }
     }
   }
@@ -87,7 +87,7 @@ foreach ($sentry3_TempHumidSensorEntry as $index => $entry)
 {
   $descr = $entry['tempHumidSensorName'];
 
-  //tempHumidSensorTempValue
+  // tempHumidSensorTempValue
   $oid        = '.1.3.6.1.4.1.1718.3.2.5.1.6.'.$index;
 
   if (isset($entry['tempHumidSensorTempValue']) && $entry['tempHumidSensorTempValue'] >= 0)
@@ -99,29 +99,30 @@ foreach ($sentry3_TempHumidSensorEntry as $index => $entry)
     } else {
       $scale_temp = 1;
     }
+
     $value      = $entry['tempHumidSensorTempValue'];
-    $limits     = array('limit_high' => (isset($entry['tempHumidSensorTempHighThresh']) ? $entry['tempHumidSensorTempHighThresh'] * $scale_temp : NULL),
+    $options    = array('limit_high' => (isset($entry['tempHumidSensorTempHighThresh']) ? $entry['tempHumidSensorTempHighThresh'] * $scale_temp : NULL),
                         'limit_low'  => (isset($entry['tempHumidSensorTempLowThresh'])  ? $entry['tempHumidSensorTempLowThresh']  * $scale_temp : NULL));
+
     if ($entry['tempHumidSensorTempScale'] == 'fahrenheit')
     {
-      $scale_temp *= 5/9;
-      //$value      = f2c($value);
-      $limits['limit_high'] = f2c($limits['limit_high']);
-      $limits['limit_low']  = f2c($limits['limit_low']);
+      $options['sensor_unit'] = 'F';
+      $options['limit_high'] = f2c($options['limit_high']);
+      $options['limit_low']  = f2c($options['limit_low']);
     }
 
-    discover_sensor($valid['sensor'], 'temperature', $device, $oid, "tempHumidSensor.$index", 'sentry3', $descr, $scale_temp, $value, $limits);
+    discover_sensor($valid['sensor'], 'temperature', $device, $oid, "tempHumidSensor.$index", 'sentry3', $descr, $scale_temp, $value, $options);
   }
 
-  //tempHumidSensorHumidValue
+  // tempHumidSensorHumidValue
   $oid        = '.1.3.6.1.4.1.1718.3.2.5.1.10.'.$index;
   if (isset($entry['tempHumidSensorHumidValue']) && $entry['tempHumidSensorHumidValue'] >= 0)
   {
-    $limits     = array('limit_high' => (isset($entry['tempHumidSensorHumidHighThresh']) ? $entry['tempHumidSensorHumidHighThresh'] : NULL),
+    $options    = array('limit_high' => (isset($entry['tempHumidSensorHumidHighThresh']) ? $entry['tempHumidSensorHumidHighThresh'] : NULL),
                         'limit_low'  => (isset($entry['tempHumidSensorHumidLowThresh'])  ? $entry['tempHumidSensorHumidLowThresh']  : NULL));
     $value      = $entry['tempHumidSensorHumidValue'];
 
-    discover_sensor($valid['sensor'], 'humidity', $device, $oid, "tempHumidSensor.$index", 'sentry3', $descr, 1, $value, $limits);
+    discover_sensor($valid['sensor'], 'humidity', $device, $oid, "tempHumidSensor.$index", 'sentry3', $descr, 1, $value, $options);
   }
 }
 

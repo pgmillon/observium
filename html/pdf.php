@@ -7,8 +7,8 @@
  *
  * @package    observium
  * @subpackage billing
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -17,12 +17,10 @@ $html     = "";
 $type     = (isset($_GET['type']) ? $_GET['type'] : "");
 $report   = (isset($_GET['report']) ? $_GET['report'] : "");
 
-include_once("../includes/defaults.inc.php");
-include_once("../config.php");
-include_once("../includes/definitions.inc.php");
-include("../includes/functions.inc.php");
-include("includes/functions.inc.php");
-include("includes/authenticate.inc.php");
+include_once("../includes/sql-config.inc.php");
+
+include($config['html_dir'] . "/includes/functions.inc.php");
+include($config['html_dir'] . "/includes/authenticate.inc.php");
 
 if (!$_SESSION['authenticated']) { $html .= "unauthenticated"; }
 
@@ -101,7 +99,7 @@ if ($_SESSION['authenticated'])
   {
     if ($report == "history")
     {
-      include("pages/bill/pdf_history.inc.php");
+      include($config['html_dir']."/pages/bill/pdf_history.inc.php");
     }
   }
 }

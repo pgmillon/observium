@@ -7,30 +7,37 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 if ($vars['editing'])
 {
-  if (get_db_version() < 169)
+  if ($readonly)
   {
-    //FIXME. Remove this block in r7000
-    print_warning("DB scheme is old, must update first. Device Geolocation not changed.");
+    print_error_permission('You have insufficient permissions to edit settings.');
   }
-  else if ($_SESSION['userlevel'] > 7)
+  else if (get_db_version() < 169)
   {
+    // FIXME. Remove this block in r7000
+    print_warning("DB scheme is old, must update first. Device Geolocation not changed.");
+  } else {
     $updated = 0;
 
     if ($vars['submit'] == 'save')
     {
-      if ((bool)$vars['location_manual'])
+      if ($vars['reset_geolocation'] === 'on' || $vars['reset_geolocation'] === '1')
+      {
+        $updated = dbDelete('devices_locations', '`device_id` = ?', array($device['device_id']));
+      }
+      else if ((bool)$vars['location_manual'])
       {
         // Set manual coordinates if present
         $pattern = '/(?:^|[\[(])\s*(?<lat>[+-]?\d+(?:\.\d+)*)\s*[,; ]\s*(?<lon>[+-]?\d+(?:\.\d+)*)\s*(?:[\])]|$)/';
         if (preg_match($pattern, $vars['coordinates'], $matches))
         {
+          //r($matches);
           if ($matches['lat'] >= -90 && $matches['lat'] <= 90 &&
               $matches['lon'] >= -180 && $matches['lon'] <= 180)
           {
@@ -57,16 +64,22 @@ if ($vars['editing'])
       {
         //r($update_geo);
         dbUpdate($update_geo, 'devices_locations', '`location_id` = ?', array($device['location_id']));
-        print_success("Device Geolocation updated. Country/city will be updated on next poll.");
         $geo_db = dbFetchRow("SELECT * FROM `devices_locations` WHERE `device_id` = ?", array($device['device_id']));
+        if (count($geo_db))
+        {
+          if ($vars['reset_geolocation'] === 'on' || $vars['reset_geolocation'] === '1')
+          {
+            print_warning("Device Geo location dropped. Country/city will be updated on next poll.");
+          } else {
+            print_success("Device Geolocation updated. Country/city will be updated on next poll.");
+          }
+        }
         $device = array_merge($device, $geo_db);
         unset($updated, $update_geo, $geo_db);
       } else {
         print_warning("Some input data wrong. Device Geolocation not changed.");
       }
     }
-  } else {
-    include("includes/error-no-perm.inc.php");
   }
 }
 
@@ -121,98 +134,125 @@ if ($updated && $update_message)
   print_error($update_message);
 }
 
-//FIXME. Make better page view (use correct bootstrap classes instead forms)
-?>
+      $form = array('type'      => 'horizontal',
+                    'id'        => 'edit',
+                    //'space'     => '20px',
+                    'title'     => 'Geolocation Options',
+                    //'icon'      => 'oicon-gear',
+                    //'class'     => 'box box-solid',
+                    'fieldset'  => array('edit' => ''),
+                    );
 
- <form id="edit" name="edit" method="post" class="form-horizontal" action="<?php echo($url); ?>">
-
-  <fieldset>
-  <legend>Geolocation options</legend>
-  <input type=hidden name="editing" value="yes">
-
-  <div class="control-group">
-    <label class="control-label" for="sysLocation">Location Text</label>
-    <div class="controls" id="location_text">
-      <input type=text name="sysLocation" style="width: 66.6667%;" disabled="disabled" value="<?php echo(escape_html($location['location_text'])); ?>" />
-      <?php
+      $form['row'][0]['editing']   = array(
+                                      'type'        => 'hidden',
+                                      'value'       => 'yes');
+      $form['row'][1]['sysLocation'] = array(
+                                      'type'        => 'text',
+                                      //'fieldset'    => 'edit',
+                                      'name'        => 'sysLocation string',
+                                      'placeholder' => '',
+                                      'width'       => '66.6667%',
+                                      //'readonly'    => $readonly,
+                                      'disabled'    => TRUE, // Always disabled, just for see
+                                      'value'       => escape_html($location['location_text']));
       if ($location['location_help'])
       {
-        echo('      <span class="help-block"><small>'.$location['location_help'].'</small></span>'.PHP_EOL);
+        $form['row'][1]['location_help'] = array(
+                                      'type'        => 'raw',
+                                      'value'       => '<span class="help-block"><small>'.$location['location_help'].'</small></span>');
       }
-      ?>
-    </div>
-  </div>
-
-  <div class="control-group">
-    <label class="control-label" for="location_geo">Location Geo</label>
-    <div class="controls" id="location_geo">
-      <input type=text name="location_geo" style="width: 66.6667%;" disabled="disabled" value="<?php echo(escape_html($location['location_geo'])); ?>" />
-    </div>
-  </div>
-
-  <div class="control-group">
-    <label class="control-label" for="location_lat">Latitude/Longitude</label>
-    <div class="controls">
-      <input name="location_lat" type=text style="width: 16.6667%; margin-right:10px;" disabled="disabled" value="<?php echo(escape_html($location['location_lat'])); ?>" />
-      <input name="location_lon" type=text style="width: 16.6667%;" disabled="disabled" value="<?php echo(escape_html($location['location_lon'])); ?>" />
-      <?php
+      $form['row'][2]['location_geo'] = array(
+                                      'type'        => 'text',
+                                      //'fieldset'    => 'edit',
+                                      'name'        => 'Location Place',
+                                      'placeholder' => '',
+                                      'width'       => '66.6667%',
+                                      //'readonly'    => $readonly,
+                                      'disabled'    => TRUE, // Always disabled, just for see
+                                      'value'       => escape_html($location['location_geo']));
+      $form['row'][3]['location_lat'] = array(
+                                      'type'        => 'text',
+                                      //'fieldset'    => 'edit',
+                                      'name'        => 'Latitude/Longitude',
+                                      'placeholder' => '',
+                                      'width'       => '16.6667%',
+                                      //'readonly'    => $readonly,
+                                      'disabled'    => TRUE, // Always disabled, just for see
+                                      'value'       => escape_html($location['location_lat']));
       if ($location['location_link'])
       {
-        echo('      <span class="help-inline"><small>'.$location['location_link'].'</small></span>'.PHP_EOL);
+        $form['row'][3]['location_link'] = array(
+                                      'type'        => 'raw',
+                                      'value'       => '<span class="help-block"><small>'.$location['location_link'].'</small></span>');
       }
-      ?>
-    </div>
-  </div>
+      $form['row'][4]['location_geoapi'] = array(
+                                      'type'        => 'text',
+                                      //'fieldset'    => 'edit',
+                                      'name'        => 'API used',
+                                      'placeholder' => '',
+                                      'width'       => '16.6667%',
+                                      //'readonly'    => $readonly,
+                                      'disabled'    => TRUE, // Always disabled, just for see
+                                      'value'       => escape_html(strtoupper($location['location_geoapi'])));
+      $form['row'][4]['help_link'] = array(
+                                      'type'        => 'raw',
+                                      'value'       => '<span class="help-inline"><small><a target="_blank" href="' . OBSERVIUM_URL . '/docs/config_options/#syslocation-configuration">
+      <i class="oicon-question"></i> View available Geolocation APIs and other configuration options</a></small></span>');
+      $form['row'][5]['location_updated'] = array(
+                                      'type'        => 'text',
+                                      //'fieldset'    => 'edit',
+                                      'name'        => 'Last updated',
+                                      'placeholder' => '',
+                                      'width'       => '16.6667%',
+                                      //'readonly'    => $readonly,
+                                      'disabled'    => TRUE, // Always disabled, just for see
+                                      'value'       => escape_html($location['location_updated']));
+      $form['row'][6]['location_status'] = array(
+                                      'type'        => 'textarea',
+                                      //'fieldset'    => 'edit',
+                                      'name'        => 'Last update status',
+                                      'placeholder' => '',
+                                      'width'       => '66.6667%',
+                                      //'readonly'    => $readonly,
+                                      'disabled'    => TRUE, // Always disabled, just for see
+                                      'value'       => escape_html($location['location_status']));
+      $form['row'][7]['coordinates'] = array(
+                                      'type'        => 'text',
+                                      //'fieldset'    => 'edit',
+                                      'name'        => 'Manual coordinates',
+                                      'placeholder' => '',
+                                      'width'       => '16.6667%',
+                                      'readonly'    => $readonly,
+                                      'disabled'    => !$location['location_manual'],
+                                      'value'       => escape_html($location['coordinates_manual']));
+      $form['row'][7]['location_manual'] = array(
+                                      'type'        => 'checkbox',
+                                      'readonly'    => $readonly,
+                                      'onchange'    => "toggleAttrib('disabled', 'coordinates')",
+                                      'value'       => $location['location_manual']);
 
-  <div class="control-group">
-    <label class="control-label" for="location_geoapi">API used</label>
-    <div class="controls">
-      <input name="location_geoapi" type=text style="width: 16.6667%;" disabled="disabled" value="<?php echo(escape_html(strtoupper($location['location_geoapi']))); ?>" />
-      <span class="help-inline"><small><a target="_blank" href="<?php echo(OBSERVIUM_URL); ?>/wiki/Configuration_Options#sysLocation_Configuration">
-      <i class="oicon-question"></i> View available Geolocation APIs and other configuration options</a></small></span>
-    </div>
-  </div>
+      $form['row'][8]['reset_geolocation'] = array(
+                                      'type'        => 'switch',
+                                      'name'        => 'Reset GEO location',
+                                      //'fieldset'    => 'edit',
+                                      'size'        => 'small',
+                                      'readonly'    => $readonly,
+                                      'on-color'    => 'danger',
+                                      'off-color'   => 'primary',
+                                      'on-text'     => 'Reset',
+                                      'off-text'    => 'Leave',
+                                      'value'       => 0);
 
-  <div class="control-group">
-    <label class="control-label" for="location_updated">Last updated</label>
-    <div class="controls">
-      <input name="location_updated" type=text style="width: 16.6667%;" disabled="disabled" value="<?php echo(escape_html($location['location_updated'])); ?>" />
-    </div>
-  </div>
-  <div class="control-group">
-    <label class="control-label" for="location_status">Last update status</label>
-    <div class="controls">
-      <textarea name="location_status" style="width: 66.6667%; cursor: default;" disabled="disabled"><?php echo(escape_html($location['location_status'])); ?></textarea>
-    </div>
-  </div>
+      $form['row'][9]['submit']    = array(
+                                      'type'        => 'submit',
+                                      'name'        => 'Save Changes',
+                                      'icon'        => 'icon-ok icon-white',
+                                      //'right'       => TRUE,
+                                      'class'       => 'btn-primary',
+                                      'readonly'    => $readonly,
+                                      'value'       => 'save');
 
-  <div class="control-group">
-    <label class="control-label" for="coordinates">Manual coordinates</label>
-    <div class="controls">
-      <input name="coordinates" type=text style="width: 16.6667%;" <?php if (!$location['location_manual']) { echo(' disabled="disabled"'); } ?> value="<?php echo(escape_html($location['coordinates_manual'])); ?>" />
-      <input type="checkbox" onclick="edit.coordinates.disabled=!edit.location_manual.checked"
-            name="location_manual" <?php if ($location['location_manual']) { echo(' checked="checked"'); } ?> />
-<!--      <input type="checkbox" data-toggle="switch" id="location_manual" name="location_manual" <?php if ($location['location_manual']) { echo(' checked="checked"'); } ?>
-             onclick="edit.coordinates.disabled=!edit.location_manual.checked" />-->
-    </div>
-  </div>
-
-<script>
-
-$('#location_manual').click(function() {
-  $('#coordinates').attr('disabled',! this.checked)
-});
-
-</script>
-
-  </fieldset>
-
-  <div class="form-actions">
-    <button type="submit" class="btn btn-primary" name="submit" value="save"><i class="icon-ok icon-white"></i> Save Changes</button>
-  </div>
-
-</form>
-
-<?php
+      print_form($form);
+      unset($form);
 
 // EOF

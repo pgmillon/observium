@@ -7,11 +7,12 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 $mib = 'HOST-RESOURCES-MIB';
+echo("$mib ");
 
 if (!isset($cache_discovery['host-resources-mib']))
 {
@@ -21,14 +22,12 @@ if (!isset($cache_discovery['host-resources-mib']))
 //$debug_stats = array('total' => 0, 'used' => 0);
 if (count($cache_discovery['host-resources-mib']))
 {
-  echo(" $mib ");
-
   foreach ($cache_discovery['host-resources-mib'] as $index => $entry)
   {
     $descr  = $entry['hrStorageDescr'];
     $units  = $entry['hrStorageAllocationUnits'];
-    $total  = $entry['hrStorageSize'] * $units;
-    $used   = $entry['hrStorageUsed'] * $units;
+    $total  = $entry['hrStorageSize']; // * $units;
+    $used   = $entry['hrStorageUsed']; // * $units;
     $deny   = TRUE;
 
     switch($entry['hrStorageType'])

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -33,7 +33,6 @@ include($config['install_dir'] . '/includes/include-dir-mib.inc.php');
 // Remove non-valid things
 
 // FIXME - Actually write this code :)
-
 
 echo(PHP_EOL);
 

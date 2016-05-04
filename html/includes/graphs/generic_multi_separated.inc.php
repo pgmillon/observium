@@ -7,11 +7,11 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-include_once($config['html_dir']."/includes/graphs/common.inc.php");
+include($config['html_dir']."/includes/graphs/common.inc.php");
 
 $graph_return['valid_options'][] = "previous";
 $graph_return['valid_options'][] = "total";
@@ -99,7 +99,7 @@ foreach ($rrd_list as $rrd)
   $rrd_options .= " CDEF:outbits".$i."_neg=outbits".$i.",-1,*";
   $rrd_options .= " CDEF:bits".$i."=inbits".$i.",outbits".$i.",+";
 
-  if ($_GET['previous'])
+  if ($vars['previous'])
   {
     $rrd_options .= " DEF:inB" . $i . "X=".$rrd['filename'].":".$ds_in.":AVERAGE:start=".$prev_from.":end=".$from;
     $rrd_options .= " DEF:outB" . $i . "X=".$rrd['filename'].":".$ds_out.":AVERAGE:start=".$prev_from.":end=".$from;
@@ -120,9 +120,9 @@ foreach ($rrd_list as $rrd)
     $rrd_multi['out_thing'][] = "outB" . $i . ",UN,0," . "outB" . $i . ",IF";
   }
 
-  if ($i) { $stack="STACK"; }
+  if ($i) { $stack=":STACK"; }
 
-  $rrd_options .= " AREA:inbits".$i."#" . $colour_in . ":'" . rrdtool_escape($rrd['descr'], $descr_len - 3) . " Rx':$stack";
+  $rrd_options .= " AREA:inbits".$i."#" . $colour_in . ":'" . rrdtool_escape($rrd['descr'], $descr_len - 3) . " Rx'$stack";
 
   if (in_array("lst", $data_show)) { $rrd_options .= " GPRINT:inbits".$i.":LAST:%6.2lf%s"; }
   if (in_array("avg", $data_show)) { $rrd_options .= " GPRINT:inbits".$i.":AVERAGE:%6.2lf%s"; }
@@ -131,8 +131,8 @@ foreach ($rrd_list as $rrd)
   if (in_array("tot", $data_show)) { $rrd_options .= " GPRINT:totinB".$i.":%6.2lf%s".$total_units; }
 
   $rrd_options .= " COMMENT:'\\l'";
-  $rrd_optionsb .= " AREA:outbits".$i."_neg#" . $colour_out . "::$stack";
-  $rrd_options .= "  HRULE:999999999999999#" . $colour_out . ":'" . rrdtool_escape($rrd['descr_out'], $descr_len - 3) . " Tx':";
+  $rrd_optionsb .= " AREA:outbits".$i."_neg#" . $colour_out . ":".$stack;
+  $rrd_options .= "  HRULE:999999999999999#" . $colour_out . ":'" . rrdtool_escape($rrd['descr_out'], $descr_len - 3) . " Tx'";
 
   if (in_array("lst", $data_show)) { $rrd_options .= " GPRINT:outbits".$i.":LAST:%6.2lf%s"; }
   if (in_array("avg", $data_show)) { $rrd_options .= " GPRINT:outbits".$i.":AVERAGE:%6.2lf%s"; }
@@ -144,7 +144,7 @@ foreach ($rrd_list as $rrd)
   $i++; $iter++;
 }
 
-if ($_GET['previous'] == "yes")
+if ($vars['previous'] == "yes")
 {
   $in_thingX  = implode(',', $rrd_multi['in_thingX']);
   $out_thingX = implode(',', $rrd_multi['out_thingX']);
@@ -159,15 +159,12 @@ if ($_GET['previous'] == "yes")
   $rrd_options .= " CDEF:doutbitsX=doutBX,8,*";
   $rrd_options .= " VDEF:95thinX=inbitsX,95,PERCENT";
   $rrd_options .= " VDEF:95thoutX=outbitsX,95,PERCENT";
-  $rrd_options .= " VDEF:d95thoutX=doutbitsX,5,PERCENT";
-}
+  $rrd_options .= " CDEF:poutX_tmp=doutbitsX,-1,* VDEF:dpoutX_tmp=poutX_tmp,95,PERCENT CDEF:dpoutX_tmp2=doutbitsX,doutbitsX,-,dpoutX_tmp,-1,*,+ VDEF:d95thoutX=dpoutX_tmp2,FIRST";
 
-if ($_GET['previous'] == "yes")
-{
-  $rrd_options .= " AREA:in".$format."X#99999999:";
-  $rrd_optionsb .= " AREA:dout".$format."X#99999999:";
-  $rrd_options .= " LINE1.25:in".$format."X#666666:";
-  $rrd_optionsb .= " LINE1.25:dout".$format."X#666666:";
+  $rrd_options  .= " AREA:in".$format."X#99999999";
+  $rrd_optionsb .= " AREA:dout".$format."X#99999999";
+  $rrd_options  .= " LINE1.25:in".$format."X#666666";
+  $rrd_optionsb .= " LINE1.25:dout".$format."X#666666";
 }
 
 if (in_array("tot", $data_show))
@@ -185,7 +182,8 @@ if (in_array("tot", $data_show))
   $rrd_options .= " CDEF:doutbits=doutB,8,*";
   $rrd_options .= " VDEF:95thin=inbits,95,PERCENT";
   $rrd_options .= " VDEF:95thout=outbits,95,PERCENT";
-  $rrd_options .= " VDEF:d95thout=doutbits,5,PERCENT";
+  $rrd_options .= " CDEF:pout_tmp=doutbits,-1,* VDEF:dpout_tmp=pout_tmp,95,PERCENT CDEF:dpout_tmp2=doutbits,doutbits,-,dpout_tmp,-1,*,+ VDEF:d95thout=dpout_tmp2,FIRST";
+
   $rrd_options .= " VDEF:totin=inB,TOTAL";
   $rrd_options .= " VDEF:avein=inbits,AVERAGE";
   $rrd_options .= " VDEF:totout=outB,TOTAL";
@@ -194,7 +192,7 @@ if (in_array("tot", $data_show))
 
   $rrd_options .= " COMMENT:' \\l'";
 
-  $rrd_options .= "  HRULE:999999999999999#FFFFFF:'" . rrdtool_escape("Total", $descr_len - 3) . " Rx':";
+  $rrd_options .= "  HRULE:999999999999999#FFFFFF:'" . rrdtool_escape("Total", $descr_len - 3) . " Rx'";
   if (in_array("lst", $data_show)) { $rrd_options .= " GPRINT:inbits:LAST:%6.2lf%s"; }
   if (in_array("avg", $data_show)) { $rrd_options .= " GPRINT:inbits:AVERAGE:%6.2lf%s"; }
   if (in_array("min", $data_show)) { $rrd_options .= " GPRINT:inbits:MIN:%6.2lf%s"; }
@@ -202,7 +200,7 @@ if (in_array("tot", $data_show))
   if (in_array("tot", $data_show)) { $rrd_options .= " GPRINT:totin:%6.2lf%s".$total_units; }
   $rrd_options .= " COMMENT:'\\l'";
 
-  $rrd_options .= "  HRULE:999999999999999#FFFFFF:'" . rrdtool_escape("", $descr_len - 3) . " Tx':";
+  $rrd_options .= "  HRULE:999999999999999#FFFFFF:'" . rrdtool_escape("", $descr_len - 3) . " Tx'";
   if (in_array("lst", $data_show)) { $rrd_options .= " GPRINT:outbits:LAST:%6.2lf%s"; }
   if (in_array("avg", $data_show)) { $rrd_options .= " GPRINT:outbits:AVERAGE:%6.2lf%s"; }
   if (in_array("min", $data_show)) { $rrd_options .= " GPRINT:outbits:MIN:%6.2lf%s"; }
@@ -210,7 +208,7 @@ if (in_array("tot", $data_show))
   if (in_array("tot", $data_show)) { $rrd_options .= " GPRINT:totout:%6.2lf%s".$total_units; }
   $rrd_options .= " COMMENT:'\\l'";
 
-  $rrd_options .= "  HRULE:999999999999999#FFFFFF:'" . rrdtool_escape("", $descr_len - 4) . " Agg':";
+  $rrd_options .= "  HRULE:999999999999999#FFFFFF:'" . rrdtool_escape("", $descr_len - 4) . " Agg'";
   if (in_array("lst", $data_show)) { $rrd_options .= " GPRINT:bits:LAST:%6.2lf%s"; }
   if (in_array("avg", $data_show)) { $rrd_options .= " GPRINT:bits:AVERAGE:%6.2lf%s"; }
   if (in_array("min", $data_show)) { $rrd_options .= " GPRINT:bits:MIN:%6.2lf%s"; }
@@ -218,7 +216,7 @@ if (in_array("tot", $data_show))
   if (in_array("tot", $data_show)) { $rrd_options .= " GPRINT:tot:%6.2lf%s".$total_units; }
   $rrd_options .= " COMMENT:'\\l'";
 
-  if ($_GET['trend'])
+  if ($vars['trend'])
   {
     $rrd_options .= " CDEF:smooth_in=inbits,1800,TREND";
     $rrd_options .= " CDEF:predict_in=586400,-7,1800,inbits,PREDICT";
@@ -230,14 +228,14 @@ if (in_array("tot", $data_show))
   }
 }
 
-if (in_array("tot", $data_show) && $_GET['previous'] == "yes")
+if (in_array("tot", $data_show) && $vars['previous'] == "yes")
 {
   $rrd_options .= " VDEF:totinX=inBX,TOTAL";
   $rrd_options .= " VDEF:totoutX=outBX,TOTAL";
   $rrd_options .= " VDEF:totX=octetsX,TOTAL";
   $rrd_options .= " COMMENT:' \\l'";
 
-  $rrd_options .= "  HRULE:999999999999999#AAAAAA:'" . rrdtool_escape("Prev Total", $descr_len - 3) . " Rx':";
+  $rrd_options .= "  HRULE:999999999999999#AAAAAA:'" . rrdtool_escape("Prev Total", $descr_len - 3) . " Rx'";
   if (in_array("lst", $data_show)) { $rrd_options .= " GPRINT:inbitsX:LAST:%6.2lf%s"; }
   if (in_array("avg", $data_show)) { $rrd_options .= " GPRINT:inbitsX:AVERAGE:%6.2lf%s"; }
   if (in_array("min", $data_show)) { $rrd_options .= " GPRINT:inbitsX:MIN:%6.2lf%s"; }
@@ -245,7 +243,7 @@ if (in_array("tot", $data_show) && $_GET['previous'] == "yes")
   if (in_array("tot", $data_show)) { $rrd_options .= " GPRINT:totinX:%6.2lf%s".$total_units; }
   $rrd_options .= " COMMENT:'\\l'";
 
-  $rrd_options .= "  HRULE:999999999999999#AAAAAA:'" . rrdtool_escape("", $descr_len - 3) . " Tx':";
+  $rrd_options .= "  HRULE:999999999999999#AAAAAA:'" . rrdtool_escape("", $descr_len - 3) . " Tx'";
   if (in_array("lst", $data_show)) { $rrd_options .= " GPRINT:outbitsX:LAST:%6.2lf%s"; }
   if (in_array("avg", $data_show)) { $rrd_options .= " GPRINT:outbitsX:AVERAGE:%6.2lf%s"; }
   if (in_array("min", $data_show)) { $rrd_options .= " GPRINT:outbitsX:MIN:%6.2lf%s"; }
@@ -253,7 +251,7 @@ if (in_array("tot", $data_show) && $_GET['previous'] == "yes")
   if (in_array("tot", $data_show)) { $rrd_options .= " GPRINT:totoutX:%6.2lf%s".$total_units; }
   $rrd_options .= " COMMENT:'\\l'";
 
-  $rrd_options .= "  HRULE:999999999999999#AAAAAA:'" . rrdtool_escape("", $descr_len - 4) . " Agg':";
+  $rrd_options .= "  HRULE:999999999999999#AAAAAA:'" . rrdtool_escape("", $descr_len - 4) . " Agg'";
   if (in_array("lst", $data_show)) { $rrd_options .= " GPRINT:bitsX:LAST:%6.2lf%s"; }
   if (in_array("avg", $data_show)) { $rrd_options .= " GPRINT:bitsX:AVERAGE:%6.2lf%s"; }
   if (in_array("min", $data_show)) { $rrd_options .= " GPRINT:bitsX:MIN:%6.2lf%s"; }

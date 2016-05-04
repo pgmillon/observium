@@ -6,13 +6,13 @@
  *
  * @package    observium
  * @subpackage applications
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-$app_graphs['default'] = array('mailscanner_sent' => 'Mailscanner - Sent / Received',
-                'mailscanner_spam' => 'Mailscanner - Spam / Virus',
-                'mailscanner_reject' => 'Mailscanner - Rejected / Waiting / Relayed');
+$app_graphs['default'] = array('mailscanner_sent' => 'Sent / Received',
+                'mailscanner_spam' => 'Spam / Virus',
+                'mailscanner_reject' => 'Rejected / Waiting / Relayed');
 
 // EOF

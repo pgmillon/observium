@@ -7,8 +7,8 @@
  *
  * @package    observium
  * @subpackage geolocation
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -17,38 +17,47 @@
 
 // DOCME needs phpdoc block
 // TESTME needs unit testing
-function get_geolocation($address, $geo_db = array())
+function get_geolocation($address, $geo_db = array(), $dns_only = FALSE)
 {
   global $config;
 
+  $ok       = FALSE;
   $location = array('location' => $address); // Init location array
-  switch (strtolower($config['geocoding']['api']))
+  $location['location_geoapi'] = strtolower(trim($config['geocoding']['api']));
+  if (!isset($config['geo_api'][$location['location_geoapi']]))
   {
-    case 'osm':
-    case 'openstreetmap':
-      $location['location_geoapi'] = 'openstreetmap';
-      // Openstreetmap. The usage limits are stricter here. (http://wiki.openstreetmap.org/wiki/Nominatim_usage_policy)
-      $url         = "http://nominatim.openstreetmap.org/search?format=json&accept-language=en&addressdetails=1&limit=1&q=";
-      $reverse_url = "http://nominatim.openstreetmap.org/reverse?format=json&accept-language=en&";
-      break;
-    case 'google':
-      $location['location_geoapi'] = 'google';
-      // See documentation here: https:// developers.google.com/maps/documentation/geocoding/
-      // Use of the Google Geocoding API is subject to a query limit of 2,500 geolocation requests per day.
-      $url         = "http://maps.googleapis.com/maps/api/geocode/json?sensor=false&language=en&address=";
-      $reverse_url = "http://maps.googleapis.com/maps/api/geocode/json?sensor=false&language=en&";
-      break;
-    case 'yandex':
-      $location['location_geoapi'] = 'yandex';
-      $url         = "http://geocode-maps.yandex.ru/1.x/?format=json&lang=en_US&results=1&geocode=";
-      $reverse_url = "http://geocode-maps.yandex.ru/1.x/?format=json&lang=en_US&results=1&sco=latlong&";
-      break;
-    case 'mapquest':
-    default:
-      $location['location_geoapi'] = 'mapquest';
-      // Mapquest open data. There are no usage limits.
-      $url         = "http://open.mapquestapi.com/nominatim/v1/search.php?format=json&accept-language=en&addressdetails=1&limit=1&q=";
-      $reverse_url = "http://open.mapquestapi.com/nominatim/v1/reverse.php?format=json&accept-language=en&";
+    // Use default if unknown api
+    $location['location_geoapi'] = 'openstreetmap';
+  }
+
+  $api_params = &$config['geo_api'][$location['location_geoapi']]; // Link to api specific params
+  $params     = $api_params['params'];                             // Init base request params
+
+  // GEO API KEY and rate limits
+  $ratelimit = FALSE;
+  if (strlen($config['geocoding']['api_key']) && isset($api_params['request_params']['key']))
+  {
+    $param = $api_params['request_params']['key'];
+    $params[$param] = escape_html($config['geocoding']['api_key']); // KEYs is never used special characters
+    if (isset($api_params['ratelimit_key']))
+    {
+      $ratelimit = $api_params['ratelimit_key'];
+    }
+  } else {
+    if (isset($api_params['ratelimit']))
+    {
+      $ratelimit = $api_params['ratelimit'];
+    }
+  }
+
+  if (isset($api_params['request_params']['id']))
+  {
+    $params[$api_params['request_params']['id']] = OBSERVIUM_PRODUCT . '-' . substr(get_unique_id(), 0, 8);
+  }
+
+  if (isset($api_params['request_params']['uuid']))
+  {
+    $params[$api_params['request_params']['uuid']] = get_unique_id();
   }
 
   if (isset($config['geocoding']['enable']) && $config['geocoding']['enable'])
@@ -80,8 +89,8 @@ function get_geolocation($address, $geo_db = array())
        */
       if ($geo_db['hostname'])
       {
-        include_once('Net/DNS2.php');
-        include_once('Net/DNS2/RR/LOC.php');
+        //include_once('Net/DNS2.php');
+        //include_once('Net/DNS2/RR/LOC.php');
 
         $resolver = new Net_DNS2_Resolver();
         try {
@@ -121,6 +130,12 @@ function get_geolocation($address, $geo_db = array())
           $debug_msg .= '  DNS LOC records - FOUND'.PHP_EOL;
         } else {
           $debug_msg .= '  DNS LOC records - NOT FOUND'.PHP_EOL;
+          if ($dns_only)
+          {
+            // If we check only DNS LOC records but it not found, exit
+            print_debug($debug_msg);
+            return FALSE;
+          }
         }
       }
     }
@@ -146,97 +161,109 @@ function get_geolocation($address, $geo_db = array())
           $reverse = TRUE;
         }
       }
-  
+
       if ($reverse)
       {
         $debug_msg .= '  by REVERSE query (API: '.strtoupper($config['geocoding']['api']).', LAT: '.$location['location_lat'].', LON: '.$location['location_lon'].') - ';
 
+        $url = $api_params['reverse_url'];
+        if (isset($api_params['reverse_params']))
+        {
+          // Additional params for reverse query
+          $params = array_merge($params, $api_params['reverse_params']);
+        }
+
         if (!is_numeric($location['location_lat']) || !is_numeric($location['location_lat']))
         {
           // Do nothing for empty, skip requests for empty coordinates
-        }
-        else if ($config['geocoding']['api'] == 'google')
-        {
-          // latlng=40.714224,-73.961452
-          $request = $reverse_url . 'latlng=' . $location['location_lat'] . ',' . $location['location_lon'];
-        }
-        else if ($config['geocoding']['api'] == 'yandex')
-        {
-          // geocode=40.714224,-73.961452
-          $request = $reverse_url . 'geocode=' . $location['location_lat'] . ',' . $location['location_lon'];
         } else {
-          // lat=51.521435&lon=-0.162714
-          $request = $reverse_url . 'lat=' . $location['location_lat'] . '&lon=' . $location['location_lon'];
+          if (isset($api_params['request_params']['lat']) && isset($api_params['request_params']['lon']))
+          {
+            $ok = TRUE;
+            $param = $api_params['request_params']['lat'];
+            $params[$param] = $location['location_lat'];
+            $param = $api_params['request_params']['lon'];
+            $params[$param] = $location['location_lon'];
+          }
+          else if (isset($api_params['request_params']['latlon']))
+          {
+            $ok = TRUE;
+            $param = $api_params['request_params']['latlon'];
+            $params[$param] = $location['location_lat'] . ',' . $location['location_lon'];
+          }
         }
       } else {
         $debug_msg .= '  by PARSING sysLocation (API: '.strtoupper($config['geocoding']['api']).') - ';
-        if ($address != '') { $request = $url.urlencode($address); }
+
+        $url = $api_params['direct_url'];
+        if (isset($api_params['direct_params']))
+        {
+          // Additional params for reverse query
+          $params = array_merge($params, $api_params['direct_params']);
+        }
+
+        if ($address != '')
+        {
+          $ok = TRUE;
+          $param = $api_params['request_params']['address'];
+          $params[$param] = urlencode($address);
+          //$request = $url . urlencode($address);
+        }
+      }
+      if (OBS_DEBUG > 1)
+      {
+        print_vars($api_params);
+        print_vars($params);
       }
 
-      if ($request)
+      if ($ok)
       {
+        // Build request query
+        $request = build_request_url($url, $params, $api_params['method']);
+
         // First request
-        $mapresponse = get_http_request($request);
+        $mapresponse = get_http_request($request, NULL, $ratelimit);
+        switch ($GLOBALS['response_headers']['code'][0])
+        {
+          case '4': // 4xx (timeout, rate limit, forbidden)
+          case '5': // 5xx (server error)
+            $geo_status = strtoupper($GLOBALS['response_headers']['status']);
+            $debug_msg .= $geo_status . PHP_EOL;
+            if (OBS_DEBUG < 2)
+            {
+              // Hide API KEY from output
+              $request  = str_replace($api_params['request_params']['key'] . '=' . escape_html($config['geocoding']['api_key']), $api_params['request_params']['key'] . '=' . '***', $request);
+            }
+            $debug_msg .= '  GEO API REQUEST: ' . $request;
+            print_debug($debug_msg);
+            // Return old array with new status (for later recheck)
+            unset($geo_db['hostname'], $geo_db['location_updated']);
+            $location['location_status']  = $debug_msg;
+            $location['location_updated'] = format_unixtime($config['time']['now'], 'Y-m-d G:i:s');
+            //print_vars($location);
+            //print_vars($geo_db);
+            return array_merge($geo_db, $location);
+        }
+
         $data        = json_decode($mapresponse, TRUE);
+        //print_vars($data);
         $geo_status  = 'NOT FOUND';
 
-        if ($config['geocoding']['api'] == 'google')
+        $api_specific = is_file($config['install_dir'] . '/includes/geolocation/' . $location['location_geoapi'] . '.inc.php');
+        if ($api_specific)
         {
-          if ($data['status'] == 'OVER_QUERY_LIMIT')
-          {
-            $debug_msg .= $geo_status;
-            print_debug($debug_msg);
-            // Return empty array for overquery limit (for later recheck)
-            return array('location_status' => $debug_msg);
-          }
+          // API specific parser
+          require_once($config['install_dir'] . '/includes/geolocation/' . $location['location_geoapi'] . '.inc.php');
 
-          // Use google data only with good status response
-          if ($data['status'] == 'OK')
+          if ($data === FALSE)
           {
-            $data       = $data['results'][0];
-            if ($data['geometry']['location_type'] == 'APPROXIMATE')
-            {
-              // It might be that the first element of the address is a business name.
-              // Lets drop the first element and see if we get anything better!
-              list(, $address) = explode(',', $address, 2);
-              $request_new = $url.urlencode($address);
-              $mapresponse = get_http_request($request_new);
-              $data_new = json_decode($mapresponse, TRUE);
-              if ($data_new['status'] == 'OK' && $data_new['results'][0]['geometry']['location_type'] != 'APPROXIMATE')
-              {
-                $request = $request_new;
-                $data    = $data_new['results'][0];
-              }
-            }
-          }
-        }
-        else if ($config['geocoding']['api'] == 'yandex')
-        {
-          $try_new = FALSE;
-          if ($data['response']['GeoObjectCollection']['metaDataProperty']['GeocoderResponseMetaData']['found'] > 0)
-          {
-            $data = $data['response']['GeoObjectCollection']['featureMember'][0];
-            if ($data['GeoObject']['metaDataProperty']['GeocoderMetaData']['precision'] == 'other')
-            {
-              $try_new = TRUE;
-            }
-          } else {
-            $try_new = TRUE;
-          }
-          if ($try_new && strpos($address, ','))
-          {
-            // It might be that the first element of the address is a business name.
-            // Lets drop the first element and see if we get anything better!
-            list(, $address) = explode(',', $address, 2);
-            $request_new = $url.urlencode($address);
-            $mapresponse = get_http_request($request_new);
-            $data_new = json_decode($mapresponse, TRUE);
-            if ($data_new['response']['GeoObjectCollection']['metaDataProperty']['GeocoderResponseMetaData']['found'] > 0 &&
-                $data_new['response']['GeoObjectCollection']['featureMember'][0]['GeoObject']['metaDataProperty']['GeocoderMetaData']['precision'] != 'other')
-            {
-              $request = $request_new;
-              $data    = $data_new['response']['GeoObjectCollection']['featureMember'][0];
-            }
+            // Return old array with new status (for later recheck)
+            unset($geo_db['hostname'], $geo_db['location_updated']);
+            //$location['location_status']  = $debug_msg;
+            $location['location_updated'] = format_unixtime($config['time']['now'], 'Y-m-d G:i:s');
+            //print_vars($location);
+            //print_vars($geo_db);
+            return array_merge($geo_db, $location);
           }
         }
         else if (!isset($location['location_lat']))
@@ -246,9 +273,12 @@ function get_geolocation($address, $geo_db = array())
           {
             // We seem to have hit a snag geocoding. It might be that the first element of the address is a business name.
             // Lets drop the first element and see if we get anything better! This works more often than one might expect.
-            list(, $address) = explode(',', $address, 2);
-            $request_new = $url.urlencode($address);
-            $mapresponse = get_http_request($request_new);
+            list(, $address_new) = explode(',', $address, 2);
+            //$request_new = $url.urlencode($address);
+            $param = $api_params['request_params']['address'];
+            $params[$param] = urlencode($address_new);
+            $request_new = build_request_url($url, $params, $api_params['method']);
+            $mapresponse = get_http_request($request_new, NULL, $ratelimit);
             $data_new = json_decode($mapresponse, TRUE);
             if (count($data_new[0]))
             {
@@ -265,46 +295,25 @@ function get_geolocation($address, $geo_db = array())
     }
   }
 
-  // Put the values from the data array into the return array where they exist, else replace them with defaults or Unknown.
-  if ($config['geocoding']['api'] == 'google')
+  if (!$api_specific)
   {
-    $location['location_lat'] = $data['geometry']['location']['lat'];
-    $location['location_lon'] = $data['geometry']['location']['lng'];
-    foreach ($data['address_components'] as $entry)
+    // Nominatum
+    if (!$reverse)
     {
-      switch ($entry['types'][0])
+      // If using reverse queries, do not change lat/lon
+      $location['location_lat'] = $data['lat'];
+      $location['location_lon'] = $data['lon'];
+    }
+    foreach (array('town', 'city', 'hamlet', 'village') as $param)
+    {
+      if (isset($data['address'][$param]))
       {
-        case 'postal_town':
-        case 'locality':
-          $location['location_city'] = $entry['long_name'];
-          break;
-        case 'administrative_area_level_2':
-          $location['location_county'] = $entry['long_name'];
-          break;
-        case 'administrative_area_level_1':
-          $location['location_state'] = $entry['long_name'];
-          break;
-        case 'country':
-          $location['location_country'] = strtolower($entry['short_name']);
-          break;
+        $location['location_city'] = $data['address'][$param];
+        break;
       }
     }
-  }
-  else if ($config['geocoding']['api'] == 'yandex')
-  {
-    list($location['location_lon'], $location['location_lat']) = explode(' ', $data['GeoObject']['Point']['pos']);
-    $data = $data['GeoObject']['metaDataProperty']['GeocoderMetaData']['AddressDetails'];
-    $location['location_country'] = strtolower($data['Country']['CountryNameCode']);
-    $location['location_state']   = $data['Country']['AdministrativeArea']['AdministrativeAreaName'];
-    $location['location_county']  = $data['Country']['AdministrativeArea']['SubAdministrativeArea']['SubAdministrativeAreaName'];
-    $location['location_city']    = $data['Country']['AdministrativeArea']['SubAdministrativeArea']['Locality']['LocalityName'];
-  } else {
-    $location['location_lat'] = $data['lat'];
-    $location['location_lon'] = $data['lon'];
-    $location['location_city']    = (strlen($data['address']['town'])) ? $data['address']['town'] : $data['address']['city'];
-    // Would be nice to have an array of countries where we want state, and ones where we want County. For example, USA wants state, UK wants county.
-    $location['location_county']  = $data['address']['county'];
     $location['location_state']   = $data['address']['state'];
+    $location['location_county']  = isset($data['address']['county']) ? $data['address']['county'] : $data['address']['state_district'];
     $location['location_country'] = $data['address']['country_code'];
   }
 
@@ -326,22 +335,31 @@ function get_geolocation($address, $geo_db = array())
     $location['location_lon'] = round($location['location_lon'], 7);
   }
 
-  if (!strlen($location['location_city']))    { $location['location_city']    = 'Unknown'; }
-  if (!strlen($location['location_county']))  { $location['location_county']  = 'Unknown'; }
-  if (!strlen($location['location_state']))   { $location['location_state']   = 'Unknown'; }
-  if (!strlen($location['location_country']))
+  foreach (array('city', 'county', 'state') as $entry)
   {
-    $location['location_country'] = 'Unknown';
-  } else {
+    // Remove duplicate County/State words
+    $param = 'location_' . $entry;
+    $location[$param] = strlen($location[$param]) ? str_ireplace(' '.$entry, '', $location[$param]) : 'Unknown';
+  }
+  if (strlen($location['location_country']))
+  {
+    $location['location_country'] = strtolower($location['location_country']);
     $geo_status = 'FOUND';
+  } else {
+    $location['location_country'] = 'Unknown';
   }
 
   // Print some debug informations
   $debug_msg .= $geo_status . PHP_EOL;
+  if (OBS_DEBUG < 2)
+  {
+    // Hide API KEY from output
+    $request  = str_replace($api_params['request_params']['key'] . '=' . escape_html($config['geocoding']['api_key']), $api_params['request_params']['key'] . '=' . '***', $request);
+  }
   $debug_msg .= '  GEO API REQUEST: ' . $request;
   if ($geo_status == 'FOUND')
   {
-    $debug_msg .= PHP_EOL . '  GEOLOCATION: ';
+    $debug_msg .= PHP_EOL . '  GEO LOCATION: ';
     $debug_msg .= country_from_code($location['location_country']).' (Country), '.$location['location_state'].' (State), ';
     $debug_msg .= $location['location_county'] .' (County), ' .$location['location_city'] .' (City)';
     $debug_msg .= PHP_EOL . '  GEO COORDINATES: ';

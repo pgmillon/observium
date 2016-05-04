@@ -7,17 +7,24 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 $mib = 'HH3C-ENTITY-EXT-MIB';
 
-$cache_mempool = snmpwalk_cache_multi_oid($device, 'hh3cEntityExtMemUsage', $cache_mempool, $mib, mib_dirs('hh3c'));
-$cache_mempool = snmpwalk_cache_multi_oid($device, 'hh3cEntityExtMemSize',  $cache_mempool, $mib, mib_dirs('hh3c'));
+if (!is_array($cache_storage[$mib]))
+{
+  $cache_storage[$mib] = snmpwalk_cache_multi_oid($device, 'hh3cEntityExtMemUsage', NULL, $mib, mib_dirs('hh3c'));
+  $cache_storage[$mib] = snmpwalk_cache_multi_oid($device, 'hh3cEntityExtMemSize', $cache_storage[$mib], $mib, mib_dirs('hh3c'));
+} else {
+  print_debug("Cached!");
+}
 
 $index            = $mempool['mempool_index'];
-$mempool['total'] = $cache_mempool[$index]['hh3cEntityExtMemSize'];
-$mempool['perc']  = $cache_mempool[$index]['hh3cEntityExtMemUsage'];
+$cache_mempool    = $cache_storage[$mib][$index];
+
+$mempool['total'] = snmp_dewrap32bit($cache_mempool['hh3cEntityExtMemSize']);
+$mempool['perc']  = $cache_mempool['hh3cEntityExtMemUsage'];
 
 // EOF

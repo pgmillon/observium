@@ -7,11 +7,11 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-$hrDevice_oids = array('hrDevice','hrProcessorLoad');
+$hrDevice_oids = array('hrDeviceType', 'hrDeviceDescr', 'hrProcessorLoad');
 unset($hrDevice_array);
 foreach ($hrDevice_oids as $oid) { $hrDevice_array = snmpwalk_cache_oid($device, $oid, $hrDevice_array, "HOST-RESOURCES-MIB:HOST-RESOURCES-TYPES", mib_dirs()); }
 
@@ -36,9 +36,9 @@ if (is_array($hrDevice_array))
 
       $usage = $entry['hrProcessorLoad'];
 
-      if ($device['os'] == "arista_eos" && $index == "1") { unset($descr); }
+      if ($device['os'] == "arista_eos" && $index == "1") { unset($entry['hrDeviceDescr']); }
 
-      if (isset($descr) && $descr != "An electronic chip that makes the computer work.")
+      if (is_numeric($usage) && $entry['hrDeviceDescr'] != "An electronic chip that makes the computer work.")
       {
         $hr_cpus++; $hr_total += $usage;
       }

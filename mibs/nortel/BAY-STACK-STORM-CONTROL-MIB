@@ -1,0 +1,294 @@
+BAY-STACK-STORM-CONTROL-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    OBJECT-TYPE, MODULE-IDENTITY, NOTIFICATION-TYPE, Integer32, Unsigned32
+        FROM SNMPv2-SMI
+    TruthValue, TimeInterval
+        FROM SNMPv2-TC
+    InterfaceIndex, ifIndex
+        FROM IF-MIB
+    bayStackMibs
+        FROM SYNOPTICS-ROOT-MIB;
+
+bayStackStormControlMib MODULE-IDENTITY
+      LAST-UPDATED "201403040000Z"
+      ORGANIZATION "Avaya"
+      CONTACT-INFO "avaya.com"
+      DESCRIPTION
+              "This MIB module is used for Storm Control configuration. 
+               The Storm Control feature prevents traffic on a LAN  from being disrupted 
+               by a broadcast, multicast, or unicast storm on an interface."
+
+      REVISION     "201403040000Z"  -- March 4, 2014
+      DESCRIPTION
+              "Ver 2:  Changed syntax for bsStormControlTrafficType."
+
+      REVISION     "201206050000Z"  -- June 5, 2012
+      DESCRIPTION
+              "Ver 1:  Initial version."
+      ::= { bayStackMibs 42 }
+
+bsStormControlNotifications
+    OBJECT IDENTIFIER ::= { bayStackStormControlMib 0 }
+bsStormControlObjects
+    OBJECT IDENTIFIER ::= { bayStackStormControlMib 1 }
+bsStormControlScalars
+    OBJECT IDENTIFIER ::= { bsStormControlObjects 1 }
+--
+-- Storm control global objects
+--
+
+bsStormControlPollValue OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The polled value when a notification is generated."
+    ::= { bsStormControlScalars 1 }
+
+--
+-- Storm control global configuration objects by traffic type.
+--
+
+bsStormControlTable   OBJECT-TYPE
+    SYNTAX SEQUENCE OF BsStormControlEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "This table is used to configure storm control global settings."
+    ::= { bsStormControlObjects 2 }
+
+bsStormControlEntry OBJECT-TYPE
+    SYNTAX       BsStormControlEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "An entry containing objects for controlling  storm control settings."
+    INDEX { bsStormControlTrafficType }
+    ::= { bsStormControlTable 1 }
+
+BsStormControlEntry ::=
+    SEQUENCE {
+        bsStormControlTrafficType    INTEGER,
+        bsStormControlEnabled        TruthValue,
+        bsStormControlLowWatermark   Unsigned32,
+        bsStormControlHighWatermark  Unsigned32,
+        bsStormControlPollInterval   TimeInterval,
+        bsStormControlTrapInterval   Integer32,
+        bsStormControlActionType     INTEGER           
+    }
+
+bsStormControlTrafficType OBJECT-TYPE
+    SYNTAX      INTEGER {
+                  unicast(1),
+                  broadcast(2),
+                  multicast(3)
+                }
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Storm control traffic type." 
+    ::= { bsStormControlEntry 1 }
+
+bsStormControlEnabled OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Indicates whether storm control is enabled for this instance."
+    ::= { bsStormControlEntry 2 }
+
+bsStormControlLowWatermark OBJECT-TYPE
+    SYNTAX      Unsigned32 (10..100000000)
+    UNITS       "packets per second"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Low watermark for storm control of this instance. If the rate drops below
+         this value after having risen above the high watermark, a single
+         notification will be generated."
+    DEFVAL { 200 }
+    ::= { bsStormControlEntry 3 }
+
+bsStormControlHighWatermark OBJECT-TYPE
+    SYNTAX      Unsigned32 (10..100000000)
+    UNITS       "packets per second"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "High watermark for storm control of this instance. If the rate rises above
+         this value, notifications will be generated at the rate give by the
+         bsStormControlTrapInterval object."
+    DEFVAL { 500 }
+    ::= { bsStormControlEntry 4 }
+
+bsStormControlPollInterval OBJECT-TYPE
+    SYNTAX      TimeInterval (500..30000)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The polling interval for checking the packet rate for storm control
+         of this instance."
+    DEFVAL { 3000 }
+    ::= { bsStormControlEntry 5 }
+
+bsStormControlTrapInterval OBJECT-TYPE
+    SYNTAX      Integer32 (0..1000)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The rate for sending storm control notifications, measured in a number of polling intervals."
+    DEFVAL { 5 }
+    ::= { bsStormControlEntry 6 }
+
+bsStormControlActionType OBJECT-TYPE
+    SYNTAX      INTEGER {
+                  none(1),
+                  drop(2),
+                  shutdown(3)
+                }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Storm control action type for this instance." 
+    ::= { bsStormControlEntry 7 }
+
+--
+-- Storm control interface table configuration
+--
+
+bsStormControlIfTable   OBJECT-TYPE
+    SYNTAX SEQUENCE OF BsStormControlIfEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "This table is used to control storm control settings per-interface."
+    ::= { bsStormControlObjects 3 }
+
+bsStormControlIfEntry OBJECT-TYPE
+    SYNTAX       BsStormControlIfEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "An entry containing objects for controlling storm control settings
+         for an interface."
+    INDEX { bsStormControlTrafficType,
+            bsStormControlIfIndex 
+          }
+    ::= { bsStormControlIfTable 1 }
+
+BsStormControlIfEntry ::=
+    SEQUENCE {
+        bsStormControlIfIndex          InterfaceIndex,
+        bsStormControlIfEnabled        TruthValue,
+        bsStormControlIfLowWatermark   Unsigned32,
+        bsStormControlIfHighWatermark  Unsigned32,
+        bsStormControlIfPollInterval   TimeInterval,
+        bsStormControlIfTrapInterval   Integer32,
+        bsStormControlIfActionType     INTEGER
+    }
+
+bsStormControlIfIndex OBJECT-TYPE
+    SYNTAX      InterfaceIndex
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The ifIndex value of the interface."
+    ::= { bsStormControlIfEntry 1 }
+
+bsStormControlIfEnabled OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Indicates whether storm control is enabled for this instance."
+    ::= { bsStormControlIfEntry 2 }
+
+bsStormControlIfLowWatermark OBJECT-TYPE
+    SYNTAX      Unsigned32 (10..100000000)
+    UNITS       "packets per second"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Low watermark for storm control of this instance. If the rate drops below
+         this value after having risen above the high watermark, a single
+         notification will be generated."
+    DEFVAL { 200 }
+    ::= { bsStormControlIfEntry 3 }
+
+bsStormControlIfHighWatermark OBJECT-TYPE
+    SYNTAX      Unsigned32 (10..100000000)
+    UNITS       "packets per second"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "High watermark for storm control of this instance. If the rate rises above
+         this value, notifications will be generated at the rate give by the
+         bsStormControlTrapInterval object."
+    DEFVAL { 500 }
+    ::= { bsStormControlIfEntry 4 }
+
+bsStormControlIfPollInterval OBJECT-TYPE
+    SYNTAX      TimeInterval (500..30000)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The polling interval for checking the packet rate for storm control
+         of this instance."
+    DEFVAL { 3000 }
+    ::= { bsStormControlIfEntry 5 }
+
+bsStormControlIfTrapInterval OBJECT-TYPE
+    SYNTAX      Integer32 (0..1000)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The rate for sending storm control notifications."
+    DEFVAL { 5 }
+    ::= { bsStormControlIfEntry 6 }
+
+bsStormControlIfActionType OBJECT-TYPE
+    SYNTAX      INTEGER {
+                  none(1),
+                  drop(2),
+                  shutdown(3)
+                }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Storm control action type for this instance." 
+    ::= { bsStormControlIfEntry 7 }
+
+--
+-- Notifications
+--
+
+bsStormControlBelowLowWatermark NOTIFICATION-TYPE
+    OBJECTS {
+              bsStormControlTrafficType,              
+              ifIndex,
+              bsStormControlPollValue,
+              bsStormControlLowWatermark
+            }
+    STATUS current
+    DESCRIPTION
+        "This notification is generated when the  storm control packet type
+         rate falls below the low watermark after having risen above the
+         high watermark.  It is generated only once when this occurs."
+    ::= { bsStormControlNotifications 1 }
+
+bsStormControlAboveHighWatermark NOTIFICATION-TYPE
+    OBJECTS {
+              bsStormControlTrafficType,
+              ifIndex,
+              bsStormControlPollValue,
+              bsStormControlHighWatermark
+            }
+    STATUS current
+    DESCRIPTION
+        "This notification is generated periodically as long as the storm
+         control packet type rate remains above the high watermark."
+    ::= { bsStormControlNotifications 2 }
+
+END
+

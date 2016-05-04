@@ -7,16 +7,16 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-echo("FDB Tables\n");
+$table_rows = array();
 
 // Build ifIndex > port and port-id > port cache table
 $port_ifIndex_table = array();
 $port_table = array();
-foreach (dbFetchRows("SELECT `ifIndex`,`port_id`,`ifDescr` FROM `ports` WHERE `device_id` = ?", array($device['device_id'])) as $cache_port)
+foreach (dbFetchRows("SELECT `ifIndex`,`port_id`,`port_label_short` FROM `ports` WHERE `device_id` = ?", array($device['device_id'])) as $cache_port)
 {
   $port_ifIndex_table[$cache_port['ifIndex']] = $cache_port;
   $port_table[$cache_port['port_id']] = $cache_port;
@@ -90,7 +90,10 @@ if ($device['os_group'] == 'cisco')
         preg_match('/(\w+)\[([a-f0-9:]+)\]/', $text, $oid);
         $mac = '';
         foreach (explode(':', $oid[2]) as $m) { $mac .= zeropad($m); }
-        $fdbs[$vlan][$mac][$oid[1]] = $value;
+        if (strlen($mac) === 12 && is_numeric($vlan) && $mac != '000000000000')
+        {
+          $fdbs[$vlan][$mac][$oid[1]] = $value;
+        }
       }
     }
   }
@@ -144,7 +147,10 @@ if ($device['os_group'] == 'cisco')
         }
         $mac = '';
         foreach (explode(':', $oid[3]) as $m) { $mac .= zeropad($m); }
-        $fdbs[$vlan][$mac][$oid[1]] = $value;
+        if (strlen($mac) === 12 && is_numeric($vlan) && $mac != '000000000000')
+        {
+          $fdbs[$vlan][$mac][$oid[1]] = $value;
+        }
       }
     }
   }
@@ -152,8 +158,12 @@ if ($device['os_group'] == 'cisco')
 
 if (count($fdbs))
 {
-  echo(str_pad("Vlan", 8) . " | " . str_pad("MAC",12) . " | " .  "Port                  (dot1d|ifIndex)" ." | ". str_pad("Status",16) . "\n".
-  str_pad("", 90, "-")."\n");
+  if (OBS_DEBUG > 1)
+  {
+    print_vars($fdbs);
+  }
+  //echo(str_pad("Vlan", 8) . " | " . str_pad("MAC",12) . " | " .  "Port                  (dot1d|ifIndex)" ." | ". str_pad("Status",16) . "\n".
+  //str_pad("", 90, "-")."\n");
 }
 
 $fdb_portcount = array();
@@ -174,38 +184,69 @@ foreach ($fdbs as $vlan => $macs)
     }
     $port_id = $dot1dBasePort_table[$fdb_port]['port_id'];
     $ifIndex = $dot1dBasePort_table[$fdb_port]['ifIndex'];
-    $port_name = $dot1dBasePort_table[$fdb_port]['ifDescr'];
-    echo(str_pad($vlan, 8) . " | " . str_pad($mac,12) . " | " .  str_pad($port_name."|".$port_id,18) . str_pad("(".$fdb_port."|".$ifIndex.")",19," ",STR_PAD_LEFT) ." | ". str_pad($fdb_status,10));
+    $port_name = $dot1dBasePort_table[$fdb_port]['port_label_short'];
+    //echo(str_pad($vlan, 8) . " | " . str_pad($mac,12) . " | " .  str_pad($port_name."|".$port_id,18) . str_pad("(".$fdb_port."|".$ifIndex.")",19," ",STR_PAD_LEFT) ." | ". str_pad($fdb_status,10));
+
+    $table_row = array();
+    $table_row[] = $vlan;
+    $table_row[] = $mac;
+    $table_row[] = $port_name;
+    $table_row[] = $port_id;
+    $table_row[] = $fdb_port;
+    $table_row[] = $ifIndex;
+    $table_row[] = $fdb_status;
+    $table_rows[] = $table_row;
+    unset($table_row);
 
     // if entry already exists
     if (!is_array($fdbs_db[$vlan][$mac]))
     {
-      dbInsert(array('device_id' => $device['device_id'], 'vlan_id' => $vlan, 'port_id' => $port_id, 'mac_address' => $mac, 'fdb_status' => $fdb_status), 'vlans_fdb');
-      echo("+");
+      $q_update = array('device_id'   => $device['device_id'],
+                        'vlan_id'     => $vlan,
+                        'port_id'     => $port_id,
+                        'mac_address' => $mac,
+                        'fdb_status'  => $fdb_status);
+      if (!is_numeric($port_id))
+      {
+        $q_update['port_id'] = array('NULL');
+      }
+      dbInsert($q_update, 'vlans_fdb');
+      //echo("+");
     } else {
       unset($q_update);
       // if port/status are different, build an update array and update the db
-      if ($fdbs_db[$vlan][$mac]['port_id'] != $port_id)                    { $q_update['port_id'] = $port_id; }
-      if ($fdbs_db[$vlan][$mac]['fdb_status'] != $fdb_status) { $q_update['fdb_status'] = $data['fdb_status']; }
+      if ($fdbs_db[$vlan][$mac]['port_id'] != $port_id)
+      {
+        if (is_numeric($port_id))
+        {
+          $q_update['port_id'] = $port_id;
+        } else {
+          $q_update['port_id'] = array('NULL');
+        }
+      }
+      if ($fdbs_db[$vlan][$mac]['fdb_status'] != $fdb_status) { $q_update['fdb_status'] = $fdb_status; }
       if (is_array($q_update))
       {
         dbUpdate($q_update, 'vlans_fdb', '`device_id` = ? AND `vlan_id` = ? AND `mac_address` = ?', array($device['device_id'], $vlan, $mac));
-        echo("U");
+        //echo("U");
       } else {
       }
       // remove it from the existing list
       unset ($fdbs_db[$vlan][$mac]);
     }
     $fdb_count++;
-    $fdb_portcount[$port_id]++;
-    echo(PHP_EOL);
+    if (is_numeric($port_id))
+    {
+      $fdb_portcount[$port_id]++;
+    }
+    //echo(PHP_EOL);
   }
 }
 
 // FDB count for HP ProCurve
-if (!$fdb_count && $device['os'] == 'procurve')
+if (!$fdb_count && is_device_mib($device, 'STATISTICS-MIB'))
 {
-  $fdb_count = trim(snmp_get($device, "hpSwitchFdbAddressCount.0", "-Ovqn", "STATISTICS-MIB", mib_dirs('hp')), '"');
+  $fdb_count = snmp_get($device, "hpSwitchFdbAddressCount.0", "-Ovqn", "STATISTICS-MIB", mib_dirs('hp'));
 }
 
 if (is_numeric($fdb_count) && $fdb_count > 0)
@@ -236,15 +277,32 @@ if ($attribs[$fdbcount_module] || ($config[$fdbcount_module] && !isset($attribs[
   }
 }
 
+// print_cli_table($table_rows, array('%WVLAN%n', '%WMAC Address%n', '%WPort%n', '%WPort ID%n', '%WFDB Port%n', '%WifIndex%n', '%WStatus%n'));
+
 // Loop the existing list and delete anything remaining
+$table_rows = array();
 foreach ($fdbs_db as $vlan => $fdb_macs)
 {
   foreach ($fdb_macs as $mac => $data)
   {
-    echo(str_pad($vlan, 8) . " | " . str_pad($mac,12) . " | " .  str_pad($data['port_id'],25) ." | ". str_pad($data['fdb_status'],16));
-    echo("-\n");
+    $table_row = array();
+    $table_row[] = $vlan;
+    $table_row[] = $mac;
+    //$table_row[] = $data['port_label_short'];
+    $table_row[] = $data['port_id'];
+    //$table_row[] = $fdb_port;
+    //$table_row[] = $data['ifIndex'];
+    $table_row[] = "%rdeleted%n";
+    $table_rows[] = $table_row;
+    //echo(str_pad($vlan, 8) . " | " . str_pad($mac,12) . " | " .  str_pad($data['port_id'],25) ." | ". str_pad($data['fdb_status'],16));
+    //echo("-\n");
     dbDelete('vlans_fdb', '`device_id` = ? AND `vlan_id` = ? AND `mac_address` = ?', array($device['device_id'], $vlan, $mac));
   }
 }
+
+// Dont' print since the table can get huge and quite slow.
+// print_cli_table($table_rows, array('%WVLAN%n', '%WMAC Address%n', '%WPort ID%n', '%WStatus%n'));
+
+echo(PHP_EOL);
 
 // EOF

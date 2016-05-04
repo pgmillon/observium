@@ -1,7 +1,7 @@
 <?php
 
 include(dirname(__FILE__) . '/../includes/defaults.inc.php');
-include(dirname(__FILE__) . '/../config.php');
+//include(dirname(__FILE__) . '/../config.php');
 include(dirname(__FILE__) . '/../includes/definitions.inc.php');
 include(dirname(__FILE__) . '/../includes/functions.inc.php');
 include(dirname(__FILE__) . '/../html/includes/functions.inc.php');
@@ -39,13 +39,13 @@ class HtmlIncludesPrintTest extends PHPUnit_Framework_TestCase
     <tr>
       <th class="state-marker"></th>
       <th style="width: 1px;"></th>
-      <th style="width: 150px;"><a href="http://demo.observium.ru/routing/protocol=bgp/type=all/sort=device/">Local address</a></th>
+      <th style="width: 150px;"><a href="routing/protocol=bgp/type=all/sort=device/">Local address</a></th>
       <th style="width: 20px;"></th>
-      <th style="width: 150px;"><a href="http://demo.observium.ru/routing/protocol=bgp/type=all/sort=peer_ip/">Peer address</a></th>
-      <th style="width: 50px;"><a href="http://demo.observium.ru/routing/protocol=bgp/type=all/sort=type/">Type</a></th>
+      <th style="width: 150px;"><a href="routing/protocol=bgp/type=all/sort=peer_ip/">Peer address</a></th>
+      <th style="width: 50px;"><a href="routing/protocol=bgp/type=all/sort=type/">Type</a></th>
       <th >Family</th>
-      <th><a href="http://demo.observium.ru/routing/protocol=bgp/type=all/sort=peer_as/">Remote AS</a></th>
-      <th><a href="http://demo.observium.ru/routing/protocol=bgp/type=all/sort=state/">State</a></th>
+      <th><a href="routing/protocol=bgp/type=all/sort=peer_as/">Remote AS</a></th>
+      <th><a href="routing/protocol=bgp/type=all/sort=state/">State</a></th>
       <th>Uptime / Updates</th>
       <th></th>
     </tr>
@@ -57,13 +57,13 @@ class HtmlIncludesPrintTest extends PHPUnit_Framework_TestCase
     <tr>
       <th class="state-marker"></th>
       <th style="width: 1px;"></th>
-      <th style="width: 150px;"><a href="http://demo.observium.ru/routing/protocol=bgp/type=all/sort=device/">Local address</a></th>
+      <th style="width: 150px;"><a href="routing/protocol=bgp/type=all/sort=device/">Local address</a></th>
       <th style="width: 20px;"></th>
-      <th style="width: 150px;"><a href="http://demo.observium.ru/routing/protocol=bgp/type=all/sort=peer_ip/">Peer address</a></th>
-      <th style="width: 50px;">Type *</th>
+      <th style="width: 150px;"><a href="routing/protocol=bgp/type=all/sort=peer_ip/">Peer address</a></th>
+      <th style="width: 50px;"><a href="routing/protocol=bgp/type=all/sort=type/sort_order=desc/">Type&nbsp;&darr;</a></th>
       <th >Family</th>
-      <th><a href="http://demo.observium.ru/routing/protocol=bgp/type=all/sort=peer_as/">Remote AS</a></th>
-      <th><a href="http://demo.observium.ru/routing/protocol=bgp/type=all/sort=state/">State</a></th>
+      <th><a href="routing/protocol=bgp/type=all/sort=peer_as/">Remote AS</a></th>
+      <th><a href="routing/protocol=bgp/type=all/sort=state/">State</a></th>
       <th>Uptime / Updates</th>
       <th></th>
     </tr>

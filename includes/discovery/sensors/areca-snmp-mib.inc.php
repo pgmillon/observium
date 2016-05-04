@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -138,7 +138,7 @@ for ($encNum = 1; $encNum <= 8; $encNum++)
         $descr = $cache['areca']["hwEnclosure$encNum"][0]["hwEnclosure0${encNum}Description"] . ' (' . $encNum  . ') ' . $entry["hwEnclosure0${encNum}VolDesc"];
         $value = $entry["hwEnclosure0${encNum}VolValue"];
         $oid   = ".1.3.6.1.4.1.18928.1.2.2." . ($encNum+1) . ".8.1.3.$index";
-        
+
         discover_sensor($valid['sensor'], 'voltage', $device, $oid, "hwEnclosure0${encNum}VolValue.$index", 'areca', $descr, 0.001, $value);
       }
 
@@ -147,7 +147,7 @@ for ($encNum = 1; $encNum <= 8; $encNum++)
         $descr = $cache['areca']["hwEnclosure$encNum"][0]["hwEnclosure0${encNum}Description"] . ' (' . $encNum  . ') ' . $entry["hwEnclosure0${encNum}FanDesc"];
         $value = $entry["hwEnclosure0${encNum}FanSpeed"];
         $oid   = ".1.3.6.1.4.1.18928.1.2.2." . ($encNum+1) . ".9.1.3.$index";
-        
+
         discover_sensor($valid['sensor'], 'fanspeed', $device, $oid, "hwEnclosure0${encNum}FanSpeed.$index", 'areca', $descr, 1, $value);
       }
 
@@ -156,16 +156,16 @@ for ($encNum = 1; $encNum <= 8; $encNum++)
         $descr = $cache['areca']["hwEnclosure$encNum"][0]["hwEnclosure0${encNum}Description"] . ' (' . $encNum  . ') ' . $entry["hwEnclosure0${encNum}TempDesc"];
         $value = $entry["hwEnclosure0${encNum}TempValue"];
         $oid   = ".1.3.6.1.4.1.18928.1.2.2." . ($encNum+1) . ".10.1.3.$index";
-        
+
         discover_sensor($valid['sensor'], 'temperature', $device, $oid, "hwEnclosure0${encNum}TempValue.$index", 'areca', $descr, 1, $value);
       }
-      
+
       if ($entry["hwEnclosure0${encNum}PowerIndex"])
       {
         $descr = $cache['areca']["hwEnclosure$encNum"][0]["hwEnclosure0${encNum}Description"] . ' (' . $encNum  . ') ' . $entry["hwEnclosure0${encNum}PowerDesc"];
         $value = $entry["hwEnclosure0${encNum}PowerState"];
         $oid   = ".1.3.6.1.4.1.18928.1.2.2." . ($encNum+1) . ".7.1.3.$index";
-        
+
         discover_sensor($valid['sensor'], 'state', $device, $oid, "hwEnclosure0${encNum}PowerState.$index", 'areca-power-state', $descr, NULL, $value, array('entPhysicalClass' => 'power'));
       }
     }

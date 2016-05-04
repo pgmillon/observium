@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -20,9 +20,13 @@ if ($device['os'] == "windows")
   echo("WMI Poller:\n");
 
   $wmi_attribs = array();
-  foreach (dbFetchRows("SELECT * FROM devices_attribs WHERE `device_id` = ? AND `attrib_type` LIKE 'wmi%'", array($device['device_id'])) as $entry)
+  //foreach (dbFetchRows("SELECT * FROM devices_attribs WHERE `device_id` = ? AND `attrib_type` LIKE 'wmi%'", array($device['device_id'])) as $entry)
+  foreach (get_entity_attribs('device', $device['device_id']) as $attrib => $entry)
   {
-    $wmi_attribs[$entry['attrib_type']] = $entry['attrib_value'];
+    if (strpos($attrib, 'wmi_') === 0)
+    {
+      $wmi_attribs[$attrib] = $entry;
+    }
   }
 
   foreach ($GLOBALS['config']['wmi']['modules'] as $module => $module_status)
@@ -116,4 +120,4 @@ if ($device['os'] == "windows")
   unset($wmi);
 }
 
-/* End of file wmi.inc.php */
+// EOF

@@ -7,13 +7,14 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 // Display devices as a list in detailed format
 ?>
-<table class="table table-hover table-striped table-bordered table-condensed table-rounded" style="margin-top: 10px;">
+<div class="box box-solid">
+<table class="table table-hover table-striped  table-condensed " style="margin-top: 10px;">
   <thead>
     <tr>
       <th></th>
@@ -30,12 +31,11 @@ foreach ($devices as $device)
   {
     if (!$location_filter || $device['location'] == $location_filter)
     {
-      print_device_hostbox($device, 'status');
-      //include("includes/hostbox-status.inc.php");
+      print_device_row($device, 'status');
     }
   }
 }
 
-echo("</table>");
+echo("</table></div>");
 
 // EOF

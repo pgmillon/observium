@@ -7,15 +7,16 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 if (!isset($cache_storage)) { $cache_storage = array(); } // This cache used also in storage module
 
-$sql  = "SELECT *, `mempools`.mempool_id as mempool_id";
-$sql .= " FROM  `mempools`";
-$sql .= " LEFT JOIN  `mempools-state` ON  `mempools`.mempool_id =  `mempools-state`.mempool_id";
+$table_rows = array();
+
+$sql  = "SELECT * FROM `mempools`";
+$sql .= " LEFT JOIN `mempools-state` USING (`mempool_id`)";
 $sql .= " WHERE `device_id` = ?";
 
 foreach (dbFetchRows($sql, array($device['device_id'])) as $mempool)
@@ -34,6 +35,7 @@ foreach (dbFetchRows($sql, array($device['device_id'])) as $mempool)
     continue;
   }
 
+  // FIXME. rename precision to scale
   if (!$mempool['mempool_precision']) { $mempool['mempool_precision'] = 1; }
   if (isset($mempool['total']) && isset($mempool['used']))
   {
@@ -41,12 +43,19 @@ foreach (dbFetchRows($sql, array($device['device_id'])) as $mempool)
     $mempool['total'] *= $mempool['mempool_precision'];
     $mempool['used']  *= $mempool['mempool_precision'];
   }
-  elseif (isset($mempool['total']) && isset($mempool['perc']))
+  else if (isset($mempool['total']) && isset($mempool['free']))
+  {
+    $mempool['used']   = $mempool['total'] - $mempool['free'];
+    $mempool['perc']   = round($mempool['used'] / $mempool['total'] * 100, 2);
+    $mempool['total'] *= $mempool['mempool_precision'];
+    $mempool['used']  *= $mempool['mempool_precision'];
+  }
+  else if (isset($mempool['total']) && isset($mempool['perc']))
   {
     $mempool['total'] *= $mempool['mempool_precision'];
     $mempool['used']   = $mempool['total'] * $mempool['perc'] / 100;
   }
-  elseif (isset($mempool['perc']))
+  else if (isset($mempool['perc']))
   {
     $mempool['total']  = 100;
     $mempool['used']   = $mempool['perc'];
@@ -57,8 +66,6 @@ foreach (dbFetchRows($sql, array($device['device_id'])) as $mempool)
   $mempool['free'] = $mempool['total'] - $mempool['used'];
 
   $hc = ($mempool['mempool_hc'] ? ' (HC)' : '');
-
-  print_message("Mempool ". $mempool['mempool_descr'] . ': '.$mempool['perc'].'%%'.$hc);
 
   // Update StatsD/Carbon
   if ($config['statsd']['enable'] == TRUE)
@@ -83,9 +90,24 @@ foreach (dbFetchRows($sql, array($device['device_id'])) as $mempool)
 
   check_entity('mempool', $mempool, array('mempool_perc' => $mempool['perc'], 'mempool_free' => $mempool['free'], 'mempool_used' => $mempool['used']));
 
-  echo(PHP_EOL);
+//  print_message("Mempool ". $mempool['mempool_descr'] . ': '.$mempool['perc'].'%%'.$hc);
+
+  $table_row = array();
+  $table_row[] = $mempool['mempool_descr'];
+  $table_row[] = $mempool['mempool_mib'];
+  $table_row[] = $mempool['mempool_index'];
+  $table_row[] = formatStorage($mempool['total']);
+  $table_row[] = formatStorage($mempool['used']);
+  $table_row[] = formatStorage($mempool['free']);
+  $table_row[] = $mempool['perc'].'%';
+  $table_rows[] = $table_row;
+  unset($table_row);
+
 }
 
-unset($cache_mempool, $mempool, $index);
+$headers = array('%WLabel%n', '%WType%n', '%WIndex%n', '%WTotal%n', '%WUsed%n', '%WFree%n', '%WPerc%n');
+print_cli_table($table_rows, $headers);
+
+unset($cache_mempool, $mempool, $index, $table_row, $table_rows, $table_headers);
 
 // EOF

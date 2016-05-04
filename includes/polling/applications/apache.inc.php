@@ -7,13 +7,15 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 if (!empty($agent_data['app']['apache']))
 {
-  $rrd_filename = "app-apache-".$app['app_id'].".rrd";
+  $app_id = discover_app($device, 'apache');
+
+  $rrd_filename = "app-apache-$app_id.rrd";
 
   list ($total_access, $total_kbyte, $cpuload, $uptime, $reqpersec, $bytespersec, $bytesperreq, $busyworkers, $idleworkers,
         $score_wait, $score_start, $score_reading, $score_writing, $score_keepalive, $score_dns, $score_closing, $score_logging,

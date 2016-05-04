@@ -1,0 +1,1130 @@
+-- $Header:   K:/WanSuite/archives/include/pvcs/ipadctrl.mib,v   1.39   Aug 21 2003 09:50:18   leen  $
+
+--***************************************************************************
+--*     Copyright (c) 1988 - 1994  Epilogue Technology Corporation
+--*     All rights reserved.
+--*
+--*     This is unpublished proprietary source code of Epilogue Technology
+--*     Corporation.
+--*
+--*     The copyright notice above does not evidence any actual or intended
+--*     publication of such source code.
+--***************************************************************************
+
+	EtcAgent-MIB
+
+	--FORCE-INCLUDE <bsp.h>
+	--FORCE-INCLUDE <pna.h>
+	--FORCE-INCLUDE <pna_mib.h>
+	--FORCE-INCLUDE <envoy/h/asn1.h>
+	--FORCE-INCLUDE <envoy/h/mib.h>
+	--FORCE-INCLUDE <envoy/h/snmp.h>
+	--FORCE-INCLUDE <envoy/h/snmpstat.h>
+	--FORCE-INCLUDE "sm_types.h"
+	--FORCE-INCLUDE "ipadmib.h"
+
+	----DEFAULT    test-function-async    test_%n_async
+	----DEFAULT    set-function-async     set_%n_async
+	----DEFAULT    get-function-async     get_%n_async
+	----DEFAULT    next-function-async    scalar_next_async
+	----DEFAULT    cookie    (char *) 0
+
+	--EXCLUDE mgmtPorts
+	--EXCLUDE dbu
+	--EXCLUDE analogDte
+	--EXCLUDE itable
+	--EXCLUDE connection
+	--EXCLUDE dsx1FarEndCurrentTable
+	--EXCLUDE dsx1FarEndIntervalTable
+	--EXCLUDE dsx1FarEndTotalTable
+	--EXCLUDE dsx1FracTable
+	--EXCLUDE dsx1ChanMappedIfIndex
+	--EXCLUDE ifXTable
+	--EXCLUDE ifStackTable
+	--EXCLUDE ifStackLastChange
+	--EXCLUDE ifTestTable
+	--EXCLUDE ipForwardTable
+	--EXCLUDE ipForwardNumber
+	--EXCLUDE sysORTable
+	--EXCLUDE snmpEngine
+	--EXCLUDE snmpSetSerialNo
+	--EXCLUDE ifRcvAddressTable
+	--EXCLUDE atmInterfaceDs3PlcpTable
+	--EXCLUDE atmInterfaceTCTable
+	--EXCLUDE atmVplTable
+	--EXCLUDE atmVpCrossConnectIndexNext
+	--EXCLUDE atmVpCrossConnectTable
+	--EXCLUDE atmVcCrossConnectIndexNext
+	--EXCLUDE atmVcCrossConnectTable
+	--EXCLUDE ipadMiscEnableLEDs
+	--EXCLUDE dot1dStatic
+	--EXCLUDE atmfCESActiveSvcTable
+
+DEFINITIONS ::= BEGIN
+
+    IMPORTS
+	OBJECT-TYPE, mib-2, MODULE-IDENTITY      FROM SNMPv2-SMI
+	interfaces				 FROM IF-MIB
+	frameRelayDTE                            FROM FRAME-RELAY-DTE-MIB
+	ds1                                      FROM DS1-MIB
+	t1e1, serialDte, maintenance,
+	performance, traplog, unitUtilities,
+	ddsNet, productInfo, netAPS		 FROM DS8200v2-MIB
+	ipadFrPort, ipadService, ipadChannel,
+	ipadDLCI, ipadUser, ipadEndpoint,
+	ipadPPP, ipadModem, ipadSvcAware,
+	ipadPktSwitch, ipadTrapDest, ipadMisc,
+	ipadSoftKey, ipadTCPServer, ipad,
+	ipadSCADAConfig, ipadSCADAStats,
+	ipadSCADADevLst,
+	ipadAtm,
+	ipadDS0Config, ipadDS0Hist24, ipadDS0Hist30,
+	ipadHDLCConfig, ipadHDLCHist24, ipadHDLCHist30,
+	ipadNat, ipadDhcp,
+	ipadAutoLearnDS0,
+	ipadDataLineMonitor,
+	ipadBridge				 FROM IPADv2-MIB
+	ipadAtmFrParms                           FROM IPAD-ATM-MIB
+	ipadIPStart                              FROM IPAD-IPSTART-MIB
+	ipadRIPParms,
+	ipadCircuitParms,
+	ipadOSPFParms                            FROM IPAD-ROUTER-MIB
+	ipForward                        	 FROM IP-FORWARD-MIB
+	hdsl2ShdslMibObjects			 FROM HDSL2-SHDSL-LINE-MIB
+	atmMIBObjects				 FROM ATM-MIB
+	dot1dBridge				 FROM BRIDGE-MIB
+--	client, commands, transport		 FROM CRANE
+	atmfCESObjects				 FROM ATMF-CES
+	;
+
+     ipadControlMIB MODULE-IDENTITY
+         LAST-UPDATED "0008210000Z"
+         ORGANIZATION "Verilink Corporation"
+         CONTACT-INFO
+            "support@verilink.com
+             + 1 800 285 2755"
+         DESCRIPTION
+            "The Envoy control MIB for WANsuite."
+         ::= { ipad 9999 }
+
+    -- object types
+
+    -- set up MIB-wide defaults
+    -- all functions can use %n for object name and
+    -- %t for object type, %p for parent name,
+    -- %d for name of default-bearing node and %% for %
+
+	system OBJECT-TYPE
+		--DEFAULT test-function-async   system_test_async
+		--DEFAULT set-function-async    system_set_async
+		--DEFAULT get-function-async    system_get_async
+		::= {  mib-2 1 }
+
+	ifTable OBJECT-TYPE
+		--DEFAULT test-function-async   ifEntry_test_async
+		--DEFAULT set-function-async    ifEntry_set_async
+		--DEFAULT get-function-async    ifEntry_get_async
+		--DEFAULT next-function-async   ifEntry_next_async
+		::= { interfaces 2 }
+
+	ip OBJECT-TYPE
+		--DEFAULT get-function-async		ipScalar_get_async
+		--DEFAULT set-function-async      ipScalar_set_async
+		--DEFAULT test-function-async     ipScalar_test_async
+		::= { mib-2 4 }
+
+	icmp OBJECT-TYPE
+		--DEFAULT get-function-async	icmpScalar_get_async
+		--DEFAULT set-function-async      icmpScalar_set_async
+		--DEFAULT test-function-async     icmpScalar_test_async
+		::= { mib-2 5 }
+
+	tcp OBJECT-TYPE
+		--DEFAULT get-function-async	tcpScalar_get_async
+		--DEFAULT set-function-async      tcpScalar_set_async
+		--DEFAULT test-function-async     tcpScalar_test_async
+		::= { mib-2 6 }
+
+	udp OBJECT-TYPE
+		--DEFAULT get-function-async	udpScalar_get_async
+		--DEFAULT set-function-async      udpScalar_set_async
+		--DEFAULT test-function-async     udpScalar_test_async
+		::= { mib-2 7 }
+
+	snmp OBJECT-TYPE
+		--DEFAULT get-function-async	snmpScalar_get_async
+		--DEFAULT set-function-async      snmpScalar_set_async
+		--DEFAULT test-function-async     snmpScalar_test_async
+		::= { mib-2 11 }
+
+	ipAddrTable OBJECT-TYPE
+		--DEFAULT get-function-async    ipAddrEntry_get_async
+		--DEFAULT next-function-async   ipAddrEntry_next_async
+		::= { ip 20 }
+
+--	ipRouteTable OBJECT-TYPE
+--		--DEFAULT get-function-async    ipRouteEntry_get_async
+--		--DEFAULT set-function-async    ipRouteEntry_set_async
+--		--DEFAULT test-function-async   ipRouteEntry_test_async
+--		--DEFAULT next-function-async   ipRouteEntry_next_async
+--		::= { ip 21 }
+
+	ipNetToMediaTable OBJECT-TYPE
+		--DEFAULT test-function-async   n2mtable_test_async
+		--DEFAULT get-function-async    n2mtable_get_async
+		--DEFAULT set-function-async    n2mtable_set_async
+		--DEFAULT next-function-async   n2mtable_next_async
+		::= { ip 22 }
+
+	tcpConnTable OBJECT-TYPE
+		--DEFAULT test-function-async   tcpConnEntry_test_async
+		--DEFAULT get-function-async    tcpConnEntry_get_async
+		--DEFAULT set-function-async    tcpConnEntry_set_async
+		--DEFAULT next-function-async   tcpConnEntry_next_async
+		::= { tcp 13 }
+
+	udpTable OBJECT-TYPE
+		--DEFAULT set-function-async    null_set_async
+		--DEFAULT test-function-async   read_only_test_async
+		--DEFAULT get-function-async    udpEntry_get_async
+		--DEFAULT next-function-async   udpEntry_next_async
+		::= { udp 5 }
+
+-- the ds1 group from rfc1406
+
+	dsx1ConfigTable    OBJECT-TYPE
+		--DEFAULT    test-function-async    dsx1Config_test_async
+		--DEFAULT    set-function-async     dsx1Config_set_async
+		--DEFAULT    get-function-async     dsx1Config_get_async
+		--DEFAULT    next-function-async    dsx1Config_next_async
+		::= { ds1 6 }
+
+	dsx1CurrentTable    OBJECT-TYPE
+		--DEFAULT    test-function-async    dsx1Current_test_async
+		--DEFAULT    set-function-async     dsx1Current_set_async
+		--DEFAULT    get-function-async     dsx1Current_get_async
+		--DEFAULT    next-function-async    dsx1Current_next_async
+		::= { ds1 7 }
+
+	dsx1IntervalTable    OBJECT-TYPE
+		--DEFAULT    test-function-async    dsx1Interval_test_async
+		--DEFAULT    set-function-async     dsx1Interval_set_async
+		--DEFAULT    get-function-async     dsx1Interval_get_async
+		--DEFAULT    next-function-async    dsx1Interval_next_async
+		::= { ds1 8 }
+
+	dsx1TotalTable    OBJECT-TYPE
+		--DEFAULT    test-function-async    dsx1Total_test_async
+		--DEFAULT    set-function-async     dsx1Total_set_async
+		--DEFAULT    get-function-async     dsx1Total_get_async
+		--DEFAULT    next-function-async    dsx1Total_next_async
+		::= { ds1 9 }
+
+-- the TRANSMISSION group
+-- (including the frame-relay-DTE MIB)
+
+	transmission OBJECT-TYPE
+		::= { mib-2 10 }
+
+	frDlcmiTable OBJECT-TYPE
+		--DEFAULT    test-function-async    frEntry_test_async
+		--DEFAULT    set-function-async     frEntry_set_async
+		--DEFAULT    get-function-async     frEntry_get_async
+		--DEFAULT    next-function-async    frEntry_next_async
+		::= { frameRelayDTE 1 }
+
+	frCircuitTable OBJECT-TYPE
+		--DEFAULT    test-function-async    frCircuit_test_async
+		--DEFAULT    set-function-async     frCircuit_set_async
+		--DEFAULT    get-function-async     frCircuit_get_async
+		--DEFAULT    next-function-async    frCircuit_next_async
+		::= { frameRelayDTE 2 }
+
+	frErrTable OBJECT-TYPE
+		--DEFAULT    test-function-async    frErr_test_async
+		--DEFAULT    set-function-async     frErr_set_async
+		--DEFAULT    get-function-async     frErr_get_async
+		--DEFAULT    next-function-async    frErr_next_async
+		::= { frameRelayDTE 3 }
+
+	ddsNetConfigTable OBJECT-TYPE
+		--DEFAULT    test-function-async    ddsCfg_test_async
+		--DEFAULT    set-function-async     ddsCfg_set_async
+		--DEFAULT    get-function-async     ddsCfg_get_async
+		--DEFAULT    next-function-async    ddsCfg_next_async
+		::= { ddsNet 1 }
+
+	ddsNetAlarmTable OBJECT-TYPE
+		--DEFAULT    test-function-async    ddsAlarm_test_async
+		--DEFAULT    set-function-async     ddsAlarm_set_async
+		--DEFAULT    get-function-async     ddsAlarm_get_async
+		--DEFAULT    next-function-async    ddsAlarm_next_async
+		::= { ddsNet 2 }
+
+	t1e1ConfigTable OBJECT-TYPE
+		--DEFAULT    test-function-async    t1e1Cfg_test_async
+		--DEFAULT    set-function-async     t1e1Cfg_set_async
+		--DEFAULT    get-function-async     t1e1Cfg_get_async
+		--DEFAULT    next-function-async    t1e1Cfg_next_async
+		::= { t1e1 1 }
+
+	t1e1AlarmTable OBJECT-TYPE
+		--DEFAULT    test-function-async    t1e1Alm_test_async
+		--DEFAULT    set-function-async     t1e1Alm_set_async
+		--DEFAULT    get-function-async     t1e1Alm_get_async
+		--DEFAULT    next-function-async    t1e1Alm_next_async
+		::= { t1e1 2 }
+
+	serialDteConfigTable OBJECT-TYPE
+		--DEFAULT    test-function-async    serialCfg_test_async
+		--DEFAULT    set-function-async     serialCfg_set_async
+		--DEFAULT    get-function-async     serialCfg_get_async
+		--DEFAULT    next-function-async    serialCfg_next_async
+		::= { serialDte 1 }
+
+	serialDteAlarmTable OBJECT-TYPE
+		--DEFAULT    test-function-async    serialDteAlm_test_async
+		--DEFAULT    set-function-async     serialDteAlm_set_async
+		--DEFAULT    get-function-async     serialDteAlm_get_async
+		--DEFAULT    next-function-async    serialDteAlm_next_async
+		::= { serialDte 2 }
+
+	bertTable OBJECT-TYPE
+		--DEFAULT    test-function-async    bert_test_async
+		--DEFAULT    set-function-async     bert_set_async
+		--DEFAULT    get-function-async     bert_get_async
+		--DEFAULT    next-function-async    bert_next_async
+		::= { maintenance 1 }
+
+	bertInterfaceTable OBJECT-TYPE
+		--DEFAULT    test-function-async    bertInt_test_async
+		--DEFAULT    set-function-async     bertInt_set_async
+		--DEFAULT    get-function-async     bertInt_get_async
+		--DEFAULT    next-function-async    bertInt_next_async
+		::= { maintenance 2 }
+
+	testTable OBJECT-TYPE
+		--DEFAULT    test-function-async    test_test_async
+		--DEFAULT    set-function-async     test_set_async
+		--DEFAULT    get-function-async     test_get_async
+		--DEFAULT    next-function-async    test_next_async
+		::= { maintenance 3 }
+
+	performance24Table OBJECT-TYPE
+		--DEFAULT    test-function-async    read_only_test_async
+		--DEFAULT    set-function-async     null_set_async
+		--DEFAULT    get-function-async     perf24_get_async
+		--DEFAULT    next-function-async    perf24_next_async
+		::= { performance 1 }
+
+	performance30Table OBJECT-TYPE
+		--DEFAULT    test-function-async    read_only_test_async
+		--DEFAULT    set-function-async     null_set_async
+		--DEFAULT    get-function-async     perf30_get_async
+		--DEFAULT    next-function-async    perf30_next_async
+		::= { performance 2 }
+
+	traplogTable OBJECT-TYPE
+		--DEFAULT    test-function-async    read_only_test_async
+		--DEFAULT    set-function-async     null_set_async
+		--DEFAULT    get-function-async     traplog_get_async
+		--DEFAULT    next-function-async    traplog_next_async
+		::= { traplog 1 }
+
+	unitUtilitiesTable OBJECT-TYPE
+		--DEFAULT    test-function-async    unitUtil_test_async
+		--DEFAULT    set-function-async     unitUtil_set_async
+		--DEFAULT    get-function-async     unitUtil_get_async
+		--DEFAULT    next-function-async    unitUtil_next_async
+		::= { unitUtilities 1 }
+
+	ipadFrPortTable OBJECT-TYPE
+		--DEFAULT    test-function-async    frPort_test_async
+		--DEFAULT    set-function-async     frPort_set_async
+		--DEFAULT    get-function-async     frPort_get_async
+		--DEFAULT    next-function-async    frPort_next_async
+		::= { ipadFrPort 1 }
+
+	ipadServiceTable OBJECT-TYPE
+		--DEFAULT    test-function-async    service_test_async
+		--DEFAULT    set-function-async     service_set_async
+		--DEFAULT    get-function-async     service_get_async
+		--DEFAULT    next-function-async    service_next_async
+		::= { ipadService 1 }
+
+	ipadChannelTable OBJECT-TYPE
+		--DEFAULT    test-function-async    iChannel_test_async
+		--DEFAULT    set-function-async     iChannel_set_async
+		--DEFAULT    get-function-async     iChannel_get_async
+		--DEFAULT    next-function-async    iChannel_next_async
+		::= { ipadChannel 1 }
+
+	ipadDLCITable OBJECT-TYPE
+		--DEFAULT    test-function-async    iDLCI_test_async
+		--DEFAULT    set-function-async     iDLCI_set_async
+		--DEFAULT    get-function-async     iDLCI_get_async
+		--DEFAULT    next-function-async    iDLCI_next_async
+		::= { ipadDLCI 1 }
+
+	ipadEndpointTable OBJECT-TYPE
+		--DEFAULT    test-function-async    iEndpoint_test_async
+		--DEFAULT    set-function-async     iEndpoint_set_async
+		--DEFAULT    get-function-async     iEndpoint_get_async
+		--DEFAULT    next-function-async    iEndpoint_next_async
+		::= { ipadEndpoint 1 }
+
+	ipadUserTable OBJECT-TYPE
+		--DEFAULT    test-function-async    iUser_test_async
+		--DEFAULT    set-function-async     iUser_set_async
+		--DEFAULT    get-function-async     iUser_get_async
+		--DEFAULT    next-function-async    iUser_next_async
+		::= { ipadUser 1 }
+
+	ipadPPPCfgTable OBJECT-TYPE
+		--DEFAULT    test-function-async    pppCfg_test_async
+		--DEFAULT    set-function-async     pppCfg_set_async
+		--DEFAULT    get-function-async     pppCfg_get_async
+		--DEFAULT    next-function-async    pppCfg_next_async
+		::= { ipadPPP 1 }
+
+	ipadPPPPAPTable OBJECT-TYPE
+		--DEFAULT    test-function-async    pppPAP_test_async
+		--DEFAULT    set-function-async     pppPAP_set_async
+		--DEFAULT    get-function-async     pppPAP_get_async
+		--DEFAULT    next-function-async    pppPAP_next_async
+		::= { ipadPPP 2 }
+
+	ipadPPPCHAPTable OBJECT-TYPE
+		--DEFAULT    test-function-async    pppCHAP_test_async
+		--DEFAULT    set-function-async     pppCHAP_set_async
+		--DEFAULT    get-function-async     pppCHAP_get_async
+		--DEFAULT    next-function-async    pppCHAP_next_async
+		::= { ipadPPP 3 }
+
+	ipadModemDialTable OBJECT-TYPE
+		--DEFAULT    test-function-async    modemDial_test_async
+		--DEFAULT    set-function-async     modemDial_set_async
+		--DEFAULT    get-function-async     modemDial_get_async
+		--DEFAULT    next-function-async    modemDial_next_async
+		::= { ipadModem 1 }
+
+	ipadModemDataTable OBJECT-TYPE
+		--DEFAULT    test-function-async    modemData_test_async
+		--DEFAULT    set-function-async     modemData_set_async
+		--DEFAULT    get-function-async     modemData_get_async
+		--DEFAULT    next-function-async    modemData_next_async
+		::= { ipadModem 2 }
+
+	ipadDbuTable OBJECT-TYPE
+		--DEFAULT    test-function-async    ipadDbu_test_async
+		--DEFAULT    set-function-async     ipadDbu_set_async
+		--DEFAULT    get-function-async     ipadDbu_get_async
+		--DEFAULT    next-function-async    ipadDbu_next_async
+		::= { ipadModem 3 }
+
+	ipadDbuDailyTable OBJECT-TYPE
+		--DEFAULT    test-function-async    ipadDbuDaily_test_async
+		--DEFAULT    set-function-async     ipadDbuDaily_set_async
+		--DEFAULT    get-function-async     ipadDbuDaily_get_async
+		--DEFAULT    next-function-async    ipadDbuDaily_next_async
+		::= { ipadModem 4 }
+
+	ipadFrPortStatsTable OBJECT-TYPE
+		--DEFAULT    test-function-async    read_only_test_async
+		--DEFAULT    set-function-async     null_set_async
+		--DEFAULT    get-function-async     frPortStats_get_async
+		--DEFAULT    next-function-async    frPortStats_next_async
+		::= { ipadSvcAware 1 }
+
+	ipadDLCIstatsTable OBJECT-TYPE
+		--DEFAULT    test-function-async    read_only_test_async
+		--DEFAULT    set-function-async     null_set_async
+		--DEFAULT    get-function-async     dlciStats_get_async
+		--DEFAULT    next-function-async    dlciStats_next_async
+		::= { ipadSvcAware 2 }
+
+	ipadUserStatsTable OBJECT-TYPE
+		--DEFAULT    test-function-async    read_only_test_async
+		--DEFAULT    set-function-async     null_set_async
+		--DEFAULT    get-function-async     userStats_get_async
+		--DEFAULT    next-function-async    userStats_next_async
+		::= { ipadSvcAware 3 }
+
+	ipadIPTopNStatsTable  OBJECT-TYPE
+		--DEFAULT    test-function-async    read_only_test_async
+		--DEFAULT    set-function-async     null_set_async
+		--DEFAULT    get-function-async     ipTopNStats_get_async
+		--DEFAULT    next-function-async    ipTopNStats_next_async
+		::= { ipadSvcAware 4 }
+
+	ipadPktSwCfgTable OBJECT-TYPE
+		--DEFAULT    test-function-async    pktSwCfg_test_async
+		--DEFAULT    set-function-async     pktSwCfg_set_async
+		--DEFAULT    get-function-async     pktSwCfg_get_async
+		--DEFAULT    next-function-async    pktSwCfg_next_async
+		::= { ipadPktSwitch 2 }
+
+	ipadTrapDestTable OBJECT-TYPE
+		--DEFAULT    test-function-async    trapDest_test_async
+		--DEFAULT    set-function-async     trapDest_set_async
+		--DEFAULT    get-function-async     trapDest_get_async
+		--DEFAULT    next-function-async    trapDest_next_async
+		::= { ipadTrapDest 1 }
+
+	ipadMiscPortSettings OBJECT-TYPE
+		--DEFAULT    test-function-async    MiscPort_test_async
+		--DEFAULT    set-function-async     MiscPort_set_async
+		--DEFAULT    get-function-async     MiscPort_get_async
+		--DEFAULT    next-function-async    MiscPort_next_async
+		::= { ipadMisc 1 }
+
+	ipadCircuitTable OBJECT-TYPE
+		--DEFAULT    test-function-async    route_circuit_test_async
+		--DEFAULT    set-function-async     route_circuit_set_async
+		--DEFAULT    get-function-async     route_circuit_get_async
+		--DEFAULT    next-function-async    route_circuit_next_async
+		::= { ipadCircuitParms 1 }
+
+	ipadRIPStaticARPTable OBJECT-TYPE
+		--DEFAULT    test-function-async    RIP_ARP_test_async
+		--DEFAULT    set-function-async     RIP_ARP_set_async
+		--DEFAULT    get-function-async     RIP_ARP_get_async
+		--DEFAULT    next-function-async    RIP_ARP_next_async
+		::= { ipadRIPParms 5 }
+
+	ipadRIPStaticRouteTable OBJECT-TYPE
+		--DEFAULT    test-function-async    RIP_Route_test_async
+		--DEFAULT    set-function-async     RIP_Route_set_async
+		--DEFAULT    get-function-async     RIP_Route_get_async
+		--DEFAULT    next-function-async    RIP_Route_next_async
+		::= { ipadRIPParms 8 }
+
+	ipadRIPNeighborTable OBJECT-TYPE
+		--DEFAULT    test-function-async    RIPNeighbor_test_async
+		--DEFAULT    set-function-async     RIPNeighbor_set_async
+		--DEFAULT    get-function-async     RIPNeighbor_get_async
+		--DEFAULT    next-function-async    RIPNeighbor_next_async
+		::= { ipadRIPParms 11 }
+
+	ipadSoftKeyTable OBJECT-TYPE
+		--DEFAULT    test-function-async    SoftKey_test_async
+		--DEFAULT    set-function-async     SoftKey_set_async
+		--DEFAULT    get-function-async     SoftKey_get_async
+		--DEFAULT    next-function-async    SoftKey_next_async
+		::= { ipadSoftKey 1 }
+
+	ipadPPPStartTable OBJECT-TYPE
+		--DEFAULT    test-function-async    PPPStart_test_async
+		--DEFAULT    set-function-async     PPPStart_set_async
+		--DEFAULT    get-function-async     PPPStart_get_async
+		--DEFAULT    next-function-async    PPPStart_next_async
+		::= { ipadIPStart 1 }
+
+	ipadPPPStartLCPHistoryTable OBJECT-TYPE
+		--DEFAULT    test-function-async    PPPLCP_test_async
+		--DEFAULT    set-function-async     PPPLCP_set_async
+		--DEFAULT    get-function-async     PPPLCP_get_async
+		--DEFAULT    next-function-async    PPPLCP_next_async
+		::= { ipadIPStart 2 }
+
+	ipadPPPStartAuthHistoryTable OBJECT-TYPE
+		--DEFAULT    test-function-async    PPPAuth_test_async
+		--DEFAULT    set-function-async     PPPAuth_set_async
+		--DEFAULT    get-function-async     PPPAuth_get_async
+		--DEFAULT    next-function-async    PPPAuth_next_async
+		::= { ipadIPStart 3 }
+
+	ipadPPPStartIPCPHistoryTable OBJECT-TYPE
+		--DEFAULT    test-function-async    PPPIPCP_test_async
+		--DEFAULT    set-function-async     PPPIPCP_set_async
+		--DEFAULT    get-function-async     PPPIPCP_get_async
+		--DEFAULT    next-function-async    PPPIPCP_next_async
+		::= { ipadIPStart 4 }
+
+	hdsl2ShdslSpanConfTable  OBJECT-TYPE
+		--DEFAULT    test-function-async    SHDSL_spanconf_test_async
+		--DEFAULT    set-function-async     SHDSL_spanconf_set_async
+		--DEFAULT    get-function-async     SHDSL_spanconf_get_async
+		--DEFAULT    next-function-async    SHDSL_spanconf_next_async
+		::= { hdsl2ShdslMibObjects 1 }
+
+	hdsl2ShdslSpanStatusTable	OBJECT-TYPE
+		--DEFAULT    get-function-async     SHDSL_spanstat_get_async
+		--DEFAULT    next-function-async    SHDSL_spanstat_next_async
+		::= { hdsl2ShdslMibObjects 2 }
+
+	hdsl2ShdslInventoryTable OBJECT-TYPE
+		--DEFAULT    get-function-async     SHDSL_inv_get_async
+		--DEFAULT    next-function-async    SHDSL_inv_next_async
+		::= { hdsl2ShdslMibObjects 3 }
+
+	hdsl2ShdslEndpointConfTable	 OBJECT-TYPE
+		--DEFAULT    test-function-async    SHDSL_endpconf_test_async
+		--DEFAULT    set-function-async     SHDSL_endpconf_set_async
+		--DEFAULT    get-function-async     SHDSL_endpconf_get_async
+		--DEFAULT    next-function-async    SHDSL_endpconf_next_async
+		::= { hdsl2ShdslMibObjects 4 }
+
+	hdsl2ShdslEndpointCurrTable	 OBJECT-TYPE
+		--DEFAULT    get-function-async     SHDSL_endpcurr_get_async
+		--DEFAULT    next-function-async    SHDSL_endpcurr_next_async
+		::= { hdsl2ShdslMibObjects 5 }
+
+	hdsl2Shdsl15MinIntervalTable	 OBJECT-TYPE
+		--DEFAULT    get-function-async     SHDSL_15min_get_async
+		--DEFAULT    next-function-async    SHDSL_15min_next_async
+		::= { hdsl2ShdslMibObjects 6 }
+
+	hdsl2Shdsl1DayIntervalTable	 OBJECT-TYPE
+		--DEFAULT    get-function-async     SHDSL_1day_get_async
+		--DEFAULT    next-function-async    SHDSL_1day_next_async
+		::= { hdsl2ShdslMibObjects 7 }
+
+	hdsl2ShdslEndpointMaintTable	 OBJECT-TYPE
+		--DEFAULT    test-function-async    SHDSL_endpmaint_test_async
+		--DEFAULT    set-function-async     SHDSL_endpmaint_set_async
+		--DEFAULT    get-function-async     SHDSL_endpmaint_get_async
+		--DEFAULT    next-function-async    SHDSL_endpmaint_next_async
+		::= { hdsl2ShdslMibObjects 8 }
+
+	hdsl2ShdslUnitMaintTable	 OBJECT-TYPE
+		--DEFAULT    test-function-async    SHDSL_unitmaint_test_async
+		--DEFAULT    set-function-async     SHDSL_unitmaint_set_async
+		--DEFAULT    get-function-async     SHDSL_unitmaint_get_async
+		--DEFAULT    next-function-async    SHDSL_unitmaint_next_async
+		::= { hdsl2ShdslMibObjects 9 }
+
+	hdsl2ShdslSpanConfProfileTable	 OBJECT-TYPE
+		--DEFAULT    test-function-async    SHDSL_spanprof_test_async
+		--DEFAULT    set-function-async     SHDSL_spanprof_set_async
+		--DEFAULT    get-function-async     SHDSL_spanprof_get_async
+		--DEFAULT    next-function-async    SHDSL_spanprof_next_async
+		::= { hdsl2ShdslMibObjects 10 }
+
+	hdsl2ShdslEndpointAlarmConfProfileTable	 OBJECT-TYPE
+		--DEFAULT    test-function-async    SHDSL_endpalarm_test_async
+		--DEFAULT    set-function-async     SHDSL_endpalarm_set_async
+		--DEFAULT    get-function-async     SHDSL_endpalarm_get_async
+		--DEFAULT    next-function-async    SHDSL_endpalarm_next_async
+		::= { hdsl2ShdslMibObjects 11 }
+
+	ipadOSPFAreaTable OBJECT-TYPE
+		--DEFAULT    test-function-async    OSPFArea_test_async
+		--DEFAULT    set-function-async     OSPFArea_set_async
+		--DEFAULT    get-function-async     OSPFArea_get_async
+		--DEFAULT    next-function-async    OSPFArea_next_async
+		::= { ipadOSPFParms 3 }
+
+	ipadOSPFVlinkTable OBJECT-TYPE
+		--DEFAULT    test-function-async    OSPFVlink_test_async
+		--DEFAULT    set-function-async     OSPFVlink_set_async
+		--DEFAULT    get-function-async     OSPFVlink_get_async
+		--DEFAULT    next-function-async    OSPFVlink_next_async
+		::= { ipadOSPFParms 6 }
+
+	ipCidrRouteTable OBJECT-TYPE
+		--DEFAULT    test-function-async    ipCidrRoute_test_async
+		--DEFAULT    set-function-async     ipCidrRoute_set_async
+		--DEFAULT    get-function-async     ipCidrRoute_get_async
+		--DEFAULT    next-function-async    ipCidrRoute_next_async
+		::= { ipForward 4 }
+
+	ipCidrRouteNumber OBJECT-TYPE
+		--DEFAULT    get-function-async     ipCidrRouteNumber_get_async
+		::= { ipForward 3 }
+
+	productLabelTable OBJECT-TYPE
+		--DEFAULT    test-function-async    labelTable_test_async
+		--DEFAULT    set-function-async     labelTable_set_async
+		--DEFAULT    get-function-async     labelTable_get_async
+		--DEFAULT    next-function-async    labelTable_next_async
+		::= { productInfo 9 }
+
+	ipadTCPServerConnTable	OBJECT-TYPE
+		--DEFAULT    test-function-async    tcpServerConn_test_async
+		--DEFAULT    set-function-async     tcpServerConn_set_async
+		--DEFAULT    get-function-async     tcpServerConn_get_async
+		--DEFAULT    next-function-async    tcpServerConn_next_async
+		::= { ipadTCPServer 2 }
+
+	ipadTCPServerHostAccessTable	OBJECT-TYPE
+		--DEFAULT    test-function-async    tcpServerHostAccess_test_async
+		--DEFAULT    set-function-async     tcpServerHostAccess_set_async
+		--DEFAULT    get-function-async     tcpServerHostAccess_get_async
+		--DEFAULT    next-function-async    tcpServerHostAccess_next_async
+		::= { ipadTCPServer 5 }
+
+	ipadMiscShdslConfigTable OBJECT-TYPE
+		--DEFAULT    test-function-async    MiscShdslConfig_test_async
+		--DEFAULT    set-function-async     MiscShdslConfig_set_async
+		--DEFAULT    get-function-async     MiscShdslConfig_get_async
+		--DEFAULT    next-function-async    MiscShdslConfig_next_async
+		::= { ipadMisc 4 }
+
+	ipadMiscShdslStatusTable OBJECT-TYPE
+		--DEFAULT    test-function-async    MiscShdslStatus_test_async
+		--DEFAULT    set-function-async     MiscShdslStatus_set_async
+		--DEFAULT    get-function-async     MiscShdslStatus_get_async
+		--DEFAULT    next-function-async    MiscShdslStatus_next_async
+		::= { ipadMisc 5 }
+
+-- SCADA
+
+	ipadSCADAConfigTable	OBJECT-TYPE
+		--DEFAULT    test-function-async    scadaConfig_test_async
+		--DEFAULT    set-function-async     scadaConfig_set_async
+		--DEFAULT    get-function-async     scadaConfig_get_async
+		--DEFAULT    next-function-async    scadaConfig_next_async
+		::= { ipadSCADAConfig 1 }
+
+	ipadSCADAStatsTable	OBJECT-TYPE
+		--DEFAULT    test-function-async    scadaStats_test_async
+		--DEFAULT    set-function-async     scadaStats_set_async
+		--DEFAULT    get-function-async     scadaStats_get_async
+		--DEFAULT    next-function-async    scadaStats_next_async
+		::= { ipadSCADAStats 1 }
+
+	ipadSCADADevLstTable	OBJECT-TYPE
+		--DEFAULT    test-function-async    scadaDevLst_test_async
+		--DEFAULT    set-function-async     scadaDevLst_set_async
+		--DEFAULT    get-function-async     scadaDevLst_get_async
+		--DEFAULT    next-function-async    scadaDevLst_next_async
+		::= { ipadSCADADevLst 1 }
+
+-- DS0 Utilization Monitor
+
+	ipadDS0ConfigTable OBJECT-TYPE
+		--DEFAULT    test-function-async    DS0Config_test_async
+		--DEFAULT    set-function-async     DS0Config_set_async
+		--DEFAULT    get-function-async     DS0Config_get_async
+		--DEFAULT    next-function-async    DS0Config_next_async
+		::= { ipadDS0Config 1 }
+
+	ipadDS0Hist24Table OBJECT-TYPE
+		--DEFAULT    test-function-async    DS0Hist24_test_async
+		--DEFAULT    set-function-async     DS0Hist24_set_async
+		--DEFAULT    get-function-async     DS0Hist24_get_async
+		--DEFAULT    next-function-async    DS0Hist24_next_async
+		::= { ipadDS0Hist24 1 }
+
+	ipadDS0Hist30Table OBJECT-TYPE
+		--DEFAULT    test-function-async    DS0Hist30_test_async
+		--DEFAULT    set-function-async     DS0Hist30_set_async
+		--DEFAULT    get-function-async     DS0Hist30_get_async
+		--DEFAULT    next-function-async    DS0Hist30_next_async
+		::= { ipadDS0Hist30 1 }
+
+-- HDLC Utilization Monitor
+
+	ipadHDLCConfigTable OBJECT-TYPE
+		--DEFAULT    test-function-async    HDLCConfig_test_async
+		--DEFAULT    set-function-async     HDLCConfig_set_async
+		--DEFAULT    get-function-async     HDLCConfig_get_async
+		--DEFAULT    next-function-async    HDLCConfig_next_async
+		::= { ipadHDLCConfig 1 }
+
+	ipadHDLCHist24Table OBJECT-TYPE
+		--DEFAULT    test-function-async    HDLCHist24_test_async
+		--DEFAULT    set-function-async     HDLCHist24_set_async
+		--DEFAULT    get-function-async     HDLCHist24_get_async
+		--DEFAULT    next-function-async    HDLCHist24_next_async
+		::= { ipadHDLCHist24 1 }
+
+	ipadHDLCHist30Table OBJECT-TYPE
+		--DEFAULT    test-function-async    HDLCHist30_test_async
+		--DEFAULT    set-function-async     HDLCHist30_set_async
+		--DEFAULT    get-function-async     HDLCHist30_get_async
+		--DEFAULT    next-function-async    HDLCHist30_next_async
+		::= { ipadHDLCHist30 1 }
+
+-- ATM
+
+	atmInterfaceConfTable	OBJECT-TYPE
+		--DEFAULT    test-function-async    atmInterfaceConf_test_async
+		--DEFAULT    set-function-async     atmInterfaceConf_set_async
+		--DEFAULT    get-function-async     atmInterfaceConf_get_async
+		--DEFAULT    next-function-async    atmInterfaceConf_next_async
+		::= { atmMIBObjects 2 }
+
+	atmTrafficDescrParamTable	OBJECT-TYPE
+		--DEFAULT    test-function-async    atmTrafficDescrParamTable_test_async
+		--DEFAULT    set-function-async     atmTrafficDescrParamTable_set_async
+		--DEFAULT    get-function-async     atmTrafficDescrParamTable_get_async
+		--DEFAULT    next-function-async    atmTrafficDescrParamTable_next_async
+		::= { atmMIBObjects 5 }
+
+	atmVclTable			OBJECT-TYPE
+		--DEFAULT    test-function-async    atmVclTable_test_async
+		--DEFAULT    set-function-async     atmVclTable_set_async
+		--DEFAULT    get-function-async     atmVclTable_get_async
+		--DEFAULT    next-function-async    atmVclTable_next_async
+		::= { atmMIBObjects 7 }
+
+	aal5VccTable		OBJECT-TYPE
+		--DEFAULT    test-function-async    read_only_test_async
+		--DEFAULT    set-function-async     null_set_async
+		--DEFAULT    get-function-async     aal5VccTable_get_async
+		--DEFAULT    next-function-async    aal5VccTable_next_async
+		::= { atmMIBObjects 12 }
+
+--	atmTrafficDescrParamIndexNext OBJECT-TYPE
+--		--DEFAULT    test-function-async    read_only_test_async
+--		--DEFAULT    set-function-async     null_set_async
+--		--DEFAULT    get-function-async     atmTrafficDescrParamIndexNext_get_async
+--		--DEFAULT    next-function-async    atmTrafficDescrParamIndexNext_next_async
+--		::= { atmMIBObjects 13 }
+
+	ipadAtmParms           OBJECT-TYPE
+		--DEFAULT    test-function-async    ipadAtmParms_test_async
+		--DEFAULT    set-function-async     ipadAtmParms_set_async
+		--DEFAULT    get-function-async     ipadAtmParms_get_async
+		--DEFAULT    next-function-async    ipadAtmParms_next_async
+		::= { ipadAtm 1 }
+
+	ipadAtmStatsParms      OBJECT-TYPE
+		--DEFAULT    test-function-async    read_only_test_async
+		--DEFAULT    set-function-async     null_set_async
+		--DEFAULT    get-function-async     ipadAtmStatsParms_get_async
+		--DEFAULT    next-function-async    ipadAtmStatsParms_next_async
+		::= { ipadAtm 2 }
+
+	ipadAtmVccParms        OBJECT-TYPE
+		--DEFAULT    test-function-async    ipadAtmVccParms_test_async
+		--DEFAULT    set-function-async     ipadAtmVccParms_set_async
+		--DEFAULT    get-function-async     ipadAtmVccParms_get_async
+		--DEFAULT    next-function-async    ipadAtmVccParms_next_async
+		::= { ipadAtm 3 }
+
+	ipadAtmVccStatsParms   OBJECT-TYPE
+		--DEFAULT    test-function-async    read_only_test_async
+		--DEFAULT    set-function-async     null_set_async
+		--DEFAULT    get-function-async     ipadAtmVccStatsParms_get_async
+		--DEFAULT    next-function-async    ipadAtmVccStatsParms_next_async
+		::= { ipadAtm 4 }
+
+	ipadAtmCesParms        OBJECT-TYPE
+		--DEFAULT    test-function-async    ipadAtmCesParms_test_async
+		--DEFAULT    set-function-async     ipadAtmCesParms_set_async
+		--DEFAULT    get-function-async     ipadAtmCesParms_get_async
+		--DEFAULT    next-function-async    ipadAtmCesParms_next_async
+		::= { ipadAtm 5 }
+
+	ipadAtmFrf5SvcTable	OBJECT-TYPE
+		--DEFAULT    test-function-async    ipadAtmFrf5SvcTable_test_async
+		--DEFAULT    set-function-async     ipadAtmFrf5SvcTable_set_async
+		--DEFAULT    get-function-async     ipadAtmFrf5SvcTable_get_async
+		--DEFAULT    next-function-async    ipadAtmFrf5SvcTable_next_async
+		::= { ipadAtmFrParms 1 }
+
+	ipadAtmFrf5DlciTable OBJECT-TYPE
+		--DEFAULT    test-function-async    ipadAtmFrf5DlciTable_test_async
+		--DEFAULT    set-function-async     ipadAtmFrf5DlciTable_set_async
+		--DEFAULT    get-function-async     ipadAtmFrf5DlciTable_get_async
+		--DEFAULT    next-function-async    ipadAtmFrf5DlciTable_next_async
+		::= { ipadAtmFrParms 2 }
+
+	ipadAtmFrf8SvcTable	OBJECT-TYPE
+		--DEFAULT    test-function-async    ipadAtmFrf8SvcTable_test_async
+		--DEFAULT    set-function-async     ipadAtmFrf8SvcTable_set_async
+		--DEFAULT    get-function-async     ipadAtmFrf8SvcTable_get_async
+		--DEFAULT    next-function-async    ipadAtmFrf8SvcTable_next_async
+		::= { ipadAtmFrParms 3 }
+
+-- ATM CES
+
+	atmfCESConfTable   OBJECT-TYPE
+		--DEFAULT    test-function-async    atmCESConfTable_test_async
+		--DEFAULT    set-function-async     atmCESConfTable_set_async
+		--DEFAULT    get-function-async     atmCESConfTable_get_async
+		--DEFAULT    next-function-async    atmCESConfTable_next_async
+		::= { atmfCESObjects 1 }
+
+	atmfCESMappingTable   OBJECT-TYPE
+		--DEFAULT    test-function-async    atmCESMappingTable_test_async
+		--DEFAULT    set-function-async     atmCESMappingTable_set_async
+		--DEFAULT    get-function-async     atmCESMappingTable_get_async
+		--DEFAULT    next-function-async    atmCESMappingTable_next_async
+		::= { atmfCESObjects 2 }
+
+	atmfCESStatsTable   OBJECT-TYPE
+		--DEFAULT    test-function-async    atmCESStatsTable_test_async
+		--DEFAULT    set-function-async     atmCESStatsTable_set_async
+		--DEFAULT    get-function-async     atmCESStatsTable_get_async
+		--DEFAULT    next-function-async    atmCESStatsTable_next_async
+		::= { atmfCESObjects 3 }
+
+-- NAT
+
+	ipadNatParms   OBJECT-TYPE
+		--DEFAULT    test-function-async    ipadNatParms_test_async
+		--DEFAULT    set-function-async     ipadNatParms_set_async
+		--DEFAULT    get-function-async     ipadNatParms_get_async
+		--DEFAULT    next-function-async    scalar_next_async
+		::= { ipadNat 1 }
+
+	ipadNatStaticTranslationParms   OBJECT-TYPE
+		--DEFAULT    test-function-async    ipadNatStaticTranslationParms_test_async
+		--DEFAULT    set-function-async     ipadNatStaticTranslationParms_set_async
+		--DEFAULT    get-function-async     ipadNatStaticTranslationParms_get_async
+		--DEFAULT    next-function-async    scalar_next_async
+		::= { ipadNat 2 }
+
+	ipadNatStaticTranslationTable   OBJECT-TYPE
+		--DEFAULT    test-function-async    ipadNatStaticTranslationTable_test_async
+		--DEFAULT    set-function-async     ipadNatStaticTranslationTable_set_async
+		--DEFAULT    get-function-async     ipadNatStaticTranslationTable_get_async
+		--DEFAULT    next-function-async    ipadNatStaticTranslationTable_next_async
+		::= { ipadNatStaticTranslationParms 1 }
+
+	ipadNatStaticTCPTranslationTable   OBJECT-TYPE
+		--DEFAULT    test-function-async    ipadNatStaticTCPTranslationTable_test_async
+		--DEFAULT    set-function-async     ipadNatStaticTCPTranslationTable_set_async
+		--DEFAULT    get-function-async     ipadNatStaticTCPTranslationTable_get_async
+		--DEFAULT    next-function-async    ipadNatStaticTCPTranslationTable_next_async
+		::= { ipadNatStaticTranslationParms 2 }
+
+	ipadNatStaticUDPTranslationTable   OBJECT-TYPE
+		--DEFAULT    test-function-async    ipadNatStaticUDPTranslationTable_test_async
+		--DEFAULT    set-function-async     ipadNatStaticUDPTranslationTable_set_async
+		--DEFAULT    get-function-async     ipadNatStaticUDPTranslationTable_get_async
+		--DEFAULT    next-function-async    ipadNatStaticUDPTranslationTable_next_async
+		::= { ipadNatStaticTranslationParms 3 }
+
+	ipadNatPortParms   OBJECT-TYPE
+		--DEFAULT    test-function-async    ipadNatPortParms_test_async
+		--DEFAULT    set-function-async     ipadNatPortParms_set_async
+		--DEFAULT    get-function-async     ipadNatPortParms_get_async
+		--DEFAULT    next-function-async    scalar_next_async
+		::= { ipadNat 3 }
+
+	ipadNatPortConfigTable   OBJECT-TYPE
+		--DEFAULT    test-function-async    ipadNatPortConfigTable_test_async
+		--DEFAULT    set-function-async     ipadNatPortConfigTable_set_async
+		--DEFAULT    get-function-async     ipadNatPortConfigTable_get_async
+		--DEFAULT    next-function-async    ipadNatPortConfigTable_next_async
+		::= { ipadNatPortParms 1 }
+
+	ipadNatPortStatusTable   OBJECT-TYPE
+		--DEFAULT    test-function-async    read_only_test_async
+		--DEFAULT    set-function-async     null_set_async
+		--DEFAULT    get-function-async     ipadNatPortStatusTable_get_async
+		--DEFAULT    next-function-async    ipadNatPortStatusTable_next_async
+		::= { ipadNatPortParms 4 }
+
+-- DHCP
+
+	ipadDhcpParms   OBJECT-TYPE
+		--DEFAULT    test-function-async    ipadDhcpParms_test_async
+		--DEFAULT    set-function-async     ipadDhcpParms_set_async
+		--DEFAULT    get-function-async     ipadDhcpParms_get_async
+		--DEFAULT    next-function-async    scalar_next_async
+		::= { ipadDhcp 1 }
+
+	ipadDhcpServerHostNameTable   OBJECT-TYPE
+		--DEFAULT    test-function-async    ipadDhcpServerHostNameTable_test_async
+		--DEFAULT    set-function-async     ipadDhcpServerHostNameTable_set_async
+		--DEFAULT    get-function-async     ipadDhcpServerHostNameTable_get_async
+		--DEFAULT    next-function-async    ipadDhcpServerHostNameTable_next_async
+		::= { ipadDhcpParms 10 }
+
+	ipadDhcpStaticEntryTable   OBJECT-TYPE
+		--DEFAULT    test-function-async    ipadDhcpStaticEntryTable_test_async
+		--DEFAULT    set-function-async     ipadDhcpStaticEntryTable_set_async
+		--DEFAULT    get-function-async     ipadDhcpStaticEntryTable_get_async
+		--DEFAULT    next-function-async    ipadDhcpStaticEntryTable_next_async
+		::= { ipadDhcpParms 13 }
+
+	ipadDhcpAddressListTable   OBJECT-TYPE
+		--DEFAULT    test-function-async    ipadDhcpAddressListTable_test_async
+		--DEFAULT    set-function-async     ipadDhcpAddressListTable_set_async
+		--DEFAULT    get-function-async     ipadDhcpAddressListTable_get_async
+		--DEFAULT    next-function-async    ipadDhcpAddressListTable_next_async
+		::= { ipadDhcpParms 16 }
+
+	ipadDhcpAddressStatusTable   OBJECT-TYPE
+		--DEFAULT    test-function-async    read_only_test_async
+		--DEFAULT    set-function-async     null_set_async
+		--DEFAULT    get-function-async     ipadDhcpAddressStatusTable_get_async
+		--DEFAULT    next-function-async    ipadDhcpAddressStatusTable_next_async
+		::= { ipadDhcpParms 19 }
+
+	ipadDhcpPortParms   OBJECT-TYPE
+		--DEFAULT    test-function-async    ipadDhcpPortParms_test_async
+		--DEFAULT    set-function-async     ipadDhcpPortParms_set_async
+		--DEFAULT    get-function-async     ipadDhcpPortParms_get_async
+		--DEFAULT    next-function-async    scalar_next_async
+		::= { ipadDhcp 2 }
+
+	ipadDhcpPortTable   OBJECT-TYPE
+		--DEFAULT    test-function-async    ipadDhcpPortTable_test_async
+		--DEFAULT    set-function-async     ipadDhcpPortTable_set_async
+		--DEFAULT    get-function-async     ipadDhcpPortTable_get_async
+		--DEFAULT    next-function-async    ipadDhcpPortTable_next_async
+		::= { ipadDhcpPortParms 1 }
+
+
+-- Bridge
+
+	ipadBridgeParms   OBJECT-TYPE
+		--DEFAULT    test-function-async    ipadBridgeParms_test_async
+		--DEFAULT    set-function-async     ipadBridgeParms_set_async
+		--DEFAULT    get-function-async     ipadBridgeParms_get_async
+		--DEFAULT    next-function-async    scalar_next_async
+		::= { ipadBridge 1 }
+
+	ipadBridgePortTable   OBJECT-TYPE
+		--DEFAULT    test-function-async    ipadBridgePortTable_test_async
+		--DEFAULT    set-function-async     ipadBridgePortTable_set_async
+		--DEFAULT    get-function-async     ipadBridgePortTable_get_async
+		--DEFAULT    next-function-async    ipadBridgePortTable_next_async
+		::= { ipadBridge 2 }
+
+	dot1dBase   OBJECT-TYPE
+		--DEFAULT    test-function-async    read_only_test_async
+		--DEFAULT    set-function-async     null_set_async
+		--DEFAULT    get-function-async     dot1dBase_get_async
+		--DEFAULT    next-function-async    scalar_next_async
+		::= { dot1dBridge 1 }
+
+	dot1dStp   OBJECT-TYPE
+		--DEFAULT    test-function-async    dot1dStp_test_async
+		--DEFAULT    set-function-async     dot1dStp_set_async
+		--DEFAULT    get-function-async     dot1dStp_get_async
+		--DEFAULT    next-function-async    scalar_next_async
+		::= { dot1dBridge 2 }
+
+	dot1dStpPortTable   OBJECT-TYPE
+		--DEFAULT    test-function-async    dot1dStpPortTable_test_async
+		--DEFAULT    set-function-async     dot1dStpPortTable_set_async
+		--DEFAULT    get-function-async     dot1dStpPortTable_get_async
+		--DEFAULT    next-function-async    dot1dStpPortTable_next_async
+		::= { dot1dStp 15 }
+
+	dot1dTp   OBJECT-TYPE
+		--DEFAULT    test-function-async    dot1dTp_test_async
+		--DEFAULT    set-function-async     dot1dTp_set_async
+		--DEFAULT    get-function-async     dot1dTp_get_async
+		--DEFAULT    next-function-async    scalar_next_async
+		::= { dot1dBridge 4 }
+
+	dot1dBasePortTable   OBJECT-TYPE
+		--DEFAULT    test-function-async    dot1dBasePortTable_test_async
+		--DEFAULT    set-function-async     dot1dBasePortTable_set_async
+		--DEFAULT    get-function-async     dot1dBasePortTable_get_async
+		--DEFAULT    next-function-async    dot1dBasePortTable_next_async
+		::= { dot1dBase 4  }
+
+	dot1dTpFdbTable   OBJECT-TYPE
+		--DEFAULT    test-function-async    dot1dTpFdbTable_test_async
+		--DEFAULT    set-function-async    dot1dTpFdbTable_set_async
+		--DEFAULT    get-function-async     dot1dTpFdbTable_get_async
+		--DEFAULT    next-function-async    dot1dTpFdbTable_next_async
+		::= { dot1dTp 3  }
+
+	dot1dTpPortTable   OBJECT-TYPE
+		--DEFAULT    test-function-async    dot1dTpPortTable_test_async
+		--DEFAULT    set-function-async    dot1dTpPortTable_set_async
+		--DEFAULT    get-function-async     dot1dTpPortTable_get_async
+		--DEFAULT    next-function-async    dot1dTpPortTable_next_async
+		::= { dot1dTp 4  }
+
+
+-- SMTP
+	ipadSmtp   OBJECT-TYPE
+		--DEFAULT    test-function-async    ipadSmtpTable_test_async
+		--DEFAULT    set-function-async     ipadSmtpTable_set_async
+		--DEFAULT    get-function-async     ipadSmtpTable_get_async
+		--DEFAULT    next-function-async    scalar_next_async
+		::= { ipad 29 }
+
+-- Encryption
+	ipadEncryption   OBJECT-TYPE
+		--DEFAULT    test-function-async    ipadEncryptionTable_test_async
+		--DEFAULT    set-function-async     ipadEncryptionTable_set_async
+		--DEFAULT    get-function-async     ipadEncryptionTable_get_async
+		--DEFAULT    next-function-async    scalar_next_async
+		::= { ipad 30 }
+
+
+-- Auto Learn DS0
+
+	ipadAutoLearnDS0Table OBJECT-TYPE
+		--DEFAULT    test-function-async    AutoLearnDS0_test_async
+		--DEFAULT    set-function-async     AutoLearnDS0_set_async
+		--DEFAULT    get-function-async     AutoLearnDS0_get_async
+		--DEFAULT    next-function-async    AutoLearnDS0_next_async
+		::= { ipadAutoLearnDS0 1 }
+
+-- Unit Access { UnitAccess 1 }
+	ipadUnitAccess OBJECT-TYPE
+		--DEFAULT    test-function-async    UnitAccess_test_async
+		--DEFAULT    set-function-async     UnitAccess_set_async
+		--DEFAULT    get-function-async     UnitAccess_get_async
+		--DEFAULT    next-function-async    UnitAccess_next_async
+		::= { ipad 32 }
+
+-- TFTP Download  { ipadTFTPDownload ipad 33 }
+	ipadTFTPDownload OBJECT-TYPE
+		--DEFAULT    test-function-async    TFTPDownload_test_async
+		--DEFAULT    set-function-async     TFTPDownload_set_async
+		--DEFAULT    get-function-async     TFTPDownload_get_async
+		--DEFAULT    next-function-async    scalar_next_async
+		::= { ipad 33 }
+
+-- Data Line Monitor
+	ipadDLMConfig OBJECT-TYPE
+		--DEFAULT    test-function-async    ipadDLMConfig_test_async
+		--DEFAULT    set-function-async     ipadDLMConfig_set_async
+		--DEFAULT    get-function-async     ipadDLMConfig_get_async
+		--DEFAULT    next-function-async    scalar_next_async
+		::= { ipadDataLineMonitor 1 }
+
+	ipadDLMTable OBJECT-TYPE
+		--DEFAULT    test-function-async    ipadDLMTable_test_async
+		--DEFAULT    set-function-async     ipadDLMTable_set_async
+		--DEFAULT    get-function-async     ipadDLMTable_get_async
+		--DEFAULT    next-function-async    ipadDLMTable_next_async
+		::= { ipadDataLineMonitor 2 }
+
+	ipadDLMPacketTable OBJECT-TYPE
+		--DEFAULT    test-function-async    read_only_test_async
+		--DEFAULT    set-function-async     null_set_async
+		--DEFAULT    get-function-async     ipadDLMPacketTable_get_async
+		--DEFAULT    next-function-async    ipadDLMPacketTable_next_async
+		::= { ipadDataLineMonitor 3 }
+
+
+-- Originate PING
+
+	ipadOrigPing   OBJECT-TYPE
+		--DEFAULT    test-function-async    ipadOrigPing_test_async
+		--DEFAULT    set-function-async     ipadOrigPing_set_async
+		--DEFAULT    get-function-async     ipadOrigPing_get_async
+		--DEFAULT    next-function-async    scalar_next_async
+		::= { ipad 35 }
+
+
+-- Network APS
+
+	netAPSConfigTable	OBJECT-TYPE
+		--DEFAULT    test-function-async    netAPSConfig_test_async
+		--DEFAULT    set-function-async     netAPSConfig_set_async
+		--DEFAULT    get-function-async     netAPSConfig_get_async
+		--DEFAULT    next-function-async    netAPSConfig_next_async
+		::= { netAPS 1 }
+
+	netAPSHist24Table	OBJECT-TYPE
+		--DEFAULT    test-function-async    read_only_test_async
+		--DEFAULT    set-function-async     null_set_async
+		--DEFAULT    get-function-async     netAPSHist24_get_async
+		--DEFAULT    next-function-async    netAPSHist24_next_async
+		::= { netAPS 2 }
+
+	netAPSHist30Table	OBJECT-TYPE
+		--DEFAULT    test-function-async    read_only_test_async
+		--DEFAULT    set-function-async     null_set_async
+		--DEFAULT    get-function-async     netAPSHist30_get_async
+		--DEFAULT    next-function-async    netAPSHist30_next_async
+		::= { netAPS 3 }
+
+END

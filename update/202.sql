@@ -1,0 +1,11 @@
+ALTER TABLE `ipv4_addresses` CHANGE `ipv4_address` `ipv4_address` VARCHAR(32) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL, CHANGE `ipv4_network_id` `ipv4_network_id` INT(11) NOT NULL;
+ALTER TABLE `ipv4_networks` CHANGE `ipv4_network` `ipv4_network` VARCHAR(64) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL;
+ALTER TABLE `ipv6_addresses` CHANGE `ipv6_address` `ipv6_address` VARCHAR(128) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL, CHANGE `ipv6_compressed` `ipv6_compressed` VARCHAR(128) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL, CHANGE `ipv6_origin` `ipv6_origin` VARCHAR(16) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL, CHANGE `ipv6_network_id` `ipv6_network_id` INT(11) NOT NULL;
+ALTER TABLE `ipv6_networks` CHANGE `ipv6_network` `ipv6_network` VARCHAR(132) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL;
+ALTER TABLE `vlans` CHANGE `vlan_name` `vlan_name` VARCHAR(32) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL;
+ALTER TABLE `vlans_fdb` CHANGE `mac_address` `mac_address` VARCHAR(32) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL, CHANGE `fdb_status` `fdb_status` VARCHAR(32) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL;
+ALTER TABLE `ucd_diskio` CHANGE `diskio_descr` `diskio_descr` VARCHAR(32) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL;
+ALTER TABLE `slas` CHANGE `rtt_type` `rtt_type` VARCHAR(16) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL;
+ALTER TABLE `mempools` CHANGE `mempool_index` `mempool_index` VARCHAR(16) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL, CHANGE `mempool_descr` `mempool_descr` VARCHAR(255) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL;
+ALTER TABLE `hrDevice` CHANGE `hrDeviceDescr` `hrDeviceDescr` TEXT CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL, CHANGE `hrDeviceType` `hrDeviceType` VARCHAR(32) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL, CHANGE `hrDeviceStatus` `hrDeviceStatus` VARCHAR(16) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL;
+ALTER TABLE `eventlog` CHANGE `message` `message` TEXT CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL;

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -70,6 +70,5 @@ if ($haCurState !== '')
   $value = $haCurState;
   discover_sensor($valid['sensor'], 'state', $device, $oid, 'haCurState.0', 'netscaler-ha-state', $descr, NULL, $value, array('entPhysicalClass' => 'other'));
 }
-
 
 // EOF

@@ -7,17 +7,16 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
-
-echo("OSPF: ");
-echo("Processes: ");
 
 $ospf_instance_count = 0;
 $ospf_port_count     = 0;
 $ospf_area_count     = 0;
 $ospf_nbr_count      = 0;
+
+$set_ospf            = FALSE;
 
 $ospf_oids_db = array('ospfRouterId', 'ospfAdminStat', 'ospfVersionNumber', 'ospfAreaBdrRtrStatus', 'ospfASBdrRtrStatus',
                       'ospfExternLsaCount', 'ospfExternLsaCksumSum', 'ospfTOSSupport', 'ospfOriginateNewLsas', 'ospfRxNewLsas',
@@ -34,15 +33,24 @@ $ospf_instances_poll = snmpwalk_cache_oid($device, "ospfGeneralGroup", array(), 
 $ospf_areas_poll = array();
 $ospf_ports_poll = array();
 $ospf_nbrs_poll = array();
-if (count($ospf_instances_poll))
+
+// Don't bother polling everything if we have no enabled or non-defaulted router ids.
+foreach ($ospf_instances_poll as $ospf_instance)
+{
+  if ($ospf_instance['ospfRouterId'] != "0.0.0.0" || $ospf_instance['ospfAdminStat'] != "disabled") { $set_ospf = TRUE; }
+}
+
+if ($set_ospf)
 {
   $ospf_areas_poll = snmpwalk_cache_oid($device, "ospfAreaEntry", $ospf_areas_poll, "OSPF-MIB", mib_dirs());
   $ospf_ports_poll = snmpwalk_cache_oid($device, "ospfIfEntry",   $ospf_ports_poll, "OSPF-MIB", mib_dirs());
   $ospf_nbrs_poll  = snmpwalk_cache_oid($device, "ospfNbrEntry",  $ospf_nbrs_poll,  "OSPF-MIB", mib_dirs());
-  $set_ospf = TRUE;
 } else {
-  $set_ospf = FALSE;
+  unset($ospf_instances_poll);
+
 }
+
+print_cli_data_field("Processes", 2);
 
 foreach ($ospf_instances_poll as $ospf_instance_id => $ospf_entry)
 {
@@ -52,7 +60,7 @@ foreach ($ospf_instances_poll as $ospf_instance_id => $ospf_entry)
     dbInsert(array('device_id' => $device['device_id'], 'ospf_instance_id' => $ospf_instance_id), 'ospf_instances');
     echo("+");
     $ospf_instances_db[$entry['ospf_instance_id']] = dbFetchRow("SELECT * FROM `ospf_instances` WHERE `device_id` = ? AND `ospf_instance_id` = ?", array($device['device_id'],$ospf_instance_id));
-    $ospf_instances_db[$entry['ospf_instance_id']] = $entry;
+    //$ospf_instances_db[$entry['ospf_instance_id']] = $entry;
   }
 }
 
@@ -97,7 +105,9 @@ if (is_array($ospf_instances_db))
 unset($ospf_instances_poll);
 unset($ospf_instances_db);
 
-echo(" Areas: ");
+echo(PHP_EOL);
+
+print_cli_data_field("Areas", 2);
 
 $ospf_area_oids = array('ospfAuthType', 'ospfImportAsExtern', 'ospfSpfRuns', 'ospfAreaBdrRtrCount', 'ospfAsBdrRtrCount',
                         'ospfAreaLsaCount', 'ospfAreaLsaCksumSum', 'ospfAreaSummary', 'ospfAreaStatus');
@@ -107,8 +117,6 @@ foreach (dbFetchRows("SELECT * FROM `ospf_areas` WHERE `device_id` = ?", array($
 {
   $ospf_areas_db[$entry['ospfAreaId']] = $entry;
 }
-
-echo "poll";
 
 foreach ($ospf_areas_poll as $ospf_area_id => $ospf_area)
 {
@@ -140,7 +148,6 @@ if (OBS_DEBUG && $set_ospf)
   echo("\n");
 }
 
-
 // Loop array of entries and update
 if (is_array($ospf_areas_db))
 {
@@ -156,7 +163,9 @@ if (is_array($ospf_areas_db))
         { // If data has changed, build a query
           $ospf_area_update[$oid] = $ospf_area_poll[$oid];
           // log_event("$oid -> ".$this_port[$oid], $device, 'port', $port['port_id']); // FIXME
-        } else { echo ($ospf_area_db[$oid] . "=" . $ospf_area_poll[$oid]); }
+        } else {
+        // echo($ospf_area_db[$oid] . "=" . $ospf_area_poll[$oid]);
+        }
       }
       if ($ospf_area_update)
       {
@@ -178,7 +187,9 @@ if (is_array($ospf_areas_db))
 unset($ospf_areas_db);
 unset($ospf_areas_poll);
 
-echo(" Ports: ");
+echo PHP_EOL;
+
+print_cli_data_field("Ports", 2);
 
 $ospf_port_oids = array('ospfIfIpAddress','port_id','ospfAddressLessIf','ospfIfAreaId','ospfIfType','ospfIfAdminStat','ospfIfRtrPriority','ospfIfTransitDelay','ospfIfRetransInterval','ospfIfHelloInterval','ospfIfRtrDeadInterval','ospfIfPollInterval','ospfIfState','ospfIfDesignatedRouter','ospfIfBackupDesignatedRouter','ospfIfEvents','ospfIfAuthKey','ospfIfStatus','ospfIfMulticastForwarding','ospfIfDemand','ospfIfAuthType');
 
@@ -250,6 +261,8 @@ if (is_array($ospf_ports_db))
   }
 }
 
+echo PHP_EOL;
+
 // OSPF-MIB::ospfNbrIpAddr.172.22.203.98.0 172.22.203.98
 // OSPF-MIB::ospfNbrAddressLessIndex.172.22.203.98.0 0
 // OSPF-MIB::ospfNbrRtrId.172.22.203.98.0 172.22.203.128
@@ -262,7 +275,7 @@ if (is_array($ospf_ports_db))
 // OSPF-MIB::ospfNbmaNbrPermanence.172.22.203.98.0 dynamic
 // OSPF-MIB::ospfNbrHelloSuppressed.172.22.203.98.0 false
 
-echo(' Neighbours: ');
+print_cli_data_field('Neighbours',2);
 
 $ospf_nbr_oids_db  = array('ospfNbrIpAddr', 'ospfNbrAddressLessIndex', 'ospfNbrRtrId', 'ospfNbrOptions', 'ospfNbrPriority', 'ospfNbrState', 'ospfNbrEvents', 'ospfNbrLsRetransQLen', 'ospfNbmaNbrStatus', 'ospfNbmaNbrPermanence', 'ospfNbrHelloSuppressed');
 $ospf_nbr_oids_rrd = array();
@@ -304,7 +317,7 @@ if (is_array($ospf_nbrs_db))
     {
       $ospf_nbr_poll = $ospf_nbrs_poll[$ospf_nbr_db['ospf_nbr_id']];
 
-      $ospf_nbr_poll['port_id'] = @dbFetchCell("SELECT A.`port_id` FROM ipv4_addresses AS A, nbrs AS I WHERE A.ipv4_address = ? AND I.port_id = A.port_id AND I.device_id = ?", array($ospf_nbr_poll['ospfNbrIpAddr'], $device['device_id']));
+      $ospf_nbr_poll['port_id'] = @dbFetchCell("SELECT A.`port_id` FROM `ipv4_addresses` AS A, `ospf_nbrs` AS I WHERE A.`ipv4_address` = ? AND I.`port_id` = A.`port_id` AND I.`device_id` = ?", array($ospf_nbr_poll['ospfNbrIpAddr'], $device['device_id']));
 
       if ($ospf_nbr_db['port_id'] != $ospf_nbr_poll['port_id'])
       {
@@ -343,6 +356,8 @@ if (is_array($ospf_nbrs_db))
   }
 }
 
+echo PHP_EOL;
+
 if ($set_ospf)
 {
   // Create device-wide statistics RRD
@@ -356,11 +371,14 @@ if ($set_ospf)
 
   $rrd_update  = "N:".$ospf_instance_count.":".$ospf_area_count.":".$ospf_port_count.":".$ospf_nbr_count;
   $ret = rrdtool_update($device, "$filename", $rrd_update);
+
+  $graphs['ospf_neighbours'] = TRUE;
+  $graphs['ospf_areas']      = TRUE;
+  $graphs['ospf_ports']      = TRUE;
+
 }
 
 unset($ospf_ports_db);
 unset($ospf_ports_poll);
-
-echo(PHP_EOL);
 
 // EOF

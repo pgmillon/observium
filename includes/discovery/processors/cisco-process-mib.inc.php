@@ -7,11 +7,11 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-echo(" CISCO-PROCESS-MIB ");
+echo("CISCO-PROCESS-MIB ");
 
 $processors_array = snmpwalk_cache_oid($device, "cpmCPU", NULL, "CISCO-PROCESS-MIB");
 if (OBS_DEBUG > 1) { print_vars($processors_array); }
@@ -31,7 +31,8 @@ foreach ($processors_array as $index => $entry)
       $usage = $entry['cpmCPUTotal5min'];
     }
 
-    if ($entPhysicalIndex) {
+    if ($entPhysicalIndex)
+    {
       $descr_oid = "entPhysicalName." . $entPhysicalIndex;
       $descr = snmp_get($device, $descr_oid, "-Oqv", "ENTITY-MIB");
     }

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -39,6 +39,9 @@ if($width > "500")
 $i   = 0;
 $c_i = 0;
 $dbq = dbFetchRows("SELECT * FROM `munin_plugins_ds` WHERE `mplug_id` = ? ORDER BY ds_draw ASC, ds_label ASC", array($mplug['mplug_id']));
+
+$plugfile = str_replace(".rrd", "", $plugfile);
+
 foreach ($dbq as $ds)
 {
   $ds_filename = $plugfile."_".$ds['ds_name'].".rrd";

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -18,9 +18,9 @@ $rrd_options .= " -l 0 -E ";
 $radio1 = get_rrd_path($device, "wificlients-radio1.rrd");
 $radio2 = get_rrd_path($device, "wificlients-radio2.rrd");
 
-if (file_exists($radio1))
+if (is_file($radio1))
 {
-  $radio2_exists = file_exists($radio2);
+  $radio2_exists = is_file($radio2);
 
   $rrd_options .= " COMMENT:'                           Cur   Min  Max\\n'";
   $rrd_options .= " DEF:wificlients1=".$radio1.":wificlients:AVERAGE ";

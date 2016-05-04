@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -21,20 +21,24 @@ $oids = snmpwalk_cache_oid($device, "snIfOpticalMonitoringTxBiasCurrent", array(
 $scale = si_to_scale('milli');
 foreach ($oids as $index => $entry)
 {
-  $descr   = snmp_get($device, "ifDescr.$index","-Oqv") . " DOM TX Bias Current";
-  $oid     = ".1.3.6.1.4.1.1991.1.1.3.3.6.1.4.$index";
   $value   = $entry['snIfOpticalMonitoringTxBiasCurrent'];
-  $options = array('entPhysicalIndex' => $index);
-  $port     = get_port_by_index_cache($device['device_id'], $index);
-
-  if (is_array($port))
-  {
-    $options['measured_class']  = 'port';
-    $options['measured_entity'] = $port['port_id'];
-  }
-
   if (!preg_match("|N/A|", $value))
   {
+    //$descr   = snmp_get($device, "ifDescr.$index", "-Oqv", "IF-MIB") . " DOM TX Bias Current";
+    $oid     = ".1.3.6.1.4.1.1991.1.1.3.3.6.1.4.$index";
+    $options = array('entPhysicalIndex' => $index);
+    $port    = get_port_by_index_cache($device['device_id'], $index);
+
+    if (is_array($port))
+    {
+      $descr = ($port["ifDescr"] ? $port["ifDescr"] : $port["ifName"]);
+      $options['measured_class']  = 'port';
+      $options['measured_entity'] = $port['port_id'];
+    } else {
+      $descr = snmp_get($device, "ifDescr.$index", "-Oqv", "IF-MIB");
+    }
+    $descr  .= " DOM TX Bias Current";
+
     discover_sensor($valid['sensor'], 'current', $device, $oid, $index, 'brocade-dom', $descr, $scale, $value, $options);
   }
 }
@@ -43,20 +47,24 @@ $oids = snmpwalk_cache_oid($device, "snIfOpticalMonitoringTxPower", array(), "FO
 
 foreach ($oids as $index => $entry)
 {
-  $descr   = snmp_get($device, "ifDescr.$index","-Oqv") . " DOM TX Power";
-  $oid     = ".1.3.6.1.4.1.1991.1.1.3.3.6.1.2.$index";
   $value   =  $entry['snIfOpticalMonitoringTxPower'];
-  $options = array('entPhysicalIndex' => $index);
-  $port    = get_port_by_index_cache($device['device_id'], $index);
-
-  if (is_array($port))
-  {
-    $options['measured_class']  = 'port';
-    $options['measured_entity'] = $port['port_id'];
-  }
-
   if (!preg_match("|N/A|", $value))
   {
+    //$descr   = snmp_get($device, "ifDescr.$index", "-Oqv", "IF-MIB") . " DOM TX Power";
+    $oid     = ".1.3.6.1.4.1.1991.1.1.3.3.6.1.2.$index";
+    $options = array('entPhysicalIndex' => $index);
+    $port    = get_port_by_index_cache($device['device_id'], $index);
+
+    if (is_array($port))
+    {
+      $descr = ($port["ifDescr"] ? $port["ifDescr"] : $port["ifName"]);
+      $options['measured_class']  = 'port';
+      $options['measured_entity'] = $port['port_id'];
+    } else {
+      $descr = snmp_get($device, "ifDescr.$index", "-Oqv", "IF-MIB");
+    }
+    $descr  .= " DOM TX Power";
+
     discover_sensor($valid['sensor'], 'dbm', $device, $oid, $index, 'brocade-dom-tx', $descr, 1, $value, $options);
   }
 }
@@ -65,20 +73,24 @@ $oids = snmpwalk_cache_oid($device, "snIfOpticalMonitoringRxPower", array(), "FO
 
 foreach ($oids as $index => $entry)
 {
-  $descr   = snmp_get($device, "ifDescr.$index","-Oqv") . " DOM RX Power";
-  $oid     = ".1.3.6.1.4.1.1991.1.1.3.3.6.1.3.$index";
   $value   = $entry['snIfOpticalMonitoringRxPower'];
-  $options = array('entPhysicalIndex' => $index);
-  $port    = get_port_by_index_cache($device['device_id'], $index);
-
-  if (is_array($port))
-  {
-    $options['measured_class']  = 'port';
-    $options['measured_entity'] = $port['port_id'];
-  }
-
   if (!preg_match("|N/A|", $value))
   {
+    //$descr   = snmp_get($device, "ifDescr.$index", "-Oqv", "IF-MIB") . " DOM RX Power";
+    $oid     = ".1.3.6.1.4.1.1991.1.1.3.3.6.1.3.$index";
+    $options = array('entPhysicalIndex' => $index);
+    $port    = get_port_by_index_cache($device['device_id'], $index);
+
+    if (is_array($port))
+    {
+      $descr = ($port["ifDescr"] ? $port["ifDescr"] : $port["ifName"]);
+      $options['measured_class']  = 'port';
+      $options['measured_entity'] = $port['port_id'];
+    } else {
+      $descr = snmp_get($device, "ifDescr.$index", "-Oqv", "IF-MIB");
+    }
+    $descr  .= " DOM RX Power";
+
     discover_sensor($valid['sensor'], 'dbm', $device, $oid, $index, 'brocade-dom-rx', $descr, 1, $value, $options);
   }
 }
@@ -87,20 +99,24 @@ $oids = snmpwalk_cache_oid($device, "snIfOpticalMonitoringTemperature", array(),
 
 foreach ($oids as $index => $entry)
 {
-  $descr   = snmp_get($device, "ifDescr.$index","-Oqv") . " DOM Temperature";
-  $oid     = ".1.3.6.1.4.1.1991.1.1.3.3.6.1.1.$index";
   $value   = $entry['snIfOpticalMonitoringTemperature'];
-  $options = array('entPhysicalIndex' => $index);
-  $port    = get_port_by_index_cache($device['device_id'], $index);
-
-  if (is_array($port))
+  if (!preg_match("|N/A|", $value))
   {
-    $options['measured_class']  = 'port';
-    $options['measured_entity'] = $port['port_id'];
-  }
+    //$descr   = snmp_get($device, "ifDescr.$index", "-Oqv", "IF-MIB") . " DOM Temperature";
+    $oid     = ".1.3.6.1.4.1.1991.1.1.3.3.6.1.1.$index";
+    $options = array('entPhysicalIndex' => $index);
+    $port    = get_port_by_index_cache($device['device_id'], $index);
 
-  if (!preg_match("|N/A|",$value))
-  {
+    if (is_array($port))
+    {
+      $descr = ($port["ifDescr"] ? $port["ifDescr"] : $port["ifName"]);
+      $options['measured_class']  = 'port';
+      $options['measured_entity'] = $port['port_id'];
+    } else {
+      $descr = snmp_get($device, "ifDescr.$index", "-Oqv", "IF-MIB");
+    }
+    $descr  .= " DOM Temperature";
+
     discover_sensor($valid['sensor'], 'temperature', $device, $oid, $index, 'brocade-dom', $descr, 1, $value, $options);
   }
 }

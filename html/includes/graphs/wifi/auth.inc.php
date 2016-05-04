@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -19,9 +19,9 @@ if (is_numeric($vars['id']))
     $device = device_by_id_cache($radio['device_id']);
 
     $title  = generate_device_link($device);
-    $title .= " :: WIFI - Accesspoint :: " . htmlentities($radio['name']);
+    $title .= " :: WIFI - Accesspoint :: " . escape_html($radio['name']);
     $auth = TRUE;
   }
 }
 
-?>
+// EOF

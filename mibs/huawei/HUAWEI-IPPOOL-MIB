@@ -3,7 +3,7 @@
 --
 -- DESCRIPTION:  HUAWEI-IPPOOL-MIB
 -- Reference:  
--- Version: V2.07
+-- Version: V2.10
 -- History:
 --         v3.01
 --         modified by huangjun 2009-12-08
@@ -23,7 +23,7 @@
                 FROM IPV6-TC;
 
         hwIppool MODULE-IDENTITY
-            LAST-UPDATED "201403140000Z"
+            LAST-UPDATED "201412260000Z"
             ORGANIZATION 
 			"Huawei Technologies Co.,Ltd."
             CONTACT-INFO 
@@ -34,13 +34,29 @@
    Website: http://www.huawei.com
    Email: support@huawei.com
  "
+           
             DESCRIPTION 
                 "The MIB contains objects of module IPPOOL."
+
+            REVISION  "201412260000Z" --December 26, 2014
+            DESCRIPTION
+            "Modify V2.08-V2.09 add for pool weight and DAP warning."
+
+            REVISION
+            "201412260000Z" --December 26, 2014
+            DESCRIPTION
+            "V2.08-V2.09 add for pool weight and DAP warning."
+
+            REVISION
+            "201407250000Z" --July 25, 2014
+            DESCRIPTION
+            "V2.07-V2.08 add four dhcpv6 server support polling."
+
 
               REVISION
             "201403140000Z" --Mar 14, 2014
             DESCRIPTION
-            " V1.2-V1.3 add four nodes."
+            "  V1.2-V1.3 add four nodes."
 
 	    REVISION
             "201311280000Z" --Aug 08, 2013
@@ -1011,7 +1027,8 @@
                 hwRemoteIPPoolDhcpGroupName
                     DisplayString,
                 hwRemoteIPPoolLeaseManageEnable
-                    INTEGER
+                    INTEGER,
+                hwRemoteIPPoolWeight Integer32
              }
 
         hwRemoteIPPoolIndex OBJECT-TYPE
@@ -1138,6 +1155,14 @@
             DESCRIPTION
                 "Whether the address pool lease manage is enable, 0: diable, 1: enable."
             ::= { hwRemotePoolEntry 14 }
+
+        hwRemoteIPPoolWeight  OBJECT-TYPE
+            SYNTAX Integer32 (0..100)
+            MAX-ACCESS read-write
+            STATUS current
+            DESCRIPTION
+                "The weight of this Remote IP pool."
+            ::= { hwRemotePoolEntry 15 }
 
 
 --Statistics of address pool usage
@@ -2126,7 +2151,8 @@
 				hwIPv6RemotePoolExportHostRoutePDPrefix
                     TruthValue,
 				hwIPv6RemotePoolExportHostRouteNDPrefix
-                    TruthValue				
+                    TruthValue,
+                hwIPv6RemotePoolWeight Integer32				
              }
              
                 hwIPv6PoolIndex OBJECT-TYPE
@@ -2522,7 +2548,7 @@
             ::= { hwDhcpv6SvrGroupEntry 10 }
 
         hwDhcpv6SvrAlgorithm OBJECT-TYPE
-            SYNTAX INTEGER {masterbackup(1), loadingshare(2)}
+            SYNTAX INTEGER {masterbackup(1), loadingshare(2), polling(3)}
             MAX-ACCESS read-create
             STATUS current
             DESCRIPTION
@@ -2657,7 +2683,15 @@
             DESCRIPTION
                 "The flag indicating whether to export host's nd prefix route."
             ::= { hwIPv6RemotePoolEntry 10 }
-				
+	    
+	    hwIPv6RemotePoolWeight  OBJECT-TYPE
+            SYNTAX Integer32 (0..100)
+            MAX-ACCESS read-write
+            STATUS current
+            DESCRIPTION
+                "The weight of this Remote IPv6 pool."
+            ::= { hwIPv6RemotePoolEntry 11 }
+            			
 --Statistics of ipv6 address pool usage: added by b00174290
         hwIPv6PoolStatistic OBJECT IDENTIFIER ::= { hwIPPoolMibObjects 22 }
         
@@ -3270,7 +3304,31 @@
             STATUS current
             DESCRIPTION
                 "Enable IP Pool Constant index function."
-            ::= { hwIPPoolConstantIndex 1 }
+            ::= { hwIPPoolConstantIndex 1 }       
+            
+        hwIPPoolSetting OBJECT IDENTIFIER ::= { hwIPPoolMibObjects 27 }
+        hwIPPoolAlgorithm OBJECT-TYPE
+            SYNTAX INTEGER{
+                         enable(1),
+                         disable(2)
+                         }
+            MAX-ACCESS read-write
+            STATUS current
+            DESCRIPTION
+                "The ipv4 remote pool algorithm."
+            ::= { hwIPPoolSetting 1 }      
+            
+        hwIPv6PoolAlgorithm OBJECT-TYPE
+            SYNTAX INTEGER{
+                         enable(1),
+                         disable(2)
+                         }
+            MAX-ACCESS read-write
+            STATUS current
+            DESCRIPTION
+                "The ipv6 remote pool algorithm."
+            ::= { hwIPPoolSetting 2 }    
+            
 		--E:A by j00221821 for DHCP enhance of V6R8C00_BASE 2013-08-25
 		
         hwIPPoolMibTrap OBJECT IDENTIFIER ::= { hwIppool 2 }
@@ -3317,7 +3375,14 @@
                 "DHCP server down reason."
             ::= { hwIPPoolTrapOid 5 }  
 
-                                     
+         hwIPPoolDAPName OBJECT-TYPE
+            SYNTAX DisplayString (SIZE(1..253))
+            MAX-ACCESS accessible-for-notify
+            STATUS current
+            DESCRIPTION
+                "DAP name."
+            ::= { hwIPPoolTrapOid 7 }
+                                            
         hwIPPoolTrapsDefine OBJECT IDENTIFIER ::= { hwIPPoolMibTrap 2 }
 
         hwIPPoolTraps OBJECT IDENTIFIER ::= { hwIPPoolTrapsDefine 0 }
@@ -3518,7 +3583,39 @@
                 "
            ::= { hwIPPoolTraps 21 }  
            
+      hwIPPoolDAPApplyUnsuccessful NOTIFICATION-TYPE 
+           OBJECTS { hwIPPoolName, hwIPPoolRouterIPAddr, hwIPPoolRouterIPMask }
+           STATUS current
+           DESCRIPTION 
+                "
+                Fail to apply for the address segment. 
+                "
+           ::= { hwIPPoolTraps 22 }  
+ hwIPPoolDAPReleaseUnsuccessful NOTIFICATION-TYPE 
+           OBJECTS { hwIPPoolName, hwIPPoolRouterIPAddr, hwIPPoolRouterIPMask }
+           STATUS current
+           DESCRIPTION 
+                "
+                Fail to release the address segment.
+                "
+           ::= { hwIPPoolTraps 23 }  
+ hwIPPoolDAPSubnetFull NOTIFICATION-TYPE 
+           OBJECTS { hwIPPoolName, hwIPPoolDAPName }
+           STATUS current
+           DESCRIPTION 
+                "
+                The number of address segments dynamically allocated to the device reached the upper limit allowed by the dynamic address pool.
+                "
+           ::= { hwIPPoolTraps 24 }  
            
+ hwIPPoolDAPDeviceSubnetFull NOTIFICATION-TYPE 
+           STATUS current
+           DESCRIPTION 
+                "
+                The number of address segments dynamically allocated to the device reached the maximum number allowed. 
+                "
+           ::= { hwIPPoolTraps 25 }  
+      
         
     --  ============== conformance information ==============
 
@@ -3658,7 +3755,9 @@
                     hwRemoteIPPoolPriNBNSIPAddress,
                     hwRemoteIPPoolSecNBNSIPAddress,
                     hwRemoteIPPoolVPNInstance,
-                    hwRemoteIPPoolDhcpGroupName
+                    hwRemoteIPPoolDhcpGroupName,
+                    hwRemoteIPPoolLeaseManageEnable,
+                    hwRemoteIPPoolWeight
                 }
         STATUS current
         DESCRIPTION 
@@ -3937,7 +4036,8 @@
                 hwIPv6RemotePoolRowStatus,
 				hwIPv6RemotePoolExportHostRouteIPv6Address,
 				hwIPv6RemotePoolExportHostRoutePDprefix,
-				hwIPv6RemotePoolExportHostRouteNDPrefix
+				hwIPv6RemotePoolExportHostRouteNDPrefix,
+				hwIPv6RemotePoolWeight
                 }
         STATUS current
         DESCRIPTION 

@@ -6,15 +6,15 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 $page_title[] = "Customers";
 ?>
 
-<table class="table table-hover table-striped-two table-bordered table-condensed table-rounded" style="margin-top: 10px;">
+<table class="table table-hover table-striped-two  table-condensed " style="margin-top: 10px;">
   <thead>
       <tr>
         <th style="width: 250px;"><span style="font-weight: bold;" class="interface">Customer</span></th>
@@ -38,7 +38,7 @@ foreach (dbFetchRows("SELECT * FROM `ports` WHERE `port_descr_type` = 'cust' GRO
     unset($class);
 
     $ifname = rewrite_ifname($device['ifDescr']);
-    $ifclass = ifclass($port['ifOperStatus'], $port['ifAdminStatus']);
+    $ifclass = port_html_class($port['ifOperStatus'], $port['ifAdminStatus'], $port['encrypted']);
 
     if ($device['os'] == "ios")
     {

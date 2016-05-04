@@ -1,0 +1,561 @@
+-- *****************************************************************
+-- smartoptics SONET APS MIB
+--
+-- Nov 2000, Omri Viner
+--
+-- Copyright (c) 1999-2000 by smartoptics Ltd.
+-- All rights reserved.
+-- *****************************************************************
+
+SL-SONET-APS-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+	MODULE-IDENTITY, OBJECT-TYPE,
+	NOTIFICATION-TYPE ,Unsigned32,
+	Counter32, TimeTicks, IpAddress		FROM SNMPv2-SMI
+	DisplayString, TruthValue, RowStatus
+								  		FROM SNMPv2-TC
+	MODULE-COMPLIANCE, OBJECT-GROUP,
+	NOTIFICATION-GROUP                  FROM SNMPv2-CONF
+	InterfaceIndex		               	FROM IF-MIB
+	PerfCurrentCount, PerfIntervalCount,
+	PerfTotalCount                      FROM PerfHist-TC-MIB
+	slSonetMib				      		FROM SL-SONET-MIB;
+
+slSonetApsMib MODULE-IDENTITY
+	LAST-UPDATED "0008280000Z"
+	ORGANIZATION "Smartoptics AS"
+	CONTACT-INFO
+        E-mail: d.lutz@smartoptics.com"
+	DESCRIPTION
+		"This MIB module describes the SiteLight SONET APS."
+	::= { slSonetMib 5 }
+
+
+slSonetApsConfig           OBJECT IDENTIFIER ::= {slSonetApsMib 1}
+slSonetApsTraps            OBJECT IDENTIFIER ::= {slSonetApsMib 2}
+
+--
+-- Sonet APS config Table
+--
+
+slSonetApsConfigTable OBJECT-TYPE
+         SYNTAX  SEQUENCE OF SlSonetApsConfigEntry
+         MAX-ACCESS  not-accessible
+         STATUS  current
+         DESCRIPTION
+             "This table contains objects to configure APS 
+              (Automatic Protection Switching) feature in a SONET 
+              Line. APS is the ability to configure a pair of SONET 
+              lines for redundancy so that the hardware will 
+              automatically switch the active line from working line
+              to the protection line or vice versa, within 50ms, 
+              when the active line fails."
+         ::= { slSonetApsConfig 1 }
+ 
+slSonetApsConfigEntry OBJECT-TYPE
+        SYNTAX  SlSonetApsConfigEntry
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+            "An entry is created during startup if the SEEP specifies that there are two trunk ports.
+             The value of slSonetApsEnable determines if the APS is configured or not."
+         INDEX   {slSonetApsWorkingIndex}
+         ::= { slSonetApsConfigTable 1 }
+
+SlSonetApsConfigEntry ::=
+              SEQUENCE {
+               slSonetApsWorkingIndex                InterfaceIndex,
+               slSonetApsProtectionIndex             InterfaceIndex,
+               slSonetApsEnable                      INTEGER,
+               slSonetApsArchMode                    INTEGER,
+               slSonetApsActiveLineRx                INTEGER,
+               slSonetApsActiveLineTx                INTEGER,
+               slSonetApsWaitToRestore               Unsigned32,
+               slSonetApsDirection                   INTEGER,
+               slSonetApsRevertive                   INTEGER,
+               slSonetApsDirectionOperational        INTEGER,
+               slSonetApsArchModeOperational         INTEGER,
+               slSonetApsChanStatus                  BITS,
+               slSonetApsChanSignalDegrades          Counter32,
+               slSonetApsChanSignalFailures          Counter32,
+               slSonetApsChanLastSwitchover          TimeTicks,
+               slSonetApsLineFailureCodeStatus       BITS,
+               slSonetApsConfigSwitchCommand         INTEGER,
+               slSonetApsLineSwitchReason            INTEGER,
+               slSonetApsResetCounters               INTEGER,
+               slSonetApsConfigActiveRequest		 INTEGER,
+               slSonetApsConfigExerciseResult        TruthValue
+              }
+ 
+slSonetApsWorkingIndex OBJECT-TYPE
+     SYNTAX    InterfaceIndex 
+     MAX-ACCESS    read-only
+     STATUS    current
+     DESCRIPTION
+         "When a pair of APS lines is configured, one line has
+          to be the working line, which is the primary line,
+          and the other has to be the protection line, which
+          is the backup line. This object refers to the working line
+          in the APS pair."
+     ::= { slSonetApsConfigEntry 1 }
+ 
+slSonetApsProtectionIndex OBJECT-TYPE
+       SYNTAX    InterfaceIndex 
+       MAX-ACCESS    read-create
+       STATUS    current
+       DESCRIPTION
+          "The protection line indicates that it will become
+           the active line when an APS switch occurs (APS switch
+           could occur because of a failure on the working line)."
+        ::= { slSonetApsConfigEntry 2 }
+ 
+slSonetApsEnable  OBJECT-TYPE
+     SYNTAX    INTEGER {
+               slSonetApsDisabled (1),
+               slSonetApsEnabled  (2)
+               }
+     MAX-ACCESS    read-create
+     STATUS    current
+     DESCRIPTION
+          "This object is used to enable or disable the APS feature
+           on the working/protection line pairs."
+     ::= { slSonetApsConfigEntry 3 }
+ 
+slSonetApsArchMode OBJECT-TYPE
+     SYNTAX    INTEGER {
+               onePlusOne(1),
+               oneToOne(2)
+               }
+     MAX-ACCESS read-create
+     STATUS    current
+     DESCRIPTION
+        "This object is used to configure APS architecture mode
+         on the working/protection line pairs (read-write).
+       
+          All of the following are supported on single slot.
+          oneToOne(2) is not  supported across 2 slots,i.e. the 
+          working and protection slot numbers must be the same in 
+          oneToOne(2).
+       
+          onePlusOne : This can be supported on the same card
+          and across 2 cards.
+          This mode means that the transmit and receive signals
+          go only over the active line(which could be working or 
+          protection line). (straight cable implied)
+       
+          oneToOne : This is supported only on the same card
+          This mode means that the transmit and receive signals
+          go over the working and protection lines.
+          (straight cable implied)."
+   ::= { slSonetApsConfigEntry 4 }
+ 
+slSonetApsActiveLineRx OBJECT-TYPE
+         SYNTAX    INTEGER {
+                   slSonetApsWorkingLine(1),
+                   slSonetApsProtectionLine(2)
+                   }
+         MAX-ACCESS    read-only
+         STATUS    current
+         DESCRIPTION
+           "This object indicates which Rx line is currently active. 
+            It could be the working line, the protection line or 
+            none if neither working nor protection line is active. 
+            This object reflects the status of receive direction."
+   ::= { slSonetApsConfigEntry 5 }
+ 
+slSonetApsActiveLineTx OBJECT-TYPE
+         SYNTAX    INTEGER {
+                   slSonetApsWorkingLine(1),
+                   slSonetApsProtectionLine(2)
+                   }
+         MAX-ACCESS    read-only
+         STATUS    current
+         DESCRIPTION
+           "This object indicates which Tx line is currently active. 
+            It could be the working line, the protection line or 
+            none if neither working nor protection line is active. 
+            This object reflects the status of receive direction.
+            Not relevant for 1+1."
+   ::= { slSonetApsConfigEntry 6 }
+ 
+slSonetApsWaitToRestore OBJECT-TYPE
+        SYNTAX Unsigned32 (1..12)
+        UNITS "minutes"
+        MAX-ACCESS read-create
+        STATUS    current
+        DESCRIPTION
+                "This object contains interval in minutes to wait 
+                 before attempting to switch back to working line. 
+                 Not applicable if the line is configured in 
+                 non-revertive mode, i.e. protection line will 
+                 continue to be active, even if failures on the 
+                 working line are cleared. The framer clears the 
+                 signal-fault and signal-degrade when APS switch 
+                 occurs. Please refer to 'slSonetApsRevertive' for 
+                 description of non-revertive (read-write)."
+        ::= { slSonetApsConfigEntry 7 }
+ 
+slSonetApsDirection OBJECT-TYPE
+           SYNTAX    INTEGER {
+                     uniDirectional(1),
+                     biDirectional(2)
+                     }
+           MAX-ACCESS    read-create
+           STATUS    current
+           DESCRIPTION
+              "This object is used to configure the switching 
+               direction which this APS line supports (read-write). 
+
+               Unidirectional : APS switch only in one direction.
+               Bidirectional  : APS switch in both ends of the line."
+        ::= { slSonetApsConfigEntry 8 }
+ 
+slSonetApsRevertive OBJECT-TYPE
+       SYNTAX    INTEGER {
+                 nonrevertive(1),
+                 revertive(2)
+                }
+       MAX-ACCESS    read-create
+       STATUS    current
+       DESCRIPTION
+           "This object is used to configure the APS revertive or
+            nonrevertive option (read-write). 
+    
+            revertive : 
+              Will switch the working line back to active state after
+              the Wait-To-restore interval has expired and the 
+              working line Signal-Fault/Signal-Degrade has been 
+              cleared. Please refer to 'slSonetApsWaitToRestore' for 
+              description of Wait-To-Restore interval.
+            nonrevertive : 
+              The  protection line continues to be the active line,
+              The active line does not switch to the working line."
+     ::= { slSonetApsConfigEntry 9 }
+ 
+slSonetApsDirectionOperational OBJECT-TYPE
+           SYNTAX INTEGER {
+                     uniDirectional(1),
+                     biDirectional(2)
+                     }
+           MAX-ACCESS    read-only
+           STATUS    current
+           DESCRIPTION
+              "This object shows the actual APS direction that is 
+               implemented on the Near End terminal. APS direction 
+               configured through slSonetApsDirection is negotiated with
+               the Far End and APS direction setting acceptable to 
+               both ends is operational at the Near End."
+        ::= { slSonetApsConfigEntry 10 }
+
+slSonetApsArchModeOperational OBJECT-TYPE
+     SYNTAX    INTEGER {
+               onePlusOne(1),
+               oneToOne(2)
+               }
+     MAX-ACCESS read-only
+     STATUS    current
+     DESCRIPTION
+           "This object shows the actual APS architecture mode that
+            is implemented on the Near End terminal. APS architecture
+            mode configured through slSonetApsArchMode object is 
+            negotiated with the Far End through APS channel. 
+            Architecture mode acceptable to both the Near End and 
+            the Far End terminals is then operational at the Near 
+            End. This value can be different than the APS 
+            Architecture mode configured."
+     ::= { slSonetApsConfigEntry 11 }
+
+slSonetApsChanStatus OBJECT-TYPE
+       SYNTAX     BITS {
+                  lockedOut(0),
+                  sdWorking(1),
+                  sdProtecting(2),
+                  sfWorking(3),
+                  sfProtecting(4),
+                  switched(5),
+				  remoteRequest(6) 
+               }
+       MAX-ACCESS read-only
+       STATUS     current
+       DESCRIPTION
+           "Indicates the current state of the port.
+
+            lockedOut
+            This bit, when applied to a working channel, indicates that
+            the channel is prevented from switching to the protection line.
+            When applied to the null channel, this bit indicates that no
+            working channel may switch to the protection line.
+
+            sdWorking
+            A signal degrade condition on the working line is in effect.
+
+            sdProtecting
+            A signal degrade condition on the protecting line is in effect.
+
+            sfWorking
+            A signal failure condition on the working line is in effect.
+
+            sfProtecting
+            A signal failure condition on the protecting line is in effect.
+
+            switched
+            The switched bit is applied to a working channel if that
+            channel is currently switched to the protection line.
+            
+			remoteRequest
+			The switch request was initiated by the remote NE."
+       ::= { slSonetApsConfigEntry 12 }
+
+slSonetApsChanSignalDegrades OBJECT-TYPE
+       SYNTAX     Counter32
+       MAX-ACCESS read-only
+       STATUS     current
+       DESCRIPTION
+           "A count of Signal Degrade conditions. This
+            condition occurs when the line Bit Error Rate
+            exceeds the currently configured threshold."
+       ::= { slSonetApsConfigEntry 13 }
+
+slSonetApsChanSignalFailures OBJECT-TYPE
+       SYNTAX     Counter32
+       MAX-ACCESS read-only
+       STATUS     current
+       DESCRIPTION
+           "A count of Signal Failure conditions that have been
+            detected on the incoming signal. This condition occurs
+            when a loss of signal, loss of frame, AIS-L or a Line
+            bit error rate exceeding 10^-3 is detected on an
+            incoming line."
+       ::= { slSonetApsConfigEntry 14 }
+
+slSonetApsChanLastSwitchover OBJECT-TYPE
+       SYNTAX     TimeTicks
+       MAX-ACCESS read-only
+       STATUS     current
+       DESCRIPTION
+           "The value of sysUpTime when this channel last completed a switch
+            to the protection line. If this channel has never switched to the
+            protection line, or this channel is the protection line, the value
+            0  will be returned."
+       ::= { slSonetApsConfigEntry 15 }
+
+slSonetApsLineFailureCodeStatus OBJECT-TYPE
+      SYNTAX BITS {
+              slSonetApsChannelMismatch(0),
+              slSonetApsProtectionByteFail(1),
+              slSonetApsFEProtectionFailure(2),
+              slSonetApsModeMismatch(3)
+              
+        }
+      MAX-ACCESS read-only
+      STATUS  current
+      DESCRIPTION
+           "The Sonet APS line failure code status - this is the 
+           status of failure encountered by the APS line. 
+
+            slSonetApsChannelMismatch: trasmitted K1 byte and
+                                  received K2 byte do not match.
+            slSonetApsProtectionByteFail: It could mean either K1 byte 
+                                     with invalid type of switch 
+                                     request bits was received, or,  
+                                     priority of received K1 byte 
+                                     is lower than the transmitted 
+                                     K1 byte.
+            slSonetApsFEProtectionFailure: Remote end error detected.
+            slSonetApsModeMismatch: Mismatch of Bit 5 of the K2 Byte."
+      REFERENCE
+          "GR-253-CORE"
+      ::= { slSonetApsConfigEntry 16 }
+
+slSonetApsConfigSwitchCommand OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    clear(1),
+                    lockoutOfProtection(2),
+                    forcedSwitchOfWorking(3),
+                    forcedSwitchOfProtection(4),
+                    manualSwitchOfWorking(5),
+                    manualSwitchOfProtection(6),
+                    exercise(7)
+                }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "A switch command initiates one external request for evaluation
+        (read-write).
+
+        (1) Clear - Clears all switch commands on the channel.
+
+        (2) Lockout Of Protection - Prevents any of the working channels
+        from switching to the protection line by issuing a Lockout of
+        Protection request [unless a request of equal priority (i.e., a
+        Lockout of Protection) is already in effect].
+
+        (3) Forced Switch of Working (to Protection) - Switches the
+        working channel to the protection line unless a request of equal
+        or higher priority is in effect, by issuing a Forced Switch
+        request.
+
+        (4) Forced Switch of Protection (to Working) - Switches the
+        working channel back from the protection line to the working
+        line unless a request of equal or higher priority is in effect,
+        by issuing a Forced Switch request.  This command applies only
+        in the 1+1 architecture.
+
+        (5) Manual Switch of Working (to Protection) - Switches the
+        working channel to the protection line unless a request of equal
+        or higher priority is in effect, by issuing a Manual Switch
+        request.
+
+        (6) Manual Switch of Protection (to Working) - Switches the
+        working channel back from the protection line to the working
+        line unless a request of equal or higher priority is in effect,
+        by issuing a Manual Switch request.  This command applies only
+        in the 1+1 architecture for the null.
+
+        (7) Exercise - Exercises the protocol for a protection switch
+        unless a request of equal or higher priority is in effect, by
+        issuing an Exercise request and checking the response on the APS
+        channel.
+
+        Reading this variable always returns zero (0)."
+    DEFVAL  { clear }
+    ::= { slSonetApsConfigEntry 17 }
+ 
+slSonetApsLineSwitchReason OBJECT-TYPE
+      SYNTAX INTEGER {
+            slSonetApsOther(1),
+            slSonetApsRevertive(2),
+            slSonetApsManual(3),
+            slSonetApsSignalDegrade(4),
+            slSonetApsSignalFailure(5),
+            slSonetApsForceSwitch(6),
+            slSonetApsRemoteRequest(7),
+            slSonetApsLockOut(8)
+		}
+    MAX-ACCESS read-only
+    STATUS  current
+    DESCRIPTION
+          "The reason why APS switch happened. When the working
+           line on one end fails, its other end is told to do
+           an  APS switch. The following options in the increasing
+           order of priority indicate what type of switch request 
+           it is. 
+
+          slSonetApsRevertive : Switch back to working line after the 
+            Wait-to-Restore interval is over, and failures are 
+            cleared. It is the lowest priority.
+          slSonetApsManual : Manual switch causes APS switch unless a 
+            request of equal or higher priority is in effect.
+          slSonetApsSignalDefectLow : Switch happened because threshold 
+            for 'slSonetApsSigFaultBER' was exceeded. 
+          slSonetApsSignalDefectHigh : Same as above, but higher priority.
+          slSonetApsSignalFailureLow : Switch happened because threshold 
+            for 'slSonetApsSigDegradeBER' was exceeded. 
+          slSonetApsSignalFailureHigh : Same as above, but higher 
+            priority.
+          slSonetApsForceSwitch : Forced switch forces hardware to switch
+            the active line even if the other line (could be 
+            working line or protection line) is in alarm.
+          slSonetApsLockOut : This is the highest priority switch. This
+            will override all other requests. 
+          slSonetApsRemoteRequest : indicates that the local switchover 
+            was in response to a remote request to switch.
+          slSonetApsLockOut :  indicates that the last switchover to the 
+            working occurred because of protection lockout."      
+      ::= { slSonetApsConfigEntry 18 }
+
+slSonetApsResetCounters OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    resetCounters(1)
+                }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Setting this variable to 1 will cause the counters
+        on all of the SONET APS Config Table to be initialized 
+        to zero (read-write)."
+    ::= { slSonetApsConfigEntry 19 }
+
+slSonetApsConfigActiveRequest OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    slSonetApsOther(1),
+                    slSonetApsRevertive(2),
+                    slSonetApsManual(3),
+                    slSonetApsSignalDegrade(4),
+                    slSonetApsSignalFailure(5),           
+                    slSonetApsForceSwitch(6),
+                    slSonetApsRemoteRequest(7),
+                    slSonetApsLockOut(8)
+                 }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The Active Switch APS request:
+
+          slSonetApsRevertive : Switch back to working line after the 
+            Wait-to-Restore interval is over, and failures are 
+            cleared. It is the lowest priority.
+          slSonetApsManual : Manual switch causes APS switch unless a 
+            request of equal or higher priority is in effect.
+          slSonetApsSignalDefectLow : Switch happened because threshold 
+            for 'slSonetApsSigFaultBER' was exceeded. 
+          slSonetApsSignalDefectHigh : Same as above, but higher priority.
+          slSonetApsSignalFailureLow : Switch happened because threshold 
+            for 'slSonetApsSigDegradeBER' was exceeded. 
+          slSonetApsSignalFailureHigh : Same as above, but higher 
+            priority.
+          slSonetApsForceSwitch : Forced switch forces hardware to switch
+            the active line even if the other line (could be 
+            working line or protection line) is in alarm.
+          slSonetApsLockOut : This is the highest priority switch. This
+            will override all other requests. 
+          slSonetApsRemoteRequest : indicates that the local switchover 
+            was in response to a remote request to switch.
+          slSonetApsLockOut :  indicates that the last switchover to the 
+            working occurred because of protection lockout."
+    ::= { slSonetApsConfigEntry 20 }
+
+slSonetApsConfigExerciseResult OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This variable contains the result of the last exercise command.
+        True - means test success. False - otherwise."
+    ::= { slSonetApsConfigEntry 21 }
+
+--
+-- APS TRAPS
+--
+
+slSonetApsTrapSwitchover NOTIFICATION-TYPE
+       OBJECTS { slSonetApsWorkingIndex, 
+       			 slSonetApsActiveLineRx,
+       			 slSonetApsLineSwitchReason }
+       STATUS  current 
+       DESCRIPTION
+               "An slSonetApsTrapSwitchover notification is sent when the
+               value whenever a switchover occures."
+       ::= { slSonetApsTraps 1 }
+
+slSonetApsTrapFailureCodeChanged NOTIFICATION-TYPE
+       OBJECTS { slSonetApsWorkingIndex, slSonetApsLineFailureCodeStatus }
+       STATUS  current
+       DESCRIPTION
+               "An slSonetApsTrapChannelMismatch notification is sent when
+               the APS failure code status is changed."
+       ::= { slSonetApsTraps 2 }
+
+slSonetApsTrapEnabled NOTIFICATION-TYPE
+       OBJECTS { slSonetApsWorkingIndex, slSonetApsEnable }
+       STATUS  current 
+       DESCRIPTION
+               "An slSonetApsTrapSwitchover notification is sent when the
+               value of slSonetApsEnable is changed."
+       ::= { slSonetApsTraps 3 }
+
+END
+
+
+

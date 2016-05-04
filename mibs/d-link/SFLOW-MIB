@@ -1,0 +1,452 @@
+-- -----------------------------------------------------------------------------
+-- MIB NAME : sFlow Common mib
+-- FILE NAME: sFlow.mib
+-- DATE     : 2008/10/30
+-- VERSION  : 2.01
+-- PURPOSE  : To construct the MIB structure of sFlow management
+--            for proprietary enterprise
+-- -----------------------------------------------------------------------------
+-- MODIFICTION HISTORY:
+-- -----------------------------------------------------------------------------
+-- Version, Date, Author
+-- Description:
+--  [New Object]
+--  [Modification]
+-- Notes: (Requested by who and which project)
+--
+-- Version 2.01, 2008/10/30, Grape Pu
+--  [Modification]
+-- Modify the value range of sFlowRcvrTimeout.
+--
+-- Version 2.00, 2007/03/27, Yedda
+-- This is the first formal version for universal MIB definition.
+-- -----------------------------------------------------------------------------
+
+SFLOW-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+
+      MODULE-IDENTITY, OBJECT-TYPE, Integer32, enterprises, IpAddress
+              FROM SNMPv2-SMI
+      TEXTUAL-CONVENTION, RowStatus
+              FROM SNMPv2-TC
+      DisplayString		FROM RFC1213-MIB
+      SnmpAdminString
+              FROM SNMP-FRAMEWORK-MIB
+      MODULE-COMPLIANCE, OBJECT-GROUP
+              FROM SNMPv2-CONF
+	dlink-common-mgmt				FROM DLINK-ID-REC-MIB;
+      sFlowMIB  MODULE-IDENTITY
+	    LAST-UPDATED "0810300000Z"
+	    ORGANIZATION "D-Link Corp."
+	    CONTACT-INFO
+	        "http://support.dlink.com"
+	    DESCRIPTION
+		    "The Structure of sFlow for the proprietary enterprise."
+		    ::= { dlink-common-mgmt 36 }
+
+      sFlowAgent OBJECT IDENTIFIER ::= { sFlowMIB 1 }
+
+      SFlowDataSource ::= TEXTUAL-CONVENTION
+              STATUS      current
+              DESCRIPTION
+                "Identifies a source of sFlow data.
+
+                The following data source types are currently defined:
+                - ifIndex.<I>
+                SFlowDataSources of this traditional form are called
+                'port-based'. Ideally the sampling entity will perform
+                sampling on all flows originating from or destined to
+                the specified interface. However, if the switch architecture
+                only allows input or output sampling then the sampling agent
+                is permitted to only sample input flows input or output flows.
+                Each packet must only be considered once for sampling,
+                irrespective of the number of ports it will be forwarded to.
+                Note: Port 0 is used to indicate that all ports on the device
+                      are represented by a single data source.
+                      - sFlowFsPacketSamplingRate applies to all ports on the
+                        device capable of packet sampling.
+
+                - smonVlanDataSource.<V>
+                An SFlowDataSource of this form refers to a 'Packet-based VLAN'
+                and is called a 'VLAN-based' dataSource. <V> is the VLAN
+                ID as defined by the IEEE 802.1Q standard. The
+                value is between 1 and 4094 inclusive, and it represents
+                an 802.1Q VLAN-ID with global scope within a given
+                bridged domain.
+                Sampling is performed on all packets received that are part
+                of the specified VLAN (no matter which port they arrived on).
+                Each packet will only be considered once for sampling,
+                irrespective of the number of ports it will be forwarded to.
+
+                - entPhysicalEntry.<N>
+                An SFlowDataSource of this form refers to a physical entity
+                within the agent (e.g. entPhysicalClass = backplane(4)) and
+                is called an 'entity-based' dataSource. Sampling is performed
+                on all packets entering the resource (e.g. If the backplane
+                is being sampled, all packets transmitted onto the backplane
+                will be considered as single candidates for sampling
+                irrespective of the number of ports they ultimately reach).
+
+                Note: Since each SFlowDataSource operates independently a
+                      packet that crosses multiple DataSources may generate
+                      multiple flow records."
+              SYNTAX      Integer32 (1..65535)
+
+      SFlowReceiver ::= TEXTUAL-CONVENTION
+              STATUS       current
+              DESCRIPTION
+                "Identify the sFlow receiver associated with this resource.
+
+                 A value of zero indicates that this resource is available.
+                 If non-zero, the value must correspond to a valid, active
+                 sFlowRcvrIndex.
+
+                 If the value is currently zero, it may be set to any
+                 active entry in the sFlowRcvrTable. If the value is
+                 not zero, then set to anything other than zero or
+                 its current value will result in an SNMP error (bad value).
+
+                 Setting to zero frees the resource and returns all the
+                 values in this entry to their default values.
+
+                 If an entry in the sFlowRcvrTable expires, either
+                 because the sFlowRcvrOwner is set to the empty
+                 string or because the sFlowRcvrTimeout reaches zero, then
+                 the agent must mark all associated resources as available
+                 (by setting the associated SFlowReceiver entry to zero)
+                 and all values in these records must be restored to their
+                 default values.
+
+                 This mechanism provides no enforcement and relies on the
+                 cooperation of management entities in order to ensure that
+                 competition for a resource is fairly resolved. A management
+                 entity should not make any changes to a resource
+                 without first acquiring it by successfully writing its
+                 sFlowRcvrIndex value as the SFlowReceiver for the resource."
+              SYNTAX       Integer32 (1..4)
+
+      sFlowVersion OBJECT-TYPE
+              SYNTAX      SnmpAdminString
+              MAX-ACCESS  read-only
+              STATUS      current
+              DESCRIPTION
+                "This indicates the sFlow version"
+              DEFVAL { "1.00" }
+              ::= { sFlowAgent 1 }
+
+      sFlowAgentAddress OBJECT-TYPE
+              SYNTAX      IpAddress
+              MAX-ACCESS  read-only
+              STATUS      current
+              DESCRIPTION
+                "The IP address associated with this agent."
+             ::= { sFlowAgent 2 }
+
+      sFlowAgentState OBJECT-TYPE
+	        SYNTAX  INTEGER {
+	               enabled(1),
+	               disabled(2)
+	               }
+	        MAX-ACCESS  read-write
+	        STATUS  current
+	        DESCRIPTION
+	            "This object can enable or disable sFlow."
+	        ::= { sFlowAgent 3 }
+
+-- -----------------------------------------------------------------------------
+-- Receiver Table
+-- -----------------------------------------------------------------------------
+      sFlowRcvrTable OBJECT-TYPE
+              SYNTAX      SEQUENCE OF SFlowRcvrEntry
+              MAX-ACCESS  not-accessible
+              STATUS      current
+              DESCRIPTION
+                "A table of the receivers of sFlow information."
+              ::= { sFlowAgent 4 }
+
+      sFlowRcvrEntry OBJECT-TYPE
+              SYNTAX      SFlowRcvrEntry
+              MAX-ACCESS  not-accessible
+              STATUS      current
+              DESCRIPTION
+                "Attributes of an sFlow Receiver."
+              INDEX { sFlowRcvrIndex, sFlowRcvrOwner }
+              ::= { sFlowRcvrTable 1 }
+
+      SFlowRcvrEntry ::= SEQUENCE {
+              sFlowRcvrIndex                    Integer32,
+              sFlowRcvrOwner                    DisplayString,
+              sFlowRcvrTimeout                  Integer32,
+              sFlowRcvrMaximumDatagramSize      Integer32,
+              sFlowRcvrAddress                  IpAddress,
+              sFlowRcvrPort                     Integer32,
+              sFlowRcvrRowStatus                RowStatus
+      }
+
+      sFlowRcvrIndex OBJECT-TYPE
+              SYNTAX      Integer32 (1..4)
+              MAX-ACCESS  not-accessible
+              STATUS      current
+              DESCRIPTION
+                "Index into sFlowReceiverTable."
+              ::= { sFlowRcvrEntry 1 }
+
+      sFlowRcvrOwner OBJECT-TYPE
+              SYNTAX      DisplayString (SIZE (1..16))
+              MAX-ACCESS  not-accessible
+              STATUS      current
+              DESCRIPTION
+                "The entity making use of this sFlowRcvrTable entry. The empty
+                 string indicates that the entry is currently unclaimed.
+                 An entity wishing to claim an sFlowRcvrTable entry must ensure
+                 that the entry is unclaimed before trying to claim it.
+                 The entry is claimed by setting the owner string. The entry
+                 must be claimed before any changes can be made to other sampler
+                 objects.
+
+                 In order to avoid a race condition, the entity taking control
+                 of the sampler should set both the owner and a value for
+                 sFlowRcvrTimeout in the same SNMP set request.
+
+                 This mechanism provides no enforcement and relies on the
+                 cooperation of management entities in order to ensure that
+                 competition for a receiver entry is fairly resolved."
+              DEFVAL { "" }
+              ::= { sFlowRcvrEntry 2 }
+
+      sFlowRcvrTimeout OBJECT-TYPE
+              SYNTAX      Integer32 (0..2000000)
+              MAX-ACCESS  read-write
+              STATUS      current
+              DESCRIPTION
+                "The time (in seconds) remaining before the sampler is released
+                 and stops sampling. When set, the owner establishes control
+                 for the specified period. When read, the remaining time in the
+                 interval is returned.
+
+                 A management entity wanting to maintain control of the sampler
+                 is responsible for setting a new value before the old one
+                 expires.
+
+                 When the interval expires, the agent is responsible for
+                 restoring all other entities in this row to their default
+                 values. It must also free all other resources associated with
+                 this sFlowRcvrTable entry.
+	
+	 	 The value 0 indicate it is never time out. "
+              ::= { sFlowRcvrEntry 3 }
+
+      sFlowRcvrMaximumDatagramSize OBJECT-TYPE
+              SYNTAX      Integer32 (300..1400)
+              MAX-ACCESS  read-write
+              STATUS      current
+              DESCRIPTION
+                 "The maximum number of data bytes that can be sent in a single
+                  sample datagram. The manager should set this value to avoid
+                  fragmentation of the sFlow datagrams."
+              DEFVAL { 1400 }
+              ::= { sFlowRcvrEntry 4 }
+
+      sFlowRcvrAddress OBJECT-TYPE
+              SYNTAX      IpAddress
+              MAX-ACCESS  read-write
+              STATUS      current
+              DESCRIPTION
+                "The IP address of the sFlow collector.
+                 If set to 0.0.0.0, no sFlow datagrams will be sent."
+              DEFVAL { '00000000'h }  -- 0.0.0.0
+              ::= { sFlowRcvrEntry 5 }
+
+      sFlowRcvrPort OBJECT-TYPE
+              SYNTAX      Integer32 (1..65535)
+              MAX-ACCESS  read-write
+              STATUS      current
+              DESCRIPTION
+                "The destination port for sFlow datagrams."
+              DEFVAL { 6343 }
+              ::= { sFlowRcvrEntry 6 }
+
+     sFlowRcvrRowStatus OBJECT-TYPE
+             SYNTAX RowStatus
+             MAX-ACCESS read-create
+             STATUS current
+             DESCRIPTION
+                 "This object indicates the status of this entry."
+             ::= { sFlowRcvrEntry 7 }
+      --
+      -- Flow Sampling Table
+      --
+
+      sFlowFsTable OBJECT-TYPE
+              SYNTAX      SEQUENCE OF SFlowFsEntry
+              MAX-ACCESS  not-accessible
+              STATUS      current
+              DESCRIPTION
+                "A table of the flow samplers within a device."
+              ::= { sFlowAgent 5 }
+
+      sFlowFsEntry OBJECT-TYPE
+              SYNTAX      SFlowFsEntry
+              MAX-ACCESS  not-accessible
+              STATUS      current
+              DESCRIPTION
+                "Attributes of a flow sampler."
+              INDEX { sFlowFsDataSource,sFlowFsReceiver }
+              ::= { sFlowFsTable 1 }
+
+      SFlowFsEntry ::= SEQUENCE {
+              sFlowFsDataSource               SFlowDataSource,
+              sFlowFsReceiver                 SFlowReceiver,
+              sFlowFsPacketSamplingRate       Integer32,
+              sFlowFsMaximumHeaderSize        Integer32,
+              sFlowFsRowStatus                RowStatus
+      }
+
+      sFlowFsDataSource OBJECT-TYPE
+              SYNTAX      SFlowDataSource
+              MAX-ACCESS  not-accessible
+              STATUS      current
+              DESCRIPTION
+                "sFlowDataSource for this flow sampler."
+              ::= { sFlowFsEntry 1 }
+
+      sFlowFsReceiver OBJECT-TYPE
+              SYNTAX      SFlowReceiver
+              MAX-ACCESS  not-accessible
+              STATUS      current
+              DESCRIPTION
+                "The SFlowReceiver for this flow sampler."
+              ::= { sFlowFsEntry 3 }
+
+      sFlowFsPacketSamplingRate OBJECT-TYPE
+              SYNTAX      Integer32 (0..65535)
+              MAX-ACCESS  read-write
+              STATUS      current
+              DESCRIPTION
+                "The statistical sampling rate for packet sampling from this
+                 source.
+
+                 Set to N to sample 1/Nth of the packets in the monitored flows.
+                 An agent should choose its own algorithm to introduce variance
+                 into the sampling so that exactly every Nth packet is not
+                 counted. A sampling rate of 1 counts all packets. A sampling
+                 rate of 0 disables sampling.
+
+                 The agent is permitted to have minimum and maximum allowable
+                 values for the sampling rate. A minimum rate lets the agent
+                 designer set an upper bound on the overhead associated with
+                 sampling, and a maximum rate may be the result of hardware
+                 restrictions (such as counter size). In addition not all values
+                 between the maximum and minimum may be realizable as the
+                 sampling rate (again because of implementation considerations).
+
+                 When the sampling rate is set the agent is free to adjust the
+                 value so that it lies between the maximum and minimum values
+                 and has the closest achievable value.
+
+                 When read, the agent must return the actual sampling rate it
+                 will be using (after the adjustments previously described). The
+                 sampling algorithm must converge so that over time the number
+                 of packets sampled approaches 1/Nth of the total number of
+                 packets in the monitored flows."
+              DEFVAL { 0 }
+              ::= { sFlowFsEntry 4 }
+
+      sFlowFsMaximumHeaderSize OBJECT-TYPE
+              SYNTAX      Integer32 (18..256)
+              MAX-ACCESS  read-write
+              STATUS      current
+              DESCRIPTION
+                "The maximum number of bytes that should be copied from a
+                 sampled packet. The agent may have an internal maximum and
+                 minimum permissible sizes. If an attempt is made to set this
+                 value outside the permissible range then the agent should
+                 adjust the value to the closest permissible value."
+              DEFVAL { 128 }
+              ::= { sFlowFsEntry 5 }
+
+     sFlowFsRowStatus OBJECT-TYPE
+             SYNTAX RowStatus
+             MAX-ACCESS read-create
+             STATUS current
+             DESCRIPTION
+                 "This object indicates the status of this entry."
+             ::= { sFlowFsEntry 6 }
+
+-- -----------------------------------------------------------------------------
+-- Counter Polling Table
+-- -----------------------------------------------------------------------------
+      sFlowCpTable OBJECT-TYPE
+              SYNTAX      SEQUENCE OF SFlowCpEntry
+              MAX-ACCESS  not-accessible
+              STATUS      current
+              DESCRIPTION
+                "A table of the counter pollers within a device."
+              ::= { sFlowAgent 6 }
+
+      sFlowCpEntry OBJECT-TYPE
+              SYNTAX      SFlowCpEntry
+              MAX-ACCESS  not-accessible
+              STATUS      current
+              DESCRIPTION
+                "Attributes of a counter poller."
+              INDEX { sFlowCpDataSource,sFlowCpReceiver }
+              ::= { sFlowCpTable 1 }
+
+      SFlowCpEntry ::= SEQUENCE {
+              sFlowCpDataSource               SFlowDataSource,
+              sFlowCpReceiver                 SFlowReceiver,
+              sFlowCpInterval                 Integer32,
+              sFlowCpRowStatus                RowStatus
+      }
+
+      sFlowCpDataSource OBJECT-TYPE
+              SYNTAX      SFlowDataSource
+              MAX-ACCESS  not-accessible
+              STATUS      current
+              DESCRIPTION
+                "Identifies the source of the data for the counter poller."
+              ::= { sFlowCpEntry 1 }
+
+      sFlowCpReceiver OBJECT-TYPE
+              SYNTAX      SFlowReceiver
+              MAX-ACCESS  not-accessible
+              STATUS      current
+              DESCRIPTION
+                "The SFlowReciever associated with this counter poller."
+              ::= { sFlowCpEntry 3 }
+
+      sFlowCpInterval OBJECT-TYPE
+              SYNTAX      Integer32 (0..120)
+              MAX-ACCESS  read-write
+              STATUS      current
+              DESCRIPTION
+                "The maximum number of seconds between successive samples of the
+                 counters associated with this data source. A sampling interval
+                 of 0 disables counter sampling.
+
+                 The agent is permitted to have minimum and maximum allowable
+                 values for the counter polling interval. A minimum interval
+                 lets the agent designer set an upper bound on the overhead
+                 associated with polling, and a maximum interval may be the
+                 result of implementation restrictions (such as counter size).
+                 In addition not all values between the maximum and minimum may
+                 be realizable as the sampling interval (again because of
+                 implementation considerations).
+
+                 The minimum sampling interval is 20, the maximum sampling
+                 interval is 120.
+                 "
+              DEFVAL { 0 }
+              ::= { sFlowCpEntry 4 }
+
+     sFlowCpRowStatus OBJECT-TYPE
+             SYNTAX RowStatus
+             MAX-ACCESS read-create
+             STATUS current
+             DESCRIPTION
+                 "This object indicates the status of this entry."
+             ::= { sFlowCpEntry 5 }
+
+END

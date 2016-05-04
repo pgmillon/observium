@@ -7,18 +7,20 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-$sql  = "SELECT `processors`.*, `processors-state`.processor_usage, `processors-state`.processor_polled";
-$sql .= " FROM  `processors`";
-$sql .= " LEFT JOIN `processors-state` ON `processors`.processor_id = `processors-state`.processor_id";
+$table_rows = array();
+
+$sql  = "SELECT `processors`.*, `processors-state`.`processor_usage`, `processors-state`.`processor_polled`";
+$sql .= " FROM `processors`";
+$sql .= " LEFT JOIN `processors-state` USING(`processor_id`)";
 $sql .= " WHERE `device_id` = ?";
 
 foreach (dbFetchRows($sql, array($device['device_id'])) as $processor)
 {
-  echo("Processor " . $processor['processor_descr'] . " ");
+  // echo("Processor " . $processor['processor_descr'] . " ");
 
   $file = $config['install_dir']."/includes/polling/processors/".$processor['processor_type'].".inc.php";
   if (is_file($file))
@@ -33,15 +35,16 @@ foreach (dbFetchRows($sql, array($device['device_id'])) as $processor)
   rrdtool_create($device, $procrrd, " \
      DS:usage:GAUGE:600:-273:1000 ");
 
-  $proc = trim(str_replace("\"", "", $proc));
-  list($proc) = preg_split("@\ @", $proc);
+  $proc = snmp_fix_numeric($proc);
+  //list($proc) = preg_split("@\ @", $proc);
+  if ($processor['processor_returns_idle'] == 1) { $proc = 100 - $proc; } // The OID returns idle value, so we subtract it from 100.
 
   if (!$processor['processor_precision']) { $processor['processor_precision'] = "1"; };
-  $proc = round($proc / $processor['processor_precision'],2);
+  $proc = round($proc / $processor['processor_precision'], 2);
 
   $graphs['processor'] = TRUE;
 
-  echo($proc . "%\n");
+  // echo($proc . "%\n");
 
   // Update StatsD/Carbon
   if ($config['statsd']['enable'] == TRUE)
@@ -64,6 +67,17 @@ foreach (dbFetchRows($sql, array($device['device_id'])) as $processor)
 
   check_entity('processor', $processor, array('processor_usage' => $proc));
 
+    $table_row = array();
+    $table_row[] = $processor['processor_descr'];
+    $table_row[] = $processor['processor_type'];
+    $table_row[] = $processor['processor_index'];
+    $table_row[] = $processor['processor_usage'].'%';
+    $table_rows[] = $table_row;
+    unset($table_row);
+
 }
 
-?>
+$headers = array('%WLabel%n', '%WType%n', '%WIndex%n', '%WUsage%n');
+print_cli_table($table_rows, $headers);
+
+// EOF

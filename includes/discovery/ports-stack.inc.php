@@ -7,11 +7,13 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 echo("Port Stacks: ");
+
+// FIXME. Add here discovery CISCO-STACK-MIB::portTable, CISCO-PAGP-MIB::pagpProtocolConfigTable
 
 $query = "SELECT * FROM `ports_stack` WHERE `device_id` = ?";
 foreach (dbFetchRows($query, array($device['device_id'])) as $entry)
@@ -24,11 +26,11 @@ $stack_poll_array = snmpwalk_cache_twopart_oid($device, "ifStackStatus", array()
 foreach ($stack_poll_array as $port_id_high => $entry_high)
 {
   $port_high = get_port_by_index_cache($device, $port_id_high);
-  if ($port_high['ifType'] =='propVirtual') { continue; }       //Skip stacking on Vlan ports (F.u. Cisco SB)
+  if ($device['os'] == "ciscosb" && $port_high['ifType'] =='propVirtual') { continue; }       //Skip stacking on Vlan ports (F.u. Cisco SB)
   foreach ($entry_high as $port_id_low => $entry_low)
   {
     $port_low = get_port_by_index_cache($device, $port_id_low);
-    if ($port_low['ifType'] =='propVirtual') { continue; }      //Skip stacking on Vlan ports (F.u. Cisco SB)
+    if ($device['os'] == "ciscosb" && $port_low['ifType'] =='propVirtual') { continue; }      //Skip stacking on Vlan ports (F.u. Cisco SB)
     $ifStackStatus = $entry_low['ifStackStatus'];
     if (isset($stack_db_array[$port_id_high][$port_id_low]))
     {

@@ -5,13 +5,11 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 ///FIXME. Be rewritten using collect_table()
- 
-echo('Netstats: ');
 
 $netstats_poll = array('ip' => array(), 'icmp' => array(), 'tcp' => array(), 'udp' => array(), 'snmp' => array()); // Init array
 // IP
@@ -41,6 +39,7 @@ $netstats_poll['udp']['mib']    = 'UDP-MIB';
 $netstats_poll['udp']['graphs'] = array('netstat_udp_datagrams','netstat_udp_errors');
 $netstats_poll['udp']['oids_t'] = array('udpInDatagrams', 'udpOutDatagrams');
 $netstats_poll['udp']['oids']   = array('udpInDatagrams', 'udpOutDatagrams', 'udpInErrors', 'udpNoPorts');
+
 // SNMP
 $netstats_poll['snmp']['mib']    = 'SNMPv2-MIB';
 $netstats_poll['snmp']['graphs'] = array('netstat_snmp_stats', 'netstat_snmp_packets');
@@ -50,9 +49,12 @@ $netstats_poll['snmp']['oids']   = array('snmpInPkts', 'snmpOutPkts', 'snmpInBad
                                          'snmpInSetRequests', 'snmpInGetResponses', 'snmpInTraps', 'snmpOutTooBigs', 'snmpOutNoSuchNames',
                                          'snmpOutBadValues', 'snmpOutGenErrs', 'snmpOutGetRequests', 'snmpOutGetNexts', 'snmpOutSetRequests',
                                          'snmpOutGetResponses', 'snmpOutTraps', 'snmpSilentDrops', 'snmpProxyDrops');
+$mibs_blacklist = get_device_mibs_blacklist($device);
 
 foreach ($netstats_poll as $type => $netstats)
 {
+  if (in_array($netstats['mib'], $mibs_blacklist)) { continue; } // Skip blacklisted MIBs
+
   $oids = $netstats['oids'];
 
   if (isset($netstats['oids_t']))
@@ -70,8 +72,6 @@ foreach ($netstats_poll as $type => $netstats)
     if (!count($data)) { continue; }
     $data_array = $data[0];
   }
-
-  echo(nicecase($type).' ');
 
   $rrd_file   = 'netstats-'.$type.'.rrd';
   $rrd_create = '';
@@ -94,10 +94,10 @@ foreach ($netstats_poll as $type => $netstats)
 
   foreach ($netstats['graphs'] as $graph) { $graphs[$graph] = TRUE; }
 
-  echo(PHP_EOL);
+  print_cli_data(nicecase($type)." Graphs", implode(" ", $netstats['graphs']), 2);
 }
 
 unset($netstats_poll, $netstats, $type, $oids, $oid, $oid_ds, $oids_string,
-      $data, $data_array, $rrd_create, $rrd_file, $rrd_update, $value);
+      $data, $data_array, $rrd_create, $rrd_file, $rrd_update, $value, $mibs_blacklist);
 
 // EOF

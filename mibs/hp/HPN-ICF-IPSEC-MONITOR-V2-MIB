@@ -1,0 +1,1985 @@
+-- ====================================================================
+-- Copyright (c) 2010-2013 Hewlett-Packard Development Company, L.P.
+--
+-- Description: The MIB is designed to get IPsec tunnels' statistic information.
+-- Reference:
+-- Version: 1.0
+-- History:
+--   V1.0: The initial version created by Wanghaisheng and Weiyanheng.
+-- =====================================================================
+HPN-ICF-IPSEC-MONITOR-V2-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        ifIndex
+            FROM RFC1213-MIB
+        InterfaceIndex
+            FROM IF-MIB
+        DisplayString, TEXTUAL-CONVENTION, TruthValue
+            FROM SNMPv2-TC
+        Integer32, Counter32, Counter64, OBJECT-TYPE,
+        MODULE-IDENTITY, Gauge32, NOTIFICATION-TYPE, Unsigned32
+            FROM SNMPv2-SMI
+        InetAddressType, InetAddress
+            FROM INET-ADDRESS-MIB
+        MODULE-COMPLIANCE, OBJECT-GROUP, NOTIFICATION-GROUP
+            FROM SNMPv2-CONF
+        hpnicfCommon
+            FROM HPN-ICF-OID-MIB;
+
+    hpnicfIPsecMonitorV2 MODULE-IDENTITY
+        LAST-UPDATED "201206270000Z"            -- Jun. 27, 2012  GMT
+        ORGANIZATION
+            ""
+        CONTACT-INFO
+            ""
+        DESCRIPTION
+            "The MIB is designed to get statistic information of IPsec tunnels.
+             With this MIB, we can get information of a certain tunnel or all
+             tunnels."
+        REVISION
+            "201206270000Z"
+        DESCRIPTION
+            "Initial version."
+        ::= { hpnicfCommon 126 }
+
+    HpnicfIPsecDiffHellmanGrpV2   ::= TEXTUAL-CONVENTION
+        STATUS     current
+        DESCRIPTION
+            "The Diffie Hellman Group used in the IKE and IPsec negotiations.
+             invalidGroup(2147483647) is defined as invalid value."
+        SYNTAX INTEGER {
+            none(0),
+            dhGroup1(1),
+            dhGroup2(2),
+            dhGroup5(5),
+            dhGroup14(14),
+            dhGroup24(24),
+            invalidGroup(2147483647)
+        }
+
+    HpnicfIPsecEncapModeV2        ::= TEXTUAL-CONVENTION
+        STATUS     current
+        DESCRIPTION
+            "The encapsulation mode used by an IPsec Phase-2 Tunnel.
+             invalidMode(2147483647) is defined as invalid value."
+        SYNTAX INTEGER {
+            tunnel(1),
+            transport(2),
+            invalidMode(2147483647)
+        }
+
+    HpnicfIPsecEncryptAlgoV2   ::= TEXTUAL-CONVENTION
+        STATUS     current
+        DESCRIPTION
+            "The encryption algorithm used in the IKE and IPsec negotiations.
+             invalidAlg(2147483647) is defined as invalid value."
+        SYNTAX INTEGER {
+            none(0),
+            desCbc(1),
+            ideaCbc(2),
+            blowfishCbc(3),
+            rc5R16B64Cbc(4),
+            tripleDesCbc(5),
+            castCbc(6),
+            aesCbc(7),
+            nsaCbc(8),
+            aesCbc128(9),
+            aesCbc192(10),
+            aesCbc256(11),
+            aesCtr(12),
+            aesCamelliaCbc(13),
+            rc4(14),
+            invalidAlg(2147483647)
+        }
+
+    HpnicfIPsecAuthAlgoV2   ::= TEXTUAL-CONVENTION
+        STATUS     current
+        DESCRIPTION
+            "The authentication algorithm used in the IKE negotiations.
+             invalidAlg(2147483647) is defined as invalid value."
+        SYNTAX INTEGER {
+            none(0),
+            md5(1),
+            sha1(2),
+            sha256(3),
+            sha384(4),
+            sha512(5),
+            invalidAlg(2147483647)
+        }
+
+    HpnicfIPsecSaProtocolV2   ::= TEXTUAL-CONVENTION
+        STATUS     current
+        DESCRIPTION
+            "The protocol of security association."
+        SYNTAX INTEGER {
+            reserved(0),
+            ah(2),
+            esp(3),
+            ipcomp(4)
+        }
+
+    HpnicfIPsecIDTypeV2   ::= TEXTUAL-CONVENTION
+        STATUS     current
+        DESCRIPTION
+            "The type of IPsec Identity."
+        SYNTAX INTEGER {
+            reserved(0),
+            ipv4Addr(1),
+            fqdn(2),         -- fully-qualified domain name
+            userFqdn(3),     -- fully-qualified username
+            ipv4AddrSubnet(4),
+            ipv6Addr(5),
+            ipv6AddrSubnet(6),
+            ipv4AddrRange(7),
+            ipv6AddrRange(8),
+            derAsn1Dn(9),    -- the binary DER encoding of an ASN.1 X.500 Distinguished
+                             -- Name [X.501] of the princIPal whose certificates are
+                             -- being exchanged to establish the SA.
+            derAsn1Gn(10),   -- the binary DER encoding of an ASN.1 X.500 GeneralName
+                             -- [X.509] of the princIPal whose certificates are being
+                             -- exchanged to establish the SA.
+            keyId(11)        -- specifies an opaque byte stream which may be used to
+                             -- pass vendor-specific information necessary to identify
+                             -- which pre-shared key should be used to authenticate
+                             -- Aggressive mode negotiations.
+        }
+
+    HpnicfIPsecTrafficTypeV2   ::= TEXTUAL-CONVENTION
+        STATUS     current
+        DESCRIPTION
+            "The type of the data flow."
+        SYNTAX INTEGER {
+            ipv4Addr(1),
+            ipv4AddrSubnet(4),
+            ipv6Addr(5),
+            ipv6AddrSubnet(6),
+            ipv4AddrRange(7),
+            ipv6AddrRange(8)
+        }
+
+    HpnicfIPsecNegoTypeV2   ::= TEXTUAL-CONVENTION
+        STATUS     current
+        DESCRIPTION
+            "The type of key used by an IPsec Phase-2 Tunnel.
+            invalidType(2147483647) is defined as invalid value."
+        SYNTAX INTEGER {
+            ike(1),
+            manual(2),
+            invalidType(2147483647)
+        }
+
+    HpnicfIPsecTunnelStateV2   ::= TEXTUAL-CONVENTION
+        STATUS     current
+        DESCRIPTION
+            "The state of IPsec tunnel."
+        SYNTAX INTEGER {
+            active(1),
+            timeout(2)
+        }
+
+-- ========================================================================
+-- Node definitions
+-- ========================================================================
+-- Begin the node of hpnicfIPsecObjectsV2.
+
+    hpnicfIPsecObjectsV2 OBJECT IDENTIFIER ::= { hpnicfIPsecMonitorV2 1 }
+
+-- =======================================
+-- Begin the hpnicfIPsecScalarObjectsV2.
+-- =======================================
+    hpnicfIPsecScalarObjectsV2 OBJECT IDENTIFIER ::= { hpnicfIPsecObjectsV2 1 }
+
+    hpnicfIPsecMIBVersion OBJECT-TYPE
+        SYNTAX DisplayString
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "Version string of this MIB."
+        ::= { hpnicfIPsecScalarObjectsV2 1 }
+
+-- ===============================================
+-- Begin the table of hpnicfIPsecTunnelV2Table.
+-- ===============================================
+
+    hpnicfIPsecTunnelV2Table OBJECT-TYPE
+        SYNTAX SEQUENCE OF HpnicfIPsecTunnelV2Entry
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION
+            "The IPsec Phase-2 Tunnel Table.  There is one entry in this
+            table for each active IPsec Phase-2 Tunnel."
+        ::= { hpnicfIPsecObjectsV2 2 }
+
+    hpnicfIPsecTunnelV2Entry OBJECT-TYPE
+        SYNTAX HpnicfIPsecTunnelV2Entry
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION
+            "Information about hpnicfIPsecTunnelV2Table."
+        INDEX { hpnicfIPsecTunIndexV2 }
+        ::= { hpnicfIPsecTunnelV2Table 1 }
+
+    HpnicfIPsecTunnelV2Entry ::=
+        SEQUENCE {
+            hpnicfIPsecTunIndexV2
+                Integer32,
+            hpnicfIPsecTunIfIndexV2
+                InterfaceIndex,
+            hpnicfIPsecTunIKETunnelIndexV2
+                Integer32,
+            hpnicfIPsecTunIKETunLocalIDTypeV2
+                HpnicfIPsecIDTypeV2,
+            hpnicfIPsecTunIKETunLocalIDVal1V2
+                DisplayString,
+            hpnicfIPsecTunIKETunLocalIDVal2V2
+                DisplayString,
+            hpnicfIPsecTunIKETunRemoteIDTypeV2
+                HpnicfIPsecIDTypeV2,
+            hpnicfIPsecTunIKETunRemoteIDVal1V2
+                DisplayString,
+            hpnicfIPsecTunIKETunRemoteIDVal2V2
+                DisplayString,
+            hpnicfIPsecTunLocalAddrTypeV2
+                InetAddressType,
+            hpnicfIPsecTunLocalAddrV2
+                InetAddress,
+            hpnicfIPsecTunRemoteAddrTypeV2
+                InetAddressType,
+            hpnicfIPsecTunRemoteAddrV2
+                InetAddress,
+            hpnicfIPsecTunKeyTypeV2
+                HpnicfIPsecNegoTypeV2,
+            hpnicfIPsecTunEncapModeV2
+                HpnicfIPsecEncapModeV2,
+            hpnicfIPsecTunInitiatorV2
+                INTEGER,
+            hpnicfIPsecTunLifeSizeV2
+                Gauge32,
+            hpnicfIPsecTunLifeTimeV2
+                Integer32,
+            hpnicfIPsecTunRemainTimeV2
+                Integer32,
+            hpnicfIPsecTunActiveTimeV2
+                Integer32,
+            hpnicfIPsecTunRemainSizeV2
+                Gauge32,
+            hpnicfIPsecTunTotalRefreshesV2
+                Counter32,
+            hpnicfIPsecTunCurrentSaInstancesV2
+                Gauge32,
+            hpnicfIPsecTunInSaEncryptAlgoV2
+                HpnicfIPsecEncryptAlgoV2,
+            hpnicfIPsecTunInSaAhAuthAlgoV2
+                HpnicfIPsecAuthAlgoV2,
+            hpnicfIPsecTunInSaEspAuthAlgoV2
+                HpnicfIPsecAuthAlgoV2,
+            hpnicfIPsecTunDiffHellmanGrpV2
+                HpnicfIPsecDiffHellmanGrpV2,
+            hpnicfIPsecTunOutSaEncryptAlgoV2
+                HpnicfIPsecEncryptAlgoV2,
+            hpnicfIPsecTunOutSaAhAuthAlgoV2
+                HpnicfIPsecAuthAlgoV2,
+            hpnicfIPsecTunOutSaEspAuthAlgoV2
+                HpnicfIPsecAuthAlgoV2,
+            hpnicfIPsecTunPolicyNameV2
+                DisplayString,
+            hpnicfIPsecTunPolicyNumV2
+                Integer32,
+            hpnicfIPsecTunStatusV2
+                INTEGER
+        }
+
+    hpnicfIPsecTunIndexV2 OBJECT-TYPE
+        SYNTAX Integer32 (1..2147483647)
+        MAX-ACCESS accessible-for-notify
+        STATUS current
+        DESCRIPTION
+            "The index of IPsec Phase-2 Tunnel Table.  The value of
+             the index is a number which begins at one and is
+             incremented with each tunnel that is created.  The
+             value of this object will wrap at 2147483647."
+        ::= { hpnicfIPsecTunnelV2Entry 1 }
+
+    hpnicfIPsecTunIfIndexV2 OBJECT-TYPE
+        SYNTAX InterfaceIndex
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The interface index( the ifIndex of ifTable )."
+        ::= { hpnicfIPsecTunnelV2Entry 2 }
+
+    hpnicfIPsecTunIKETunnelIndexV2 OBJECT-TYPE
+        SYNTAX Integer32 (1..2147483647)
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The index of the associated IPsec Phase-1 IKE Tunnel
+             (IKETunIndex in the IKETunnelTable).  2147483647 is defined as
+             invalid value. "
+        ::= { hpnicfIPsecTunnelV2Entry 3 }
+
+    hpnicfIPsecTunIKETunLocalIDTypeV2 OBJECT-TYPE
+        SYNTAX HpnicfIPsecIDTypeV2
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The type of the local peer identity for the associated IPsec
+            Phase-1 IKE Tunnel (IKETunLocalType in the IKETunnelTable)."
+        ::= { hpnicfIPsecTunnelV2Entry 4 }
+
+    hpnicfIPsecTunIKETunLocalIDVal1V2 OBJECT-TYPE
+        SYNTAX DisplayString
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The value of the local peer identity for the associated IPsec
+            Phase-1 IKE Tunnel (IKETunLocalValue1 in the IKETunnelTable).
+
+            If the local peer type is ipv4Addr/ipv6Addr, this is the IP address
+            used to identify the local peer.
+
+            If the local peer type is ipv4AddrSubnet/ipv6AddrSubnet, this is
+            the subnet address.
+
+            If the local peer type is ipv4AddrRange/ipv6AddrRange, this is
+            the beginning IP address of the range.
+
+            If the local peer type is fqdn/userFqdn, this is the host name
+            used to identify the local peer.
+
+            If the local peer type is derAsn1Dn, this is the binary DER
+            encoding of an ASN.1 X.500 Distinguished Name [X.501] of the
+            principal whose certificates are being exchanged to establish
+            the SA.
+
+            If the local peer type is derAsn1Gn, this is the binary DER
+            encoding of an ASN.1 X.500 GeneralName [X.509] of the principal
+            whose certificates are being exchanged to establish the SA.
+
+            If the local peer type is keyId, this is an opaque byte
+            stream which may be used to pass vendor-specific information
+            necessary to identify which pre-shared key should be used to
+            authenticate Aggressive mode negotiations."
+        ::= { hpnicfIPsecTunnelV2Entry 5 }
+
+    hpnicfIPsecTunIKETunLocalIDVal2V2 OBJECT-TYPE
+        SYNTAX DisplayString
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The second specification of the local peer's IP address for the
+            associated IPsec Phase-1 IKE Tunnel (IKETunLocalValue2 in the
+            IKETunnelTable).
+
+            If the local peer type is ipv4AddrSubnet/ipv6AddrSubnet, this
+            is the subnet mask.
+
+            If the local peer type is ipv4AddrRange/ipv6AddrRange, this is
+            the ending IP address of the range.
+
+            If the local peer type is others, this is a zero-length string."
+        ::= { hpnicfIPsecTunnelV2Entry 6 }
+
+    hpnicfIPsecTunIKETunRemoteIDTypeV2 OBJECT-TYPE
+        SYNTAX HpnicfIPsecIDTypeV2
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The type of the remote peer identity for the associated IPsec
+            Phase-1 IKE Tunnel (IKETunRemoteType in the IKETunnelTable)."
+        ::= { hpnicfIPsecTunnelV2Entry 7 }
+
+    hpnicfIPsecTunIKETunRemoteIDVal1V2 OBJECT-TYPE
+        SYNTAX DisplayString
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The value of the remote peer identity for the associated IPsec
+            Phase-1 IKE Tunnel (IKETunRemoteValue1 in the IKETunnelTable).
+
+            If the remote peer type is ipv4Addr/ipv6Addr, this is the IP address
+            used to identify the remote peer.
+
+            If the remote peer type is ipv4AddrSubnet/ipv6AddrSubnet, this is
+            the subnet address.
+
+            If the remote peer type is ipv4AddrRange/ipv6AddrRange, this is
+            the beginning IP address of the range.
+
+            If the remote peer type is fqdn/userFqdn, this is the host name
+            used to identify the remote peer.
+
+            If the remote peer type is derAsn1Dn, this is the binary DER
+            encoding of an ASN.1 X.500 Distinguished Name [X.501] of the
+            principal whose certificates are being exchanged to establish
+            the SA.
+
+            If the remote peer type is derAsn1Gn, this is the binary DER
+            encoding of an ASN.1 X.500 GeneralName [X.509] of the principal
+            whose certificates are being exchanged to establish the SA.
+
+            If the remote peer type is keyId, this is an opaque byte
+            stream which may be used to pass vendor-specific information
+            necessary to identify which pre-shared key should be used to
+            authenticate Aggressive mode negotiations."
+        ::= { hpnicfIPsecTunnelV2Entry 8 }
+
+    hpnicfIPsecTunIKETunRemoteIDVal2V2 OBJECT-TYPE
+        SYNTAX DisplayString
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The second specification of the remote peer's IP address for the
+            associated IPsec Phase-1 IKE Tunnel(IKETunRemoteValue2 in the
+            IKETunnelTable).
+
+            If the remote peer type is ipv4AddrSubnet/ipv6AddrSubnet, this
+            is the subnet mask.
+
+            If the remote peer type is ipv4AddrRange/ipv6AddrRange, this is
+            the ending IP address of the range.
+
+            If the remote peer type is others, this is a zero-length string."
+        ::= { hpnicfIPsecTunnelV2Entry 9 }
+
+    hpnicfIPsecTunLocalAddrTypeV2 OBJECT-TYPE
+        SYNTAX InetAddressType
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The type of the IP address for the local peer of the IPsec Phase-2
+            Tunnel."
+        ::= { hpnicfIPsecTunnelV2Entry 10 }
+
+    hpnicfIPsecTunLocalAddrV2 OBJECT-TYPE
+        SYNTAX InetAddress
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The IP address of the local peer for the IPsec Phase-2 Tunnel."
+        ::= { hpnicfIPsecTunnelV2Entry 11 }
+
+    hpnicfIPsecTunRemoteAddrTypeV2 OBJECT-TYPE
+        SYNTAX InetAddressType
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The type of the IP address for the remote peer of the IPsec Phase-2
+             Tunnel."
+        ::= { hpnicfIPsecTunnelV2Entry 12 }
+
+    hpnicfIPsecTunRemoteAddrV2 OBJECT-TYPE
+        SYNTAX InetAddress
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The IP address of the remote peer for the IPsec Phase-2 Tunnel."
+        ::= { hpnicfIPsecTunnelV2Entry 13 }
+
+    hpnicfIPsecTunKeyTypeV2 OBJECT-TYPE
+        SYNTAX HpnicfIPsecNegoTypeV2
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The key negotiate mode used by the IPsec Phase-2 Tunnel."
+        ::= { hpnicfIPsecTunnelV2Entry 14 }
+
+    hpnicfIPsecTunEncapModeV2 OBJECT-TYPE
+        SYNTAX HpnicfIPsecEncapModeV2
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The encapsulation mode used by the IPsec Phase-2 Tunnel."
+        ::= { hpnicfIPsecTunnelV2Entry 15 }
+
+    hpnicfIPsecTunInitiatorV2 OBJECT-TYPE
+        SYNTAX INTEGER
+            {
+                local(1),
+                remote(2),
+                none(2147483647)
+            }
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The initiator of this IPsec tunnel.  Value none is used for manual
+             IPsec tunnel, for there is no initiator or responder in this method."
+        ::= { hpnicfIPsecTunnelV2Entry 16 }
+
+    hpnicfIPsecTunLifeSizeV2 OBJECT-TYPE
+        SYNTAX Gauge32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The negotiated LifeSize of the IPsec Phase-2 Tunnel in kilobytes.
+             0 is defined as invalid value."
+        ::= { hpnicfIPsecTunnelV2Entry 17 }
+
+    hpnicfIPsecTunLifeTimeV2 OBJECT-TYPE
+        SYNTAX Integer32 (1..2147483647)
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The negotiated LifeTime of the IPsec Phase-2 Tunnel in seconds.
+             2147483647 is defined as invalid value."
+        ::= { hpnicfIPsecTunnelV2Entry 18 }
+
+    hpnicfIPsecTunRemainTimeV2 OBJECT-TYPE
+        SYNTAX Integer32 (0..2147483647)
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The remain time of SA in seconds.  2147483647 is defined as invalid
+             value."
+        ::= { hpnicfIPsecTunnelV2Entry 19 }
+
+    hpnicfIPsecTunActiveTimeV2 OBJECT-TYPE
+        SYNTAX Integer32 (0..2147483647)
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The duration the IPsec Phase-2 Tunnel has been active in
+             hundredths of seconds.  2147483647 is defined as invalid value."
+        ::= { hpnicfIPsecTunnelV2Entry 20 }
+
+    hpnicfIPsecTunRemainSizeV2 OBJECT-TYPE
+        SYNTAX Gauge32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The remain LifeSize of SA in kilobytes.  0 is defined as
+             invalid value."
+        ::= { hpnicfIPsecTunnelV2Entry 21 }
+
+    hpnicfIPsecTunTotalRefreshesV2 OBJECT-TYPE
+        SYNTAX Counter32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of security association refreshing performed."
+        ::= { hpnicfIPsecTunnelV2Entry 22 }
+
+    hpnicfIPsecTunCurrentSaInstancesV2 OBJECT-TYPE
+        SYNTAX Gauge32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The number of security associations which are currently active
+             or expiring."
+        ::= { hpnicfIPsecTunnelV2Entry 23 }
+
+    hpnicfIPsecTunInSaEncryptAlgoV2 OBJECT-TYPE
+        SYNTAX HpnicfIPsecEncryptAlgoV2
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The encryption algorithm used by the inbound security association
+             of the IPsec Phase-2 Tunnel."
+        ::= { hpnicfIPsecTunnelV2Entry 24 }
+
+    hpnicfIPsecTunInSaAhAuthAlgoV2 OBJECT-TYPE
+        SYNTAX HpnicfIPsecAuthAlgoV2
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The authentication algorithm used by the inbound authentication
+             header (AH) security association of the IPsec Phase-2 Tunnel."
+        ::= { hpnicfIPsecTunnelV2Entry 25 }
+
+    hpnicfIPsecTunInSaEspAuthAlgoV2 OBJECT-TYPE
+        SYNTAX HpnicfIPsecAuthAlgoV2
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The authentication algorithm used by the inbound encapsulation
+             security protocol(ESP) security association of the IPsec
+             Phase-2 Tunnel."
+        ::= { hpnicfIPsecTunnelV2Entry 26 }
+
+    hpnicfIPsecTunDiffHellmanGrpV2 OBJECT-TYPE
+        SYNTAX HpnicfIPsecDiffHellmanGrpV2
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The Diffie Hellman Group used by the security association of the
+             IPsec Phase-2 Tunnel."
+        ::= { hpnicfIPsecTunnelV2Entry 27 }
+
+    hpnicfIPsecTunOutSaEncryptAlgoV2 OBJECT-TYPE
+        SYNTAX HpnicfIPsecEncryptAlgoV2
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The encryption algorithm used by the outbound security
+             association of the IPsec Phase-2 Tunnel."
+        ::= { hpnicfIPsecTunnelV2Entry 28 }
+
+    hpnicfIPsecTunOutSaAhAuthAlgoV2 OBJECT-TYPE
+        SYNTAX HpnicfIPsecAuthAlgoV2
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The authentication algorithm used by the outbound
+             authentication header (AH) security association of
+             the IPsec Phase-2 Tunnel."
+        ::= { hpnicfIPsecTunnelV2Entry 29 }
+
+    hpnicfIPsecTunOutSaEspAuthAlgoV2 OBJECT-TYPE
+        SYNTAX HpnicfIPsecAuthAlgoV2
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The authentication algorithm used by the outbound encapsulation
+             security protocol(ESP) security association of the IPsec
+             Phase-2 Tunnel."
+        ::= { hpnicfIPsecTunnelV2Entry 30 }
+
+    hpnicfIPsecTunPolicyNameV2 OBJECT-TYPE
+        SYNTAX DisplayString
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The policy name used by this IPsec tunnel."
+        ::= { hpnicfIPsecTunnelV2Entry 31 }
+
+    hpnicfIPsecTunPolicyNumV2 OBJECT-TYPE
+        SYNTAX Integer32 (1..2147483647)
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The sequence number of policy used by this IPsec tunnel."
+        ::= { hpnicfIPsecTunnelV2Entry 32 }
+
+    hpnicfIPsecTunStatusV2 OBJECT-TYPE
+        SYNTAX INTEGER
+            {
+                initial(1),
+                ready(2),
+                rekeyed(3),
+                closed(4)
+            }
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The status of the IPsec Tunnel."
+        ::= { hpnicfIPsecTunnelV2Entry 33 }
+
+-- ===============================================
+-- Begin the table of hpnicfIPsecTunnelStatV2Table.
+-- ===============================================
+
+    hpnicfIPsecTunnelStatV2Table OBJECT-TYPE
+        SYNTAX SEQUENCE OF HpnicfIPsecTunnelStatV2Entry
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION
+            "The IPsec Phase-2 Tunnel Statistics Table. "
+        ::= { hpnicfIPsecObjectsV2 3 }
+
+    hpnicfIPsecTunnelStatV2Entry OBJECT-TYPE
+        SYNTAX HpnicfIPsecTunnelStatV2Entry
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION
+            "Information about hpnicfIPsecTunnelStatV2Table."
+        INDEX { hpnicfIPsecTunIndexV2 }
+        ::= { hpnicfIPsecTunnelStatV2Table 1 }
+
+    HpnicfIPsecTunnelStatV2Entry ::=
+        SEQUENCE {
+            hpnicfIPsecTunInOctetsV2
+                Counter64,
+            hpnicfIPsecTunInDecompOctetsV2
+                Counter64,
+            hpnicfIPsecTunInPktsV2
+                Counter64,
+            hpnicfIPsecTunInDropPktsV2
+                Counter64,
+            hpnicfIPsecTunInReplayDropPktsV2
+                Counter64,
+            hpnicfIPsecTunInAuthFailsV2
+                Counter64,
+            hpnicfIPsecTunInDecryptFailsV2
+                Counter64,
+            hpnicfIPsecTunOutOctetsV2
+                Counter64,
+            hpnicfIPsecTunOutUncompOctetsV2
+                Counter64,
+            hpnicfIPsecTunOutPktsV2
+                Counter64,
+            hpnicfIPsecTunOutDropPktsV2
+                Counter64,
+            hpnicfIPsecTunOutEncryptFailsV2
+                Counter64,
+            hpnicfIPsecTunNoMemoryDropPktsV2
+                Counter64,
+            hpnicfIPsecTunQueueFullDropPktsV2
+                Counter64,
+            hpnicfIPsecTunInvalidLenDropPktsV2
+                Counter64,
+            hpnicfIPsecTunTooLongDropPktsV2
+                Counter64,
+            hpnicfIPsecTunInvalidSaDropPktsV2
+                Counter64
+        }
+
+    hpnicfIPsecTunInOctetsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of octets received by this IPsec Phase-2 Tunnel.
+             This value is accumulated BEFORE determining whether or not the
+             packet should be decompressed."
+        ::= { hpnicfIPsecTunnelStatV2Entry 1 }
+
+    hpnicfIPsecTunInDecompOctetsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of decompressed octets received by this IPsec
+             Phase-2 Tunnel.  This value is accumulated AFTER the packet
+             is decompressed."
+        ::= { hpnicfIPsecTunnelStatV2Entry 2 }
+
+    hpnicfIPsecTunInPktsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of packets received by this IPsec Phase-2 Tunnel."
+        ::= { hpnicfIPsecTunnelStatV2Entry 3 }
+
+    hpnicfIPsecTunInDropPktsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of packets dropped during receiving process
+             by this IPsec Phase-2 Tunnel."
+        ::= { hpnicfIPsecTunnelStatV2Entry 4 }
+
+    hpnicfIPsecTunInReplayDropPktsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of packets dropped during
+             receiving process due to Anti-Replay process
+             by this IPsec Phase-2 Tunnel."
+        ::= { hpnicfIPsecTunnelStatV2Entry 5 }
+
+    hpnicfIPsecTunInAuthFailsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of inbound authentication's
+             which ended in failure by this IPsec Phase-2 Tunnel."
+        ::= { hpnicfIPsecTunnelStatV2Entry 6 }
+
+    hpnicfIPsecTunInDecryptFailsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of inbound decryption's
+             which ended in failure by this IPsec Phase-2 Tunnel."
+        ::= { hpnicfIPsecTunnelStatV2Entry 7 }
+
+    hpnicfIPsecTunOutOctetsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of octets sent by this IPsec Phase-2 Tunnel.
+             This value is accumulated AFTER determining whether or not
+             the packet should be compressed."
+        ::= { hpnicfIPsecTunnelStatV2Entry 8 }
+
+    hpnicfIPsecTunOutUncompOctetsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of uncompressed octets sent by this IPsec Phase-2
+             Tunnel.  This value is accumulated BEFORE the packet is compressed."
+        ::= { hpnicfIPsecTunnelStatV2Entry 9 }
+
+    hpnicfIPsecTunOutPktsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of packets sent by this IPsec Phase-2 Tunnel."
+        ::= { hpnicfIPsecTunnelStatV2Entry 10 }
+
+    hpnicfIPsecTunOutDropPktsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of packets dropped during sending process
+             by this IPsec Phase-2 Tunnel."
+        ::= { hpnicfIPsecTunnelStatV2Entry 11 }
+
+    hpnicfIPsecTunOutEncryptFailsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of outbound encryption's which ended in failure
+             by this IPsec Phase-2 Tunnel."
+        ::= { hpnicfIPsecTunnelStatV2Entry 12 }
+
+    hpnicfIPsecTunNoMemoryDropPktsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of packets dropped due to no enough memory by this
+             IPsec Phase-2 Tunnel."
+        ::= { hpnicfIPsecTunnelStatV2Entry 13 }
+
+    hpnicfIPsecTunQueueFullDropPktsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of packets dropped due to queue full by this
+             IPsec Phase-2 Tunnel."
+        ::= { hpnicfIPsecTunnelStatV2Entry 14 }
+
+    hpnicfIPsecTunInvalidLenDropPktsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of packets dropped due to invalid length packet
+             by this IPsec Phase-2 Tunnel."
+        ::= { hpnicfIPsecTunnelStatV2Entry 15 }
+
+    hpnicfIPsecTunTooLongDropPktsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of packets dropped due to too long packet by this
+             IPsec Phase-2 Tunnel."
+        ::= { hpnicfIPsecTunnelStatV2Entry 16 }
+
+    hpnicfIPsecTunInvalidSaDropPktsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of packets dropped due to invalid SA by this
+             IPsec Phase-2 Tunnel."
+        ::= { hpnicfIPsecTunnelStatV2Entry 17 }
+
+-- ===============================================
+-- Begin the table of hpnicfIPsecSaV2Table.
+-- ===============================================
+
+    hpnicfIPsecSaV2Table OBJECT-TYPE
+        SYNTAX SEQUENCE OF HpnicfIPsecSaV2Entry
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION
+            "The IPsec Phase-2 Security Protection Index Table.  This table
+             contains an entry for each active and expiring security association."
+        ::= { hpnicfIPsecObjectsV2 4 }
+
+    hpnicfIPsecSaV2Entry OBJECT-TYPE
+        SYNTAX HpnicfIPsecSaV2Entry
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION
+            "Information about hpnicfIPsecSaV2Table."
+        INDEX { hpnicfIPsecTunIndexV2,hpnicfIPsecSaIndexV2 }
+        ::= { hpnicfIPsecSaV2Table 1 }
+
+    HpnicfIPsecSaV2Entry ::=
+        SEQUENCE {
+            hpnicfIPsecSaIndexV2
+                Integer32,
+            hpnicfIPsecSaDirectionV2
+                INTEGER,
+            hpnicfIPsecSaSpiValueV2
+                Unsigned32,
+            hpnicfIPsecSaSecProtocolV2
+                HpnicfIPsecSaProtocolV2,
+            hpnicfIPsecSaEncryptAlgoV2
+                HpnicfIPsecEncryptAlgoV2,
+            hpnicfIPsecSaAuthAlgoV2
+                HpnicfIPsecAuthAlgoV2,
+            hpnicfIPsecSaStatusV2
+                INTEGER
+        }
+
+    hpnicfIPsecSaIndexV2 OBJECT-TYPE
+        SYNTAX Integer32 (1..2147483647)
+        MAX-ACCESS accessible-for-notify
+        STATUS current
+        DESCRIPTION
+            "The number of the Sa associated with the Phase-2 Tunnel
+             Table.  The value of this index is a number which begins
+             at one and is incremented with each Sa associated with
+             an IPsec Phase-2 Tunnel.  The value of this object will
+             wrap at 2,147,483,647."
+        ::= { hpnicfIPsecSaV2Entry 1 }
+
+    hpnicfIPsecSaDirectionV2 OBJECT-TYPE
+        SYNTAX INTEGER {
+            in(1),
+            out(2)
+        }
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The direction of the SA."
+        ::= { hpnicfIPsecSaV2Entry 2 }
+
+    hpnicfIPsecSaSpiValueV2 OBJECT-TYPE
+        SYNTAX Unsigned32 (1..4294967295)
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The value of the SPI."
+        ::= { hpnicfIPsecSaV2Entry 3 }
+
+    hpnicfIPsecSaSecProtocolV2 OBJECT-TYPE
+        SYNTAX HpnicfIPsecSaProtocolV2
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The security protocol of the SA."
+        ::= { hpnicfIPsecSaV2Entry 4 }
+
+    hpnicfIPsecSaEncryptAlgoV2 OBJECT-TYPE
+        SYNTAX HpnicfIPsecEncryptAlgoV2
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The encryption algorithm used by the security association
+             of the IPsec Phase-2 Tunnel."
+        ::= { hpnicfIPsecSaV2Entry 5 }
+
+    hpnicfIPsecSaAuthAlgoV2 OBJECT-TYPE
+        SYNTAX HpnicfIPsecAuthAlgoV2
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The authentication algorithm used by the SA."
+        ::= { hpnicfIPsecSaV2Entry 6 }
+
+    hpnicfIPsecSaStatusV2 OBJECT-TYPE
+        SYNTAX INTEGER {
+            active(1),
+            expiring(2)
+        }
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The status of the SA."
+        ::= { hpnicfIPsecSaV2Entry 7 }
+
+-- ===============================================
+-- Begin the table of hpnicfIPsecTrafficV2Table.
+-- ===============================================
+
+    hpnicfIPsecTrafficV2Table OBJECT-TYPE
+        SYNTAX SEQUENCE OF HpnicfIPsecTrafficV2Entry
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION
+            "The IPsec Phase-2 Tunnel Traffic Table. "
+        ::= { hpnicfIPsecObjectsV2 5 }
+
+    hpnicfIPsecTrafficV2Entry OBJECT-TYPE
+        SYNTAX HpnicfIPsecTrafficV2Entry
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION
+            "Information about hpnicfIPsecTrafficV2Table."
+        INDEX { hpnicfIPsecTunIndexV2 }
+        ::= { hpnicfIPsecTrafficV2Table 1 }
+
+    HpnicfIPsecTrafficV2Entry ::=
+        SEQUENCE {
+            hpnicfIPsecTrafficLocalTypeV2
+                HpnicfIPsecTrafficTypeV2,
+            hpnicfIPsecTrafficLocalAddr1TypeV2
+                InetAddressType,
+            hpnicfIPsecTrafficLocalAddr1V2
+                InetAddress,
+            hpnicfIPsecTrafficLocalAddr2TypeV2
+                InetAddressType,
+            hpnicfIPsecTrafficLocalAddr2V2
+                InetAddress,
+            hpnicfIPsecTrafficLocalProtocol1V2
+                Integer32,
+            hpnicfIPsecTrafficLocalProtocol2V2
+                Integer32,
+            hpnicfIPsecTrafficLocalPort1V2
+                Integer32,
+            hpnicfIPsecTrafficLocalPort2V2
+                Integer32,
+            hpnicfIPsecTrafficRemoteTypeV2
+                HpnicfIPsecTrafficTypeV2,
+            hpnicfIPsecTrafficRemAddr1TypeV2
+                InetAddressType,
+            hpnicfIPsecTrafficRemAddr1V2
+                InetAddress,
+            hpnicfIPsecTrafficRemAddr2TypeV2
+                InetAddressType,
+            hpnicfIPsecTrafficRemAddr2V2
+                InetAddress,
+            hpnicfIPsecTrafficRemoPro1V2
+                Integer32,
+            hpnicfIPsecTrafficRemoPro2V2
+                Integer32,
+            hpnicfIPsecTrafficRemPort1V2
+                Integer32,
+            hpnicfIPsecTrafficRemPort2V2
+                Integer32
+    }
+
+    hpnicfIPsecTrafficLocalTypeV2 OBJECT-TYPE
+        SYNTAX HpnicfIPsecTrafficTypeV2
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The type of the local peer's traffic.  Possible values are:
+            1) A single IP address
+            2) An IP address range
+            3) An IP subnet"
+        ::= { hpnicfIPsecTrafficV2Entry 1 }
+
+    hpnicfIPsecTrafficLocalAddr1TypeV2 OBJECT-TYPE
+        SYNTAX InetAddressType
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The type of the first IP address specification for the local peer's
+            traffic."
+        ::= { hpnicfIPsecTrafficV2Entry 2 }
+
+    hpnicfIPsecTrafficLocalAddr1V2 OBJECT-TYPE
+        SYNTAX InetAddress
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The first IP address specification of the local peer's traffic.
+
+            If the local peer's traffic type is single IP address, this is the
+            IP address.
+
+            If the local peer's traffic type is IP subnet, this is the subnet address.
+
+            If the local peer's traffic type is IP address range, this is the
+            beginning IP address of the range."
+        ::= { hpnicfIPsecTrafficV2Entry 3 }
+
+    hpnicfIPsecTrafficLocalAddr2TypeV2 OBJECT-TYPE
+        SYNTAX InetAddressType
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The type of the second IP address specification for the local peer's
+            traffic."
+        ::= { hpnicfIPsecTrafficV2Entry 4 }
+
+    hpnicfIPsecTrafficLocalAddr2V2 OBJECT-TYPE
+        SYNTAX InetAddress
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The second IP address specification of the local peer's traffic.
+
+            If the local peer's traffic type is single IP address, this is the
+            IP address.
+
+            If the local peer's traffic type is IP subnet, this is the subnet mask.
+
+            If the local peer's traffic type is IP address range, this is the
+            ending IP address of the range."
+        ::= { hpnicfIPsecTrafficV2Entry 5 }
+
+    hpnicfIPsecTrafficLocalProtocol1V2 OBJECT-TYPE
+        SYNTAX Integer32 (0..255)
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The first protocol number specification of the local peer's traffic.
+
+            If the protocol type of the local peer's traffic is single protocol,
+            this is the protocol number.
+
+            If the protocol type of the local peer's traffic is protocol range,
+            this is the beginning protocol number of the range."
+        ::= { hpnicfIPsecTrafficV2Entry 6 }
+
+    hpnicfIPsecTrafficLocalProtocol2V2 OBJECT-TYPE
+        SYNTAX Integer32 (0..255)
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The second protocol number specification of the local peer's traffic.
+
+            If the protocol type of the local peer's traffic is single protocol,
+            this is the protocol number.
+
+            If the protocol type of the local peer's traffic is protocol range,
+            this is the ending protocol number of the range."
+        ::= { hpnicfIPsecTrafficV2Entry 7 }
+
+    hpnicfIPsecTrafficLocalPort1V2 OBJECT-TYPE
+        SYNTAX Integer32 (0..65535)
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The first port number specification of the local peer's traffic.
+
+            If the port type of the local peer's traffic is single port, this is
+            the port number.
+
+            If the port type of the local peer's traffic is port range, this is
+            the beginning port number of the range."
+        ::= { hpnicfIPsecTrafficV2Entry 8 }
+
+    hpnicfIPsecTrafficLocalPort2V2 OBJECT-TYPE
+        SYNTAX Integer32 (0..65535)
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The second port number specification of the local peer's traffic.
+
+            If the port type of the local peer's traffic is single port, this is
+            the port number.
+
+            If the port type of the local peer's traffic is port range, this is
+            the ending port number of the range."
+        ::= { hpnicfIPsecTrafficV2Entry 9 }
+
+    hpnicfIPsecTrafficRemoteTypeV2 OBJECT-TYPE
+        SYNTAX HpnicfIPsecTrafficTypeV2
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The type of the remote peer's traffic.  Possible values are:
+            1) A single IP address
+            2) An IP address range
+            3) An IP subnet"
+        ::= { hpnicfIPsecTrafficV2Entry 10 }
+
+    hpnicfIPsecTrafficRemAddr1TypeV2 OBJECT-TYPE
+        SYNTAX InetAddressType
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The type of the first IP address specification for the remote peer's
+            traffic."
+        ::= { hpnicfIPsecTrafficV2Entry 11 }
+
+    hpnicfIPsecTrafficRemAddr1V2 OBJECT-TYPE
+        SYNTAX InetAddress
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The first IP address specification of the remote peer's traffic.
+
+            If the remote traffic type is single IP address, this is the IP address.
+
+            If the remote traffic type is IP subnet, this is the subnet address.
+
+            If the remote traffic type is IP address range, this is the beginning
+            IP address of the range."
+        ::= { hpnicfIPsecTrafficV2Entry 12 }
+
+    hpnicfIPsecTrafficRemAddr2TypeV2 OBJECT-TYPE
+        SYNTAX InetAddressType
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The type of the second IP address specification for the remote peer's
+            traffic."
+        ::= { hpnicfIPsecTrafficV2Entry 13 }
+
+    hpnicfIPsecTrafficRemAddr2V2 OBJECT-TYPE
+        SYNTAX InetAddress
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The second IP address specification of the remote peer's traffic.
+
+            If the remote traffic type is single IP address, this is the IP address.
+
+            If the remote traffic type is IP subnet, this is the subnet mask.
+
+            If the remote traffic type is IP address range, this is the ending IP
+            address of the range."
+        ::= { hpnicfIPsecTrafficV2Entry 14 }
+
+    hpnicfIPsecTrafficRemoPro1V2 OBJECT-TYPE
+        SYNTAX Integer32 (0..255)
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The first protocol number specification of the remote peer's traffic.
+
+            If the protocol type of the remote peer's traffic is single protocol,
+            this is the protocol number.
+
+            If the protocol type of the remote peer's traffic is protocol range,
+            this is the beginning protocol number of the range."
+        ::= { hpnicfIPsecTrafficV2Entry 15 }
+
+    hpnicfIPsecTrafficRemoPro2V2 OBJECT-TYPE
+        SYNTAX Integer32 (0..255)
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The second protocol number specification of the remote peer's traffic.
+
+            If the protocol type of the remote peer's traffic is single protocol,
+            this is the protocol number.
+
+            If the protocol type of the remote peer's traffic is protocol range,
+            this is the ending protocol number of the range."
+        ::= { hpnicfIPsecTrafficV2Entry 16 }
+
+    hpnicfIPsecTrafficRemPort1V2 OBJECT-TYPE
+        SYNTAX Integer32 (0..65535)
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The first port number specification of the remote peer's traffic.
+
+            If the port type of the remote peer's traffic is single port,
+            this is the port number.
+
+            If the port type of the remote peer's traffic is port range,
+            this is the beginning port number of the range."
+        ::= { hpnicfIPsecTrafficV2Entry 17 }
+
+    hpnicfIPsecTrafficRemPort2V2 OBJECT-TYPE
+        SYNTAX Integer32 (0..65535)
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The second port number specification of the remote peer's traffic.
+
+            If the port type of the remote peer's traffic is single port,
+            this is the port number.
+
+            If the port type of the remote peer's traffic is port range,
+            this is the ending port number of the range."
+        ::= { hpnicfIPsecTrafficV2Entry 18 }
+
+-- ===============================================
+-- Begin the hpnicfIPsecGlobalStatsV2.
+-- ===============================================
+
+    hpnicfIPsecGlobalStatsV2 OBJECT IDENTIFIER ::= { hpnicfIPsecObjectsV2 6 }
+
+    hpnicfIPsecGlobalActiveTunnelsV2 OBJECT-TYPE
+        SYNTAX Gauge32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of currently active IPsec Phase-2 Tunnels."
+        ::= { hpnicfIPsecGlobalStatsV2 1 }
+
+    hpnicfIPsecGlobalActiveSasV2 OBJECT-TYPE
+        SYNTAX Gauge32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of currently active or expiring IPsec Phase-2 SA."
+        ::= { hpnicfIPsecGlobalStatsV2 2 }
+
+    hpnicfIPsecGlobalInOctetsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of octets received by all current and previous
+             IPsec Phase-2 Tunnels.  This value is accumulated BEFORE determining
+             whether or not the packet should be decompressed."
+        ::= { hpnicfIPsecGlobalStatsV2 3 }
+
+    hpnicfIPsecGlobalInDecompOctetsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of decompressed octets received by all current
+             and previous IPsec Phase-2 Tunnels.  This value is accumulated
+             AFTER the packet is decompressed."
+        ::= { hpnicfIPsecGlobalStatsV2 4 }
+
+    hpnicfIPsecGlobalInPktsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of packets received by all current and
+             previous IPsec Phase-2 Tunnels."
+        ::= { hpnicfIPsecGlobalStatsV2 5 }
+
+    hpnicfIPsecGlobalInDropsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of packets dropped during receiving
+             process by all current and previous IPsec Phase-2
+             Tunnels. "
+        ::= { hpnicfIPsecGlobalStatsV2 6 }
+
+    hpnicfIPsecGlobalInReplayDropsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of packets dropped during receiving
+             process due to Anti-Replay process by all
+             current and previous IPsec Phase-2 Tunnels."
+        ::= { hpnicfIPsecGlobalStatsV2 7 }
+
+    hpnicfIPsecGlobalInAuthFailsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of inbound authentication's which ended
+             in failure by all current and previous IPsec Phase-2 Tunnels."
+        ::= { hpnicfIPsecGlobalStatsV2 8 }
+
+    hpnicfIPsecGlobalInDecryptFailsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of inbound decryption's which ended in
+             failure by all current and previous IPsec Phase-2 Tunnels."
+        ::= { hpnicfIPsecGlobalStatsV2 9 }
+
+    hpnicfIPsecGlobalOutOctetsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of octets sent by all current and previous
+             IPsec Phase-2 Tunnels.  This value is accumulated AFTER
+             determining whether or not the packet should be compressed."
+        ::= { hpnicfIPsecGlobalStatsV2 10 }
+
+    hpnicfIPsecGlobalOutUncompOctetsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of uncompressed octets sent by all current
+             and previous IPsec Phase-2 Tunnels.  This value is accumulated
+             BEFORE the packet is compressed."
+        ::= { hpnicfIPsecGlobalStatsV2 11 }
+
+    hpnicfIPsecGlobalOutPktsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of packets sent by all current and previous
+             IPsec Phase-2 Tunnels."
+        ::= { hpnicfIPsecGlobalStatsV2 12 }
+
+    hpnicfIPsecGlobalOutDropsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of packets dropped during sending process
+             by all current and previous IPsec Phase-2 Tunnels."
+        ::= { hpnicfIPsecGlobalStatsV2 13 }
+
+    hpnicfIPsecGlobalOutEncryptFailsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of outbound encryption's which ended in failure
+             by all current and previous IPsec Phase-2 Tunnels."
+        ::= { hpnicfIPsecGlobalStatsV2 14 }
+
+    hpnicfIPsecGlobalNoMemoryDropsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of packets dropped due to no enough memory
+             by all current and previous IPsec Phase-2 Tunnels."
+        ::= { hpnicfIPsecGlobalStatsV2 15 }
+
+    hpnicfIPsecGlobalNoFindSaDropsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of packets dropped due to not find SA by
+             all current and previous IPsec Phase-2 Tunnels."
+        ::= { hpnicfIPsecGlobalStatsV2 16 }
+
+    hpnicfIPsecGlobalQueueFullDropsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of packets dropped due to queue full by
+             all current and previous IPsec Phase-2 Tunnels."
+        ::= { hpnicfIPsecGlobalStatsV2 17 }
+
+    hpnicfIPsecGlobalInvalidLenDropsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of packets dropped due to invalid packet
+             length by all current and previous IPsec Phase-2 Tunnels."
+        ::= { hpnicfIPsecGlobalStatsV2 18 }
+
+    hpnicfIPsecGlobalTooLongDropsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of packets dropped due to too long packet by
+             all current and previous IPsec Phase-2 Tunnels."
+        ::= { hpnicfIPsecGlobalStatsV2 19 }
+
+    hpnicfIPsecGlobalInvalidSaDropsV2 OBJECT-TYPE
+        SYNTAX Counter64
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "The total number of packets dropped due to invalid SA by all
+             current and previous IPsec Phase-2 Tunnels."
+        ::= { hpnicfIPsecGlobalStatsV2 20 }
+
+-- ===============================================
+-- Begin the hpnicfIPsecTrapObjectV2.
+-- ===============================================
+
+    hpnicfIPsecTrapObjectV2 OBJECT IDENTIFIER ::= { hpnicfIPsecObjectsV2 7 }
+
+    hpnicfIPsecPolicyNameV2 OBJECT-TYPE
+        SYNTAX DisplayString
+        MAX-ACCESS accessible-for-notify
+        STATUS current
+        DESCRIPTION
+            "The IPsec policy name with a trap."
+        ::= { hpnicfIPsecTrapObjectV2 1 }
+
+    hpnicfIPsecPolicySeqNumV2 OBJECT-TYPE
+        SYNTAX Integer32
+        MAX-ACCESS accessible-for-notify
+        STATUS current
+        DESCRIPTION
+            "The IPsec policy sequence number with a trap."
+        ::= { hpnicfIPsecTrapObjectV2 2 }
+
+    hpnicfIPsecPolicySizeV2 OBJECT-TYPE
+        SYNTAX Integer32
+        MAX-ACCESS accessible-for-notify
+        STATUS current
+        DESCRIPTION
+            "The number of IPsec policies with a trap."
+        ::= { hpnicfIPsecTrapObjectV2 3 }
+
+-- ===============================================
+-- Begin the hpnicfIPsecTrapCntlV2.
+-- ===============================================
+
+
+    hpnicfIPsecTrapCntlV2 OBJECT IDENTIFIER ::= { hpnicfIPsecObjectsV2 8 }
+
+    hpnicfIPsecTrapGlobalCntlV2 OBJECT-TYPE
+        SYNTAX TruthValue
+        MAX-ACCESS read-write
+        STATUS current
+        DESCRIPTION
+            "Indicates whether all IPsec traps should be generated."
+        ::= { hpnicfIPsecTrapCntlV2 1 }
+
+    hpnicfIPsecTunnelStartTrapCntlV2 OBJECT-TYPE
+        SYNTAX TruthValue
+        MAX-ACCESS read-write
+        STATUS current
+        DESCRIPTION
+            "Indicates whether hpnicfIPsecTunnelStartV2 traps should be generated."
+        ::= { hpnicfIPsecTrapCntlV2 2 }
+
+    hpnicfIPsecTunnelStopTrapCntlV2 OBJECT-TYPE
+        SYNTAX TruthValue
+        MAX-ACCESS read-write
+        STATUS current
+        DESCRIPTION
+            "Indicates whether hpnicfIPsecTunnelStopV2 traps should be generated."
+        ::= { hpnicfIPsecTrapCntlV2 3 }
+
+    hpnicfIPsecNoSaTrapCntlV2 OBJECT-TYPE
+        SYNTAX TruthValue
+        MAX-ACCESS read-write
+        STATUS current
+        DESCRIPTION
+            "Indicates whether hpnicfIPsecNoSaFailureV2 traps should be generated."
+        ::= { hpnicfIPsecTrapCntlV2 4 }
+
+    hpnicfIPsecAuthFailureTrapCntlV2 OBJECT-TYPE
+        SYNTAX TruthValue
+        MAX-ACCESS read-write
+        STATUS current
+        DESCRIPTION
+            "Indicates whether hpnicfIPsecAuthFailFailureV2 traps should be generated."
+        ::= { hpnicfIPsecTrapCntlV2 5 }
+
+    hpnicfIPsecEncryFailureTrapCntlV2 OBJECT-TYPE
+        SYNTAX TruthValue
+        MAX-ACCESS read-write
+        STATUS current
+        DESCRIPTION
+            "Indicates whether hpnicfIPsecEncryFailFailureV2 traps should be generated."
+        ::= { hpnicfIPsecTrapCntlV2 6 }
+
+    hpnicfIPsecDecryFailureTrapCntlV2 OBJECT-TYPE
+        SYNTAX TruthValue
+        MAX-ACCESS read-write
+        STATUS current
+        DESCRIPTION
+            "Indicates whether hpnicfIPsecDecryFailFailureV2 traps should be generated."
+        ::= { hpnicfIPsecTrapCntlV2 7 }
+
+    hpnicfIPsecInvalidSaTrapCntlV2 OBJECT-TYPE
+        SYNTAX TruthValue
+        MAX-ACCESS read-write
+        STATUS current
+        DESCRIPTION
+            "Indicates whether hpnicfIPsecInvalidSaFailureV2 traps should be generated."
+        ::= { hpnicfIPsecTrapCntlV2 8 }
+
+    hpnicfIPsecPolicyAddTrapCntlV2 OBJECT-TYPE
+        SYNTAX TruthValue
+        MAX-ACCESS read-write
+        STATUS current
+        DESCRIPTION
+            "Indicates whether hpnicfIPsecPolicyAddV2 traps should be generated."
+        ::= { hpnicfIPsecTrapCntlV2 9 }
+
+    hpnicfIPsecPolicyDelTrapCntlV2 OBJECT-TYPE
+        SYNTAX TruthValue
+        MAX-ACCESS read-write
+        STATUS current
+        DESCRIPTION
+            "Indicates whether hpnicfIPsecPolicyDelV2 traps should be generated."
+        ::= { hpnicfIPsecTrapCntlV2 10 }
+
+    hpnicfIPsecPolicyAttachTrapCntlV2 OBJECT-TYPE
+        SYNTAX TruthValue
+        MAX-ACCESS read-write
+        STATUS current
+        DESCRIPTION
+            "Indicates whether hpnicfIPsecPolicyAttachV2 traps should be generated."
+        ::= { hpnicfIPsecTrapCntlV2 11 }
+
+    hpnicfIPsecPolicyDetachTrapCntlV2 OBJECT-TYPE
+        SYNTAX TruthValue
+        MAX-ACCESS read-write
+        STATUS current
+        DESCRIPTION
+            "Indicates whether hpnicfIPsecPolicyDetachV2 traps should be generated."
+        ::= { hpnicfIPsecTrapCntlV2 12 }
+
+-- ===============================================
+-- definition of traps.
+-- ===============================================
+
+    hpnicfIPsecTrapV2 OBJECT IDENTIFIER ::= { hpnicfIPsecObjectsV2 9 }
+
+    hpnicfIPsecNotificationsV2 OBJECT IDENTIFIER ::= { hpnicfIPsecTrapV2 0 }
+
+    hpnicfIPsecTunnelStartV2 NOTIFICATION-TYPE
+        OBJECTS {
+                    hpnicfIPsecTunIndexV2,
+                    hpnicfIPsecTunLocalAddrTypeV2,
+                    hpnicfIPsecTunLocalAddrV2,
+                    hpnicfIPsecTunRemoteAddrTypeV2,
+                    hpnicfIPsecTunRemoteAddrV2,
+                    hpnicfIPsecTunLifeTimeV2,
+                    hpnicfIPsecTunLifeSizeV2
+                }
+        STATUS     current
+        DESCRIPTION
+            "This notification is generated when an IPsec Phase-2
+             Tunnel is created."
+        ::= { hpnicfIPsecNotificationsV2 1 }
+
+    hpnicfIPsecTunnelStopV2 NOTIFICATION-TYPE
+        OBJECTS {
+                    hpnicfIPsecTunIndexV2,
+                    hpnicfIPsecTunLocalAddrTypeV2,
+                    hpnicfIPsecTunLocalAddrV2,
+                    hpnicfIPsecTunRemoteAddrTypeV2,
+                    hpnicfIPsecTunRemoteAddrV2,
+                    hpnicfIPsecTunActiveTimeV2
+                }
+        STATUS     current
+        DESCRIPTION
+            "This notification is generated when an IPsec Phase-2
+             Tunnel is deleted."
+        ::= { hpnicfIPsecNotificationsV2 2 }
+
+    hpnicfIPsecNoSaFailureV2 NOTIFICATION-TYPE
+        OBJECTS {
+                    hpnicfIPsecTunIndexV2,
+                    hpnicfIPsecTunLocalAddrTypeV2,
+                    hpnicfIPsecTunLocalAddrV2,
+                    hpnicfIPsecTunRemoteAddrTypeV2,
+                    hpnicfIPsecTunRemoteAddrV2
+                }
+        STATUS     current
+        DESCRIPTION
+            "This notification is generated when an IPsec Phase-2
+             non-existent SA error occurs."
+        ::= { hpnicfIPsecNotificationsV2 3 }
+
+    hpnicfIPsecAuthFailFailureV2 NOTIFICATION-TYPE
+        OBJECTS {
+                    hpnicfIPsecTunIndexV2,
+                    hpnicfIPsecTunLocalAddrTypeV2,
+                    hpnicfIPsecTunLocalAddrV2,
+                    hpnicfIPsecTunRemoteAddrTypeV2,
+                    hpnicfIPsecTunRemoteAddrV2
+                  }
+        STATUS     current
+        DESCRIPTION
+            "This notification is generated when the IPsec phase-2
+             authentication failure occurs."
+        ::= { hpnicfIPsecNotificationsV2 4 }
+
+    hpnicfIPsecEncryFailFailureV2 NOTIFICATION-TYPE
+        OBJECTS {
+                    hpnicfIPsecTunIndexV2,
+                    hpnicfIPsecTunLocalAddrTypeV2,
+                    hpnicfIPsecTunLocalAddrV2,
+                    hpnicfIPsecTunRemoteAddrTypeV2,
+                    hpnicfIPsecTunRemoteAddrV2
+                }
+        STATUS     current
+        DESCRIPTION
+            "This notification is generated when the IPsec phase-2
+             tunnel has an encrypting failure."
+        ::= { hpnicfIPsecNotificationsV2 5 }
+
+    hpnicfIPsecDecryFailFailureV2 NOTIFICATION-TYPE
+        OBJECTS {
+                    hpnicfIPsecTunIndexV2,
+                    hpnicfIPsecTunLocalAddrTypeV2,
+                    hpnicfIPsecTunLocalAddrV2,
+                    hpnicfIPsecTunRemoteAddrTypeV2,
+                    hpnicfIPsecTunRemoteAddrV2
+                }
+        STATUS     current
+        DESCRIPTION
+            "This notification is generated when the IPsec phase-2
+             tunnel has a decrypting failure."
+        ::= { hpnicfIPsecNotificationsV2 6 }
+
+    hpnicfIPsecInvalidSaFailureV2 NOTIFICATION-TYPE
+        OBJECTS {
+                    hpnicfIPsecTunIndexV2,
+                    hpnicfIPsecSaIndexV2,
+                    hpnicfIPsecTunLocalAddrTypeV2,
+                    hpnicfIPsecTunLocalAddrV2,
+                    hpnicfIPsecTunRemoteAddrTypeV2,
+                    hpnicfIPsecTunRemoteAddrV2,
+                    hpnicfIPsecSaSpiValueV2
+                }
+        STATUS     current
+        DESCRIPTION
+            "This notification is generated when the IPsec phase-2
+             invalid SA failure occurs."
+        ::= { hpnicfIPsecNotificationsV2 7 }
+
+    hpnicfIPsecPolicyAddV2 NOTIFICATION-TYPE
+        OBJECTS { hpnicfIPsecPolicyNameV2,
+                  hpnicfIPsecPolicySeqNumV2,
+                  hpnicfIPsecPolicySizeV2
+                }
+        STATUS     current
+        DESCRIPTION
+            "This notification is generated when an IPsec policy is added."
+        ::= { hpnicfIPsecNotificationsV2 8 }
+
+    hpnicfIPsecPolicyDelV2 NOTIFICATION-TYPE
+        OBJECTS { hpnicfIPsecPolicyNameV2,
+                  hpnicfIPsecPolicySeqNumV2,
+                  hpnicfIPsecPolicySizeV2
+                }
+        STATUS     current
+        DESCRIPTION
+            "This notification is generated when an IPsec policy is deleted."
+        ::= { hpnicfIPsecNotificationsV2 9 }
+
+    hpnicfIPsecPolicyAttachV2 NOTIFICATION-TYPE
+        OBJECTS { hpnicfIPsecPolicyNameV2,
+                  hpnicfIPsecPolicySizeV2,
+                  ifIndex
+                }
+        STATUS     current
+        DESCRIPTION
+            "This notification is generated when an IPsec policy is attached
+             with one interface."
+        ::= { hpnicfIPsecNotificationsV2 10 }
+
+    hpnicfIPsecPolicyDetachV2 NOTIFICATION-TYPE
+        OBJECTS { hpnicfIPsecPolicyNameV2,
+                  hpnicfIPsecPolicySizeV2,
+                  ifIndex
+                }
+        STATUS     current
+        DESCRIPTION
+            "This notification is generated when an IPsec policy is detached
+             with one interface."
+        ::= { hpnicfIPsecNotificationsV2 11 }
+
+-- ===============================================
+-- Conformance Information
+-- ===============================================
+    hpnicfIPsecConformanceV2   OBJECT IDENTIFIER
+        ::= { hpnicfIPsecMonitorV2 2 }
+    hpnicfIPsecCompliancesV2   OBJECT IDENTIFIER
+        ::= { hpnicfIPsecConformanceV2 1 }
+    hpnicfIPsecGroupsV2        OBJECT IDENTIFIER
+        ::= { hpnicfIPsecConformanceV2 2 }
+
+-- ===============================================
+-- Compliance Statements
+-- ===============================================
+    hpnicfIPsecComplianceV2 MODULE-COMPLIANCE
+        STATUS current
+        DESCRIPTION
+            " "
+        MODULE -- this module
+        MANDATORY-GROUPS
+            {
+                hpnicfIPsecScalarObjectsGroupV2,
+                hpnicfIPsecTunnelTableGroupV2,
+                hpnicfIPsecTunnelStatGroupV2,
+                hpnicfIPsecSaGroupV2,
+                hpnicfIPsecTrafficTableGroupV2,
+                hpnicfIPsecGlobalStatsGroupV2,
+                hpnicfIPsecTrapObjectGroupV2,
+                hpnicfIPsecTrapCntlGroupV2,
+                hpnicfIPsecTrapGroupV2
+            }
+        ::= { hpnicfIPsecCompliancesV2 1 }
+
+    hpnicfIPsecScalarObjectsGroupV2 OBJECT-GROUP
+        OBJECTS {
+                    hpnicfIPsecMIBVersion
+                }
+        STATUS current
+        DESCRIPTION
+            "The group contains all of scalar objects of the MIB."
+        ::= { hpnicfIPsecGroupsV2 1 }
+
+    hpnicfIPsecTunnelTableGroupV2 OBJECT-GROUP
+        OBJECTS {
+                    hpnicfIPsecTunIfIndexV2,
+                    hpnicfIPsecTunIKETunnelIndexV2,
+                    hpnicfIPsecTunIKETunLocalIDTypeV2,
+                    hpnicfIPsecTunIKETunLocalIDVal1V2,
+                    hpnicfIPsecTunIKETunLocalIDVal2V2,
+                    hpnicfIPsecTunIKETunRemoteIDTypeV2,
+                    hpnicfIPsecTunIKETunRemoteIDVal1V2,
+                    hpnicfIPsecTunIKETunRemoteIDVal2V2,
+                    hpnicfIPsecTunLocalAddrTypeV2,
+                    hpnicfIPsecTunLocalAddrV2,
+                    hpnicfIPsecTunRemoteAddrTypeV2,
+                    hpnicfIPsecTunRemoteAddrV2,
+                    hpnicfIPsecTunKeyTypeV2,
+                    hpnicfIPsecTunEncapModeV2,
+                    hpnicfIPsecTunInitiatorV2,
+                    hpnicfIPsecTunLifeSizeV2,
+                    hpnicfIPsecTunLifeTimeV2,
+                    hpnicfIPsecTunRemainTimeV2,
+                    hpnicfIPsecTunActiveTimeV2,
+                    hpnicfIPsecTunRemainSizeV2,
+                    hpnicfIPsecTunTotalRefreshesV2,
+                    hpnicfIPsecTunCurrentSaInstancesV2,
+                    hpnicfIPsecTunInSaEncryptAlgoV2,
+                    hpnicfIPsecTunInSaAhAuthAlgoV2,
+                    hpnicfIPsecTunInSaEspAuthAlgoV2,
+                    hpnicfIPsecTunDiffHellmanGrpV2,
+                    hpnicfIPsecTunOutSaEncryptAlgoV2,
+                    hpnicfIPsecTunOutSaAhAuthAlgoV2,
+                    hpnicfIPsecTunOutSaEspAuthAlgoV2,
+                    hpnicfIPsecTunPolicyNameV2,
+                    hpnicfIPsecTunPolicyNumV2,
+                    hpnicfIPsecTunStatusV2
+                }
+        STATUS current
+        DESCRIPTION
+            "The group contains the IPsec tunnel's property information."
+        ::= { hpnicfIPsecGroupsV2 2 }
+
+    hpnicfIPsecTunnelStatGroupV2 OBJECT-GROUP
+        OBJECTS {
+                    hpnicfIPsecTunInOctetsV2,
+                    hpnicfIPsecTunInDecompOctetsV2,
+                    hpnicfIPsecTunInPktsV2,
+                    hpnicfIPsecTunInDropPktsV2,
+                    hpnicfIPsecTunInReplayDropPktsV2,
+                    hpnicfIPsecTunInAuthFailsV2,
+                    hpnicfIPsecTunInDecryptFailsV2,
+                    hpnicfIPsecTunOutOctetsV2,
+                    hpnicfIPsecTunOutUncompOctetsV2,
+                    hpnicfIPsecTunOutPktsV2,
+                    hpnicfIPsecTunOutDropPktsV2,
+                    hpnicfIPsecTunOutEncryptFailsV2,
+                    hpnicfIPsecTunNoMemoryDropPktsV2,
+                    hpnicfIPsecTunQueueFullDropPktsV2,
+                    hpnicfIPsecTunInvalidLenDropPktsV2,
+                    hpnicfIPsecTunTooLongDropPktsV2,
+                    hpnicfIPsecTunInvalidSaDropPktsV2
+                }
+        STATUS current
+        DESCRIPTION
+            "The group contains the IPsec tunnel's statistic information."
+        ::= { hpnicfIPsecGroupsV2 3 }
+
+    hpnicfIPsecSaGroupV2 OBJECT-GROUP
+        OBJECTS {
+                    hpnicfIPsecSaDirectionV2,
+                    hpnicfIPsecSaSpiValueV2,
+                    hpnicfIPsecSaSecProtocolV2,
+                    hpnicfIPsecSaEncryptAlgoV2,
+                    hpnicfIPsecSaAuthAlgoV2,
+                    hpnicfIPsecSaStatusV2
+                }
+        STATUS current
+        DESCRIPTION
+            "The group contains the SA's property information."
+        ::= { hpnicfIPsecGroupsV2 4 }
+
+    hpnicfIPsecTrafficTableGroupV2 OBJECT-GROUP
+        OBJECTS {
+            hpnicfIPsecTrafficLocalTypeV2,
+            hpnicfIPsecTrafficLocalAddr1TypeV2,
+            hpnicfIPsecTrafficLocalAddr1V2,
+            hpnicfIPsecTrafficLocalAddr2TypeV2,
+            hpnicfIPsecTrafficLocalAddr2V2,
+            hpnicfIPsecTrafficLocalProtocol1V2,
+            hpnicfIPsecTrafficLocalProtocol2V2,
+            hpnicfIPsecTrafficLocalPort1V2,
+            hpnicfIPsecTrafficLocalPort2V2,
+            hpnicfIPsecTrafficRemoteTypeV2,
+            hpnicfIPsecTrafficRemAddr1TypeV2,
+            hpnicfIPsecTrafficRemAddr1V2,
+            hpnicfIPsecTrafficRemAddr2TypeV2,
+            hpnicfIPsecTrafficRemAddr2V2,
+            hpnicfIPsecTrafficRemoPro1V2,
+            hpnicfIPsecTrafficRemoPro2V2,
+            hpnicfIPsecTrafficRemPort1V2,
+            hpnicfIPsecTrafficRemPort2V2
+        }
+        STATUS current
+        DESCRIPTION
+            "The group contains the property information of the
+             data flow protected by IPsec tunnel."
+        ::= { hpnicfIPsecGroupsV2 5 }
+
+    hpnicfIPsecGlobalStatsGroupV2 OBJECT-GROUP
+        OBJECTS {
+                    hpnicfIPsecGlobalActiveTunnelsV2,
+                    hpnicfIPsecGlobalActiveSasV2,
+                    hpnicfIPsecGlobalInOctetsV2,
+                    hpnicfIPsecGlobalInDecompOctetsV2,
+                    hpnicfIPsecGlobalInPktsV2,
+                    hpnicfIPsecGlobalInDropsV2,
+                    hpnicfIPsecGlobalInReplayDropsV2,
+                    hpnicfIPsecGlobalInAuthFailsV2,
+                    hpnicfIPsecGlobalInDecryptFailsV2,
+                    hpnicfIPsecGlobalOutOctetsV2,
+                    hpnicfIPsecGlobalOutUncompOctetsV2,
+                    hpnicfIPsecGlobalOutPktsV2,
+                    hpnicfIPsecGlobalOutDropsV2,
+                    hpnicfIPsecGlobalOutEncryptFailsV2,
+                    hpnicfIPsecGlobalNoMemoryDropsV2,
+                    hpnicfIPsecGlobalNoFindSaDropsV2,
+                    hpnicfIPsecGlobalQueueFullDropsV2,
+                    hpnicfIPsecGlobalInvalidLenDropsV2,
+                    hpnicfIPsecGlobalTooLongDropsV2,
+                    hpnicfIPsecGlobalInvalidSaDropsV2
+                }
+        STATUS current
+        DESCRIPTION
+            "The group contains all of the IPsec tunnel's statistic
+             information."
+        ::= { hpnicfIPsecGroupsV2 6 }
+
+    hpnicfIPsecTrapObjectGroupV2 OBJECT-GROUP
+        OBJECTS {
+                    hpnicfIPsecPolicyNameV2,
+                    hpnicfIPsecPolicySeqNumV2,
+                    hpnicfIPsecPolicySizeV2
+                }
+        STATUS current
+        DESCRIPTION
+            "The group contains all of trap objects of IPsec tunnels."
+        ::= { hpnicfIPsecGroupsV2 7 }
+
+    hpnicfIPsecTrapCntlGroupV2 OBJECT-GROUP
+        OBJECTS {
+                    hpnicfIPsecTrapGlobalCntlV2,
+                    hpnicfIPsecTunnelStartTrapCntlV2,
+                    hpnicfIPsecTunnelStopTrapCntlV2,
+                    hpnicfIPsecNoSaTrapCntlV2,
+                    hpnicfIPsecAuthFailureTrapCntlV2,
+                    hpnicfIPsecEncryFailureTrapCntlV2,
+                    hpnicfIPsecDecryFailureTrapCntlV2,
+                    hpnicfIPsecInvalidSaTrapCntlV2,
+                    hpnicfIPsecPolicyAddTrapCntlV2,
+                    hpnicfIPsecPolicyDelTrapCntlV2,
+                    hpnicfIPsecPolicyAttachTrapCntlV2,
+                    hpnicfIPsecPolicyDetachTrapCntlV2
+                }
+        STATUS current
+        DESCRIPTION
+            "The group contains all of trap switches of IPsec tunnels."
+        ::= { hpnicfIPsecGroupsV2 8 }
+
+    hpnicfIPsecTrapGroupV2 NOTIFICATION-GROUP
+        NOTIFICATIONS {
+                          hpnicfIPsecTunnelStartV2,
+                          hpnicfIPsecTunnelStopV2,
+                          hpnicfIPsecNoSaFailureV2,
+                          hpnicfIPsecAuthFailFailureV2,
+                          hpnicfIPsecEncryFailFailureV2,
+                          hpnicfIPsecDecryFailFailureV2,
+                          hpnicfIPsecInvalidSaFailureV2,
+                          hpnicfIPsecPolicyAddV2,
+                          hpnicfIPsecPolicyDelV2,
+                          hpnicfIPsecPolicyAttachV2,
+                          hpnicfIPsecPolicyDetachV2
+                      }
+        STATUS current
+        DESCRIPTION
+            "The group contains all of trap of IPsec tunnels."
+        ::= { hpnicfIPsecGroupsV2 9 }
+
+
+END
+

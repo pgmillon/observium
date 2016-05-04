@@ -1,0 +1,1583 @@
+-- F10-FIPSNOOPING-MIB.my: FIP Snooping mib
+
+-- Dell Networking OS FIP Snooping Proprietary MIB Definition
+
+-- This SNMP Management Information Specification
+-- explains the proprietary MIB implemented for the FIP Snooping Feature.
+
+F10-FIPSNOOPING-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE,
+    Unsigned32, Counter32, Integer32                  FROM SNMPv2-SMI
+    MacAddress, DateAndTime			      FROM SNMPv2-TC
+    OBJECT-GROUP, MODULE-COMPLIANCE, 
+    NOTIFICATION-GROUP				      FROM SNMPv2-CONF
+    ifIndex					      FROM IF-MIB
+    dot1qVlanIndex		                      FROM Q-BRIDGE-MIB
+    f10Mgmt					      FROM FORCE10-SMI;
+
+    dF10FipSnooping MODULE-IDENTITY
+        LAST-UPDATED    "201112080000Z" -- Dec 8, 2011
+        ORGANIZATION    "Dell Inc."
+        CONTACT-INFO    "http://www.force10networks.com/support"
+        DESCRIPTION
+          "The Dell Networking OS Private MIB for FIP Snooping feature.
+
+           This MIB module is for configuring FIP snooping related objects
+		   and monitoring related FCoE sessions. 
+        
+           Terminologies used in this MIB are defined by the T11 FCoE
+           standard. Refer to www.t11.org.
+
+           This MIB also supports configuration of the following objects:
+           - Port role configuration to identify FCF facing or FCF   
+		     connected interface
+           - FC-MAP value used by the FCF operating in FPMA mode
+           "
+    REVISION        "201112080000Z" -- Dec 8, 2011
+    DESCRIPTION
+        "Initial version of this MIB module."
+    ::= { f10Mgmt 22 }
+
+--*********************************************************************
+-- FIP Snooping related objects used to configure FIP Snooping
+-- objects on Ethernet bridges connected to ENodes
+--*********************************************************************
+
+--*********************************************************************
+--   dF10FIPSCfgGroup
+--*********************************************************************
+dF10FIPSCfgGroup OBJECT IDENTIFIER ::= { dF10FipSnooping 1 }
+
+dF10FIPSAdminMode OBJECT-TYPE
+    SYNTAX      INTEGER {
+                     disable(0),
+                     enable(1)
+                  }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+               "This enables or disables FIP Snooping on the system."
+    DEFVAL { disable }
+    ::= { dF10FIPSCfgGroup 1 }
+
+dF10FIPSFCMAP OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE (3))
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+               "This object configures the FC-MAP value on the system.
+		Default value is 0x0EFC00."
+    DEFVAL { "0x0EFC00" }
+    ::= { dF10FIPSCfgGroup 2 }
+
+dF10FIPSStatsClear OBJECT-TYPE
+         SYNTAX      INTEGER {
+                     clear(0),
+                     ignore(1)
+                  }
+         MAX-ACCESS  read-write
+         STATUS      current
+         DESCRIPTION
+                     "Clear all FIP Snooping statistics in the system. 
+                     This is write-only value. It always returns '0' on request."
+		 
+         ::= { dF10FIPSCfgGroup 5 }
+		 
+--*********************************************************************
+--   dF10FIPSVlanCfgTable
+--   FIP Snooping VLAN Configuration table
+--   Configure FC-MAP, enable/disable
+--*********************************************************************
+    dF10FIPSVlanCfgTable OBJECT-TYPE
+         SYNTAX      SEQUENCE OF DF10FIPSVlanCfgEntry
+         MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION
+                     "A table of the FIP Snooping Vlan configuration 
+					 entries."
+         ::= { dF10FIPSCfgGroup 3 }
+
+    dF10FIPSVlanCfgEntry OBJECT-TYPE
+         SYNTAX      DF10FIPSVlanCfgEntry
+         MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION
+                     "Represents entry for a FIP Snooping Vlan."
+         INDEX       { dot1qVlanIndex }
+         ::= { dF10FIPSVlanCfgTable 1 }
+
+    DF10FIPSVlanCfgEntry ::= SEQUENCE {
+          dF10FIPSVlanAdminMode
+              INTEGER,
+          dF10FIPSVlanFCMAP
+              OCTET STRING,
+          dF10FIPSVlanStatsClear
+              INTEGER
+          }
+
+    dF10FIPSVlanAdminMode OBJECT-TYPE
+         SYNTAX      INTEGER {
+                     disable(0),
+                     enable(1)
+                  }
+         MAX-ACCESS  read-write
+         STATUS      current
+         DESCRIPTION
+                     "This enables or disables FIP Snooping on a selected Vlan interface."
+         DEFVAL { disable }
+         ::= { dF10FIPSVlanCfgEntry 1 }
+
+    dF10FIPSVlanFCMAP OBJECT-TYPE
+        SYNTAX          OCTET STRING (SIZE (3))
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+                        "This object configures the FC-MAP value associated with the 
+                        FIP snooping Vlan. Default value is 0x0EFC00."
+        DEFVAL          { "0x0EFC00" } 
+
+        ::= { dF10FIPSVlanCfgEntry 2 }
+
+     dF10FIPSVlanStatsClear OBJECT-TYPE
+         SYNTAX      INTEGER {
+                     clear(0),
+                     ignore(1)
+                  }
+         MAX-ACCESS  read-write
+         STATUS      current
+         DESCRIPTION
+                     "Clear FIP Snooping statistics on this Vlan.
+                     This is write-only value. It always returns '0' on request"
+
+		 
+         ::= { dF10FIPSVlanCfgEntry 3 }
+
+--*********************************************************************
+--   dF10FIPSIntfTable
+--   FIP Snooping Interface Configuration table
+--   Configure trusted FCF interface mode
+--*********************************************************************
+    dF10FIPSIntfTable OBJECT-TYPE
+         SYNTAX      SEQUENCE OF DF10FIPSIntfEntry
+         MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION
+                     "A table providing configuration for trusted FCF 
+                     interface mode."
+
+         ::= { dF10FIPSCfgGroup 4 }
+
+    dF10FIPSIntfEntry OBJECT-TYPE
+         SYNTAX      DF10FIPSIntfEntry
+         MAX-ACCESS  not-accessible
+         STATUS      current
+         DESCRIPTION
+                     "FCF trust mode configuration for an interface."
+         INDEX   { ifIndex }
+         ::= { dF10FIPSIntfTable 1 }
+
+    DF10FIPSIntfEntry::=
+         SEQUENCE {
+            dF10FIPSIntfPortModeFcf 
+                INTEGER,
+            dF10FIPSIntfStatsClear 
+                INTEGER
+         }
+
+    dF10FIPSIntfPortModeFcf OBJECT-TYPE
+         SYNTAX      INTEGER {
+                       disable(0),
+                       fcf(1),
+                       fcoetrusted(2)
+                       }
+         MAX-ACCESS  read-write
+         STATUS      current
+         DESCRIPTION
+                     "Sets/disables FCF port mode on an interface."
+         DEFVAL { disable }
+
+         ::= { dF10FIPSIntfEntry 2 }
+
+     dF10FIPSIntfStatsClear OBJECT-TYPE
+         SYNTAX      INTEGER {
+                     clear(0),
+                     ignore(1)
+                  }
+         MAX-ACCESS  read-write
+         STATUS      current
+         DESCRIPTION
+                     "Clear FIP Snooping statistics on this interface.
+                     This is write-only value. It always returns '0' on request"
+
+		 
+	 ::= { dF10FIPSIntfEntry 3 }
+
+--*********************************************************************
+-- FIP Snooping related objects used to monitor FIP Snooping
+-- sessions, ENodes and FCFs on Ethernet bridges connected to ENodes
+--*********************************************************************
+
+--*********************************************************************
+--   dF10FIPSStatusGroup
+--*********************************************************************
+dF10FIPSStatusGroup OBJECT IDENTIFIER ::= { dF10FipSnooping 2 }
+----------------------------------------------------------------------------
+--      FIP Snooping Sesh Table
+----------------------------------------------------------------------------
+        dF10FIPSSessionTable OBJECT-TYPE
+            SYNTAX       SEQUENCE OF DF10FIPSSessionEntry
+            MAX-ACCESS   not-accessible
+            STATUS       current
+            DESCRIPTION "A table for FIP Snooping Session entries."
+            ::= { dF10FIPSStatusGroup 1 }
+
+        dF10FIPSSessionEntry OBJECT-TYPE
+            SYNTAX DF10FIPSSessionEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION "Represents an entry in FIP Snooping session table."
+            INDEX       { dF10FIPSSessionVlanIndex, dF10FIPSSessionFCFMacAddr, 
+                          dF10FIPSSessionENodeMacAddr, dF10FIPSSessionLoginType,
+                          dF10FIPSFCoEMacAddr, dF10FIPSSessionTentativeIndex,
+                          dF10FIPSSessionFCID}
+            ::={ dF10FIPSSessionTable 1}
+
+        DF10FIPSSessionEntry ::=
+                SEQUENCE {
+                dF10FIPSSessionVlanIndex
+                        Unsigned32,
+                dF10FIPSSessionFCFMacAddr
+                        MacAddress,
+                dF10FIPSSessionENodeMacAddr
+                        MacAddress,
+                dF10FIPSSessionLoginType
+                        INTEGER,
+	        dF10FIPSFCoEMacAddr
+			MacAddress,
+		dF10FIPSSessionTentativeIndex
+			Unsigned32,
+		dF10FIPSSessionFCID
+			OCTET STRING,
+                dF10FIPSSessionENodeIntf
+                        Unsigned32,
+                dF10FIPSSessionFCFIntf
+                        Unsigned32,
+                dF10FIPSSessionTime
+                        DateAndTime,
+		dF10FIPSSessionExpiryTime
+		        Integer32,
+                dF10FIPSSessionState
+                        OCTET STRING
+                }
+
+        dF10FIPSSessionVlanIndex OBJECT-TYPE
+                SYNTAX     Unsigned32
+                MAX-ACCESS not-accessible
+                STATUS current
+                DESCRIPTION
+                        "FCoE Vlan in which the session is established."
+                ::={dF10FIPSSessionEntry 1 }
+
+        dF10FIPSSessionFCFMacAddr OBJECT-TYPE
+                SYNTAX  MacAddress
+                MAX-ACCESS not-accessible
+                STATUS current
+                DESCRIPTION
+                        "MAC address of the FCF to which the session is established."
+            ::={ dF10FIPSSessionEntry 2 }
+
+        dF10FIPSSessionENodeMacAddr OBJECT-TYPE
+                SYNTAX  MacAddress
+                MAX-ACCESS not-accessible
+                STATUS current
+                DESCRIPTION
+                        "MAC address of the ENode from which the session originated."
+            ::={ dF10FIPSSessionEntry 3 }
+
+	dF10FIPSSessionLoginType OBJECT-TYPE
+              SYNTAX  INTEGER {
+                         flogi(0),
+                         fdisc(1)
+                      }
+              MAX-ACCESS  not-accessible
+              STATUS  current
+              DESCRIPTION
+                      "Type of login requested by ENode."
+              ::= { dF10FIPSSessionEntry 4 }
+
+	dF10FIPSFCoEMacAddr OBJECT-TYPE
+                SYNTAX  MacAddress
+                MAX-ACCESS not-accessible
+                STATUS current
+                DESCRIPTION
+                        "MAC address assigned to the VN_Port on the ENode."
+            ::={ dF10FIPSSessionEntry 5 }
+				
+	dF10FIPSSessionTentativeIndex OBJECT-TYPE
+                SYNTAX  Unsigned32
+                MAX-ACCESS not-accessible
+                STATUS current
+                DESCRIPTION
+                        "Index to the tentavtive session."
+            ::={ dF10FIPSSessionEntry 6 }
+						
+        dF10FIPSSessionFCID OBJECT-TYPE
+                SYNTAX  OCTET STRING (SIZE(3)) -- (00:ee:dd)
+                MAX-ACCESS not-accessible
+                STATUS current
+                DESCRIPTION
+                        "FCID created by FCF for this virtual session."
+            ::={ dF10FIPSSessionEntry 7 }
+
+        dF10FIPSSessionENodeIntf OBJECT-TYPE
+                SYNTAX  Unsigned32
+                MAX-ACCESS read-only
+                STATUS current
+                DESCRIPTION
+                        "Interface to which the ENode is connected."
+            ::={ dF10FIPSSessionEntry 8 }
+
+        dF10FIPSSessionFCFIntf OBJECT-TYPE
+                SYNTAX  Unsigned32
+                MAX-ACCESS read-only
+                STATUS current
+                DESCRIPTION
+                        "Interface on which the FCF is discovered."
+            ::={ dF10FIPSSessionEntry 9 }
+
+        dF10FIPSSessionTime OBJECT-TYPE
+                SYNTAX  DateAndTime
+                MAX-ACCESS read-only
+                STATUS current
+                DESCRIPTION
+                        "Time elapsed after this successful virtual session is
+                        established by ENode with FCF."
+            ::={ dF10FIPSSessionEntry 10 }
+
+        dF10FIPSSessionExpiryTime OBJECT-TYPE
+                SYNTAX  Integer32 (0..450)
+                MAX-ACCESS read-only
+                STATUS current
+                DESCRIPTION
+                        "This is virtual connection/session expiry interval.
+			This is used to monitor the status of the session.
+			Session entry is removed when the value reaches 0.
+			This value is reset to 450 secs	(5*90secs) every
+			time an associated VN_Port FKA is received from the
+			ENode. This is ignored (marked as NA) if the
+			D-bit is set to one in the FCF Discovery
+			Advertisements."
+						
+            ::={ dF10FIPSSessionEntry 11 }
+
+        dF10FIPSSessionState OBJECT-TYPE
+                SYNTAX  OCTET STRING 
+                MAX-ACCESS read-only
+                STATUS current
+                DESCRIPTION
+                        "This is the state of the virtual session. The
+			state is displayed as TENTATIVE during the
+			process of ENode login to FCF (using FLOGI or
+			FDESC). It displays ACTIVE after ENode and FCF
+			establish a successful virtual connection."
+						
+            ::={ dF10FIPSSessionEntry 12 }
+			
+----------------------------------------------------------------------------
+--      FIP Snooping Enode Information
+----------------------------------------------------------------------------
+        dF10FIPSENodeTable OBJECT-TYPE
+            SYNTAX       SEQUENCE OF DF10FIPSENodeEntry
+            MAX-ACCESS   not-accessible
+            STATUS       current
+            DESCRIPTION "A table for FIP Snooping discovered ENode entries."
+            ::= { dF10FIPSStatusGroup 2 }
+			
+        dF10FIPSENodeEntry OBJECT-TYPE
+            SYNTAX DF10FIPSENodeEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION "Represents an entry in FIP Snooping ENodes table."
+            INDEX       { dF10FIPSENodeVlanIndex, dF10FIPSENodeMacAddr }
+            ::={ dF10FIPSENodeTable 1}
+
+        DF10FIPSENodeEntry ::=
+                SEQUENCE {
+                dF10FIPSENodeVlanIndex
+                        Unsigned32,
+                dF10FIPSENodeMacAddr
+                        MacAddress,
+                dF10FIPSENodeIntf
+                        Unsigned32,
+	        dF10FIPSENodeNameID
+			OCTET STRING,
+                dF10FIPSENodeMaxFCoESize
+                        Unsigned32,
+                dF10FIPSENodeConnectedFCFsCount
+                        Unsigned32,
+                dF10FIPSENodeActiveSessions
+                        Unsigned32,
+                dF10FIPSENodeWaitingSessions
+                        Unsigned32,
+		dF10FIPSENodeRejectedSessions
+			Unsigned32,
+		dF10FIPSENodeTimeSinceDiscovered
+			DateAndTime
+                }
+
+        dF10FIPSENodeVlanIndex OBJECT-TYPE
+                SYNTAX     Unsigned32
+                MAX-ACCESS not-accessible
+                STATUS current
+                DESCRIPTION
+                        "FCoE Vlan in which the enode is present."
+                ::={dF10FIPSENodeEntry 1 }
+
+        dF10FIPSENodeMacAddr OBJECT-TYPE
+                SYNTAX  MacAddress
+                MAX-ACCESS not-accessible
+                STATUS current
+                DESCRIPTION
+                        "MAC address of the ENode."
+                ::={dF10FIPSENodeEntry 2 }
+
+        dF10FIPSENodeIntf OBJECT-TYPE
+                SYNTAX     Unsigned32
+                MAX-ACCESS read-only
+                STATUS current
+                DESCRIPTION
+                        "Interface to which the ENode is connected."
+                ::={dF10FIPSENodeEntry 3 }
+				
+        dF10FIPSENodeNameID OBJECT-TYPE
+                SYNTAX     OCTET STRING
+                MAX-ACCESS read-only
+                STATUS current
+                DESCRIPTION
+                        "Name ID of the ENode."
+                ::={dF10FIPSENodeEntry 4 }
+				
+        dF10FIPSENodeMaxFCoESize OBJECT-TYPE
+                SYNTAX     Unsigned32
+                MAX-ACCESS read-only
+                STATUS current
+                DESCRIPTION
+                        "Maximum FCoE PDU size the ENode MAC intends to use
+			for FCoE traffic. This is equivalent to the maximum
+			Ethernet frame payload the ENode intends to send."
+                ::={dF10FIPSENodeEntry 5 }
+				
+        dF10FIPSENodeConnectedFCFsCount OBJECT-TYPE
+                SYNTAX     Unsigned32
+                MAX-ACCESS read-only
+                STATUS current
+                DESCRIPTION
+                        "Number of FCFs to which this ENode has FCoE
+			virtual connections established."
+                ::={dF10FIPSENodeEntry 6 }
+
+	dF10FIPSENodeActiveSessions OBJECT-TYPE
+                SYNTAX     Unsigned32
+                MAX-ACCESS read-only
+                STATUS current
+                DESCRIPTION
+                        "Number of FCoE virtual connections successfully 
+			established by the ENode with FCFs."
+                ::={dF10FIPSENodeEntry 7 }
+				
+        dF10FIPSENodeWaitingSessions OBJECT-TYPE
+                SYNTAX     Unsigned32
+                MAX-ACCESS read-only
+                STATUS current
+                DESCRIPTION
+                        "Number of FCoE virtual connections initiated by ENode
+                        and waiting for FCF acceptance."
+                ::={dF10FIPSENodeEntry 8 }
+				
+        dF10FIPSENodeRejectedSessions OBJECT-TYPE
+                SYNTAX     Unsigned32
+                MAX-ACCESS read-only
+                STATUS current
+                DESCRIPTION
+                        "Number of virtual connections originted from ENode 
+                        which are rejected by FCFs."
+                ::={dF10FIPSENodeEntry 9 }
+				
+        dF10FIPSENodeTimeSinceDiscovered OBJECT-TYPE
+                SYNTAX     DateAndTime
+                MAX-ACCESS read-only
+                STATUS current
+                DESCRIPTION
+                        "Time elapsed since the ENode is discovered."
+                ::={dF10FIPSENodeEntry 10 }
+				
+------------------------------------------------------------------------------
+--        FCF {Key: Vlan, FCF-MAC only}
+----------------------------------------------------------------------------
+        dF10FIPSFCFTable OBJECT-TYPE
+            SYNTAX       SEQUENCE OF DF10FIPSFCFEntry
+            MAX-ACCESS   not-accessible
+            STATUS       current
+            DESCRIPTION "A table for FIP Snooping discovered FCF entries."
+            ::= { dF10FIPSStatusGroup 3 }
+
+        dF10FIPSFCFEntry OBJECT-TYPE
+            SYNTAX DF10FIPSFCFEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION "Represents an entry in FIP Snooping FCFs table."
+            INDEX       { dF10FIPSFCFVlanIndex, dF10FIPSFCFMacAddr }
+            ::={ dF10FIPSFCFTable 1}
+
+        DF10FIPSFCFEntry ::=
+                SEQUENCE {
+                dF10FIPSFCFVlanIndex
+                        Unsigned32,
+                dF10FIPSFCFMacAddr
+                        MacAddress,
+                dF10FIPSFCFIntf
+                        Unsigned32,
+		dF10FIPSFCFNameID
+			OCTET STRING,
+		dF10FIPSFCFFabricName
+			OCTET STRING,
+                dF10FIPSFCFAddressingMode
+                        INTEGER,
+		dF10FIPSFCFPriority
+			Integer32,
+		dF10FIPSFCFDbit
+			Integer32,
+		dF10FIPSFCFIsAvailableForLogin
+			Integer32,
+		dF10FIPSFCFConfiguredFKA
+			Integer32,
+		dF10FIPSFCFTimeSinceDiscovered
+			DateAndTime,
+                dF10FIPSFCFConnectedENodesCount
+                        Unsigned32,
+                dF10FIPSFCFSessions
+                        Unsigned32,
+                dF10FIPSFCFExpiryTime
+                        Unsigned32
+                }
+
+        dF10FIPSFCFVlanIndex OBJECT-TYPE
+                SYNTAX     Unsigned32
+                MAX-ACCESS not-accessible
+                STATUS current
+                DESCRIPTION
+                        "FCoE Vlan in which the FCF is present."
+                ::={dF10FIPSFCFEntry 1 }
+
+        dF10FIPSFCFMacAddr OBJECT-TYPE
+                SYNTAX  MacAddress
+                MAX-ACCESS not-accessible
+                STATUS current
+                DESCRIPTION
+                        "MAC address of the FCF."
+                ::={ dF10FIPSFCFEntry 2 }
+
+        dF10FIPSFCFIntf OBJECT-TYPE
+                SYNTAX     Unsigned32
+                MAX-ACCESS read-only
+                STATUS current
+                DESCRIPTION
+                        "Inteface on which FCF is discovered."
+                ::={ dF10FIPSFCFEntry 3 }
+				
+        dF10FIPSFCFNameID OBJECT-TYPE
+                SYNTAX     OCTET STRING
+                MAX-ACCESS read-only
+                STATUS current
+                DESCRIPTION
+                        "Name Identifer of the FCF."
+                ::={ dF10FIPSFCFEntry 4 }
+				
+        dF10FIPSFCFFabricName OBJECT-TYPE
+                SYNTAX     OCTET STRING
+                MAX-ACCESS read-only
+                STATUS current
+                DESCRIPTION
+                        "Fabric Name identifying the Fabric."
+                ::={ dF10FIPSFCFEntry 5 }
+				
+        dF10FIPSFCFAddressingMode OBJECT-TYPE
+                SYNTAX     INTEGER {
+                                     fpma(1),
+                                     spma(2),
+                                     both(3)   -- FPMA and SPMA
+                                   }
+                MAX-ACCESS read-only
+                STATUS current
+                DESCRIPTION
+                        "Addressing mode(s) supported by the FCF."
+                ::={dF10FIPSFCFEntry 6 }
+				
+        dF10FIPSFCFPriority OBJECT-TYPE
+                SYNTAX     Integer32 (0..255)
+                MAX-ACCESS read-only
+                STATUS current
+                DESCRIPTION
+                        "This is the priority assigned to FCF. The highest priority
+                         value is 0 and the lowest priority value is 255."
+                ::={ dF10FIPSFCFEntry 7 }
+
+	dF10FIPSFCFDbit OBJECT-TYPE
+                SYNTAX     Integer32 (0..1)
+                MAX-ACCESS read-only
+                STATUS current
+                DESCRIPTION
+                        "This reflects the value of D bit value provided by 
+                        the most recently received Discovery Advertisement 
+                        from the FCF."
+                ::={dF10FIPSFCFEntry 8 }
+
+	dF10FIPSFCFIsAvailableForLogin OBJECT-TYPE
+                SYNTAX     Integer32 (0..1)
+                MAX-ACCESS read-only
+                STATUS current
+                DESCRIPTION
+                        "This reflects the value of the A bit provided by the
+			most recently received Discovery Advertisement from
+			the FCF. This provides the information that the
+			transmitting FCF is available for FIP FLOGI/FDISC
+			from ENodes. This is informational and shall have no
+			effect on existing logins."
+                ::={dF10FIPSFCFEntry 9 }
+
+	dF10FIPSFCFConfiguredFKA OBJECT-TYPE
+                SYNTAX     Integer32 (1..450)
+                MAX-ACCESS read-only
+                STATUS current
+                DESCRIPTION
+                        "FIP keepalive interval (FKA_ADV_PERIOD) in seconds
+			configured on the FCF multiplied by five. For
+			example, if the FKA_ADV period configured on the FCF
+			is 80 seconds, the value of this field is 400 seconds."
+                ::={ dF10FIPSFCFEntry 10 }			
+				
+	dF10FIPSFCFTimeSinceDiscovered OBJECT-TYPE
+                SYNTAX     DateAndTime
+                MAX-ACCESS read-only
+                STATUS current
+                DESCRIPTION
+                        "Time elapsed since the FCF is discovered."
+                ::={ dF10FIPSFCFEntry 11 }
+
+	dF10FIPSFCFConnectedENodesCount OBJECT-TYPE
+                SYNTAX     Unsigned32
+                MAX-ACCESS read-only
+                STATUS current
+                DESCRIPTION
+                        "Number of ENodes to which FCF has FCoE
+			virtual connections established."
+                ::={ dF10FIPSFCFEntry 12 }			
+
+	dF10FIPSFCFSessions OBJECT-TYPE
+                SYNTAX     Unsigned32
+                MAX-ACCESS read-only
+                STATUS current
+                DESCRIPTION
+                        "Total number of FCoE virtual connections successfully
+                        established by the ENodes with this FCF."
+                ::={ dF10FIPSFCFEntry 13 }
+				
+	dF10FIPSFCFExpiryTime OBJECT-TYPE
+                SYNTAX     Unsigned32
+                MAX-ACCESS read-only
+                STATUS current
+                DESCRIPTION
+                        "This indicates the timer value in seconds to monitor
+                        the status of the FCF. FCF entry and all its associated
+                        virtual sessions will be removed when the value reaches
+                        0.  This value is reset to 'Configured FKA-ADV' every
+                        time a Discovery Advertisement is received from the 
+                        FCF-MAC."
+                ::={ dF10FIPSFCFEntry 14 }
+		
+--*********************************************************************
+-- FIP Snooping related objects used to monitor FIP Snooping
+-- statistics on Ethernet bridges connected to ENodes
+--*********************************************************************
+
+--*********************************************************************
+-- dF10FIPSStatisticsGroup
+--*********************************************************************
+dF10FIPSStatisticsGroup OBJECT IDENTIFIER ::= { dF10FipSnooping 3 }
+
+-- -------------------------------------------------------------
+-- Per FCoE VLAN Statistics Table
+-- -------------------------------------------------------------
+dF10FIPSVlanStatsTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF DF10FIPSVlanStatsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A table containing per-port, per-VLAN statistics for
+        traffic received. Separate objects are provided for both the
+        most-significant and least-significant bits of statistics
+        counters for ports that are associated with this transparent
+        bridge. The most-significant bit objects are only required on
+        high capacity interfaces, as defined in the conformance clauses
+        for these objects. This mechanism is provided as a way to read
+        64-bit counters for agents which support only SNMPv1.
+
+        Note that the reporting of most-significant and least-
+        significant counter bits separately runs the risk of missing
+        an overflow of the lower bits in the interval between sampling.
+        The manager must be aware of this possibility, even within the
+        same varbindlist, when interpreting the results of a request or
+        asynchronous notification."
+    ::= { dF10FIPSStatisticsGroup 1 }
+
+dF10FIPSVlanStatsEntry OBJECT-TYPE
+    SYNTAX      DF10FIPSVlanStatsEntry 
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "FIP Snooping control traffic statistics of a VLAN."
+    INDEX   { dot1qVlanIndex }
+    ::= { dF10FIPSVlanStatsTable 1 }
+
+DF10FIPSVlanStatsEntry ::=
+    SEQUENCE {
+    dF10FIPSVlanVlanRequests
+            Counter32,
+    dF10FIPSVlanVlanNotifications
+            Counter32,
+    dF10FIPSVlanMCDiscSolicits 
+            Counter32,
+    dF10FIPSVlanUnicastDiscSolicits 
+            Counter32,
+    dF10FIPSVlanFLogis 
+            Counter32,
+    dF10FIPSVlanFDiscs 
+            Counter32,
+    dF10FIPSVlanFLogouts 
+            Counter32,
+    dF10FIPSVlanVnPortKeepAlives 
+            Counter32,
+    dF10FIPSVlanMCDiscAdverts 
+            Counter32,
+    dF10FIPSVlanUnicastDiscAdverts 
+            Counter32,
+    dF10FIPSVlanFLogiAccepts 
+            Counter32,
+    dF10FIPSVlanFLogiRejects 
+            Counter32,
+    dF10FIPSVlanFDiscAccepts 
+            Counter32,
+    dF10FIPSVlanFDiscRejects 
+            Counter32,
+    dF10FIPSVlanFLogoutAccepts 
+            Counter32,
+    dF10FIPSVlanFLogoutRejects 
+            Counter32,
+    dF10FIPSVlanClearVirtLinks 
+            Counter32,
+    dF10FIPSVlanVnPortSeshTimeouts 
+            Counter32,
+    dF10FIPSVlanFcfDiscAdvTimeouts 
+            Counter32,
+    dF10FIPSVlanSeshFailsDueToHwCfg
+            Counter32,
+    dF10FIPSVlanSeshDenyFcfLmtRch
+            Counter32,
+    dF10FIPSVlanSeshDenyENodeLmtRch 
+            Counter32,
+    dF10FIPSVlanSeshDenySysLmtRch 
+            Counter32
+    }
+
+    dF10FIPSVlanVlanRequests OBJECT-TYPE
+         SYNTAX         Counter32
+         MAX-ACCESS     read-only
+         STATUS         current
+         DESCRIPTION    
+                        "Number of VLAN Request messages received on the VLAN."
+
+        ::={ dF10FIPSVlanStatsEntry 1 }
+ 
+    dF10FIPSVlanVlanNotifications OBJECT-TYPE
+         SYNTAX         Counter32
+         MAX-ACCESS     read-only
+         STATUS         current
+         DESCRIPTION
+                        "Number of VLAN Notification messages received on the VLAN."
+       
+         ::={ dF10FIPSVlanStatsEntry 2 }
+
+    dF10FIPSVlanMCDiscSolicits OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Multicast Discovery Solicitation messages snooped in the VLAN."
+
+        ::={ dF10FIPSVlanStatsEntry 3 }
+
+    dF10FIPSVlanUnicastDiscSolicits OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Unicast Discovery Solicitation messages snooped in the VLAN." 
+
+        ::={ dF10FIPSVlanStatsEntry 4 }
+
+    dF10FIPSVlanFLogis OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Fabric Login messages snooped in the VLAN."
+
+        ::={ dF10FIPSVlanStatsEntry 5 }
+
+    dF10FIPSVlanFDiscs OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Fabric Discovery Login messages snooped in the VLAN."
+
+        ::={ dF10FIPSVlanStatsEntry 6 }
+
+    dF10FIPSVlanFLogouts OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Fabric Logout messages snooped in the VLAN."
+
+        ::={ dF10FIPSVlanStatsEntry 7 }
+
+    dF10FIPSVlanVnPortKeepAlives OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of VN_Port keep alive messages snooped in the VLAN."
+
+        ::={ dF10FIPSVlanStatsEntry 8 }
+
+    dF10FIPSVlanMCDiscAdverts OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Multicast Discovery Advertisement messages snooped in the VLAN."
+
+        ::={ dF10FIPSVlanStatsEntry 9 }
+
+    dF10FIPSVlanUnicastDiscAdverts OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Unicast Discovery Advertisement packets snooped in the VLAN."
+
+        ::={ dF10FIPSVlanStatsEntry 10 }
+
+    dF10FIPSVlanFLogiAccepts OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Fabric Login accept packets snooped in the VLAN."
+
+        ::={ dF10FIPSVlanStatsEntry 11 }
+
+    dF10FIPSVlanFLogiRejects OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Fabric Login reject packets snooped in the VLAN."
+
+        ::={ dF10FIPSVlanStatsEntry 12 }
+
+    dF10FIPSVlanFDiscAccepts OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Fabric Discovery accept packets snooped in the VLAN."
+
+        ::={ dF10FIPSVlanStatsEntry 13 }
+
+    dF10FIPSVlanFDiscRejects OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Fabric Discovery reject packets snooped in the VLAN."
+
+        ::={ dF10FIPSVlanStatsEntry 14 }
+
+    dF10FIPSVlanFLogoutAccepts OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Fabric Logouts accept packets snooped in the VLAN."
+
+        ::={ dF10FIPSVlanStatsEntry 15 }
+
+    dF10FIPSVlanFLogoutRejects OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Fabric Logouts reject packets snooped in the VLAN."
+
+        ::={ dF10FIPSVlanStatsEntry 16 }
+
+    dF10FIPSVlanClearVirtLinks OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Clear Virtual Link request packets snooped in the VLAN."
+
+        ::={ dF10FIPSVlanStatsEntry 17 }
+
+    dF10FIPSVlanVnPortSeshTimeouts OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of virtual sessions removed due to session timer expiry in the VLAN."
+
+        ::={ dF10FIPSVlanStatsEntry 18 }
+
+    dF10FIPSVlanFcfDiscAdvTimeouts OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of ACTIVE sessions timed out due to Discovery Advertisements timer expiry from FCFs in the VLAN."
+
+        ::={ dF10FIPSVlanStatsEntry 19 }
+
+    dF10FIPSVlanSeshFailsDueToHwCfg OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of sessions in the VLAN that failed while configuring the hardware."
+
+        ::={ dF10FIPSVlanStatsEntry 20 }
+
+    dF10FIPSVlanSeshDenyFcfLmtRch OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of sessions that are denied to be created for the new FCF as the number of FCFs reached the maximum allowed limit supported in the VLAN."
+
+        ::={ dF10FIPSVlanStatsEntry 21 }
+
+    dF10FIPSVlanSeshDenyENodeLmtRch OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of sessions that are denied to be created for the new ENode as the number of ENodes reached the maximum allowed limit supported by the system."
+
+        ::={ dF10FIPSVlanStatsEntry 22 }
+
+    dF10FIPSVlanSeshDenySysLmtRch OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of session create requests denied as the number of sessions reached the maximum allowed limit supported by the system."
+
+        ::={ dF10FIPSVlanStatsEntry 23 }
+
+	
+-- -------------------------------------------------------------
+-- Per Interface Statistics Table
+-- -------------------------------------------------------------
+dF10FIPSIntfStatsTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF DF10FIPSIntfStatsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A table containing per-port, per-VLAN statistics for
+        traffic received. Separate objects are provided for both the
+        most-significant and least-significant bits of statistics
+        counters for ports that are associated with this transparent
+        bridge. The most-significant bit objects are only required on
+        high capacity interfaces, as defined in the conformance clauses
+        for these objects. This mechanism is provided as a way to read
+        64-bit counters for agents which support only SNMPv1.
+
+        Note that the reporting of most-significant and least-
+        significant counter bits separately runs the risk of missing
+        an overflow of the lower bits in the interval between sampling.
+        The manager must be aware of this possibility, even within the
+        same varbindlist, when interpreting the results of a request or
+        asynchronous notification."
+    ::= { dF10FIPSStatisticsGroup 2 }
+
+dF10FIPSIntfStatsEntry OBJECT-TYPE
+    SYNTAX      DF10FIPSIntfStatsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "FIP Snooping control traffic statistics on this interface."
+    INDEX   { ifIndex }
+    ::= { dF10FIPSIntfStatsTable 1 }
+
+DF10FIPSIntfStatsEntry ::=
+    SEQUENCE {
+        dF10FIPSIntfVlanRequests
+            Counter32,
+        dF10FIPSIntfVlanNotifications
+            Counter32,
+        dF10FIPSIntfMCDiscSolicits
+            Counter32,
+        dF10FIPSIntfUnicastDiscSolicits
+            Counter32,
+        dF10FIPSIntfFLogis
+            Counter32,
+        dF10FIPSIntfFDiscs
+            Counter32,
+        dF10FIPSIntfFLogouts
+            Counter32,
+        dF10FIPSIntfVnPortKeepAlives
+            Counter32,
+        dF10FIPSIntfMCDiscAdverts
+            Counter32,
+        dF10FIPSIntfUnicastDiscAdverts
+            Counter32,
+        dF10FIPSIntfFLogiAccepts
+            Counter32,
+        dF10FIPSIntfFLogiRejects
+            Counter32,
+        dF10FIPSIntfFDiscAccepts
+            Counter32,
+        dF10FIPSIntfFDiscRejects
+            Counter32,
+        dF10FIPSIntfFLogoutAccepts
+            Counter32,
+        dF10FIPSIntfFLogoutRejects
+            Counter32,
+        dF10FIPSIntfClearVirtLinks
+            Counter32,
+        dF10FIPSIntfVnPortSeshTimeouts
+            Counter32,
+        dF10FIPSIntfFcfDiscAdvTimeouts
+            Counter32,
+        dF10FIPSIntfSeshFailsDueToHwCfg
+            Counter32,
+        dF10FIPSIntfSeshDenyFcfLmtRch
+            Counter32,
+        dF10FIPSIntfSeshDenyENodeLmtRch
+            Counter32,
+        dF10FIPSIntfSeshDenySysLmtRch
+            Counter32
+    }
+
+    dF10FIPSIntfVlanRequests OBJECT-TYPE
+         SYNTAX         Counter32
+         MAX-ACCESS     read-only
+         STATUS         current
+         DESCRIPTION
+                        "Number of VLAN Request messages received on the interface."
+
+        ::={ dF10FIPSIntfStatsEntry 1 }
+
+    dF10FIPSIntfVlanNotifications OBJECT-TYPE
+         SYNTAX         Counter32
+         MAX-ACCESS     read-only
+         STATUS         current
+         DESCRIPTION
+                        "Number of VLAN Notification messages received on the interface."
+
+         ::={ dF10FIPSIntfStatsEntry 2 }
+
+    dF10FIPSIntfMCDiscSolicits OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Multicast Discovery Solicitation messages received on the interface."
+
+        ::={ dF10FIPSIntfStatsEntry 3 }
+
+    dF10FIPSIntfUnicastDiscSolicits OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Unicast Discovery Solicitation messages received on the interface."
+
+        ::={ dF10FIPSIntfStatsEntry 4 }
+
+    dF10FIPSIntfFLogis OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Fabric Logins received on the interface."
+
+        ::={ dF10FIPSIntfStatsEntry 5 }
+
+    dF10FIPSIntfFDiscs OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Fabric Discovery logins received on the interface."
+
+        ::={ dF10FIPSIntfStatsEntry 6 }
+
+    dF10FIPSIntfFLogouts OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Fabric Logouts received on the interface."
+
+        ::={ dF10FIPSIntfStatsEntry 7 }
+
+    dF10FIPSIntfVnPortKeepAlives OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of VN_Port keepalive messages received on the interface."
+
+        ::={ dF10FIPSIntfStatsEntry 8 }
+
+    dF10FIPSIntfMCDiscAdverts OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Multicast Discovery Advertisement messages received on the interface."
+
+        ::={ dF10FIPSIntfStatsEntry 9 }
+
+    dF10FIPSIntfUnicastDiscAdverts OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Unicast Discovery Advertisement messages received on the interface."
+
+        ::={ dF10FIPSIntfStatsEntry 10 }
+
+    dF10FIPSIntfFLogiAccepts OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Fabric Login accept messages received on the interface."
+
+        ::={ dF10FIPSIntfStatsEntry 11 }
+
+    dF10FIPSIntfFLogiRejects OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Fabric Login reject messages received on the interface."
+
+        ::={ dF10FIPSIntfStatsEntry 12 }
+
+    dF10FIPSIntfFDiscAccepts OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Fabric Discovery accept messages received on the interface."
+
+        ::={ dF10FIPSIntfStatsEntry 13 }
+
+    dF10FIPSIntfFDiscRejects OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Fabric Discovery reject messages received on the interface."
+
+        ::={ dF10FIPSIntfStatsEntry 14 }
+
+    dF10FIPSIntfFLogoutAccepts OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Fabric Logout accept messages received on the interface."
+
+        ::={ dF10FIPSIntfStatsEntry 15 }
+
+    dF10FIPSIntfFLogoutRejects OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Fabric Logout reject messages received on the interface."
+
+        ::={ dF10FIPSIntfStatsEntry 16 }
+
+    dF10FIPSIntfClearVirtLinks OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Clear Virtual Links messages received on the interface."
+
+        ::={ dF10FIPSIntfStatsEntry 17 }
+
+    dF10FIPSIntfVnPortSeshTimeouts OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of Virtual sessions removed due to session timer expiry."
+
+        ::={ dF10FIPSIntfStatsEntry 18 }
+
+    dF10FIPSIntfFcfDiscAdvTimeouts OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of ACTIVE sessions timed out due to Discovery Advertisements timer expiry from FCFs on this interface."
+
+
+        ::={ dF10FIPSIntfStatsEntry 19 }
+
+    dF10FIPSIntfSeshFailsDueToHwCfg OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of sessions on this interface that failed while configuring the hardware."
+
+        ::={ dF10FIPSIntfStatsEntry 20 }
+
+    dF10FIPSIntfSeshDenyFcfLmtRch OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of sessions that are denied to be created on this interface form a new FCF as the number of FCFs count reached the maximum allowed limit in the system."
+
+        ::={ dF10FIPSIntfStatsEntry 21 }
+
+    dF10FIPSIntfSeshDenyENodeLmtRch OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of sessions that are denied to be created on this interface form a new ENode/host as the number of ENodes/hosts count reached the maximum allowed limit in the system."
+
+        ::={ dF10FIPSIntfStatsEntry 22 }
+
+    dF10FIPSIntfSeshDenySysLmtRch OBJECT-TYPE
+        SYNTAX          Counter32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+                        "Number of sessions that are denied to be created as the number of sessions count reached the maximum allowed limit supported in the system. This is a global counter."
+
+        ::={ dF10FIPSIntfStatsEntry 23 }
+
+--*************************************************************************************
+--   Traps
+--**************************************************************************************
+
+dF10FIPSNotifications OBJECT IDENTIFIER ::= { dF10FipSnooping 4 }
+dF10FIPSTraps         OBJECT IDENTIFIER ::= { dF10FIPSNotifications 0 }
+dF10FIPSTrapObjects   OBJECT IDENTIFIER ::= { dF10FIPSNotifications 1 }
+
+    dF10FIPSTrapVlanIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "This object refers to the Vlan Index for which the FIP Snooping
+	trap is being sent."
+    ::= { dF10FIPSTrapObjects 1 }
+
+    dF10FIPSTrapMacAddr OBJECT-TYPE
+    SYNTAX      MacAddress
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "This object refers to the FCF or Enode MAC Address for which 
+	the FIP Snooping trap is being sent."
+    ::= { dF10FIPSTrapObjects 2 }
+
+    dF10MaxFcfsInVlanLmtRchTrap NOTIFICATION-TYPE
+        OBJECTS         {dF10FIPSTrapVlanIndex} 
+        STATUS          current
+        DESCRIPTION
+                        "This trap is sent when number of FCFs reached maximum allowed limit in VLAN."
+        ::= { dF10FIPSTraps 1 }
+
+    dF10MaxENodesLmtRchTrap NOTIFICATION-TYPE
+        STATUS          current
+        DESCRIPTION
+                        "This trap is sent when number of ENodes reached maximum allowed limit in the system."
+        ::= { dF10FIPSTraps 2 }
+
+    dF10MaxSessionLmtRchTrap NOTIFICATION-TYPE
+        STATUS          current
+        DESCRIPTION
+                        "This trap is sent when number of sessions reached maximum allowed limit in the system."
+        ::= { dF10FIPSTraps 3 }
+
+    dF10FcfDroppedTrap NOTIFICATION-TYPE
+        OBJECTS         {dF10FIPSTrapVlanIndex, dF10FIPSFCFIntf,
+                         dF10FIPSTrapMacAddr}
+        STATUS          current
+        DESCRIPTION
+                        "This trap is sent when a new FCF discovered (Discovery Advertisement is received from FCF) is dropped, 
+                         as the maximum allowed FCFs limit in a VLAN is already reached."
+        ::= { dF10FIPSTraps 4 }
+
+    dF10ENodeDroppedTrap NOTIFICATION-TYPE
+        OBJECTS         {dF10FIPSTrapVlanIndex, dF10FIPSENodeIntf,
+                         dF10FIPSTrapMacAddr}
+        STATUS          current
+        DESCRIPTION
+                        "This trap is sent when a new ENode discovered is dropped, 
+                         as the maximum allowed ENodes limit in the system is already reached."
+        ::= { dF10FIPSTraps 5 }
+
+    dF10SessionRequestDroppedTrap NOTIFICATION-TYPE
+        OBJECTS         {dF10FIPSTrapVlanIndex, dF10FIPSENodeIntf,
+                         dF10FIPSTrapMacAddr}
+        STATUS          current
+        DESCRIPTION
+                        "This trap is sent when a new session request received is dropped,
+                         as the maximum allowed session limit in system is already reached."
+        ::= { dF10FIPSTraps 6 }
+
+    dF10AclInstallationFailureTrap NOTIFICATION-TYPE
+        STATUS          current
+        DESCRIPTION
+                        "This trap is sent when there is a problem in installing the ACL entries 
+                        due to no space or hardware failure"
+        ::= { dF10FIPSTraps 7 }
+
+
+--******************************************************************************
+--   Conformance information
+--******************************************************************************
+
+dF10FIPSMibConformance OBJECT IDENTIFIER ::= { dF10FipSnooping 5 }
+dF10FIPSMibCompliances OBJECT IDENTIFIER ::= { dF10FIPSMibConformance 1 }
+dF10FIPSMibGroups      OBJECT IDENTIFIER ::= { dF10FIPSMibConformance 2 }
+
+dF10FIPSMibCompliance  MODULE-COMPLIANCE
+  STATUS               current
+  DESCRIPTION
+      "The compliance statement for Dell Networking OS product which implement the
+      Dell Networking OS FIP Snooping MIB. "
+  MODULE
+  MANDATORY-GROUPS {
+      dF10FIPSCfgObjectGroup,
+      dF10FIPSVlanCfgObjectGroup,
+      dF10FIPSIntfObjectGroup,
+      dF10FIPSSessionObjectGroup,
+      dF10FIPSENodeObjectGroup,
+      dF10FIPSFCFObjectGroup,
+      dF10FIPSVlanStatsObjectGroup,
+      dF10FIPSIntfStatsObjectGroup,
+      dF10FIPSTrapsObjectGroup,
+      dF10FIPSTrapObjectsGroup
+  }
+  ::= { dF10FIPSMibCompliances 1 }
+
+dF10FIPSCfgObjectGroup OBJECT-GROUP
+   OBJECTS {
+                dF10FIPSAdminMode,
+                dF10FIPSFCMAP,
+	        dF10FIPSStatsClear
+           }
+   STATUS  current
+   DESCRIPTION
+       "This group represents a collection of objects providing the
+       FIPS system information."
+   ::= { dF10FIPSMibGroups 1 }
+
+dF10FIPSVlanCfgObjectGroup OBJECT-GROUP
+   OBJECTS {
+                dF10FIPSVlanAdminMode,
+                dF10FIPSVlanFCMAP,
+                dF10FIPSVlanStatsClear
+           }
+   STATUS  current
+   DESCRIPTION
+       "This group represents a collection of objects providing the
+       FIPS vlan information."
+   ::= { dF10FIPSMibGroups 2 }
+
+dF10FIPSIntfObjectGroup OBJECT-GROUP
+   OBJECTS {
+                dF10FIPSIntfPortModeFcf,
+                dF10FIPSIntfStatsClear
+           }
+   STATUS  current
+   DESCRIPTION
+       "This group represents a collection of objects providing the
+       FIPS interface information."
+   ::= { dF10FIPSMibGroups 3 }
+
+dF10FIPSSessionObjectGroup OBJECT-GROUP
+   OBJECTS {
+                dF10FIPSSessionENodeIntf,
+                dF10FIPSSessionFCFIntf,
+                dF10FIPSSessionTime,
+                dF10FIPSSessionExpiryTime,
+                dF10FIPSSessionState,
+                dF10FIPSIntfStatsClear
+           }
+   STATUS  current
+   DESCRIPTION
+       "This group represents a collection of objects providing the
+       FIPS Session information."
+   ::= { dF10FIPSMibGroups 4 }
+
+dF10FIPSENodeObjectGroup OBJECT-GROUP
+   OBJECTS {
+                dF10FIPSENodeIntf,
+                dF10FIPSENodeNameID,
+                dF10FIPSENodeMaxFCoESize,
+                dF10FIPSENodeConnectedFCFsCount,
+                dF10FIPSENodeActiveSessions,
+                dF10FIPSENodeWaitingSessions,
+                dF10FIPSENodeRejectedSessions,
+                dF10FIPSENodeTimeSinceDiscovered
+           }
+   STATUS  current
+   DESCRIPTION
+       "This group represents a collection of objects providing the
+       FIPS ENode information."
+   ::= { dF10FIPSMibGroups 5 }
+
+dF10FIPSFCFObjectGroup OBJECT-GROUP
+   OBJECTS {
+                dF10FIPSFCFIntf,
+                dF10FIPSFCFNameID,
+                dF10FIPSFCFFabricName,
+                dF10FIPSFCFAddressingMode,
+                dF10FIPSFCFPriority,
+                dF10FIPSFCFDbit,
+                dF10FIPSFCFIsAvailableForLogin,
+                dF10FIPSFCFConfiguredFKA,
+                dF10FIPSFCFTimeSinceDiscovered,
+                dF10FIPSFCFConnectedENodesCount,
+                dF10FIPSFCFSessions,
+                dF10FIPSFCFExpiryTime
+           }
+   STATUS  current
+   DESCRIPTION
+       "This group represents a collection of objects providing the
+       FIPS FCF information."
+   ::= { dF10FIPSMibGroups 6 }
+
+dF10FIPSVlanStatsObjectGroup OBJECT-GROUP
+   OBJECTS {
+                dF10FIPSVlanVlanRequests,
+                dF10FIPSVlanVlanNotifications,
+                dF10FIPSVlanMCDiscSolicits,
+                dF10FIPSVlanUnicastDiscSolicits,
+                dF10FIPSVlanFLogis,
+                dF10FIPSVlanFDiscs,
+                dF10FIPSVlanFLogouts,
+                dF10FIPSVlanVnPortKeepAlives,
+                dF10FIPSVlanMCDiscAdverts,
+                dF10FIPSVlanUnicastDiscAdverts,
+                dF10FIPSVlanFLogiAccepts,
+                dF10FIPSVlanFLogiRejects,
+                dF10FIPSVlanFDiscAccepts,
+                dF10FIPSVlanFDiscRejects,
+                dF10FIPSVlanFLogoutAccepts,
+                dF10FIPSVlanFLogoutRejects,
+                dF10FIPSVlanClearVirtLinks,
+                dF10FIPSVlanVnPortSeshTimeouts,
+                dF10FIPSVlanFcfDiscAdvTimeouts,
+                dF10FIPSVlanSeshFailsDueToHwCfg,
+                dF10FIPSVlanSeshDenyFcfLmtRch,
+                dF10FIPSVlanSeshDenyENodeLmtRch,
+                dF10FIPSVlanSeshDenySysLmtRch
+           }
+   STATUS  current
+   DESCRIPTION
+       "This group represents a collection of objects providing the
+       FIPS Vlan Statistics information."
+   ::= { dF10FIPSMibGroups 7 }
+
+dF10FIPSIntfStatsObjectGroup OBJECT-GROUP
+   OBJECTS {
+                dF10FIPSIntfVlanRequests,
+                dF10FIPSIntfVlanNotifications,
+                dF10FIPSIntfMCDiscSolicits,
+                dF10FIPSIntfUnicastDiscSolicits,
+                dF10FIPSIntfFLogis,
+                dF10FIPSIntfFDiscs,
+                dF10FIPSIntfFLogouts,
+                dF10FIPSIntfVnPortKeepAlives,
+                dF10FIPSIntfMCDiscAdverts,
+                dF10FIPSIntfUnicastDiscAdverts,
+                dF10FIPSIntfFLogiAccepts,
+                dF10FIPSIntfFLogiRejects,
+                dF10FIPSIntfFDiscAccepts,
+                dF10FIPSIntfFDiscRejects,
+                dF10FIPSIntfFLogoutAccepts,
+                dF10FIPSIntfFLogoutRejects,
+                dF10FIPSIntfClearVirtLinks,
+                dF10FIPSIntfVnPortSeshTimeouts,
+                dF10FIPSIntfFcfDiscAdvTimeouts,
+                dF10FIPSIntfSeshFailsDueToHwCfg,
+                dF10FIPSIntfSeshDenyFcfLmtRch,
+                dF10FIPSIntfSeshDenyENodeLmtRch,
+                dF10FIPSIntfSeshDenySysLmtRch
+           }
+   STATUS  current
+   DESCRIPTION
+       "This group represents a collection of objects providing the
+       FIPS Interface Statistics information."
+   ::= { dF10FIPSMibGroups 8 }
+
+dF10FIPSTrapsObjectGroup NOTIFICATION-GROUP
+   NOTIFICATIONS 
+	   {
+                dF10MaxFcfsInVlanLmtRchTrap,
+                dF10MaxENodesLmtRchTrap,
+                dF10MaxSessionLmtRchTrap,
+                dF10FcfDroppedTrap,
+                dF10ENodeDroppedTrap,
+                dF10SessionRequestDroppedTrap,
+                dF10AclInstallationFailureTrap
+           }
+   STATUS  current
+   DESCRIPTION
+       "This group represents a collection of objects providing the
+       FIPS Trap information."
+   ::= { dF10FIPSMibGroups 9 }
+
+dF10FIPSTrapObjectsGroup OBJECT-GROUP
+   OBJECTS {
+                dF10FIPSTrapVlanIndex,
+                dF10FIPSTrapMacAddr
+           }
+   STATUS  current
+   DESCRIPTION
+       "This group represents a collection of objects providing the
+       FIPS Trap object information."
+   ::= { dF10FIPSMibGroups 10 }
+
+END
+

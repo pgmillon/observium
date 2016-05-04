@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -43,16 +43,17 @@ function parse_ipmitool_sensor($device, $results, $source = 'ipmi')
 // Poll a sensor
 function poll_sensor($device, $class, $unit, &$oid_cache)
 {
-  global $config, $agent_sensors, $ipmi_sensors, $graphs;
+  global $config, $agent_sensors, $ipmi_sensors, $graphs, $table_rows;
 
-  $sql  = "SELECT *, `sensors`.`sensor_id` AS `sensor_id`";
-  $sql .= " FROM  `sensors`";
-  $sql .= " LEFT JOIN  `sensors-state` ON  `sensors`.sensor_id =  `sensors-state`.sensor_id";
+  $sql  = "SELECT * FROM `sensors`";
+  $sql .= " LEFT JOIN `sensors-state` USING(`sensor_id`)";
   $sql .= " WHERE `sensor_class` = ? AND `device_id` = ?";
 
   foreach (dbFetchRows($sql, array($class, $device['device_id'])) as $sensor_db)
   {
     $sensor_poll = array();
+
+    //print_cli_heading("Sensor: ".$sensor_db['sensor_descr'], 3);
 
     if (OBS_DEBUG)
     {
@@ -118,11 +119,8 @@ function poll_sensor($device, $class, $unit, &$oid_cache)
     {
       if (isset($agent_sensors))
       {
-        $sensor_poll['sensor_value'] = $agent_sensors[$class][$sensor_db['sensor_type']][$sensor_db['sensor_index']]['current'];
-        // FIXME pass unit?
-      }
-      else
-      {
+        $sensor_poll['sensor_value'] = $agent_sensors[$class][$sensor_db['sensor_type']][$sensor_db['sensor_index']]['current']; // FIXME pass unit?
+      } else {
         print_warning("No agent sensor data available.");
         continue;
       }
@@ -142,6 +140,8 @@ function poll_sensor($device, $class, $unit, &$oid_cache)
       continue;
     }
 
+    $sensor_polled_time = time(); // Store polled time for current sensor
+
     if (OBS_DEBUG)
     {
       print_r($sensor_poll);
@@ -152,45 +152,29 @@ function poll_sensor($device, $class, $unit, &$oid_cache)
       print_debug("Invalid (-32768) ");
       $sensor_poll['sensor_value'] = 0;
     }
-    /// FIXME. This is old pre 'scale' method, remove in r7000
-    if (isset($sensor_db['sensor_divisor']) && $sensor_db['sensor_divisor'] > 1)
-    {
-      /// This is fix for r5351
-      if ($sensor_db['sensor_multiplier'] >= 1)
-      {
-        $sensor_poll['sensor_value'] = $sensor_poll['sensor_value'] / $sensor_db['sensor_divisor'];
-      }
-    }
 
     if (isset($sensor_db['sensor_multiplier']) && $sensor_db['sensor_multiplier'] != 0)
     {
-      $f2c = FALSE;
-      if ($class == "temperature")
-      {
-        // This is weird hardcode for convert Fahrenheit to Celsius
-        foreach (array(1, 0.1) as $scale_tmp)
-        {
-          if (float_cmp($sensor_db['sensor_multiplier'], $scale_tmp * 5 / 9) === 0)
-          {
-            $sensor_db['sensor_multiplier'] = $scale_tmp;
-            $f2c = TRUE;
-            break;
-          }
-        }
-      }
       $sensor_poll['sensor_value'] *= $sensor_db['sensor_multiplier'];
-      if ($f2c)
-      {
+    }
+
+    switch ($sensor_db['sensor_unit'])
+    {
+      case 'F':
         $sensor_poll['sensor_value'] = f2c($sensor_poll['sensor_value']);
         print_debug('TEMPERATURE sensor: Fahrenheit -> Celsius');
-      }
+        break;
+      case 'K':
+        $sensor_poll['sensor_value'] -= 273.15;
+        print_debug('TEMPERATURE sensor: Kelvin -> Celsius');
+        break;
     }
 
     $rrd_file = get_sensor_rrd($device, $sensor_db);
 
     rrdtool_create($device, $rrd_file, "DS:sensor:GAUGE:600:-20000:U");
 
-    echo($sensor_poll['sensor_value'] . "$unit ");
+    //print_cli_data("Value", $sensor_poll['sensor_value'] . "$unit ", 3);
 
     // FIXME this block and the other block below it are kinda retarded. They should be merged and simplified.
 
@@ -198,20 +182,19 @@ function poll_sensor($device, $class, $unit, &$oid_cache)
     {
       $sensor_poll['sensor_event'] = 'ignore';
     } else {
-      if (($sensor_db['sensor_limit_low_warn'] != '' && $sensor_poll['sensor_value'] < $sensor_db['sensor_limit_low_warn']) ||
-          ($sensor_db['sensor_limit_warn']     != '' && $sensor_poll['sensor_value'] > $sensor_db['sensor_limit_warn']))
-      {
-        $sensor_poll['sensor_event'] = 'warning';
-        $sensor_poll['sensor_status'] = 'Sensor warning thresholds exceeded.'; // FIXME - be more specific
-      }
-      else if ((($sensor_db['sensor_limit_low'] != '' && $sensor_poll['sensor_value'] < $sensor_db['sensor_limit_low']) ||
-           ($sensor_db['sensor_limit']     != '' && $sensor_poll['sensor_value'] > $sensor_db['sensor_limit']))
-        && ($sensor_db['sensor_value'] != '')) // Don't alert for "NaN" (no data yet)
+      if (($sensor_db['sensor_limit_low'] != '' && $sensor_poll['sensor_value'] < $sensor_db['sensor_limit_low']) ||
+          ($sensor_db['sensor_limit']     != '' && $sensor_poll['sensor_value'] > $sensor_db['sensor_limit']))
       {
         $sensor_poll['sensor_event'] = 'alert';
         $sensor_poll['sensor_status'] = 'Sensor critical thresholds exceeded.'; // FIXME - be more specific
+      }
+      else if (($sensor_db['sensor_limit_low_warn'] != '' && $sensor_poll['sensor_value'] < $sensor_db['sensor_limit_low_warn']) ||
+               ($sensor_db['sensor_limit_warn']     != '' && $sensor_poll['sensor_value'] > $sensor_db['sensor_limit_warn']))
+      {
+        $sensor_poll['sensor_event'] = 'warning';
+        $sensor_poll['sensor_status'] = 'Sensor warning thresholds exceeded.'; // FIXME - be more specific
       } else {
-        $sensor_poll['sensor_event'] = 'up';
+        $sensor_poll['sensor_event'] = 'ok';
         $sensor_poll['sensor_status'] = '';
         //if ($sensor_db['sensor_event'] != 'up' && $sensor_db['sensor_event'] != '')
         //{
@@ -220,10 +203,22 @@ function poll_sensor($device, $class, $unit, &$oid_cache)
       }
     }
 
-    // FIXME I left the eventlog code for now, as soon as alerts send an entry to the eventlog this can go.
-    if ($sensor_db['sensor_event'] != 'ignore')
+    // If last change never set, use current time
+    if (empty($sensor_db['sensor_last_change']))
     {
-      if ($sensor_db['sensor_limit_low'] != "" && $sensor_db['sensor_value'] >= $sensor_db['sensor_limit_low'] && $sensor_poll['sensor_value'] < $sensor_db['sensor_limit_low'])
+      $sensor_db['sensor_last_change'] = $sensor_polled_time;
+    }
+
+    if ($sensor_poll['sensor_event'] != $sensor_db['sensor_event'])
+    {
+      // Sensor event changed, log and set sensor_last_change
+      $sensor_poll['status_last_change'] = $sensor_polled_time;
+
+      if ($sensor_db['sensor_event'] == 'ignore')
+      {
+        print_message("[%ySensor Ignored%n]", 'color');
+      }
+      else if ($sensor_db['sensor_limit_low'] != "" && $sensor_db['sensor_value'] >= $sensor_db['sensor_limit_low'] && $sensor_poll['sensor_value'] < $sensor_db['sensor_limit_low'])
       {
         // If old value greater than low limit and new value less than low limit
         $msg = ucfirst($class) . " Alarm: " . $device['hostname'] . " " . $sensor_db['sensor_descr'] . " is under threshold: " . $sensor_poll['sensor_value'] . "$unit (< " . $sensor_db['sensor_limit_low'] . "$unit)";
@@ -236,9 +231,9 @@ function poll_sensor($device, $class, $unit, &$oid_cache)
         log_event(ucfirst($class) . ' ' . $sensor_db['sensor_descr'] . " above threshold: " . $sensor_poll['sensor_value'] . " $unit (> " . $sensor_db['sensor_limit'] . " $unit)", $device, 'sensor', $sensor_db['sensor_id'], 'warning');
       }
     } else {
-      print_message("[%ySensor Ignored%n]", 'color');
+      // If sensor not changed, leave old last_change
+      $sensor_poll['sensor_last_change'] = $sensor_db['sensor_last_change'];
     }
-    echo(PHP_EOL);
 
     // Send statistics array via AMQP/JSON if AMQP is enabled globally and for the ports module
     if ($config['amqp']['enable'] == TRUE && $config['amqp']['modules']['sensors'])
@@ -247,6 +242,11 @@ function poll_sensor($device, $class, $unit, &$oid_cache)
       messagebus_send(array('attribs' => array('t'      => time(), 'device' => $device['hostname'], 'device_id' => $device['device_id'],
                                                'e_type' => 'sensor', 'e_class' => $sensor_db['sensor_class'], 'e_type' => $sensor_db['sensor_type'], 'e_index' => $sensor_db['sensor_index']), 'data' => $json_data));
     }
+
+    // Add table row
+
+    $table_rows[] = array($sensor_db['sensor_descr'], $sensor_db['sensor_class'], $sensor_db['sensor_type'], $sensor_db['poller_type'],
+                          $sensor_poll['sensor_value'] . $unit, $sensor_poll['sensor_event'], format_unixtime($sensor_poll['sensor_last_change']));
 
     // Update StatsD/Carbon
     if ($config['statsd']['enable'] == TRUE)
@@ -265,6 +265,7 @@ function poll_sensor($device, $class, $unit, &$oid_cache)
 
     $metrics['sensor_value']  = $sensor_poll['sensor_value'];
     $metrics['sensor_event']  = $sensor_poll['sensor_event'];
+    $metrics['sensor_event_uptime'] = $sensor_polled_time - $sensor_poll['sensor_last_change'];
     $metrics['sensor_status'] = $sensor_poll['sensor_status'];
 
     check_entity('sensor', $sensor_db, $metrics);
@@ -275,14 +276,16 @@ function poll_sensor($device, $class, $unit, &$oid_cache)
       dbUpdate(array('sensor_value'  => $sensor_poll['sensor_value'],
                      'sensor_event'  => $sensor_poll['sensor_event'],
                      'sensor_status' => $sensor_poll['sensor_status'],
-                     'sensor_polled' => time()),
+                     'sensor_last_change' => $sensor_poll['sensor_last_change'],
+                     'sensor_polled' => $sensor_polled_time),
                'sensors-state', '`sensor_id` = ?', array($sensor_db['sensor_id']));
     } else {
       dbInsert(array('sensor_id'     => $sensor_db['sensor_id'],
                      'sensor_value'  => $sensor_poll['sensor_value'],
                      'sensor_event'  => $sensor_poll['sensor_event'],
                      'sensor_status' => $sensor_poll['sensor_status'],
-                     'sensor_polled' => time()),
+                     'sensor_last_change' => $sensor_poll['sensor_last_change'],
+                     'sensor_polled' => $sensor_polled_time),
                'sensors-state');
     }
   }
@@ -292,13 +295,14 @@ function poll_status($device)
 {
   global $config, $agent_status, $ipmi_status, $graphs, $oid_cache;
 
-  $sql  = "SELECT *, `status`.`status_id` AS `status_id`";
-  $sql .= " FROM  `status`";
-  $sql .= " LEFT JOIN  `status-state` ON  `status`.status_id =  `status-state`.status_id";
+  $sql  = "SELECT * FROM `status`";
+  $sql .= " LEFT JOIN `status-state` USING(`status_id`)";
   $sql .= " WHERE `device_id` = ?";
 
   foreach (dbFetchRows($sql, array($device['device_id'])) as $status_db)
   {
+    //print_cli_heading("Status: ".$status_db['status_descr']. "(".$status_db['poller_type'].")", 3);
+
     print_debug("Checking (" . $status_db['poller_type'] . ") " . $status_db['status_descr'] . " ");
 
     // $status_poll = $status_db;    // Cache non-humanized status array for use as new status state
@@ -311,17 +315,13 @@ function poll_status($device)
       if (is_file($file))
       {
         include($file);
-      }
-      else
-      {
+      } else {
         // Take value from $oid_cache if we have it, else snmp_get it
         if (is_numeric($oid_cache[$status_db['status_oid']]))
         {
           print_debug("value taken from oid_cache");
           $status_value = $oid_cache[$status_db['status_oid']];
-        }
-        else
-        {
+        } else {
           $status_value = snmp_fix_numeric(snmp_get($device, $status_db['status_oid'], "-OUqnv", "SNMPv2-MIB", mib_dirs()));
         }
       }
@@ -352,11 +352,11 @@ function poll_status($device)
       continue;
     }
 
+    $status_polled_time = time(); // Store polled time for current status
+
     $rrd_file = get_status_rrd($device, $status_db);
 
     rrdtool_create($device, $rrd_file, "DS:status:GAUGE:600:-20000:U");
-
-    echo("$status_value $unit ");
 
     // Write new value and humanize (for alert checks)
     $status_poll['status_value'] = $status_value;
@@ -374,38 +374,53 @@ function poll_status($device)
       }
     }
 
-    // FIXME I left the eventlog code for now, as soon as alerts send an entry to the eventlog this can go.
-    if ($status_poll['status_event'] != 'ignore')
+    // If last change never set, use current time
+    if (empty($status_db['status_last_change']))
     {
-      if ($status_db['status_event'] != '' && $status_poll['status_event'] != $status_db['status_event'])
+                           $status_db['status_last_change'] = $status_polled_time;
+    }
+
+    if ($status_poll['status_event'] != $status_db['status_event'])
+    {
+      // Status event changed, log and set status_last_change
+      $status_poll['status_last_change'] = $status_polled_time;
+
+      if ($status_poll['status_event'] == 'ignore')
+      {
+        print_message("[%ystatus Ignored%n]", 'color');
+      }
+      else if ($status_db['status_event'] != '')
       {
         // If old state not empty and new state not equals to new state
+        $msg = 'Status ';
         switch ($status_poll['status_event'])
         {
           case 'alert':
             // New state alerted
-            $msg  = "Alarm: " . $device['hostname'] . " " . $status_db['status_descr'] . " entered ALERT state: " . $status_poll['status_name'] . " (previous: " . $status_db['status_name'] . ")";
+            $msg .= "Alert: " . $device['hostname'] . " " . $status_db['status_descr'] . " entered ALERT state: " . $status_poll['status_name'] . " (previous: " . $status_db['status_name'] . ")";
             log_event($msg, $device, 'status', $status_db['status_id'], 'warning');
             break;
           case 'warning':
             // New state warned
-            $msg  = "Warning: " . $device['hostname'] . " " . $status_db['status_descr'] . " entered WARNING state: " . $status_poll['status_name'] . " (previous: " . $status_db['status_name'] . ")";
+            $msg .= "Warning: " . $device['hostname'] . " " . $status_db['status_descr'] . " entered WARNING state: " . $status_poll['status_name'] . " (previous: " . $status_db['status_name'] . ")";
             log_event($msg, $device, 'status', $status_db['status_id']);
             break;
-          case 'up':
+          case 'ok':
             // New state ok
-            $msg  = "Up: " . $device['hostname'] . " " . $status_db['status_descr'] . " entered NORMAL state: " . $status_poll['status_name'] . " (previous: " . $status_db['status_name'] . ")";
-            log_event('Status '.$msg, $device, 'status', $status_db['status_id'], 'warning');
+            $msg .= "Ok: " . $device['hostname'] . " " . $status_db['status_descr'] . " entered OK state: " . $status_poll['status_name'] . " (previous: " . $status_db['status_name'] . ")";
+            log_event($msg, $device, 'status', $status_db['status_id'], 'warning');
             break;
         }
       }
     } else {
-      print_message("[%ystatus Ignored%n]", 'color');
+      // If status not changed, leave old last_change
+      $status_poll['status_last_change'] = $status_db['status_last_change'];
     }
 
-print_r($status_poll);
-
-    echo(PHP_EOL);
+    if (OBS_DEBUG > 1)
+    {
+      print_vars($status_poll);
+    }
 
     // Send statistics array via AMQP/JSON if AMQP is enabled globally and for the ports module
     if ($config['amqp']['enable'] == TRUE && $config['amqp']['modules']['status'])
@@ -425,14 +440,20 @@ print_r($status_poll);
     rrdtool_update($device, $rrd_file,"N:$status_value");
 
     // Enable graph
-    $graphs[$status_db['status_class']] = TRUE;
+    $graphs[$sensor_db['status']] = TRUE;
 
     // Check alerts
     $metrics = array();
 
     $metrics['status_value'] = $status_value;
     $metrics['status_name']  = $status_poll['status_name'];
+    $metrics['status_name_uptime'] = $status_polled_time - $status_poll['status_last_change'];
     $metrics['status_event'] = $status_poll['status_event'];
+
+    //print_cli_data("Event (State)", $status_poll['status_event'] ." (".$status_poll['status_name'].")", 3);
+
+    $GLOBALS['table_rows'][] = array($status_db['status_descr'], $status_db['status_type'], $status_db['status_index'] ,$status_db['poller_type'],
+                          $status_poll['status_name'], $status_poll['status_event'], format_unixtime($status_poll['status_last_change']));
 
     check_entity('status', $status_db, $metrics);
 
@@ -442,22 +463,24 @@ print_r($status_poll);
       dbUpdate(array('status_value'  => $status_value,
                      'status_name'   => $status_poll['status_name'],
                      'status_event'  => $status_poll['status_event'],
-                     'status_polled' => time()),
-               'status-state', '`status_id` = ?', array($status_db['status_id']));
+                     'status_last_change' => $status_poll['status_last_change'],
+                     'status_polled' => $status_polled_time),
+      'status-state', '`status_id` = ?', array($status_db['status_id']));
     } else {
       dbInsert(array('status_id'     => $status_db['status_id'],
                      'status_value'  => $status_value,
                      'status_name'   => $status_poll['status_name'],
                      'status_event'  => $status_poll['status_event'],
-                     'status_polled' => time()),
-               'status-state');
+                     'status_last_change' => $status_poll['status_last_change'],
+                     'status_polled' => $status_polled_time),
+      'status-state');
     }
   }
 }
 
 function poll_device($device, $options)
 {
-  global $config, $device, $polled_devices, $db_stats, $memcache, $exec_status, $alert_rules, $alert_table, $graphs, $attribs;
+  global $config, $device, $polled_devices, $db_stats, $exec_status, $alert_rules, $alert_table, $graphs, $attribs;
 
   $alert_metrics = array();
 
@@ -465,7 +488,7 @@ function poll_device($device, $options)
 
   $old_device_state = unserialize($device['device_state']);
 
-  $attribs = get_dev_attribs($device['device_id']);
+  $attribs = get_entity_attribs('device', $device['device_id']);
 
   $alert_rules = cache_alert_rules();
   $alert_table = cache_device_alert_table($device['device_id']);
@@ -476,50 +499,70 @@ function poll_device($device, $options)
     print_vars($alert_table);
   }
 
-  $status = 0; unset($array);
+  $status = 0;
+
   $device_start = utime();  // Start counting device poll time
 
-  echo($device['hostname'] . " ".$device['device_id']." ".$device['os']." ");
+  print_cli_heading($device['hostname'] . " [".$device['device_id']."]", 1);
+
+  print_cli_data("OS", $device['os'], 1);
+
   if ($config['os'][$device['os']]['group'])
   {
     $device['os_group'] = $config['os'][$device['os']]['group'];
-    echo("(".$device['os_group'].")");
+    print_cli_data("OS Group", $device['os_group'], 1);
   }
-  echo("\n");
 
-  unset($poll_update); unset($poll_update_query); unset($poll_separator);
-  $poll_update_array = array();
+  if (is_numeric($device['last_polled_timetaken']))
+  {
+    print_cli_data("Last poll duration", $device['last_polled_timetaken']. " seconds", 1);
+  }
+
+  print_cli_data("Last Polled", $device['last_polled'], 1);
+  print_cli_data("SNMP Version", $device['snmp_version'], 1);
+
+  //unset($poll_update); unset($poll_update_query); unset($poll_separator);
+  $update_array = array();
 
   $host_rrd_dir = $config['rrd_dir'] . "/" . $device['hostname'];
   if (!is_dir($host_rrd_dir)) { mkdir($host_rrd_dir); echo("Created directory : $host_rrd_dir\n"); }
 
-  $try_a = !($device['snmp_transport'] == 'udp6' || $device['snmp_transport'] == 'tcp6'); // Use IPv6 only if transport 'udp6' or 'tcp6'
-  $device['pingable'] = isPingable($device['hostname'], $try_a);
+  $flags = OBS_DNS_ALL;
+  if ($device['snmp_transport'] == 'udp6' || $device['snmp_transport'] == 'tcp6') // Exclude IPv4 if used transport 'udp6' or 'tcp6'
+  {
+    $flags = $flags ^ OBS_DNS_A;
+  }
+  $attribs['ping_skip'] = isset($attribs['ping_skip']) && $attribs['ping_skip'];
+  if ($attribs['ping_skip'])
+  {
+    $flags = $flags | OBS_PING_SKIP; // Add skip ping flag
+  }
+  $device['pingable'] = isPingable($device['hostname'], $flags);
   if ($device['pingable'])
   {
     $device['snmpable'] = isSNMPable($device);
     if ($device['snmpable'])
     {
+      $ping_msg = ($attribs['ping_skip'] ? '' : 'PING (' . $device['pingable'] . 'ms) and ');
+
+      print_cli_data("Device status", "Device is reachable by " . $ping_msg . "SNMP (".$device['snmpable']."ms)", 1);
       $status = "1";
       $status_type = '';
     } else {
-      echo("SNMP Unreachable");
+      print_cli_data("Device status", "Device is not responding to SNMP requests", 1);
       $status = "0";
       $status_type = 'snmp';
     }
   } else {
-    echo("Unpingable");
+    print_cli_data("Device status", "Device is not responding to PINGs", 1);
     $status = "0";
     $status_type = 'ping';
   }
 
   if ($device['status'] != $status)
   {
-    $poll_update .= $poll_separator . "`status` = '$status'";
-    $poll_separator = ", ";
-
     dbUpdate(array('status' => $status), 'devices', 'device_id = ?', array($device['device_id']));
-    dbInsert(array('importance' => '0', 'device_id' => $device['device_id'], 'message' => "Device is " .($status == '1' ? 'up' : 'down')), 'alerts');
+    // dbInsert(array('importance' => '0', 'device_id' => $device['device_id'], 'message' => "Device is " .($status == '1' ? 'up' : 'down')), 'alerts');
 
     $event_msg = 'Device status changed to ';
     if ($status == '1')
@@ -547,15 +590,18 @@ function poll_device($device, $options)
     rrdtool_update($device, $rrd_filename, "N:U");
   }
 
-  // Ping response RRD database.
-  $ping_rrd = 'ping.rrd';
-  rrdtool_create($device, $ping_rrd, "DS:ping:GAUGE:600:0:65535 " );
-
-  if ($device['pingable'])
+  if (!$attribs['ping_skip'])
   {
-    rrdtool_update($device, $ping_rrd,"N:".$device['pingable']);
-  } else {
-    rrdtool_update($device, $ping_rrd,"N:U");
+    // Ping response RRD database.
+    $ping_rrd = 'ping.rrd';
+    rrdtool_create($device, $ping_rrd, "DS:ping:GAUGE:600:0:65535 " );
+
+    if ($device['pingable'])
+    {
+      rrdtool_update($device, $ping_rrd,"N:".$device['pingable']);
+    } else {
+      rrdtool_update($device, $ping_rrd,"N:U");
+    }
   }
 
   // SNMP response RRD database.
@@ -571,7 +617,7 @@ function poll_device($device, $options)
 
   $alert_metrics['device_status'] = $status;
   $alert_metrics['device_status_type'] = $status_type;
-  $alert_metrics['device_ping'] = $device['pingable'];
+  $alert_metrics['device_ping'] = $device['pingable']; // FIXME, when ping skipped, here always 0.001
   $alert_metrics['device_snmp'] = $device['snmpable'];
 
   if ($status == "1")
@@ -584,14 +630,21 @@ function poll_device($device, $options)
       $graphs_db[$entry['graph']] = (isset($entry['enabled']) ? (bool)$entry['enabled'] : TRUE);
     }
 
-    // Enable Ping graphs
-    $graphs['ping'] = TRUE;
+    if (!$attribs['ping_skip'])
+    {
+      // Enable Ping graphs
+      $graphs['ping'] = TRUE;
+    }
 
     // Enable SNMP graphs
     $graphs['ping_snmp'] = TRUE;
 
     // Run these base modules always and before all other modules!
     $poll_modules = array('system', 'os');
+
+    $mods_disabled_global = array();
+    $mods_disabled_device = array();
+    $mods_excluded        = array();
 
     if ($options['m'])
     {
@@ -617,7 +670,8 @@ function poll_device($device, $options)
         {
           if (poller_module_excluded($device, $module))
           {
-            print_warning("Module [ $module ] excluded for device.");
+            $mods_excluded[] = $module;
+            //print_warning("Module [ $module ] excluded for device.");
             continue;
           }
           if ($module == 'unix-agent')
@@ -632,49 +686,44 @@ function poll_device($device, $options)
         }
         elseif (isset($attribs['poll_'.$module]) && !$attribs['poll_'.$module])
         {
-          print_warning("Module [ $module ] disabled on device.");
+          $mods_disabled_device[] = $module;
+          //print_warning("Module [ $module ] disabled on device.");
         } else {
-          print_warning("Module [ $module ] disabled globally.");
+          $mods_disabled_global[] = $module;
+          //print_warning("Module [ $module ] disabled globally.");
         }
       }
 
     }
 
+    if (count($mods_excluded)) { print_cli_data("Modules Excluded", implode(", ", $mods_excluded), 1); }
+    if (count($mods_disabled_global)) { print_cli_data("Disabled Globally", implode(", ", $mods_disabled_global), 1); }
+    if (count($mods_disabled_device)) { print_cli_data("Disabled Device", implode(", ", $mods_disabled_global), 1); }
+    if (count($poll_modules)) { print_cli_data("Modules Enabled", implode(", ", $poll_modules), 1); }
+
+    echo(PHP_EOL);
+
     foreach ($poll_modules as $module)
     {
-      print_debug(PHP_EOL."including: includes/polling/$module.inc.php");
+      print_debug(PHP_EOL . "including: includes/polling/$module.inc.php");
+
+      print_cli_heading("Module Start: %R".$module."");
 
       $m_start = utime();
 
       include($config['install_dir'] . "/includes/polling/$module.inc.php");
 
       $m_end   = utime();
+
       $m_run   = round($m_end - $m_start, 4);
-      $device_state['poller_mod_perf'][$module] = number_format($m_run,4);
-      print_message("Module [ $module ] time: $m_run"."s");
+      $device_state['poller_mod_perf'][$module] = number_format($m_run, 4);
+      print_cli_data("Module time", "$m_run"."s");
+
+      echo(PHP_EOL);
+
     }
 
-    // Fields to notify about in event log - FIXME should move to definitions?
-    $update_fields = array('version', 'features', 'hardware', 'serial', 'kernel', 'distro', 'distro_ver', 'arch', 'asset_tag');
-
-    // Log changed variables
-    foreach ($update_fields as $field)
-    {
-      if (isset($$field) && $$field != $device[$field])
-      {
-        $update_array[$field] = $$field;
-        log_event(ucfirst($field)." -> ".$update_array[$field], $device, 'device', $device['device_id']);
-      }
-    }
-    // Here additional fields, change only if not set already
-    foreach (array('type', 'icon') as $field)
-    {
-      if (isset($$field) && ($device[$field] == "unknown" || $device[$field] == ''))
-      {
-        $update_array[$field] = $$field;
-        log_event(ucfirst($field)." -> ".$update_array[$field], $device, 'device', $device['device_id']);
-      }
-    }
+    print_cli_heading($device['hostname']. " [" . $device['device_id'] . "] completed poller modules at " . date("Y-m-d H:i:s"), 1);
 
     // Check and update graphs DB
     $graphs_stat = array();
@@ -716,7 +765,7 @@ function poll_device($device, $options)
     // Print graphs stats
     foreach ($graphs_stat as $key => $stat)
     {
-      if (count($stat)) { echo(' Graphs ['.$key.']: '.implode(', ', $stat).PHP_EOL); }
+      if (count($stat)) { print_cli_data('Graphs ['.$key.']', implode(', ', $stat), 1); }
     }
 
     $device_end = utime(); $device_run = $device_end - $device_start; $device_time = round($device_run, 4);
@@ -727,7 +776,9 @@ function poll_device($device, $options)
     $update_array['device_state'] = serialize($device_state);
 
     #echo("$device_end - $device_start; $device_time $device_run");
-    print_message(PHP_EOL."Polled in $device_time seconds");
+
+    print_cli_data("Poller time", $device_time." seconds", 1);
+    //print_message(PHP_EOL."Polled in $device_time seconds");
 
     // Only store performance data if we're not doing a single-module poll
     if (!$options['m'])
@@ -739,10 +790,17 @@ function poll_device($device, $options)
       rrdtool_update($device, $poller_rrd, "N:".$device_time);
     }
 
-    if (OBS_DEBUG) { echo("Updating " . $device['hostname'] . " - "); print_vars($update_array);echo(" \n"); }
+    if (OBS_DEBUG) {
+      echo("Updating " . $device['hostname'] . " - ");
+      print_vars($update_array);
+      echo(" \n"); }
 
     $updated = dbUpdate($update_array, 'devices', '`device_id` = ?', array($device['device_id']));
-    if ($updated) { echo("UPDATED!\n"); }
+
+    if ($updated) {
+      print_cli_data("Updated Data", implode(", ", array_keys($update_array)), 1);
+    //echo("UPDATED!\n");
+    }
 
     $alert_metrics['device_uptime']   = $device['uptime'];
     $alert_metrics['device_rebooted'] = $rebooted; // 0 - not rebooted, 1 - rebooted
@@ -753,6 +811,8 @@ function poll_device($device, $options)
   }
 
   check_entity('device', $device, $alert_metrics);
+
+  echo(PHP_EOL);
 
   unset($alert_metrics);
 }
@@ -913,7 +973,12 @@ function collect_table($device, $oids_def, &$graphs)
     $ds_len = ($mib != 'NS-ROOT-MIB' ? 19 : 18); // Hardcode max len for NS-ROOT-MIB to 18 chars
     if (strlen($ds_name) > $ds_len) { $ds_name = truncate($ds_name, $ds_len, ''); }
 
-    $oids[]       = $oid.'.'.$entry['index'];
+    if (isset($oids_def['no_index']) && $oids_def['no_index'] == TRUE)
+    {
+      $oids[]       = $oid;
+    } else {
+      $oids[]       = $oid.'.'.$entry['index'];
+    }
     $oids_index[] = array('index' => $entry['index'], 'oid' => $oid);
 
     if (!$use_walk)
@@ -948,7 +1013,10 @@ function collect_table($device, $oids_def, &$graphs)
     print_debug("  WARNING, latest snmp walk/get return not good exitstatus for '$mib', RRD update skipped.");
     return FALSE;
   }
-
+  if (isset($oids_def['no_index']) && $oids_def['no_index'] == TRUE)
+  {
+    $data[0] = $data[''];
+  }
   foreach ($oids_index as $entry)
   {
     $index = $entry['index'];
@@ -1082,6 +1150,95 @@ function collect_table_old($args, $device, &$graphs)
 
   // We should only create a graph when the OID was present -- FIXME :)
   foreach ($args['graphs'] as $g) { $graphs[$g] = TRUE; }
+}
+
+function poll_p2p_radio($device, $mib, $index, $radio)
+{
+
+  $params  = array('radio_tx_freq', 'radio_rx_freq', 'radio_tx_power', 'radio_rx_level', 'radio_name', 'radio_bandwidth', 'radio_modulation', 'radio_total_capacity', 'radio_standard', 'radio_loopback', 'radio_tx_mute', 'radio_eth_capacity', 'radio_e1t1_channels', 'radio_cur_capacity');
+
+  if (is_array($GLOBALS['cache']['p2p_radios'][$mib][$index])) { $radio_db = $GLOBALS['cache']['p2p_radios'][$mib][$index]; }
+
+  // Update the Database
+
+  if (!isset($radio_db['radio_id']))  // If we don't have an entry already, create it
+  {
+    $insert = array();
+    $insert['device_id'] = $device['device_id'];
+    $insert['radio_mib'] = $mib;
+    $insert['radio_index'] = $index;
+
+    foreach ($params as $param)
+    {
+      $insert[$param] = $radio[$param];
+      if ($radio[$param] == NULL) { $insert[$param] = array('NULL'); }
+    }
+
+    $radio_id = dbInsert($insert, 'p2p_radios');
+    echo("+");
+
+  } else {  // If we already have an entry, check if it needs updating
+
+    $update = array();
+    foreach ($params as $param)
+    {
+      if ($radio[$param] != $radio_db[$param]) { $update[$param] = $radio[$param]; }
+    }
+    if (count($update)) // If there have been changes, update it
+    {
+      dbUpdate($update, 'p2p_radios', '`radio_id` = ?', array($radio_db['radio_id']));
+      echo('U');
+    } else {
+      echo('.');
+    }
+  }
+
+  // Create RRD files
+
+  $dses = array('tx_power'             => array('type' => 'gauge'),
+                'rx_level'             => array('type' => 'gauge'),
+                'rmse'                 => array('type' => 'gauge'),
+                'agc_gain'             => array('type' => 'gauge'),
+                'cur_capacity'         => array('type' => 'gauge'),
+                'sym_rate_tx'          => array('type' => 'gauge'),
+                'sym_rate_rx'          => array('type' => 'gauge'),
+  );
+
+  $rrd_file = "p2p_radio-" . $mib . "-" . $index . ".rrd";
+  $rrd_update = "N";
+  $rrd_create = "";
+
+  foreach ($dses as $ds => $ds_data)
+  {
+
+    $field = "radio_".$ds;
+
+    $radio[$ds] = $radio[$oid];
+
+    if ($ds_data['type'] == 'gauge')
+    {
+      $rrd_create .= " DS:" . $ds . ":GAUGE:600:U:100000000000";
+    }
+    else
+    {
+      $rrd_create .= " DS:" . $ds . ":COUNTER:600:U:100000000000";
+    }
+
+    if (is_numeric($radio[$field]))
+    {
+      $rrd_update .= ":" . $radio[$field];
+    }
+    else
+    {
+      $rrd_update .= ":U";
+    }
+  }
+
+  rrdtool_create($device, $rrd_file, $rrd_create);
+  rrdtool_update($device, $rrd_file, $rrd_update);
+
+  $GLOBALS['valid']['p2p_radio'][$mib][$index] = 1; // FIXME. What? How it passed there?
+
 }
 
 // EOF

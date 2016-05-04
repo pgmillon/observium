@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -21,7 +21,7 @@ foreach ($oids as $index => $entry)
 {
   if (isset($entry['trpzSysPowerSupplyStatus']))
   {
-    $oid  = '.1.3.6.1.4.1.14525.4.8.1.1.13.1.2.1.'.$index;
+    $oid  = '.1.3.6.1.4.1.14525.4.8.1.1.13.1.2.1.2.'.$index;
     //echo($index);
     //Not numerical values, only states
     $value = $entry['trpzSysPowerSupplyStatus'];

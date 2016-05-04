@@ -7,9 +7,11 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
+
+$table_rows = array();
 
 if (!isset($cache_storage)) { $cache_storage = array(); } // This cache used also in mempool module
 
@@ -44,7 +46,7 @@ foreach (dbFetchRows($sql, array($device['device_id'])) as $storage)
 
   $hc = ($storage['storage_hc'] ? ' (HC)' : '');
 
-  print_message("Storage ". $storage['storage_descr'] . ': '.$percent.'%%'.$hc);
+  // print_message("Storage ". $storage['storage_descr'] . ': '.$percent.'%%'.$hc);
 
   // Update StatsD/Carbon
   if ($config['statsd']['enable'] == TRUE)
@@ -54,7 +56,7 @@ foreach (dbFetchRows($sql, array($device['device_id'])) as $storage)
   }
 
   // Update RRD
-  rrdtool_update($device, $storage_rrd,"N:".$storage['used'].":".$storage['free']);
+  rrdtool_update($device, $storage_rrd, "N:".$storage['used'].":".$storage['free']);
 
   if (!is_numeric($storage['storage_polled']))
   {
@@ -82,9 +84,22 @@ foreach (dbFetchRows($sql, array($device['device_id'])) as $storage)
   // Check alerts
   check_entity('storage', $storage, array('storage_perc' => $percent, 'storage_free' => $storage['free'], 'storage_used' => $storage['used']));
 
-  echo(PHP_EOL);
+  $table_row = array();
+  $table_row[] = $storage['storage_descr'];
+  $table_row[] = $storage['storage_mib'];
+  $table_row[] = $storage['storage_index'];
+  $table_row[] = formatStorage($storage['size']);
+  $table_row[] = formatStorage($storage['used']);
+  $table_row[] = formatStorage($storage['free']);
+  $table_row[] = $percent.'%';
+  $table_rows[] = $table_row;
+  unset($table_row);
+
 }
 
-unset($storage);
+$headers = array('%WLabel%n', '%WType%n', '%WIndex%n', '%WTotal%n', '%WUsed%n', '%WFree%n', '%WPerc%n');
+print_cli_table($table_rows, $headers);
+
+unset($storage, $table, $table_row, $table_rows);
 
 // EOF

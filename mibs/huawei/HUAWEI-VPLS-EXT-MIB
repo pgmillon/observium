@@ -3,7 +3,7 @@
 -- 
 -- Description: HUAWEI VPLS Management Extended MIB
 -- Reference:
--- Version:     V2.33
+-- Version:     V2.35
 -- History:
 --              V1.0 PanJun, 2006-05-08, publish
 -- ==================================================================
@@ -27,11 +27,14 @@
             VrId            
                 FROM VRRP-MIB
             EnabledStatus
-                FROM P-BRIDGE-MIB;
+                FROM P-BRIDGE-MIB
+            hwL2VpnVcLimitClass, hwL2VpnVsiVcNumber, hwVplsVcNumberUpperThreshold,
+            hwVplsVcNumberMaxNum    
+                FROM HUAWEI-L2VPN-MIB;
 
 
         hwL2VpnVplsExt MODULE-IDENTITY 
-            LAST-UPDATED "201402111600Z"           -- Feb 11, 2014 at 16:00 GMT 
+            LAST-UPDATED "201410271600Z"           -- Oct 27, 2014 at 16:00 GMT
             ORGANIZATION 
                 "Huawei Technologies Co.,Ltd."
             CONTACT-INFO 
@@ -45,6 +48,18 @@
             DESCRIPTION 
                 "The HUAWEI-VPLS-EXT-MIB contains objects to
                 manage VPLS."
+
+             REVISION "201410271600Z"           --Oct 27, 2014 at 16:00 GMT 
+             DESCRIPTION               
+             "Add VPLS protect group table(hwVplsVsiProtectGroupTable)." 
+			 
+             REVISION "201410271600Z"           --Oct 27, 2014 at 16:00 GMT 
+             DESCRIPTION               
+             "Add VPLS MIB Trap(hwVplsPwRedundancyDegraded)." 
+			 
+             REVISION "201410271600Z"           --Oct 27, 2014 at 16:00 GMT 
+             DESCRIPTION               
+             "Add VPLS MIB Trap(hwVplsPwRedundancyDegradedClear)." 
 
              REVISION "201402111600Z"           -- Feb 11, 2014 at 16:00 GMT 
              DESCRIPTION  
@@ -64,6 +79,11 @@
 
            REVISION  "200704122100Z"
            DESCRIPTION "20130126 "  
+           
+           REVISION "201406181000Z"              -- June 18, 2014 at 10:00 GMT
+           DESCRIPTION
+                "Add trap nodes about VPLS VC limit alarm."
+                                
             ::= { hwL2Vpn 1 }
 
         
@@ -2667,6 +2687,44 @@
             "
            ::= { hwVplsMIBObjects 16 }      
 
+--
+-- The VPLS's protect group Table
+--
+        hwVplsVsiProtectGroupTable OBJECT-TYPE
+            SYNTAX SEQUENCE OF HWVplsVsiProtectGroupEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "This table is the VPLS protect group's configuration table. Users can create or delete the VPLS protect group by it."
+            ::= { hwVplsMIBObjects 17 }
+
+
+        hwVplsVsiProtectGroupEntry OBJECT-TYPE
+            SYNTAX HWVplsVsiProtectGroupEntry
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "Provides the information of a VPLS protect group entry."
+            INDEX { hwVplsVsiName, hwVplsVsiProtectGroupName }
+            ::= { hwVplsVsiProtectGroupTable 1 }
+
+
+        HWVplsVsiProtectGroupEntry ::=
+            SEQUENCE { 
+                hwVplsVsiProtectGroupName
+                    DisplayString
+            }
+
+
+        hwVplsVsiProtectGroupName OBJECT-TYPE
+            SYNTAX DisplayString (SIZE (1..15))
+            MAX-ACCESS not-accessible
+            STATUS current
+            DESCRIPTION
+                "This object indicates the VPLS protect group's name."
+            ::= { hwVplsVsiProtectGroupEntry 1 }
+
+
 --           
 -- VPLS MIB Trap Definitions
 -- 
@@ -2727,13 +2785,59 @@
             DESCRIPTION 
                 "This notification indicates the VC is deleted."
             ::= { hwVplsMIBTraps 7 }
+            
+            
         hwVplsVcStatusChange NOTIFICATION-TYPE
             OBJECTS { hwVplsStateChangeReason, hwVplsPwState, hwVplsPwWorkingState, sysUpTime }
             STATUS current
             DESCRIPTION 
                 "This notification indicates the VC is deleted."
             ::= { hwVplsMIBTraps 8 }
-        
+            
+            
+        hwVplsVcNumberThresholdExceed NOTIFICATION-TYPE
+            OBJECTS { hwL2VpnVcLimitClass, hwL2VpnVsiVcNumber, hwVplsVcNumberUpperThreshold, hwVplsVcNumberMaxNum }
+            STATUS current
+            DESCRIPTION 
+                "This notification indicates that the number of VPLS VCs reaches the upper threshold."
+            ::= { hwVplsMIBTraps 9 }
+
+
+        hwVplsVcNumberThresholdClear NOTIFICATION-TYPE
+            OBJECTS { hwL2VpnVcLimitClass, hwL2VpnVsiVcNumber }
+            STATUS current
+            DESCRIPTION 
+                "This notification indicates that the number of VPLS VCs falls below the lower threshold."
+            ::= { hwVplsMIBTraps 10 }
+
+
+        hwVplsVcNumberMaxExceed NOTIFICATION-TYPE
+            OBJECTS { hwL2VpnVcLimitClass, hwVplsVcNumberMaxNum }
+            STATUS current
+            DESCRIPTION 
+                "This notification indicates that the number of VPLS VCs reaches the maximum limit."
+            ::= { hwVplsMIBTraps 11 }
+
+
+        hwVplsVcNumberMaxClear NOTIFICATION-TYPE
+            OBJECTS { hwL2VpnVcLimitClass, hwVplsVcNumberMaxNum }
+            STATUS current
+            DESCRIPTION 
+                "This notification indicates that the number of VPLS VCs is less than 95% of the maximum limit."
+            ::= { hwVplsMIBTraps 12 }
+
+        hwVplsPwRedundancyDegraded NOTIFICATION-TYPE
+            STATUS current
+            DESCRIPTION 
+                "VPLS PW redundancy reported a protect degraded alarm."
+            ::= { hwVplsMIBTraps 13 }
+			
+        hwVplsPwRedundancyDegradedClear NOTIFICATION-TYPE
+            STATUS current
+            DESCRIPTION 
+                "VPLS PW redundancy reported the clearing of the protect degraded alarm."
+            ::= { hwVplsMIBTraps 14 }           
+                                            
 --    Conformance information
 -- 
         hwVplsMIBConformance OBJECT IDENTIFIER ::= { hwL2VpnVplsExt 3 }
@@ -2836,8 +2940,9 @@
 
         
         hwVplsNotificationGroup NOTIFICATION-GROUP
-            NOTIFICATIONS { hwVplsVcDown, hwVplsVcUp, hwVplsVsiDown, hwVplsVsiUp, hwVplsVcBackup, hwVplsVsiDeleted, hwVplsVcDeleted, hwVplsVcStatusChange
-                 }
+            NOTIFICATIONS { hwVplsVcDown, hwVplsVcUp, hwVplsVsiDown, hwVplsVsiUp, hwVplsVcBackup, hwVplsVsiDeleted, hwVplsVcDeleted, hwVplsVcStatusChange,
+                 hwVplsVcNumberThresholdExceed, hwVplsVcNumberThresholdClear, hwVplsVcNumberMaxExceed, hwVplsVcNumberMaxClear, hwVplsPwRedundancyDegraded,
+                 hwVplsPwRedundancyDegradedClear }
             STATUS current
             DESCRIPTION 
                 "The VPLS Notification group."

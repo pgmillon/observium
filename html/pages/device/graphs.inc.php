@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -30,6 +30,21 @@ foreach ($device['graphs'] as $entry)
   }
 }
 
+if (OBSERVIUM_EDITION != 'community')
+{
+  // Custom OIDs
+  $sql  = "SELECT * FROM `oids_assoc`";
+  $sql .= " LEFT JOIN `oids` USING(`oid_id`)";
+  $sql .= " WHERE `device_id` = ?";
+
+  $custom_graphs = dbFetchRows($sql, array($device['device_id']));
+
+  if (count($custom_graphs))
+  {
+    $graphs_sections['custom'] = TRUE;
+  }
+}
+
 $navbar['brand'] = "Graphs";
 $navbar['class'] = "navbar-narrow";
 
@@ -47,21 +62,50 @@ print_navbar($navbar);
 
 $graph_enable = $graphs_sections[$vars['group']];
 
-echo('<table class="table table-condensed table-striped table-hover table-bordered">');
+echo('<div class="box box-solid"><table class="table table-condensed table-striped table-hover ">');
 
-foreach ($graph_enable as $graph => $entry)
+if ($vars['group'] == "custom" && $graphs_sections['custom'])
 {
-  $graph_array = array();
-  if ($graph_enable[$graph])
+  foreach ($custom_graphs as $graph)
   {
-    $graph_title = $config['graph_types']['device'][$graph]['descr'];
-    $graph_array['type'] = "device_" . $graph;
+    $graph_array = array();
+      $graph_title         = $graph['oid_descr'];
+      $graph_array['type'] = "customoid_graph";
+      $graph_array['id']   = $graph['oid_assoc_id'];
 
-    include("includes/print-device-graph.php");
+      echo('<tr><td>');
+
+      echo('<h3>' . $graph_title . '</h4>');
+
+      print_graph_row($graph_array);
+
+      echo('</td></tr>');
+
+  }
+
+} else {
+
+  foreach ($graph_enable as $graph => $entry)
+  {
+    $graph_array = array();
+    if ($graph_enable[$graph])
+    {
+      $graph_title = $config['graph_types']['device'][$graph]['descr'];
+      $graph_array['type'] = "device_" . $graph;
+      $graph_array['device'] = $device['device_id'];
+
+      echo('<tr><td>');
+
+      echo('<h3>' . $graph_title . '</h4>');
+
+      print_graph_row($graph_array);
+
+      echo('</td></tr>');
+    }
   }
 }
 
-echo('</table>');
+echo('</table></div>');
 
 $page_title[] = "Graphs";
 

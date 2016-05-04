@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -30,8 +30,11 @@ foreach ($navbar['options'] as $option => $array)
 
 print_navbar($navbar);
 unset($navbar);
+
+echo generate_box_open();
+
 ?>
-      <table class="table table-bordered table-condensed table-striped">
+      <table class="table  table-condensed table-striped">
       <thead>
       <tr><th><a title="Physical hardware entity">Entity</a></th>
           <th><a title="Address Family">AFI</a></th>
@@ -59,25 +62,25 @@ foreach (dbFetchRows("SELECT * FROM `cef_switching` WHERE `device_id` = ?  ORDER
     $entity_name = $entity['entPhysicalName'] . " (" . $entity['entPhysicalModelName'] .")";
   }
 
-  echo("<tr bgcolor=$bg_colour><td>".$entity_name."</td>
-            <td>");
-  if ($cef['afi'] == "ipv4") { echo '<span class="green">IPv4</span>'; } elseif($cef['afi'] == "ipv6") { echo '<span class="blue">IPv6</span>'; } else { echo $cef['afi']; }
+  echo('<tr bgcolor="'.$bg_colour.'"><td class="entity">'.$entity_name.'</td>
+            <td>');
+  if ($cef['afi'] == "ipv4") { echo '<span class="label label-success">IPv4</span>'; } elseif($cef['afi'] == "ipv6") { echo '<span class="label label-info">IPv6</span>'; } else { echo $cef['afi']; }
 
   echo("</td>
             <td>");
 
   switch ($cef['cef_path']) {
     case "RP RIB":
-      echo '<a title="Process switching with CEF assistance.">RP RIB</a>';
+      echo '<a title="Process switching with CEF assistance."><span class="label label-error">RP RIB</span></a>';
       break;
     case "RP LES":
-      echo '<a title="Low-end switching. Centralized CEF switch path.">RP LES</a>';
+      echo '<a title="Low-end switching. Centralized CEF switch path."><span class="label label-success">RP LES</span></a>';
       break;
     case "RP PAS":
-      echo '<a title="CEF turbo switch path.">RP PAS</a>';
+      echo '<a title="CEF turbo switch path."><span class="label label-info">RP PAS</span></a>';
       break;
     default:
-       echo $cef['cef_path'];
+       echo '<span class="label">'.$cef['cef_path'].'</span>';
   }
 
   echo("</td>");
@@ -112,5 +115,7 @@ foreach (dbFetchRows("SELECT * FROM `cef_switching` WHERE `device_id` = ?  ORDER
 }
 
 echo("</table>");
+
+echo generate_box_close();
 
 // EOF

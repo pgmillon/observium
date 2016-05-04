@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -37,6 +37,13 @@ $search[] = array('type'    => 'select',
                   'width'   => '130px',
                   'value'   => $vars['interface'],
                   'values'  => array('' => 'All Interfaces', 'Lo' => 'Loopbacks', 'Vlan' => 'Vlans'));
+//Networks
+$search[] = array('type'    => 'text',
+                  'name'    => 'IP Network',
+                  'id'      => 'network',
+                  'ajax'    => TRUE,
+                  'ajax_vars' => array('field' => 'ipv6_network'),
+                  'value'   => $vars['network']);
 ////IP version field
 //$search[] = array('type'    => 'select',
 //                  'name'    => 'IP',
@@ -48,6 +55,8 @@ $search[] = array('type'    => 'select',
 $search[] = array('type'    => 'text',
                   'name'    => 'IP Address',
                   'id'      => 'address',
+                  'placeholder' => TRUE,
+                  'submit_by_key' => TRUE,
                   'value'   => $vars['address']);
 
 print_search($search, 'IPv6', NULL, 'search/search=ipv6/');
@@ -65,3 +74,7 @@ $page_title[] = "IPv6 address search";
   </div> <!-- col-md-12 -->
 
 </div> <!-- row -->
+
+<?php
+
+// EOF

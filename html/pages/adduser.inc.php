@@ -6,25 +6,25 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-?>
-<h2>Observium User Management: Add User</h2>
-<?php
-
-include("usermenu.inc.php");
-
-if ($_SESSION['userlevel'] == '10')
+// Global write permissions required.
+if ($_SESSION['userlevel'] < 10)
 {
-  $page_title[] = "Add user";
-  $errors = array();
+  print_error_permission();
+  return;
+}
+
+include($config['html_dir']."/pages/usermenu.inc.php");
+
+  $page_title[] = "Add User";
 
   if (auth_usermanagement())
   {
-    if ($vars['action'] == "add")
+    if ($vars['submit'] == 'add_user')
     {
       if ($vars['new_username'])
       {
@@ -38,7 +38,11 @@ if ($_SESSION['userlevel'] == '10')
             $vars['can_modify_passwd'] = 0;
           }
 
-          if (adduser($vars['new_username'], $vars['new_password'], $vars['new_level'], $vars['new_email'], $vars['new_realname'], $vars['can_modify_passwd'], $vars['new_description']))
+          if (!$vars['new_password'])
+          {
+            print_warning("Please enter a password!");
+          }
+          else if (adduser($vars['new_username'], $vars['new_password'], $vars['new_level'], $vars['new_email'], $vars['new_realname'], $vars['can_modify_passwd'], $vars['new_description']))
           {
             print_success('User ' . escape_html($vars['new_username']) . ' added!');
           }
@@ -46,85 +50,97 @@ if ($_SESSION['userlevel'] == '10')
           print_error('User with this name already exists!');
         }
       } else {
-        $errors["username"] = "<span class=\"help-inline\">Please enter a username!</span>";
-      }
-
-      if (!$vars['new_password'])
-      {
-        $errors["passwd"] = "<span class=\"help-inline\">Please enter a password</span>";
+        print_warning("Please enter a username!");
       }
     }
 
-?>
-<!--  <ul class="nav nav-tabs" id="addBillTab">
-    <li class="active"><a href="#properties" data-toggle="tab">User Properties</a></li>
-  </ul> -->
+      $form = array('type'      => 'horizontal',
+                    'id'        => 'add_user',
+                    //'space'     => '20px',
+                    //'title'     => 'Add User',
+                    //'icon'      => 'oicon-gear',
+                    );
+      // top row div
+      $form['fieldset']['user']    = array('div'   => 'top',
+                                           'title' => 'User Properties',
+                                           'icon'  => 'oicon-user--pencil',
+                                           'class' => 'col-md-6');
+      $form['fieldset']['info']    = array('div'   => 'top',
+                                           'title' => 'Optional Information',
+                                           'icon'  => 'oicon-information',
+                                           //'right' => TRUE,
+                                           'class' => 'col-md-6 col-md-pull-0');
+      // bottom row div
+      $form['fieldset']['submit']  = array('div'   => 'bottom',
+                                           'style' => 'padding: 0px;',
+                                           'class' => 'col-md-12');
 
-  <div class="tabcontent tab-content" id="addUserTabContent" style="min-height: 50px; padding-bottom: 18px;">
-    <div class="tab-pane fade active in" id="properties">
-      <form name="form1" method="post" action="adduser/" class="form-horizontal">
-        <input type="hidden" name="action" value="add">
-        <fieldset>
-          <legend>User Properties</legend>
-          <div class="control-group<?php if (isset($errors["username"])) { echo " error"; } ?>">
-            <label class="control-label" for="new_username"><strong>Username</strong></label>
-            <div class="controls">
-              <input class="col-lg-4" type="text" name="new_username" value="<?php echo $vars['new_username']; ?>">
-              <?php if (isset($errors["username"])) { echo $errors["username"]; } ?>
-            </div>
-          </div>
-          <div class="control-group<?php if (isset($errors["passwd"])) { echo " error"; } ?>">
-            <label class="control-label" for="new_password"><strong>Password</strong></label>
-            <div class="controls">
-              <input class="col-lg-4" type="password" name="new_password" value="<?php echo $vars['new_password']; ?>">
-              <?php if (isset($errors["passwd"])) { echo $errors["passwd"]; } ?>
-              &nbsp;<input type="checkbox" checked="checked" name="can_modify_passwd"> Allow the user to change his password.
-            </div>
-          </div>
-          <div class="control-group">
-            <label class="control-label" for="new_realname"><strong>Real Name</strong></label>
-            <div class="controls">
-              <input class="col-lg-4" type="text" name="new_realname" value="<?php echo $vars['new_realname']; ?>">
-            </div>
-          </div>
-          <div class="control-group">
-            <label class="control-label" for="new_level"><strong>User Level</strong></label>
-            <div class="controls">
-              <select name="new_level" class="col-lg-2">
-                <option <?php if ($vars['new_level'] == "1") { echo "selected"; } ?> value="1">Normal User</option>
-                <option <?php if ($vars['new_level'] == "5") { echo "selected"; } ?> value="5">Global Read</option>
-                <option <?php if ($vars['new_level'] == "10") { echo "selected"; } ?> value="10">Administrator</option>
-              </select>
-            </div>
-          </div>
-        </fieldset>
-        <fieldset>
-          <legend>Optional Information</legend>
-          <div class="control-group">
-            <label class="control-label" for="new_email"><strong>E-mail</strong></label>
-            <div class="controls">
-              <input class="col-lg-4" type="text" name="new_email" value="<?php echo $vars['new_email']; ?>">
-            </div>
-          </div>
-          <div class="control-group">
-            <label class="control-label" for="new_description"><strong>Description</strong></label>
-            <div class="controls">
-              <input class="col-lg-4" type="text" name="new_description" value="<?php echo $vars['new_description']; ?>">
-            </div>
-          </div>
-        </fieldset>
-        <div class="form-actions">
-          <button type="submit" class="btn btn-primary"><i class="icon-ok-sign icon-white"></i> <strong>Add User</strong></button>
-        </div>
-      </form>
-    </div>
-  </div>
-<?php
+      //$form['row'][0]['editing']   = array(
+      //                                'type'        => 'hidden',
+      //                                'value'       => 'yes');
+      // left fieldset
+      $form['row'][1]['new_username'] = array(
+                                      'type'        => 'text',
+                                      'fieldset'    => 'user',
+                                      'name'        => 'Username',
+                                      'width'       => '250px',
+                                      'value'       => escape_html($vars['new_username']));
+      $form['row'][2]['new_password'] = array(
+                                      'type'        => 'password',
+                                      'fieldset'    => 'user',
+                                      'name'        => 'Password',
+                                      'width'       => '250px',
+                                      'show_password' => TRUE,
+                                      'value'       => escape_html($vars['new_password'])); // FIXME. For passwords we should use filter instead escape!
+      $form['row'][3]['can_modify_passwd'] = array(
+                                      'type'        => 'checkbox',
+                                      'fieldset'    => 'user',
+                                      'name'        => '',
+                                      'placeholder' => 'Allow the user to change his password',
+                                      'value'       => 1);
+      $form['row'][4]['new_realname'] = array(
+                                      'type'        => 'text',
+                                      'fieldset'    => 'user',
+                                      'name'        => 'Real Name',
+                                      'width'       => '250px',
+                                      'value'       => escape_html($vars['new_realname']));
+      $form['row'][5]['new_level'] = array(
+                                      'type'        => 'select',
+                                      'fieldset'    => 'user',
+                                      'name'        => 'User Level',
+                                      'width'       => '250px',
+                                      'subtext'     => TRUE,
+                                      'values'      => $GLOBALS['config']['user_level'],
+                                      'value'       => (isset($vars['new_level']) ? escape_html($vars['new_level']) : 1));
+
+      // right fieldset
+      $form['row'][15]['new_email'] = array(
+                                      'type'        => 'text',
+                                      'fieldset'    => 'info',
+                                      'name'        => 'E-mail',
+                                      'width'       => '250px',
+                                      'value'       => escape_html($vars['new_email']));
+      $form['row'][16]['new_description'] = array(
+                                      'type'        => 'text',
+                                      'fieldset'    => 'info',
+                                      'name'        => 'Description',
+                                      'width'       => '250px',
+                                      'value'       => escape_html($vars['new_description']));
+
+      $form['row'][30]['submit']    = array(
+                                      'type'        => 'submit',
+                                      'fieldset'    => 'submit',
+                                      'name'        => 'Add User',
+                                      'icon'        => 'icon-ok icon-white',
+                                      //'right'       => TRUE,
+                                      'class'       => 'btn-primary',
+                                      'value'       => 'add_user');
+
+      print_form_box($form);
+      unset($form);
+
   } else {
     print_error('Auth module does not allow user management!');
   }
-} else {
-  include("includes/error-no-perm.inc.php");
-}
 
 // EOF

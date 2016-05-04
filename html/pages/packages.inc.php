@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -18,21 +18,22 @@ foreach ($vars as $var => $value)
     switch ($var)
     {
       case 'name':
-        $where .= " AND `$var` = ?";
-        $param[] = $value;
+        $where .= generate_query_values($value, $var);
         break;
     }
   }
 }
 
-echo("<table class=\"table table-condensed table-bordered table-striped\" style=\"margin-top: 10px;\">\n");
-echo("  <thead>\n");
-echo("    <tr>\n");
-echo("      <th style=\"width: 300px;\">Package</th>\n");
-echo("      <th>Version</th>\n");
-echo("    </tr>\n");
-echo("  </thead>\n");
-echo("  <tbody>\n");
+echo generate_box_open();
+
+echo '<table class="table table-condensed table-striped">';
+echo '  <thead>';
+echo '    <tr>';
+echo '      <th style="width: 300px;">Package</th>';
+echo '      <th>Version</th>';
+echo '    </tr>';
+echo '  </thead>';
+echo '  <tbody>';
 
 // Build array of packages - faster than SQL
 // foreach (dbFetchRows("SELECT * FROM `packages`", $param) as $entry)
@@ -76,7 +77,7 @@ foreach (dbFetchRows("SELECT * FROM `packages` WHERE 1 $where GROUP BY `name`", 
     {
       if ($first) { $first = false; $middot = ""; } else { $middot = "&nbsp;&nbsp;&middot;&nbsp;&nbsp;"; }
       //echo("<span style='margin:5px;'>".overlib_link("", $version, $content,  NULL)."</span>");
-      echo($middot."<a href=\"javascript:;\" data-rel=\"tooltip\" title=\"".$content."\">".$version.$dbuild."</a>");
+      echo($middot . generate_tooltip_link('', $version . $dbuild, $content));
     } else {
       echo("$version $content <br />");
     }
@@ -86,10 +87,9 @@ foreach (dbFetchRows("SELECT * FROM `packages` WHERE 1 $where GROUP BY `name`", 
   echo("    </tr>\n");
 }
 
-echo("  </tbody>\n");
-echo("</table>\n");
+echo '  </tbody>';
+echo '</table>';
 
-echo('<script src="'.$config['base_url'].'js/bootstrap-tooltip.js"></script>');
-echo('<script src="'.$config['base_url'].'js/billing.js"></script>');
+echo generate_box_close();
 
 // EOF

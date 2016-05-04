@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -47,7 +47,7 @@ foreach ($devices as $device)
   if (is_file($rrdfile) && ($ignore != 1))
   {
     $rrd_list[$i]['filename'] = $rrdfile;
-    $rrd_list[$i]['descr']    = short_ifname($port['label'], NULL, FALSE); // Options sets for skip htmlentities
+    $rrd_list[$i]['descr']    = short_ifname($port['port_label'], NULL, FALSE); // Options sets for skip htmlentities
     $rrd_list[$i]['descr_in'] = $device['hostname'];
     $rrd_list[$i]['descr_out'] = $port['ifAlias'];
     $rrd_list[$i]['ds_in'] = $ds_in;

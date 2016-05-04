@@ -7,8 +7,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -19,14 +19,16 @@ $toners = dbFetchRows("SELECT * FROM `toner` WHERE `device_id` = ?", array($devi
 if (count($toners))
 {
 ?>
-
-   <div class="well info_box">
-      <div class="title"><a href="<?php echo(generate_url(array('page' => 'device', 'device' => $device['device_id'], 'tab' => 'printing'))); ?>">
-        <i class="oicon-contrast"></i> Toner</a></div>
-      <div class="content">
+  <div class="box box-solid">
+    <div class="box-header ">
+      <a href="<?php echo(generate_url(array('page' => 'device', 'device' => $device['device_id'], 'tab' => 'printing'))); ?>">
+        <i class="oicon-contrast"></i><h3 class="box-title">Toner</h3>
+      </a>
+    </div>
+    <div class="box-body no-padding">
 
 <?php
-  echo('<table class="table table-condensed-more table-striped table-bordered">');
+  echo('<table class="table table-condensed table-striped">');
 
   foreach ($toners as $toner)
   {
@@ -35,7 +37,9 @@ if (count($toners))
     //$free = formatStorage($toner['toner_free']);
     //$used = formatStorage($toner['toner_used']);
 
-    $background = toner2colour($toner['toner_descr'], $percent);
+    $background = toner_to_colour($toner['toner_descr'], $percent);
+
+    $background_percent = get_percentage_colours($percent - 100);
 
     $graph_array           = array();
     $graph_array['height'] = "100";
@@ -59,10 +63,11 @@ if (count($toners))
     $minigraph =  generate_graph_tag($graph_array);
 
     $percent_text = ($percent < 0 ? "Unknown" : $percent . "%");
-    echo("<tr class=device-overview>
-           <td class=strong>".overlib_link($link, $toner['toner_descr'], $overlib_content)."</td>
+    echo('<tr class="'.$background_percent['class'].'">
+           <td class="state-marker"></td>
+           <td class="entity">'.overlib_link($link, $toner['toner_descr'], $overlib_content)."</td>
            <td style='width: 90px;'>".overlib_link($link, $minigraph, $overlib_content)."</td>
-           <td style='width: 200px;'>".overlib_link($link, print_percentage_bar(200, 20, $percent, NULL, "ffffff", $background['left'], $percent_text, "ffffff", $background['right']), $overlib_content)."</td>
+           <td style='width: 200px;'>".overlib_link($link, print_percentage_bar(400, 20, $percent, $percent_text, 'ffffff', $background['right'], $free, "ffffff", $background['left']), $overlib_content)."</td>
          </tr>");
   }
 

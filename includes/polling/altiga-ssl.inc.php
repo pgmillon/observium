@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -28,7 +28,7 @@ if ($device['os'] == "asa" || $device['os'] == "pix")
 
   rrdtool_create($device, $rrdfile, $rrd_create);
 
-  $data_array = snmpwalk_cache_oid($device, $proto, array(), "ALTIGA-SSL-STATS-MIB");
+  $data_array = snmpwalk_cache_oid($device, $proto, array(), "ALTIGA-SSL-STATS-MIB", mib_dirs("cisco"));
 
   $rrdupdate = "N";
 

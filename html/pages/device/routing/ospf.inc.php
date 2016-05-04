@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -19,7 +19,9 @@ $navbar['class'] = "navbar-narrow";
 
 $ospf_instances = dbFetchRows("SELECT * FROM `ospf_instances` WHERE `device_id` = ?", array($device['device_id']));
 
-echo('<table class="table table-hover table-bordered table-striped table-condensed">');
+echo generate_box_open();
+
+echo '<table class="table table-hover  table-striped table-condensed">';
 
 // Loop Instances (There can only ever really be once instance at the moment, thanks to douchebags who decided we should use undiscoverable context names instead of just making tables.)
 
@@ -42,7 +44,7 @@ foreach ($ospf_instances as $instance)
   if ($instance['ospfAreaBdrRtrStatus'] == "true")    { $abr     = '<span class="green">yes</span>';     } else { $abr     = '<span class="grey">no</span>'; }
   if ($instance['ospfASBdrRtrStatus']   == "true")    { $asbr    = '<span class="green">yes</span>';     } else { $asbr    = '<span class="grey">no</span>'; }
 
-  echo('<thead><tr><th class="state-marker"></th></th><th>Router Id</th><th>Status</th><th>ABR</th><th>ASBR</th><th>Areas</th><th>Ports</th><th>Neighbours</th></tr></thead>');
+  echo('<thead><tr><th class="state-marker"></th><th>Router Id</th><th>Status</th><th>ABR</th><th>ASBR</th><th>Areas</th><th>Ports</th><th>Neighbours</th></tr></thead>');
   echo('<tr class="'.$row_class.'">');
   echo('  <td class="state-marker"></td>');
   echo('  <td class="entity-title">'.$instance['ospfRouterId'] . '</td>');
@@ -56,14 +58,19 @@ foreach ($ospf_instances as $instance)
 
   echo '</table>';
 
+  echo generate_box_close();
+
+
   /// Global Areas Table
   /// FIXME -- humanize_ospf_area()
 
-  echo('<table class="table table-hover table-bordered table-striped table-condensed">');
+  echo generate_box_open(array('title' => 'Areas'));
+
+
+  echo('<table class="table table-hover table-striped">');
   echo('<thead><tr><th class="state-marker"></th><th>Area Id</th><th>Status</th><th>Auth Type</th><th>AS External</th><th>Area LSAs</th><th>Area Summary</th><th>Ports</th></tr></thead>');
 
   /// Loop Areas
-  $i_a = 0;
   foreach (dbFetchRows("SELECT * FROM `ospf_areas` WHERE `device_id` = ?", array($device['device_id'])) as $area)
   {
 
@@ -87,11 +94,12 @@ foreach ($ospf_instances as $instance)
     /// Per-Area Ports Table
     /// FIXME -- humanize_ospf_port()
 
-    echo('<table class="table table-hover table-bordered table-striped table-condensed table-rounded">');
+    echo generate_box_open();
+
+    echo('<table class="table table-hover  table-striped table-condensed ">');
     echo('<thead><tr><th class="state-marker"></th><th>Port</th><th>Status</th><th>Port Type</th><th>Port State</th></tr></thead>');
 
     ///# Loop Ports
-    $i_p = $i_a + 1;
     $p_sql   = "SELECT * FROM `ospf_ports` AS O, `ports` AS P WHERE O.`ospfIfAdminStat` = 'enabled' AND O.`device_id` = ? AND O.`ospfIfAreaId` = ? AND P.port_id = O.port_id";
     foreach (dbFetchRows($p_sql, array($device['device_id'], $area['ospfAreaId'])) as $ospfport)
     {
@@ -104,9 +112,6 @@ foreach ($ospf_instances as $instance)
         $port_enabled      = '<span class="green">disabled</span>';
         $port_row_class    = 'disabled';
       }
-
-      // Fix label
-      $ospfport['label'] = $ospfport['ifDescr'];
 
       echo('<tr class="'.$port_row_class.'">');
       echo('  <td class="state-marker"></td>');
@@ -121,23 +126,26 @@ foreach ($ospf_instances as $instance)
 
     echo('</table>');
 
-    $i_a++;
+    echo generate_box_close();
+
   } // End loop areas
   echo '</table>';
+
+  echo generate_box_close();
+
 
   /// Global Neighbour Table
   /// FIXME -- humanize_ospf_neighbour()
 
-  echo '<table class="table table-condensed table-bordered table-hover table-striped">';
+  echo generate_box_open(array('title' => 'Neighbours'));
+
+  echo '<table class="table table-condensed  table-hover table-striped">';
   echo '<thead><tr><th class="state-marker"></th><th>Router Id</th><th>Device</th><th>IP Address</th><th>Status</th></tr></thead>';
 
   // Loop Neigbours
-  $i_n = 1;
   foreach (dbFetchRows("SELECT * FROM `ospf_nbrs` WHERE `device_id` = ?", array($device['device_id'])) as $nbr)
   {
-
-    $host = @dbFetchRow("SELECT * FROM ipv4_addresses AS A, ports AS I, devices AS D WHERE A.ipv4_address = ?
-                         AND I.port_id = A.port_id AND D.device_id = I.device_id", array($nbr['ospfNbrRtrId']));
+    $host = dbFetchRow("SELECT * FROM ipv4_addresses AS A, ports AS I, devices AS D WHERE A.ipv4_address = ? AND I.port_id = A.port_id AND D.device_id = I.device_id", array($nbr['ospfNbrRtrId']));
 
     if (is_array($host)) { $rtr_id = generate_device_link($host); } else { $rtr_id = "unknown"; }
 
@@ -162,17 +170,12 @@ foreach ($ospf_instances as $instance)
     echo('</td>');
     echo('</tr>');
 
-    $i_n++;
-
   }
 
   echo('</table>');
-  echo('</td>');
-  echo('</tr>');
 
-  $i_i++;
+  echo generate_box_close();
+
 } // End loop instances
-
-echo('</table>');
 
 // EOF

@@ -8,21 +8,17 @@
  *
  * @package    observium
  * @subpackage discovery
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 chdir(dirname($argv[0]));
 
-include_once("includes/defaults.inc.php");
-include_once("config.php");
-
 // Get options before definitions!
-$options = getopt("h:i:m:n:dquV");
+$options = getopt("h:i:m:n:dquMV");
 
-include_once("includes/definitions.inc.php");
-include("includes/functions.inc.php");
+include("includes/sql-config.inc.php");
 include("includes/discovery/functions.inc.php");
 
 $scriptname = basename($argv[0]);
@@ -40,10 +36,30 @@ if (isset($options['V']))
   if (is_array($options['V'])) { print_versions(); }
   exit;
 }
+else if (isset($options['M']))
+{
+  print_message(OBSERVIUM_PRODUCT." ".OBSERVIUM_VERSION);
+
+  print_message('Enabled discovery modules:');
+  $m_disabled = array();
+  foreach ($config['discovery_modules'] as $module => $ok)
+  {
+    if ($ok) { print_message('  '.$module); }
+     else { $m_disabled[] = $module; }
+  }
+  if (count($m_disabled))
+  {
+    print_message('Disabled discovery modules:');
+    print_message('  '.implode("\n  ", $m_disabled));
+  }
+  exit;
+}
 
 if (!isset($options['q']))
 {
-  print_message("%g".OBSERVIUM_PRODUCT." ".OBSERVIUM_VERSION."\n%WDiscovery%n\n", 'color');
+
+  print_cli_banner();
+
   if (OBS_DEBUG) { print_versions(); }
 
   // Warning about obsolete configs.
@@ -135,6 +151,7 @@ OPTIONS:
  -n                                          Discovery number.
  -q                                          Quiet output.
  -u                                          Upgrade DB schema
+ -M                                          Show globally enabled/disabled modules and exit.
  -V                                          Show version and exit.
 
 DEBUGGING OPTIONS:
@@ -154,6 +171,8 @@ if (!$where) { exit; }
 
 $discovered_devices = 0;
 
+print_cli_heading("%WStarting discovery run at ".date("Y-m-d H:i:s"), 0);
+
 foreach (dbFetchRows("SELECT * FROM `devices` WHERE `status` = 1 AND `disabled` = 0 $where ORDER BY `last_discovered_timetaken` ASC", $params) as $device)
 {
   // Additional check if device SNMPable, because during
@@ -161,7 +180,8 @@ foreach (dbFetchRows("SELECT * FROM `devices` WHERE `status` = 1 AND `disabled` 
   if ($options['h'] == 'new' || isSNMPable($device))
   {
     discover_device($device, $options);
-    if (!isset($options['m']) && function_exists('update_device_alert_table')) { update_device_alert_table($device); } // not exist in 'community' edition
+    if (!isset($options['m']) && function_exists('update_device_group_table')) { update_device_group_table($device); } // Not exist in CE
+    if (!isset($options['m']) && function_exists('update_device_alert_table')) { update_device_alert_table($device); }
   } else {
     $string = "Device '" . $device['hostname'] . "' skipped, because switched off during runtime discovery process.";
     print_debug($string);
@@ -169,12 +189,14 @@ foreach (dbFetchRows("SELECT * FROM `devices` WHERE `status` = 1 AND `disabled` 
   }
 }
 
+print_cli_heading("%WFinished discovery run at ".date("Y-m-d H:i:s"), 0);
+
 $end = utime(); $run = $end - $start;
-$proctime = substr($run, 0, 5);
+$discovery_time = substr($run, 0, 5);
 
 if ($discovered_devices)
 {
-  dbInsert(array('type' => 'discover', 'doing' => $doing, 'start' => $start, 'duration' => $proctime, 'devices' => $discovered_devices), 'perf_times');
+  dbInsert(array('type' => 'discover', 'doing' => $doing, 'start' => $start, 'duration' => $discovery_time, 'devices' => $discovered_devices), 'perf_times');
   if (is_numeric($doing)) { $doing = $device['hostname']; } // Single device ID convert to hostname for log
 }
 else if (!isset($options['q']) && !$options['u'])
@@ -182,23 +204,34 @@ else if (!isset($options['q']) && !$options['u'])
   print_warning("WARNING: 0 devices discovered.".($options['h'] != 'new' ? " Did you specify a device that does not exist?" : ''));
 }
 
-$string = $argv[0] . ": $doing - $discovered_devices devices discovered in $proctime secs";
+$string = $argv[0] . ": $doing - $discovered_devices devices discovered in $discovery_time secs";
 print_debug($string);
 
 if (!isset($options['q']))
 {
   if ($config['snmp']['hide_auth'])
   {
-    print_debug("NOTE, \$config['snmp']['hide_auth'] sets as TRUE, snmp community and snmp v3 auth hidden from debug output.");
+    print_debug("NOTE, \$config['snmp']['hide_auth'] is set to TRUE, snmp community and snmp v3 auth hidden from debug output.");
   }
-  print_message('Memory usage: '.formatStorage(memory_get_usage(TRUE), 2, 4).' (peak: '.formatStorage(memory_get_peak_usage(TRUE), 2, 4).')');
-  print_message('MySQL: Cell['.($db_stats['fetchcell']+0).'/'.round($db_stats['fetchcell_sec']+0,2).'s]'.
-                       ' Row['.($db_stats['fetchrow']+0). '/'.round($db_stats['fetchrow_sec']+0,2).'s]'.
-                      ' Rows['.($db_stats['fetchrows']+0).'/'.round($db_stats['fetchrows_sec']+0,2).'s]'.
-                    ' Column['.($db_stats['fetchcol']+0). '/'.round($db_stats['fetchcol_sec']+0,2).'s]'.
-                    ' Update['.($db_stats['update']+0).'/'.round($db_stats['update_sec']+0,2).'s]'.
-                    ' Insert['.($db_stats['insert']+0). '/'.round($db_stats['insert_sec']+0,2).'s]'.
-                    ' Delete['.($db_stats['delete']+0). '/'.round($db_stats['delete_sec']+0,2).'s]');
+
+  print_cli_data('Devices Discovered', $discovered_devices, 0);
+  print_cli_data('Discovery Time', $discovery_time ." secs", 0);
+  print_cli_data('Memory usage', formatStorage(memory_get_usage(TRUE), 2, 4).' (peak: '.formatStorage(memory_get_peak_usage(TRUE), 2, 4).')', 0);
+  print_cli_data('MySQL Usage', 'Cell['.($db_stats['fetchcell']+0).'/'.round($db_stats['fetchcell_sec']+0,3).'s]'.
+                       ' Row['.($db_stats['fetchrow']+0). '/'.round($db_stats['fetchrow_sec']+0,3).'s]'.
+                      ' Rows['.($db_stats['fetchrows']+0).'/'.round($db_stats['fetchrows_sec']+0,3).'s]'.
+                    ' Column['.($db_stats['fetchcol']+0). '/'.round($db_stats['fetchcol_sec']+0,3).'s]'.
+                    ' Update['.($db_stats['update']+0).'/'.round($db_stats['update_sec']+0,3).'s]'.
+                    ' Insert['.($db_stats['insert']+0). '/'.round($db_stats['insert_sec']+0,3).'s]'.
+                    ' Delete['.($db_stats['delete']+0). '/'.round($db_stats['delete_sec']+0,3).'s]', 0);
+
+  foreach($GLOBALS['rrdtool'] AS $cmd => $data)
+  {
+    $rrd_times[] = $cmd."[".$data['count']."/".round($data['time'],3)."s]";
+  }
+
+  print_cli_data('RRDTool Usage', implode(" ", $rrd_times), 0);
+
 }
 
 logfile($string);

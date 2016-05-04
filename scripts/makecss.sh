@@ -1,5 +1,5 @@
 #!/bin/bash
-lessc -x html/css/bootstrap/less/bootstrap.less > html/css/bootstrap.css.new
+lessc html/css/bootstrap/less/bootstrap.less > html/css/bootstrap.css.new
 sed -i 's|../../font-awesome/less/||g' html/css/bootstrap.css.new
 mv html/css/bootstrap.css.new html/css/bootstrap.css
 

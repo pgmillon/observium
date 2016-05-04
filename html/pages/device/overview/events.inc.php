@@ -6,23 +6,17 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-?>
-  <div class="widget widget-table">
-    <div class="widget-header">
-      <a href="<?php echo(generate_url(array('page' => 'device', 'device' => $device['device_id'], 'tab' => 'logs', 'section' => 'eventlog'))); ?>">
-        <i class="oicon-clipboard-audit"></i><h3>Eventlog</h3>
-      </a>
-    </div>
-    <div class="widget-content">
-      <?php  print_events(array('device' => $device['device_id'], 'pagesize' => 10, 'short' => TRUE)); ?>
-    </div>
-  </div>
+    print_events(array('device' => $device['device_id'], 'short' => TRUE, 'pagesize' => '20',
+                        'header' => array('title' => 'Eventlog',
+                                          'icon' => 'oicon-clipboard-audit',
+                                          'url' => generate_url(array('page' => 'device', 'device' => $device['device_id'], 'tab' => 'logs', 'section' => 'eventlog'))
+                                    )
+    ));
 
-<?php
 
 // EOF

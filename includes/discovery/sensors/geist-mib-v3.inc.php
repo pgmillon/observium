@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -93,7 +93,7 @@ foreach ($cache['geist']['alarmCfgTable'] as $index => $entry)
 // GEIST-MIB-V3::ctrl3ChIECPowerFactorC.1 = INTEGER: 30 %
 // GEIST-MIB-V3::ctrl3ChIECRealPowerTotal.1 = Gauge32: 0 Watts
 
-// We don't do power factor yet.
+// FUTUREME - We don't do power factor yet.
 
 // A note to the designer of this MIB: .1, .2, .3 instead of A/B/C would have been a much nicer parse.
 
@@ -481,7 +481,7 @@ foreach ($cache['geist']['climateTable'] as $index => $entry)
 
     $limits = (is_array($geist_alarms[$prefix.'.'.$index]) ? $geist_alarms[$prefix.'.'.$index] : array());
 
-    if (is_numeric($value))
+    if (is_numeric($value) && $value != 0)
     {
       discover_sensor($valid['sensor'], 'voltage', $device, $oid, $prefix.'.'.$index, 'geist-mib-v3', $descr, 1, $value, $limits);
     }
@@ -495,7 +495,7 @@ foreach ($cache['geist']['climateTable'] as $index => $entry)
 
     $limits = (is_array($geist_alarms[$prefix.'.'.$index]) ? $geist_alarms[$prefix.'.'.$index] : array());
 
-    if (is_numeric($value))
+    if (is_numeric($value) && $value != 0)
     {
       discover_sensor($valid['sensor'], 'power', $device, $oid, $prefix.'.'.$index, 'geist-mib-v3', $descr, 1, $value, $limits);
     }
@@ -506,7 +506,7 @@ foreach ($cache['geist']['climateTable'] as $index => $entry)
 
     $limits = (is_array($geist_alarms[$prefix.'.'.$index]) ? $geist_alarms[$prefix.'.'.$index] : array());
 
-    if (is_numeric($value))
+    if (is_numeric($value) && $value != 0)
     {
       discover_sensor($valid['sensor'], 'apower', $device, $oid, $prefix.'.'.$index, 'geist-mib-v3', $descr, 1, $value, $limits);
     }
@@ -517,7 +517,7 @@ foreach ($cache['geist']['climateTable'] as $index => $entry)
 
     $limits = (is_array($geist_alarms[$prefix.'.'.$index]) ? $geist_alarms[$prefix.'.'.$index] : array());
 
-    if (is_numeric($value))
+    if (is_numeric($value) && $value != 0)
     {
       discover_sensor($valid['sensor'], 'current', $device, $oid, $prefix.'.'.$index, 'geist-mib-v3', $descr, $scale, $value, $limits); // $scale = 0.1
     }
@@ -531,7 +531,7 @@ foreach ($cache['geist']['climateTable'] as $index => $entry)
 
     $limits = (is_array($geist_alarms[$prefix.'.'.$index]) ? $geist_alarms[$prefix.'.'.$index] : array());
 
-    if (is_numeric($value))
+    if (is_numeric($value) && $value != 0)
     {
       discover_sensor($valid['sensor'], 'power', $device, $oid, $prefix.'.'.$index, 'geist-mib-v3', $descr, 1, $value, $limits);
     }
@@ -542,7 +542,7 @@ foreach ($cache['geist']['climateTable'] as $index => $entry)
 
     $limits = (is_array($geist_alarms[$prefix.'.'.$index]) ? $geist_alarms[$prefix.'.'.$index] : array());
 
-    if (is_numeric($value))
+    if (is_numeric($value) && $value != 0)
     {
       discover_sensor($valid['sensor'], 'apower', $device, $oid, $prefix.'.'.$index, 'geist-mib-v3', $descr, 1, $value, $limits);
     }
@@ -553,7 +553,7 @@ foreach ($cache['geist']['climateTable'] as $index => $entry)
 
     $limits = (is_array($geist_alarms[$prefix.'.'.$index]) ? $geist_alarms[$prefix.'.'.$index] : array());
 
-    if (is_numeric($value))
+    if (is_numeric($value) && $value != 0)
     {
       discover_sensor($valid['sensor'], 'current', $device, $oid, $prefix.'.'.$index, 'geist-mib-v3', $descr, $scale, $value, $limits); // $scale = 0.1
     }
@@ -567,7 +567,7 @@ foreach ($cache['geist']['climateTable'] as $index => $entry)
 
     $limits = (is_array($geist_alarms[$prefix.'.'.$index]) ? $geist_alarms[$prefix.'.'.$index] : array());
 
-    if (is_numeric($value))
+    if (is_numeric($value) && $value != 0)
     {
       discover_sensor($valid['sensor'], 'power', $device, $oid, $prefix.'.'.$index, 'geist-mib-v3', $descr, 1, $value, $limits);
     }
@@ -578,7 +578,7 @@ foreach ($cache['geist']['climateTable'] as $index => $entry)
 
     $limits = (is_array($geist_alarms[$prefix.'.'.$index]) ? $geist_alarms[$prefix.'.'.$index] : array());
 
-    if (is_numeric($value))
+    if (is_numeric($value) && $value != 0)
     {
       discover_sensor($valid['sensor'], 'apower', $device, $oid, $prefix.'.'.$index, 'geist-mib-v3', $descr, 1, $value, $limits);
     }
@@ -589,7 +589,7 @@ foreach ($cache['geist']['climateTable'] as $index => $entry)
 
     $limits = (is_array($geist_alarms[$prefix.'.'.$index]) ? $geist_alarms[$prefix.'.'.$index] : array());
 
-    if (is_numeric($value))
+    if (is_numeric($value) && $value != 0)
     {
       discover_sensor($valid['sensor'], 'current', $device, $oid, $prefix.'.'.$index, 'geist-mib-v3', $descr, $scale, $value, $limits); // $scale = 0.1
     }
@@ -661,6 +661,62 @@ foreach ($cache['geist']['powerDMTable'] as $index => $entry)
         discover_sensor($valid['sensor'], 'current', $device, $oid, $prefix.'.'.$index, 'geist-mib-v3', $descr, $scale, $value, $limits); // $scale = 0.1
       }
     }
+  }
+}
+
+//GEIST-MIB-V3::powMonSerial.1 = STRING: 1B0000007BFBE312
+//GEIST-MIB-V3::powMonName.1 = STRING: RPM-X2
+//GEIST-MIB-V3::powMonAvail.1 = Gauge32: 1
+//GEIST-MIB-V3::powMonkWattHrs.1 = Gauge32: 0 kWh
+//GEIST-MIB-V3::powMonVolts.1 = Gauge32: 118 Volts (rms)
+//GEIST-MIB-V3::powMonVoltMax.1 = Gauge32: 118 Volts (rms)
+//GEIST-MIB-V3::powMonVoltMin.1 = Gauge32: 118 Volts (rms)
+//GEIST-MIB-V3::powMonVoltPeak.1 = Gauge32: 164 Volts (rms)
+//GEIST-MIB-V3::powMonDeciAmps.1 = Gauge32: 3 0.1 Amps (rms)
+//GEIST-MIB-V3::powMonRealPower.1 = Gauge32: 0 Watts
+//GEIST-MIB-V3::powMonApparentPower.1 = Gauge32: 46 Volt-Amps
+//GEIST-MIB-V3::powMonPowerFactor.1 = INTEGER: 0 %
+//GEIST-MIB-V3::powMonOutlet1.1 = INTEGER: 4 Outlet 1
+//GEIST-MIB-V3::powMonOutlet2.1 = INTEGER: 4 Outlet 2
+//GEIST-MIB-V3::powMonOutlet1StatusTime.1 = Gauge32: 15617626 seconds
+//GEIST-MIB-V3::powMonOutlet2StatusTime.1 = Gauge32: 15617626 seconds
+
+$cache['geist']['powMonTable'] = snmpwalk_cache_multi_oid($device, "powMonTable", array(), "GEIST-MIB-V3", mib_dirs('geist'));
+
+foreach ($cache['geist']['powMonTable'] as $index => $entry)
+{
+  if ($entry['powMonAvail'])
+  {
+    $descr = $entry['powMonName'];
+
+    // Voltage
+    $oid    = ".1.3.6.1.4.1.21239.2.3.1.6.$index";
+    $prefix = "powMonVolts";
+    $value  = $entry[$prefix];
+    if (is_numeric($value) && $value != 0)
+    {
+      discover_sensor($valid['sensor'], 'voltage', $device, $oid, $prefix.'.'.$index, 'geist-mib-v3', $descr, 1, $value);
+    }
+
+    // Current
+    $oid    = ".1.3.6.1.4.1.21239.2.3.1.10.$index";
+    $prefix = "powMonDeciAmps";
+    $value  = $entry[$prefix];
+    if (is_numeric($value) && $value != 0)
+    {
+      discover_sensor($valid['sensor'], 'current', $device, $oid, $prefix.'.'.$index, 'geist-mib-v3', $descr, $scale, $value); // $scale = 0.1
+    }
+
+    // Apparent Power
+    $oid    = ".1.3.6.1.4.1.21239.2.3.1.12.$index";
+    $prefix = "powMonApparentPower";
+    $value  = $entry[$prefix];
+    if (is_numeric($value) && $value != 0)
+    {
+      discover_sensor($valid['sensor'], 'apower', $device, $oid, $prefix.'.'.$index, 'geist-mib-v3', $descr, 1, $value);
+    }
+
+    // FIXME. Not know, what mean values in powMonOutlet1 and powMonOutlet2, seems as status but not has value descriptions
   }
 }
 

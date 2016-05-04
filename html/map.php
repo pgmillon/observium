@@ -7,17 +7,15 @@
  *
  * @package    observium
  * @subpackage map
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 $links = 1;
 
-include_once("../includes/defaults.inc.php");
-include_once("../config.php");
-include_once("../includes/definitions.inc.php");
-include($config['install_dir'] . "/includes/functions.inc.php");
+include_once("../includes/sql-config.inc.php");
+
 include($config['html_dir'] . "/includes/functions.inc.php");
 include($config['html_dir'] . "/includes/authenticate.inc.php");
 
@@ -25,6 +23,16 @@ if ($_SESSION['authenticated'])
 {
   // Do various queries which we use in multiple places
   include($config['html_dir'] . "/includes/cache-data.inc.php");
+
+  if (!is_file($config['dot']))
+  {
+    print_error("Package 'graphviz' not installed. Map can not be displayed!");
+    return;
+  }
+}
+else if (!is_file($config['dot']))
+{
+  exit;
 }
 
 $vars = get_vars('GET');
@@ -68,17 +76,18 @@ if (isset($vars['format']) && preg_match("/^[a-z]*$/", $vars['format']))
     $loc_count = 1;
 
     $cache['where']['devices_permitted'] = generate_query_permitted(array('device'), array('device_table' => 'D'));
-    foreach (dbFetch("SELECT D.*, COUNT(L.local_port_id) FROM devices AS D LEFT JOIN (ports AS I, links AS L) ON (D.device_id = I.device_id AND I.port_id = L.local_port_id) ". $where . $cache['where']['devices_permitted'] . " GROUP BY D.hostname ORDER BY COUNT(L.local_port_id) DESC") as $device)
+    foreach (dbFetch("SELECT D.*, COUNT(L.port_id) FROM devices AS D LEFT JOIN (ports AS I, neighbours AS L) ON (D.device_id = I.device_id AND I.port_id = L.port_id) ". $where . $cache['where']['devices_permitted'] . " GROUP BY D.hostname ORDER BY COUNT(L.port_id) DESC") as $device)
     {
       if ($device)
       {
-        $links = dbFetch("SELECT * from ports AS I, links AS L WHERE I.device_id = ? AND L.local_port_id = I.port_id ORDER BY L.remote_hostname", array($device['device_id']));
+        $links = dbFetch("SELECT * from ports AS I, neighbours AS L WHERE I.device_id = ? AND L.port_id = I.port_id ORDER BY L.remote_hostname", array($device['device_id']));
         if (count($links))
         {
           $ranktype = substr($device['hostname'], 0, 2);
           $ranktype2 = substr($device['hostname'], 0, 3);
-          if (!strncmp($device['hostname'], "c", 1) && !strstr($device['hostname'], "kalooga")) {
-              $ranks[$ranktype][] = $device['hostname'];
+          if (!strncmp($device['hostname'], "c", 1) && !strstr($device['hostname'], "kalooga"))
+          {
+            $ranks[$ranktype][] = $device['hostname'];
           } else {
             $ranks[$ranktype2][] = $device['hostname'];
           }
@@ -92,7 +101,7 @@ if (isset($vars['format']) && preg_match("/^[a-z]*$/", $vars['format']))
 
         foreach ($links as $link)
         {
-          $local_port_id = $link['local_port_id'];
+          $local_port_id = $link['port_id'];
           $remote_port_id = $link['remote_port_id'];
 
           $i = 0; $done = 0;
@@ -131,14 +140,14 @@ if (isset($vars['format']) && preg_match("/^[a-z]*$/", $vars['format']))
 
             if ($anon) { $dst = md5($dst); $src = md5($src);}
 
-            $sif = dbFetchRow("SELECT * FROM `ports` WHERE `port_id` = ?".$cache['where']['ports_permitted'], array($link['local_port_id']));
-            humanize_port($sif);
+            $sif = dbFetchRow("SELECT * FROM `ports` WHERE `port_id` = ?".$cache['where']['ports_permitted'], array($link['port_id']));
+            //humanize_port($sif);
             if ($remote_port_id)
             {
               $dif = dbFetchRow("SELECT * FROM `ports` WHERE `port_id` = ?".$cache['where']['ports_permitted'], array($link['remote_port_id']));
-              humanize_port($dif);
+              //humanize_port($dif);
             } else {
-              $dif['label'] = $link['remote_port'];
+              $dif['port_label'] = $link['remote_port'];
               $dif['port_id'] = $link['remote_hostname'] . '/' . $link['remote_port'];
             }
 
@@ -150,7 +159,7 @@ if (isset($vars['format']) && preg_match("/^[a-z]*$/", $vars['format']))
               }
               $ifdone[$src][$sif['port_id']] = 1;
             } else {
-              $map .= "\"" . $sif['port_id'] . "\" [label=\"" . $sif['label'] . "\", fontsize=12, fillcolor=lightblue, URL=\"".generate_url(array('page' => 'device', 'device' => $device['device_id'],'tab' => 'port', 'port' => $local_port_id))."\"]\n";
+              $map .= "\"" . $sif['port_id'] . "\" [label=\"" . $sif['port_label'] . "\", fontsize=12, fillcolor=lightblue, URL=\"".generate_url(array('page' => 'device', 'device' => $device['device_id'],'tab' => 'port', 'port' => $local_port_id))."\"]\n";
               if (!$ifdone[$src][$sif['port_id']])
               {
                 $map .= "\"$src\" -> \"" . $sif['port_id'] . "\" [weight=500000, arrowsize=0, len=0];\n";
@@ -166,9 +175,9 @@ if (isset($vars['format']) && preg_match("/^[a-z]*$/", $vars['format']))
 
               if ($dst_host == $device['device_id'] || !is_numeric($device['device_id']))
               {
-                $map .= "\"" . $dif['port_id'] . "\" [label=\"" . $dif['label'] . "\", fontsize=12, fillcolor=lightblue, URL=\"".generate_url(array('page' => 'device', 'device' => $dst_host,'tab' => 'port', 'port' => $remote_port_id))."\"]\n";
+                $map .= "\"" . $dif['port_id'] . "\" [label=\"" . $dif['port_label'] . "\", fontsize=12, fillcolor=lightblue, URL=\"".generate_url(array('page' => 'device', 'device' => $dst_host,'tab' => 'port', 'port' => $remote_port_id))."\"]\n";
               } else {
-                $map .= "\"" . $dif['port_id'] . "\" [label=\"" . $dif['label'] . " \", fontsize=12, fillcolor=lightgray";
+                $map .= "\"" . $dif['port_id'] . "\" [label=\"" . $dif['port_label'] . " \", fontsize=12, fillcolor=lightgray";
                 if ($dst_host)
                 {
                   $map .= ", URL=\"".generate_url(array('page' => 'device', 'device' => $dst_host,'tab' => 'port', 'port' => $remote_port_id))."\"";
@@ -237,7 +246,7 @@ if (isset($vars['format']) && preg_match("/^[a-z]*$/", $vars['format']))
 
   $mapfile = $config['temp_dir'] . "/"  . strgen() . ".png";
 
-  $process = proc_open($maptool.' -T'.$vars['format'],$descriptorspec,$pipes);
+  $process = proc_open($maptool . ' -T' . $vars['format'], $descriptorspec, $pipes);
 
   if (is_resource($process))
   {

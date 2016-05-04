@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -105,7 +105,7 @@ foreach ($radios_snmp as $radio_number => $radio)
 
   $radio_db = $GLOBALS['cache']['wifi_radios'][$radio['radio_ap']][$radio['radio_number']];
 
-  if($radio_db['polled'] > 1)
+  if ($radio_db['polled'] > 1)
   {
     $radio['poll_period'] = $radio['polled'] - $radio_db['polled'];
     $radio['rx_bits_diff'] = $radio['rx_bits'] - $radio_db['rx_bits'];
@@ -118,13 +118,12 @@ foreach ($radios_snmp as $radio_number => $radio)
 
   foreach ($fields as $field)
   {
-    if($radio_db[$field] != $radio[$field]) { $update_array[$field] = $radio[$field]; }
+    // FIXME. I not found where this array used for wifi
+    // var $update_array used to track devices fields changes
+    if ($radio_db[$field] != $radio[$field]) { $update_radio[$field] = $radio[$field]; }
   }
 
-
   print_r($radio);
-
-
 }
 
 unset($radios_snmp);

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -69,16 +69,17 @@ if ($poll_device['sysObjectID'] == ".1.3.6.1.4.1.311.1.1.3.1.1") // Workstation
       $version = '8 (NT 6.2)';
       break;
     case '6.3':
-      if ($windows['build'] >  '9200') { $windows['sp'] = ', Update 1'; }
-      $version = '8.1'.$windows['sp'].' (NT 6.3)';
+      if ($windows['build'] <= 9600)
+      {
+        if ($windows['build'] >  '9200') { $windows['sp'] = ', Update 1'; }
+        $version = '8.1'.$windows['sp'].' (NT 6.3)';
+      } else {
+        $version = '10 (NT '.$windows['version'].')';
+        $icon = 'windows10';
+      }
       break;
     default:
-      if ($windows['build'] > 9600)
-      {
-        $version = '10 (NT '.$windows['version'].')';
-      } else {
-        $icon = 'windows_old'; $version = 'NT '.$windows['version'].' Workstation';
-      }
+      $icon = 'windows_old'; $version = 'NT '.$windows['version'].' Workstation';
   }
   $windows['type'] = "workstation";
 }
@@ -98,7 +99,7 @@ else if ($poll_device['sysObjectID'] == ".1.3.6.1.4.1.311.1.1.3.1.2" || // Serve
       $icon = 'windows_old'; $version = '2000 '.$windows['subtype'].'Server (NT 5.0)';
       break;
     case '5.2':
-      $icon = 'windows_old'; $version = 'Server 2003 '.$windows['subtype'].'(NT 5.2)';
+      $icon = 'windows2003'; $version = 'Server 2003 '.$windows['subtype'].'(NT 5.2)';
       break;
     case '6.0':
       if      ($windows['build'] == '6001') { $windows['sp'] = ''; }
@@ -115,16 +116,17 @@ else if ($poll_device['sysObjectID'] == ".1.3.6.1.4.1.311.1.1.3.1.2" || // Serve
       $version = 'Server 2012 '.$windows['subtype'].'(NT 6.2)';
       break;
     case '6.3':
-      if ($windows['build'] >  '9200') { $windows['sp'] = ', Update 1'; }
-      $version = 'Server 2012 '.$windows['subtype'].'R2'.$windows['sp'].' (NT 6.3)';
+      if ($windows['build'] <= 9600)
+      {
+        if ($windows['build'] >  '9200') { $windows['sp'] = ', Update 1'; }
+        $version = 'Server 2012 '.$windows['subtype'].'R2'.$windows['sp'].' (NT 6.3)';
+      } else {
+        $version = 'Server 10 '.$windows['subtype'].'(NT '.$windows['version'].')'; // FIXME, currently unknown name
+        $icon = 'windows10';
+      }
       break;
     default:
-      if ($windows['build'] > 9600)
-      {
-        $version = 'Server 10 '.$windows['subtype'].'(NT '.$windows['version'].')'; // FIXME, currently unknown name
-      } else {
         $icon = 'windows_old'; $version = 'NT '.$windows['subtype'].'Server '.$windows['version'];
-      }
   }
   $windows['type'] = "server";
 }

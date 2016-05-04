@@ -1,0 +1,2181 @@
+-- *****************************************************************
+-- FC Module MIB
+-- *****************************************************************
+
+SL-FC-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE,
+    Unsigned32, Counter64, Gauge32, Integer32, mib-2
+      FROM SNMPv2-SMI
+    TEXTUAL-CONVENTION, TruthValue, TimeStamp
+      FROM SNMPv2-TC
+	InterfaceIndex		               	FROM IF-MIB
+    SnmpAdminString
+      FROM SNMP-FRAMEWORK-MIB                   -- rfc2571
+    MODULE-COMPLIANCE, OBJECT-GROUP
+      FROM SNMPv2-CONF
+    slService				      		FROM SL-NE-MIB;
+
+fcBxMIB MODULE-IDENTITY
+	LAST-UPDATED "0101080000Z"
+	ORGANIZATION "SmartOptics AS"
+	CONTACT-INFO
+		"d.lutz@smartoptics.com"
+    DESCRIPTION "The MIB module for Fibre Channel Interface."
+    ::= { slService 3 }
+
+  fcBxMIBObjects OBJECT IDENTIFIER ::= { fcBxMIB 1 }
+ 
+  -- Groups under fcBxMIBObjects
+
+  fcBxConfig       OBJECT IDENTIFIER ::= { fcBxMIBObjects 1 }
+  fcBxStatus       OBJECT IDENTIFIER ::= { fcBxMIBObjects 2 }
+  fcBxPm           OBJECT IDENTIFIER ::= { fcBxMIBObjects 3 }
+  fcBxTraps        OBJECT IDENTIFIER ::= { fcBxMIBObjects 4 }
+
+  -- Textual Conventions
+  MilliSeconds ::= TEXTUAL-CONVENTION
+    STATUS         current
+    DESCRIPTION    "Represents time unit value in milliseconds."
+    SYNTAX         Unsigned32
+
+  MicroSeconds ::= TEXTUAL-CONVENTION
+    STATUS         current
+    DESCRIPTION    "Represents time unit value in microseconds."
+    SYNTAX         Unsigned32
+
+  FcNameId ::= TEXTUAL-CONVENTION
+    STATUS         current
+    DESCRIPTION    "Represents the Worldwide Name associated with
+                    a Fibre Channel (FC) entity."
+    SYNTAX         OCTET STRING (SIZE (8))
+
+  FcAddressId ::= TEXTUAL-CONVENTION
+    STATUS         current
+    DESCRIPTION    "Represents Fibre Channel Address ID, a 24-bit
+                    value unique within the address space of a Fabric."
+    SYNTAX         OCTET STRING (SIZE (3))
+
+  FcRxDataFieldSize ::= TEXTUAL-CONVENTION
+    STATUS         current
+    DESCRIPTION    "Represents the receive data field size of an
+                    ExPort or BxPort."
+    SYNTAX         Integer32 (128..2112)
+
+  FcBbCredit ::= TEXTUAL-CONVENTION
+    STATUS         current
+    DESCRIPTION    "Represents the buffer-to-buffer credit of an
+                    ExPort or BxPort."
+    SYNTAX         Integer32 (0..32767)
+
+  FcphVersion ::= TEXTUAL-CONVENTION
+    STATUS         current
+    DESCRIPTION    "Represents the version of FC-PH supported by an
+                    ExPort or BxPort."
+    SYNTAX         Integer32 (0..255)
+
+  FcStackedConnMode ::= TEXTUAL-CONVENTION
+    STATUS         current
+    DESCRIPTION    "Represents an enumerated value used to indicate
+                    the Class 1 Stacked Connect Mode supported by
+                    an ExPort or BxPort."
+    SYNTAX         INTEGER {
+                        none(1),
+                        transparent(2),
+                        lockedDown(3)
+    }
+
+  FcCosCap ::= TEXTUAL-CONVENTION
+    STATUS         current
+    DESCRIPTION    "Represents the class of service capability of an
+                    ExPort or BxPort."
+    SYNTAX         BITS { classF(0), class1(1), class2(2), class3(3),
+                          class4(4), class5(5), class6(6) }
+                          
+  FcBxPortCapacity ::= TEXTUAL-CONVENTION
+    STATUS         current
+    DESCRIPTION    "Represents the maximum number of BxPorts within
+                    a module."
+    SYNTAX         Unsigned32
+
+  FcBxPortIndex ::= TEXTUAL-CONVENTION
+    STATUS         current
+    DESCRIPTION    "Represents the BxPort index within a conceptual table."
+    SYNTAX         Unsigned32
+
+  FcExPortIndex ::= TEXTUAL-CONVENTION
+    STATUS         current
+    DESCRIPTION    "Represents the ExPort index within a conceptual table."
+    SYNTAX         Integer32 (1..126)
+
+  FcBbCreditModel ::= TEXTUAL-CONVENTION
+    STATUS         current
+    DESCRIPTION    "Represents the BB_Credit model of an BxPort."
+    SYNTAX         INTEGER { regular(1), alternate (2) }
+
+  FcPortSpeed   ::= TEXTUAL-CONVENTION
+    STATUS         current
+	DESCRIPTION
+		"The speed of the interface.
+			'auto'        - auto-negotiation
+			'tenGbs'      - 10Gbs
+			'fourGbs'     -  4Gbs
+			'twoGbs'      -  2Gbs
+			'oneGbs'      -  1Gbs
+			'halfGbs'     - 500Mbs
+			'quarterGbs'  - 250Mbs
+			'eighthGbs'   - 125Mbs"
+	SYNTAX         INTEGER {
+			auto(1),
+			eighthGbs(2),   -- 125Mbs
+			quarterGbs(3),  -- 250Mbs
+			halfGbs(4),     -- 500Mbs
+			oneGbs(5),      --   1Gbs
+			twoGbs(6),      --   2Gbs
+			fourGbs(7),     --   4Gbs
+			tenGbs(8)       --  10Gbs
+     }
+
+  -- The Configuration group
+
+  -- This group consists of scalar objects and tables.
+  -- It contains the configuration and service parameters
+  -- of the Fabric Element and the BxPorts.
+  -- The group represents a set of parameters associated with
+  -- the Fabric Element  or an BxPort to support its ExPorts.
+
+  -- the BxPort Configuration Table.
+  -- This table contains, one entry for each BxPort,
+  -- configuration parameters of the ports.
+
+ fcBxPortTable OBJECT-TYPE
+     SYNTAX      SEQUENCE OF FcBxPortEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+        "A table that contains, one entry for each BxPort in the
+         Fabric Element, configuration and service parameters of the
+         BxPorts."
+ ::= { fcBxConfig 1 }
+
+ fcBxPortEntry OBJECT-TYPE
+     SYNTAX      FcBxPortEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+        "An entry containing the result configuration and service parameters
+         of a BxPort."
+     INDEX { fcBxPortIndex }
+ ::= { fcBxPortTable 1 }
+
+
+ FcBxPortEntry ::=
+     SEQUENCE {
+         fcBxPortIndex
+             FcBxPortIndex,
+         fcBxPortName
+             FcNameId,
+         -- BxPort common service parameters
+         fcBxPortFcphVersionHigh
+             FcphVersion,
+         fcBxPortFcphVersionLow
+             FcphVersion,
+         fcBxPortBbCredit
+             FcBbCredit,
+         fcBxPortRxBufSize
+             FcRxDataFieldSize,
+         fcBxPortRatov
+             MilliSeconds,
+         fcBxPortEdtov
+             MilliSeconds,
+         -- BxPort class service parameters
+         fcBxPortCosSupported
+             FcCosCap,
+         fcBxPortClass2SeqDeliv
+             TruthValue,
+         fcBxPortClass3SeqDeliv
+             TruthValue,
+         -- other configuration parameters
+         fcBxPortHoldTime
+             MicroSeconds,
+		 fcBxPortFabricName
+		 	 FcNameId,
+		 fcBxPortPhysRttov
+		 	 MilliSeconds,
+		 fcBxPortTranceiverMedia     -- deprecated
+		 	 INTEGER,
+		 fcBxPortPauseTimeout
+		 	 MilliSeconds,
+         fcBxPortBbThresholdRx
+             FcBbCredit,
+         fcBxPortBbThresholdTx
+             FcBbCredit,
+		 fcBxPortResetPmCounters
+		 	 INTEGER,
+		 fcBxPortTranceiverType
+		 	 INTEGER,
+		 fcBxPortWwnTransparent     -- deprecated
+		 	 TruthValue,
+		 fcBxPortAdminSpeed
+		 	 FcPortSpeed,
+		 fcBxPortRestartLink
+		 	 TruthValue,
+		 fcBxPortTransceiverRate
+		 	 INTEGER,
+		 fcBxPortElpInitiator
+		 	 INTEGER,
+		 fcBxPortRemoteSwitchFabricName
+		 	FcNameId,
+		 fcBxPortRemoteSwitchPortName
+		 	FcNameId
+     }
+
+  fcBxPortIndex OBJECT-TYPE
+      SYNTAX      FcBxPortIndex
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "The ifIndex of the port."
+  ::= { fcBxPortEntry 1 }
+
+  fcBxPortName OBJECT-TYPE
+      SYNTAX      FcNameId
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "The World_wide Name of this BxPort.  Each BxPort has a
+          unique Port World_wide Name within the Fabric."
+  ::= { fcBxPortEntry 2 }
+
+  -- BxPort common service parameters
+
+  fcBxPortFcphVersionHigh OBJECT-TYPE
+      SYNTAX      FcphVersion
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "The highest or most recent version of FC-PH that the BxPort
+          is configured to support."
+  ::= { fcBxPortEntry 3 }
+
+  fcBxPortFcphVersionLow OBJECT-TYPE
+      SYNTAX      FcphVersion
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "The lowest or earliest version of FC-PH that the BxPort is
+          configured to support."
+  ::= { fcBxPortEntry 4 }
+
+  fcBxPortBbCredit OBJECT-TYPE
+      SYNTAX      FcBbCredit
+      UNITS       "buffers"
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "The total number of receive buffers available for holding
+          Class 1 connect-request, Class 2 or 3 frames from the
+          attached ExPort.  It is for buffer-to-buffer flow control
+          in the direction from the attached ExPort (if applicable)
+          to BxPort."
+      ::= { fcBxPortEntry 5 }
+
+  fcBxPortRxBufSize OBJECT-TYPE
+      SYNTAX      FcRxDataFieldSize
+      UNITS       "bytes"
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "The largest Data_Field Size (in octets) for an FT_1 frame
+          that can be received by the BxPort."
+  ::= { fcBxPortEntry 6 }
+
+  fcBxPortRatov OBJECT-TYPE
+      SYNTAX      MilliSeconds
+      UNITS       "milliseconds"
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "The Resource_Allocation_Timeout Value configured for the
+          BxPort.  This is used as the timeout value for determining
+          when to reuse an ExPort resource such as a
+          Recovery_Qualifier.  It represents E_D_TOV (see next
+          object) plus twice the maximum time that a frame may be
+          delayed within the Fabric and still be delivered."
+      ::= { fcBxPortEntry 7 }
+
+  fcBxPortEdtov OBJECT-TYPE
+      SYNTAX      MilliSeconds
+      UNITS       "milliseconds"
+      MAX-ACCESS  read-write
+      STATUS      current
+      DESCRIPTION
+         "The E_D_TOV value configured for the BxPort. The
+          Error_Detect_Timeout Value is used as the timeout value for
+          detecting an error condition."
+  ::= { fcBxPortEntry 8 }
+
+
+  -- BxPort class service parameters
+
+  fcBxPortCosSupported OBJECT-TYPE
+      SYNTAX      FcCosCap
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "A value indicating the set of Classes of Service supported
+          by the BxPort."
+  ::= { fcBxPortEntry 9 }
+
+  fcBxPortClass2SeqDeliv OBJECT-TYPE
+      SYNTAX      TruthValue
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "A flag indicating whether or not Class 2 Sequential
+          Delivery is supported by the BxPort."
+  ::= { fcBxPortEntry 10 }
+
+  fcBxPortClass3SeqDeliv OBJECT-TYPE
+      SYNTAX      TruthValue
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "A flag indicating whether or not Class 3 Sequential
+          Delivery is supported by the BxPort."
+  ::= { fcBxPortEntry 11 }
+
+
+  -- other BxPort parameters
+
+  fcBxPortHoldTime OBJECT-TYPE
+      SYNTAX      MicroSeconds
+      UNITS       "microseconds"
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "The maximum time (in microseconds) that the BxPort shall
+          hold a frame before discarding the frame if it is unable to
+          deliver the frame. The value 0 means that the BxPort does
+          not support this parameter."
+  ::= { fcBxPortEntry 14 }
+
+  fcBxPortFabricName OBJECT-TYPE
+      SYNTAX      FcNameId
+      MAX-ACCESS  read-write
+      STATUS      current
+      DESCRIPTION
+         "The Name_Identifier of the Fabric to which this Fabric
+          Element belongs."
+  ::= { fcBxPortEntry 15 }
+
+  fcBxPortPhysRttov OBJECT-TYPE
+      SYNTAX      MilliSeconds
+      UNITS       "milliseconds"
+      MAX-ACCESS  read-write
+      STATUS      current
+      DESCRIPTION
+         "The Receiver_Transmitter_Timeout value of the BxPort. This
+          is used by the receiver logic to detect Loss of
+          Synchronization."
+  ::= { fcBxPortEntry 16 }
+
+  fcBxPortTranceiverMedia OBJECT-TYPE
+      SYNTAX      INTEGER {
+      	none(1),
+      	sm(2),   -- single-mode
+      	mm(3)    -- multi-mode
+      }
+      MAX-ACCESS  read-only
+      STATUS      current            -- deprecated
+      DESCRIPTION
+         "The tranceiver media."
+  ::= { fcBxPortEntry 17 }
+
+  fcBxPortPauseTimeout OBJECT-TYPE
+      SYNTAX      MilliSeconds
+      UNITS       "milliseconds"
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "How much time should the SL wait after receiving
+         a Wait-Request from the remote SL."
+	::= { fcBxPortEntry 18 }
+
+  fcBxPortBbThresholdRx OBJECT-TYPE
+      SYNTAX      FcBbCredit
+      UNITS       "buffers"
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "After the number of available Rx buffer
+         crosses the fcBxPortBbThresholdRx value a flow control
+         packet is sent to the attached Ex port."
+	::= { fcBxPortEntry 19 }
+
+  fcBxPortBbThresholdTx OBJECT-TYPE
+      SYNTAX      FcBbCredit
+      UNITS       "buffers"
+      MAX-ACCESS  read-write
+      STATUS      current
+      DESCRIPTION
+         "After the number of available Tx buffer
+         crosses the fcBxPortBbThresholdRx value a flow control
+         packet is sent to the remote SL FC service port."
+	::= { fcBxPortEntry 20 }
+
+  fcBxPortResetPmCounters OBJECT-TYPE
+      SYNTAX      INTEGER
+      MAX-ACCESS  read-write
+      STATUS      current
+      DESCRIPTION
+        "Setting this variable to 1 will cause the current interval FC PM 
+        counters of the port to be initialized to zero (0)."
+	::= { fcBxPortEntry 21 }
+
+  fcBxPortTranceiverType OBJECT-TYPE
+      SYNTAX      INTEGER {
+      	none(1),
+      	shortWave(2),  -- 850nm
+      	longWave(3)    -- 1310nm
+      }
+      MAX-ACCESS  read-only
+      STATUS      current          -- deprecated
+      DESCRIPTION
+         "The tranceiver type."
+  ::= { fcBxPortEntry 22 }
+
+  fcBxPortWwnTransparent OBJECT-TYPE
+      SYNTAX      TruthValue
+      MAX-ACCESS  read-write
+      STATUS      current
+      DESCRIPTION
+         "TRUE - means that the values of fcBxPortFabricName and fcBxPortFabricName
+         are determined by the switches connected to the remote SL.
+         FLASE - means the the values of fcBxPortFabricName and fcBxPortFabricName
+         are determined locally."
+  ::= { fcBxPortEntry 23 }
+
+  fcBxPortAdminSpeed OBJECT-TYPE
+	  SYNTAX     FcPortSpeed
+	  MAX-ACCESS read-write
+	  STATUS     current
+	  DESCRIPTION
+            "Determine the speed of the interface for the Auto-Negotiation purpose."
+    ::= { fcBxPortEntry 24 }
+
+  fcBxPortRestartLink OBJECT-TYPE
+	  SYNTAX     TruthValue
+	  MAX-ACCESS read-write
+	  STATUS     current
+	  DESCRIPTION
+            "Write operation to this object Restart the FC link.
+            When Read, this object always return False."
+    ::= { fcBxPortEntry 25 }
+
+  fcBxPortTransceiverRate OBJECT-TYPE
+      SYNTAX      INTEGER
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "The nominal bit rate of the transceiver in 100 MBps units."
+  ::= { fcBxPortEntry 26 }
+
+  fcBxPortElpInitiator OBJECT-TYPE
+      SYNTAX      INTEGER
+      MAX-ACCESS  read-write
+      STATUS      current
+      DESCRIPTION
+         "1 - B to B port, initiating ELP
+		  2 - B to E port classic (our usual, without sending ELP)
+		  3 - F to N port, spoofing FLOGI sequence
+		  4 - N to N port, spoofing PLOGI sequence
+		  5 - transparent port"
+  ::= { fcBxPortEntry 27 }
+
+  fcBxPortRemoteSwitchFabricName OBJECT-TYPE
+      SYNTAX      FcNameId
+      MAX-ACCESS  read-write
+      STATUS      current
+      DESCRIPTION
+         "Remote switch fabric WWN use to mimic remote ELP response"
+  ::= { fcBxPortEntry 28 }
+
+  fcBxPortRemoteSwitchPortName OBJECT-TYPE
+      SYNTAX      FcNameId
+      MAX-ACCESS  read-write
+      STATUS      current
+      DESCRIPTION
+         "Remote switch port WWN use to mimic remote ELP response"
+  ::= { fcBxPortEntry 29 }
+
+  -- the Status group
+
+  -- This group consists of tables that contains operational
+  -- status and established service parameters for the Fabric
+  -- Element and the attached ExPorts.
+
+  -- The BxPort Status table
+  -- This table contains, one entry for each BxPort,
+  -- the operational status and parameters of the BxPorts.
+
+  fcBxPortStatusTable OBJECT-TYPE
+      SYNTAX      SEQUENCE OF FcBxPortStatusEntry
+      MAX-ACCESS  not-accessible
+      STATUS      current
+      DESCRIPTION
+         "A table that contains, one entry for each BxPort in the
+          Fabric Element, operational status and parameters of the
+          BxPorts."
+  ::= { fcBxStatus 1 }
+
+  fcBxPortStatusEntry OBJECT-TYPE
+      SYNTAX      FcBxPortStatusEntry
+      MAX-ACCESS  not-accessible
+      STATUS      current
+      DESCRIPTION
+         "An entry containing operational status and parameters of a
+          BxPort."
+      AUGMENTS { fcBxPortEntry }
+  ::= { fcBxPortStatusTable 1 }
+
+
+  FcBxPortStatusEntry ::=
+      SEQUENCE {
+          fcBxPortBbRxBufferAvailable
+              Gauge32,
+          fcBxPortBbTxBufferAvailable
+              Gauge32,
+          fcBxPortStatus
+          	  INTEGER,
+		  fcBxPortStatusValidIntervals
+		  	  INTEGER,
+		  fcBxPortStatusLoginState
+		  	  BITS,
+		  fcBxPortStatusAttachedPortType
+		  	  INTEGER
+      }
+
+  fcBxPortBbRxBufferAvailable OBJECT-TYPE
+      SYNTAX      Gauge32
+      UNITS       "buffers"
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "The number of buffers currently available for receiving
+          frames from the attached port in the buffer-to-buffer flow
+          control. The value should be less than or equal to
+          fcBxPortBbRxBufferMax."
+  ::= { fcBxPortStatusEntry 1 }
+
+  fcBxPortBbTxBufferAvailable OBJECT-TYPE
+      SYNTAX      Gauge32
+      UNITS       "buffers"
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "The number of buffers currently available for transmit
+          frames. The value should be less than or equal to
+          fcBxPortBbTxBufferMax."
+  ::= { fcBxPortStatusEntry 2 }
+  
+fcBxPortStatus OBJECT-TYPE
+	SYNTAX  INTEGER (1..16)
+	MAX-ACCESS  read-only
+	STATUS  current
+	DESCRIPTION
+		"This variable indicates the Line Status of the
+		FC interface.  
+
+		The fcBxPortStatus is a bit map represented as a
+		sum, therefore, it can represent multiple failures (alarms) 
+		simultaneously.
+
+		fcBxPortNoAlarm must be set if and only if no other
+		flag is set.
+
+	       The various bit positions are:
+	      1     fcBxPortNoAlarm           No alarm present
+	      2     fcBxPortTransmitFault     Transceiver transmit fault
+	      4     fcBxPortLossOfSignal      Transceiver signal detect failed
+	      8		fcBxPortNoLink			  No link established yet."
+     ::= { fcBxPortStatusEntry 3 }
+
+fcBxPortStatusValidIntervals OBJECT-TYPE
+	SYNTAX  	INTEGER (0..96)
+	MAX-ACCESS 	read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of previous near end intervals for
+		which data was collected.  The value will be
+		96 unless the interface was brought online within
+		the last 24 hours, in which case the value will be
+		the number of complete 15 minute near end
+		intervals since the interface has been online.  In
+		the case where the agent is a proxy, it is
+		possible that some intervals are unavailable.  In
+		this case, this interval is the maximum interval
+		number for which data is available."
+	::= { fcBxPortStatusEntry 4 }
+
+fcBxPortStatusLoginState OBJECT-TYPE
+	SYNTAX  	BITS {
+		signalSense(0),
+		syncPort(1),
+		validLogin(2)
+	}
+	MAX-ACCESS 	read-only
+	STATUS  	current
+	DESCRIPTION
+		"The high bit signalSense(0) means that a physical
+		connection has been established with the attached port.
+		The high bit syncPort(1) means that the there there
+		is a PRS synchronization with the attached port.
+		The high bit validLogin(2) indicates that the login
+		process has been completed and that the fcBxLoginTable 
+		information is valid."
+	::= { fcBxPortStatusEntry 5 }
+
+fcBxPortStatusAttachedPortType OBJECT-TYPE
+	SYNTAX  	INTEGER {
+		nPort(1),     -- attached to n-port
+		fPort(2),     -- attached to f-port
+		ePort(3),     -- attached to e-port
+		tPort(4)      -- transparent
+	}
+	MAX-ACCESS 	read-only
+	STATUS  	current
+	DESCRIPTION
+		"Type of the attached port"
+	::= { fcBxPortStatusEntry 6 }
+
+
+
+  -- The BxPort Fabric Login table
+  --
+  -- This table contains, one entry for each BxPort in the
+  -- Fabric Element, the Service Parameters that have been
+  -- established from the most recent Fabric Login,
+  -- implicit or explicit.
+
+  fcBxLoginTable OBJECT-TYPE
+      SYNTAX      SEQUENCE OF FcBxLoginEntry
+      MAX-ACCESS  not-accessible
+      STATUS      current
+      DESCRIPTION
+         "A table that contains, one entry for each ExPort attached
+          to a particular BxPort in the Fabric Element, services
+          parameters established from the most recent Fabric Login,
+          explicit or implicit. Note that an BxPort may have one or
+          more ExPort attached to it."
+  ::= { fcBxStatus 3 }
+
+  fcBxLoginEntry OBJECT-TYPE
+      SYNTAX      FcBxLoginEntry
+      MAX-ACCESS  not-accessible
+      STATUS      current
+      DESCRIPTION
+         "An entry containing service parameters established from a
+          successful Fabric Login."
+      AUGMENTS { fcBxPortEntry }
+  ::= { fcBxLoginTable 1 }
+
+  FcBxLoginEntry ::=
+      SEQUENCE {
+          fcBxPortVersionAgreed
+              INTEGER,
+          fcBxPortExPortBbCredit
+              FcBbCredit,
+          fcBxPortExPortRxDataFieldSize
+              FcRxDataFieldSize,
+          fcBxPortCosSuppAgreed
+              FcCosCap,
+          fcBxPortClass2SeqDelivAgreed
+              TruthValue,
+          fcBxPortClass3SeqDelivAgreed
+              TruthValue,
+          fcBxPortExPortName
+              FcNameId,
+          fcBxPortBbCreditModel
+              FcBbCreditModel,
+          fcBxPortExFabricName
+              FcNameId
+      }
+
+  fcBxPortVersionAgreed OBJECT-TYPE
+      SYNTAX      INTEGER (0..255)
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "The version of FC-PH that the BxPort has agreed to support
+          from the Fabric Login"
+  ::= { fcBxLoginEntry 1 }
+
+  fcBxPortExPortBbCredit OBJECT-TYPE
+      SYNTAX      FcBbCredit
+      UNITS       "buffers"
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "The total number of buffers available for holding Class 1
+          connect-request, Class 2 or Class 3 frames to be
+          transmitted to the attached ExPort.  It is for buffer-to-
+          buffer flow control in the direction from BxPort to ExPort.
+          The buffer-to-buffer flow control mechanism is indicated in
+          the respective fcBxPortBbCreditModel."
+  ::= { fcBxLoginEntry 2 }
+
+  fcBxPortExPortRxDataFieldSize OBJECT-TYPE
+      SYNTAX      FcRxDataFieldSize
+      UNITS       "bytes"
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "The Receive Data Field Size of the attached ExPort. This
+          object specifies the largest Data Field Size for an FT_1
+          frame that can be received by the ExPort."
+  ::= { fcBxLoginEntry 3 }
+
+  fcBxPortCosSuppAgreed OBJECT-TYPE
+      SYNTAX      FcCosCap
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "A variable indicating that the attached ExPort has
+          requested the BxPort for the support of classes of services
+          and the BxPort has granted the request."
+  ::= { fcBxLoginEntry 4 }
+
+  fcBxPortClass2SeqDelivAgreed OBJECT-TYPE
+      SYNTAX      TruthValue
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "A variable indicating whether the BxPort has agreed to
+          support Class 2 sequential delivery from the Fabric Login.
+          This is only meaningful if Class 2 service has been
+          agreed."
+  ::= { fcBxLoginEntry 5 }
+
+  fcBxPortClass3SeqDelivAgreed OBJECT-TYPE
+      SYNTAX      TruthValue
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "A flag indicating whether the BxPort has agreed to support
+          Class 3 sequential delivery from the Fabric Login. This is
+          only meaningful if Class 3 service has been agreed."
+  ::= { fcBxLoginEntry 6 }
+
+  fcBxPortExPortName OBJECT-TYPE
+      SYNTAX      FcNameId
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "The port name of the attached ExPort."
+  ::= { fcBxLoginEntry 7 }
+
+  fcBxPortBbCreditModel OBJECT-TYPE
+      SYNTAX      FcBbCreditModel
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "This object identifies the BB_Credit model used by the
+          BxPort."
+  ::= { fcBxLoginEntry 8 }
+
+  fcBxPortExFabricName OBJECT-TYPE
+      SYNTAX      FcNameId
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "The fabric name of the attached ExPort."
+  ::= { fcBxLoginEntry 9 }
+
+
+--
+-- PM Definitions:
+-- Consists of the the following objects:
+-- 1. fcBxPortCurrentTable - the current PM counters
+-- 2. fcBxPortIntervalTable - keeps the history of the 1-32/96 intervals
+--    of 15 minutes PM counters.
+-- 3. fcBxPortTotalTable - the total PM counters of the previous 24 hours
+--
+
+
+-- The PM Current Table
+
+fcBxPortCurrentTable OBJECT-TYPE
+	SYNTAX  SEQUENCE OF FcBxPortCurrentEntry
+	MAX-ACCESS  		not-accessible
+	STATUS  			current
+	DESCRIPTION
+		"The FC current table contains various statistics
+		being collected for the current 15 minute
+		interval."
+	::= { fcBxPm 1 }
+
+fcBxPortCurrentEntry OBJECT-TYPE
+	SYNTAX  		FcBxPortCurrentEntry
+	MAX-ACCESS  	not-accessible
+	STATUS  		current
+	DESCRIPTION
+		"An entry in the FC Current table."
+	INDEX   { fcBxPortCurrentIndex }
+	::= { fcBxPortCurrentTable 1 }
+
+FcBxPortCurrentEntry ::=
+	SEQUENCE {
+		fcBxPortCurrentIndex					InterfaceIndex,
+		fcBxPortCurrentLinkFailures				Counter64,
+		fcBxPortCurrentSyncLosses				Counter64,
+		fcBxPortCurrentSigLosses				Counter64,
+		fcBxPortCurrentPrimSeqProtoErrors		Counter64,
+		fcBxPortCurrentInvalidTxWords			Counter64,
+		fcBxPortCurrentInvalidCrcs				Counter64,
+		fcBxPortCurrentDelimiterErrors			Counter64,
+		fcBxPortCurrentRxFlowControl			Counter64,
+		fcBxPortCurrentTxFlowControl			Counter64,
+		fcBxPortCurrentRxOctets					Counter64,
+		fcBxPortCurrentRxPkts					Counter64,
+		fcBxPortCurrentTxOctets					Counter64,
+		fcBxPortCurrentTxPkts					Counter64,
+		fcBxPortCurrentRxLinkReset				Counter64,
+		fcBxPortCurrentTxLinkReset				Counter64,
+		fcBxPortCurrentRxOls					Counter64,
+		fcBxPortCurrentTxOls					Counter64,
+		fcBxPortCurrentRxErroredBbwHeaders		Counter64,
+		fcBxPortCurrentRxC2FramesDiscarded		Counter64,
+		fcBxPortCurrentTxC2Octets				Counter64,
+		fcBxPortCurrentTxC2Packets				Counter64,
+		fcBxPortCurrentRxC2Octets				Counter64,
+		fcBxPortCurrentRxC2Packets				Counter64,
+		fcBxPortCurrentRxC2ErroredSizeFrames	Counter64,
+		fcBxPortCurrentRxC3FramesDiscarded		Counter64,
+		fcBxPortCurrentTxC3Octets				Counter64,
+		fcBxPortCurrentTxC3Packets				Counter64,
+		fcBxPortCurrentRxC3Octets				Counter64,
+		fcBxPortCurrentRxC3Packets				Counter64,
+		fcBxPortCurrentRxC3ErroredSizeFrames	Counter64,
+		fcBxPortCurrentTxC4Octets				Counter64,
+		fcBxPortCurrentTxC4Packets				Counter64,
+		fcBxPortCurrentRxC4Octets				Counter64,
+		fcBxPortCurrentRxC4Packets				Counter64,
+		fcBxPortCurrentRxC4ErroredSizeFrames	Counter64,
+		fcBxPortCurrentTxCFOctets				Counter64,
+		fcBxPortCurrentTxCFPackets				Counter64,
+		fcBxPortCurrentRxCFOctets				Counter64,
+		fcBxPortCurrentRxCFPackets				Counter64,
+		fcBxPortCurrentRxCFErroredSizeFrame	Counter64
+	}
+
+fcBxPortCurrentIndex OBJECT-TYPE
+	SYNTAX  	InterfaceIndex
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The index value which uniquely identifies  the
+		FC interface to which this entry is applicable."
+	::= { fcBxPortCurrentEntry 1 }
+
+fcBxPortCurrentLinkFailures            OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The current number of link failures detected during 
+		this sampling interval."
+	::= { fcBxPortCurrentEntry 2 }
+
+fcBxPortCurrentSyncLosses            OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The current number of loss of synchronization detected during 
+		this sampling interval."
+	::= { fcBxPortCurrentEntry 3 }
+
+fcBxPortCurrentSigLosses            OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The current number of loss of signal detected during 
+		this sampling interval."
+	::= { fcBxPortCurrentEntry 4 }
+
+fcBxPortCurrentPrimSeqProtoErrors   OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The current number of primitive sequence protocol errors 
+		detected during this sampling interval."
+	::= { fcBxPortCurrentEntry 5 }
+
+fcBxPortCurrentInvalidTxWords      OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The current number of invalid transmission word detected during 
+		this sampling interval."
+	::= { fcBxPortCurrentEntry 6 }
+
+fcBxPortCurrentInvalidCrcs      OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The current number of invalid CRC detected during 
+		this sampling interval."
+	::= { fcBxPortCurrentEntry 7 }
+
+fcBxPortCurrentDelimiterErrors      OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The current number of Delimiter Errors detected during 
+		this sampling interval."
+	::= { fcBxPortCurrentEntry 8 }
+
+fcBxPortCurrentRxFlowControl OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS 	read-only
+	STATUS  	current
+	DESCRIPTION
+		"The current number of flow control packets arrived from the
+		attached Ex port."
+	::= { fcBxPortCurrentEntry 9 }
+
+fcBxPortCurrentTxFlowControl OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS 	read-only
+	STATUS  	current
+	DESCRIPTION
+		"The current number of flow control packets sent to the
+		attached Ex port."
+	::= { fcBxPortCurrentEntry 10 }
+
+fcBxPortCurrentRxOctets                OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The total number of octets of data 
+		received during the current interval."
+	::= { fcBxPortCurrentEntry 11 }
+
+fcBxPortCurrentRxPkts                  OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of packets (including bad packets) 
+		received during the current interval."
+	::= { fcBxPortCurrentEntry 12 }
+
+fcBxPortCurrentTxOctets                OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The total number of octets of data 
+		transmited during the current interval."
+	::= { fcBxPortCurrentEntry 13 }
+
+fcBxPortCurrentTxPkts                  OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of packets (including bad packets) 
+		transmitted during the current interval."
+	::= { fcBxPortCurrentEntry 14 }
+
+fcBxPortCurrentRxLinkReset				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number received link reset during the current interval."
+	::= { fcBxPortCurrentEntry 15 }
+
+fcBxPortCurrentTxLinkReset				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number sent link reset during the current interval."
+	::= { fcBxPortCurrentEntry 16 }
+
+fcBxPortCurrentRxOls					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of received Off-Line sequences 
+		 during the current interval."
+	::= { fcBxPortCurrentEntry 17 }
+
+fcBxPortCurrentTxOls					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of sent Off-Line sequences 
+		during the current interval."
+	::= { fcBxPortCurrentEntry 18 }
+
+fcBxPortCurrentRxErroredBbwHeaders		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of packets with errored Backbone WAN header 
+		received during the current interval."
+	::= { fcBxPortCurrentEntry 19 }
+
+fcBxPortCurrentRxC2FramesDiscarded		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C2 discarded frames (including bad packets) 
+		 during the current interval."
+	::= { fcBxPortCurrentEntry 20 }
+
+fcBxPortCurrentTxC2Octets				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C2 transmitted bytes 
+		 during the current interval."
+	::= { fcBxPortCurrentEntry 21 }
+
+fcBxPortCurrentTxC2Packets				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C2 transmitted packets 
+		transmitted during the current interval."
+	::= { fcBxPortCurrentEntry 22 }
+
+fcBxPortCurrentRxC2Octets				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of received C2 octets 
+		 during the current interval."
+	::= { fcBxPortCurrentEntry 23 }
+
+fcBxPortCurrentRxC2Packets				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of sent C2 packets 
+		 during the current interval."
+	::= { fcBxPortCurrentEntry 24 }
+
+fcBxPortCurrentRxC2ErroredSizeFrames	OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C2 frames with error size 
+		 received during the current interval."
+	::= { fcBxPortCurrentEntry 25 }
+
+fcBxPortCurrentRxC3FramesDiscarded			OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C3 discarded frames (including bad packets) 
+		 during the current interval."
+	::= { fcBxPortCurrentEntry 26 }
+
+fcBxPortCurrentTxC3Octets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C3 transmitted bytes 
+		 during the current interval."
+	::= { fcBxPortCurrentEntry 27 }
+
+fcBxPortCurrentTxC3Packets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C3 transmitted packets 
+		transmitted during the current interval."
+	::= { fcBxPortCurrentEntry 28 }
+
+fcBxPortCurrentRxC3Octets                  OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of received C3 octets 
+		 during the current interval."
+	::= { fcBxPortCurrentEntry 29 }
+
+fcBxPortCurrentRxC3Packets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of sent C3 packets 
+		 during the current interval."
+	::= { fcBxPortCurrentEntry 30 }
+
+fcBxPortCurrentRxC3ErroredSizeFrames		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C3 frames with error size 
+		 received during the current interval."
+	::= { fcBxPortCurrentEntry 31 }
+
+fcBxPortCurrentTxC4Octets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C4 transmitted bytes 
+		 during the current interval."
+	::= { fcBxPortCurrentEntry 32 }
+
+fcBxPortCurrentTxC4Packets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C4 transmitted packets 
+		transmitted during the current interval."
+	::= { fcBxPortCurrentEntry 33 }
+
+fcBxPortCurrentRxC4Octets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of received C4 octets 
+		 during the current interval."
+	::= { fcBxPortCurrentEntry 34 }
+
+fcBxPortCurrentRxC4Packets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of sent C4 packets 
+		 during the current interval."
+	::= { fcBxPortCurrentEntry 35 }
+
+fcBxPortCurrentRxC4ErroredSizeFrames		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C4 frames with error size 
+		 received during the current interval."
+	::= { fcBxPortCurrentEntry 36 }
+
+fcBxPortCurrentTxCFOctets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of CF transmitted bytes 
+		 during the current interval."
+	::= { fcBxPortCurrentEntry 37 }
+
+fcBxPortCurrentTxCFPackets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of CF transmitted packets 
+		transmitted during the current interval."
+	::= { fcBxPortCurrentEntry 38 }
+
+fcBxPortCurrentRxCFOctets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of received CF octets 
+		 during the current interval."
+	::= { fcBxPortCurrentEntry 39 }
+
+fcBxPortCurrentRxCFPackets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of sent CF packets 
+		 during the current interval."
+	::= { fcBxPortCurrentEntry 40 }
+
+fcBxPortCurrentRxCFErroredSizeFrame		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of CF frames with error size 
+		 received during the current interval."
+	::= { fcBxPortCurrentEntry 41 }
+
+
+--
+-- The PM Interval Table
+--
+
+fcBxPortIntervalTable OBJECT-TYPE
+	SYNTAX  SEQUENCE OF FcBxPortIntervalEntry
+	MAX-ACCESS  		not-accessible
+	STATUS  			current
+	DESCRIPTION
+		"The FC current table contains various statistics
+		being collected for the current 15 minute
+		interval."
+	::= { fcBxPm 2 }
+
+fcBxPortIntervalEntry OBJECT-TYPE
+	SYNTAX  		FcBxPortIntervalEntry
+	MAX-ACCESS  	not-accessible
+	STATUS  		current
+	DESCRIPTION
+		"An entry in the FC Interval table."
+	INDEX   { fcBxPortIntervalIndex, fcBxPortIntervalNumber }
+	::= { fcBxPortIntervalTable 1 }
+
+FcBxPortIntervalEntry ::=
+	SEQUENCE {
+		fcBxPortIntervalIndex					InterfaceIndex,
+		fcBxPortIntervalNumber              	INTEGER,
+		fcBxPortIntervalLinkFailures			Counter64,
+		fcBxPortIntervalSyncLosses 				Counter64,
+		fcBxPortIntervalSigLosses				Counter64,
+		fcBxPortIntervalPrimSeqProtoErrors		Counter64,
+		fcBxPortIntervalInvalidTxWords			Counter64,
+		fcBxPortIntervalInvalidCrcs				Counter64,
+		fcBxPortIntervalDelimiterErrors			Counter64,
+		fcBxPortIntervalRxFlowControl 			Counter64,
+		fcBxPortIntervalTxFlowControl			Counter64,
+		fcBxPortIntervalRxOctets            	Counter64,
+		fcBxPortIntervalRxPkts              	Counter64,
+		fcBxPortIntervalTxOctets            	Counter64,
+		fcBxPortIntervalTxPkts              	Counter64,
+		fcBxPortIntervalRxLinkReset				Counter64,
+		fcBxPortIntervalTxLinkReset				Counter64,
+		fcBxPortIntervalRxOls					Counter64,
+		fcBxPortIntervalTxOls					Counter64,
+		fcBxPortIntervalRxErroredBbwHeaders		Counter64,
+		fcBxPortIntervalRxC2FramesDiscarded		Counter64,
+		fcBxPortIntervalTxC2Octets				Counter64,
+		fcBxPortIntervalTxC2Packets				Counter64,
+		fcBxPortIntervalRxC2Octets				Counter64,
+		fcBxPortIntervalRxC2Packets				Counter64,
+		fcBxPortIntervalRxC2ErroredSizeFrames	Counter64,
+		fcBxPortIntervalRxC3FramesDiscarded		Counter64,
+		fcBxPortIntervalTxC3Octets				Counter64,
+		fcBxPortIntervalTxC3Packets				Counter64,
+		fcBxPortIntervalRxC3Octets				Counter64,
+		fcBxPortIntervalRxC3Packets				Counter64,
+		fcBxPortIntervalRxC3ErroredSizeFrames	Counter64,
+		fcBxPortIntervalTxC4Octets				Counter64,
+		fcBxPortIntervalTxC4Packets				Counter64,
+		fcBxPortIntervalRxC4Octets				Counter64,
+		fcBxPortIntervalRxC4Packets				Counter64,
+		fcBxPortIntervalRxC4ErroredSizeFrames	Counter64,
+		fcBxPortIntervalTxCFOctets				Counter64,
+		fcBxPortIntervalTxCFPackets				Counter64,
+		fcBxPortIntervalRxCFOctets				Counter64,
+		fcBxPortIntervalRxCFPackets				Counter64,
+		fcBxPortIntervalRxCFErroredSizeFrame	Counter64,
+        fcBxPortIntervalValidData  				TruthValue
+	}
+
+fcBxPortIntervalIndex					OBJECT-TYPE
+	SYNTAX  	InterfaceIndex
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The index value which uniquely identifies  the
+		FC interface to which this entry is applicable."
+	::= { fcBxPortIntervalEntry 1 }
+
+fcBxPortIntervalNumber					OBJECT-TYPE
+	SYNTAX  	INTEGER (1..96)
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"A number between 1 and 96, where 1 is the most
+		recently completed 15 minute interval and 96 is
+		the 15 minutes interval completed 23 hours and 45
+		minutes prior to interval 1."
+	::= { fcBxPortIntervalEntry 2 }
+
+fcBxPortIntervalLinkFailures			OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of link failures detected during 
+		this sampling interval."
+	::= { fcBxPortIntervalEntry 3 }
+
+fcBxPortIntervalSyncLosses				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of loss of synchronization detected during 
+		this sampling interval."
+	::= { fcBxPortIntervalEntry 4 }
+
+fcBxPortIntervalSigLosses				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of loss of signal detected during 
+		this sampling interval."
+	::= { fcBxPortIntervalEntry 5 }
+
+fcBxPortIntervalPrimSeqProtoErrors		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of primitive sequence protocol errors 
+		detected during this sampling interval."
+	::= { fcBxPortIntervalEntry 6 }
+
+fcBxPortIntervalInvalidTxWords			OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of invalid transmission word detected during 
+		this sampling interval."
+	::= { fcBxPortIntervalEntry 7 }
+
+fcBxPortIntervalInvalidCrcs				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of invalid CRC detected during 
+		this sampling interval."
+	::= { fcBxPortIntervalEntry 8 }
+
+fcBxPortIntervalDelimiterErrors			OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of Delimiter Errors detected during 
+		this sampling interval."
+	::= { fcBxPortIntervalEntry 9 }
+
+fcBxPortIntervalRxFlowControl			OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS 	read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of flow control packets arrived from the
+		attached E-port during this sampling interval."
+	::= { fcBxPortIntervalEntry 10 }
+
+fcBxPortIntervalTxFlowControl			OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS 	read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of flow control packets sent to the
+		attached E-port during this sampling interval."
+	::= { fcBxPortIntervalEntry 11 }
+
+fcBxPortIntervalRxOctets				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The total number of octets of data 
+		received during the current interval."
+	::= { fcBxPortIntervalEntry 12 }
+
+fcBxPortIntervalRxPkts                  OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of packets (including bad packets) 
+		received during the current interval."
+	::= { fcBxPortIntervalEntry 13 }
+
+fcBxPortIntervalTxOctets				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The total number of octets of data 
+		transmited during the current interval."
+	::= { fcBxPortIntervalEntry 14 }
+
+fcBxPortIntervalTxPkts					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of packets (including bad packets) 
+		sent during the current interval."
+	::= { fcBxPortIntervalEntry 15 }
+
+fcBxPortIntervalRxLinkReset				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number received link reset during the current interval."
+	::= { fcBxPortIntervalEntry 16 }
+
+fcBxPortIntervalTxLinkReset				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number sent link reset during the current interval."
+	::= { fcBxPortIntervalEntry 17 }
+
+fcBxPortIntervalRxOls					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of received Off-Line sequences 
+		 during the current interval."
+	::= { fcBxPortIntervalEntry 18 }
+
+fcBxPortIntervalTxOls					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of sent Off-Line sequences 
+		during the current interval."
+	::= { fcBxPortIntervalEntry 19 }
+
+fcBxPortIntervalRxErroredBbwHeaders		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of packets with errored Backbone WAN header 
+		received during the current interval."
+	::= { fcBxPortIntervalEntry 20 }
+
+fcBxPortIntervalRxC2FramesDiscarded		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C2 discarded frames (including bad packets) 
+		 during the current interval."
+	::= { fcBxPortIntervalEntry 21 }
+
+fcBxPortIntervalTxC2Octets				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C2 transmitted bytes 
+		 during the current interval."
+	::= { fcBxPortIntervalEntry 22 }
+
+fcBxPortIntervalTxC2Packets				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C2 transmitted packets 
+		transmitted during the current interval."
+	::= { fcBxPortIntervalEntry 23 }
+
+fcBxPortIntervalRxC2Octets				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of received C2 octets 
+		 during the current interval."
+	::= { fcBxPortIntervalEntry 24 }
+
+fcBxPortIntervalRxC2Packets				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of sent C2 packets 
+		 during the current interval."
+	::= { fcBxPortIntervalEntry 25 }
+
+fcBxPortIntervalRxC2ErroredSizeFrames	OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C2 frames with error size 
+		 received during the current interval."
+	::= { fcBxPortIntervalEntry 26 }
+
+fcBxPortIntervalRxC3FramesDiscarded			OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C3 discarded frames (including bad packets) 
+		 during the current interval."
+	::= { fcBxPortIntervalEntry 27 }
+
+fcBxPortIntervalTxC3Octets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C3 transmitted bytes 
+		 during the current interval."
+	::= { fcBxPortIntervalEntry 28 }
+
+fcBxPortIntervalTxC3Packets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C3 transmitted packets 
+		transmitted during the current interval."
+	::= { fcBxPortIntervalEntry 29 }
+
+fcBxPortIntervalRxC3Octets                  OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of received C3 octets 
+		 during the current interval."
+	::= { fcBxPortIntervalEntry 30 }
+
+fcBxPortIntervalRxC3Packets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of sent C3 packets 
+		 during the current interval."
+	::= { fcBxPortIntervalEntry 31 }
+
+fcBxPortIntervalRxC3ErroredSizeFrames		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C3 frames with error size 
+		 received during the current interval."
+	::= { fcBxPortIntervalEntry 32 }
+
+fcBxPortIntervalTxC4Octets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C4 transmitted bytes 
+		 during the current interval."
+	::= { fcBxPortIntervalEntry 33 }
+
+fcBxPortIntervalTxC4Packets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C4 transmitted packets 
+		transmitted during the current interval."
+	::= { fcBxPortIntervalEntry 34 }
+
+fcBxPortIntervalRxC4Octets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of received C4 octets 
+		 during the current interval."
+	::= { fcBxPortIntervalEntry 35 }
+
+fcBxPortIntervalRxC4Packets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of sent C4 packets 
+		 during the current interval."
+	::= { fcBxPortIntervalEntry 36 }
+
+fcBxPortIntervalRxC4ErroredSizeFrames		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C4 frames with error size 
+		 received during the current interval."
+	::= { fcBxPortIntervalEntry 37 }
+
+fcBxPortIntervalTxCFOctets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of CF transmitted bytes 
+		 during the current interval."
+	::= { fcBxPortIntervalEntry 38 }
+
+fcBxPortIntervalTxCFPackets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of CF transmitted packets 
+		transmitted during the current interval."
+	::= { fcBxPortIntervalEntry 39 }
+
+fcBxPortIntervalRxCFOctets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of received CF octets 
+		 during the current interval."
+	::= { fcBxPortIntervalEntry 40 }
+
+fcBxPortIntervalRxCFPackets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of sent CF packets 
+		 during the current interval."
+	::= { fcBxPortIntervalEntry 41 }
+
+fcBxPortIntervalRxCFErroredSizeFrame		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of CF frames with error size 
+		 received during the current interval."
+	::= { fcBxPortIntervalEntry 42 }
+
+fcBxPortIntervalValidData					OBJECT-TYPE
+	SYNTAX  	TruthValue
+	MAX-ACCESS 	read-only
+	STATUS  	current
+	DESCRIPTION
+       "This variable indicates if the data for this
+        interval is valid."
+	::= { fcBxPortIntervalEntry 43 }
+
+
+--
+-- The PM Total Table
+--
+
+fcBxPortTotalTable OBJECT-TYPE
+	SYNTAX  SEQUENCE OF FcBxPortTotalEntry
+	MAX-ACCESS  		not-accessible
+	STATUS  			current
+	DESCRIPTION
+		"The FC current table contains various statistics
+		being collected for the pervious 24 hours.
+		interval."
+	::= { fcBxPm 3 }
+
+fcBxPortTotalEntry OBJECT-TYPE
+	SYNTAX  		FcBxPortTotalEntry
+	MAX-ACCESS  	not-accessible
+	STATUS  		current
+	DESCRIPTION
+		"An entry in the FC Total table."
+	INDEX   { fcBxPortTotalIndex, fcBxPortTotalDayNumber }
+	::= { fcBxPortTotalTable 1 }
+
+FcBxPortTotalEntry ::=
+	SEQUENCE {
+		fcBxPortTotalIndex					InterfaceIndex,
+		fcBxPortTotalDayNumber				INTEGER,
+		fcBxPortTotalLinkFailures			Counter64,
+		fcBxPortTotalSyncLosses 			Counter64,
+		fcBxPortTotalSigLosses				Counter64,
+		fcBxPortTotalPrimSeqProtoErrors		Counter64,
+		fcBxPortTotalInvalidTxWords			Counter64,
+		fcBxPortTotalInvalidCrcs			Counter64,
+		fcBxPortTotalDelimiterErrors		Counter64,
+		fcBxPortTotalRxFlowControl 			Counter64,
+		fcBxPortTotalTxFlowControl			Counter64,
+		fcBxPortTotalRxOctets             	Counter64,
+		fcBxPortTotalRxPkts               	Counter64,
+		fcBxPortTotalTxOctets             	Counter64,
+		fcBxPortTotalTxPkts               	Counter64,
+		fcBxPortTotalRxLinkReset			Counter64,
+		fcBxPortTotalTxLinkReset			Counter64,
+		fcBxPortTotalRxOls					Counter64,
+		fcBxPortTotalTxOls					Counter64,
+		fcBxPortTotalRxErroredBbwHeaders	Counter64,
+		fcBxPortTotalRxC2FramesDiscarded	Counter64,
+		fcBxPortTotalTxC2Octets				Counter64,
+		fcBxPortTotalTxC2Packets			Counter64,
+		fcBxPortTotalRxC2Octets				Counter64,
+		fcBxPortTotalRxC2Packets			Counter64,
+		fcBxPortTotalRxC2ErroredSizeFrames	Counter64,
+		fcBxPortTotalRxC3FramesDiscarded	Counter64,
+		fcBxPortTotalTxC3Octets				Counter64,
+		fcBxPortTotalTxC3Packets			Counter64,
+		fcBxPortTotalRxC3Octets				Counter64,
+		fcBxPortTotalRxC3Packets			Counter64,
+		fcBxPortTotalRxC3ErroredSizeFrames	Counter64,
+		fcBxPortTotalTxC4Octets				Counter64,
+		fcBxPortTotalTxC4Packets			Counter64,
+		fcBxPortTotalRxC4Octets				Counter64,
+		fcBxPortTotalRxC4Packets			Counter64,
+		fcBxPortTotalRxC4ErroredSizeFrames	Counter64,
+		fcBxPortTotalTxCFOctets				Counter64,
+		fcBxPortTotalTxCFPackets			Counter64,
+		fcBxPortTotalRxCFOctets				Counter64,
+		fcBxPortTotalRxCFPackets			Counter64,
+		fcBxPortTotalRxCFErroredSizeFrame	Counter64,
+        fcBxPortTotalValidData  			TruthValue
+	}
+
+fcBxPortTotalIndex OBJECT-TYPE
+	SYNTAX  	InterfaceIndex
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The index value which uniquely identifies  the
+		FC interface to which this entry is applicable."
+	::= { fcBxPortTotalEntry 1 }
+
+fcBxPortTotalDayNumber OBJECT-TYPE
+    SYNTAX      INTEGER (1..33)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A number which identifies the 1-day interval for which the set
+        of section related statistics is available.  The number is
+        between 1 and n, where n is the number of 1-day intervals
+        supported by the agent.  The interval identified by 1 is the
+        current 1-day interval, 2 is the previous (most recently
+        completed) 1-day interval and n is the least recently completed
+        1-day interval."
+    ::= { fcBxPortTotalEntry 2 }
+
+fcBxPortTotalLinkFailures            OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The total number of link failures detected 
+		in the previous 24."
+	::= { fcBxPortTotalEntry 3 }
+
+fcBxPortTotalSyncLosses            OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The total number of loss of synchronization detected 
+		in the previous 24."
+	::= { fcBxPortTotalEntry 4 }
+
+fcBxPortTotalSigLosses            OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The total number of loss of signal detected  
+		in the previous 24."
+	::= { fcBxPortTotalEntry 5 }
+
+fcBxPortTotalPrimSeqProtoErrors   OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The total number of primitive sequence protocol errors 
+		in the previous 24."
+	::= { fcBxPortTotalEntry 6 }
+
+fcBxPortTotalInvalidTxWords      OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The total number of invalid transmission word 
+		detected in the previous 24."
+	::= { fcBxPortTotalEntry 7 }
+
+fcBxPortTotalInvalidCrcs      OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The total number of invalid CRC 
+		detected in the previous 24."
+	::= { fcBxPortTotalEntry 8 }
+
+fcBxPortTotalDelimiterErrors      OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The total number of Delimiter Errors 
+		detected in the previous 24."
+	::= { fcBxPortTotalEntry 9 }
+
+fcBxPortTotalRxFlowControl OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS 	read-only
+	STATUS  	current
+	DESCRIPTION
+		"The total number of flow control packets arrived from the
+		attached Ex port."
+	::= { fcBxPortTotalEntry 10 }
+
+fcBxPortTotalTxFlowControl OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS 	read-only
+	STATUS  	current
+	DESCRIPTION
+		"The total number of flow control packets sent to the
+		attached Ex port."
+	::= { fcBxPortTotalEntry 11 }
+
+fcBxPortTotalRxOctets                OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The total number of octets of data 
+		received during the current day interval."
+	::= { fcBxPortTotalEntry 12 }
+
+fcBxPortTotalRxPkts                  OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of packets (including bad packets) 
+		received during the current day interval."
+	::= { fcBxPortTotalEntry 13 }
+
+fcBxPortTotalTxOctets                OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The total number of octets of data 
+		transmited during the current day interval."
+	::= { fcBxPortTotalEntry 14 }
+
+fcBxPortTotalTxPkts                  OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of packets (including bad packets) 
+		transmitted during the current day interval."
+	::= { fcBxPortTotalEntry 15 }
+
+fcBxPortTotalRxLinkReset				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number received link reset during the current interval."
+	::= { fcBxPortTotalEntry 16 }
+
+fcBxPortTotalTxLinkReset				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number sent link reset during the current interval."
+	::= { fcBxPortTotalEntry 17 }
+
+fcBxPortTotalRxOls					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of received Off-Line sequences 
+		 during the current interval."
+	::= { fcBxPortTotalEntry 18 }
+
+fcBxPortTotalTxOls					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of sent Off-Line sequences 
+		during the current interval."
+	::= { fcBxPortTotalEntry 19 }
+
+fcBxPortTotalRxErroredBbwHeaders		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of packets with errored Backbone WAN header 
+		received during the current interval."
+	::= { fcBxPortTotalEntry 20 }
+
+fcBxPortTotalRxC2FramesDiscarded		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C2 discarded frames (including bad packets) 
+		 during the current interval."
+	::= { fcBxPortTotalEntry 21 }
+
+fcBxPortTotalTxC2Octets				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C2 transmitted bytes 
+		 during the current interval."
+	::= { fcBxPortTotalEntry 22 }
+
+fcBxPortTotalTxC2Packets				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C2 transmitted packets 
+		transmitted during the current interval."
+	::= { fcBxPortTotalEntry 23 }
+
+fcBxPortTotalRxC2Octets				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of received C2 octets 
+		 during the current interval."
+	::= { fcBxPortTotalEntry 24 }
+
+fcBxPortTotalRxC2Packets				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of sent C2 packets 
+		 during the current interval."
+	::= { fcBxPortTotalEntry 25 }
+
+fcBxPortTotalRxC2ErroredSizeFrames	OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C2 frames with error size 
+		 received during the current interval."
+	::= { fcBxPortTotalEntry 26 }
+
+fcBxPortTotalRxC3FramesDiscarded			OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C3 discarded frames (including bad packets) 
+		 during the current interval."
+	::= { fcBxPortTotalEntry 27 }
+
+fcBxPortTotalTxC3Octets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C3 transmitted bytes 
+		 during the current interval."
+	::= { fcBxPortTotalEntry 28 }
+
+fcBxPortTotalTxC3Packets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C3 transmitted packets 
+		transmitted during the current interval."
+	::= { fcBxPortTotalEntry 29 }
+
+fcBxPortTotalRxC3Octets                  OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of received C3 octets 
+		 during the current interval."
+	::= { fcBxPortTotalEntry 30 }
+
+fcBxPortTotalRxC3Packets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of sent C3 packets 
+		 during the current interval."
+	::= { fcBxPortTotalEntry 31 }
+
+fcBxPortTotalRxC3ErroredSizeFrames		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C3 frames with error size 
+		 received during the current interval."
+	::= { fcBxPortTotalEntry 32 }
+
+fcBxPortTotalTxC4Octets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C4 transmitted bytes 
+		 during the current interval."
+	::= { fcBxPortTotalEntry 33 }
+
+fcBxPortTotalTxC4Packets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C4 transmitted packets 
+		transmitted during the current interval."
+	::= { fcBxPortTotalEntry 34 }
+
+fcBxPortTotalRxC4Octets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of received C4 octets 
+		 during the current interval."
+	::= { fcBxPortTotalEntry 35 }
+
+fcBxPortTotalRxC4Packets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of sent C4 packets 
+		 during the current interval."
+	::= { fcBxPortTotalEntry 36 }
+
+fcBxPortTotalRxC4ErroredSizeFrames		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of C4 frames with error size 
+		 received during the current interval."
+	::= { fcBxPortTotalEntry 37 }
+
+fcBxPortTotalTxCFOctets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of CF transmitted bytes 
+		 during the current interval."
+	::= { fcBxPortTotalEntry 38 }
+
+fcBxPortTotalTxCFPackets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of CF transmitted packets 
+		transmitted during the current interval."
+	::= { fcBxPortTotalEntry 39 }
+
+fcBxPortTotalRxCFOctets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of received CF octets 
+		 during the current interval."
+	::= { fcBxPortTotalEntry 40 }
+
+fcBxPortTotalRxCFPackets					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of sent CF packets 
+		 during the current interval."
+	::= { fcBxPortTotalEntry 41 }
+
+fcBxPortTotalRxCFErroredSizeFrame		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of CF frames with error size 
+		 received during the current interval."
+	::= { fcBxPortTotalEntry 42 }
+
+fcBxPortTotalValidData OBJECT-TYPE
+	SYNTAX  	TruthValue
+	MAX-ACCESS 	read-only
+	STATUS  	current
+	DESCRIPTION
+       "This variable indicates if the data for this
+        interval is valid."
+	::= { fcBxPortTotalEntry 43 }
+
+
+
+-- FC Traps
+
+
+fcBxPortStatusChange NOTIFICATION-TYPE
+	OBJECTS { fcBxPortIndex, fcBxPortStatus }
+	STATUS  current                  -- deprecated
+	DESCRIPTION
+		"A fcBxPortStatusChange trap is sent when the
+		value of an instance fcBxPortStatus changes. It
+		can be utilized by an NMS to trigger polls."
+	::= { fcBxTraps 1 }
+
+fcBxPortLinkRestart NOTIFICATION-TYPE
+	OBJECTS { fcBxPortIndex }
+	STATUS  current
+	DESCRIPTION
+		"A fcBxPortLinkRestart trap is sent when the
+		object fcBxPortRestartLink is written by the NMS."
+	::= { fcBxTraps 2 }
+
+END

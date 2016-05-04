@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -15,7 +15,7 @@
 //
 // AGENT-GENERAL-MIB::agentCPUutilizationIn5min.0 = INTEGER: 25
 
-echo(" AGENT-GENERAL-MIB ");
+echo("AGENT-GENERAL-MIB ");
 
 $descr = "Processor";
 $usage = snmp_get($device, "agentCPUutilizationIn5min.0", "-Ovq", "AGENT-GENERAL-MIB", mib_dirs('d-link'));

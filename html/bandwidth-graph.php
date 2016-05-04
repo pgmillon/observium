@@ -7,26 +7,24 @@
  *
  * @package    observium
  * @subpackage webinterface
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 ini_set('allow_url_fopen', 0);
 
-include_once("../includes/defaults.inc.php");
-include_once("../config.php");
-include_once("../includes/definitions.inc.php");
-include("../includes/functions.inc.php");
-include("includes/functions.inc.php");
-include("includes/authenticate.inc.php");
+include_once("../includes/sql-config.inc.php");
+
+include($config['html_dir'] . "/includes/functions.inc.php");
+include($config['html_dir'] . "/includes/authenticate.inc.php");
 
 if ($_SERVER['REMOTE_ADDR'] != $_SERVER['SERVER_ADDR']) { if (!$_SESSION['authenticated']) { echo("unauthenticated"); exit; } }
-require_once("includes/jpgraph/src/jpgraph.php");
-require_once("includes/jpgraph/src/jpgraph_line.php");
-require_once("includes/jpgraph/src/jpgraph_bar.php");
-require_once("includes/jpgraph/src/jpgraph_utils.inc.php");
-require_once("includes/jpgraph/src/jpgraph_date.php");
+require_once($config['html_dir'] . "/includes/jpgraph/src/jpgraph.php");
+require_once($config['html_dir'] . "/includes/jpgraph/src/jpgraph_line.php");
+require_once($config['html_dir'] . "/includes/jpgraph/src/jpgraph_bar.php");
+require_once($config['html_dir'] . "/includes/jpgraph/src/jpgraph_utils.inc.php");
+require_once($config['html_dir'] . "/includes/jpgraph/src/jpgraph_date.php");
 
 $vars = get_vars('GET');
 

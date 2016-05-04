@@ -6,22 +6,22 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 ?>
 
-  <div class="widget widget-table">
-    <div class="widget-header">
-      <i class="oicon-arrow-switch"></i><h3>c6500/7600 Crossbar</h3>
+  <div class="box box-solid">
+    <div class="box-header ">
+      <i class="oicon-arrow-switch"></i><h3 class="box-title">c6500/7600 Crossbar</h3>
     </div>
-    <div class="widget-content">
+    <div class="box-body no-padding">
 
 <?php
 
-echo('<table class="table table-condensed table-striped table-bordered">');
+echo('<table class="table table-condensed table-striped">');
 
 foreach ($entity_state['group']['c6kxbar'] as $index => $entry)
 {
@@ -40,13 +40,13 @@ foreach ($entity_state['group']['c6kxbar'] as $index => $entry)
      # echo '<a title="Modules in this mode don't use fabric. Backplane is used for both lookup and data forwarding.">Bus</a>';
       break;
     case "crossbarmode":
-      echo '<a title="Modules in this mode use backplane for forwarding decision and fabric for data forwarding.">Crossbar</a>';
+      echo '<a class="label label-info" title="Modules in this mode use backplane for forwarding decision and fabric for data forwarding.">Crossbar</a>';
       break;
     case "dcefmode":
-      echo '<a title="Modules in this mode use fabric for data forwarding and local forwarding is enabled.">DCEF</a>';
+      echo '<a class="label label-success" title="Modules in this mode use fabric for data forwarding and local forwarding is enabled.">DCEF</a>';
       break;
     default:
-      echo $entry['']['cc6kxbarModuleModeSwitchingMode'];
+      echo '<span class="label">'.$entry['']['cc6kxbarModuleModeSwitchingMode'].'</span>';
   }
 
   echo("</td>
@@ -58,9 +58,9 @@ foreach ($entity_state['group']['c6kxbar'] as $index => $entry)
     {
       if ($fabric['cc6kxbarModuleChannelFabStatus'] == "ok")
       {
-        $fabric['mode_class'] = "green";
+        $fabric['mode_class'] = "success";
       } else {
-        $fabric['mode_class'] = "red";
+        $fabric['mode_class'] = "warning";
       }
 
       $percent_in = $fabric['cc6kxbarStatisticsInUtil'];
@@ -94,12 +94,10 @@ foreach ($entity_state['group']['c6kxbar'] as $index => $entry)
 
       $minigraph =  generate_graph_tag($graph_array);
 
-      echo("<tr class=device-overview>
-          <td width=10></td>
-          <td width=150><strong>Fabric ".$subindex."</strong></td>
-          <td><span style='font-weight: bold;' class=".$fabric['mode_class'].">".
-
-      $fabric['cc6kxbarModuleChannelFabStatus']."</span></td>
+      echo('<tr class="'.$background['class'].'">
+          <td class="state-marker"></td>
+          <td width=150><strong>Fabric '.$subindex.'</strong></td>
+          <td><span style="font-weight: bold;" class="label label-'.$fabric['mode_class'].'">'.$fabric['cc6kxbarModuleChannelFabStatus']."</span></td>
           <td>".formatRates($fabric['cc6kxbarModuleChannelSpeed']*1000000)."</td>
           <td>".overlib_link($link, $minigraph, $overlib_content)."</td>
           <td width=125>".print_percentage_bar (125, 20, $percent_in, "Ingress", "ffffff", $background['left'], $percent_in . "%", "ffffff", $background['right'])."</td>
@@ -112,4 +110,4 @@ foreach ($entity_state['group']['c6kxbar'] as $index => $entry)
 echo("</table>");
 echo("</div></div>");
 
-?>
+// EOF

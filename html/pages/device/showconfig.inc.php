@@ -6,13 +6,18 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-if ($_SESSION['userlevel'] >= 5)
+// FIXME, we really need a new user groups/permissions system!
+if ($_SESSION['userlevel'] > 7)
 {
+  // Enable google code prettify
+  $GLOBALS['cache_html']['js'][]  = 'js/google-code-prettify.js';
+  $GLOBALS['cache_html']['css'][] = 'css/google-code-prettify.css';
+
   // Print device config navbar
   $navbar = array();
   $navbar['brand'] = "Config";
@@ -38,8 +43,29 @@ if ($_SESSION['userlevel'] >= 5)
   }
   if (!$rev['count'] && is_executable($config['git']))
   {
-    $cmd_dir = escapeshellarg(dirname($device_config_file));
-    $git_dir = escapeshellarg(dirname($device_config_file).'/.git');
+    // You should know, I hate git!
+    // Why git commands should be as:
+    // git --git-dir='/rancid_path/git_dir/.git' --work-tree='/rancid_path/git_dir' log --pretty=format:"%h %ci" 'absolute_config_path'
+    // git --git-dir='/rancid_path/git_dir/.git' --work-tree='/rancid_path/git_dir' show 96b30a1:'relative_git_file_path'
+    // git --git-dir='/rancid_path/git_dir/.git' --work-tree='/rancid_path/git_dir' diff 96b30a1 441b0e6 'absolude_config_path'
+    // and nothing else formats, else git return error
+    $file_base = basename($device_config_file);
+    $file_dir  = dirname($device_config_file);
+    if (is_dir($file_dir . '/.git'))
+    {
+      // Ok, do nothing
+      $git_file = escapeshellarg($file_base);
+    }
+    else if (is_dir($file_dir . '/../.git'))
+    {
+      // Rancid >= 3.2
+      $file_array = explode('/', $file_dir);
+      $end = array_pop($file_array);
+      $file_dir = implode('/', $file_array);
+      $git_file = escapeshellarg($end . '/' . $file_base);
+    }
+    $cmd_dir = escapeshellarg($file_dir);
+    $git_dir = escapeshellarg($file_dir . '/.git');
     $gitlogs = external_exec($config['git'].' --git-dir='. $git_dir .' --work-tree='.$cmd_dir.' log --pretty=format:"%h %ci" '.$cmd_file);
     foreach (explode("\n", $gitlogs) as $line)
     {
@@ -59,7 +85,7 @@ if ($_SESSION['userlevel'] >= 5)
   if ($rev['count'])
   {
     $rev_active_index = 0;
-    foreach($rev['list'] as $i => $entry)
+    foreach ($rev['list'] as $i => $entry)
     {
       $rev_name = ($rev['type'] == 'svn' ? 'r'.$entry['rev'] : $entry['rev']);
       if ($i > 9)
@@ -105,12 +131,18 @@ if ($_SESSION['userlevel'] >= 5)
     switch ($rev['type'])
     {
       case 'svn':
-        $cmd_cat   = $config['svn'] . ' cat -r'.$rev['curr'].' '.$cmd_file;
+        if ($rev['count'] === 1)
+        {
+          // SVN not show initial revision in cat
+          $cmd_cat   = $config['svn'] . ' cat -rHEAD '.$cmd_file;
+        } else {
+          $cmd_cat   = $config['svn'] . ' cat -r'.$rev['curr'].' '.$cmd_file;
+        }
         $cmd_diff  = $config['svn'] . ' diff -r'.$rev['prev'].':'.$rev['curr'].' '.$cmd_file;
         $prev_name = 'r'.$rev['prev'];
         break;
       case 'git':
-        $cmd_cat   = $config['git'].' --git-dir='. $git_dir .' --work-tree='.$cmd_dir.' show '.$rev['curr'].':'.escapeshellarg(basename($device_config_file));
+        $cmd_cat   = $config['git'].' --git-dir='. $git_dir .' --work-tree='.$cmd_dir.' show '.$rev['curr'].':'.$git_file;
         $cmd_diff  = $config['git'].' --git-dir='. $git_dir .' --work-tree='.$cmd_dir.' diff '.$rev['prev'].' '.$rev['curr'].' '.$cmd_file;
         $prev_name = $rev['prev'];
     }
@@ -163,17 +195,22 @@ if ($_SESSION['userlevel'] >= 5)
     ?>
   <div class="panel panel-default">
     <div class="panel-heading" data-toggle="collapse" data-parent="#accordion" data-target="#diff">
-      <h4 class="panel-title">
+      <h3 class="panel-title">
         <a class="accordion-toggle">
           Show difference with previous revision (<?php echo $prev_name; ?>):
         </a>
-      </h4>
+      </h3>
     </div>
     <div id="diff" class="panel-collapse collapse">
       <div class="panel-body">
-        <pre class="prettyprint lang-sh">
-          <?php echo(escape_html($diff)); ?>
-        </pre>
+
+<?php
+    // Disable pretty print for big files
+    $device_config_class = (strlen($diff) < 250000 ? 'prettyprint lang-sh' : '');
+
+    echo('<pre class="'.$device_config_class.'">' . PHP_EOL . escape_html($diff) . '</pre>' . PHP_EOL);
+?>
+
       </div>
     </div>
   </div>
@@ -183,24 +220,33 @@ if ($_SESSION['userlevel'] >= 5)
     ?>
   <div class="panel panel-default">
     <div class="panel-heading">
-      <h4 class="panel-title"  data-toggle="collapse" data-parent="#accordion" data-target="#device_config">
+      <h3 class="panel-title"  data-toggle="collapse" data-parent="#accordion" data-target="#device_config">
         <a class="accordion-toggle">
           Device configuration:
         </a>
-      </h4>
+      </h3>
     </div>
     <div id="device_config" class="panel-collapse collapse in">
       <div class="panel-body">
-        <pre class="prettyprint linenums lang-sh">
-          <?php echo(escape_html($device_config)); ?>
-        </pre>
+
+<?php
+    // Disable pretty print for big files
+    $device_config_class = (strlen($device_config) < 250000 ? 'prettyprint linenums lang-sh' : '');
+
+    echo('<pre class="'.$device_config_class.'">' . PHP_EOL . escape_html($device_config) . '</pre>' . PHP_EOL);
+?>
+
       </div>
     </div>
   </div>
 </div>
     <?php
   } else {
-    $text = '<pre class="prettyprint linenums lang-sh">' . PHP_EOL . escape_html($device_config) . '</pre>' . PHP_EOL;
+    //r(strlen($device_config));
+    // Disable pretty print for big files
+    $device_config_class = (strlen($device_config) < 250000 ? 'prettyprint linenums lang-sh' : '');
+
+    $text = '<pre class="'.$device_config_class.'">' . PHP_EOL . escape_html($device_config) . '</pre>' . PHP_EOL;
   }
   $text .= '<script type="text/javascript">window.prettyPrint && prettyPrint();</script>' . PHP_EOL;
   echo($text);

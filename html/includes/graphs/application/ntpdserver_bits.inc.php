@@ -7,15 +7,9 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
-
-//    $units                = "b";
-//    $total_units        = "B";
-//    $colours_in                = "greens";
-//$multiplier        = "0";
-//    $colours_out        = "blues";
 
 $nototal             = 1;
 
@@ -39,8 +33,6 @@ if (is_file($ntpdserver_rrd))
   $rrd_filename = $ntpdserver_rrd;
 }
 
-//    include("includes/graphs/generic_bits.inc.php");
-
 include("includes/graphs/generic_duplex.inc.php");
 
-?>
+// EOF

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -32,7 +32,7 @@ foreach ($radios_db as $radio_db)
   $radios_sorted_db[$radio_db['ap_number']][$radio_db['radio_number']] = $radio_db;
 }
 
-$sessions_array = snmpwalk_cache_multi_oid($device, "trpzClSessClientSessionTable", $sessions_array, "TRAPEZE-NETWORKS-CLIENT-SESSION-MIB", mib_dirs('trapeze'), TRUE);
+$sessions_array = snmpwalk_cache_multi_oid($device, "trpzClSessClientSessionTable", $sessions_array, "TRAPEZE-NETWORKS-CLIENT-SESSION-MIB", mib_dirs('trapeze'), OBS_SNMP_ALL_NUMERIC);
 if (OBS_DEBUG > 1 && count($sessions_array)) { print_vars($sessions_array); }
 
 $timestamp = date('Y-m-d H:i:s', strtotime("now"));

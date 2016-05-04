@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage web
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -23,16 +23,18 @@ function print_inventory($vars)
   // On "Inventory" device tab display hierarchical list
   if ($vars['page'] == 'device' && is_numeric($vars['device']) && device_permitted($vars['device']))
   {
-    echo('<table class="table table-striped table-bordered table-condensed table-rounded"><tr><td>');
+    // DHTML expandable tree
+    $GLOBALS['cache_html']['js'][]  = 'js/mktree.js';
+    $GLOBALS['cache_html']['css'][] = 'css/mktree.css';
+
+    echo('<table class="table table-striped  table-condensed "><tr><td>');
     echo('<div class="btn-group pull-right" style="margin-top:5px; margin-right: 5px;">
       <button class="btn btn-small" onClick="expandTree(\'enttree\');return false;"><i class="icon-plus muted small"></i> Expand</button>
       <button class="btn btn-small" onClick="collapseTree(\'enttree\');return false;"><i class="icon-minus muted small"></i> Collapse</button>
     </div>');
 
     echo('<div style="clear: left; margin: 5px;"><ul class="mktree" id="enttree" style="margin-left: -10px;">');
-    $level = 0;
-    $ent['entPhysicalIndex'] = 0;
-    print_ent_physical($ent['entPhysicalIndex'], $level, "liOpen");
+    print_ent_physical(0, 0, "liOpen");
     echo('</ul></div>');
     echo('</td></tr></table>');
     return TRUE;
@@ -55,33 +57,34 @@ function print_inventory($vars)
       {
         case 'device':
         case 'device_id':
-          $where .= generate_query_values($value, 'E.device_id');
+          $where .= generate_query_values($value, 'device_id');
+          break;
+        case 'os':
+          $where .= generate_query_values($value, 'os');
           break;
         case 'parts':
-          $where .= generate_query_values($value, 'E.entPhysicalModelName', 'LIKE');
+          $where .= generate_query_values($value, 'entPhysicalModelName', 'LIKE');
           break;
         case 'serial':
-          $where .= ' AND E.`entPhysicalSerialNum` LIKE ?';
-          $param[] = '%'.$value.'%';
+          $where .= generate_query_values($value, 'entPhysicalSerialNum', '%LIKE%');
           break;
         case 'description':
-          $where .= ' AND E.`entPhysicalDescr` LIKE ?';
-          $param[] = '%'.$value.'%';
+          $where .= generate_query_values($value, 'entPhysicalDescr', '%LIKE%');
           break;
       }
     }
   }
 
   // Show inventory only for permitted devices
-  $query_permitted = generate_query_permitted(array('device'), array('device_table' => 'D'));
+  //$query_permitted = generate_query_permitted(array('device'), array('device_table' => 'D'));
 
-  $query = 'FROM `entPhysical` AS E ';
-  $query .= 'LEFT JOIN `devices` AS D ON D.`device_id` = E.`device_id` ';
-  $query .= $where . $query_permitted;
+  $query = 'FROM `entPhysical`';
+  $query .= ' LEFT JOIN `devices` USING(`device_id`) ';
+  $query .= $where . $GLOBALS['cache']['where']['devices_permitted'];
   $query_count = 'SELECT COUNT(*) ' . $query;
 
   $query =  'SELECT * ' . $query;
-  $query .= ' ORDER BY D.`hostname`';
+  $query .= ' ORDER BY `hostname`';
   $query .= " LIMIT $start,$pagesize";
 
   // Query inventories
@@ -92,7 +95,8 @@ function print_inventory($vars)
   $list = array('device' => FALSE);
   if (!isset($vars['device']) || empty($vars['device']) || $vars['page'] == 'inventory') { $list['device'] = TRUE; }
 
-  $string = '<table class="table table-bordered table-striped table-hover table-condensed">' . PHP_EOL;
+  $string = generate_box_open($vars['header']);
+  $string .= '<table class="'.OBS_CLASS_TABLE_STRIPED.'">' . PHP_EOL;
   if (!$short)
   {
     $string .= '  <thead>' . PHP_EOL;
@@ -137,6 +141,7 @@ function print_inventory($vars)
 
   $string .= '  </tbody>' . PHP_EOL;
   $string .= '</table>';
+  $string .= generate_box_close();
 
   // Print pagination header
   if ($pagination) { $string = pagination($vars, $count) . $string . pagination($vars, $count); }
@@ -166,8 +171,6 @@ function print_inventory($vars)
       echo $string;
       break;
   }
-
-
 }
 
 /**
@@ -177,11 +180,11 @@ function print_inventory($vars)
  * @return none
  *
  */
-function print_ent_physical($ent, $level, $class)
+function print_ent_physical($entPhysicalContainedIn, $level, $class)
 {
   global $device;
 
-  $ents = dbFetchRows("SELECT * FROM `entPhysical` WHERE `device_id` = ? AND `entPhysicalContainedIn` = ? ORDER BY `entPhysicalContainedIn`, `entPhysicalIndex`", array($device['device_id'], $ent));
+  $ents = dbFetchRows("SELECT * FROM `entPhysical` WHERE `device_id` = ? AND `entPhysicalContainedIn` = ? ORDER BY `entPhysicalContainedIn`, `entPhysicalIndex`", array($device['device_id'], $entPhysicalContainedIn));
   foreach ($ents as $ent)
   {
     $link = '';
@@ -201,6 +204,7 @@ relay
     switch ($ent['entPhysicalClass'])
     {
       case 'chassis':
+      case 'board':
         $text .= '<i class="oicon-database"></i> ';
         break;
       case 'module':
@@ -248,13 +252,17 @@ relay
       $ent['entPhysicalName'] = generate_port_link($interface);
     }
 
+    //entPhysicalVendorType
+
     if ($ent['entPhysicalModelName'] && $ent['entPhysicalName'])
     {
       $ent_text .= "<strong>".$ent['entPhysicalModelName']  . "</strong> (".$ent['entPhysicalName'].")";
-    } elseif ($ent['entPhysicalModelName']) {
+    } elseif ($ent['entPhysicalModelName'] && $ent['entPhysicalVendorType']) {
+      $ent_text .= "<strong>".$ent['entPhysicalModelName']  . "</strong> (".$ent['entPhysicalVendorType'].")";
+    } elseif ($ent['entPhysicalModelName'] ) {
       $ent_text .= "<strong>".$ent['entPhysicalModelName']  . "</strong>";
-    } elseif (is_numeric($ent['entPhysicalName']) && $ent['entPhysicalVendorType']) {
-      $ent_text .= "<strong>".$ent['entPhysicalName']." ".$ent['entPhysicalVendorType']."</strong>";
+    } elseif ($ent['entPhysicalName'] && $ent['entPhysicalVendorType']) {
+      $ent_text .= "<strong>".$ent['entPhysicalName']."</strong> (".$ent['entPhysicalVendorType'].")";
     } elseif ($ent['entPhysicalName']) {
       $ent_text .= "<strong>".$ent['entPhysicalName']."</strong>";
     } elseif ($ent['entPhysicalDescr']) {

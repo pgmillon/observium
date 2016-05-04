@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -36,15 +36,20 @@ foreach ($oids as $index => $entry)
   $descr = "Sensor ".$entry['internalName'];
   // internalTemp
   $oid   = ".1.3.6.1.4.1.17373.4.1.2.1.5.$index";
+  $scale = 0.1;
 
   // 0 => fahrenheit, 1 => celsius
-  if ($temperatureUnits === '0')
+  switch ($temperatureUnits)
   {
-    $scale = 0.1 * 5/9;
-  } else {
-    $scale = 0.1;
+    case 0:
+      $options['sensor_unit'] = 'F';
+      break;
+    case 1:
+      $options['sensor_unit'] = 'C';
+      break;
   }
-  discover_sensor($valid['sensor'], 'temperature', $device, $oid, "internalTemp.$index", 'wxgoos', $descr, $scale, $entry['internalTemp']);
+
+  discover_sensor($valid['sensor'], 'temperature', $device, $oid, "internalTemp.$index", 'wxgoos', $descr, $scale, $entry['internalTemp'], $options);
 
   // internalHumidity
   $oid   = ".1.3.6.1.4.1.17373.4.1.2.1.6.$index";

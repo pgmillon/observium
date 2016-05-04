@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -46,15 +46,15 @@
 if (is_device_mib($device, 'CISCO-EIGRP-MIB'))
 {
   $port_db_q = dbFetchRows("SELECT * FROM `eigrp_ports` WHERE `device_id` = ?", array($device['device_id']));
-  
+
   $port_db = array();
   foreach ($port_db_q as $db_port)
   {
     $port_db[$db_port['eigrp_vpn']."-".$db_port['eigrp_as']."-".$db_port['eigrp_ifIndex']] = $db_port;
   }
-  
+
   if (OBS_DEBUG && count($port_db)) { print_vars($port_db); }
-  
+
   $device_context = $device;
   if (!count($port_db) && !preg_match('/[a-z](60|65|76)\d{2}/i', $device['hardware']))
   {
@@ -68,29 +68,29 @@ if (is_device_mib($device, 'CISCO-EIGRP-MIB'))
   {
     list($vpn, $as, $ifIndex) = explode(".", $id);
     echo("$vpn $as $ifIndex".PHP_EOL);
-  
+
     $port = get_port_by_index_cache($device['device_id'], $ifIndex);
-  
+
     if (is_array($port_db[$vpn."-".$as."-".$ifIndex]))
     {
       $eigrp_update = NULL;
-  
+
       if ($port['port_id'] != $port_db[$vpn."-".$as."-".$ifIndex]['port_id']) { $eigrp_update['port_id'] = $port['port_id']; }
       if ($eigrp_port['cEigrpAuthMode'] != $port_db[$vpn."-".$as."-".$ifIndex]['eigrp_authmode']) { $eigrp_update['eigrp_authmode'] = $eigrp_port['cEigrpAuthMode']; }
       if ($eigrp_port['cEigrpMeanSrtt'] != $port_db[$vpn."-".$as."-".$ifIndex]['eigrp_MeanSrtt']) { $eigrp_update['eigrp_MeanSrtt'] = $eigrp_port['cEigrpMeanSrtt']; }
-  
+
       if (is_array($eigrp_update)) { dbUpdate($eigrp_update, 'eigrp_ports', '`eigrp_port_id` = ?', array($port_db[$vpn."-".$as."-".$ifIndex]['eigrp_port_id'])); }
       unset ($eigrp_update);
-  
+
     } else {
       dbInsert(array('eigrp_vpn' => $vpn, 'eigrp_as' => $as, 'eigrp_ifIndex' => $ifIndex, 'port_id' => $port['port_id'], 'device_id' => $device['device_id'], 'eigrp_peer_count' => $eigrp_port['cEigrpPeerCount']), 'eigrp_ports');
       echo("+");
     }
-  
+
     // Write per-interface EIGRP statistics
-  
+
     $rrd_filename   = $host_rrd . "/eigrp_port-".$vpn."-".$as."-".$ifIndex.".rrd";
-  
+
     rrdtool_create($device, $rrd_filename, " \
        DS:MeanSrtt:GAUGE:600:0:10000 \
        DS:UMcasts:COUNTER:600:0:10000000000 \
@@ -103,16 +103,16 @@ if (is_device_mib($device, 'CISCO-EIGRP-MIB'))
        DS:RetransSent:COUNTER:600:0:10000000000 \
        DS:OOSrvcd:COUNTER:600:0:10000000000 \
        ");
-  
+
     foreach (array("MeanSrtt", "UMcasts", "RMcasts", "UUcasts", "RUcasts", "McastExcepts", "CRpkts", "AcksSuppressed", "RetransSent", "OOSrvcd") as $oid)
     {
       $eigrp_update[] = $eigrp_port['cEigrp'.$oid];
     }
-  
+
     rrdtool_update($device, $rrd_filename, $eigrp_update);
-  
+
     echo PHP_EOL;
-  
+
     unset ($eigrp_update);
   }
 

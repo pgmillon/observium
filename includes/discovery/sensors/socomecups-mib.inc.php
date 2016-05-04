@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -28,11 +28,6 @@ foreach ($oids as $index => $entry)
   $oid   = ".1.3.6.1.4.1.4555.1.1.1.1.3.3.1.3.$index";
   if ($entry['upsInputCurrent'] != -1)
   {
-    // CLEANME r7000
-    $old_rrd  = $config['rrd_dir'] . '/'.$device['hostname'].'/sensor-current-netvision-'.$index.'.rrd';
-    $new_rrd  = $config['rrd_dir'] . '/'.$device['hostname'].'/sensor-current-netvision-upsInputCurrent.'.$index.'.rrd';
-    if (is_file($old_rrd)) { rename($old_rrd, $new_rrd); print_warning('Moved RRD'); }
-
     discover_sensor($valid['sensor'], 'current', $device, $oid, "upsInputCurrent.$index", 'netvision', $descr, $scale, $entry['upsInputCurrent'], $limits);
   }
 
@@ -40,11 +35,6 @@ foreach ($oids as $index => $entry)
   $oid   = ".1.3.6.1.4.1.4555.1.1.1.1.3.3.1.2.$index";
   if ($entry['upsInputVoltage'] != -1)
   {
-    // CLEANME r7000
-    $old_rrd  = $config['rrd_dir'] . '/'.$device['hostname'].'/sensor-voltage-netvision-'.$index.'.rrd';
-    $new_rrd  = $config['rrd_dir'] . '/'.$device['hostname'].'/sensor-voltage-netvision-upsInputVoltage.'.$index.'.rrd';
-    if (is_file($old_rrd)) { rename($old_rrd, $new_rrd); print_warning('Moved RRD'); }
-
     discover_sensor($valid['sensor'], 'voltage', $device, $oid, "upsInputVoltage.$index", 'netvision', $descr, $scale, $entry['upsInputVoltage']);
   }
 }
@@ -52,11 +42,6 @@ foreach ($oids as $index => $entry)
 $oid   = ".1.3.6.1.4.1.4555.1.1.1.1.3.2.0";
 $descr = "Input";
 $value = snmp_get($device, "upsInputFrequency.0", "-Oqv", $mib);
-
-// CLEANME r7000
-$old_rrd  = $config['rrd_dir'] . '/'.$device['hostname'].'/sensor-frequency-netvision-3.2.0.rrd';
-$new_rrd  = $config['rrd_dir'] . '/'.$device['hostname'].'/sensor-frequency-netvision-upsInputFrequency.0.rrd';
-if (is_file($old_rrd)) { rename($old_rrd, $new_rrd); print_warning('Moved RRD'); }
 
 discover_sensor($valid['sensor'], 'frequency', $device, $oid, "upsInputFrequency.0", 'netvision', $descr, $scale, $value);
 
@@ -71,11 +56,6 @@ foreach ($oids as $index => $entry)
   $oid   = ".1.3.6.1.4.1.4555.1.1.1.1.4.4.1.3.$index";
   if ($entry['upsOutputCurrent'] != -1)
   {
-    // CLEANME r7000
-    $old_rrd  = $config['rrd_dir'] . '/'.$device['hostname'].'/sensor-current-netvision-'.(100+$index).'.rrd';
-    $new_rrd  = $config['rrd_dir'] . '/'.$device['hostname'].'/sensor-current-netvision-upsOutputCurrent.'.$index.'.rrd';
-    if (is_file($old_rrd)) { rename($old_rrd, $new_rrd); print_warning('Moved RRD'); }
-
     discover_sensor($valid['sensor'], 'current', $device, $oid, "upsOutputCurrent.$index", 'netvision', $descr, $scale, $entry['upsOutputCurrent'], $limits);
   }
 
@@ -83,11 +63,6 @@ foreach ($oids as $index => $entry)
   $oid   = ".1.3.6.1.4.1.4555.1.1.1.1.4.4.1.2.$index";
   if ($entry['upsOutputVoltage'] != -1)
   {
-    // CLEANME r7000
-    $old_rrd  = $config['rrd_dir'] . '/'.$device['hostname'].'/sensor-voltage-netvision-'.(100+$index).'.rrd';
-    $new_rrd  = $config['rrd_dir'] . '/'.$device['hostname'].'/sensor-voltage-netvision-upsOutputVoltage.'.$index.'.rrd';
-    if (is_file($old_rrd)) { rename($old_rrd, $new_rrd); print_warning('Moved RRD'); }
-
     discover_sensor($valid['sensor'], 'voltage', $device, $oid, "upsOutputVoltage.$index", 'netvision', $descr, $scale, $entry['upsOutputVoltage']);
   }
 
@@ -102,11 +77,6 @@ foreach ($oids as $index => $entry)
 $oid   = ".1.3.6.1.4.1.4555.1.1.1.1.4.2.0";
 $descr = "Output";
 $value = snmp_get($device, "upsOutputFrequency.0", "-Oqv", $mib);
-
-// CLEANME r7000
-$old_rrd  = $config['rrd_dir'] . '/'.$device['hostname'].'/sensor-frequency-netvision-4.2.0.rrd';
-$new_rrd  = $config['rrd_dir'] . '/'.$device['hostname'].'/sensor-frequency-netvision-upsOutputFrequency.0.rrd';
-if (is_file($old_rrd)) { rename($old_rrd, $new_rrd); print_warning('Moved RRD'); }
 
 discover_sensor($valid['sensor'], 'frequency', $device, $oid, "upsOutputFrequency.0", 'netvision', $descr, $scale, $value);
 
@@ -151,11 +121,6 @@ discover_sensor($valid['sensor'], 'capacity', $device, $oid, "upsEstimatedCharge
 
 $oid   = ".1.3.6.1.4.1.4555.1.1.1.1.2.5.0";
 $descr = "Battery";
-
-// CLEANME r7000
-$old_rrd  = $config['rrd_dir'] . '/'.$device['hostname'].'/sensor-voltage-netvision-200.rrd';
-$new_rrd  = $config['rrd_dir'] . '/'.$device['hostname'].'/sensor-voltage-netvision-upsBatteryVoltage.0.rrd';
-if (is_file($old_rrd)) { rename($old_rrd, $new_rrd); print_warning('Moved RRD'); }
 
 discover_sensor($valid['sensor'], 'voltage', $device, $oid, "upsBatteryVoltage.0", 'netvision', $descr, $scale, $entry['upsBatteryVoltage']);
 

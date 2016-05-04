@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage web
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -25,7 +25,7 @@
  * @return none
  *
  */
-function print_bgp($vars)
+function print_bgp_table($vars)
 {
   // Get bgp peers array
   $entries = get_bgp_array($vars);
@@ -47,7 +47,6 @@ function print_bgp($vars)
       case 'prefixes_ipv4vpn':
       case 'prefixes_ipv6unicast':
       case 'prefixes_ipv6multicast':
-
       case 'macaccounting_bits':
       case 'macaccounting_pkts':
       case 'updates':
@@ -59,7 +58,9 @@ function print_bgp($vars)
         $list['graph'] = FALSE;
     }
 
-    $string = '<table class="table table-bordered '.$table_class.' table-hover table-condensed table-rounded">' . PHP_EOL;
+    $string = generate_box_open();
+
+    $string .= '<table class="table  '.$table_class.' table-hover table-condensed ">' . PHP_EOL;
 
     $cols = array(
                     array(NULL,            'class="state-marker"'),
@@ -89,25 +90,24 @@ function print_bgp($vars)
       {
         $peer_dev = device_by_id_cache($peer['peer_device_id']);
         $peer_name = generate_device_link($peer_dev, short_hostname($peer_dev['hostname']), array('tab' => 'routing', 'proto' => 'bgp'));
-        $peer_ip   = generate_device_link($peer_dev, $peer['human_remoteip']." ($peer_as)", array('tab' => 'routing', 'proto' => 'bgp'));
       } else {
         $peer_name = $peer['reverse_dns'];
-        $peer_ip   = $peer['human_remoteip']." ($peer_as)";
       }
+      $peer_ip   = generate_entity_link("bgp_peer", $peer, $peer['human_remoteip']);
       $peer_afis = &$entries['afisafi'][$peer['device_id']][$peer['bgpPeerRemoteAddr']];
 
       $string .= '  <tr class="'.$peer['html_row_class'].'">' . PHP_EOL;
       $string .= '     <td class="state-marker"></td>' . PHP_EOL;
       $string .= '     <td></td>' . PHP_EOL;
-      $string .= '     <td style="white-space: nowrap">' . $local_ip . '<br />' . $local_name . '</td>' . PHP_EOL;
-      $string .= '     <td><strong>&#187;</strong></td>' . PHP_EOL;
-      $string .= '     <td style="white-space: nowrap">' . $peer_ip  . '<br />' . $peer_name . '</td>' . PHP_EOL;
-      $string .= '     <td><strong>' . $peer['peer_type'] . '</strong></td>' . PHP_EOL;
+      $string .= '     <td style="white-space: nowrap" class="entity">' . $local_ip . '<br />' . $local_name . '</td>' . PHP_EOL;
+      $string .= '     <td><span class="text-success"><i class="glyphicon glyphicon-arrow-right"></i></span></td>' . PHP_EOL;
+      $string .= '     <td style="white-space: nowrap" class="entity">' . $peer_ip  . '<br />' . $peer_name . '</td>' . PHP_EOL;
+      $string .= '     <td><span class="label label-'.$peer['peer_type_class'].'">' . $peer['peer_type'] . '</span></td>' . PHP_EOL;
       $string .= '     <td><small>' . implode('<br />', $peer_afis) . '</small></td>' . PHP_EOL;
       $string .= '     <td><strong>' . $peer_as . '</strong><br />' . $peer['astext'] . '</td>' . PHP_EOL;
-      $string .= '     <td><strong><span class="'.$peer['admin_class'].'">' . $peer['bgpPeerAdminStatus'] . '</span><br /><span class="'.$peer['state_class'].'">' . $peer['bgpPeerState'] . '</span></strong></td>' . PHP_EOL;
-      $string .= '     <td>' .formatUptime($peer['bgpPeerFsmEstablishedTime']). '<br />
-                Updates <i class="oicon-arrow_down"></i> ' . format_si($peer['bgpPeerInUpdates']) . '<i class="oicon-arrow_up"></i> ' . format_si($peer['bgpPeerOutUpdates']) . '</td>' . PHP_EOL;
+      $string .= '     <td><strong><span class=" label label-'.$peer['admin_class'].'">' . $peer['bgpPeerAdminStatus'] . '</span><br /><span class="label label-'.$peer['state_class'].'">' . $peer['bgpPeerState'] . '</span></strong></td>' . PHP_EOL;
+      $string .= '     <td style="white-space: nowrap">' .formatUptime($peer['bgpPeerFsmEstablishedTime']). '<br />
+                Updates: <i class="icon-circle-arrow-down" style="color: #008C00;"></i> ' . format_si($peer['bgpPeerInUpdates']) . ' <i class="icon-circle-arrow-up" style="color: #394182;"></i> ' . format_si($peer['bgpPeerOutUpdates']) . '</td>' . PHP_EOL;
       $string .= '  </tr>' . PHP_EOL;
 
       // Graphs
@@ -160,7 +160,7 @@ function print_bgp($vars)
         $string .= '  <tr class="'.$peer['html_row_class'].'">' . PHP_EOL;
         $string .= '    <td class="state-marker"></td><td colspan="10" style="white-space: nowrap">' . PHP_EOL;
 
-        $string .= get_graph_row($graph_array);
+        $string .= generate_graph_row($graph_array);
 
         $string .= '    </td>'.PHP_EOL.'  </tr>' . PHP_EOL;
       }
@@ -170,9 +170,11 @@ function print_bgp($vars)
         $string .= '  <tr class="'.$peer['html_row_class'].'"><td class="state-marker"></td><td colspan="10"></td></tr>' . PHP_EOL;
       }
     }
-  
+
     $string .= '  </tbody>' . PHP_EOL;
     $string .= '</table>';
+
+    $string .= generate_box_close();
 
     // Print pagination header
     if ($entries['pagination_html']) { $string = $entries['pagination_html'] . $string . $entries['pagination_html']; }
@@ -250,11 +252,6 @@ function get_bgp_array($vars)
     }
   }
 
-  // Cache IP array
-  $cache_ip = dbFetchColumn("SELECT `ipv4_address` FROM `ipv4_addresses` WHERE `ipv4_address` NOT IN (?, ?)".$GLOBALS['cache']['where']['ports_permitted'], array('127.0.0.1', '0.0.0.0'));
-  $cache_ip = array_merge($cache_ip, dbFetchColumn("SELECT `ipv6_address` FROM `ipv6_addresses` WHERE `ipv6_compressed` NOT IN (?)".$GLOBALS['cache']['where']['ports_permitted'], array('::1')));
-  //r($cache_ip);
-
   // Show peers only for permitted devices
   $query_permitted = generate_query_values($cache_bgp['permitted'], 'B.bgpPeer_id');
 
@@ -269,64 +266,20 @@ function get_bgp_array($vars)
   $query .= ' ORDER BY D.`hostname`, B.`bgpPeerRemoteAs`, B.`bgpPeerRemoteAddr`';
   $query .= " LIMIT $start,$pagesize";
 
+  $peer_devices = array();
   // Query BGP
   foreach (dbFetchRows($query, $param) as $entry)
   {
     humanize_bgp($entry);
 
-    $peer_addr = $entry['bgpPeerRemoteAddr'];
-    $peer_devices[$entry['device_id']] = 1; // Collect devices for AFIs query
-    if (!isset($cache_bgp['ips'][$peer_addr]))
-    {
-      $cache_bgp['ips'][$peer_addr] = array();
-      if (in_array($peer_addr, $cache_ip))
-      {
-        $peer_addr_type = get_ip_version($peer_addr);
-        if ($peer_addr_type)
-        {
-          $peer_addr_type = 'ipv'.$peer_addr_type;
-          $query_ip = 'SELECT `device_id`, `port_id`, `ifOperStatus`, `ifAdminStatus` FROM `'.$peer_addr_type.'_addresses`
-                       JOIN `ports` USING (`port_id`) WHERE `'.$peer_addr_type.'_address` = ?;';
-          $ip_array = dbFetchRows($query_ip, array($peer_addr));
-          if (count($ip_array) > 1)
-          {
-            // We have multiple ports for same IPs, complicated logic
-            foreach ($ip_array as $ip)
-            {
-              $device_tmp = device_by_id_cache($ip['device_id']);
-              // Crazy logic, exclude down/disabled ports/devices
-              if (!$device_tmp['bgpLocalAs'] || // We found device in DB by IP, but this device really have BGP?
-                  $device_tmp['status'] == 0 || // Down device
-                  $ip['ifAdminStatus'] != 'up') // Disabled port
-              {
-                continue;
-              }
-              $cache_bgp['ips'][$peer_addr]['device_id'] = $ip['device_id'];
-              $cache_bgp['ips'][$peer_addr]['port_id']   = $ip['port_id'];
-            }
-          } else {
-            $device_tmp = device_by_id_cache($ip_array[0]['device_id']);
-            if ($device_tmp['bgpLocalAs'])
-            {
-              // We found device in DB by IP, but this device really have BGP?
-              $cache_bgp['ips'][$peer_addr]['device_id'] = $ip_array[0]['device_id'];
-              $cache_bgp['ips'][$peer_addr]['port_id']   = $ip_array[0]['port_id'];
-            }
-          }
-        }
-        //r($cache_bgp['ips'][$peer_addr]);
-      }
-    }
-    $entry['peer_port_id']   = $cache_bgp['ips'][$peer_addr]['port_id'];
-    //$entry['peer_port']      = get_port_by_id_cache($entry['peer_port_id']);
-    $entry['peer_device_id'] = $cache_bgp['ips'][$peer_addr]['device_id'];
-    //$entry['peer_device']    = device_by_id_cache($entry['peer_device_id']);
+    // Collect peer devices for AFI/SAFI
+    $peer_devices[$entry['device_id']] = 1;
 
     $array['entries'][] = $entry;
   }
 
   // Query AFI/SAFI
-  $query_afi = 'SELECT * FROM `bgpPeers_cbgp` WHERE 1'.generate_query_values(array_keys($peer_devices), 'device_id'); //.generate_query_values(array_keys($cache_bgp['ips']), 'bgpPeerRemoteAddr');
+  $query_afi = 'SELECT * FROM `bgpPeers_cbgp` WHERE 1'.generate_query_values(array_keys($peer_devices), 'device_id');
   foreach (dbFetchRows($query_afi) as $entry)
   {
     $array['afisafi'][$entry['device_id']][$entry['bgpPeerRemoteAddr']][] = $entry['afi'].'.'.$entry['safi'];

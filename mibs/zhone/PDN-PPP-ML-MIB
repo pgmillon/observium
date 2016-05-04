@@ -1,0 +1,557 @@
+-- ===============================================================
+-- == Copyright (C) 2004 Paradyne Corporation.                  ==
+-- ===============================================================
+
+PDN-PPP-ML-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+   MODULE-IDENTITY, OBJECT-TYPE, 
+   Unsigned32
+       FROM SNMPv2-SMI
+   OBJECT-GROUP, MODULE-COMPLIANCE
+       FROM SNMPv2-CONF
+   TEXTUAL-CONVENTION, RowStatus, DisplayString
+       FROM SNMPv2-TC
+   ifIndex, InterfaceIndex
+       FROM IF-MIB
+   SwitchState, PdnPPPState
+       FROM PDN-TC
+   pdn-interfaces
+       FROM PDN-HEADER-MIB;
+        
+pdnPppMlMIB MODULE-IDENTITY
+   LAST-UPDATED "200409140000Z"  -- September 14, 2004
+   ORGANIZATION "Paradyne Networks
+                 MIB Working Group
+                 Other information about group editing the MIB"
+   CONTACT-INFO "Paradyne Networks, Inc.
+                 8545 126th Avenue North
+                 Largo, FL 33733
+                 www.paradyne.com
+        
+                 General Comments to: mibwg_team@paradyne.com
+
+                 Editor
+                    Clay Sikes"
+
+   DESCRIPTION  "The MIB module for configuring and managing multilink 
+                 PPP.
+
+                 The following documents should be referenced with 
+                 respect to this MIB:
+                 [PPP]         Carlson, J, `PPP Design and Debugging',
+                               Addison-Wesley, December 1997.
+                 [RFC 1661]    Simpson, W., `The Point-to-Point 
+                               Protocol', July 1994.
+                 [RFC 1990]    Sklower, K. et al., `The PPP Multilink 
+                               Protocol (MP)', August 1996."                 
+
+   REVISION "200409140000Z"  -- September 14, 2004
+   DESCRIPTION "Initial release."
+
+::=  { pdn-interfaces 30 }
+
+
+
+-- ====================================================================
+-- == Define groups for Notifications, MIB Objects, Accessible for   ==
+-- == Notifications (AFNs), and Conformance.                         ==
+-- == These may just be place holders.                               ==
+-- ====================================================================
+pdnPppMlNotifications OBJECT IDENTIFIER ::= { pdnPppMlMIB 0 }
+pdnPppMlObjects       OBJECT IDENTIFIER ::= { pdnPppMlMIB 1 }
+pdnPppMlAFNs          OBJECT IDENTIFIER ::= { pdnPppMlMIB 2 } 
+pdnPppMlConformance   OBJECT IDENTIFIER ::= { pdnPppMlMIB 3 }
+
+
+
+
+-- ====================================================================
+-- ==                  Textual Conventions                           ==
+-- ====================================================================
+
+MRRU ::= TEXTUAL-CONVENTION
+   DISPLAY-HINT "d"
+   STATUS       current
+   DESCRIPTION  "Multilink Maximum Received Reconstructed Units 
+                 (MMRU).  The maximum number of octets in the 
+                 Information Fields of reassembled packets." 
+   REFERENCE    "RFC 1990, Section 5.1.1, `Multilink MRRU LCP Option'."
+   SYNTAX       Unsigned32(1..65535)
+
+
+SSNHF ::= TEXTUAL-CONVENTION
+   STATUS       current
+   DESCRIPTION  "The Short Sequence Number Header Format value."
+   REFERENCE    "RFC 1990, Section 5.1.2, `Short Sequence Number
+                 Header Option'."   
+   SYNTAX       INTEGER {
+                   ssnhfUnknown(1),        -- Unknown
+                   ssnhf12BitSeqNbrs(2),   -- 12-bit sequence numbers
+                   ssnhf24BitSeqNbrs(3)    -- 24-bit sequence numbers
+                }
+
+
+EDClass ::= TEXTUAL-CONVENTION
+   STATUS       current
+   DESCRIPTION  "Endpoint Discriminator Option Class."
+   REFERENCE    "RFC 1990, Section 5.1.3, `Endpoint Discriminator 
+                 Option'."
+   SYNTAX       INTEGER {
+                   nullClass(0),        -- Default if the option wasn't
+                                        -- present in the 
+                                        -- Configure-Request.
+                   locallyAssigned(1),  -- Deprecated. Exists only for
+                                        -- backward compatibility.
+                   ipAddr(2),           -- Internet Protocol Address.
+                   ieee802(3),          -- IEEE 802.1 Globally
+                                        -- assigned MAC Address.
+                   pppMagicNbrBlk(4),   -- PPP Magic-Number Block.
+                   publicSwNetDirNbr(5) -- Public Switch Network
+                                        -- Directory Number.
+                }
+
+
+
+-- ====================================================================
+-- ==                  MIB Objects                                   ==
+-- ====================================================================
+
+
+
+pdnPppMlBundleNumber   OBJECT-TYPE
+   SYNTAX      Unsigned32
+   MAX-ACCESS  read-only
+   STATUS      current
+   DESCRIPTION "The number of multilink PPP bundles configured on 
+                this system."
+   ::= { pdnPppMlObjects 1 }
+
+
+-- ====================================================================
+-- == pdnPppMlBundleTable                                            ==
+-- ====================================================================
+pdnPppMlBundleConfigTable  OBJECT-TYPE
+   SYNTAX      SEQUENCE OF PdnPppMlBundleConfigEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION "The Multilink PPP Bundle Configuration Table."
+   ::= { pdnPppMlObjects 2 }
+
+pdnPppMlBundleConfigEntry  OBJECT-TYPE
+   SYNTAX      PdnPppMlBundleConfigEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION "An entry in the Multilink PPP Configuration Table."
+   INDEX       { pdnPppMlBundleIfIndex }
+   ::= { pdnPppMlBundleConfigTable 1 }
+
+PdnPppMlBundleConfigEntry ::=
+   SEQUENCE {
+      pdnPppMlBundleIfIndex            InterfaceIndex,
+      pdnPppMlBundleConfigRowStatus    RowStatus,
+      pdnPppMlBundleConfigMRRU         MRRU,
+      pdnPppMlBundleConfigSSNHF        SwitchState,
+      pdnPppMlBundleConfigFragmentSize Unsigned32
+   }
+
+pdnPppMlBundleIfIndex  OBJECT-TYPE
+   SYNTAX      InterfaceIndex
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION "Identifies the interface number assigned to this 
+                bundle and is used to identify corresponding rows 
+                in the Interfaces MIB."
+   ::= { pdnPppMlBundleConfigEntry 1 }
+
+pdnPppMlBundleConfigRowStatus  OBJECT-TYPE
+   SYNTAX      RowStatus
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION "Used to create, modify, or delete rows in the table."
+   ::= { pdnPppMlBundleConfigEntry 2 }
+
+pdnPppMlBundleConfigMRRU  OBJECT-TYPE
+   SYNTAX      MRRU
+   UNITS       "Number of octets"
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION "The Multilink Maximum Received Reconstructed Units
+                LCP option. This option specifies the maximum number
+                of octets in the Information fields of reassembled
+                packets."
+   REFERENCE    "RFC 1990, Section 5.1.1, `Multilink MRRU LCP Option'."
+   ::= { pdnPppMlBundleConfigEntry 3 }
+
+pdnPppMlBundleConfigSSNHF  OBJECT-TYPE
+   SYNTAX      SwitchState
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION "The Short Sequence Number Header Format option.
+                When set to enabled(1), the local PPP entity will
+                indicate to the remote PPP entity that fragments
+                with 12-bit sequence numbers are desired.  When set
+                to disabled(2), the local PPP entity will indicate to
+                the remote PPP entity that fragments with 24-bit
+                sequence numbers are desired."
+   REFERENCE   "RFC 1990, Section 5.1.2, `Short Sequence Number
+                Header Format Option'."
+   ::= { pdnPppMlBundleConfigEntry 4 }
+
+pdnPppMlBundleConfigFragmentSize  OBJECT-TYPE
+   SYNTAX      Unsigned32(0..4294967296)
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION "Configures the maximum number of octets of data in
+                the packet's fragment data field.  The value `0'
+                has a special meaning which is to say `fragmentation
+                is disabled'."
+   REFERENCE   "RFC 1990, Section 3, `Packet Formats'.
+                `PPP Design and Debugging', page 121, `Fragmentation 
+                and Reassembly'."
+   ::= { pdnPppMlBundleConfigEntry 5 }
+
+
+-- ====================================================================
+-- == pdnPppMlBundleMappingTable                                     ==
+-- ====================================================================
+pdnPppMlBundleMappingTable  OBJECT-TYPE
+   SYNTAX      SEQUENCE OF PdnPppMlBundleMappingEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION "The Multilink PPP Bundle Mapping Table.
+                A table mapping the ifIndex of interfaces to a 
+                particular multilink PPP bundle identified by the 
+                pdnPppMlBundleIfIndex."
+   ::= { pdnPppMlObjects 3 }
+
+pdnPppMlBundleMappingEntry  OBJECT-TYPE
+   SYNTAX      PdnPppMlBundleMappingEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION "Each row describes one ifIndex to pdnPppMlBundleIfIndex
+                mapping."
+   INDEX       { ifIndex }
+   ::= { pdnPppMlBundleMappingTable 1 }
+
+PdnPppMlBundleMappingEntry ::=
+   SEQUENCE {
+      pdnPppMlBundleMappingRowStatus       RowStatus,
+      pdnPppMlBundleMappingBundleIfIndex   InterfaceIndex
+   }
+
+pdnPppMlBundleMappingRowStatus  OBJECT-TYPE
+   SYNTAX      RowStatus
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION "Used to create, modify, or delete rows in the table."
+   ::= { pdnPppMlBundleMappingEntry 1 }
+
+pdnPppMlBundleMappingBundleIfIndex  OBJECT-TYPE
+   SYNTAX      InterfaceIndex
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION "The pdnPppMlBundleIndex of the PPP bundle which 
+                implements the specified interface."
+   ::= { pdnPppMlBundleMappingEntry 2 }
+
+
+-- ====================================================================
+-- == pdnPppMlBundleStatusTable                                      ==
+-- ====================================================================
+pdnPppMlBundleStatusTable  OBJECT-TYPE
+   SYNTAX      SEQUENCE OF PdnPppMlBundleStatusEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION "The Multilink PPP Bundle Status Table."
+   ::= { pdnPppMlObjects 4 }
+
+pdnPppMlBundleStatusEntry  OBJECT-TYPE
+   SYNTAX      PdnPppMlBundleStatusEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION "An entry in the Multilink PPP Status Table."
+   INDEX       { pdnPppMlBundleIfIndex }
+   ::= { pdnPppMlBundleStatusTable 1 }
+
+PdnPppMlBundleStatusEntry ::=
+   SEQUENCE {
+      pdnPppMlBundleStatusCurrState              PdnPPPState,
+      pdnPppMlBundleStatusLocalToRemoteMRRU      MRRU,
+      pdnPppMlBundleStatusRemoteToLocalMRRU      MRRU,
+      pdnPppMlBundleStatusLocalToRemoteSSNHF     SSNHF,
+      pdnPppMlBundleStatusRemoteToLocalSSNHF     SSNHF,
+      pdnPppMlBundleStatusLocalToRemoteEDClass   EDClass,
+      pdnPppMlBundleStatusLocalToRemoteEDAddr    DisplayString,
+      pdnPppMlBundleStatusRemoteToLocalEDClass   EDClass,
+      pdnPppMlBundleStatusRemoteToLocalEDAddr    DisplayString
+   }
+
+pdnPppMlBundleStatusCurrState OBJECT-TYPE
+   SYNTAX      PdnPPPState
+   MAX-ACCESS  read-only
+   STATUS      current
+   DESCRIPTION "The current state of the ML PPP State Machine."
+   REFERENCE   "RFC 1661, Section 4.2, `State Transition Table'."
+   ::= { pdnPppMlBundleStatusEntry 1 }
+
+pdnPppMlBundleStatusLocalToRemoteMRRU  OBJECT-TYPE
+   SYNTAX      MRRU
+   UNITS       "Number of octets"
+   MAX-ACCESS  read-only
+   STATUS      current
+   DESCRIPTION "Identifies the result of the negotiation for
+                the Multilink Maximum Received Reconstructed Units 
+                LCP option for the local to remote direction."
+   REFERENCE    "RFC 1990, Section 5.1.1, `Multilink MRRU LCP Option'."
+   ::= { pdnPppMlBundleStatusEntry 2 }
+
+pdnPppMlBundleStatusRemoteToLocalMRRU  OBJECT-TYPE
+   SYNTAX      MRRU
+   UNITS       "Number of octets"
+   MAX-ACCESS  read-only
+   STATUS      current
+   DESCRIPTION "Identifies the result of the negotiation for 
+                the Multilink Maximum Received Reconstructed Units 
+                LCP option for the remote to local direction."
+   REFERENCE    "RFC 1990, Section 5.1.1, `Multilink MRRU LCP Option'."
+   ::= { pdnPppMlBundleStatusEntry 3 }
+
+
+pdnPppMlBundleStatusLocalToRemoteSSNHF  OBJECT-TYPE
+   SYNTAX      SSNHF
+   MAX-ACCESS  read-only
+   STATUS      current
+   DESCRIPTION "Identifies the result of the negotiation for the
+                Short Sequence Number Header Format option for the
+                local to remote direction.  If negotiation has not
+                completed, ssnhfUnknown(1) will be returned."
+   REFERENCE    "RFC 1990, Section 5.1.2, `Short Sequence Number
+                 Header Format Option'."
+   ::= { pdnPppMlBundleStatusEntry 4 }
+
+pdnPppMlBundleStatusRemoteToLocalSSNHF  OBJECT-TYPE
+   SYNTAX      SSNHF
+   MAX-ACCESS  read-only
+   STATUS      current
+   DESCRIPTION "Identifies the result of the negotiation for the
+                Short Sequence Number Header Format option for the
+                remote to local direction.  If negotiation has not
+                completed, ssnhfUnknown(1) will be returned."
+   REFERENCE    "RFC 1990, Section 5.1.2, `Short Sequence Number
+                 Header Format Option'."
+   ::= { pdnPppMlBundleStatusEntry 5 }
+
+pdnPppMlBundleStatusLocalToRemoteEDClass  OBJECT-TYPE
+   SYNTAX      EDClass
+   MAX-ACCESS  read-only
+   STATUS      current
+   DESCRIPTION "Identifies the result of the negotiation for the
+                Endpoint Discriminator Option's class for the local
+                PPP entity." 
+   REFERENCE    "RFC 1990, Section 5.1.3, `Endpoint Discriminator 
+                 Option'."
+   ::= { pdnPppMlBundleStatusEntry 6 }
+
+pdnPppMlBundleStatusLocalToRemoteEDAddr  OBJECT-TYPE
+   SYNTAX      DisplayString
+   MAX-ACCESS  read-only
+   STATUS      current
+   DESCRIPTION "Identifies the result of the negotiation for the
+                Endpoint Discriminator Option's address for the local
+                PPP entity." 
+   REFERENCE    "RFC 1990, Section 5.1.3, `Endpoint Discriminator 
+                 Option'."
+   ::= { pdnPppMlBundleStatusEntry 7 }
+
+pdnPppMlBundleStatusRemoteToLocalEDClass  OBJECT-TYPE
+   SYNTAX      EDClass
+   MAX-ACCESS  read-only
+   STATUS      current
+   DESCRIPTION "Identifies the result of the negotiation for the
+                Endpoint Discriminator Option's class for the remote
+                PPP entity." 
+   REFERENCE    "RFC 1990, Section 5.1.3, `Endpoint Discriminator 
+                 Option'."
+   ::= { pdnPppMlBundleStatusEntry 8 }
+
+pdnPppMlBundleStatusRemoteToLocalEDAddr  OBJECT-TYPE
+   SYNTAX      DisplayString
+   MAX-ACCESS  read-only
+   STATUS      current
+   DESCRIPTION "Identifies the result of the negotiation for the
+                Endpoint Discriminator Option's address for the remote
+                PPP entity." 
+   REFERENCE    "RFC 1990, Section 5.1.3, `Endpoint Discriminator 
+                 Option'."
+   ::= { pdnPppMlBundleStatusEntry 9 }
+
+
+
+
+-- ====================================================================
+-- ==                  Accessible for Notifications (AFNs)           ==
+-- ====================================================================
+-- None defined
+
+
+
+-- ====================================================================
+-- ==                  Traps/Notifications                           ==
+-- ====================================================================
+-- None defined
+
+
+
+-- ====================================================================
+-- ==                  Conformance Information                       ==
+-- ====================================================================
+
+pdnPppMlCompliances  OBJECT IDENTIFIER ::= { pdnPppMlConformance 1 }
+pdnPppMlGroups       OBJECT IDENTIFIER ::= { pdnPppMlConformance 2 }
+
+
+-- ===========================
+-- == Compliance Statements ==
+-- ===========================
+
+
+pdnPppMlCompliance  MODULE-COMPLIANCE
+   STATUS      current
+   DESCRIPTION "The compliance statement for network elements 
+                implementing multilink PPP."
+   MODULE      -- this module
+
+   MANDATORY-GROUPS {
+      pdnPppMlBundleDefinitionGroup
+   }
+
+   -- Optional Groups  
+
+   GROUP       pdnPppMlBundleStateMachineGroup
+   DESCRIPTION "This group is only required for implementations that
+                need to display the ML PPP State Machine's state."
+
+   GROUP       pdnPppMlBundleMRRUGroup
+   DESCRIPTION "This group is only required for implementations that
+                need to configure and display the Multilink Maximum
+                Received Reconstructed Units LCP Option."
+
+   GROUP       pdnPppMlBundleSSNHFGroup
+   DESCRIPTION "This group is only required for implementations that
+                need to configure and display the Short Sequence Number
+                Header Format Option."
+
+   GROUP       pdnPppMlBundleEDGroup
+   DESCRIPTION "This group is only required for implementations that
+                need to display the results of negotiation for the
+                Endpoint Discriminator Option."
+
+   GROUP       pdnPppMlBundleFragmentSizeGroup
+   DESCRIPTION "This group is only required for implementations that
+                need to configure the fragment size."
+
+   ::= { pdnPppMlCompliances 1 }
+
+
+-- ==========================
+-- == Units of Conformance ==
+-- ==========================
+
+pdnPppMlObjGroups   OBJECT IDENTIFIER ::= { pdnPppMlGroups 1 }
+pdnPppMlAfnGroups   OBJECT IDENTIFIER ::= { pdnPppMlGroups 2 }
+pdnPppmlNtfyGroups  OBJECT IDENTIFIER ::= { pdnPppMlGroups 3 }
+
+
+-- ===================
+-- == Object Groups ==
+-- ===================
+
+
+pdnPppMlBundleDefinitionGroup  OBJECT-GROUP
+   OBJECTS {
+      pdnPppMlBundleNumber,
+      pdnPppMlBundleConfigRowStatus,
+      pdnPppMlBundleMappingBundleIfIndex,
+      pdnPppMlBundleMappingRowStatus
+   }
+   STATUS      current
+   DESCRIPTION "Define a bundle and map ifIndices to it."
+   ::= { pdnPppMlObjGroups 1 }
+
+pdnPppMlBundleStateMachineGroup OBJECT-GROUP
+   OBJECTS {
+      pdnPppMlBundleStatusCurrState
+   }
+   STATUS      current
+   DESCRIPTION "Displays the ML PPP State Machine's state."
+   ::= { pdnPppMlObjGroups 2 }
+
+pdnPppMlBundleMRRUGroup OBJECT-GROUP
+   OBJECTS {
+      pdnPppMlBundleConfigRowStatus,
+      pdnPppMlBundleConfigMRRU,
+      pdnPppMlBundleStatusLocalToRemoteMRRU,
+      pdnPppMlBundleStatusRemoteToLocalMRRU
+   }
+   STATUS      current
+   DESCRIPTION "Configures and displays the results of the negotiation
+                of the Multilink Maximum Received Reconstructed Units
+                LCP Option."
+   ::= { pdnPppMlObjGroups 3 }
+
+pdnPppMlBundleSSNHFGroup OBJECT-GROUP
+   OBJECTS {
+      pdnPppMlBundleConfigRowStatus,
+      pdnPppMlBundleConfigSSNHF,
+      pdnPppMlBundleStatusLocalToRemoteSSNHF,
+      pdnPppMlBundleStatusRemoteToLocalSSNHF
+   }
+   STATUS      current
+   DESCRIPTION "Configures and displays the results of the negotiation 
+                of the Short Sequence Number Header Format Option."
+   ::= { pdnPppMlObjGroups 4 }
+
+pdnPppMlBundleEDGroup OBJECT-GROUP
+   OBJECTS {
+      pdnPppMlBundleStatusLocalToRemoteEDClass,
+      pdnPppMlBundleStatusLocalToRemoteEDAddr,
+      pdnPppMlBundleStatusRemoteToLocalEDClass,
+      pdnPppMlBundleStatusRemoteToLocalEDAddr
+   }
+   STATUS      current
+   DESCRIPTION "Displays the results of the negotiation of the 
+                Endpoint Discriminator Option."
+   ::= { pdnPppMlObjGroups 5 }
+
+pdnPppMlBundleFragmentSizeGroup OBJECT-GROUP
+   OBJECTS {
+      pdnPppMlBundleConfigRowStatus,
+      pdnPppMlBundleConfigFragmentSize
+   }
+   STATUS      current
+   DESCRIPTION "Configures the fragment size."
+   ::= { pdnPppMlObjGroups 6 }
+
+
+
+
+-- =========================================
+-- == Accessible for Notifications Groups ==
+-- =========================================
+-- None defined
+
+
+
+-- =========================
+-- == Notification Groups ==
+-- =========================
+-- None defined
+
+
+
+
+-- =========
+-- == END ==
+-- =========
+END

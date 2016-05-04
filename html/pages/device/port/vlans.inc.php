@@ -6,14 +6,14 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 $vlans = dbFetchRows('SELECT * FROM `ports_vlans` AS PV, vlans AS V WHERE PV.`port_id` = ? and PV.`device_id` = ? AND V.`vlan_vlan` = PV.vlan AND V.device_id = PV.device_id', array($port['port_id'], $device['device_id']));
 
-echo('<table class="table table-bordered table-striped table-hover table-condensed">');
+echo('<table class="table  table-striped table-hover table-condensed">');
 
 echo("<thead><tr><th>VLAN</th><th>Description</th><th>Cost</th><th>Priority</th><th>State</th><th>Other Ports</th></tr></thead>");
 
@@ -26,7 +26,7 @@ foreach ($vlans as $vlan)
   echo('<tr>');
 
   echo('<td style="width: 100px;" class="entity-title"> Vlan ' . $vlan['vlan'] . '</td>');
-  echo('<td style="width: 200px;" class="small">' . $vlan['vlan_descr'] . '</td>');
+  echo('<td style="width: 200px;" class="small">' . $vlan['vlan_name'] . '</td>');
 
   if ($vlan['state'] == "blocking") { $class="red"; } elseif ($vlan['state'] == "forwarding" ) { $class="green"; } else { $class = "none"; }
 

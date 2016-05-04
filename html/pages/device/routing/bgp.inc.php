@@ -6,24 +6,82 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
+echo generate_box_open();
+
 ?>
-<table class="table table-hover table-striped table-bordered table-rounded" style="vertical-align: middle; margin-bottom: 10px;">
+
+<table class="table table-hover table-striped  " style="vertical-align: middle;">
   <tbody>
     <tr class="up" style="vertical-align: middle;">
       <td class="state-marker"></td>
-      <td style="vertical-align: middle; padding: 10px 14px ;"><span style="font-size: 20px;">BGP AS<?php echo($device['bgpLocalAs']); ?></span>
+      <td style="vertical-align: middle; padding: 10px 14px ;"><span style="font-size: 20px; color: #193d7f;">BGP AS<?php echo($device['bgpLocalAs']); ?></span>
       </td>
+      <td>
+
+<?php
+
+    $sessions = array();
+    foreach (dbFetchRows('SELECT `bgpPeer_id`,`bgpPeerState`,`bgpPeerAdminStatus`,`bgpPeerRemoteAs` FROM `bgpPeers` WHERE `device_id` = ?;', array($device['device_id'])) as $bgp)
+    {
+      $sessions['count']++;
+      if ($bgp['bgpPeerAdminStatus'] == 'start' || $bgp['bgpPeerAdminStatus'] == 'running')
+      {
+        $sessions['enabled']++;
+        if ($bgp['bgpPeerState'] != 'established')
+        {
+          $sessions['alerts']++;
+        } else {
+          $sessions['connected']++;
+        }
+      } else {
+        $sessions['shutdown']++;
+      }
+      if ($bgp['bgpPeerRemoteAs'] == $device['bgpLocalAs'])
+      {
+        $sessions['internal']++;
+      } else {
+        $sessions['external']++;
+      }
+    }
+
+?>
+      </td>
+
+      <td style="text-align: right;">
+
+        <div class="btn-group" style="margin: 5px;">
+          <div class="btn btn-small"><strong>Total Sessions</strong></div>
+          <div class="btn btn-small"> <?php echo $sessions['count']+0; ?></div>
+        </div>
+
+        <div class="btn-group" style="margin: 5px;">
+          <div class="btn btn-small"><strong>Errored Sessions</strong></div>
+          <div class="btn btn-small btn-danger"> <?php echo $sessions['alerts']+0; ?></div>
+        </div>
+
+        <div class="btn-group" style="margin: 5px;">
+          <div class="btn btn-small btn-inactive"><strong>iBGP</strong></div>
+          <div class="btn btn-small btn-primary"> <?php echo $sessions['internal']+0; ?></div>
+        </div>
+
+        <div class="btn-group" style="margin: 5px;">
+          <div class="btn btn-small"><strong>eBGP</strong></div>
+          <div class="btn btn-small btn-info"> <?php echo $sessions['external']+0; ?></div>
+        </div>
+      </td>
+
      </tr>
    </tbody>
 </table>
 
-
 <?php
+
+echo generate_box_close();
 
 if (!isset($vars['view'])) { $vars['view'] = 'details'; }
 
@@ -78,14 +136,20 @@ $navbar['options_right']['updates']['text'] = 'Updates';
 if ($vars['graph'] == 'updates') { $navbar['options_right']['updates']['class'] .= ' active'; }
 $navbar['options_right']['updates']['url'] = generate_url($vars, array('view' => 'graphs', 'graph' => 'updates'));
 
-$bgp_graphs = array('unicast'   => array('text' => 'Unicast'),
-                    //'multicast' => array('text' => 'Multicast'),
-                    'mac'       => array('text' => 'MACaccounting'));
-$bgp_graphs['unicast']['types'] = array('prefixes_ipv4unicast' => 'IPv4 Ucast Prefixes',
-                                        'prefixes_ipv6unicast' => 'IPv6 Ucast Prefixes',
-                                        'prefixes_ipv4vpn'     => 'VPNv4 Prefixes');
-//$bgp_graphs['multicast']['types'] = array('prefixes_ipv4multicast' => 'IPv4 Mcast Prefixes',
-//                                          'prefixes_ipv6multicast' => 'IPv6 Mcast Prefixes');
+$bgp_graphs = array();
+foreach ($device['graphs'] as $entry)
+{
+  if (preg_match('/^bgp_(?<subtype>prefixes)_(?<afi>ipv[46])(?<safi>[a-z]+)/', $entry['graph'], $matches))
+  {
+    if (!isset($bgp_graphs[$matches['safi']]))
+    {
+      $bgp_graphs[$matches['safi']] = array('text' => nicecase($matches['safi']));
+    }
+    $bgp_graphs[$matches['safi']]['types'][$matches['subtype'].'_'.$matches['afi'].$matches['safi']] = nicecase($matches['afi']) . ' ' . nicecase($matches['safi']) . ' ' . nicecase($matches['subtype']);
+  }
+}
+
+$bgp_graphs['mac'] = array('text' => 'MACaccounting');
 $bgp_graphs['mac']['types'] = array('macaccounting_bits' => 'MAC Bits',
                                     'macaccounting_pkts' => 'MAC Pkts');
 foreach ($bgp_graphs as $bgp_graph => $bgp_options)
@@ -111,6 +175,6 @@ print_navbar($navbar);
 $vars['pagination'] = TRUE;
 
 //r($cache['bgp']);
-print_bgp($vars);
+print_bgp_table($vars);
 
 // EOF

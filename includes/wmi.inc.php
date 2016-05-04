@@ -7,8 +7,8 @@
  *
  * @package    observium
  * @subpackage wmi
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -97,10 +97,8 @@ function wmi_parse($wmi_string, $ret_single = FALSE, $ret_val = NULL)
     else if (empty($wmi_properties))
     {
       $wmi_properties = explode($GLOBALS['config']['wmi']['delimiter'], $line);
-    }
-    else
-    {
-      $wmi_results[] = array_combine($wmi_properties, explode($GLOBALS['config']['wmi']['delimiter'],$line));
+    } else {
+      $wmi_results[] = array_combine($wmi_properties, explode($GLOBALS['config']['wmi']['delimiter'], str_replace('(null)', '', $line)));
     }
   }
   if (count($wmi_results) == 1)
@@ -110,9 +108,7 @@ function wmi_parse($wmi_string, $ret_single = FALSE, $ret_val = NULL)
       if ($ret_val)
       {
         return $wmi_results[0][$ret_val];
-      }
-      else
-      {
+      } else {
         return $wmi_results[0];
       }
     }

@@ -6,26 +6,25 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 ?>
-    <div class="widget widget-table">
-      <div class="widget-content">
+    <div class="box box-solid hidden-xl">
+      <div class="box-body no-padding">
 
 <?php
 
 if ($device['os'] == "ios") { formatCiscoHardware($device); } // FIXME or do this in a general function for all OS types with a switch($device['os']) ?
 
-echo('<table class="table table-condensed-more table-striped table-bordered">');
+echo('<table class="table table-condensed table-striped table-hover">');
 
 if ($config['overview_show_sysDescr'])
 {
   echo('<tr><td colspan=2 style="padding: 10px;"><strong><i>' . escape_html($device['sysDescr']) . "</i></strong></td></tr>");
 }
-
 
 if ($device['purpose'])
 {
@@ -46,24 +45,17 @@ if ($device['hardware'])
 if ($device['os'] != 'generic')
 {
   echo('<tr>
-        <td class="entity">Operating System</td>
+        <td class="entity">Operating system</td>
         <td>' . escape_html($device['os_text']) . ' ' . escape_html($device['version']) . ($device['features'] ? ' (' . escape_html($device['features']) . ')' : '') . ' </td>
       </tr>');
 }
 
-if ($device['asset_tag'])
+if ($device['sysName'])
 {
   echo('<tr>
-        <td class="entity">Asset tag</td>
-        <td>' . escape_html($device['asset_tag']) . '</td>
-      </tr>');
-}
-
-if ($device['serial'])
-{
-  echo('<tr>
-        <td class="entity">Serial</td>
-        <td>' . escape_html($device['serial']) . '</td>
+        <td class="entity">System name</td>');
+  echo('
+        <td>' . escape_html($device['sysName']). '</td>
       </tr>');
 }
 
@@ -97,6 +89,22 @@ if ($device['location'])
         <td>' . escape_html($device['real_location']) . '</td>
       </tr>');
   }
+}
+
+if ($device['asset_tag'])
+{
+  echo('<tr>
+        <td class="entity">Asset tag</td>
+        <td>' . escape_html($device['asset_tag']) . '</td>
+      </tr>');
+}
+
+if ($device['serial'])
+{
+  echo('<tr>
+        <td class="entity">Serial</td>
+        <td>' . escape_html($device['serial']) . '</td>
+      </tr>');
 }
 
 if ($device['uptime'])

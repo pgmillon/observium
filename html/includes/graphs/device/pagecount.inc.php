@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -17,7 +17,7 @@ $rrd_options .= " -l 0 -E ";
 
 $pagecount_rrd = get_rrd_path($device, "pagecount.rrd");
 
-if (file_exists($pagecount_rrd))
+if (is_file($pagecount_rrd))
 {
   $rrd_options .= " COMMENT:'                                      Cur\\n'";
   $rrd_options .= " DEF:pagecount=".$pagecount_rrd.":pagecount:AVERAGE ";

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -35,10 +35,10 @@ switch ($vars['sort'])
     $ports = array_sort($ports, 'ifUcastPkts_rate', 'SORT_DESC');
     break;
   case 'packets_in':
-    $ports = array_sort($ports, 'ifInUcastOctets_rate', 'SORT_DESC');
+    $ports = array_sort($ports, 'ifInUcastPkts_rate', 'SORT_DESC');
     break;
   case 'packets_out':
-    $ports = array_sort($ports, 'ifOutUcastOctets_rate', 'SORT_DESC');
+    $ports = array_sort($ports, 'ifOutUcastPkts_rate', 'SORT_DESC');
     break;
   case 'errors':
     $ports = array_sort($ports, 'ifErrors_rate', 'SORT_DESC');
@@ -65,4 +65,4 @@ switch ($vars['sort'])
     $ports = array_sort($ports, 'ifIndex', 'SORT_ASC');
 }
 
-?>
+// EOF

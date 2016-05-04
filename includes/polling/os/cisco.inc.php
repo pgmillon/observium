@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -33,12 +33,12 @@ if (is_device_mib($device, 'CISCO-CONFIG-MAN-MIB'))
 
   $sysUptimeTS = time() - $config_age['sysUpTime'];
 
-  print_message("Cisco configuration ages\n");
-  //FIXME. print_message() & sprintf() here
-  echo('  sysUptime : '.format_unixtime($sysUptimeTS)         .' | '.formatUptime($config_age['sysUpTime']).PHP_EOL);
-  echo('  Running   : '.format_unixtime($RunningLastChangedTS).' | '.formatUptime($RunningLastChanged).PHP_EOL);
-  echo('  Saved     : '.format_unixtime($RunningLastSavedTS)  .' | '.formatUptime($RunningLastSaved).PHP_EOL);
-  echo('  Startup   : '.format_unixtime($StartupLastChangedTS).' | '.formatUptime($StartupLastChanged).PHP_EOL);
+  $os_additional_info["Cisco configuration ages"] = array(
+    'sysUptime' => format_unixtime($sysUptimeTS)         .' | '.formatUptime($config_age['sysUpTime']),
+    'Running'   => format_unixtime($RunningLastChangedTS).' | '.formatUptime($RunningLastChanged),
+    'Saved'     => format_unixtime($RunningLastSavedTS)  .' | '.formatUptime($RunningLastSaved),
+    'Startup'   => format_unixtime($StartupLastChangedTS).' | '.formatUptime($StartupLastChanged),
+  );
 }
 
 $sysDescr = preg_replace("/\s+/", " ", $poll_device['sysDescr']); // Replace all spaces and newline to single space
@@ -47,25 +47,35 @@ if (preg_match('/^Cisco IOS Software, .+? Software \([^\-]+-([\w\d]+)-\w\),.+?Ve
 {
   //Cisco IOS Software, Catalyst 4500 L3 Switch Software (cat4500e-ENTSERVICESK9-M), Version 15.2(1)E3, RELEASE SOFTWARE (fc1) Technical Support: http://www.cisco.com/techsupport Copyright (c) 1986-2014 by Cisco Systems, Inc. Compiled Mon 05-May-14 07:56 b
   //Cisco IOS Software, IOS-XE Software (PPC_LINUX_IOSD-IPBASEK9-M), Version 15.2(2)S, RELEASE SOFTWARE (fc1) Technical Support: http://www.cisco.com/techsupport Copyright (c) 1986-2012 by Cisco Systems, Inc. Compiled Mon 26-Mar-12 15:23 by mcpre
-  //Cisco IOS Software, IES Software (IES-LANBASEK9-M), Version 12.2(52)SE1, RELEASE SOFTWARE (fc1) Technical Support: http://www.cisco.com/techsupport Copyright (c) 1986-2010 by Cisco Systems, Inc. Compiled Tue 09-Feb-10 03:17 by prod_rel_team 
+  //Cisco IOS Software, IES Software (IES-LANBASEK9-M), Version 12.2(52)SE1, RELEASE SOFTWARE (fc1) Technical Support: http://www.cisco.com/techsupport Copyright (c) 1986-2010 by Cisco Systems, Inc. Compiled Tue 09-Feb-10 03:17 by prod_rel_team
   $features = $matches[1];
   $version  = $matches[2];
 }
 else if (preg_match('/^Cisco Internetwork Operating System Software IOS \(tm\) [^ ]+ Software \([^\-]+-([\w\d]+)-\w\),.+?Version ([^, ]+)/', $sysDescr, $matches))
 {
   //Cisco Internetwork Operating System Software IOS (tm) 7200 Software (UBR7200-IK8SU2-M), Version 12.3(17b)BC8, RELEASE SOFTWARE (fc1) Technical Support: http://www.cisco.com/techsupport Copyright (c) 1986-2007 by cisco Systems, Inc. Compiled Fri 29-Ju
-  //Cisco Internetwork Operating System Software IOS (tm) C1700 Software (C1700-Y-M), Version 12.2(4)YA2, EARLY DEPLOYMENT RELEASE SOFTWARE (fc1) Synched to technology version 12.2(5.4)T TAC Support: http://www.cisco.com/tac Copyright (c) 1986-2002 by ci 
+  //Cisco Internetwork Operating System Software IOS (tm) C1700 Software (C1700-Y-M), Version 12.2(4)YA2, EARLY DEPLOYMENT RELEASE SOFTWARE (fc1) Synched to technology version 12.2(5.4)T TAC Support: http://www.cisco.com/tac Copyright (c) 1986-2002 by ci
   $features = $matches[1];
   $version  = $matches[2];
 }
 else if (preg_match('/^Cisco IOS XR Software \(Cisco ([^\)]+)\), Version ([^\[]+)\[([^\]]+)\]/', $sysDescr, $matches))
 {
   //Cisco IOS XR Software (Cisco 12816/PRP), Version 4.3.2[Default] Copyright (c) 2014 by Cisco Systems, Inc.
-  //Cisco IOS XR Software (Cisco 12404/PRP), Version 3.6.0[00] Copyright (c) 2007 by Cisco Systems, Inc. 
+  //Cisco IOS XR Software (Cisco 12404/PRP), Version 3.6.0[00] Copyright (c) 2007 by Cisco Systems, Inc.
   //Cisco IOS XR Software (Cisco ASR9K Series), Version 5.1.2[Default] Copyright (c) 2014 by Cisco Systems, Inc.
   //$hardware = $matches[1];
   $features = $matches[3];
   $version  = $matches[2];
+}
+else if (preg_match('/^Cisco NX-OS\(tm\) (?<hw1>\w+), Software \((?<hw2>.+?)\),.+?Version (?<version>[^, ]+)/', $sysDescr, $matches))
+{
+  //Cisco NX-OS(tm) n7000, Software (n7000-s2-dk9), Version 6.2(8b), RELEASE SOFTWARE Copyright (c) 2002-2013 by Cisco Systems, Inc.
+  //Cisco NX-OS(tm) n1000v, Software (n1000v-dk9), Version 5.2(1)SV3(1.2), RELEASE SOFTWARE Copyright (c) 2002-2011 by Cisco Systems, Inc. Device Manager Version nms.sro not found,  Compiled 11/11/2014 15:00:00
+  //Cisco NX-OS(tm) n5000, Software (n5000-uk9), Version 6.0(2)N2(7), RELEASE SOFTWARE Copyright (c) 2002-2012 by Cisco Systems, Inc. Device Manager Version 6.2(1),  Compiled 4/28/2015 5:00:00
+  //Cisco NX-OS(tm) n7000, Software (n7000-s2-dk9), Version 6.2(8a), RELEASE SOFTWARE Copyright (c) 2002-2013 by Cisco Systems, Inc. Compiled 5/15/2014 20:00:00
+  //Cisco NX-OS(tm) n3000, Software (n3000-uk9), Version 6.0(2)U2(2), RELEASE SOFTWARE Copyright (c) 2002-2012 by Cisco Systems, Inc. Device Manager Version nms.sro not found, Compiled 2/12/2014 8:00:00
+  list(, $features) = explode('-', $matches['hw2'], 2);
+  $version  = $matches['version'];
 }
 
 // All other Cisco devices
@@ -93,18 +103,24 @@ if (is_array($entPhysical))
     }
     else if (empty($entPhysical['entPhysicalSoftwareRev']))
     {
-      // F.u. Cisco again.. 720X, try again get correct serial/version
-      $hw_module = dbFetchRow('SELECT * FROM `entPhysical` WHERE `device_id` = ? AND `entPhysicalClass` = ? AND `entPhysicalContainedIn` = ?', array($device['device_id'], 'module', '1'));
+      // 720X, try again get correct serial/version
+      $hw_module = dbFetchRow('SELECT * FROM `entPhysical` WHERE `device_id` = ? AND `entPhysicalClass` = ? AND `entPhysicalContainedIn` = ? AND `entPhysicalSerialNum` != ?', array($device['device_id'], 'module', '1', ''));
       if ($hw_module['entPhysicalSoftwareRev'])
       {
-        $entPhysical = $hw_module;
+        if ($device['os'] == 'iosxe')
+        {
+          // For IOS-XE fix only version
+          $entPhysical['entPhysicalSoftwareRev'] = $hw_module['entPhysicalSoftwareRev'];
+        } else {
+          $entPhysical = $hw_module;
+        }
       }
     }
   }
 
   if ($entPhysical['entPhysicalContainedIn'] === '0' || $entPhysical['entPhysicalContainedIn'] === '1' || $entPhysical['entPhysicalContainedIn'] === '2')
   {
-    if (empty($version) && !empty($entPhysical['entPhysicalSoftwareRev']))
+    if ((empty($version) || $device['os'] == 'iosxe') && !empty($entPhysical['entPhysicalSoftwareRev']))
     {
       $version = $entPhysical['entPhysicalSoftwareRev'];
     }

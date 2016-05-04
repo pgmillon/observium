@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage web
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -31,7 +31,7 @@ function print_refresh($vars)
     return array('allowed' => FALSE);
   }
 
-  $refresh_array = array(0, 60, 120, 300, 900, 1800); // Allowed refresh times
+  $refresh_array = $GLOBALS['config']['wui']['refresh_times']; // Allowed refresh times
   $refresh_time  = 300;                               // Default page reload time (5 minutes)
   if (isset($vars['refresh']))
   {
@@ -53,26 +53,8 @@ function print_refresh($vars)
     $refresh_time = (int)$GLOBALS['config']['page_refresh'];
   }
 
-  // List vars where page refresh full disabled
-  $refresh_disabled = array(
-    array('page' => 'add_alert_check'),
-    array('page' => 'alert_check'),
-    array('page' => 'alert_regenerate'),
-    array('page' => 'group_add'),
-    array('page' => 'groups_regenerate'),
-    array('page' => 'device', 'tab' => 'edit'),
-    array('page' => 'device', 'tab' => 'port', 'view' => 'realtime'),
-    array('page' => 'device', 'tab' => 'showconfig'),
-    array('page' => 'addhost'),
-    array('page' => 'delhost'),
-    array('page' => 'delsrv'),
-    array('page' => 'deleted-ports'),
-    array('page' => 'adduser'),
-    array('page' => 'edituser'),
-    array('page' => 'settings'),
-    array('page' => 'preferences'),
-    array('page' => 'logout'),
-  );
+  // List vars where page refresh full disabled - FIXME move to definitions!
+  $refresh_disabled = $GLOBALS['config']['wui']['refresh_disabled'];
 
   $refresh_allowed = TRUE;
   foreach ($refresh_disabled as $var_test)
@@ -110,8 +92,17 @@ function print_refresh($vars)
  * @param array $vars Array with current selected column ID and/or variables for generate column link
  * @return string $string
  */
-function get_table_header($cols, $vars = array())
+function get_table_header($cols, &$vars = array())
 {
+  // Always clean sort vars
+  $sort       = $vars['sort'];
+  $sort_order = strtolower($vars['sort_order']);
+  if (!in_array($sort_order, array('asc', 'desc', 'reset')))
+  {
+    $sort_order = 'acs';
+  }
+  unset($vars['sort'], $vars['sort_order']);
+
   $string  = '  <thead>' . PHP_EOL;
   $string .= '    <tr>' . PHP_EOL;
   foreach ($cols as $id => $col)
@@ -125,14 +116,42 @@ function get_table_header($cols, $vars = array())
       $style = '';
     }
     $string .= '      <th'.$style.'>';
-    if ($name == NULL)          { $string .= ''; }         // Column without Name and without Sort
-    else if (is_int($id))       { $string .= $name; }      // Column without Sort
-    else if ($vars)
+    if ($name == NULL)
     {
-      if ($vars['sort'] == $id) { $string .= $name.' *'; } // Column without Sort (selected)
-      else                      { $string .= '<a href="'. generate_url($vars, array('sort' => $id)).'">'.$name.'</a>'; } // Column without Sort
+      $string .= '';         // Column without Name and without Sort
+    }
+    else if (is_int($id) || stristr($id, "!") != FALSE)
+    {
+      $string .= $name;      // Column without Sort
+    }
+    else if ($vars || $sort)
+    {
+      // Sort order cycle: asc -> desc -> reset
+      if ($sort == $id)
+      {
+        switch ($sort_order)
+        {
+          case 'desc':
+            $name .= '&nbsp;&uarr;';
+            $sort_array = array();
+            //$vars['sort_order'] = 'reset';
+            break;
+          case 'reset':
+            //unset($vars['sort'], $vars['sort_order']);
+            $sort_array = array();
+            break;
+          default:
+            // ASC
+            $name .= '&nbsp;&darr;';
+            $sort_array = array('sort' => $id, 'sort_order' => 'desc');
+            //$vars['sort_order'] = 'desc';
+        }
+      } else{
+        $sort_array = array('sort' => $id);
+      }
+      $string .= '<a href="'. generate_url($vars, $sort_array).'">'.$name.'</a>'; // Column now sorted (selected)
     } else {
-      $string .= $name; // Sorting is not available (if vars empty or FALSE)
+      $string .= $name;      // Sorting is not available (if vars empty or FALSE)
     }
     $string .= '</th>' . PHP_EOL;
   }
@@ -140,6 +159,21 @@ function get_table_header($cols, $vars = array())
   $string .= '  </thead>' . PHP_EOL;
 
   return $string;
+}
+
+function print_error_permission($text = NULL, $escape = TRUE)
+{
+  if (empty($text))
+  {
+    $text = 'You have insufficient permissions to view this page.';
+  }
+  else if ($escape)
+  {
+    $text = escape_html($text);
+  }
+  echo('<div style="margin:auto; text-align: center; margin-top: 50px; max-width:600px">');
+  print_error('<h4>Permission error</h4>' . PHP_EOL . $text);
+  echo('</div>');
 }
 
 // EOF

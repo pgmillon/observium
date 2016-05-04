@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -15,26 +15,31 @@ $vsvrs = dbFetchRows("SELECT * FROM `netscaler_vservers` WHERE `device_id` = ? O
 
 #print_r($vsvrs);
 
-if ($vars['submit'] == "update-vsvrs" && $_SESSION['userlevel'] == '10')
+if ($vars['submit'] == "update-vsvrs")
 {
-  foreach ($vsvrs AS $vsvr)
+  if ($readonly)
   {
-    if ($vars['vsvrs'][$vsvr['vsvr_id']]['vsvr_ignore'] == "on") { $vars['vsvrs'][$vsvr['vsvr_id']]['vsvr_ignore'] = "1"; } else { $vars['vsvrs'][$vsvr['vsvr_id']]['vsvr_ignore'] = "0"; }
-
-    foreach (array('vsvr_ignore','vsvr_limit_low','vsvr_limit') as $field)
+    print_error_permission('You have insufficient permissions to edit settings.');
+  } else {
+    foreach ($vsvrs as $vsvr)
     {
-      if ($vars['vsvrs'][$vsvr['vsvr_id']][$field]    != $vsvr[$field])    { $sup[$field] = $vars['vsvrs'][$vsvr['vsvr_id']][$field]; }
+      if ($vars['vsvrs'][$vsvr['vsvr_id']]['vsvr_ignore'] == 'on' || $vars['vsvrs'][$vsvr['vsvr_id']]['vsvr_ignore'] == '1') { $vars['vsvrs'][$vsvr['vsvr_id']]['vsvr_ignore'] = "1"; } else { $vars['vsvrs'][$vsvr['vsvr_id']]['vsvr_ignore'] = "0"; }
+
+      foreach (array('vsvr_ignore','vsvr_limit_low','vsvr_limit') as $field)
+      {
+        if ($vars['vsvrs'][$vsvr['vsvr_id']][$field]    != $vsvr[$field])    { $sup[$field] = $vars['vsvrs'][$vsvr['vsvr_id']][$field]; }
+      }
+
+      if (is_array($sup))
+      {
+        dbUpdate($sup, 'netscaler_vservers', '`vsvr_id` = ?', array($vsvr['vsvr_id']));
+        $did_update = TRUE;
+      }
+      unset($sup);
     }
 
-    if (is_array($sup))
-    {
-      dbUpdate($sup, 'netscaler_vservers', '`vsvr_id` = ?', array($vsvr['vsvr_id']));
-      $did_update = TRUE;
-    }
-    unset($sup);
+    $vsvrs = dbFetchRows("SELECT * FROM `netscaler_vservers` WHERE `device_id` = ? ORDER BY `vsvr_label`", array($device['device_id']));
   }
-
-  $vsvrs = dbFetchRows("SELECT * FROM `netscaler_vservers` WHERE `device_id` = ? ORDER BY `vsvr_label`", array($device['device_id']));
 }
 
 ?>
@@ -43,13 +48,13 @@ if ($vars['submit'] == "update-vsvrs" && $_SESSION['userlevel'] == '10')
 <fieldset>
   <legend>Netscaler vServer Properties</legend>
 
-<table class="table table-bordered table-striped table-condensed">
+<table class="table  table-striped table-condensed">
   <thead>
     <tr>
-      <th width="120">MIB Type</th>
+      <th style="width: 120px;">MIB Type</th>
       <th>Name</th>
-      <th width="60">Status</th>
-      <th width="50">Alerts</th>
+      <th style="width: 60px;">Status</th>
+      <th style="width: 50px;">Alerts</th>
     </tr>
   </thead>
   <tbody>
@@ -60,9 +65,9 @@ foreach ($vsvrs as $vsvr)
 {
 
   echo('<tr>');
-  echo('<td>'.htmlentities($vsvr['vsvr_type']).'</td>');
-  echo('<td>'.htmlentities($vsvr['vsvr_label']).'</td>');
-  echo('<td>'.htmlentities($vsvr['vsvr_state']).'</td>');
+  echo('<td>'.escape_html($vsvr['vsvr_type']).'</td>');
+  echo('<td>'.escape_html($vsvr['vsvr_label']).'</td>');
+  echo('<td>'.escape_html($vsvr['vsvr_state']).'</td>');
   echo('<td>
           <input type=checkbox data-toggle="switch-revert" id="vsvrs['.$vsvr['vsvr_id'].'][vsvr_ignore]" name="vsvrs['.$vsvr['vsvr_id'].'][vsvr_ignore]"'.($vsvr['vsvr_ignore'] ? "checked" : "").'>
         </td>');

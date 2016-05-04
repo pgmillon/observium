@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -34,7 +34,7 @@ include("includes/graphs/common.inc.php"); /// FIXME. duplicated
 $rrd_options   .= " DEF:uptime=".$rrd_filename.":uptime:AVERAGE";
 $rrd_options   .= " CDEF:cuptime=uptime,86400,/";
 
-if ($width<224)
+if ($width < 224)
 {
   $rrd_options .= " 'COMMENT:Days         Cur      Min     Max     Avg\\n'";
 } else {

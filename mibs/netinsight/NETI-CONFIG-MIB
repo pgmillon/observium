@@ -1,0 +1,258 @@
+NETI-CONFIG-MIB DEFINITIONS ::= BEGIN
+
+-- -------------------------------------------------------------
+-- MIB for controlling configurations and backup 
+-- -------------------------------------------------------------
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, Gauge32
+        FROM SNMPv2-SMI
+    RowStatus, DisplayString, DateAndTime, TruthValue
+        FROM SNMPv2-TC
+    netiExperimentalGeneric
+        FROM NETI-COMMON-MIB;
+
+netiConfigMIB MODULE-IDENTITY
+    LAST-UPDATED 
+        "0002090000Z"  -- tbd: date
+    ORGANIZATION 
+        "Net Insight AB"
+    CONTACT-INFO
+        "Martin Carlsson
+         Net Insight AB
+         E-mail: martin.carlsson@netinsight.se"
+    DESCRIPTION
+        "tbd: Describe the configuration model"
+    ::= { netiExperimentalGeneric 7 }
+
+netiConfigMIBObjects OBJECT IDENTIFIER ::= { netiConfigMIB 1 }
+
+
+-- -------------------------------------------------------------
+-- Groups in the NETI-CONFIG-MIB
+-- -------------------------------------------------------------
+
+configStatusGroup OBJECT IDENTIFIER ::= { netiConfigMIBObjects 1 }
+configLocalGroup OBJECT IDENTIFIER ::= { netiConfigMIBObjects 2 }
+configBackupGroup OBJECT IDENTIFIER ::= { netiConfigMIBObjects 3 }
+
+
+-- -------------------------------------------------------------
+-- The configuration status group
+-- -------------------------------------------------------------
+
+-- Shows the status of the current (running) configuration in the node.
+
+configStatusIsCurrentUnsaved OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Set to true if the current configuration in the
+         node contains unsaved data."
+    ::= { configStatusGroup 1 }
+
+configStatusCurrentLastChangedTime OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The date and time when the current configuration
+         was last changed."
+    ::= { configStatusGroup 2 }
+
+
+-- -------------------------------------------------------------
+-- The local storage configuration table group
+-- -------------------------------------------------------------
+
+-- The configuration handling group consists of configuration 
+-- status information and list of configuration files currently 
+-- stored locally in the node.
+
+-- If storing a configuration file fails (see the backup group) 
+-- this may be caused by the fact that the configuration store is
+-- full. In this case the manager can try and remove one of 
+-- the entries (perhaps the oldest) and try again.
+
+configLocalTableLastChangedTime OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The date and time when the configuration table was 
+         last changed."
+    ::= { configLocalGroup 2 }
+
+configLocalTableNrOfConfigs OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The number of configurations currently in the 
+         configuration table."
+    ::= { configLocalGroup 3 }
+
+configLocalTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF ConfigLocalEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Table of configuration files stored in the node."
+    ::= { configLocalGroup 4 }
+
+configLocalEntry OBJECT-TYPE
+    SYNTAX      ConfigLocalEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each entry describes one configuration file."
+    INDEX { configLocalIndex }
+    ::= { configLocalTable 1 }
+
+ConfigLocalEntry ::= SEQUENCE {
+    configLocalIndex          INTEGER,
+    configLocalName           DisplayString,
+    configLocalDescription    DisplayString,
+    configLocalCreatedTime    DateAndTime,
+    configLocalSize           INTEGER,
+    configLocalAdminStatus    INTEGER,
+    configLocalRowStatus      RowStatus }
+
+configLocalIndex OBJECT-TYPE
+    SYNTAX      INTEGER (1..2147483647)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Index in the config table."
+    ::= { configLocalEntry 1 }
+
+configLocalName OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The name of the configuration file."
+    ::= { configLocalEntry 2 }
+
+configLocalDescription OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "A textual description of the configuration."
+    ::= { configLocalEntry 3 }
+
+configLocalCreatedTime OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+            "The date and time when the configuration was created."
+    ::= { configLocalEntry 4 }
+
+configLocalSize OBJECT-TYPE
+    SYNTAX      INTEGER (0..2147483647)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The size in bytes of the configuration filed."
+    ::= { configLocalEntry 5 }
+
+configLocalAdminStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    enabled(1),
+                    disabled(2) }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Set to enabled if this is the configuration to
+         be loaded at boot time."
+    ::= { configLocalEntry 6 }
+
+configLocalRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Note that local configurations are created by doing a
+         backup, see the backup group."
+    ::= { configLocalEntry 7 }
+
+
+-- -------------------------------------------------------------
+-- The configuration backup group
+-- -------------------------------------------------------------
+
+-- The backup groups contains variables to intitiate backups.
+-- tbd: Could perhaps be extended to handle backups over TFTP/FTP
+-- and upload over TFTP/FTP and perhaps even scheduled backups...
+
+configBackupOperation OBJECT-TYPE
+    SYNTAX  INTEGER {
+                idle (1),   
+                writeCurrentToLocal (2) }   
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The backup operations supported:
+
+         idle
+         Resets the function.
+
+         writeCurrentToLocal
+         Writes the current config to local storage.
+         Uses configBackupName and configBackupDescription."
+    ::= { configBackupGroup 1 }
+
+configBackupStatus OBJECT-TYPE
+    SYNTAX  INTEGER {
+                idle (1),
+                inProgress (2),
+                failed (3),
+                ready (4) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The status of the backup function:
+         
+         idle
+         The function is idle.
+         
+         inProgress
+         A backup operation is in progress.
+         
+         failed
+         The operation has failed.
+         
+         ready 
+         The operation is finished and has succeeded."
+    ::= { configBackupGroup 2 }
+
+configBackupName OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The name of the configuration file.
+         Defaults to a string containing the 
+         date and time."
+    ::= { configBackupGroup 3 }
+
+configBackupDescription OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The description for the new configuration file.
+         Defaults to the empty string."
+    ::= { configBackupGroup 4 }
+END
+
+
+
+
+
+
+
+

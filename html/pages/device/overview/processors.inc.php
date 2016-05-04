@@ -6,17 +6,16 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 $graph_type = "device_processor";
 
-$sql  = "SELECT *, `processors`.`processor_id` AS `processor_id`";
-$sql .= " FROM `processors`";
-$sql .= " LEFT JOIN `processors-state` ON `processors`.processor_id = `processors-state`.processor_id";
-$sql .= " WHERE `processors`.`processor_type` != 'hr-average' AND `device_id` = ?";
+$sql  = "SELECT * FROM `processors`";
+$sql .= " LEFT JOIN `processors-state` USING(`processor_id`)";
+$sql .= " WHERE `processor_type` != 'hr-average' AND `device_id` = ?";
 
 $processors_db = dbFetchRows($sql, array($device['device_id']));
 
@@ -27,22 +26,24 @@ if (count($processors_db))
   foreach ($processors_db as $proc)
   {
     $text_descr = rewrite_entity_name($proc['processor_descr']);
+    $processors[$text_descr]['device_id'] = $device['device_id'];
+    $processors[$text_descr]['processor_id'] = $proc['processor_id'];
     $processors[$text_descr]['id'][]   = $proc['processor_id'];
     $processors[$text_descr]['usage'] += $proc['processor_usage'];
     $processors[$text_descr]['count']++;
   }
 ?>
 
-        <div class="widget widget-table">
-          <div class="widget-header">
+        <div class="box box-solid">
+          <div class="box-header ">
             <a href="<?php echo(generate_url(array('page' => 'device', 'device' => $device['device_id'], 'tab' => 'health', 'metric' => 'processor'))); ?>">
-              <i class="oicon-processor"></i><h3>Processors</h3>
+              <i class="oicon-processor"></i><h3 class="box-title">Processors</h3>
             </a>
           </div>
-          <div class="widget-content">
+          <div class="box-body no-padding">
 
 <?php
-  echo('<table class="table table-condensed-more table-striped table-bordered">');
+  echo('<table class="table table-condensed table-striped">');
 
   foreach ($processors as $text_descr => $proc)
   {
@@ -75,8 +76,9 @@ if (count($processors_db))
     $minigraph =  generate_graph_tag($graph_array);
 
     $count_button = ($proc['count'] > 1 ? '<span class="label pull-right" style="margin-top: 2px; font-size: 11px;"><i class="icon-remove"></i> '.$proc['count'].'</span>' : '');
-    echo('<tr>
-           <td><span class="entity">'.overlib_link($link, $text_descr, $overlib_content).'</span>'.$count_button.'</td>
+    echo('<tr class="'.$background['class'].'">
+           <td class="state-marker"></td>
+           <td><span class="entity">'.generate_entity_link('processor', $proc, $text_descr).'</span>'.$count_button.'</td>
            <td style="width: 90px">'.overlib_link($link, $minigraph, $overlib_content).'</td>
            <td style="width: 200px">'.overlib_link($link, print_percentage_bar(200, 20, $percent, NULL, "ffffff", $background['left'], $percent . "%", "ffffff", $background['right']), $overlib_content).'</td>
          </tr>');

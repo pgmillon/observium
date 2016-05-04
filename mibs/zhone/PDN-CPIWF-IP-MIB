@@ -1,0 +1,661 @@
+-- ===============================================================
+-- Copyright (C) 2004 Paradyne Corporation.
+-- ===============================================================
+PDN-CPIWF-IP-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    OBJECT-GROUP, MODULE-COMPLIANCE, NOTIFICATION-GROUP
+        FROM SNMPv2-CONF
+    pdn-common
+        FROM PDN-HEADER-MIB
+    pdnCpIwfEntry, pdnCpIwfIndex
+	FROM PDN-CP-IWF-MIB
+    Integer32, Unsigned32,
+    OBJECT-TYPE, MODULE-IDENTITY, IpAddress, NOTIFICATION-TYPE
+        FROM SNMPv2-SMI
+    SwitchState
+        FROM PDN-TC
+    TEXTUAL-CONVENTION, DisplayString
+        FROM SNMPv2-TC;
+
+pdnCpIwfIpMIB MODULE-IDENTITY
+    LAST-UPDATED "200412031100Z"  -- Dec 03, 2004
+    ORGANIZATION "Paradyne Networks
+                  MIB Working Group
+                  Other information about group editing the MIB"
+    CONTACT-INFO "Paradyne Networks, Inc.
+                  8545 126th Avenue North
+                  Largo, FL 33773
+                  www.paradyne.com
+        
+                  General Comments to: mibwg_team@paradyne.com
+
+                  Editor
+                      Jesus Pinto"
+
+    DESCRIPTION
+        "This module contains objects that are used for monitoring and
+        controlling CPIWF interfaces when terminating an IP Network.
+
+	This enterprise mib is meant to be used in connection with RFC 2863
+	which defines the ifTable and the Paradyne Enterprise 
+	PDN-CP-IWF-MIB.mib.
+	"
+    REVISION "200503241100Z"  -- Mar 23, 2005
+    DESCRIPTION "Added back pdnCpIwfIpActiveSoftswitch"
+ 
+    REVISION "200501051100Z"  -- Jan 05, 2005
+    DESCRIPTION "Added pdnCpIwfIpMgcpPriAgentDNSIpAddr and 
+                 pdnCpIwfIpMgcpSecAgentDNSIpAddr to the CpIwfIp MGCP Table"
+ 
+    REVISION "200412031100Z"  -- Dec 03, 2004
+    DESCRIPTION "Added pdnCpIwfIpMgcpRSIPKeepAlive to the CpIwfIp MGCP Table"
+ 
+    REVISION "200410071100Z"  -- Oct 07, 2004
+    DESCRIPTION "o Removed pdnCpIwfIpBracketing from CpIwfIpTable is favor
+                   of pdnCpIwfIpMgcpEndPtFormat which supports more
+                   options.
+                 o Added pdnCpIwfIpMgcpEndPtFormat object for domain
+                   formatting options
+                 o Added pdnCpIwfIpMgcpDomainName object to be used
+                   if the formatting option is 'domainname (3)'
+                 o Removed the following items from mib as requested by SE:
+		       * Removed DtmfSignaling TEXTUAL-CONVENTION
+                       * Removed pdnCpIwfIpDtmfSignaling
+                 o Removed pdnCpIwfIpActiveSoftswitch in favor of keeping
+                   this object on a per Port basis rather than per IAD.
+                 o Removed DscpBits TEXTUAL-CONVENTION
+	"
+
+    REVISION "200409301100Z"  -- Sep 30, 2004
+    DESCRIPTION "Added pdnCpIwfIpBracketing to the CpIwfIp Config Table"
+ 
+    REVISION "200408240000Z"  -- Aug 24, 2004
+    DESCRIPTION "Initial release."
+
+::=  { pdn-common 53 }
+
+pdnCpIwfIpNotifications  OBJECT IDENTIFIER ::= { pdnCpIwfIpMIB 0 }
+pdnCpIwfIpMIBObjects     OBJECT IDENTIFIER ::= { pdnCpIwfIpMIB 1 }
+pdnCpIwfIpMIBConformance OBJECT IDENTIFIER ::= { pdnCpIwfIpMIB 2 }
+
+pdnCpIwfIpConfigObjects	 OBJECT IDENTIFIER ::= { pdnCpIwfIpMIBObjects 1 }
+pdnCpIwfIpTestObjects    OBJECT IDENTIFIER ::= { pdnCpIwfIpMIBObjects 2 }
+pdnCpIwfIpStatsObjects	 OBJECT IDENTIFIER ::= { pdnCpIwfIpMIBObjects 3 }
+pdnCpIwfIpApplObjects	 OBJECT IDENTIFIER ::= { pdnCpIwfIpMIBObjects 4 }
+
+--####################################
+--# Textual Conventions
+--####################################
+
+VoiceChannelType  ::= TEXTUAL-CONVENTION
+	STATUS	 current
+	DESCRIPTION
+  	  "This textual convention defines the possible
+	  voice channel types for a CpIWF interface
+	  "
+
+	SYNTAX	INTEGER {
+		  bearer     (1), -- Bearer Traffic
+		  signaling  (2)  -- Signaling Traffic
+		}
+
+--######################################
+--# Configuration of Ip Layer parameters
+--# as they relate to CPIWF interfaces
+--######################################
+
+--
+-- Augmentation of the pdnCpIwfTable
+-- with IP-SPECIFIC parameters
+--
+pdnCpIwfIpTable OBJECT-TYPE
+      SYNTAX      SEQUENCE OF PdnCpIwfIpEntry
+      MAX-ACCESS  not-accessible
+      STATUS      current
+      DESCRIPTION
+        "The Cp-Iwf IP Configuration table."
+      ::= { pdnCpIwfIpConfigObjects 1 }
+
+pdnCpIwfIpEntry OBJECT-TYPE
+      SYNTAX      PdnCpIwfIpEntry
+      MAX-ACCESS  not-accessible
+      STATUS      current
+      DESCRIPTION
+        "An entry in the Cp-Iwf IP configuration table.
+
+        There would be one entry in this table for each
+        entry in the pdnCpIwfTable if this CPIWF interface
+	terminates an IP network.
+	"
+
+      AUGMENTS  { pdnCpIwfEntry }
+      ::= { pdnCpIwfIpTable 1 }
+
+PdnCpIwfIpEntry ::= SEQUENCE {
+      pdnCpIwfIpAddress              IpAddress,
+      pdnCpIwfIpNetMask              IpAddress,
+      pdnCpIwfIpDefGateway           IpAddress,
+      pdnCpIwfIpActiveSoftswitch     INTEGER
+}
+
+pdnCpIwfIpAddress OBJECT-TYPE
+    SYNTAX      IpAddress
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+            "The IP address configured in this CpIwf
+
+             A 0.0.0.0 for this object indicates that no IP
+             address is assigned to the CpIwf
+
+             Changes to this object could disrupt data flow
+             through this CpIwf
+	    "
+    ::= { pdnCpIwfIpEntry 1 }
+
+pdnCpIwfIpNetMask OBJECT-TYPE
+    SYNTAX      IpAddress
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+            "The IP subnet mask configured in this CpIwf.
+
+             A 0.0.0.0 for the this object indicates that no IP
+             subnet mask is assigned to the CpIwf.
+
+             Changes to this object could disrupt data flow
+             through the CpIwf
+            "
+    ::= { pdnCpIwfIpEntry 2 }
+
+pdnCpIwfIpDefGateway OBJECT-TYPE
+    SYNTAX      IpAddress
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+            "The IP next hop address (gateway) for this CpIwf.
+
+             A 0.0.0.0 for this object indicates that no IP
+             Gateway is assigned to the CpIwf."
+
+    ::= { pdnCpIwfIpEntry 3 }
+
+
+pdnCpIwfIpActiveSoftswitch OBJECT-TYPE
+    SYNTAX      INTEGER {
+                   primary   (1),
+                   secondary (2),
+		   none      (3)
+		}
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+	"This object displays the active selection for 
+        the Softswitch (Call Agent, Proxy Agent, etc.)
+	for this IAD entry.
+
+        If the SNMP agent can not determine an active
+	softswitch for this IAD entry, the value of this object
+	will be set to 'none (3)'.
+
+        This object is related to the pdnPotsPortActiveSoftswitch 
+	object for those pots port's instances terminating in this IAD.
+	That is, if at least one pots port terminating in this IAD losses
+        communication with its Softswitch (call agent, proxy
+        server, etc.), the value of the current object is also set
+        to 'none (3)'.
+        "
+    ::= { pdnCpIwfIpEntry 4 }
+
+
+--
+-- Configuration of parameters in the voice channels
+-- used to carry IP traffic terminating in our CPIWF
+-- Interface
+
+pdnCpIwfIpChanTable OBJECT-TYPE
+      SYNTAX      SEQUENCE OF PdnCpIwfIpChanEntry
+      MAX-ACCESS  not-accessible
+      STATUS      current
+      DESCRIPTION
+        "The Cp-Iwf IP channel voice table."
+      ::= { pdnCpIwfIpConfigObjects 2 }
+
+pdnCpIwfIpChanEntry OBJECT-TYPE
+      SYNTAX      PdnCpIwfIpChanEntry
+      MAX-ACCESS  not-accessible
+      STATUS      current
+      DESCRIPTION
+        "An entry in this table identifies a voice channel
+        defined over a CPIWF in which an IP network
+	terminates. Various channels may be used to carry
+        different type of traffics (e.g, signalling, 
+        bearer). The agent is responsible for automatically
+        populating this table with all the channels defined
+        for each CPIWF interface.
+	"
+
+      INDEX  { pdnCpIwfIndex, pdnCpIwfIpChanType }
+      ::= { pdnCpIwfIpChanTable 1 }
+
+PdnCpIwfIpChanEntry ::= SEQUENCE {
+      pdnCpIwfIpChanType          VoiceChannelType,
+      pdnCpIwfIpChandot1dBasePort Unsigned32,
+      pdnCpIwfIpChanTosDSCP       Integer32
+}
+
+pdnCpIwfIpChanType OBJECT-TYPE
+    SYNTAX      VoiceChannelType
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION 
+	"This object indicates the voice channel type which is used
+	as the second key to identify an entry in the table"
+    ::= { pdnCpIwfIpChanEntry 1 }
+
+pdnCpIwfIpChandot1dBasePort OBJECT-TYPE
+    SYNTAX      Unsigned32(1..65535)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "This object specifies the bridge port assigned
+         to this channel on this CPIWF interface.
+
+	These assignments are done automatically."
+    ::= { pdnCpIwfIpChanEntry 2 }
+
+pdnCpIwfIpChanTosDSCP OBJECT-TYPE
+    SYNTAX      Integer32 (0..63)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION 
+        "This object is used to configure the 6 bits
+        corresponding to the Differentiated Services
+	Code Point as specified in RFC2474.
+
+        There are 64 entries represented by this object,
+        each bit corresponds to a code points 0 thru 63
+	(bits 000000 thru 111111), for each device.
+
+	If additional functionallity regarding Differentiated
+	Services is required this object could be deprecated
+	and the standard DIFFSERV-MIB should be used instead.
+	"
+    ::= { pdnCpIwfIpChanEntry 3 }
+
+--##########################################
+--# Configuration of Application Layer
+--# protocols when the CPIWF is terminating
+--# the IP network
+--##########################################
+
+--
+-- Augmentation of the pdnCpIwfTable
+-- to support configuration of different
+-- Voice Call processing protocols.
+--
+
+-- RTP Protocol 
+
+pdnCpIwfIpRtpTable OBJECT-TYPE
+      SYNTAX      SEQUENCE OF PdnCpIwfIpRtpEntry
+      MAX-ACCESS  not-accessible
+      STATUS      current
+      DESCRIPTION
+        "The Real-Time Protocol config table for CPIWF
+	terminating the IP network."
+      ::= { pdnCpIwfIpApplObjects 1 }
+
+pdnCpIwfIpRtpEntry OBJECT-TYPE
+      SYNTAX      PdnCpIwfIpRtpEntry
+      MAX-ACCESS  not-accessible
+      STATUS      current
+      DESCRIPTION
+        "An entry in the Rtp configuration table.
+
+        There would be one entry in this table for each
+        entry in the pdnCpIwfTable if this CPIWF interface
+	terminates an IP network.
+	"
+
+      AUGMENTS  { pdnCpIwfEntry }
+      ::= { pdnCpIwfIpRtpTable 1 }
+
+PdnCpIwfIpRtpEntry ::= SEQUENCE {
+      pdnCpIwfIpRtpLocalPortBase  Integer32
+}
+
+pdnCpIwfIpRtpLocalPortBase OBJECT-TYPE
+      SYNTAX      Integer32 (1..2147483647)
+      MAX-ACCESS  read-write
+      STATUS      current
+      DESCRIPTION 
+        "This object contains the base port range to be
+	used for incoming RTP streams.
+	"
+    ::= { pdnCpIwfIpRtpEntry 1 }
+
+
+-- MGCP Protocol
+
+pdnCpIwfIpMgcpTable OBJECT-TYPE
+      SYNTAX      SEQUENCE OF PdnCpIwfIpMgcpEntry
+      MAX-ACCESS  not-accessible
+      STATUS      current
+      DESCRIPTION
+        "The Media Gateway Control Protocol (MGCP)
+	configuration parameters applicable to a CPIWF
+	terminating the IP network."
+      ::= { pdnCpIwfIpApplObjects 2 }
+
+pdnCpIwfIpMgcpEntry OBJECT-TYPE
+      SYNTAX      PdnCpIwfIpMgcpEntry
+      MAX-ACCESS  not-accessible
+      STATUS      current
+      DESCRIPTION
+        "An entry in the Mgcp configuration table.
+
+        There would be one entry in this table for each
+        entry in the pdnCpIwfTable if this CPIWF interface
+	terminates an IP network.
+	"
+
+      AUGMENTS  { pdnCpIwfEntry }
+      ::= { pdnCpIwfIpMgcpTable 1 }
+
+PdnCpIwfIpMgcpEntry ::= SEQUENCE {
+      pdnCpIwfIpMgcpPortNumber         Integer32,
+      pdnCpIwfIpMgcpPriAgentName       DisplayString,
+      pdnCpIwfIpMgcpPriAgentIpAddr     IpAddress,
+      pdnCpIwfIpMgcpPriAgentPortNum    Integer32,
+      pdnCpIwfIpMgcpPriAgentDNSIpAddr  IpAddress,
+      pdnCpIwfIpMgcpSecAgentName       DisplayString,
+      pdnCpIwfIpMgcpSecAgentIpAddr     IpAddress,
+      pdnCpIwfIpMgcpSecAgentPortNum    Integer32,
+      pdnCpIwfIpMgcpSecAgentDNSIpAddr  IpAddress,
+      pdnCpIwfIpMgcpRFC2833LoopSignal  SwitchState,
+      pdnCpIwfIpMgcpIADomainName       DisplayString,
+      pdnCpIwfIpMgcpEndPtFormat        INTEGER,
+      pdnCpIwfIpMgcpRSIPKeepAlive      Integer32
+}
+
+pdnCpIwfIpMgcpPortNumber OBJECT-TYPE
+      SYNTAX      Integer32(1..2147483647)
+      MAX-ACCESS  read-write
+      STATUS      current
+      DESCRIPTION 
+        "This object contains the local port number.
+	"
+    ::= { pdnCpIwfIpMgcpEntry 1 }
+
+pdnCpIwfIpMgcpPriAgentName OBJECT-TYPE
+      SYNTAX      DisplayString
+      MAX-ACCESS  read-write
+      STATUS      current
+      DESCRIPTION 
+        "This object contains a text with the primary agent name.
+	"
+    ::= { pdnCpIwfIpMgcpEntry 2 }
+
+pdnCpIwfIpMgcpPriAgentIpAddr OBJECT-TYPE
+      SYNTAX      IpAddress
+      MAX-ACCESS  read-write
+      STATUS      current
+      DESCRIPTION 
+        "This object contains the primary agent's IP Address.
+	"
+    ::= { pdnCpIwfIpMgcpEntry 3 }
+
+pdnCpIwfIpMgcpPriAgentPortNum OBJECT-TYPE
+      SYNTAX      Integer32(1..2147483647)
+      MAX-ACCESS  read-write
+      STATUS      current
+      DESCRIPTION 
+        "This object contains the primary agent's port number.
+	"
+    ::= { pdnCpIwfIpMgcpEntry 4 }
+
+pdnCpIwfIpMgcpPriAgentDNSIpAddr OBJECT-TYPE
+      SYNTAX      IpAddress
+      MAX-ACCESS  read-write
+      STATUS      current
+      DESCRIPTION 
+        "This object contains the primary agent's Domain Name Server's IP Address.
+	"
+    ::= { pdnCpIwfIpMgcpEntry 5 }
+
+pdnCpIwfIpMgcpSecAgentName OBJECT-TYPE
+      SYNTAX      DisplayString
+      MAX-ACCESS  read-write
+      STATUS      current
+      DESCRIPTION 
+        "This object contains a text with the secondary agent name.
+	"
+    ::= { pdnCpIwfIpMgcpEntry 6 }
+
+pdnCpIwfIpMgcpSecAgentIpAddr OBJECT-TYPE
+      SYNTAX      IpAddress
+      MAX-ACCESS  read-write
+      STATUS      current
+      DESCRIPTION 
+        "This object contains the secondary agent's IP Address.
+	"
+    ::= { pdnCpIwfIpMgcpEntry 7 }
+
+pdnCpIwfIpMgcpSecAgentPortNum OBJECT-TYPE
+      SYNTAX      Integer32(1..2147483647)
+      MAX-ACCESS  read-write
+      STATUS      current
+      DESCRIPTION 
+        "This object contains the secondary agent's port number.
+	"
+    ::= { pdnCpIwfIpMgcpEntry 8 }
+
+pdnCpIwfIpMgcpSecAgentDNSIpAddr OBJECT-TYPE
+      SYNTAX      IpAddress
+      MAX-ACCESS  read-write
+      STATUS      current
+      DESCRIPTION 
+        "This object contains the secondary agent's Domain Name Server's IP Address.
+	"
+    ::= { pdnCpIwfIpMgcpEntry 9 }
+
+pdnCpIwfIpMgcpRFC2833LoopSignal OBJECT-TYPE
+      SYNTAX      SwitchState
+      MAX-ACCESS  read-write
+      STATUS      current
+      DESCRIPTION 
+        "This object contains the MGCP loop signaling.
+	"
+    ::= { pdnCpIwfIpMgcpEntry 10 }
+
+pdnCpIwfIpMgcpIADomainName OBJECT-TYPE
+      SYNTAX      DisplayString
+      MAX-ACCESS  read-write
+      STATUS      current
+      DESCRIPTION 
+        "This object contains a text description that lets the user
+         provide a Fully Qualified Domain Name as the domain name
+         portion of the endpoint identifier, as an alternative to 
+         using the IP Address of the IAD.
+
+         This object will be used as the domain name of endpoint
+         identifier if the pdnCpIwfIpMgcpEndPtFormat is set to:
+         'domainname (3)'; otherwise the value of this object is 
+	 ignored.
+	"
+    ::= { pdnCpIwfIpMgcpEntry 11 }
+
+pdnCpIwfIpMgcpEndPtFormat OBJECT-TYPE
+      SYNTAX      INTEGER {
+	             ipaddr           (1),
+		     bracketandipaddr (2),
+                     domainname       (3)
+                  }
+
+      MAX-ACCESS  read-write
+      STATUS      current
+      DESCRIPTION 
+        "This object specifies the format option to use for the
+         domain portion of the MGCP endpoint identifier. 
+         The following options are available:
+
+        domainipaddr (1):
+        ==========
+            Indicates that IP Address for the IAD shall be used for
+	    the domain portion of the endpoint identifier.
+
+	    (e.g., aaln/1@1.2.3.4 - where 1.2.3.4 is the IPAddress)
+
+        domainbracketipaddr (2):
+        ====================
+            Indicates that IP Address for the IAD shall be used for
+            the domain portion of of the endpoint identifier enclosed
+            in brackets.
+
+	    (e.g., aaln/1@[1.2.3.4] - where 1.2.3.4 is the IPAddress)
+           
+        domainname (3):
+        ====================
+            Indicates that the domain name specified in object 
+	    pdnCpIwfIpMgcpIADomainName shall be used for the domain
+            portion of the endpoint identifier.
+
+	    (e.g., aaln/1@bac1.mytelco.net - 
+            where bac1.mytelco.net is the domain name set in the
+            pdnCpIwfIpMgcpIADomainName object)
+	"
+    ::= { pdnCpIwfIpMgcpEntry 12 }
+
+pdnCpIwfIpMgcpRSIPKeepAlive OBJECT-TYPE
+      SYNTAX      Integer32(0..600)
+      MAX-ACCESS  read-write
+      STATUS      current
+      DESCRIPTION 
+        "This object contains the MGCP restart in progress (RSIP)
+	keep alive value. A value of 0 implies the RSIP keep 
+	alive timer is disabled.
+	"
+    ::= { pdnCpIwfIpMgcpEntry 13 }
+
+
+-- ===========================================================================
+-- =                  Traps/Notifications                                   ==
+-- ===========================================================================
+pdnCpIwfIpActiveSoftSwitchChanged NOTIFICATION-TYPE
+    STATUS      current
+    DESCRIPTION "This trap/notification will be issued whenever
+                 there is a transition in the Active Softswitch.
+                 The trap carries the current value of the 
+                 active softswitch at the time the event was
+                 generated.
+                "
+    ::= { pdnCpIwfIpNotifications 1 }
+
+--============================================================================
+--==                 Conformance Information                                ==
+--============================================================================
+
+pdnCpIwfIpMIBCompliances  OBJECT IDENTIFIER ::= { pdnCpIwfIpMIBConformance 1 }
+pdnCpIwfIpMIBGroups       OBJECT IDENTIFIER ::= { pdnCpIwfIpMIBConformance 2 }
+pdnCpIwfIpNtfyGroups      OBJECT IDENTIFIER ::= { pdnCpIwfIpMIBConformance 3 }
+
+-- ===========================
+-- == Compliance Statements ==
+-- ===========================
+
+pdnCpIwfIpMIBCompliance MODULE-COMPLIANCE
+    STATUS      current
+    DESCRIPTION 
+	"The compliance statement for SNMP entities that support 
+	Customer Premises Interworking Function (CP-IWF) as specified 
+	in af-vmoa-0145.000 of the ATM Forum and also these CP-IWFs
+        are used to terminate an IP network.
+	"
+
+    MODULE -- this module
+
+    GROUP pdnCpIwfIpConfigGroup
+    DESCRIPTION
+	"Implementation of this group is optional for
+	CpIwf terminating an IP network.
+	"
+    GROUP pdnCpIwfIpApplConfigGroup
+    DESCRIPTION
+	"Implementation of this group is optional for
+	CpIwf terminating an IP network.
+	"
+    GROUP pdnCpIwfIpNtfyGroup
+    DESCRIPTION
+	"Implementation of this group is optional for
+	CpIwf terminating an IP network.
+	"
+
+    ::= { pdnCpIwfIpMIBCompliances 1 }
+
+-- ==========================
+-- == Units of Conformance ==
+-- ==========================
+
+-- ===================
+-- == Object Groups ==
+-- ===================
+
+pdnCpIwfIpConfigGroup OBJECT-GROUP
+	OBJECTS {
+                pdnCpIwfIpChandot1dBasePort,
+                pdnCpIwfIpChanTosDSCP,
+                pdnCpIwfIpAddress,
+                pdnCpIwfIpNetMask,
+                pdnCpIwfIpDefGateway,
+                pdnCpIwfIpActiveSoftswitch
+	}
+
+	STATUS  current
+	DESCRIPTION
+	"Configuration of CpIwf interfaces being used to
+	 terminate an IP network."
+	::= { pdnCpIwfIpMIBGroups 1 }
+
+pdnCpIwfIpApplConfigGroup OBJECT-GROUP
+	OBJECTS {
+		pdnCpIwfIpRtpLocalPortBase,
+                pdnCpIwfIpMgcpPortNumber,
+                pdnCpIwfIpMgcpPriAgentName,
+                pdnCpIwfIpMgcpPriAgentIpAddr,
+                pdnCpIwfIpMgcpPriAgentPortNum,
+		pdnCpIwfIpMgcpPriAgentDNSIpAddr,
+                pdnCpIwfIpMgcpSecAgentName,
+                pdnCpIwfIpMgcpSecAgentIpAddr,
+                pdnCpIwfIpMgcpSecAgentPortNum,
+		pdnCpIwfIpMgcpSecAgentDNSIpAddr,
+	        pdnCpIwfIpMgcpRFC2833LoopSignal,
+	        pdnCpIwfIpMgcpIADomainName,
+                pdnCpIwfIpMgcpEndPtFormat,
+		pdnCpIwfIpMgcpRSIPKeepAlive
+	}
+
+	STATUS  current
+	DESCRIPTION
+	"Configuration of IP Application Voice Call processing
+	 protocols that apply to the CPIWFs that terminate an
+	 IP network."
+	::= { pdnCpIwfIpMIBGroups 2 }
+
+-- =========================
+-- == Notification Groups ==
+-- =========================
+
+pdnCpIwfIpNtfyGroup NOTIFICATION-GROUP
+    NOTIFICATIONS {
+                     pdnCpIwfIpActiveSoftSwitchChanged
+    }
+    STATUS      current
+    DESCRIPTION "Notifications related to a CpIwf that terminates
+	         an IP Network.
+                "
+    ::= { pdnCpIwfIpNtfyGroups  1 }
+
+
+END -- end of module PDN-CPIWF-IP-MIB

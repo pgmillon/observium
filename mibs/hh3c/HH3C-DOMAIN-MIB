@@ -1,9 +1,9 @@
 -- ==================================================================
--- Copyright (C) 2009 by H3C Technologies. All rights reserved.
+-- Copyright (C) 2004-2014 by H3C Technologies. All rights reserved.
 --
 -- Description: Domain MIB
 -- Reference:
--- Version: V1.6
+-- Version: V2.0
 -- History:
 -- V1.0 2005.03.23 The initial version, created by Xulei
 -- V1.1 2005.06.03 updated by Xulei
@@ -21,15 +21,23 @@
 -- V1.5 2008.12.30 updated by dupengfei
 --      Add hh3cDomainCurrentAccessNum
 -- V1.6 2009.08.05 updated by huxiulan
---      Add an enumeration wapi(12) to object hh3cAccessModeofDomainScheme
+--      Add an enumeration reserved(12) to object hh3cAccessModeofDomainScheme
+-- V1.7 2012.05.20 updated by qiuchunxia
+--      Add hh3cDomainIdleCutTime
+--      2012.10.15 updated by liubo
+--      Add an enumeration ldap(5) to object hh3cDomainSchemeMode
+-- V1.8 2013.02.28 updated by xuyonggang
+--      change hh3cDomainSchemeAccessMode
+-- V1.9 2013.4.25 updated by qiuchunxia
+--      Delete the range of hh3cDomainIdleCutMaxTime
+-- V2.0 2013.11.25 updated by zhangdexu
+--      change the range of hh3cDomainDefault and hh3cDomainName
 -- ==================================================================
 HH3C-DOMAIN-MIB DEFINITIONS ::= BEGIN
     IMPORTS
         hh3cCommon
             FROM HH3C-OID-MIB
-        OBJECT-GROUP, MODULE-COMPLIANCE
-            FROM SNMPv2-CONF
-        Integer32, Counter32, OBJECT-TYPE, MODULE-IDENTITY, NOTIFICATION-TYPE
+        Integer32, OBJECT-TYPE, MODULE-IDENTITY, TimeTicks
             FROM SNMPv2-SMI
         InetAddressType, InetAddress
             FROM INET-ADDRESS-MIB
@@ -37,7 +45,7 @@ HH3C-DOMAIN-MIB DEFINITIONS ::= BEGIN
             FROM SNMPv2-TC;
 
     hh3cDomain MODULE-IDENTITY
-        LAST-UPDATED "200908050000Z"            -- August 05, 2009 at 00:00 GMT
+        LAST-UPDATED "201210150000Z"            -- October 15, 2012 at 00:00 GMT
         ORGANIZATION
             "Hangzhou H3C Tech. Co., Ltd."
         CONTACT-INFO
@@ -57,13 +65,15 @@ HH3C-DOMAIN-MIB DEFINITIONS ::= BEGIN
         none: indicates the domain has no scheme.
         local:indicates the domain will use local-server as a scheme.
         radius:indicates the domain will use radius scheme.
-        tacacs:indicates the domain will use tacacs scheme."
+        tacacs:indicates the domain will use tacacs scheme.
+        ldap:indicates the domain will use ldap scheme."
         SYNTAX INTEGER
         {
             none(1),
             local(2),
             radius(3),
-            tacacs(4)
+            tacacs(4),
+            ldap(5)
         }
 
     Hh3cAAATypeDomainScheme ::= TEXTUAL-CONVENTION
@@ -95,13 +105,13 @@ HH3C-DOMAIN-MIB DEFINITIONS ::= BEGIN
             voice(9),
             superauthen(10),
             command(11),
-            wapi(12)
+            reserved(12)
         }
 
     hh3cDomainControl OBJECT IDENTIFIER ::= { hh3cDomain 1 }
 
     hh3cDomainDefault OBJECT-TYPE
-        SYNTAX      OCTET STRING (SIZE (1..128))
+        SYNTAX      OCTET STRING (SIZE (1..255))
         MAX-ACCESS  read-write
         STATUS      current
         DESCRIPTION
@@ -143,10 +153,11 @@ HH3C-DOMAIN-MIB DEFINITIONS ::= BEGIN
         hh3cDomainSelfServiceURL         OCTET STRING,
         hh3cDomainAccFailureAction       INTEGER,
         hh3cDomainRowStatus              RowStatus,
-        hh3cDomainCurrentAccessNum       Integer32 }
+        hh3cDomainCurrentAccessNum       Integer32,
+        hh3cDomainIdleCutTime            TimeTicks }
 
     hh3cDomainName   OBJECT-TYPE
-        SYNTAX  OCTET STRING (SIZE (1..128))
+        SYNTAX  OCTET STRING (SIZE (1..255))
         MAX-ACCESS  not-accessible
         STATUS  current
         DESCRIPTION
@@ -204,7 +215,7 @@ HH3C-DOMAIN-MIB DEFINITIONS ::= BEGIN
     ::= { hh3cDomainInfoEntry  5 }
 
     hh3cDomainIdleCutMaxTime   OBJECT-TYPE
-        SYNTAX Integer32(1..120)
+        SYNTAX Integer32
         MAX-ACCESS  read-create
         STATUS  current
         DESCRIPTION
@@ -308,6 +319,15 @@ HH3C-DOMAIN-MIB DEFINITIONS ::= BEGIN
         "The current access number of the domain."
     ::= { hh3cDomainInfoEntry 15 }
 
+    hh3cDomainIdleCutTime   OBJECT-TYPE
+        SYNTAX TimeTicks
+        MAX-ACCESS  read-only
+        STATUS  current
+        DESCRIPTION
+        "Authentication aging time.  If no packet is transmitted during the aging time,
+        the authentication is aged out."
+    ::= { hh3cDomainInfoEntry  16 }
+
     -- ----------------------------------------------------------------------
     -- Scheme Table
     -- ----------------------------------------------------------------------
@@ -337,7 +357,6 @@ HH3C-DOMAIN-MIB DEFINITIONS ::= BEGIN
         hh3cDomainSchemeAAAType          Hh3cAAATypeDomainScheme,
         hh3cDomainSchemeAAAName          OCTET STRING,
         hh3cDomainSchemeAccessMode       Hh3cAccessModeofDomainScheme
-
         }
 
     hh3cDomainSchemeIndex   OBJECT-TYPE
@@ -355,9 +374,9 @@ HH3C-DOMAIN-MIB DEFINITIONS ::= BEGIN
         DESCRIPTION
         "The scheme mode of the domain.  Setting hh3cDomainSchemeMode to none(1) indicates
         the domain has none scheme.  Setting hh3cDomainSchemeMode to local(2) indicates the
-        domain will use local-server as a scheme.  Setting hh3cDomainSchemeMode to radius(3)
-        or tacacs(4) indicates the domain will use radius or tacacs scheme.  If set
-        hh3cDomainSchemeMode to radius(3) or tacacs(4), hh3cDomainAuthSchemeName and
+        domain will use local-server as a scheme.  Setting hh3cDomainSchemeMode to radius(3),
+        tacacs(4) or ldap(5) indicates the domain will use radius, tacacs or ldap scheme.  If set
+        hh3cDomainSchemeMode to radius(3), tacacs(4) or ldap(5), hh3cDomainAuthSchemeName and
         hh3cDomainAcctSchemeName must be set to valid values.  And if hh3cDomainSchemeMode is
         set to none(1) or local(2), the value of hh3cDomainAuthSchemeName and hh3cDomainAcctSchemeName
         will be ignored."
@@ -368,8 +387,8 @@ HH3C-DOMAIN-MIB DEFINITIONS ::= BEGIN
         MAX-ACCESS  read-create
         STATUS  current
         DESCRIPTION
-        "The authentication scheme name of domain.  If hh3cDomainSchemeMode is set to radius
-        or tacacs, the hh3cDomainAuthSchemeName must be configured with a valid value."
+        "The authentication scheme name of domain.  If hh3cDomainSchemeMode is set to radius,
+        tacacs or ldap, the hh3cDomainAuthSchemeName must be configured with a valid value."
     ::= { hh3cDomainSchemeEntry  3 }
 
     hh3cDomainAcctSchemeName   OBJECT-TYPE

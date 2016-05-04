@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -22,10 +22,10 @@ if ($device['type'] == 'wireless')
     if (!in_array($radio['wifi_accesspoint_id'],$aps_ids)) $aps_ids[] = $radio['wifi_accesspoint_id'];
   }
 
-  echo('<table class="table table-striped table-bordered table-condensed table-rounded">');
+  echo('<table class="table table-striped  table-condensed ">');
   echo('<tr><td style="width: 350px;">');
-  echo("<span>" . count($aps_ids) . " APs</span><br /><span>" . count($radios) . " radios</span></br>");
-  echo('</td><td><span>Models: ' . implode(", ",$models) .'</span></br><span>Sites: ' . implode(", ",$locations) . '</span></td>');
+  echo("<span>" . count($aps_ids) . " APs</span><br /><span>" . count($radios) . " radios</span><br />");
+  echo('</td><td><span>Models: ' . implode(", ",$models) .'</span><br /><span>Sites: ' . implode(", ",$locations) . '</span></td>');
   //  echo('<td><span>'. $radios[0]['serial'] ." </span></br><span>" . $radios[0]['fingerprint']. "</span></td></tr>");
   echo("</table>");
 }

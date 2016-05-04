@@ -1,0 +1,1287 @@
+-- ===============================================================
+-- == Copyright (C) 2003 Paradyne Corporation.                  ==
+-- ===============================================================
+
+PDN-HDSL2-SHDSL-LINE-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE, 
+    Unsigned32, Counter32, Integer32
+        FROM SNMPv2-SMI
+    OBJECT-GROUP, NOTIFICATION-GROUP, MODULE-COMPLIANCE
+        FROM SNMPv2-CONF
+    TEXTUAL-CONVENTION
+        FROM SNMPv2-TC
+    SnmpAdminString
+        FROM SNMP-FRAMEWORK-MIB
+    ifIndex
+        FROM IF-MIB
+    PerfCurrentCount, PerfIntervalCount
+        FROM PerfHist-TC-MIB
+    Hdsl2ShdslPerfTimeElapsed, Hdsl2ShdslPerfCurrDayCount, 
+    Hdsl2Shdsl1DayIntervalCount, hdsl2ShdslInvIndex, hdsl2ShdslEndpointSide, 
+    hdsl2ShdslEndpointThreshLoopAttenuation,
+    hdsl2ShdslEndpointThreshSNRMargin, hdsl2ShdslEndpointThreshES,
+    hdsl2ShdslEndpointThreshSES, hdsl2ShdslEndpointThreshCRCanomalies,
+    hdsl2ShdslEndpointThreshLOSWS, hdsl2ShdslEndpointThreshUAS, hdsl2ShdslSpanConfProfileName
+        FROM HDSL2-SHDSL-LINE-MIB
+    pdn-interfaces
+        FROM PDN-HEADER-MIB;
+        
+pdnHdsl2ShdslLineMIB MODULE-IDENTITY
+    LAST-UPDATED "200501280000Z"  -- January 28, 2005
+    ORGANIZATION "Paradyne Networks
+                  MIB Working Group
+                  Other information about group editing the MIB"
+    CONTACT-INFO "Paradyne Networks, Inc.
+                  8545 126th Avenue North
+                  Largo, FL 33733
+                  www.paradyne.com
+        
+                  General Comments to: mibwg_team@paradyne.com
+
+                  Editor
+                      Clay Sikes"
+
+    DESCRIPTION
+        "The primary purpose of this MIB is to allow support of G.shdsl.bis based 
+         on the ITU Temporary Document, DC-R15, April 2003, until such a time
+         as the `standard' MIB, HDSL2-SHDSL-LINE-MIB, RFC 3276, May 2002 is
+         updated to support G.shdsl.bis. In addition to providing support for
+         G.shdsl.bis, this MIB may support SHDSL objects that are unique to the
+         enterprise.
+
+         Decisions as far as how this MIB is supported with respect to the 
+         `standard' MIB will be made in an individual basis by those involved 
+         with specific projects; those decisions are not dictated here.
+
+         The following documents should be referenced with respect to this MIB:
+         [G.991.2]     ITU-T G991.2 `Single-pair high-speed digital subscriber 
+                       line (SHDSL) transceivers,' December 2003.
+         [DC-R15]      ITU Study Group 15 Temporary Document `G.shdsl.bis: Draft
+                       Text`, April 2003.
+         [RFC 3276]    Ray, B., Abbi, R. `HDSL2-SHDSL-LINE-MIB', May 2002.
+
+         =====================================================================
+         ==                                                                 ==
+         ==            Copyright (C) 2004 Paradyne Corporation.             ==
+         ==                                                                 ==
+         ====================================================================="
+
+    REVISION "200501280000Z"  -- January 28, 2005
+    DESCRIPTION "Added pdnHdsl2ShdslExtendedRateMode object since the
+                 hardware implementation may require a different configuration
+                 to support higher rates such as the 5696 kbits per second 
+                 rate specified in 992.1, Annex F."
+
+    REVISION "200404270000Z"  -- April 27, 2004
+    DESCRIPTION "Make the index to pdnHdsl2ShdslSpanConfProfileExtTable IMPLIED 
+                 to match with the RFC."
+
+    REVISION "200404210000Z"  -- April 21, 2004
+    DESCRIPTION "Changed the pdnHdsl2ShdslSpanStatusExtTable and the
+                 pdnHdsl2ShdslSpanConfProfileExtTable from augments to be
+                 indexed. Some SNMP agents do a read-modify-write on a table
+                 row. As a result, the instrumentation code may not be able to 
+                 determine which object the manager actually wants to set. For 
+                 example, consider the case where a manager wants to set the 
+                 wire interface to 8-wire operation. The instrumentation code, in
+                 the case of a read-modify-write cycle, could result in receiving
+                 a row where the hdsl2ShdslSpanConfWireInterface is set to 
+                 twoWire(1) and pdnHdsl2ShdslSpanConfWireInterface is set to
+                 eightWire(4). This could result in unpredictable results. 
+                 This change will prevent the objects in the ExtTables from
+                 existing in the same row as the objects in the standard tables
+                 and prevent the unpredictable case from occurring."
+
+    REVISION "200401161500Z"  -- January 16, 2004
+    DESCRIPTION "Removed description text that implies that this MIB only applies 
+                 to G.shdsl.bis. Add a table to allow the device to be configured
+                 in CPE mode or CO mode."
+
+    REVISION "200311061500Z"  -- November 6, 2003
+    DESCRIPTION "Clean up, typo corrections, and clarifications."
+
+    REVISION "200310231500Z"  -- October 23, 2003
+    DESCRIPTION "Initial release."
+
+
+::=  { pdn-interfaces 23 }
+
+
+-- =============================================================================
+-- == Define groups for Notifications, MIB Objects, Accessible for            ==
+-- == Notifications (AFNs), and Conformance.                                  ==
+-- == These may just be place holders.                                        ==
+-- =============================================================================
+pdnHdsl2ShdslLineNotifications OBJECT IDENTIFIER ::= { pdnHdsl2ShdslLineMIB 0 }
+pdnHdsl2ShdslLineObjects       OBJECT IDENTIFIER ::= { pdnHdsl2ShdslLineMIB 1 }
+pdnHdsl2ShdslLineAFNs          OBJECT IDENTIFIER ::= { pdnHdsl2ShdslLineMIB 2 } 
+pdnHdsl2ShdslLineConformance   OBJECT IDENTIFIER ::= { pdnHdsl2ShdslLineMIB 3 }
+
+
+-- =============================================================================
+-- ==                  Textual Conventions                                    ==
+-- =============================================================================
+
+PdnHdsl2ShdslWirePair  ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION "This is the referenced pair of wires in a DSL Segment. HDSL2
+                 only supports a single pair (wirePair1), while SHDSL supports an 
+                 optional second pair (wirePair2), third pair (wirePair3), and a 
+                 forth pair (wirePair4)."
+    SYNTAX      INTEGER {
+                    wirePair1(1),
+                    wirePair2(2),
+                    wirePair3(3),
+                    wirePair4(4)
+                }     
+
+
+
+-- =============================================================================
+-- ==                  MIB Objects                                            ==
+-- =============================================================================
+
+
+-- =============================================================================
+-- == pdnHdsl2ShdslSpanStatusTable                                            ==
+-- =============================================================================
+pdnHdsl2ShdslSpanStatusExtTable   OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PdnHdsl2ShdslSpanStatusExtEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "This table extends the hdsl2ShdslSpanStatusTable defined in the
+                 HDSL2-SHDSL-LINE-MIB (the `standard' MIB) which provides overall
+                 information of DSL spans."
+    ::= { pdnHdsl2ShdslLineObjects 1 }
+
+pdnHdsl2ShdslSpanStatusExtEntry     OBJECT-TYPE
+    SYNTAX      PdnHdsl2ShdslSpanStatusExtEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "An entry extends the hdsl2ShdslSpanStatusEntry defined in
+                 [RFC 3276]. Each entry corresponds to a DSL line."
+    INDEX       { ifIndex }
+    ::= { pdnHdsl2ShdslSpanStatusExtTable 1 }
+
+PdnHdsl2ShdslSpanStatusExtEntry ::=
+    SEQUENCE {
+        pdnHdsl2ShdslStatusMaxAttainableLineRate    Unsigned32,
+        pdnHdsl2ShdslStatusActualLineRate           Unsigned32
+    }
+
+pdnHdsl2ShdslStatusMaxAttainableLineRate OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "bps"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Contains the maximum attainable line rate, in bps, in this
+                 DSL span."
+    REFERENCE   "RFC 3276, hdsl2ShdslStatusMaxAttainableLineRate."
+    ::= { pdnHdsl2ShdslSpanStatusExtEntry 1 }
+
+pdnHdsl2ShdslStatusActualLineRate OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "bps"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Contains the actual line rate, in bps, in this DSL span.
+                 This is based upon measurements made during line probing."
+    REFERENCE   "RFC 3276, hdsl2ShdslStatusActualLineRate."
+    ::= { pdnHdsl2ShdslSpanStatusExtEntry 2 }
+
+
+-- ===========================================================================
+-- == pdnHdsl2ShdslEndpointConfTable                                        ==
+-- ===========================================================================
+pdnHdsl2ShdslEndpointConfTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PdnHdsl2ShdslEndpointConfEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "This table supports configuration parameters for segment
+                 endpoints in a HDSL2/SHDSL line.  As this table is indexed
+                 by ifIndex, it MUST be maintained in a persistent manner."
+    REFERENCE   "RFC 3276, hdsl2ShdslEndpointConfTable."
+    ::= { pdnHdsl2ShdslLineObjects 2 }
+
+pdnHdsl2ShdslEndpointConfEntry OBJECT-TYPE
+    SYNTAX      PdnHdsl2ShdslEndpointConfEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Each entry represents a single segment endpoint in a HDSL2/SHDSL 
+                 line. It is indexed by the ifIndex of the HDSL2/SHDSL line, the
+                 UnitId of the associated unit, the side of the unit, and the
+                 wire-pair of the associated modem."
+    INDEX { ifIndex, hdsl2ShdslInvIndex, hdsl2ShdslEndpointSide, 
+            pdnHdsl2ShdslEndpointWirePair }
+    ::= { pdnHdsl2ShdslEndpointConfTable 1 }
+
+PdnHdsl2ShdslEndpointConfEntry ::=
+    SEQUENCE {
+        pdnHdsl2ShdslEndpointWirePair               PdnHdsl2ShdslWirePair,
+        pdnHdsl2ShdslEndpointAlarmConfProfile       SnmpAdminString
+    }
+
+pdnHdsl2ShdslEndpointWirePair OBJECT-TYPE
+    SYNTAX      PdnHdsl2ShdslWirePair
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "The wire-pair of the modem associated with this segment
+                 endpoint as per the PdnHdsl2ShdslWirePair textual convention."
+     REFERENCE   "RFC 3276, hdsl2ShdslEndpointWirePair."
+   ::= { pdnHdsl2ShdslEndpointConfEntry 1 }
+
+pdnHdsl2ShdslEndpointAlarmConfProfile OBJECT-TYPE
+    SYNTAX      SnmpAdminString (SIZE(0..32))
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "This object configures the alarm threshold values to be used
+                 for this segment endpoint.  The values are obtained from the
+                 alarm configuration profile referenced by this object.  The
+                 value of this object is the index of the referenced profile in
+                 the hdsl2ShdslEndpointAlarmConfProfileTable, or NULL (a zero-
+                 length SnmpAdminString).  If the value is a zero-length
+                 SnmpAdminString, the endpoint uses the default Alarm
+                 Configuration Profile for the associated span as per the
+                 hdsl2ShdslSpanConfAlarmProfile object in the
+                 hdsl2ShdslSpanConfTable.  The default value of this object is
+                 a zero-length SnmpAdminString.
+
+                 Any attempt to set this object to a value that is not the value
+                 of the index for an active entry in the profile table,
+                 hdsl2ShdslEndpointAlarmConfProfileTable, MUST be rejected."
+     REFERENCE   "RFC 3276, hdsl2ShdslEndpointAlarmConfProfile."
+    ::= { pdnHdsl2ShdslEndpointConfEntry 2 }
+
+
+-- =============================================================================
+-- == pdnHdsl2ShdslEndpointCurrTable                                          ==
+-- =============================================================================
+pdnHdsl2ShdslEndpointCurrTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PdnHdsl2ShdslEndpointCurrEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "This table contains current status and performance information
+                 for segment endpoints in HDSL2/SHDSL Lines.  As with other
+                 tables in this MIB indexed by ifIndex, entries in this table
+                 MUST be maintained in a persistent manner."
+    REFERENCE   "RFC 3276, hdsl2ShdslEndpointCurrTable."
+    ::= { pdnHdsl2ShdslLineObjects 3 }
+
+pdnHdsl2ShdslEndpointCurrEntry OBJECT-TYPE
+    SYNTAX      PdnHdsl2ShdslEndpointCurrEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Each entry contains status and performance information relating 
+                 to a single segment endpoint.  It is indexed by the ifIndex of 
+                 the HDSL2/SHDSL line, the UnitId of the associated unit, the 
+                 side of the unit, and the wire-pair of the associated modem."
+    INDEX { ifIndex, hdsl2ShdslInvIndex, hdsl2ShdslEndpointSide,
+            pdnHdsl2ShdslEndpointWirePair }
+    ::= { pdnHdsl2ShdslEndpointCurrTable 1 }
+
+PdnHdsl2ShdslEndpointCurrEntry ::=
+    SEQUENCE {
+        pdnHdsl2ShdslEndpointCurrAtn                Integer32,
+        pdnHdsl2ShdslEndpointCurrSnrMgn             Integer32,
+        pdnHdsl2ShdslEndpointCurrStatus             BITS,
+        pdnHdsl2ShdslEndpointES                     Counter32,
+        pdnHdsl2ShdslEndpointSES                    Counter32,
+        pdnHdsl2ShdslEndpointCRCanomalies           Counter32,
+        pdnHdsl2ShdslEndpointLOSWS                  Counter32,
+        pdnHdsl2ShdslEndpointUAS                    Counter32,
+        pdnHdsl2ShdslEndpointCurr15MinTimeElapsed   Hdsl2ShdslPerfTimeElapsed,
+        pdnHdsl2ShdslEndpointCurr15MinES            PerfCurrentCount,
+        pdnHdsl2ShdslEndpointCurr15MinSES           PerfCurrentCount,
+        pdnHdsl2ShdslEndpointCurr15MinCRCanomalies  PerfCurrentCount,
+        pdnHdsl2ShdslEndpointCurr15MinLOSWS         PerfCurrentCount,
+        pdnHdsl2ShdslEndpointCurr15MinUAS           PerfCurrentCount,
+        pdnHdsl2ShdslEndpointCurr1DayTimeElapsed    Hdsl2ShdslPerfTimeElapsed,
+        pdnHdsl2ShdslEndpointCurr1DayES             Hdsl2ShdslPerfCurrDayCount,
+        pdnHdsl2ShdslEndpointCurr1DaySES            Hdsl2ShdslPerfCurrDayCount,
+        pdnHdsl2ShdslEndpointCurr1DayCRCanomalies   Hdsl2ShdslPerfCurrDayCount,
+        pdnHdsl2ShdslEndpointCurr1DayLOSWS          Hdsl2ShdslPerfCurrDayCount,
+        pdnHdsl2ShdslEndpointCurr1DayUAS            Hdsl2ShdslPerfCurrDayCount
+    }
+
+pdnHdsl2ShdslEndpointCurrAtn OBJECT-TYPE
+    SYNTAX      Integer32(-127..128)
+    UNITS       "dB"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The current loop attenuation for this endpoint as reported in
+                 a Network or Customer Side Performance Status message."
+    REFERENCE   "RFC 3276, hdsl2ShdslEndpointCurrAtn."
+   ::= { pdnHdsl2ShdslEndpointCurrEntry 1 }
+
+pdnHdsl2ShdslEndpointCurrSnrMgn OBJECT-TYPE
+    SYNTAX      Integer32(-127..128)
+    UNITS       "dB"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The current SNR margin for this endpoint as reported in a
+                 Status Response/SNR message."
+    REFERENCE   "RFC 3276, hdsl2ShdslEndpointCurrSnrMgn."
+    ::= { pdnHdsl2ShdslEndpointCurrEntry 2 }
+
+pdnHdsl2ShdslEndpointCurrStatus OBJECT-TYPE
+    SYNTAX      BITS {
+                    noDefect(0),
+                    powerBackoff(1),
+                    deviceFault(2),
+                    dcContinuityFault(3),
+                    snrMarginAlarm(4),
+                    loopAttenuationAlarm(5),
+                    loswFailureAlarm(6),
+                    configInitFailure(7),
+                    protocolInitFailure(8),
+                    noNeighborPresent(9),
+                    loopbackActive(10)
+                }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Contains the current state of the endpoint.  This is a
+                 bitmap of possible conditions. The various bit positions
+                 are:
+
+                     noDefect               There no defects on the line.
+
+                     powerBackoff           Indicates enhanced Power Backoff.
+
+                     deviceFault            Indicates a vendor-dependent
+                                            diagnostic or self-test fault
+                                            has been detected.
+
+                     dcContinuityFault      Indicates vendor-dependent
+                                            conditions that interfere with
+                                            span powering such as short and
+                                            open circuits.
+
+                     snrMarginAlarm         Indicates that the SNR margin
+                                            has dropped below the alarm threshold.
+
+                     loopAttenuationAlarm   Indicates that the loop attenuation
+                                            exceeds the alarm threshold.
+
+                     loswFailureAlarm       Indicates a forward LOSW alarm.
+
+                     configInitFailure      Endpoint failure during initialization
+                                            due to paired endpoint not able to
+                                            support requested configuration.
+
+                     protocolInitFailure    Endpoint failure during initialization
+                                            due to incompatible protocol used by
+                                            the paired endpoint.
+
+                     noNeighborPresent      Endpoint failure during initialization
+                                            due to no activation sequence detected
+                                            from paired endpoint.
+
+                     loopbackActive         A loopback is currently active at this
+                                            Segment Endpoint.
+
+                 This is intended to supplement ifOperStatus.  Note that there
+                 is a 1-1 relationship between the status bits defined in this
+                 object and the notification thresholds defined elsewhere in
+                 this MIB."
+    REFERENCE   "RFC 3276, hdsl2ShdslEndpointCurrStatus."
+    ::= { pdnHdsl2ShdslEndpointCurrEntry 3 }
+
+pdnHdsl2ShdslEndpointES OBJECT-TYPE
+    SYNTAX      Counter32
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Count of Errored Seconds (ES) on this endpoint since the xU
+                 was last restarted."
+    REFERENCE   "RFC 3276, hdsl2ShdslEndpointES."
+    ::= { pdnHdsl2ShdslEndpointCurrEntry 4 }
+
+pdnHdsl2ShdslEndpointSES OBJECT-TYPE
+    SYNTAX      Counter32
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Count of Severely Errored Seconds (SES) on this endpoint
+                 since the xU was last restarted."
+    REFERENCE   "RFC 3276, hdsl2ShdslEndpointSES."
+    ::= { pdnHdsl2ShdslEndpointCurrEntry 5 }
+
+pdnHdsl2ShdslEndpointCRCanomalies OBJECT-TYPE
+    SYNTAX      Counter32
+    UNITS       "detected CRC Anomalies"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Count of CRC anomalies on this endpoint since the xU was
+                 last restarted."
+    REFERENCE   "RFC 3276, hdsl2ShdslEndpointCRCanomalies."
+    ::= { pdnHdsl2ShdslEndpointCurrEntry 6 }
+
+pdnHdsl2ShdslEndpointLOSWS OBJECT-TYPE
+    SYNTAX      Counter32
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Count of Loss of Sync Word (LOSW) Seconds on this endpoint
+                 since the xU was last restarted."
+    REFERENCE   "RFC 3276, hdsl2ShdslEndpointLOSWS."
+    ::= { pdnHdsl2ShdslEndpointCurrEntry 7 }
+
+pdnHdsl2ShdslEndpointUAS OBJECT-TYPE
+    SYNTAX      Counter32
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Count of Unavailable Seconds (UAS) on this endpoint since
+                 the xU was last restarted."
+    REFERENCE   "RFC 3276, hdsl2ShdslEndpointUAS."
+    ::= { pdnHdsl2ShdslEndpointCurrEntry 8 }
+
+pdnHdsl2ShdslEndpointCurr15MinTimeElapsed OBJECT-TYPE
+    SYNTAX      Hdsl2ShdslPerfTimeElapsed
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Total elapsed seconds in the current 15-minute interval."
+    REFERENCE   "RFC 3276, hdsl2ShdslEndpointCurr15MinTimeElapsed."
+    ::= { pdnHdsl2ShdslEndpointCurrEntry 9 }
+
+pdnHdsl2ShdslEndpointCurr15MinES OBJECT-TYPE
+    SYNTAX      PerfCurrentCount
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Count of Errored Seconds (ES) in the current 15-minute
+                 interval."
+    REFERENCE   "RFC 3276, hdsl2ShdslEndpointCurr15MinES."
+    ::= { pdnHdsl2ShdslEndpointCurrEntry 10 }
+
+pdnHdsl2ShdslEndpointCurr15MinSES OBJECT-TYPE
+    SYNTAX      PerfCurrentCount
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Count of Severely Errored Seconds (SES) in the current
+                 15-minute interval."
+    REFERENCE   "RFC 3276, hdsl2ShdslEndpointCurr15MinSES."
+    ::= { pdnHdsl2ShdslEndpointCurrEntry 11 }
+
+pdnHdsl2ShdslEndpointCurr15MinCRCanomalies OBJECT-TYPE
+    SYNTAX      PerfCurrentCount
+    UNITS       "detected CRC Anomalies"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Count of CRC anomalies in the current 15-minute interval."
+    REFERENCE   "RFC 3276, hdsl2ShdslEndpointCurr15MinCRCanomalies."
+    ::= { pdnHdsl2ShdslEndpointCurrEntry 12 }
+
+pdnHdsl2ShdslEndpointCurr15MinLOSWS OBJECT-TYPE
+    SYNTAX      PerfCurrentCount
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Count of Loss of Sync Word (LOSW) Seconds in the current
+                 15-minute interval."
+    REFERENCE   "RFC 3276, hdsl2ShdslEndpointCurr15MinLOSWS."
+    ::= { pdnHdsl2ShdslEndpointCurrEntry 13 }
+
+pdnHdsl2ShdslEndpointCurr15MinUAS OBJECT-TYPE
+    SYNTAX      PerfCurrentCount
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Count of Unavailable Seconds (UAS) in the current 15-minute
+                 interval."
+    REFERENCE   "RFC 3276, hdsl2ShdslEndpointCurr15MinUAS."
+    ::= { pdnHdsl2ShdslEndpointCurrEntry 14 }
+
+pdnHdsl2ShdslEndpointCurr1DayTimeElapsed OBJECT-TYPE
+    SYNTAX      Hdsl2ShdslPerfTimeElapsed
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Number of seconds that have elapsed since the beginning of
+                 the current 1-day interval."
+    REFERENCE   "RFC 3276, hdsl2ShdslEndpointCurr1DayTimeElapsed."
+    ::= { pdnHdsl2ShdslEndpointCurrEntry 15 }
+
+pdnHdsl2ShdslEndpointCurr1DayES OBJECT-TYPE
+    SYNTAX      Hdsl2ShdslPerfCurrDayCount
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Count of Errored Seconds (ES) during the current day as
+                 measured by pdnHdsl2ShdslEndpointCurr1DayTimeElapsed."
+    REFERENCE   "RFC 3276, hdsl2ShdslEndpointCurr1DayES."
+    ::= { pdnHdsl2ShdslEndpointCurrEntry 16 }
+
+pdnHdsl2ShdslEndpointCurr1DaySES OBJECT-TYPE
+    SYNTAX      Hdsl2ShdslPerfCurrDayCount
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Count of Severely Errored Seconds (SES) during the current
+                 day as measured by pdnHdsl2ShdslEndpointCurr1DayTimeElapsed."
+    REFERENCE   "RFC 3276, hdsl2ShdslEndpointCurr1DaySES."
+    ::= { pdnHdsl2ShdslEndpointCurrEntry 17 }
+
+pdnHdsl2ShdslEndpointCurr1DayCRCanomalies OBJECT-TYPE
+    SYNTAX      Hdsl2ShdslPerfCurrDayCount
+    UNITS       "detected CRC Anomalies"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Count of CRC anomalies during the current day as measured
+                 by pdnHdsl2ShdslEndpointCurr1DayTimeElapsed."
+    REFERENCE   "RFC 3276, hdsl2ShdslEndpointCurr1DayCRCanomalies."
+    ::= { pdnHdsl2ShdslEndpointCurrEntry 18 }
+
+pdnHdsl2ShdslEndpointCurr1DayLOSWS OBJECT-TYPE
+    SYNTAX      Hdsl2ShdslPerfCurrDayCount
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Count of Loss of Sync Word (LOSW) Seconds during the current
+                 day as measured by pdnHdsl2ShdslEndpointCurr1DayTimeElapsed."
+    REFERENCE   "RFC 3276, hdsl2ShdslEndpointCurr1DayLOSWS."
+    ::= { pdnHdsl2ShdslEndpointCurrEntry 19 }
+
+pdnHdsl2ShdslEndpointCurr1DayUAS OBJECT-TYPE
+    SYNTAX      Hdsl2ShdslPerfCurrDayCount
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Count of Unavailable Seconds (UAS) during the current day as
+                 measured by pdnHdsl2ShdslEndpointCurr1DayTimeElapsed."
+    REFERENCE   "RFC 3276, hdsl2ShdslEndpointCurr1DayUAS."
+    ::= { pdnHdsl2ShdslEndpointCurrEntry 20 }
+
+
+-- =============================================================================
+-- == pdhHdsl2Shdsl15MinIntervalTable                                         ==
+-- =============================================================================
+pdnHdsl2Shdsl15MinIntervalTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PdnHdsl2Shdsl15MinIntervalEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "This table provides one row for each HDSL2/SHDSL endpoint
+                 performance data collection interval.  This table contains
+                 live data from equipment.  As such, it is NOT persistent."
+    REFERENCE   "RFC 3276, hdsl2Shdsl15MinIntervalTable."
+    ::= { pdnHdsl2ShdslLineObjects 4 }
+
+pdnHdsl2Shdsl15MinIntervalEntry OBJECT-TYPE
+    SYNTAX      PdnHdsl2Shdsl15MinIntervalEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "An entry in the pdnHdsl2Shdsl15MinIntervalTable."
+    INDEX { ifIndex, hdsl2ShdslInvIndex, hdsl2ShdslEndpointSide,
+            pdnHdsl2ShdslEndpointWirePair, pdnHdsl2Shdsl15MinIntervalNumber }
+    ::= { pdnHdsl2Shdsl15MinIntervalTable 1 }
+
+PdnHdsl2Shdsl15MinIntervalEntry ::=
+    SEQUENCE {
+        pdnHdsl2Shdsl15MinIntervalNumber         Unsigned32,
+        pdnHdsl2Shdsl15MinIntervalES             PerfIntervalCount,
+        pdnHdsl2Shdsl15MinIntervalSES            PerfIntervalCount,
+        pdnHdsl2Shdsl15MinIntervalCRCanomalies   PerfIntervalCount,
+        pdnHdsl2Shdsl15MinIntervalLOSWS          PerfIntervalCount,
+        pdnHdsl2Shdsl15MinIntervalUAS            PerfIntervalCount
+    }
+
+pdnHdsl2Shdsl15MinIntervalNumber OBJECT-TYPE
+    SYNTAX      Unsigned32(1..96)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Performance Data Interval number. 1 is the the most recent
+                 previous interval; interval 96 is 24 hours ago. Intervals
+                 2..96 are optional."
+    REFERENCE   "RFC 3276, hdsl2Shdsl15MinIntervalNumber."
+    ::= { pdnHdsl2Shdsl15MinIntervalEntry 1 }
+
+pdnHdsl2Shdsl15MinIntervalES OBJECT-TYPE
+    SYNTAX      PerfIntervalCount
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Count of Errored Seconds (ES) during the interval."
+    REFERENCE   "RFC 3276, hdsl2Shdsl15MinIntervalES."
+    ::= { pdnHdsl2Shdsl15MinIntervalEntry 2 }
+
+pdnHdsl2Shdsl15MinIntervalSES OBJECT-TYPE
+    SYNTAX      PerfIntervalCount
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Count of Severely Errored Seconds (SES) during the interval."
+    REFERENCE   "RFC 3276, hdsl2Shdsl15MinIntervalSES."
+    ::= { pdnHdsl2Shdsl15MinIntervalEntry 3 }
+
+pdnHdsl2Shdsl15MinIntervalCRCanomalies OBJECT-TYPE
+    SYNTAX      PerfIntervalCount
+    UNITS       "detected CRC Anomalies"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Count of CRC anomalies during the interval."
+    REFERENCE   "RFC 3276, hdsl2Shdsl15MinIntervalCRCanomalies."
+    ::= { pdnHdsl2Shdsl15MinIntervalEntry 4 }
+
+pdnHdsl2Shdsl15MinIntervalLOSWS OBJECT-TYPE
+    SYNTAX      PerfIntervalCount
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Count of Loss of Sync Word (LOSW) Seconds during the
+                 interval."
+    REFERENCE   "RFC 3276, hdsl2Shdsl15MinIntervalLOSWS."
+    ::= { pdnHdsl2Shdsl15MinIntervalEntry 5 }
+
+pdnHdsl2Shdsl15MinIntervalUAS OBJECT-TYPE
+    SYNTAX      PerfIntervalCount
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Count of Unavailable Seconds (UAS) during the interval."
+    REFERENCE   "RFC 3276, hdsl2Shdsl15MinIntervalUAS."
+    ::= { pdnHdsl2Shdsl15MinIntervalEntry 6 }
+
+
+-- =============================================================================
+-- == pdnHdsl2Shdsl1DayIntervalTable                                          ==
+-- =============================================================================
+pdnHdsl2Shdsl1DayIntervalTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PdnHdsl2Shdsl1DayIntervalEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "This table provides one row for each HDSL2/SHDSL endpoint
+                 performance data collection interval.  This table contains
+                 live data from equipment.  As such, it is NOT persistent."
+    REFERENCE   "RFC 3276, hdsl2Shdsl1DayIntervalTable."
+    ::= { pdnHdsl2ShdslLineObjects 5 }
+
+pdnHdsl2Shdsl1DayIntervalEntry OBJECT-TYPE
+    SYNTAX      PdnHdsl2Shdsl1DayIntervalEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+
+    DESCRIPTION "An entry in the pdnHdsl2Shdsl1DayIntervalTable."
+    INDEX { ifIndex, hdsl2ShdslInvIndex, hdsl2ShdslEndpointSide,
+            pdnHdsl2ShdslEndpointWirePair, pdnHdsl2Shdsl1DayIntervalNumber }
+    ::= { pdnHdsl2Shdsl1DayIntervalTable 1 }
+
+PdnHdsl2Shdsl1DayIntervalEntry ::=
+    SEQUENCE {
+        pdnHdsl2Shdsl1DayIntervalNumber         Unsigned32,
+        pdnHdsl2Shdsl1DayIntervalMoniSecs       Hdsl2ShdslPerfTimeElapsed,
+        pdnHdsl2Shdsl1DayIntervalES             Hdsl2Shdsl1DayIntervalCount,
+        pdnHdsl2Shdsl1DayIntervalSES            Hdsl2Shdsl1DayIntervalCount,
+        pdnHdsl2Shdsl1DayIntervalCRCanomalies   Hdsl2Shdsl1DayIntervalCount,
+        pdnHdsl2Shdsl1DayIntervalLOSWS          Hdsl2Shdsl1DayIntervalCount,
+        pdnHdsl2Shdsl1DayIntervalUAS            Hdsl2Shdsl1DayIntervalCount
+    }
+
+pdnHdsl2Shdsl1DayIntervalNumber OBJECT-TYPE
+    SYNTAX      Unsigned32(1..30)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "History Data Interval number. Interval 1 is the the most
+                 recent previous day; interval 30 is 30 days ago. Intervals
+                 2..30 are optional."
+    REFERENCE   "RFC 3276, hdsl2Shdsl1DayIntervalNumber."
+    ::= { pdnHdsl2Shdsl1DayIntervalEntry 1 }
+
+pdnHdsl2Shdsl1DayIntervalMoniSecs OBJECT-TYPE
+    SYNTAX      Hdsl2ShdslPerfTimeElapsed
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The amount of time in the 1-day interval over which the
+                 performance monitoring information is actually counted.
+                 This value will be the same as the interval duration except
+                 in a situation where performance monitoring data could not
+                 be collected for any reason."
+    REFERENCE   "RFC 3276, hdsl2Shdsl1DayIntervalMoniSecs."
+    ::= { pdnHdsl2Shdsl1DayIntervalEntry 2 }
+
+pdnHdsl2Shdsl1DayIntervalES OBJECT-TYPE
+    SYNTAX       Hdsl2Shdsl1DayIntervalCount
+    UNITS        "seconds"
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION "Count of Errored Seconds (ES) during the 1-day interval as
+                 measured by pdnHdsl2Shdsl1DayIntervalMoniSecs."
+    REFERENCE   "RFC 3276, hdsl2Shdsl1DayIntervalES."
+    ::= { pdnHdsl2Shdsl1DayIntervalEntry 3 }
+
+pdnHdsl2Shdsl1DayIntervalSES OBJECT-TYPE
+    SYNTAX      Hdsl2Shdsl1DayIntervalCount
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Count of Severely Errored Seconds (SES) during the 1-day
+                 interval as measured by pdnHdsl2Shdsl1DayIntervalMoniSecs."
+    REFERENCE   "RFC 3276, hdsl2Shdsl1DayIntervalSES."
+    ::= { pdnHdsl2Shdsl1DayIntervalEntry 4 }
+
+pdnHdsl2Shdsl1DayIntervalCRCanomalies OBJECT-TYPE
+    SYNTAX      Hdsl2Shdsl1DayIntervalCount
+    UNITS       "detected CRC Anomalies"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Count of CRC anomalies during the 1-day interval as
+                 measured by pdnHdsl2Shdsl1DayIntervalMoniSecs."
+    REFERENCE   "RFC 3276, hdsl2Shdsl1DayIntervalCRCanomalies."
+    ::= { pdnHdsl2Shdsl1DayIntervalEntry 5 }
+
+pdnHdsl2Shdsl1DayIntervalLOSWS OBJECT-TYPE
+    SYNTAX      Hdsl2Shdsl1DayIntervalCount
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Count of Loss of Sync Word (LOSW) Seconds during the 1-day
+                 interval as measured by pdnHdsl2Shdsl1DayIntervalMoniSecs."
+    REFERENCE   "RFC 3276, hdsl2Shdsl1DayIntervalLOSWS."
+    ::= { pdnHdsl2Shdsl1DayIntervalEntry 6 }
+
+pdnHdsl2Shdsl1DayIntervalUAS OBJECT-TYPE
+    SYNTAX      Hdsl2Shdsl1DayIntervalCount
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Count of Unavailable Seconds (UAS) during the 1-day interval
+                 as measured by pdnHdsl2Shdsl1DayIntervalMoniSecs."
+    REFERENCE   "RFC 3276, hdsl2Shdsl1DayIntervalUAS."
+    ::= { pdnHdsl2Shdsl1DayIntervalEntry 7 }
+
+
+-- =============================================================================
+-- == pdnHdsl2ShdslSpanConfProfileExtTable                                    ==
+-- =============================================================================
+pdnHdsl2ShdslSpanConfProfileExtTable       OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PdnHdsl2ShdslSpanConfProfileExtEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "This table extends the hdsl2ShdslSpanConfProfileTable defined in 
+                 the HDSL2-SHDSL-LINE-MIB (the `standard' MIB) which supports
+                 definitions of span configuration profiles for DSL lines.
+
+                 IMPORTANT NOTE:  This table is a 'pseudo-augments' of the
+                 hdsl2ShdslSpanConfProfileTable. Refer to the April 21, 2004
+                 revision description for a discussion on why the table is
+                 indexed as opposed to augments. This table shares the same 
+                 table table index as the hdsl2ShdslSpanConfProfileTable.
+                 However, this table does not have a row status object. Therefore,
+                 rows are created or deleted in this table by creating or 
+                 deleting rows in the hdsl2ShdslSpanConfProfileTable."
+    ::= { pdnHdsl2ShdslLineObjects 6 }
+
+pdnHdsl2ShdslSpanConfProfileExtEntry     OBJECT-TYPE
+    SYNTAX      PdnHdsl2ShdslSpanConfProfileExtEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "An entry extends the hdsl2ShdslSpanConfProfileEntry defined in
+                 [RFC 3276]. Each entry corresponds to a profile for a span."
+    INDEX       { IMPLIED hdsl2ShdslSpanConfProfileName }
+    ::= { pdnHdsl2ShdslSpanConfProfileExtTable 1 }
+
+PdnHdsl2ShdslSpanConfProfileExtEntry ::=
+    SEQUENCE {
+        pdnHdsl2ShdslSpanConfWireInterface  INTEGER,
+        pdnHdsl2ShdslSpanConfMinLineRate    Unsigned32,
+        pdnHdsl2ShdslSpanConfMaxLineRate    Unsigned32
+    }
+
+
+pdnHdsl2ShdslSpanConfWireInterface OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    twoWire(1),
+                    fourWire(2),
+                    sixWire(3),
+                    eightWire(4)
+                }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION "This object configures number of wires that are operational for
+                 this span. The following values are defined for this object:
+                     twoWire(1)    - 2-wire mode
+                     fourWire(2)   - 4-wire mode
+                     sixWire(3)    - 6-wire mode
+                     eightWire(4)  - 8-wire mode"
+    REFERENCE   "RFC 3276, hdsl2ShdslSpanConfWireInterface."
+    DEFVAL      { twoWire }
+    ::= { pdnHdsl2ShdslSpanConfProfileExtEntry 1 }
+
+pdnHdsl2ShdslSpanConfMinLineRate OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "bps"
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION "This object configures the minimum transmission rate,
+                 in multiples of 64 kbits per second, for the associated 
+                 DSL Line in bits-per-second (bps). If the minimum line rate 
+                 equals the maximum line rate (pdnHdsl2ShdslSpanConfMaxLineRate), 
+                 the line rate is considered `fixed'. If the minimum line rate 
+                 is less than the maximum line rate, the line is considered 
+                 `rate-adaptive'."
+    REFERENCE   "RFC 3276, hdsl2ShdslSpanConfMinLineRate."
+    DEFVAL      { 155200 }
+    ::= { pdnHdsl2ShdslSpanConfProfileExtEntry 2 }
+
+pdnHdsl2ShdslSpanConfMaxLineRate OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "bps"
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION "This object configures the maximum transmission rate, in
+                 multiples of 64 kbits per second, for the associated DSL Line 
+                 in bits-per-second (bps). If the minimum line rate (pdnHdsl2Shdsl-
+                 SpanConfMinLineRate) equals the maximum line rate, the line 
+                 rate is considered `fixed'. if the minimum line rate is less 
+                 than the maximum line rate, the line rate is considered 
+                 `rate-adaptive'."
+    REFERENCE   "RFC 3276, hdsl2ShdslSpanConfMaxLineRate."
+    DEFVAL      { 155200 }
+    ::= { pdnHdsl2ShdslSpanConfProfileExtEntry 3 }
+
+
+-- =============================================================================
+-- == pdhHdsl2ShdslIfTable                                                    ==
+-- =============================================================================
+pdnHdsl2ShdslIfTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PdnHdsl2ShdslIfEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "This table provides objects related to a particular interface
+                 and each entry corresponds to an ifIndex."
+    ::= { pdnHdsl2ShdslLineObjects 7 }
+
+pdnHdsl2ShdslIfEntry OBJECT-TYPE
+    SYNTAX      PdnHdsl2ShdslIfEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "An entry in the pdnHdsl2ShdslIfTableTable."
+    INDEX { ifIndex }
+    ::= { pdnHdsl2ShdslIfTable 1 }
+
+PdnHdsl2ShdslIfEntry ::=
+    SEQUENCE {
+        pdnHdsl2ShdslIfTableEquipMode            INTEGER
+    }
+
+pdnHdsl2ShdslIfTableEquipMode OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    coMode(1),      -- Central Office Mode
+                    cpeMode(2)      -- Customer Premise Equipment Mode
+    }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "This object allows the mode of the equipment to be set."                 
+    ::= { pdnHdsl2ShdslIfEntry 1 }
+
+-- =============================================================================
+-- == Extended Rate Mode                                                      ==
+-- =============================================================================
+pdnHdsl2ShdslExtendedRateMode OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    disabled(1),
+                    payload5696(2)
+    }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "This object is used to select a mode of operation that 
+                 supports extended rates.  Some hardware implementations
+                 require different configurations base on whether or not
+                 higher speed rates are desired.  For example, an 
+                 implementation may require different code be loaded in 
+                 a digital signal processor or an implementation may 
+                 dictate that fewer subscriber ports are supported for
+                 a higher data rate.  The payload5696(2) corresponds to the
+                 5696 kbits per second rate specified in G.991.2, Annex F."
+    ::= { pdnHdsl2ShdslLineObjects 8 }
+
+
+
+-- =============================================================================
+-- ==                  Accessible for Notifications (AFNs)                    ==
+-- =============================================================================
+-- None defined
+
+
+
+-- =============================================================================
+-- ==                  Traps/Notifications                                    ==
+-- =============================================================================
+
+pdnHdsl2ShdslLoopAttenCrossing NOTIFICATION-TYPE
+    OBJECTS {
+        pdnHdsl2ShdslEndpointCurrAtn,
+        hdsl2ShdslEndpointThreshLoopAttenuation
+    }
+    STATUS      current
+    DESCRIPTION "This notification indicates that the loop attenuation
+                 threshold (as per the hdsl2ShdslEndpointThreshLoopAttenuation
+                 value) has been reached/exceeded for the DSL segment
+                 endpoint."
+    REFERENCE   "RFC 3276 hdsl2ShdslLoopAttenCrossing."
+    ::= { pdnHdsl2ShdslLineNotifications 1 }
+
+pdnHdsl2ShdslSNRMarginCrossing NOTIFICATION-TYPE
+    OBJECTS {
+        pdnHdsl2ShdslEndpointCurrSnrMgn,
+        hdsl2ShdslEndpointThreshSNRMargin
+    }
+    STATUS      current
+    DESCRIPTION "This notification indicates that the SNR margin threshold (as
+                 per the hdsl2ShdslEndpointThreshSNRMargin value) has been
+                 reached/exceeded for the DSL segment endpoint."
+    REFERENCE   "RFC 3276 hdsl2ShdslSNRMarginCrossing."
+    ::= { pdnHdsl2ShdslLineNotifications 2 }
+
+pdnHdsl2ShdslPerfESThresh NOTIFICATION-TYPE
+    OBJECTS {
+        pdnHdsl2ShdslEndpointCurr15MinES,
+        hdsl2ShdslEndpointThreshES
+    }
+    STATUS      current
+    DESCRIPTION "This notification indicates that the errored seconds threshold
+                 (as per the hdsl2ShdslEndpointThreshES value) has been reached/
+                 exceeded for the DSL segment endpoint."
+    REFERENCE   "RFC 3276 hdsl2ShdslPerfESThresh."
+    ::= { pdnHdsl2ShdslLineNotifications 3 }
+
+pdnHdsl2ShdslPerfSESThresh NOTIFICATION-TYPE
+    OBJECTS {
+        pdnHdsl2ShdslEndpointCurr15MinSES,
+        hdsl2ShdslEndpointThreshSES
+    }
+    STATUS      current
+    DESCRIPTION "This notification indicates that the severely errored seconds
+                 threshold (as per the hdsl2ShdslEndpointThreshSES value) has
+                 been reached/exceeded for the DSL Segment Endpoint."
+    REFERENCE   "RFC 3276 hdsl2ShdslPerfSESThresh."
+    ::= { pdnHdsl2ShdslLineNotifications 4 }
+
+pdnHdsl2ShdslPerfCRCanomaliesThresh NOTIFICATION-TYPE
+    OBJECTS {
+        pdnHdsl2ShdslEndpointCurr15MinCRCanomalies,
+        hdsl2ShdslEndpointThreshCRCanomalies
+    }
+    STATUS      current
+    DESCRIPTION "This notification indicates that the CRC anomalies threshold
+                 (as per the hdsl2ShdslEndpointThreshCRCanomalies value) has
+                 been reached/exceeded for the DSL Segment Endpoint."
+    REFERENCE   "RFC 3276 hdsl2ShdslPerfCRCanomaliesThresh."
+    ::= { pdnHdsl2ShdslLineNotifications 5 }
+
+pdnHdsl2ShdslPerfLOSWSThresh NOTIFICATION-TYPE
+    OBJECTS {
+        pdnHdsl2ShdslEndpointCurr15MinLOSWS,
+        hdsl2ShdslEndpointThreshLOSWS
+    }
+    STATUS      current
+    DESCRIPTION "This notification indicates that the LOSW seconds threshold
+                 (as per the hdsl2ShdslEndpointThreshLOSWS value) has been
+                 reached/exceeded for the DSL segment endpoint."
+    REFERENCE   "RFC 3276 hdsl2ShdslPerfLOSWSThresh."
+    ::= { pdnHdsl2ShdslLineNotifications 6 }
+
+pdnHdsl2ShdslPerfUASThresh NOTIFICATION-TYPE
+    OBJECTS {
+        pdnHdsl2ShdslEndpointCurr15MinUAS,
+        hdsl2ShdslEndpointThreshUAS
+    }
+    STATUS      current
+    DESCRIPTION "This notification indicates that the unavailable seconds
+                 threshold (as per the hdsl2ShdslEndpointThreshUAS value) has
+                 been reached/exceeded for the HDSL2/SHDSL segment endpoint."
+    REFERENCE   "RFC 3276 hdsl2ShdslPerfUASThresh."
+    ::= { pdnHdsl2ShdslLineNotifications 7 }
+
+pdnHdsl2ShdslpowerBackoff NOTIFICATION-TYPE
+    OBJECTS {
+        pdnHdsl2ShdslEndpointCurrStatus
+    }
+    STATUS      current
+    DESCRIPTION "This notification indicates that the bit setting for
+                 powerBackoff in the pdnHdsl2ShdslEndpointCurrStatus object for
+                 this endpoint has changed."
+    REFERENCE   "RFC 3276 hdsl2ShdslpowerBackoff."
+    ::= { pdnHdsl2ShdslLineNotifications 8 }
+
+pdnHdsl2ShdsldeviceFault NOTIFICATION-TYPE
+    OBJECTS {
+        pdnHdsl2ShdslEndpointCurrStatus
+    }
+    STATUS      current
+    DESCRIPTION "This notification indicates that the bit setting for
+                 deviceFault in the pdnHdsl2ShdslEndpointCurrStatus object for
+                 this endpoint has changed."
+    REFERENCE   "RFC 3276 hdsl2ShdsldeviceFault."
+    ::= { pdnHdsl2ShdslLineNotifications 9 }
+
+pdnHdsl2ShdsldcContinuityFault NOTIFICATION-TYPE
+    OBJECTS {
+        pdnHdsl2ShdslEndpointCurrStatus
+    }
+    STATUS      current
+    DESCRIPTION "This notification indicates that the bit setting for
+                 dcContinuityFault in the pdnHdsl2ShdslEndpointCurrStatus object
+                 for this endpoint has changed."
+    REFERENCE   "RFC 3276 hdsl2ShdsldcContinuityFault."
+    ::= { pdnHdsl2ShdslLineNotifications 10 }
+
+pdnHdsl2ShdslconfigInitFailure NOTIFICATION-TYPE
+    OBJECTS {
+        pdnHdsl2ShdslEndpointCurrStatus
+    }
+    STATUS      current
+    DESCRIPTION "This notification indicates that the bit setting for
+                 configInitFailure in the pdnHdsl2ShdslEndpointCurrStatus object
+                 for this endpoint has changed."
+    REFERENCE   "RFC 3276 hdsl2ShdslconfigInitFailure."
+    ::= { pdnHdsl2ShdslLineNotifications 11 }
+
+pdnHdsl2ShdslprotocolInitFailure NOTIFICATION-TYPE
+    OBJECTS {
+        pdnHdsl2ShdslEndpointCurrStatus
+    }
+    STATUS      current
+    DESCRIPTION "This notification indicates that the bit setting for
+                 protocolInitFailure in the pdnHdsl2ShdslEndpointCurrStatus
+                 object for this endpoint has changed."
+    REFERENCE   "RFC 3276 hdsl2ShdslprotocolInitFailure."
+    ::= { pdnHdsl2ShdslLineNotifications 12 }
+
+pdnHdsl2ShdslnoNeighborPresent NOTIFICATION-TYPE
+    OBJECTS {
+        pdnHdsl2ShdslEndpointCurrStatus
+    }
+    STATUS    current
+    DESCRIPTION "This notification indicates that the bit setting for
+                 noNeighborPresent in the pdnHdsl2ShdslEndpointCurrStatus object
+                 for this endpoint has changed."
+    REFERENCE   "RFC 3276 hdsl2ShdslnoNeighborPresent."
+    ::= { pdnHdsl2ShdslLineNotifications 13 }
+
+
+
+
+-- =============================================================================
+-- ==                  Conformance Information                                ==
+-- =============================================================================
+
+pdnHdsl2ShdslLineCompliances  OBJECT IDENTIFIER ::= { pdnHdsl2ShdslLineConformance 1 }
+pdnHdsl2ShdslLineGroups       OBJECT IDENTIFIER ::= { pdnHdsl2ShdslLineConformance 2 }
+
+
+-- ===========================
+-- == Compliance Statements ==
+-- ===========================
+
+
+pdnHdsl2ShdslLineMIBCompliance MODULE-COMPLIANCE
+    STATUS      current
+    DESCRIPTION "The compliance statement for pdnHdsl2ShdslLineMIB entities which
+                 implement the pdnHdsl2ShdslLineMIB."
+    MODULE      -- this module
+    -- No mandatory groups are specified
+
+    GROUP       pdnHdsl2ShdslSpanShdslStatusGroup
+    DESCRIPTION "This group is only required for G.shdsl.bis implementations and
+                 where the `standard' MIB does not support G.shdsl.bis."
+
+    GROUP       pdnHdsl2ShdslEndpointConfGroup
+    DESCRIPTION "This group is only required for G.shdsl.bis implementations and
+                 where the `standard' MIB does not support G.shdsl.bis."
+
+    GROUP       pdnHdsl2ShdslEndpointCurrGroup
+    DESCRIPTION "This group is only required for G.shdsl.bis implementations and
+                 where the `standard' MIB does not support G.shdsl.bis."
+
+    GROUP       pdnHdsl2Shdsl15MinIntervalGroup
+    DESCRIPTION "This group is only required for G.shdsl.bis implementations and
+                 where the `standard' MIB does not support G.shdsl.bis."
+
+    GROUP       pdnHdsl2Shdsl1DayIntervalGroup
+    DESCRIPTION "This group is only required for G.shdsl.bis implementations and
+                 where the `standard' MIB does not support G.shdsl.bis."
+
+    GROUP       pdnHdsl2ShdslSpanConfProfileGroup
+    DESCRIPTION "This group is only required for G.shdsl.bis implementations and
+                 where the `standard' MIB does not support G.shdsl.bis."
+
+    GROUP       pdnHdsl2ShdslIfTableGroup
+    DESCRIPTION "This group is only required if the relevant objects are need on
+                 a per-interface basis."
+
+    GROUP       pdnHdsl2ShdslExtendedRateModeGroup
+    DESCRIPTION "This group is only required if the hardware implementation
+                 requires a different configuration to support higher rates
+                 such as G.991.2 Annex F.  The object(s) in this group serve
+                 to indicate if extended base data rates are desired."
+
+    GROUP       pdnHdsl2ShdslNotificationGroup
+    DESCRIPTION "This group is only required for G.shdsl.bis implementations and
+                 where the `standard' MIB does not support G.shdsl.bis."
+
+
+    --
+    -- All objects, if implemented, are expected to be implemented to the
+    -- maximal level as specified in their OBJECT-TYPE macro.
+    --
+
+    ::= { pdnHdsl2ShdslLineCompliances 1 }
+
+
+-- ==========================
+-- == Units of Conformance ==
+-- ==========================
+
+pdnHdsl2ShdslLineObjGroups   OBJECT IDENTIFIER ::= { pdnHdsl2ShdslLineGroups 1 }
+pdnHdsl2ShdslLineAfnGroups   OBJECT IDENTIFIER ::= { pdnHdsl2ShdslLineGroups 2 }
+pdnHdsl2ShdslLineNtfyGroups  OBJECT IDENTIFIER ::= { pdnHdsl2ShdslLineGroups 3 }
+
+-- ===================
+-- == Object Groups ==
+-- ===================
+
+
+pdnHdsl2ShdslSpanShdslStatusGroup OBJECT-GROUP
+    OBJECTS {
+        pdnHdsl2ShdslStatusMaxAttainableLineRate,
+        pdnHdsl2ShdslStatusActualLineRate
+    }
+    STATUS      current
+    DESCRIPTION "This group supports objects for retrieving SHDSL-specific
+                 span related status."
+    ::= { pdnHdsl2ShdslLineObjGroups 1 }
+
+pdnHdsl2ShdslEndpointConfGroup OBJECT-GROUP
+    OBJECTS {
+        pdnHdsl2ShdslEndpointAlarmConfProfile
+    }
+    STATUS      current
+    DESCRIPTION "This group supports objects for configuring parameters for
+                 segment endpoints in SHDSL lines."
+    ::= { pdnHdsl2ShdslLineObjGroups 2 }
+
+pdnHdsl2ShdslEndpointCurrGroup OBJECT-GROUP
+    OBJECTS {
+        pdnHdsl2ShdslEndpointCurrAtn,
+        pdnHdsl2ShdslEndpointCurrSnrMgn,
+        pdnHdsl2ShdslEndpointCurrStatus,
+        pdnHdsl2ShdslEndpointES,
+        pdnHdsl2ShdslEndpointSES,
+        pdnHdsl2ShdslEndpointCRCanomalies,
+        pdnHdsl2ShdslEndpointLOSWS,
+        pdnHdsl2ShdslEndpointUAS,
+        pdnHdsl2ShdslEndpointCurr15MinTimeElapsed,
+        pdnHdsl2ShdslEndpointCurr15MinES,
+        pdnHdsl2ShdslEndpointCurr15MinSES,
+        pdnHdsl2ShdslEndpointCurr15MinCRCanomalies,
+        pdnHdsl2ShdslEndpointCurr15MinLOSWS,
+        pdnHdsl2ShdslEndpointCurr15MinUAS,
+        pdnHdsl2ShdslEndpointCurr1DayTimeElapsed,
+        pdnHdsl2ShdslEndpointCurr1DayES,
+        pdnHdsl2ShdslEndpointCurr1DaySES,
+        pdnHdsl2ShdslEndpointCurr1DayCRCanomalies,
+        pdnHdsl2ShdslEndpointCurr1DayLOSWS,
+        pdnHdsl2ShdslEndpointCurr1DayUAS
+    }
+    STATUS      current
+    DESCRIPTION "This group supports objects which provide current status
+                 and performance measurements relating to segment endpoints
+                 in DSL lines."
+    ::= { pdnHdsl2ShdslLineObjGroups 3 }
+  
+
+pdnHdsl2Shdsl15MinIntervalGroup OBJECT-GROUP
+    OBJECTS {
+        pdnHdsl2Shdsl15MinIntervalES,
+        pdnHdsl2Shdsl15MinIntervalSES,
+        pdnHdsl2Shdsl15MinIntervalCRCanomalies,
+        pdnHdsl2Shdsl15MinIntervalLOSWS,
+        pdnHdsl2Shdsl15MinIntervalUAS
+    }
+    STATUS      current
+    DESCRIPTION "This group supports objects which maintain historic performance
+                 measurements relating to segment endpoints in DSL lines."
+    ::= { pdnHdsl2ShdslLineObjGroups 4 }
+
+pdnHdsl2Shdsl1DayIntervalGroup OBJECT-GROUP
+    OBJECTS {
+        pdnHdsl2Shdsl1DayIntervalMoniSecs,
+        pdnHdsl2Shdsl1DayIntervalES,
+        pdnHdsl2Shdsl1DayIntervalSES,
+        pdnHdsl2Shdsl1DayIntervalCRCanomalies,
+        pdnHdsl2Shdsl1DayIntervalLOSWS,
+        pdnHdsl2Shdsl1DayIntervalUAS
+    }
+    STATUS      current
+    DESCRIPTION "This group supports objects which maintain historic performance
+                 measurements relating to segment endpoints in DSL line in
+                 1-day intervals."
+    ::= { pdnHdsl2ShdslLineObjGroups 5 }
+
+pdnHdsl2ShdslSpanConfProfileGroup OBJECT-GROUP
+    OBJECTS {
+        pdnHdsl2ShdslSpanConfWireInterface,
+        pdnHdsl2ShdslSpanConfMinLineRate,
+        pdnHdsl2ShdslSpanConfMaxLineRate
+    }
+    STATUS      current
+    DESCRIPTION "This group supports objects that constitute configuration
+                 profiles for configuring span related parameters in DSL lines."
+    ::= { pdnHdsl2ShdslLineObjGroups 6 }
+
+pdnHdsl2ShdslIfTableGroup OBJECT-GROUP
+    OBJECTS {
+        pdnHdsl2ShdslIfTableEquipMode
+    }
+    STATUS      current
+    DESCRIPTION "This group supports objects on a per-interface basis."
+    ::= { pdnHdsl2ShdslLineObjGroups 7 }
+
+pdnHdsl2ShdslExtendedRateModeGroup OBJECT-GROUP
+    OBJECTS {
+        pdnHdsl2ShdslExtendedRateMode
+    }
+    STATUS      current
+    DESCRIPTION "This group supports objects to select the extended
+                 base data rate mode."
+    ::= { pdnHdsl2ShdslLineObjGroups 8 }
+
+
+
+-- =========================
+-- == Notification Groups ==
+-- =========================
+
+
+pdnHdsl2ShdslNotificationGroup NOTIFICATION-GROUP
+    NOTIFICATIONS {
+        pdnHdsl2ShdslLoopAttenCrossing,
+        pdnHdsl2ShdslSNRMarginCrossing,
+        pdnHdsl2ShdslPerfESThresh,
+        pdnHdsl2ShdslPerfSESThresh,
+        pdnHdsl2ShdslPerfCRCanomaliesThresh,
+        pdnHdsl2ShdslPerfLOSWSThresh,
+        pdnHdsl2ShdslPerfUASThresh,
+        pdnHdsl2ShdslpowerBackoff,
+        pdnHdsl2ShdsldeviceFault,
+        pdnHdsl2ShdsldcContinuityFault,
+        pdnHdsl2ShdslconfigInitFailure,
+        pdnHdsl2ShdslprotocolInitFailure,
+        pdnHdsl2ShdslnoNeighborPresent
+    }
+    STATUS      current
+    DESCRIPTION "This group supports notifications of significant conditions
+                 associated with DSL lines."
+    ::= { pdnHdsl2ShdslLineNtfyGroups 1 }
+
+
+
+-- =========
+-- == END ==
+-- =========
+END

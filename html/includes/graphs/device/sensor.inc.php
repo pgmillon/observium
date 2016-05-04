@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -17,7 +17,7 @@ foreach (dbFetchRows("SELECT * FROM `sensors` WHERE `sensor_class` = ? AND `devi
 {
   $rrd_filename = get_rrd_path($device, get_sensor_rrd($device, $sensor));
 
-  if (is_file($rrd_filename))
+  if (($config['allow_unauth_graphs'] == TRUE || is_entity_permitted($sensor['sensor_id'], 'sensor')) && is_file($rrd_filename))
   {
     $descr = rewrite_hrDevice($sensor['sensor_descr']);
     $rrd_list[$i]['filename'] = $rrd_filename;
@@ -31,7 +31,7 @@ $unit_text = $unit_long;
 
 $units = '%';
 $total_units = '%';
-$colours ='mixed';
+$colours ='mixed-10c';
 $nototal = 1;
 $scale_rigid = FALSE;
 

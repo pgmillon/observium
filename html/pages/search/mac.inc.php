@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -42,7 +42,9 @@ $search[] = array('type'    => 'select',
 $search[] = array('type'    => 'text',
                   'name'    => 'MAC Address',
                   'id'      => 'address',
-                  'width'   => '160px',
+                  'width'   => '200px',
+                  'placeholder' => TRUE,
+                  'submit_by_key' => TRUE,
                   'value'   => $vars['address']);
 
 print_search($search, 'MAC Addresses', NULL, 'search/search=mac/');
@@ -60,3 +62,7 @@ $page_title[] = 'MAC addresses';
   </div> <!-- col-md-12 -->
 
 </div> <!-- row -->
+
+<?php
+
+// EOF

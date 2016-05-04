@@ -7,11 +7,11 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-include_once($config['html_dir']."/includes/graphs/common.inc.php");
+include($config['html_dir']."/includes/graphs/common.inc.php");
 
 if ($width > "1000")
 {
@@ -110,25 +110,25 @@ foreach ($rrd_list as $i => $rrd)
   if ($rrd['invert'])
   {
     $rrd_options .= " CDEF:".$g_defname.$i."i=".$g_defname.$i.",-1,*";
-    $rrd_optionsc .= " AREA:".$g_defname.$i."i#".$colour.":'".rrdtool_escape($rrd['descr'], $descr_len)."':$cstack";
+    $rrd_optionsc .= " AREA:".$g_defname.$i."i#".$colour.":'".rrdtool_escape($rrd['descr'], $descr_len)."'".$cstack;
     $rrd_optionsc .= " GPRINT:".$t_defname.$i.":LAST:%5.1lf%s GPRINT:".$t_defname.$i."min:MIN:%5.1lf%s";
     $rrd_optionsc .= " GPRINT:".$t_defname.$i."max:MAX:%5.1lf%s GPRINT:".$t_defname.$i.":AVERAGE:%5.1lf%s";
-    $cstack = "STACK";
+    $cstack = ":STACK";
 
     if (!$nototal) { $rrd_optionsc .= " GPRINT:tot".$rrd['ds'].$i.":%5.2lf%s".rrdtool_escape($total_units).""; }
     $rrd_optionsc .= "'\\n' COMMENT:'\\n'";
   } else {
-    $rrd_optionsb .= " AREA:".$g_defname.$i."#".$colour.":'".rrdtool_escape($rrd['descr'], $descr_len)."':$bstack";
+    $rrd_optionsb .= " AREA:".$g_defname.$i."#".$colour.":'".rrdtool_escape($rrd['descr'], $descr_len)."'".$bstack;
     $rrd_optionsb .= " GPRINT:".$t_defname.$i.":LAST:%5.1lf%s GPRINT:".$t_defname.$i."min:MIN:%5.1lf%s";
     $rrd_optionsb .= " GPRINT:".$t_defname.$i."max:MAX:%5.1lf%s GPRINT:".$t_defname.$i.":AVERAGE:%5.1lf%s";
-    $bstack = "STACK";
+    $bstack = ":STACK";
 
     if (!$nototal) { $rrd_optionsb .= " GPRINT:tot".$rrd['ds'].$i.":%5.2lf%s".rrdtool_escape($total_units).""; }
     $rrd_optionsb .= "'\\n' COMMENT:'\\n'";
   }
 }
 
-if ($_GET['previous'] == "yes")
+if ($vars['previous'] == "yes")
 {
   $thingX  = implode(',', $rrd_multi['thingX']);
   $plusesX = str_repeat(',+', count($rrd_multi['thingX']) - 1);

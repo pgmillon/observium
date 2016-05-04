@@ -6,24 +6,24 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 if ($vars['editing'])
 {
-  if ($_SESSION['userlevel'] > "7")
+  if ($readonly)
   {
+    print_error_permission('You have insufficient permissions to edit settings.');
+  } else {
     $ssh_port = $vars['ssh_port'];
 
     if (!is_numeric($ssh_port))
     {
       $update_message = "SSH port must be numeric!";
       $updated = 0;
-    }
-    else
-    {
+    } else {
       $update = array(
         'ssh_port' => $ssh_port
       );
@@ -46,7 +46,6 @@ if ($vars['editing'])
 }
 
 $device = dbFetchRow("SELECT * FROM `devices` WHERE `device_id` = ?", array($device['device_id']));
-$descr  = $device['purpose'];
 
 if ($updated && $update_message)
 {
@@ -57,28 +56,33 @@ if ($updated && $update_message)
 
 print_warning("For now this option used only by 'libvirt-vminfo' discovery module (on linux devices).");
 
-?>
+      $form = array('type'      => 'horizontal',
+                    'id'        => 'edit',
+                    //'space'     => '20px',
+                    'title'     => 'SSH Connectivity',
+                    //'icon'      => 'oicon-gear',
+                    //'class'     => 'box box-solid',
+                    'fieldset'  => array('edit' => ''),
+                    );
+ 
+      $form['row'][0]['editing']   = array(
+                                      'type'        => 'hidden',
+                                      'value'       => 'yes');
+      $form['row'][1]['ssh_port']  = array(
+                                      'type'        => 'text',
+                                      'name'        => 'SSH Port',
+                                      'width'       => '250px',
+                                      'readonly'    => $readonly,
+                                      'value'       => escape_html($device['ssh_port']));
+      $form['row'][2]['submit']    = array(
+                                      'type'        => 'submit',
+                                      'name'        => 'Save Changes',
+                                      'icon'        => 'icon-ok icon-white',
+                                      'class'       => 'btn-primary',
+                                      'readonly'    => $readonly,
+                                      'value'       => 'save');
 
-<form id="edit" name="edit" method="post" class="form-horizontal" action="">
-  <input type=hidden name="editing" value="yes">
-
-  <div id="ssh">
-    <fieldset>
-      <legend>SSH Connectivity</legend>
-      <div class="control-group">
-        <label class="control-label" for="ssh_port">SSH Port</label>
-        <div class="controls">
-          <input type=text name="ssh_port" size="32" value="<?php echo(escape_html($device['ssh_port'])); ?>"/>
-        </div>
-      </div>
-    </fieldset>
-  </div>
-
-  <div class="form-actions">
-    <button type="submit" class="btn btn-primary" name="submit" value="save"><i class="icon-ok icon-white"></i> Save Changes</button>
-  </div>
-
-</form>
-<?php
-
+      print_form($form);
+      unset($form);
+      
 // EOF

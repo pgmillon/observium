@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -33,18 +33,42 @@ switch ($device['os'])
         $hw = str_replace(" Corporation", "", $hw);
       }
 
-      if ($agent_data['dmi']['system-serial-number'])
+      // If these exclude lists grow any further we should move them to definitions...
+      if (isset($agent_data['dmi']['system-serial-number'])
+        && $agent_data['dmi']['system-serial-number'] != '............'
+        && $agent_data['dmi']['system-serial-number'] != 'Not Specified'
+        && $agent_data['dmi']['system-serial-number'] != '0123456789')
       {
         $serial = $agent_data['dmi']['system-serial-number'];
       }
 
-      if ($agent_data['dmi']['chassis-asset-tag'] && $agent_data['dmi']['chassis-asset-tag'] != 'No Asset Tag')
+      if (isset($agent_data['dmi']['chassis-asset-tag'])
+        && $agent_data['dmi']['chassis-asset-tag'] != '....................'
+        && strcasecmp($agent_data['dmi']['chassis-asset-tag'], 'To be filled by O.E.M.') != 0
+        && $agent_data['dmi']['chassis-asset-tag'] != 'No Asset Tag')
+      {
+        $asset_tag = $agent_data['dmi']['chassis-asset-tag'];
+      }
+      elseif (isset($agent_data['dmi']['baseboard-asset-tag'])
+        && $agent_data['dmi']['baseboard-asset-tag'] != '....................'
+        && strcasecmp($agent_data['dmi']['baseboard-asset-tag'], 'To be filled by O.E.M.') != 0
+        && $agent_data['dmi']['baseboard-asset-tag'] != 'Tag 12345')
       {
         $asset_tag = $agent_data['dmi']['baseboard-asset-tag'];
       }
-      elseif ($agent_data['dmi']['baseboard-asset-tag'] && $agent_data['dmi']['baseboard-asset-tag'] != 'Tag 12345')
+    }
+
+    // Use agent virt-what data if available
+    if (isset($agent_data['virt']['what']))
+    {
+      if (isset($config['virt-what'][$agent_data['virt']['what']]))
       {
-        $asset_tag = $agent_data['dmi']['baseboard-asset-tag'];
+        // We cycle through every line here, the previous one is overwritten.
+        // This is OK, as virt-what prints general-to-specific order and we want most specific.
+        foreach (explode("\n", $agent_data['virt']['what']) as $virtwhat)
+        {
+          $hw = $config['virt-what'][$virtwhat];
+        }
       }
     }
 
@@ -87,18 +111,25 @@ switch ($device['os'])
     break;
 
   case 'aix':
-    list($hardware_type,,$os_detail,) = explode("\n", $poll_device['sysDescr']);
-    list(,$version) = explode(":", $os_detail);
+    list($hardware,,$os_detail,) = explode("\n", $poll_device['sysDescr']);
+    if (preg_match('/: 0*(\d+\.)0*(\d+\.)0*(\d+\.)(\d+)/', $os_detail, $matches))
+    {
+      // Base Operating System Runtime AIX version: 05.03.0012.0001
+      $version = $matches[1] . $matches[2] . $matches[3] . $matches[4];
+    }
 
     $hardware_model = snmp_get($device, "aixSeMachineType.0", "-Oqv", "IBM-AIX-MIB");
-    $hardware_model = trim(str_replace("\"", "", $hardware_model));
-    list(,$hardware_model) = explode(",", $hardware_model);
+    if ($hardware_model)
+    {
+      $hardware_model = trim(str_replace("\"", "", $hardware_model));
+      list(,$hardware_model) = explode(",", $hardware_model);
 
-    $serial = snmp_get($device, "aixSeSerialNumber.0", "-Oqv", "IBM-AIX-MIB");
-    $serial = trim(str_replace("\"", "", $serial));
-    list(,$serial) = explode(",", $serial);
+      $serial = snmp_get($device, "aixSeSerialNumber.0", "-Oqv", "IBM-AIX-MIB");
+      $serial = trim(str_replace("\"", "", $serial));
+      list(,$serial) = explode(",", $serial);
 
-    $hardware = "$hardware_type ($hardware_model)";
+      $hardware .= " ($hardware_model)";
+    }
     break;
 
   case 'freebsd':
@@ -150,7 +181,7 @@ switch ($device['os'])
   case 'qnap':
     $hardware = $entPhysical['entPhysicalName'];
     $version  = $entPhysical['entPhysicalFirmwareRev'];
-    $serial   = $entPhysical['entPhysicalSerial'];
+    $serial   = $entPhysical['entPhysicalSerialNum'];
     break;
 
   case 'ipso':

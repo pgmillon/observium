@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -17,79 +17,84 @@ $sensors = dbFetchRows($query, array($device['device_id']));
 
 $warn_enable = (OBS_DEBUG ? TRUE: FALSE); // For enable edit warn limits, set this to TRUE
 
-if ($vars['submit'] == "update-sensors" && $_SESSION['userlevel'] == '10')
+if ($vars['submit'] == "update-sensors")
 {
-  $did_update = FALSE;
-  $update_array = array();
-  foreach ($sensors as $sensor)
+  if ($readonly)
   {
-    humanize_sensor($sensor);
-
-    if (!$sensor['sensor_state'])
+    print_error_permission('You have insufficient permissions to edit settings.');
+  } else {
+    $did_update = FALSE;
+    $update_array = array();
+    foreach ($sensors as $sensor)
     {
-      // Normal sensors
-      $fields_switch = array('sensor_ignore', 'sensor_custom_limit');
-      if ($warn_enable)
+      humanize_sensor($sensor);
+
+      if (!$sensor['sensor_state'])
       {
-        $fields_limit = array('sensor_limit', 'sensor_limit_warn', 'sensor_limit_low_warn', 'sensor_limit_low');
+        // Normal sensors
+        $fields_switch = array('sensor_ignore', 'sensor_custom_limit');
+        if ($warn_enable)
+        {
+          $fields_limit = array('sensor_limit', 'sensor_limit_warn', 'sensor_limit_low_warn', 'sensor_limit_low');
+        } else {
+          $fields_limit = array('sensor_limit', 'sensor_limit_low');
+        }
       } else {
-        $fields_limit = array('sensor_limit', 'sensor_limit_low');
+        // State sensors not allow edit limits
+        $fields_switch = array('sensor_ignore');
+        $fields_limit = array();
       }
-    } else {
-      // State sensors not allow edit limits
-      $fields_switch = array('sensor_ignore');
-      $fields_limit = array();
-    }
-    // Switch selectors
-    foreach ($fields_switch as $field)
-    {
-      $vars['sensors'][$sensor['sensor_id']][$field] = ($vars['sensors'][$sensor['sensor_id']][$field] == 'on' ? '1' : '0');
-      if ($vars['sensors'][$sensor['sensor_id']][$field] != $sensor[$field])
+      // Switch selectors
+      foreach ($fields_switch as $field)
       {
-        $update_array[$field] = $vars['sensors'][$sensor['sensor_id']][$field];
-      }
-    }
-
-    // Reset limits
-    if ($vars['sensors'][$sensor['sensor_id']]['sensor_reset_limit'])
-    {
-      $limits_reset_array[$sensor['sensor_class']][] = $sensor['sensor_descr'];
-      $update_array['sensor_limit_low'] = array('NULL');
-      $update_array['sensor_limit_low_warn'] = array('NULL');
-      $update_array['sensor_limit_warn'] = array('NULL');
-      $update_array['sensor_limit'] = array('NULL');
-    }
-
-    // Limits
-    if ($vars['sensors'][$sensor['sensor_id']]['sensor_custom_limit'])
-    {
-      foreach ($fields_limit as $field)
-      {
-        $vars['sensors'][$sensor['sensor_id']][$field] = (!is_numeric($vars['sensors'][$sensor['sensor_id']][$field]) ? array('NULL') : (float)$vars['sensors'][$sensor['sensor_id']][$field]);
-        $sensor[$field] = (!is_numeric($sensor[$field]) ? array('NULL') : (float)$sensor[$field]);
-        if ($vars['sensors'][$sensor['sensor_id']][$field] !== $sensor[$field])
+        $vars['sensors'][$sensor['sensor_id']][$field] = ($vars['sensors'][$sensor['sensor_id']][$field] == 'on' || $vars['sensors'][$sensor['sensor_id']][$field] == '1' ? '1' : '0');
+        if ($vars['sensors'][$sensor['sensor_id']][$field] != $sensor[$field])
         {
           $update_array[$field] = $vars['sensors'][$sensor['sensor_id']][$field];
         }
       }
+
+      // Reset limits
+      if ($vars['sensors'][$sensor['sensor_id']]['sensor_reset_limit'])
+      {
+        $limits_reset_array[$sensor['sensor_class']][] = $sensor['sensor_descr'];
+        $update_array['sensor_limit_low'] = array('NULL');
+        $update_array['sensor_limit_low_warn'] = array('NULL');
+        $update_array['sensor_limit_warn'] = array('NULL');
+        $update_array['sensor_limit'] = array('NULL');
+      }
+
+      // Limits
+      if ($vars['sensors'][$sensor['sensor_id']]['sensor_custom_limit'])
+      {
+        foreach ($fields_limit as $field)
+        {
+          $vars['sensors'][$sensor['sensor_id']][$field] = (!is_numeric($vars['sensors'][$sensor['sensor_id']][$field]) ? array('NULL') : (float)$vars['sensors'][$sensor['sensor_id']][$field]);
+          $sensor[$field] = (!is_numeric($sensor[$field]) ? array('NULL') : (float)$sensor[$field]);
+          if ($vars['sensors'][$sensor['sensor_id']][$field] !== $sensor[$field])
+          {
+            $update_array[$field] = $vars['sensors'][$sensor['sensor_id']][$field];
+          }
+        }
+      }
+
+      if (count($update_array))
+      {
+        dbUpdate($update_array, 'sensors', '`sensor_id` = ?', array($sensor['sensor_id']));
+        $msg = 'Sensor updated (custom): '.$sensor['sensor_class'].' '.$sensor['sensor_type'].' '.$sensor['sensor_id'].' '.escape_html($sensor['sensor_descr']).' ';
+        if ($update_array['sensor_limit_low']) { $msg .= '[L: '.$update_array['sensor_limit_low'].']'; }
+        if ($update_array['sensor_limit_low_warn']) { $msg .= '[Lw: '.$update_array['sensor_limit_low_warn'].']'; }
+        if ($update_array['sensor_limit_warn']) { $msg .= '[Hw: '.$update_array['sensor_limit_warn'].']'; }
+        if ($update_array['sensor_limit']) { $msg .= '[H: '.$update_array['sensor_limit'].']'; }
+        log_event($msg, $device, 'sensor', $sensor['sensor_id']);
+        $did_update = TRUE;
+      }
+      unset($update_array);
     }
 
-    if (count($update_array))
-    {
-      dbUpdate($update_array, 'sensors', '`sensor_id` = ?', array($sensor['sensor_id']));
-      $msg = 'Sensor updated (custom): '.$sensor['sensor_class'].' '.$sensor['sensor_type'].' '.$sensor['sensor_id'].' '.htmlentities($sensor['sensor_descr']).' ';
-      if ($update_array['sensor_limit_low']) { $msg .= '[L: '.$update_array['sensor_limit_low'].']'; }
-      if ($update_array['sensor_limit_low_warn']) { $msg .= '[Lw: '.$update_array['sensor_limit_low_warn'].']'; }
-      if ($update_array['sensor_limit_warn']) { $msg .= '[Hw: '.$update_array['sensor_limit_warn'].']'; }
-      if ($update_array['sensor_limit']) { $msg .= '[H: '.$update_array['sensor_limit'].']'; }
-      log_event($msg, $device, 'sensor', $sensor['sensor_id']);
-      $did_update = TRUE;
-    }
-    unset($update_array);
+    // Query updated sensors array
+    if ($did_update) { $sensors = dbFetchRows($query, array($device['device_id'])); }
   }
-
-  // Query updated sensors array
-  if ($did_update) { $sensors = dbFetchRows($query, array($device['device_id'])); }
 }
 
 foreach ($limits_reset_array as $class => $descr)
@@ -102,16 +107,19 @@ unset($limits_reset_array);
 ?>
 
 <form id="update-sensors" name="update-sensors" method="post" action="">
-<fieldset>
-  <legend>Sensor Properties</legend>
-
-<table class="table table-bordered table-striped table-condensed">
+<div class="box box-solid">
+  <div class="box-header with-border">
+   <h3 class="box-title">Sensor Properties</h3>
+  </div>
+<div class="box-body no-padding">
+<table class="table  table-striped table-condensed">
   <thead>
     <tr>
+      <th class="state-marker"></th>
       <th style="width: 60px;">Index</th>
       <th style="width: 140px;">MIB Type</th>
       <th style="width: 100px;">Class</th>
-      <th>Descr</th>
+      <th>Description</th>
       <th style="width: 60px;">Current</th>
       <th style="width: 60px;">Min</th>
 <?php if ($warn_enable) { ?>
@@ -144,19 +152,20 @@ foreach ($sensors as $sensor)
     $limit_switch_class = '';
   }
 
-  echo('<tr>');
-  echo('<td style="vertical-align: middle;">'.htmlentities($sensor['sensor_index']).'</td>');
+  echo('<tr class="'.$sensor['row_class'].'">');
+  echo('<td class="state-marker"></td>');
+  echo('<td style="vertical-align: middle;">'.escape_html($sensor['sensor_index']).'</td>');
   echo('<td>'.$sensor['sensor_type'].'</td>');
   echo('<td>'.$sensor['sensor_class'].'</td>');
-  echo('<td>'.escape_html($sensor['sensor_descr']).'</td>');
+  echo('<td><span class="entity">'.generate_entity_link('sensor', $sensor).'</span></td>');
   echo('<td><span class="'.$sensor['state_class'].'">' . $sensor_value . $sensor['sensor_symbol'] . '</span></td>');
-  echo('<td><input class="'.$limit_class.'" name="sensors['.$sensor['sensor_id'].'][sensor_limit_low]" size="4" value="'.htmlentities($sensor['sensor_limit_low']).'" /></td>');
+  echo('<td><input class="'.$limit_class.'" name="sensors['.$sensor['sensor_id'].'][sensor_limit_low]" size="4" value="'.escape_html($sensor['sensor_limit_low']).'" /></td>');
   if ($warn_enable)
   {
-    echo('<td><input class="'.$limit_class.'" name="sensors['.$sensor['sensor_id'].'][sensor_limit_low_warn]" size="4" value="'.htmlentities($sensor['sensor_limit_low_warn']).'" /></td>');
-    echo('<td><input class="'.$limit_class.'" name="sensors['.$sensor['sensor_id'].'][sensor_limit_warn]" size="4" value="'.htmlentities($sensor['sensor_limit_warn']).'" /></td>');
+    echo('<td><input class="'.$limit_class.'" name="sensors['.$sensor['sensor_id'].'][sensor_limit_low_warn]" size="4" value="'.escape_html($sensor['sensor_limit_low_warn']).'" /></td>');
+    echo('<td><input class="'.$limit_class.'" name="sensors['.$sensor['sensor_id'].'][sensor_limit_warn]" size="4" value="'.escape_html($sensor['sensor_limit_warn']).'" /></td>');
   }
-  echo('<td><input class="'.$limit_class.'" name="sensors['.$sensor['sensor_id'].'][sensor_limit]" size="4" value="'.htmlentities($sensor['sensor_limit']).'" /></td>');
+  echo('<td><input class="'.$limit_class.'" name="sensors['.$sensor['sensor_id'].'][sensor_limit]" size="4" value="'.escape_html($sensor['sensor_limit']).'" /></td>');
   if (OBS_DEBUG)
   {
     echo('<td>'.$sensor['sensor_multiplier'].'</td>');
@@ -179,11 +188,13 @@ unset($warn_enable);
 
 </tbody>
 </table>
-</fieldset>
-
-  <div class="form-actions">
-    <button type="submit" class="btn btn-primary" name="submit" value="update-sensors"><i class="icon-ok icon-white"></i> Save Changes</button>
   </div>
+
+  <div class="box-footer">
+    <button type="submit" class="btn btn-primary pull-right" name="submit" value="update-sensors"><i class="icon-ok icon-white"></i> Save Changes</button>
+  </div>
+</div>
+
 </form>
 <?php
 

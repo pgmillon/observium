@@ -1,0 +1,2061 @@
+-- ============================================================================
+-- Copyright (c) 2010-2013 Hewlett-Packard Development Company, L.P.
+--
+-- Description: DVPN MIB
+-- Reference:
+-- Version: V1.0
+-- History:
+-- V1.0 2005-07-01
+--   Initial version, created by zhanglihua, zhangzhen, lilin and liukan
+-- ============================================================================
+HPN-ICF-DVPN-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        hpnicfCommon
+            FROM HPN-ICF-OID-MIB
+        InetAddressType, InetAddress
+            FROM INET-ADDRESS-MIB
+        Integer32, Unsigned32, OBJECT-TYPE, MODULE-IDENTITY, NOTIFICATION-TYPE,
+        TimeTicks
+            FROM SNMPv2-SMI
+        RowStatus, TEXTUAL-CONVENTION
+            FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP
+            FROM SNMPv2-CONF
+        ifIndex
+            FROM IF-MIB;
+
+
+
+--Node definitions
+
+
+    hpnicfDvpn MODULE-IDENTITY
+        LAST-UPDATED "200507011936Z"        -- July 1, 2005 at 19:36 GMT
+        ORGANIZATION
+            ""
+        CONTACT-INFO
+            ""
+        DESCRIPTION
+            "
+                This MIB is Dynamic Virtual Private Network(Dvpn) mib.
+                This MIB is applicable to router.
+                Some objects in this may be used only for some specific products,
+                so users should refer to the related documents to acquire more
+                detail information.
+            "
+        ::= { hpnicfCommon 57 }
+
+
+    DvpnAlgorithmSuite ::= TEXTUAL-CONVENTION
+        STATUS current
+        DESCRIPTION
+            "
+                13 kinds of dvpn algorithms.
+                                         encryption method | hash method | key width.
+                dvpnDesCbcMd5PreShaModp768:          des   |  md5        |     768
+                dvpnDesCbcMd5PreShaModp1024:         des   |  md5        |    1024
+                dvpnDesCbcSha1PreShaModp768:         des   | sha1        |     768
+                dvpnDesCbcSha1PreShaModp1024:        des   | sha1        |    1024
+                dvpn3DesCbcMd5PreShaModp768:        3des   |  md5        |     768
+                dvpn3DesCbcMd5PreShaModp1024:       3des   |  md5        |    1024
+                dvpn3DesCbcSha1PreShaModp768:       3des   | sha1        |     768
+                dvpn3DesCbcSha1PreShaModp1024:      3des   | sha1        |    1024
+                dvpnAesCbcMd5PreShaModp768:          Aes   |  md5        |     768
+                dvpnAesCbcMd5PreShaModp1024:         Aes   |  md5        |    1024
+                dvpnAesCbcSHA1Sha1PreShaModp768:     Aes   | sha1        |     768
+                dvpnAesCbcSHA1Sha1PreShaModp1024:    Aes   | sha1        |    1024
+                dvpnAlgorithmNone:                  none   | none        |  no key
+            "
+        SYNTAX INTEGER
+            {
+                dvpnDesCbcMd5PreShaModp768(1),
+                dvpnDesCbcMd5PreShaModp1024(2),
+                dvpnDesCbcSha1PreShaModp768(3),
+                dvpnDesCbcSha1PreShaModp1024(4),
+                dvpn3DesCbcMd5PreShaModp768(5),
+                dvpn3DesCbcMd5PreShaModp1024(6),
+                dvpn3DesCbcSha1PreShaModp768(7),
+                dvpn3DesCbcSha1PreShaModp1024(8),
+                dvpnAesCbcMd5PreShaModp768(9),
+                dvpnAesCbcMd5PreShaModp1024(10),
+                dvpnAesCbcSHA1Sha1PreShaModp768(11),
+                dvpnAesCbcSHA1Sha1PreShaModp1024(12),
+                dvpnAlgorithmNone(13)
+            }
+
+    DvpnCommunicateType ::= TEXTUAL-CONVENTION
+        STATUS current
+        DESCRIPTION
+            "
+                The type of the communication between client and server.
+                It indicates the direction of the communication.
+            "
+        SYNTAX INTEGER
+            {
+                clientToserver(1),
+                serverToclient(2),
+                serverToserver(3),
+                clientToclient(4)
+            }
+
+    hpnicfDvpnMibObjects OBJECT IDENTIFIER ::= { hpnicfDvpn 1 }
+
+    hpnicfDvpnMibGlobal OBJECT IDENTIFIER  ::= { hpnicfDvpnMibObjects 1 }
+
+    hpnicfDvpnMibTableTroop OBJECT IDENTIFIER  ::= { hpnicfDvpnMibObjects 2 }
+
+    hpnicfDvpnMibNotification OBJECT IDENTIFIER  ::= { hpnicfDvpnMibObjects 3 }
+
+    hpnicfDvpnMibConformance OBJECT IDENTIFIER ::= { hpnicfDvpnMibObjects 4 }
+
+
+
+    hpnicfDvpnServiceEnable OBJECT-TYPE
+        SYNTAX INTEGER
+            {
+                enable(1),
+                disable(2)
+            }
+        MAX-ACCESS read-write
+        STATUS current
+        DESCRIPTION
+            "
+                Dvpn service enable or disable.
+                If dvpn service is 'disable', dvpn service can not be used.
+            "
+        DEFVAL { disable }
+        ::= { hpnicfDvpnMibGlobal 1 }
+
+    hpnicfDvpnClassNumber OBJECT-TYPE
+        SYNTAX Integer32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The number of dvpn classes.
+                It is only used on client.
+            "
+        DEFVAL { 0 }
+        ::= { hpnicfDvpnMibGlobal 2 }
+
+
+    hpnicfDvpnClientNumber OBJECT-TYPE
+        SYNTAX Integer32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The number of clients which register on the server.
+                When a session of server to client type is built,
+                add 1 to the value of this node.
+                It is only used on server.
+            "
+        DEFVAL { 0 }
+        ::= { hpnicfDvpnMibGlobal 3 }
+
+    hpnicfDvpnMapAgeTime OBJECT-TYPE
+        SYNTAX Integer32 (10..180)
+        MAX-ACCESS read-write
+        STATUS current
+        DESCRIPTION
+            "
+                Dvpn map age time, the unit is second.
+                It is only used on server.
+            "
+        DEFVAL { 30 }
+        ::= { hpnicfDvpnMibGlobal 4 }
+
+
+    hpnicfDvpnClientRegisterInterval OBJECT-TYPE
+        SYNTAX Integer32 (3..60)
+        MAX-ACCESS read-write
+        STATUS current
+        DESCRIPTION
+            "
+                The length of time between the registering of client, the unit
+                is second.
+                It is only used on client.
+            "
+        DEFVAL { 10 }
+        ::= { hpnicfDvpnMibGlobal 5 }
+
+
+    hpnicfDvpnClientRegisterDumb OBJECT-TYPE
+        SYNTAX Integer32 (60..3600)
+        MAX-ACCESS read-write
+        STATUS current
+        DESCRIPTION
+            "
+                The length of time when client dumbs, the unit is second.
+                It is only used on client.
+            "
+        DEFVAL { 300 }
+        ::= { hpnicfDvpnMibGlobal 6 }
+
+
+    hpnicfDvpnClientRegisterRetry OBJECT-TYPE
+       SYNTAX Integer32(1..6)
+       MAX-ACCESS read-write
+       STATUS current
+       DESCRIPTION
+           "
+               Regist retry times of client after register fail.
+               It is only used on client.
+            "
+       DEFVAL { 3 }
+       ::= { hpnicfDvpnMibGlobal 7 }
+
+    hpnicfDvpnInputPkt OBJECT-TYPE
+        SYNTAX Unsigned32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The number of recieved packets.
+            "
+        DEFVAL { 0 }
+        ::= { hpnicfDvpnMibGlobal 8 }
+
+    hpnicfDvpnDropPkt OBJECT-TYPE
+        SYNTAX Unsigned32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The number of packets have been droped.
+            "
+        DEFVAL { 0 }
+        ::= { hpnicfDvpnMibGlobal 9 }
+
+    hpnicfDvpnOutputPkt OBJECT-TYPE
+        SYNTAX Unsigned32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The number of packets have been sent.
+            "
+        DEFVAL { 0 }
+        ::= { hpnicfDvpnMibGlobal 10 }
+
+    hpnicfDvpnOutputErrorPkt OBJECT-TYPE
+        SYNTAX Unsigned32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The number of output error packets.
+            "
+        DEFVAL { 0 }
+        ::= { hpnicfDvpnMibGlobal 11 }
+
+    hpnicfDvpnEncryptErrorPkt  OBJECT-TYPE
+        SYNTAX Unsigned32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The number of packets have been encrypted wrongly.
+            "
+        DEFVAL { 0 }
+        ::= { hpnicfDvpnMibGlobal 12 }
+
+    hpnicfDvpnCurrentDeviceRole  OBJECT-TYPE
+        SYNTAX INTEGER
+            {
+                none(1),
+                server(2),
+                client(3),
+                both(4)
+            }
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The current role of the device.
+                The value is decided by the configuration of the tunnel-interface.
+            "
+        ::= { hpnicfDvpnMibGlobal 13 }
+
+    hpnicfDvpnDomainNumber  OBJECT-TYPE
+        SYNTAX Integer32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The number of dvpn domains.
+
+            "
+        DEFVAL { 0 }
+        ::= { hpnicfDvpnMibGlobal 14 }
+
+    hpnicfDvpnMapNumber  OBJECT-TYPE
+        SYNTAX Integer32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The number of dvpn maps.
+            "
+        DEFVAL { 0 }
+        ::= { hpnicfDvpnMibGlobal 15 }
+
+    hpnicfDvpnSessionNumber OBJECT-TYPE
+        SYNTAX Integer32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+             "
+                 The number of dvpn sessiones including the session of all states.
+             "
+        DEFVAL { 0 }
+        ::= {  hpnicfDvpnMibGlobal 16 }
+
+    hpnicfDvpnServerPreSharedKey  OBJECT-TYPE
+        SYNTAX OCTET STRING (SIZE (0..127))
+        MAX-ACCESS read-write
+        STATUS current
+        DESCRIPTION
+            "
+                The pre-shared-key of server.
+                It is only used on server.
+            "
+        ::= { hpnicfDvpnMibGlobal 17 }
+
+    hpnicfDvpnMapTrapEnable OBJECT-TYPE
+        SYNTAX INTEGER
+            {
+                enable(1),
+                disable(2)
+            }
+        MAX-ACCESS read-write
+        STATUS current
+        DESCRIPTION
+            "
+                Dvpn map trap enable or disable.
+            "
+        DEFVAL { enable }
+        ::= { hpnicfDvpnMibGlobal 18 }
+
+    hpnicfDvpnSessionTrapEnable OBJECT-TYPE
+        SYNTAX INTEGER
+            {
+                enable(1),
+                disable(2)
+            }
+        MAX-ACCESS read-write
+        STATUS current
+        DESCRIPTION
+            "
+                Dvpn session trap enable or disable.
+            "
+        DEFVAL { enable }
+        ::= { hpnicfDvpnMibGlobal 19 }
+
+    hpnicfDvpnVersion  OBJECT-TYPE
+        SYNTAX INTEGER
+            {
+                version2(1),
+                version3(2)
+            }
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                Dvpn version.
+            "
+        ::= { hpnicfDvpnMibGlobal 20 }
+
+    hpnicfDvpnClearDomainAllConection  OBJECT-TYPE
+        SYNTAX Integer32(1..65535)
+        MAX-ACCESS read-write
+        STATUS current
+        DESCRIPTION
+            "
+                Clear all dvpn conects in the domain, the parameter is
+                the id of the domain.
+            "
+        ::= { hpnicfDvpnMibGlobal 21 }
+
+    hpnicfDvpnClearDvpnStaInfo OBJECT-TYPE
+        SYNTAX Integer32(1)
+        MAX-ACCESS read-write
+        STATUS current
+        DESCRIPTION
+            "
+                Clear the statistic information of dvpn.
+            "
+        ::= {  hpnicfDvpnMibGlobal 22 }
+
+    hpnicfDvpnTotalRedirectNumber OBJECT-TYPE
+        SYNTAX Unsigned32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The number of redirect packets.
+                It is only used on server.
+            "
+        DEFVAL { 0 }
+        ::= { hpnicfDvpnMibGlobal 23 }
+
+
+    hpnicfDvpnGlobalAuthenClientType OBJECT-TYPE
+        SYNTAX INTEGER
+            {
+                 none(1),
+                 pap(2),
+                 chap(3)
+            }
+        MAX-ACCESS read-write
+        STATUS current
+        DESCRIPTION
+            "
+                Dvpn global authentication type being used by server to client.
+                The value is decided by the configuration by the user.
+            "
+        DEFVAL { none }
+        ::= { hpnicfDvpnMibGlobal 24 }
+
+
+
+    hpnicfDvpnGlobalUserDefAAADomain OBJECT-TYPE
+        SYNTAX OCTET STRING (SIZE (0..24))
+        MAX-ACCESS read-write
+        STATUS current
+        DESCRIPTION
+            "
+                Dvpn global AAA domain of the user. The domain will decide the
+                authentication server which is used by the dvpn server to
+                authenticate dvpn client.
+            "
+        ::= { hpnicfDvpnMibGlobal 25 }
+
+    hpnicfDvpnLocalDeviceId OBJECT-TYPE
+        SYNTAX OCTET STRING
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The device ID, it is a string.
+            "
+        ::= {  hpnicfDvpnMibGlobal 26 }
+
+    hpnicfDvpnSessionHisAgeTime OBJECT-TYPE
+        SYNTAX Integer32(1..100)
+        MAX-ACCESS read-write
+        STATUS current
+        DESCRIPTION
+            "
+                The age-time of the hpnicfDvpnSessionHisTable table.
+                The unit is hour.
+            "
+        DEFVAL { 50 }
+        ::= {  hpnicfDvpnMibGlobal 27 }
+
+    hpnicfDvpnSessionHisReset OBJECT-TYPE
+        SYNTAX INTEGER
+            {
+                 reset(1)
+            }
+        MAX-ACCESS read-write
+        STATUS current
+        DESCRIPTION
+            "
+                The reset flag of dvpn hpnicfDvpnSessionHisTable table.
+            "
+        ::= {  hpnicfDvpnMibGlobal 28 }
+
+
+--hpnicfDvpnPolicyTable
+
+    hpnicfDvpnPolicyTable  OBJECT-TYPE
+        SYNTAX SEQUENCE OF HpnicfDvpnPolicyEntry
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION
+            "
+                The dvpn policy table.
+                It is used on dvpn server.
+            "
+        ::= { hpnicfDvpnMibTableTroop 1 }
+
+    hpnicfDvpnPolicyEntry OBJECT-TYPE
+        SYNTAX HpnicfDvpnPolicyEntry
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION
+            "
+                The entry of hpnicfDvpnPolicyTable.
+            "
+        INDEX { hpnicfDvpnPolicyName }
+        ::= { hpnicfDvpnPolicyTable 1 }
+
+    HpnicfDvpnPolicyEntry ::=
+        SEQUENCE {
+            hpnicfDvpnPolicyName                            OCTET STRING,
+            hpnicfDvpnPoAuthenClientType                    INTEGER,
+            hpnicfDvpnPoSessionAlgorithmSuite               DvpnAlgorithmSuite,
+            hpnicfDvpnPoSessionIdleTime                     Integer32,
+            hpnicfDvpnPoSessionKeepTime                     Integer32,
+            hpnicfDvpnPoSessionSetupInterval                Integer32,
+            hpnicfDvpnPoDataAlgorithmSuite                  DvpnAlgorithmSuite,
+            hpnicfDvpnPoSaSeconds                           Integer32,
+            hpnicfDvpnPoUserDefAAADomain                    OCTET STRING,
+            hpnicfDvpnPoRefTimes                            Integer32,
+            hpnicfDvpnPoRowStatus                           RowStatus
+        }
+
+    hpnicfDvpnPolicyName OBJECT-TYPE
+        SYNTAX OCTET STRING (SIZE(1..31))
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION
+            "
+                The name of Dvpn policy.
+            "
+        ::= { hpnicfDvpnPolicyEntry 1 }
+
+    hpnicfDvpnPoAuthenClientType OBJECT-TYPE
+        SYNTAX INTEGER
+            {
+                none(1),
+                pap(2),
+                chap(3)
+            }
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+            "
+                The authentication type used by server to client.
+                The value is decided by the policy configuration of the user.
+                The default value is none.
+            "
+        DEFVAL { none }
+        ::= { hpnicfDvpnPolicyEntry 2 }
+
+    hpnicfDvpnPoSessionAlgorithmSuite OBJECT-TYPE
+        SYNTAX DvpnAlgorithmSuite
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+            "
+                The algorithm suite used when session is created.
+            "
+        DEFVAL { dvpnDesCbcMd5PreShaModp768 }
+        ::= { hpnicfDvpnPolicyEntry 3 }
+
+    hpnicfDvpnPoSessionIdleTime OBJECT-TYPE
+        SYNTAX Integer32(60..86400)
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+            "
+                The session idle time, the unit is second.
+            "
+        DEFVAL { 300 }
+        ::= { hpnicfDvpnPolicyEntry 4 }
+
+    hpnicfDvpnPoSessionKeepTime OBJECT-TYPE
+        SYNTAX Integer32(5..300)
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+            "
+                The session keepalive time, the unit is second.
+            "
+        DEFVAL { 10 }
+        ::= { hpnicfDvpnPolicyEntry 5 }
+
+    hpnicfDvpnPoSessionSetupInterval OBJECT-TYPE
+        SYNTAX Integer32(5..60)
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+            "
+                The session setup interval time, the unit is second.
+            "
+        DEFVAL { 10 }
+        ::= { hpnicfDvpnPolicyEntry 6 }
+
+    hpnicfDvpnPoDataAlgorithmSuite OBJECT-TYPE
+        SYNTAX DvpnAlgorithmSuite
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+            "
+                The algorithm suite used by the session for createing ipsec sa.
+            "
+        DEFVAL { dvpnDesCbcMd5PreShaModp768 }
+        ::= { hpnicfDvpnPolicyEntry 7 }
+
+    hpnicfDvpnPoSaSeconds OBJECT-TYPE
+        SYNTAX Integer32(180..604800)
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+            "
+                The duration of DVPN IPSec security association.
+                The unit is second.
+            "
+        DEFVAL { 3600 }
+        ::= { hpnicfDvpnPolicyEntry 8 }
+
+    hpnicfDvpnPoUserDefAAADomain OBJECT-TYPE
+        SYNTAX OCTET STRING (SIZE (0..24))
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+            "
+                Dvpn policy AAA domain of the user. The domain will decide the
+                authentication server which used by the dvpn server to authenticate
+                dvpn client.
+            "
+        ::= { hpnicfDvpnPolicyEntry 9 }
+
+    hpnicfDvpnPoRefTimes OBJECT-TYPE
+        SYNTAX Integer32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The total times of the policy being used by dvpn.
+            "
+        ::= { hpnicfDvpnPolicyEntry 10 }
+
+    hpnicfDvpnPoRowStatus OBJECT-TYPE
+        SYNTAX RowStatus
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+            "
+                The status of this conceptual row.
+                We support the characteristic of active(1),createAndGo(4),destroy(6).
+            "
+        ::= { hpnicfDvpnPolicyEntry 11 }
+
+
+
+--hpnicfDvpnDomainInfoTable
+
+    hpnicfDvpnDomainInfoTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF HpnicfDvpnDomainInfoEntry
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION
+            "
+                The dvpn domain table.
+            "
+        ::= { hpnicfDvpnMibTableTroop 2 }
+
+    hpnicfDvpnDomainInfoEntry OBJECT-TYPE
+        SYNTAX HpnicfDvpnDomainInfoEntry
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION
+            "
+                The entry of hpnicfDvpnDomainInfoTable.
+            "
+        INDEX { hpnicfDvpnDomainID }
+        ::= { hpnicfDvpnDomainInfoTable 1 }
+
+    HpnicfDvpnDomainInfoEntry ::=
+        SEQUENCE
+        {
+            hpnicfDvpnDomainID                       Integer32,
+            hpnicfDvpnDomainSessionNum               Unsigned32,
+            hpnicfDvpnDomainRedirectNum              Unsigned32,
+            hpnicfDvpnDomainInputPkt                 Unsigned32,
+            hpnicfDvpnDomainDropPkt                  Unsigned32,
+            hpnicfDvpnDomainOutputPkt                Unsigned32,
+            hpnicfDvpnDomainOutputErrorPkt           Unsigned32,
+            hpnicfDvpnDomainEncryptErrorPkt          Unsigned32
+        }
+
+    hpnicfDvpnDomainID OBJECT-TYPE
+        SYNTAX Integer32(1..65535)
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION
+            "
+                Dvpn domain ID.
+            "
+        ::= { hpnicfDvpnDomainInfoEntry 1 }
+
+    hpnicfDvpnDomainSessionNum OBJECT-TYPE
+        SYNTAX Unsigned32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The number of session in this dvpn domain.
+            "
+        ::= { hpnicfDvpnDomainInfoEntry 2 }
+
+    hpnicfDvpnDomainRedirectNum OBJECT-TYPE
+        SYNTAX Unsigned32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+               The number of redirect packets in this dvpn domain.
+            "
+        ::= { hpnicfDvpnDomainInfoEntry 3 }
+
+    hpnicfDvpnDomainInputPkt OBJECT-TYPE
+        SYNTAX Unsigned32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+               The number of input packets in this dvpn domain.
+            "
+        ::= { hpnicfDvpnDomainInfoEntry 4 }
+
+    hpnicfDvpnDomainDropPkt OBJECT-TYPE
+        SYNTAX Unsigned32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The number of drop packets in this dvpn domain.
+            "
+        ::= { hpnicfDvpnDomainInfoEntry 5 }
+
+    hpnicfDvpnDomainOutputPkt OBJECT-TYPE
+        SYNTAX Unsigned32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The number of output packets in this dvpn domain.
+            "
+        ::= { hpnicfDvpnDomainInfoEntry 6 }
+
+    hpnicfDvpnDomainOutputErrorPkt OBJECT-TYPE
+        SYNTAX Unsigned32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The number of output error packets in this dvpn domain.
+            "
+        ::= { hpnicfDvpnDomainInfoEntry 7 }
+
+    hpnicfDvpnDomainEncryptErrorPkt OBJECT-TYPE
+        SYNTAX Unsigned32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The number of encrypt error packets in this dvpn domain.
+            "
+        ::= { hpnicfDvpnDomainInfoEntry 8 }
+
+
+
+
+
+--hpnicfDvpnClassTable
+
+    hpnicfDvpnClassTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF HpnicfDvpnClassEntry
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION
+            "
+                The Dvpn class table.
+                It is only used on dvpn client.
+            "
+        ::= { hpnicfDvpnMibTableTroop 3 }
+
+    hpnicfDvpnClassEntry OBJECT-TYPE
+        SYNTAX HpnicfDvpnClassEntry
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION
+            "
+                The entry of the hpnicfDvpnClassTable.
+            "
+        INDEX { hpnicfDvpnClassName }
+        ::= { hpnicfDvpnClassTable 1 }
+
+    HpnicfDvpnClassEntry ::=
+        SEQUENCE {
+            hpnicfDvpnClassName                 OCTET STRING,
+            hpnicfDvpnClServerPublicIpType      InetAddressType,
+            hpnicfDvpnClServerPublicIp          InetAddress,
+            hpnicfDvpnClServerPriIpType         InetAddressType,
+            hpnicfDvpnClServerPriIp             InetAddress,
+            hpnicfDvpnClAlgorithmSuite          DvpnAlgorithmSuite,
+            hpnicfDvpnClAuthenServerType        INTEGER,
+            hpnicfDvpnClPreShareKey             OCTET STRING,
+            hpnicfDvpnClUserName                OCTET STRING,
+            hpnicfDvpnClPwdEncrypted            INTEGER,
+            hpnicfDvpnClPasswd                  OCTET STRING,
+            hpnicfDvpnClassRowStatus            RowStatus
+        }
+
+    hpnicfDvpnClassName OBJECT-TYPE
+        SYNTAX OCTET STRING (SIZE(1..31))
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION
+            "
+                The dvpn class name. It is the index of hpnicfDvpnClassTable.
+            "
+        ::= { hpnicfDvpnClassEntry  1 }
+
+    hpnicfDvpnClServerPublicIpType OBJECT-TYPE
+        SYNTAX InetAddressType
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+            "
+                Dvpn server public ip type (ipv4, ipv6).
+            "
+        ::= { hpnicfDvpnClassEntry  2 }
+
+    hpnicfDvpnClServerPublicIp OBJECT-TYPE
+        SYNTAX InetAddress
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+            "
+                Dvpn server public ip address.
+            "
+        ::= { hpnicfDvpnClassEntry  3 }
+
+    hpnicfDvpnClServerPriIpType OBJECT-TYPE
+        SYNTAX InetAddressType
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+            "
+                Dvpn server private ip type (ipv4, ipv6).
+            "
+        ::= { hpnicfDvpnClassEntry  4 }
+
+    hpnicfDvpnClServerPriIp OBJECT-TYPE
+        SYNTAX InetAddress
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+            "
+                Dvpn server private ip address.
+            "
+        ::= { hpnicfDvpnClassEntry  5 }
+
+    hpnicfDvpnClAlgorithmSuite OBJECT-TYPE
+        SYNTAX DvpnAlgorithmSuite
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+            "
+                The algorithm suite used by the client when sending registry
+                packets to the server.
+                'dvpnAlgorithmNone' is not supported here.
+            "
+        DEFVAL { dvpnDesCbcMd5PreShaModp768 }
+        ::= { hpnicfDvpnClassEntry  6 }
+
+    hpnicfDvpnClAuthenServerType OBJECT-TYPE
+        SYNTAX INTEGER
+            {
+                none(1),
+                preShareKey(2)
+            }
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+            "
+                The authentication type being used by client to server.
+                The value is decided by the class configuration of the user.
+                The default value is none.
+            "
+        DEFVAL { none }
+        ::= { hpnicfDvpnClassEntry  7 }
+
+    hpnicfDvpnClPreShareKey OBJECT-TYPE
+        SYNTAX OCTET STRING(SIZE(0..127))
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+            "
+                Dvpn PreShareKey.
+                It is used when the method used by client when authenticating
+                server is pre-share-key, only when the value of the key is the
+                same as that on the server, the client can authenticate server
+                successfully.
+            "
+        ::= { hpnicfDvpnClassEntry  8 }
+
+    hpnicfDvpnClUserName OBJECT-TYPE
+        SYNTAX OCTET STRING(SIZE(0..80))
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+            "
+                Dvpn UserName. It is configured by the user.
+            "
+        ::= { hpnicfDvpnClassEntry  9 }
+
+    hpnicfDvpnClPwdEncrypted OBJECT-TYPE
+        SYNTAX INTEGER
+            {
+                simple(1),
+                cipher(2)
+            }
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+            "
+                Dvpn password encrypted or not.
+            "
+        ::= { hpnicfDvpnClassEntry  10 }
+
+    hpnicfDvpnClPasswd OBJECT-TYPE
+        SYNTAX OCTET STRING
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+            "
+                Dvpn password. It is configured by the user.
+            "
+        ::= { hpnicfDvpnClassEntry  11 }
+
+    hpnicfDvpnClassRowStatus OBJECT-TYPE
+        SYNTAX RowStatus
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+            "
+                The status of this conceptual row.
+                Only 'active', 'createAndGo' and 'destroy' are supported.
+            "
+        ::= { hpnicfDvpnClassEntry  12 }
+
+
+--hpnicfDvpnTunnelTable
+
+    hpnicfDvpnTunnelTable OBJECT-TYPE
+        SYNTAX     SEQUENCE OF HpnicfDvpnTunnelEntry
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+            "
+                The dvpn tunnel table.
+            "
+        ::= { hpnicfDvpnMibTableTroop 4 }
+
+    hpnicfDvpnTunnelEntry OBJECT-TYPE
+        SYNTAX     HpnicfDvpnTunnelEntry
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+            "
+                The Entry of hpnicfDvpnTunnelTable.
+            "
+        INDEX { ifIndex }
+        ::= { hpnicfDvpnTunnelTable 1 }
+
+    HpnicfDvpnTunnelEntry ::= SEQUENCE {
+        hpnicfDvpnTunnelInterfaceType      INTEGER,
+        hpnicfDvpnTunnelAcl                Integer32,
+        hpnicfDvpnTunnelClientRegType      INTEGER,
+        hpnicfDvpnTunnelDvpnId             Integer32,
+        hpnicfDvpnTunnelPolicy             OCTET STRING,
+        hpnicfDvpnTunnelClass              OCTET STRING
+    }
+
+
+    hpnicfDvpnTunnelInterfaceType OBJECT-TYPE
+        SYNTAX     INTEGER
+            {
+                client(1),
+                server(2)
+            }
+        MAX-ACCESS read-write
+        STATUS     current
+        DESCRIPTION
+            "
+                The type of dvpn tunnel (client or server).
+            "
+        DEFVAL { client }
+        ::= { hpnicfDvpnTunnelEntry 1 }
+
+    hpnicfDvpnTunnelAcl OBJECT-TYPE
+        SYNTAX     Integer32
+        MAX-ACCESS read-write
+        STATUS     current
+        DESCRIPTION
+            "
+                The security acl used by the tunnel.
+                If a packet permits the rules, it will not be encrypted.
+            "
+        ::= { hpnicfDvpnTunnelEntry 2 }
+
+    hpnicfDvpnTunnelClientRegType OBJECT-TYPE
+        SYNTAX     INTEGER
+            {
+                undistributed(1),
+                forward(2),
+                undistributedandforward(3),
+                normal(4)
+            }
+        MAX-ACCESS read-write
+        STATUS     current
+        DESCRIPTION
+            "
+                The register type used by the client .
+                Only the interface type is client, it can be used.
+                undistributed: If a client send a packet to the client with
+                this configuration, setver will only forward the packet whitout
+                sending redirect packets.
+
+                forward: The client with this configuration will only send packets
+                forwarded by server, which means it can not initiate to build
+                a session with other clients.
+                undistributedandforward: The client with this configuration have
+                the characteristics of both 'forward' and 'undistributed'.
+                normal: The client with this configuration can build session with
+                other clients without any restriction.
+            "
+        DEFVAL { normal }
+        ::= { hpnicfDvpnTunnelEntry 3 }
+
+    hpnicfDvpnTunnelDvpnId OBJECT-TYPE
+        SYNTAX     Integer32(0..65535)
+        MAX-ACCESS read-write
+        STATUS     current
+        DESCRIPTION
+            "
+                The dvpn ID used by the tunnel.
+                The dvpn ID is 0 means that user does not configure dvpn ID.
+                User can not configure a dvpn ID with 0.
+            "
+        DEFVAL { 0 }
+        ::= { hpnicfDvpnTunnelEntry 4 }
+
+    hpnicfDvpnTunnelPolicy OBJECT-TYPE
+        SYNTAX     OCTET STRING(SIZE(0..31))
+        MAX-ACCESS read-write
+        STATUS     current
+        DESCRIPTION
+            "
+                The dvpn policy used by the tunnel.
+                Only the interface type is server, it can be used.
+            "
+        ::= { hpnicfDvpnTunnelEntry 5 }
+
+    hpnicfDvpnTunnelClass OBJECT-TYPE
+        SYNTAX     OCTET STRING(SIZE(0..31))
+        MAX-ACCESS read-write
+        STATUS     current
+        DESCRIPTION
+            "
+                The dvpn class used by the tunnel.
+                Only the interface type is client, it can be used.
+            "
+        ::= { hpnicfDvpnTunnelEntry 6 }
+
+
+--hpnicfDvpnMapTable
+
+    hpnicfDvpnMapTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF HpnicfDvpnMapEntry
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION
+            "
+                The dvpn map table.
+            "
+        ::= { hpnicfDvpnMibTableTroop 5 }
+
+    hpnicfDvpnMapEntry OBJECT-TYPE
+        SYNTAX HpnicfDvpnMapEntry
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION
+            "
+                The entry of the hpnicfDvpnMapTable.
+            "
+        INDEX { hpnicfDvpnMapIndex }
+        ::= { hpnicfDvpnMapTable 1 }
+
+    HpnicfDvpnMapEntry ::=
+        SEQUENCE {
+            hpnicfDvpnMapIndex                       Unsigned32,
+            hpnicfDvpnMapPeerDeviceId                OCTET STRING,
+            hpnicfDvpnMapDvpnId                      Unsigned32,
+            hpnicfDvpnMapBuildTime                   TimeTicks,
+            hpnicfDvpnMapPeerPriIpType               InetAddressType,
+            hpnicfDvpnMapPeerPriIp                   InetAddress,
+            hpnicfDvpnMapPeerPublicIpType            InetAddressType,
+            hpnicfDvpnMapPeerPublicIp                InetAddress,
+            hpnicfDvpnMapLocalPriIpType              InetAddressType,
+            hpnicfDvpnMapLocalPriIp                  InetAddress,
+            hpnicfDvpnMapLocalPublicIpType           InetAddressType,
+            hpnicfDvpnMapLocalPublicIp               InetAddress,
+            hpnicfDvpnMapUserName                    OCTET STRING,
+            hpnicfDvpnMapUdpPort                     Integer32,
+            hpnicfDvpnMapControlId                   Unsigned32,
+            hpnicfDvpnMapType                        DvpnCommunicateType,
+            hpnicfDvpnMapState                       INTEGER
+        }
+
+    hpnicfDvpnMapIndex OBJECT-TYPE
+        SYNTAX Unsigned32
+        MAX-ACCESS accessible-for-notify
+        STATUS current
+        DESCRIPTION
+            "
+                The index of hpnicfDvpnMapTable.
+            "
+        ::= { hpnicfDvpnMapEntry 1 }
+
+    hpnicfDvpnMapPeerDeviceId OBJECT-TYPE
+        SYNTAX OCTET STRING
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The identifier of peer device.
+                It is a string.
+            "
+        ::= { hpnicfDvpnMapEntry 2 }
+
+    hpnicfDvpnMapDvpnId OBJECT-TYPE
+        SYNTAX Unsigned32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The ID of the dvpn domain which the map belongs to.
+                The dvpn ID is 0 means that the map has not been built.
+                It has not gotten the dvpn ID at that time.
+            "
+        ::= { hpnicfDvpnMapEntry 3 }
+
+    hpnicfDvpnMapBuildTime OBJECT-TYPE
+        SYNTAX TimeTicks
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The time of the map created, the unit is second.
+            "
+        ::= { hpnicfDvpnMapEntry 4 }
+
+    hpnicfDvpnMapPeerPriIpType OBJECT-TYPE
+        SYNTAX InetAddressType
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The private ip type (ipv4, ipv6) of map peer device.
+            "
+        ::= { hpnicfDvpnMapEntry 5 }
+
+    hpnicfDvpnMapPeerPriIp OBJECT-TYPE
+        SYNTAX InetAddress
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The private ip of map peer device.
+            "
+        ::= { hpnicfDvpnMapEntry 6 }
+
+    hpnicfDvpnMapPeerPublicIpType OBJECT-TYPE
+        SYNTAX InetAddressType
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The public ip type (ipv4, ipv6) of map peer device.
+            "
+        ::= { hpnicfDvpnMapEntry 7 }
+
+    hpnicfDvpnMapPeerPublicIp OBJECT-TYPE
+        SYNTAX InetAddress
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The public ip of map peer device.
+            "
+        ::= { hpnicfDvpnMapEntry 8 }
+
+    hpnicfDvpnMapLocalPriIpType OBJECT-TYPE
+        SYNTAX InetAddressType
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The private ip type (ipv4, ipv6) of map local device.
+            "
+        ::= { hpnicfDvpnMapEntry 9 }
+
+    hpnicfDvpnMapLocalPriIp OBJECT-TYPE
+        SYNTAX InetAddress
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The private ip of map local device.
+            "
+        ::= { hpnicfDvpnMapEntry 10 }
+
+    hpnicfDvpnMapLocalPublicIpType OBJECT-TYPE
+        SYNTAX InetAddressType
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The public ip type (ipv4, ipv6) of map local device.
+            "
+        ::= { hpnicfDvpnMapEntry 11 }
+
+    hpnicfDvpnMapLocalPublicIp OBJECT-TYPE
+        SYNTAX InetAddress
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The public ip of map local device.
+            "
+        ::= { hpnicfDvpnMapEntry 12 }
+
+    hpnicfDvpnMapUserName OBJECT-TYPE
+        SYNTAX OCTET STRING
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The user name used by the client registering to server.
+                If the client is not been authenticated, this is a null string.
+            "
+        ::= { hpnicfDvpnMapEntry 13 }
+
+    hpnicfDvpnMapUdpPort OBJECT-TYPE
+        SYNTAX Integer32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The udp port used by map peer device.
+            "
+        ::= { hpnicfDvpnMapEntry 14 }
+
+    hpnicfDvpnMapControlId OBJECT-TYPE
+        SYNTAX Unsigned32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                Dvpn map control ID.
+            "
+        ::= { hpnicfDvpnMapEntry 15 }
+
+    hpnicfDvpnMapType OBJECT-TYPE
+        SYNTAX DvpnCommunicateType
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The type of the map.
+                'clientToclient' is not supported here.
+            "
+        ::= { hpnicfDvpnMapEntry 16 }
+
+    hpnicfDvpnMapState OBJECT-TYPE
+        SYNTAX INTEGER
+            {
+                mapClientInit(1),
+                mapClientBegin(2),
+                mapClientAlgreq(3),
+                mapClientKexReq(4),
+                mapClientAuthenReq(5),
+                mapClientConfigReq(6),
+                mapClientReq(7),
+                mapClientSuccess(8),
+                mapServerBegin(9),
+                mapServerAlgorithm(10),
+                mapServerKexInit(11),
+                mapServerAuthenInit(12),
+                mapServerConfigInit(13),
+                mapServerInit(14),
+                mapServerFinished(15)
+            }
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                mapClientInit: The client initiates the map.
+                mapClientBegin: The client begins the process of registering
+                                to the server.
+                mapClientAlgreq: The client requests to negotiate the algorithm.
+                mapClientKexReq: The client requests to negotiate the key.
+                mapClientAuthenReq: The client sends authentication information
+                                    to the server.
+                mapClientConfigReq: The client requests to get some configuration
+                                    information from the server. Do not support now.
+                mapClientReq: The client requests to register to the server.
+                mapClientSuccess: The client registers to the server successfully.
+                mapServerBegin: The server begins the process of receive a new register.
+                mapServerAlgorithm:The sever begins to negotiate Algorithm.
+                mapServerKexInit: The server replys to the algorithm negotiation
+                                  packet from the client successfully and begin
+                                  to negotiate key.
+                mapServerAuthenInit: The server replys to the key negotiation
+                                     packet from the client successfully and
+                                     begin to authenticate client, in the case of
+                                     the authentication-client method is not none.
+                mapServerConfigInit: The server send some configuration information
+                                     to client. Do not support now.
+                mapServerInit: The server replys to the authentication packet
+                               from the client successfully and begin to receive
+                               client information.
+                mapServerFinished: The server receives client information successfully.
+            "
+        ::= { hpnicfDvpnMapEntry 17 }
+
+
+
+--hpnicfDvpnSessionTable
+
+    hpnicfDvpnSessionTable  OBJECT-TYPE
+        SYNTAX SEQUENCE OF HpnicfDvpnSessionEntry
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION
+            "
+                The dvpn session table.
+            "
+        ::= { hpnicfDvpnMibTableTroop 6 }
+
+    hpnicfDvpnSessionEntry OBJECT-TYPE
+        SYNTAX HpnicfDvpnSessionEntry
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION
+            "
+                The entry of hpnicfDvpnSessionTable.
+            "
+        INDEX { hpnicfDvpnSessionDvpnId,
+                hpnicfDvpnSessionPeerPriIpType,
+                hpnicfDvpnSessionPeerPriIp
+              }
+        ::= { hpnicfDvpnSessionTable 1 }
+
+    HpnicfDvpnSessionEntry ::=
+        SEQUENCE {
+            hpnicfDvpnSessionDvpnId                          Integer32,
+            hpnicfDvpnSessionPeerPriIpType                   InetAddressType,
+            hpnicfDvpnSessionPeerPriIp                       InetAddress,
+            hpnicfDvpnSessionPeerDeviceId                    OCTET STRING,
+            hpnicfDvpnSessionBuildTime                       TimeTicks,
+            hpnicfDvpnSessionPeerPubIpType                   InetAddressType,
+            hpnicfDvpnSessionPeerPubIp                       InetAddress,
+            hpnicfDvpnSessionLocalPubIpType                  InetAddressType,
+            hpnicfDvpnSessionLocalPubIp                      InetAddress,
+            hpnicfDvpnSessionLocalPriIpType                  InetAddressType,
+            hpnicfDvpnSessionLocalPriIp                      InetAddress,
+            hpnicfDvpnSessionPeerUdpPort                     Integer32,
+            hpnicfDvpnSessionInitiator                       INTEGER,
+            hpnicfDvpnSessionUserName                        OCTET STRING,
+            hpnicfDvpnSessionState                           INTEGER,
+            hpnicfDvpnSessionType                            DvpnCommunicateType,
+            hpnicfDvpnSessionPeerType                        INTEGER
+        }
+
+    hpnicfDvpnSessionDvpnId OBJECT-TYPE
+        SYNTAX Integer32
+        MAX-ACCESS accessible-for-notify
+        STATUS current
+        DESCRIPTION
+            "
+                The ID of the dvpn domain which the session belongs to.
+            "
+        ::= { hpnicfDvpnSessionEntry 1 }
+
+    hpnicfDvpnSessionPeerPriIpType OBJECT-TYPE
+        SYNTAX InetAddressType
+        MAX-ACCESS accessible-for-notify
+        STATUS current
+        DESCRIPTION
+            "
+               The private ip type (ipv4, ipv6) of session peer device.
+            "
+        ::= { hpnicfDvpnSessionEntry 2 }
+
+    hpnicfDvpnSessionPeerPriIp OBJECT-TYPE
+        SYNTAX InetAddress
+        MAX-ACCESS accessible-for-notify
+        STATUS current
+        DESCRIPTION
+            "
+                The private ip of the session peer device.
+            "
+        ::= { hpnicfDvpnSessionEntry 3 }
+
+    hpnicfDvpnSessionPeerDeviceId OBJECT-TYPE
+        SYNTAX OCTET STRING
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The device ID of session peer device.
+                It is a string.
+            "
+        ::= { hpnicfDvpnSessionEntry 4 }
+
+    hpnicfDvpnSessionBuildTime OBJECT-TYPE
+        SYNTAX TimeTicks
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The time of the Session being built, the unit is second.
+            "
+        ::= { hpnicfDvpnSessionEntry 5 }
+
+    hpnicfDvpnSessionPeerPubIpType OBJECT-TYPE
+        SYNTAX InetAddressType
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The public ip type (ipv4, ipv6) of session peer device.
+            "
+        ::= { hpnicfDvpnSessionEntry 6 }
+
+    hpnicfDvpnSessionPeerPubIp OBJECT-TYPE
+        SYNTAX InetAddress
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The public ip of session peer device.
+            "
+        ::= { hpnicfDvpnSessionEntry 7 }
+
+
+    hpnicfDvpnSessionLocalPubIpType OBJECT-TYPE
+        SYNTAX InetAddressType
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+               The public ip type (ipv4, ipv6) of session local device.
+            "
+        ::= { hpnicfDvpnSessionEntry 8 }
+
+    hpnicfDvpnSessionLocalPubIp OBJECT-TYPE
+        SYNTAX InetAddress
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+               The public ip of session local device.
+            "
+        ::= { hpnicfDvpnSessionEntry 9 }
+
+    hpnicfDvpnSessionLocalPriIpType OBJECT-TYPE
+        SYNTAX InetAddressType
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+               The private ip type (ipv4, ipv6) of session local device.
+            "
+        ::= { hpnicfDvpnSessionEntry 10 }
+
+    hpnicfDvpnSessionLocalPriIp OBJECT-TYPE
+        SYNTAX InetAddress
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+               The private ip of session local device.
+            "
+        ::= { hpnicfDvpnSessionEntry 11 }
+
+    hpnicfDvpnSessionPeerUdpPort OBJECT-TYPE
+        SYNTAX Integer32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+               The udp port used by session peer device .
+            "
+        ::= { hpnicfDvpnSessionEntry 12 }
+
+    hpnicfDvpnSessionInitiator OBJECT-TYPE
+        SYNTAX INTEGER
+            {
+                yes(1),
+                no(2)
+            }
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The flag of initiator.
+            "
+        ::= { hpnicfDvpnSessionEntry 13 }
+
+    hpnicfDvpnSessionUserName OBJECT-TYPE
+        SYNTAX OCTET STRING
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The user's name.
+                If the session type is client to client,
+                the value of this object is a null string.
+            "
+        ::= { hpnicfDvpnSessionEntry 14 }
+
+    hpnicfDvpnSessionState OBJECT-TYPE
+        SYNTAX INTEGER
+            {
+                 sessionSetupInit(1),
+                 sessionSetupReq(2),
+                 sessionSetupSuccess(3),
+                 sessionRekeyReq(4),
+                 sessionRekeyRep(5)
+            }
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The state of the session.
+                sessionSetupInit: The initiation of the session.
+                sessionSetupReq: The initiator requests to negotiate the SA and
+                                 so on of the session.
+                sessionSetupSuccess: The session has been built successfully.
+                sessionRekeyReq: The initiator requests to renegotiate the SA.
+                sessionRekeyRep: The passive side replies with a SA renegotiation
+                                 response packet successfully.
+            "
+        ::= { hpnicfDvpnSessionEntry 15 }
+
+    hpnicfDvpnSessionType OBJECT-TYPE
+        SYNTAX DvpnCommunicateType
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The type of the session.
+            "
+        ::= { hpnicfDvpnSessionEntry 16 }
+
+    hpnicfDvpnSessionPeerType OBJECT-TYPE
+        SYNTAX INTEGER
+            {
+                router(1),
+                pcClient(2)
+            }
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The type of the session peer device.
+                It may be client software or a router.
+            "
+        ::= { hpnicfDvpnSessionEntry 17 }
+
+
+--hpnicfDvpnSessionHisTable
+
+    hpnicfDvpnSessionHisTable OBJECT-TYPE
+        SYNTAX     SEQUENCE OF HpnicfDvpnSessionHisEntry
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+            "
+                The dvpn session history table.
+                This table contains session's history information,
+                include input/output packet number, up/down time, etc.
+                This table will exist during the 'hpnicfDvpnSessionHisAgeTime'.
+            "
+        ::= { hpnicfDvpnMibTableTroop 7 }
+
+    hpnicfDvpnSessionHisEntry OBJECT-TYPE
+        SYNTAX     HpnicfDvpnSessionHisEntry
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+            "
+                The entry of hpnicfDvpnSessionHisTable.
+            "
+        INDEX { hpnicfDvpnSessionHisDvpnID,
+                hpnicfDvpnSessionHisPeerPriIPType,
+                hpnicfDvpnSessionHisPeerPriIP }
+        ::= { hpnicfDvpnSessionHisTable 1 }
+
+    HpnicfDvpnSessionHisEntry ::= SEQUENCE {
+        hpnicfDvpnSessionHisDvpnID           Integer32,
+        hpnicfDvpnSessionHisPeerPriIPType    InetAddressType,
+        hpnicfDvpnSessionHisPeerPriIP        InetAddress,
+        hpnicfDvpnSessionHisSendPkt          Unsigned32,
+        hpnicfDvpnSessionHisRcvPkt           Unsigned32,
+        hpnicfDvpnSessionHisOnlineNumber     Unsigned32,
+        hpnicfDvpnSessionHisFirstUpTime      TimeTicks,
+        hpnicfDvpnSessionHisLastUpTime       TimeTicks,
+        hpnicfDvpnSessionHisLastDownTime     TimeTicks,
+        hpnicfDvpnSessionHisOnlineFlag       INTEGER,
+        hpnicfDvpnSessionHisPeerDeviceId     OCTET STRING
+     }
+
+
+    hpnicfDvpnSessionHisDvpnID OBJECT-TYPE
+        SYNTAX     Integer32(1..65535)
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+            "
+                The ID of the dvpn domain which the session belongs to.
+            "
+        ::= { hpnicfDvpnSessionHisEntry 1 }
+
+    hpnicfDvpnSessionHisPeerPriIPType OBJECT-TYPE
+        SYNTAX     InetAddressType
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "
+                The private ip type (ipv4, ipv6) of session peer device.
+            "
+        ::= { hpnicfDvpnSessionHisEntry 2 }
+
+    hpnicfDvpnSessionHisPeerPriIP OBJECT-TYPE
+        SYNTAX     InetAddress
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+            "
+                 The private ip of the session peer device.
+            "
+        ::= { hpnicfDvpnSessionHisEntry 3 }
+
+    hpnicfDvpnSessionHisSendPkt OBJECT-TYPE
+        SYNTAX     Unsigned32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "
+                The number of sent packets on the session.
+            "
+        ::= { hpnicfDvpnSessionHisEntry 4 }
+
+    hpnicfDvpnSessionHisRcvPkt OBJECT-TYPE
+        SYNTAX     Unsigned32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "
+                The number of received packets on the session.
+            "
+        ::= { hpnicfDvpnSessionHisEntry 5 }
+
+    hpnicfDvpnSessionHisOnlineNumber OBJECT-TYPE
+        SYNTAX     Unsigned32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "
+                The number of the session online.
+            "
+        ::= { hpnicfDvpnSessionHisEntry 6 }
+
+    hpnicfDvpnSessionHisFirstUpTime OBJECT-TYPE
+        SYNTAX     TimeTicks
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "
+                The session first online time.
+            "
+        ::= { hpnicfDvpnSessionHisEntry 7 }
+
+
+    hpnicfDvpnSessionHisLastUpTime OBJECT-TYPE
+        SYNTAX     TimeTicks
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "
+                The session last online time.
+            "
+        ::= { hpnicfDvpnSessionHisEntry 8 }
+
+    hpnicfDvpnSessionHisLastDownTime OBJECT-TYPE
+        SYNTAX     TimeTicks
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "
+                The session last down time.
+            "
+        ::= { hpnicfDvpnSessionHisEntry 9 }
+
+
+    hpnicfDvpnSessionHisOnlineFlag OBJECT-TYPE
+        SYNTAX     INTEGER
+            {
+                yes(1),
+                no(2)
+            }
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "
+                If the session is online, the value is 'yes'.
+                If the session is not online, the value is 'no'.
+            "
+        ::= { hpnicfDvpnSessionHisEntry 10 }
+
+    hpnicfDvpnSessionHisPeerDeviceId OBJECT-TYPE
+        SYNTAX OCTET STRING
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "
+                The identifier of peer device.
+                It is a string.
+            "
+        ::= { hpnicfDvpnSessionHisEntry 11 }
+
+
+
+ --hpnicfDvpnMibTrap
+
+    hpnicfDvpnNotification OBJECT IDENTIFIER ::= { hpnicfDvpnMibNotification 0 }
+
+    hpnicfDvpnSessionBuildNotification NOTIFICATION-TYPE
+        OBJECTS {
+            hpnicfDvpnSessionDvpnId,
+            hpnicfDvpnSessionPeerPriIpType,
+            hpnicfDvpnSessionPeerPriIp,
+            hpnicfDvpnLocalDeviceId,
+            hpnicfDvpnSessionLocalPriIpType,
+            hpnicfDvpnSessionLocalPriIp,
+            hpnicfDvpnSessionLocalPubIpType,
+            hpnicfDvpnSessionLocalPubIp,
+            hpnicfDvpnSessionPeerDeviceId,
+            hpnicfDvpnSessionPeerPubIpType,
+            hpnicfDvpnSessionPeerPubIp,
+            hpnicfDvpnSessionPeerUdpPort,
+            hpnicfDvpnSessionPeerType,
+            hpnicfDvpnSessionUserName
+        }
+        STATUS current
+        DESCRIPTION
+            "
+                Dvpn session build notification.
+            "
+        ::= { hpnicfDvpnNotification 1 }
+
+    hpnicfDvpnSessionDelNotification NOTIFICATION-TYPE
+        OBJECTS {
+            hpnicfDvpnSessionDvpnId,
+            hpnicfDvpnSessionPeerPriIpType,
+            hpnicfDvpnSessionPeerPriIp,
+            hpnicfDvpnLocalDeviceId,
+            hpnicfDvpnSessionLocalPriIpType,
+            hpnicfDvpnSessionLocalPriIp,
+            hpnicfDvpnSessionLocalPubIpType,
+            hpnicfDvpnSessionLocalPubIp,
+            hpnicfDvpnSessionPeerDeviceId,
+            hpnicfDvpnSessionPeerPubIpType,
+            hpnicfDvpnSessionPeerPubIp,
+            hpnicfDvpnSessionPeerUdpPort,
+            hpnicfDvpnSessionPeerType,
+            hpnicfDvpnSessionUserName
+        }
+        STATUS current
+        DESCRIPTION
+            "
+                Dvpn session deleted notification.
+            "
+        ::= { hpnicfDvpnNotification 2 }
+
+    hpnicfDvpnMapBuildNotification NOTIFICATION-TYPE
+        OBJECTS {
+            hpnicfDvpnMapIndex,
+            hpnicfDvpnMapDvpnId,
+            hpnicfDvpnMapPeerDeviceId,
+            hpnicfDvpnMapPeerPriIpType,
+            hpnicfDvpnMapPeerPriIp,
+            hpnicfDvpnMapPeerPublicIpType,
+            hpnicfDvpnMapPeerPublicIp,
+            hpnicfDvpnLocalDeviceId,
+            hpnicfDvpnMapLocalPriIpType,
+            hpnicfDvpnMapLocalPriIp,
+            hpnicfDvpnMapLocalPublicIpType,
+            hpnicfDvpnMapLocalPublicIp,
+            hpnicfDvpnMapUserName
+        }
+        STATUS current
+        DESCRIPTION
+            "
+                Dvpn map build notification.
+            "
+        ::= { hpnicfDvpnNotification 3 }
+
+    hpnicfDvpnMapDelNotification NOTIFICATION-TYPE
+        OBJECTS {
+            hpnicfDvpnMapIndex,
+            hpnicfDvpnMapDvpnId,
+            hpnicfDvpnMapPeerDeviceId,
+            hpnicfDvpnMapPeerPriIpType,
+            hpnicfDvpnMapPeerPriIp,
+            hpnicfDvpnMapPeerPublicIpType,
+            hpnicfDvpnMapPeerPublicIp,
+            hpnicfDvpnLocalDeviceId,
+            hpnicfDvpnMapLocalPriIpType,
+            hpnicfDvpnMapLocalPriIp,
+            hpnicfDvpnMapLocalPublicIpType,
+            hpnicfDvpnMapLocalPublicIp,
+            hpnicfDvpnMapUserName
+        }
+        STATUS current
+        DESCRIPTION
+            "
+                Dvpn map deleted notification.
+            "
+        ::= { hpnicfDvpnNotification 4 }
+
+
+--conformance and Compliance define
+
+    hpnicfDvpnMibCompliances OBJECT IDENTIFIER ::= { hpnicfDvpnMibConformance 1 }
+
+    hpnicfDvpnMibCompliance MODULE-COMPLIANCE
+        STATUS current
+        DESCRIPTION
+            "
+                The compliance statement for entities which implement
+                the DVPN MIB.
+            "
+        MODULE
+            MANDATORY-GROUPS {
+                hpnicfDvpnGlobalGroup,
+                hpnicfDvpnDomainInfoGroup,
+                hpnicfDvpnPolicyGroup,
+                hpnicfDvpnClassGroup,
+                hpnicfDvpnTunnelGroup,
+                hpnicfDvpnMapGroup,
+                hpnicfDvpnSessionGroup,
+                hpnicfDvpnSessionHisGroup,
+                hpnicfDvpnNotificationGroup
+            }
+        ::= { hpnicfDvpnMibCompliances 1 }
+
+    hpnicfDvpnMibGroups OBJECT IDENTIFIER ::= { hpnicfDvpnMibConformance 2 }
+
+    hpnicfDvpnGlobalGroup OBJECT-GROUP
+        OBJECTS {
+            hpnicfDvpnServiceEnable,
+            hpnicfDvpnClassNumber,
+            hpnicfDvpnClientNumber,
+            hpnicfDvpnMapAgeTime,
+            hpnicfDvpnClientRegisterInterval,
+            hpnicfDvpnClientRegisterDumb,
+            hpnicfDvpnClientRegisterRetry,
+            hpnicfDvpnInputPkt,
+            hpnicfDvpnDropPkt,
+            hpnicfDvpnOutputPkt,
+            hpnicfDvpnOutputErrorPkt,
+            hpnicfDvpnEncryptErrorPkt,
+            hpnicfDvpnCurrentDeviceRole,
+            hpnicfDvpnDomainNumber,
+            hpnicfDvpnMapNumber,
+            hpnicfDvpnSessionNumber,
+            hpnicfDvpnServerPreSharedKey,
+            hpnicfDvpnMapTrapEnable,
+            hpnicfDvpnSessionTrapEnable,
+            hpnicfDvpnVersion,
+            hpnicfDvpnClearDomainAllConection,
+            hpnicfDvpnClearDvpnStaInfo,
+            hpnicfDvpnTotalRedirectNumber,
+            hpnicfDvpnGlobalAuthenClientType,
+            hpnicfDvpnGlobalUserDefAAADomain,
+            hpnicfDvpnLocalDeviceId,
+            hpnicfDvpnSessionHisAgeTime,
+            hpnicfDvpnSessionHisReset
+        }
+        STATUS current
+        DESCRIPTION
+            "
+                A collection of objects providing dvpn global information.
+            "
+        ::= { hpnicfDvpnMibGroups 1 }
+
+    hpnicfDvpnPolicyGroup OBJECT-GROUP
+        OBJECTS {
+            hpnicfDvpnPoAuthenClientType,
+            hpnicfDvpnPoSessionAlgorithmSuite,
+            hpnicfDvpnPoSessionIdleTime,
+            hpnicfDvpnPoSessionKeepTime,
+            hpnicfDvpnPoSessionSetupInterval,
+            hpnicfDvpnPoDataAlgorithmSuite,
+            hpnicfDvpnPoSaSeconds,
+            hpnicfDvpnPoUserDefAAADomain,
+            hpnicfDvpnPoRefTimes,
+            hpnicfDvpnPoRowStatus
+        }
+        STATUS current
+        DESCRIPTION
+            "
+                A collection of objects providing dvpn policy information.
+            "
+        ::= { hpnicfDvpnMibGroups 2 }
+
+    hpnicfDvpnDomainInfoGroup OBJECT-GROUP
+        OBJECTS {
+            hpnicfDvpnDomainSessionNum,
+            hpnicfDvpnDomainRedirectNum,
+            hpnicfDvpnDomainInputPkt,
+            hpnicfDvpnDomainDropPkt,
+            hpnicfDvpnDomainOutputPkt,
+            hpnicfDvpnDomainOutputErrorPkt,
+            hpnicfDvpnDomainEncryptErrorPkt
+        }
+        STATUS current
+        DESCRIPTION
+            "
+                A collection of objects providing dvpn domain information.
+            "
+        ::= { hpnicfDvpnMibGroups 3 }
+
+    hpnicfDvpnClassGroup OBJECT-GROUP
+        OBJECTS {
+            hpnicfDvpnClServerPublicIpType,
+            hpnicfDvpnClServerPublicIp,
+            hpnicfDvpnClServerPriIpType,
+            hpnicfDvpnClServerPriIp,
+            hpnicfDvpnClAlgorithmSuite,
+            hpnicfDvpnClAuthenServerType,
+            hpnicfDvpnClPreShareKey,
+            hpnicfDvpnClUserName,
+            hpnicfDvpnClPwdEncrypted,
+            hpnicfDvpnClPasswd,
+            hpnicfDvpnClassRowStatus
+        }
+        STATUS current
+        DESCRIPTION
+            "
+                A collection of objects providing dvpn class information.
+            "
+        ::= { hpnicfDvpnMibGroups 4 }
+
+    hpnicfDvpnTunnelGroup OBJECT-GROUP
+        OBJECTS {
+            hpnicfDvpnTunnelInterfaceType,
+            hpnicfDvpnTunnelAcl,
+            hpnicfDvpnTunnelClientRegType,
+            hpnicfDvpnTunnelDvpnId,
+            hpnicfDvpnTunnelPolicy,
+            hpnicfDvpnTunnelClass
+        }
+        STATUS current
+        DESCRIPTION
+            "
+                A collection of objects providing dvpn tunnel interface information.
+            "
+        ::= { hpnicfDvpnMibGroups 5 }
+
+    hpnicfDvpnMapGroup OBJECT-GROUP
+        OBJECTS {
+            hpnicfDvpnMapIndex,
+            hpnicfDvpnMapPeerDeviceId,
+            hpnicfDvpnMapDvpnId,
+            hpnicfDvpnMapBuildTime,
+            hpnicfDvpnMapPeerPriIpType,
+            hpnicfDvpnMapPeerPriIp,
+            hpnicfDvpnMapPeerPublicIpType,
+            hpnicfDvpnMapPeerPublicIp,
+            hpnicfDvpnMapLocalPriIpType,
+            hpnicfDvpnMapLocalPriIp,
+            hpnicfDvpnMapLocalPublicIpType,
+            hpnicfDvpnMapLocalPublicIp,
+            hpnicfDvpnMapUserName,
+            hpnicfDvpnMapUdpPort,
+            hpnicfDvpnMapControlId,
+            hpnicfDvpnMapType,
+            hpnicfDvpnMapState
+        }
+        STATUS current
+        DESCRIPTION
+            "
+                A collection of objects providing dvpn map information.
+            "
+        ::= { hpnicfDvpnMibGroups 6 }
+
+    hpnicfDvpnSessionGroup OBJECT-GROUP
+        OBJECTS {
+            hpnicfDvpnSessionDvpnId,
+            hpnicfDvpnSessionPeerDeviceId,
+            hpnicfDvpnSessionBuildTime,
+            hpnicfDvpnSessionPeerPubIpType,
+            hpnicfDvpnSessionPeerPubIp,
+            hpnicfDvpnSessionPeerPriIpType,
+            hpnicfDvpnSessionPeerPriIp,
+            hpnicfDvpnSessionLocalPubIpType,
+            hpnicfDvpnSessionLocalPubIp,
+            hpnicfDvpnSessionLocalPriIpType,
+            hpnicfDvpnSessionLocalPriIp,
+            hpnicfDvpnSessionPeerUdpPort,
+            hpnicfDvpnSessionInitiator,
+            hpnicfDvpnSessionUserName,
+            hpnicfDvpnSessionState,
+            hpnicfDvpnSessionType,
+            hpnicfDvpnSessionPeerType
+        }
+        STATUS current
+        DESCRIPTION
+            "
+                A collection of objects providing dvpn session information.
+            "
+        ::= { hpnicfDvpnMibGroups 7 }
+
+    hpnicfDvpnSessionHisGroup OBJECT-GROUP
+        OBJECTS {
+            hpnicfDvpnSessionHisPeerPriIPType,
+            hpnicfDvpnSessionHisSendPkt,
+            hpnicfDvpnSessionHisRcvPkt,
+            hpnicfDvpnSessionHisOnlineNumber,
+            hpnicfDvpnSessionHisFirstUpTime,
+            hpnicfDvpnSessionHisLastUpTime,
+            hpnicfDvpnSessionHisLastDownTime,
+            hpnicfDvpnSessionHisOnlineFlag,
+            hpnicfDvpnSessionHisPeerDeviceId
+        }
+        STATUS current
+        DESCRIPTION
+            "
+                A collection of objects providing dvpn session history information.
+            "
+        ::= { hpnicfDvpnMibGroups 8 }
+
+
+    hpnicfDvpnNotificationGroup OBJECT-GROUP
+        OBJECTS {
+            hpnicfDvpnSessionBuildNotification,
+            hpnicfDvpnSessionDelNotification,
+            hpnicfDvpnMapBuildNotification,
+            hpnicfDvpnMapDelNotification
+        }
+        STATUS current
+        DESCRIPTION
+            "
+                A collection of objects providing dvpn notification information.
+            "
+        ::= { hpnicfDvpnMibGroups 9 }
+
+END

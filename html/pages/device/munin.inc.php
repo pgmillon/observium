@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -26,6 +26,7 @@ foreach (dbFetchRows("SELECT * FROM munin_plugins WHERE device_id = ? ORDER BY m
   $graph_enable[$mplug['mplug_category']][$mplug['mplug_type']]['plugin'] = $mplug['mplug_type'];
 }
 
+$navbar['brand'] = "Munin";
 $navbar['class'] = "navbar-narrow";
 
 foreach ($graph_enable as $section => $nothing)
@@ -46,7 +47,9 @@ print_navbar($navbar);
 
 $graph_enable = $graph_enable[$vars['group']];
 
-echo('<table class="table table-bordered table-condensed table-striped table-hover">');
+echo generate_box_open();
+
+echo '<table class="table  table-condensed table-striped table-hover">';
 
 #foreach ($config['graph_types']['device'] as $graph => $entry)
 foreach ($graph_enable as $graph => $entry)
@@ -69,8 +72,10 @@ foreach ($graph_enable as $graph => $entry)
   }
 }
 
-echo('</table>');
+echo '</table>';
+
+echo generate_box_close();
 
 $page_title[] = "Graphs";
 
-?>
+// EOF

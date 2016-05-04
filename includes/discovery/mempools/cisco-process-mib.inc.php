@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -16,7 +16,7 @@ if (!isset($valid['mempool']['cisco-enhanced-mempool-mib']) && !isset($valid['me
 {
 
   $mib = 'CISCO-PROCESS-MIB';
-  echo(" $mib ");
+  echo("$mib ");
 
   $mempool_array = snmpwalk_cache_oid($device, 'cpmCPUMemoryUsed', NULL, $mib, mib_dirs('cisco'));
   $mempool_array = snmpwalk_cache_oid($device, 'cpmCPUMemoryFree', $mempool_array, $mib, mib_dirs('cisco'));
@@ -36,11 +36,11 @@ if (!isset($valid['mempool']['cisco-enhanced-mempool-mib']) && !isset($valid['me
       }
 
       $precision = 1024;
-      $used      = $entry['cpmCPUMemoryUsed'] * $precision;
-      $free      = $entry['cpmCPUMemoryFree'] * $precision;
+      //$used      = $entry['cpmCPUMemoryUsed'] * $precision;
+      //$free      = $entry['cpmCPUMemoryFree'] * $precision;
       $total     = $used + $free;
 
-      discover_mempool($valid['mempool'], $device, $index, $mib, $descr, $precision, $total * $units, $used);
+      discover_mempool($valid['mempool'], $device, $index, $mib, $descr, $precision, $total, $used);
     }
   }
 }

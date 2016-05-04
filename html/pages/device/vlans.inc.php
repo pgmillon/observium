@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -36,7 +36,9 @@ foreach ($config['graph_types']['port'] as $type => $data)
 
 print_navbar($navbar);
 
-echo('<table class="table table-bordered table-striped table-hover table-condensed">');
+echo generate_box_open();
+
+echo('<table class="table  table-striped table-hover table-condensed">');
 echo("<thead><tr><th>VLAN</th><th>Description</th><th>Other Ports</th></tr></thead>");
 
 $i = "1";
@@ -48,7 +50,9 @@ foreach (dbFetchRows("SELECT * FROM `vlans` WHERE `device_id` = ? ORDER BY 'vlan
   $i++;
 }
 
-echo("</table>");
+echo "</table>";
+
+echo generate_box_close();
 
 $page_title[] = "VLANs";
 

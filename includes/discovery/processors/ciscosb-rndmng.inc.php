@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -16,7 +16,7 @@
 # CISCOSB-rndMng::rlCpuUtilEnable.0 = INTEGER: true(1)
 # CISCOSB-rndMng::rlCpuUtilDuringLast5Minutes.0 = INTEGER: 4
 
-echo(" CISCOSB-rndMng ");
+echo("CISCOSB-rndMng ");
 
 $data  = snmp_get_multi($device, 'rlCpuUtilEnable.0 rlCpuUtilDuringLast5Minutes.0', "-OQUs", "CISCOSB-rndMng", mib_dirs(array('ciscosb')));
 $descr = "CPU";

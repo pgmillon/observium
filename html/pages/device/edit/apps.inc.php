@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -29,43 +29,48 @@ if ($handle = opendir($config['install_dir'] . "/includes/polling/applications/"
 # Check if the form was POSTed
 if ($vars['device'])
 {
-  $updated = 0;
-  $param[] = $device['device_id'];
-  foreach (array_keys($vars) as $key)
+  if ($readonly)
   {
-    if (substr($key,0,4) == 'app_')
-    {
-      $param[] = substr($key,4);
-      $enabled[] = substr($key,4);
-      $replace[] = "?";
-    }
-  }
-
-  if (count($enabled))
-  {
-    $updated += dbDelete('applications', "`device_id` = ? AND `app_type` NOT IN (".implode(",",$replace).")", $param);
+    print_error_permission('You have insufficient permissions to edit settings.');
   } else {
-    $updated += dbDelete('applications', "`device_id` = ?", array($param));
-  }
-
-  foreach (dbFetchRows( "SELECT `app_type` FROM `applications` WHERE `device_id` = ?", array($device['device_id'])) as $row)
-  {
-    $app_in_db[] = $row['app_type'];
-  }
-
-  foreach ($enabled as $app)
-  {
-    if (!in_array($app,$app_in_db))
+    $updated = 0;
+    $param[] = $device['device_id'];
+    foreach (array_keys($vars) as $key)
     {
-      $updated += dbInsert(array('device_id' => $device['device_id'], 'app_type' => $app), 'applications');
+      if (substr($key,0,4) == 'app_')
+      {
+        $param[] = substr($key,4);
+        $enabled[] = substr($key,4);
+        $replace[] = "?";
+      }
     }
-  }
 
-  if ($updated)
-  {
-    print_message("Applications updated!");
-  } else {
-    print_message("No changes.");
+    if (count($enabled))
+    {
+      $updated += dbDelete('applications', "`device_id` = ? AND `app_type` NOT IN (".implode(",",$replace).")", $param);
+    } else {
+      $updated += dbDelete('applications', "`device_id` = ?", array($param));
+    }
+
+    foreach (dbFetchRows( "SELECT `app_type` FROM `applications` WHERE `device_id` = ?", array($device['device_id'])) as $row)
+    {
+      $app_in_db[] = $row['app_type'];
+    }
+
+    foreach ($enabled as $app)
+    {
+      if (!in_array($app,$app_in_db))
+      {
+        $updated += dbInsert(array('device_id' => $device['device_id'], 'app_type' => $app), 'applications');
+      }
+    }
+
+    if ($updated)
+    {
+      print_message("Applications updated!");
+    } else {
+      print_message("No changes.");
+    }
   }
 }
 
@@ -80,15 +85,16 @@ if (count($apps_enabled))
   }
 ?>
 
-<form id='appedit' name='appedit' method='post' action='' class='form-inline'>
-  <fieldset>
-  <legend>Device Properties</legend>
+<form id="appedit" name="appedit" method="post" action="" class="form-inline">
+<input type="hidden" name="device" value="<?php echo $device['device_id'];?>">
 
-  <input type=hidden name=device value='<?php echo $device['device_id'];?>'>
-<table class='table table-striped table-bordered table-condensed table-rounded'>
+<?php echo generate_box_open(array('title' => 'Applications')); ?>
+
+<div class="box box-solid">
+<table class="table table-striped  table-condensed ">
   <thead>
-    <tr align=center>
-      <th width=100>Enable</th>
+    <tr>
+      <th style="width: 100px;">Enable</th>
       <th>Application</th>
     </tr>
   </thead>
@@ -101,12 +107,11 @@ foreach ($applications as $app)
   if (in_array($app,$app_enabled))
   {
     echo("    <tr>");
-    echo("      <td align=center>");
-    echo("        <input type=checkbox data-toggle='switch-mini' data-on-color='primary' data-off-color='danger' checked=1 name='app_". $app ."'>");
+    echo("      <td>");
+    echo("        <input type=checkbox data-toggle='switch-mini' data-on-color='primary' data-off-color='danger' checked='checked' name='app_". $app ."'>");
     echo("      </td>");
-    echo("      <td align=left>". nicecase($app) . "</td>");
-    echo("    </tr>
-");
+    echo("      <td>". nicecase($app) . "</td>");
+    echo("    </tr>");
 
     $row++;
   }
@@ -115,13 +120,15 @@ foreach ($applications as $app)
   </tbody>
 </table>
 
-  <div class="form-actions">
-    <button type="submit" class="btn btn-primary" name="submit" value="save"><i class="icon-ok icon-white"></i> Save Changes</button>
+  <div class="box-footer">
+    <button type="submit" class="btn btn-primary pull-right" name="submit" value="save"><i class="icon-ok icon-white"></i> Save Changes</button>
   </div>
+</div>
 
 </form>
 <?php
 } else {
   print_error("No applications found on this device.");
 }
+
 // EOF

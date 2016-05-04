@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -32,13 +32,13 @@ else if (is_numeric($vars['purge']))
   }
 }
 
-echo('<table class="table table-condensed table-striped table-bordered table-condensed">
+echo('<table class="table table-condensed table-striped  table-condensed">
   <thead><tr>
     <th>Device</th>
     <th>Port</th>
     <th>Description</th>
     <th>Deleted since</th>
-    <th style="text-align: right;"><a href="'.generate_url(array('page'=>'deleted-ports', 'purge'=>'all')).'"><button class="btn btn-danger btn-mini"><i class="icon-remove icon-white"></i> Purge All</button></a></th>
+    <th style="text-align: right;"><a class="btn btn-danger btn-mini" href="'.generate_url(array('page'=>'deleted-ports', 'purge'=>'all')).'" role="button"><i class="icon-remove icon-white"></i> Purge All</a></th>
   </tr></thead>');
 
 foreach (dbFetchRows('SELECT * FROM `ports` AS P, `devices` as D WHERE P.`deleted` = "1" AND D.device_id = P.device_id') as $port)
@@ -50,9 +50,10 @@ foreach (dbFetchRows('SELECT * FROM `ports` AS P, `devices` as D WHERE P.`delete
     echo('<tr class="list">');
     echo('<td style="width: 200px;" class="strong">'.generate_device_link($port).'</td>');
     echo('<td style="width: 350px;" class="strong">'.generate_port_link($port).'</td>');
-    echo('<td>'.htmlentities($port['ifAlias']).'</td>');
+    echo('<td>'.escape_html($port['ifAlias']).'</td>');
     echo('<td>'.formatUptime($since, 'short-2').' ago</td>');
-    echo('<td style="width: 100px; text-align: right;"><a href="'.generate_url(array('page'=>'deleted-ports', 'purge'=>$port['port_id'])).'"><button class="btn btn-danger btn-mini"><i class="icon-remove icon-white"></i> Purge</button></a></td>');
+    echo('<td style="width: 100px; text-align: right;"><a class="btn btn-danger btn-mini" href="'.generate_url(array('page'=>'deleted-ports', 'purge'=>$port['port_id'])).'" role="button"><i class="icon-remove icon-white"></i> Purge</a></td>');
+    echo(PHP_EOL);
   }
 }
 

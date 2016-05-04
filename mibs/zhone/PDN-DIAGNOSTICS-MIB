@@ -1,0 +1,1072 @@
+PDN-DIAGNOSTICS-MIB DEFINITIONS ::= BEGIN
+
+-- Version :  4.0 
+-- Enterprise diagnostic mib
+-- Copyright (C) 2000 Paradyne Corporation.
+
+-- Created by : Prakash Easwar
+-- Last Updated 05/02/2000
+-- Last Updated 06/07/2000 Dragana Gough
+-- Last Updated 10/05/2001 Jesus A. Pinto
+
+
+IMPORTS
+IpAddress
+	FROM RFC1155-SMI
+OBJECT-TYPE
+	FROM RFC-1212
+TRAP-TYPE
+	FROM RFC-1215
+ifIndex
+	FROM RFC1213-MIB
+RowStatus, DisplayString, AutonomousType
+	FROM SNMPv2-TC
+pdn-diagnostics
+	FROM PDN-HEADER-MIB
+ifTestId
+	FROM IF-MIB
+;
+
+--
+--    The  HotWire Diagnostics MIB
+--
+--    This MIB provides an NMS to trigger a diagnostic test 
+--    The tests that can be performed are grouped into the following
+--    categories :
+--       1. Device Tests ( Self, Test Reset ...) 
+--       2. interface related tests (bert test, packet loopback ...)
+--       3. application based diagnostic tests (Ping, TraceRoute ...)
+--
+--    Interface related tests (2) are an exception. An NMS will use
+--    the ifTestTable of RFC1573 to start these tests. However if any 
+--    of the interface related tests need to have inputs. those tests
+--    will use the objects defined under the ifTestInput group.
+--    Hence in these cases implementation of the following groups
+--    are mandatory.
+--       ifDeviceInput
+--       ifDeviceResults - This group is mandatory if more specific 
+--                         information about the results is required
+--                         (other than ifTestResult - RFC 1573,ifTestTable) 
+--                         to be sent back to an NMS.
+--                         Hence in these cases it is left to the 
+--                         implementor of the device to put
+--                         the OID of the object or results table
+--                         containing such specifics to be put
+--                         in ifTestCode (RFC 1573, ifTestTable).
+--       Note  that the above mentioned groups compliment the ifTestTable
+--       of RFC 1573
+--
+--    if the device supports device tests (1), the devControl.mib needs
+--    to be implemented. In addition the following group needs to be 
+--    implemented 
+--       deviceTestInput
+--       deviceTestResults
+--
+--    if the device supports application tests (1). implementation of the
+--    following groups are mandatory.
+--       applTests
+--
+
+-- History
+--
+-- 05/02/2000
+--
+-- Removed integer ranges as those should be designated in the
+-- product documentation
+--
+-- 06/07/2000
+--
+-- Corrected spelling errors in Probe1,2,3, etc.
+--
+-- 10/04/2001
+--
+-- Added a new Interface test called BLERT (Block Error Rate Test)
+-- which is intended for MVL.
+
+
+diagTestMIBObjects    OBJECT IDENTIFIER ::= { pdn-diagnostics 1  }
+diagTestMIBTraps      OBJECT IDENTIFIER ::= { pdn-diagnostics 2 }
+diagIfTest            OBJECT IDENTIFIER ::= { diagTestMIBObjects 1 }
+diagApplTest          OBJECT IDENTIFIER ::= { diagTestMIBObjects 2 }
+diagTest              OBJECT IDENTIFIER ::= { diagTestMIBObjects 3 }
+
+-- Table objects under diagIfTest
+-- The Loopback Test Objects
+
+ifLoopbackTestTable   OBJECT-TYPE
+  SYNTAX       SEQUENCE OF IfLoopbackTestEntry
+  ACCESS       not-accessible
+  STATUS       mandatory
+  DESCRIPTION
+    "This table contains input and results of a packet loopback
+     test. This table is indexed by ifIndex. This is a interface
+     related test. There can be only one test running per 
+     interface. This table should be used in conjunction with 
+     ifTestTable(Rfc 1573) with all the semantics of ifTestTable."
+::= { diagIfTest 1 }
+
+ifLoopbackTestEntry OBJECT-TYPE
+  SYNTAX       IfLoopbackTestEntry
+  ACCESS       not-accessible
+  STATUS       mandatory
+  DESCRIPTION
+    "An entry containing objects for test input and result
+     for packet loopback test"
+  INDEX { ifIndex }
+::= { ifLoopbackTestTable 1 }
+
+IfLoopbackTestEntry ::=
+  SEQUENCE {
+    loopbackTestInputNumCycles       INTEGER,
+    loopbackTestResultsPktsSent      INTEGER,
+    loopbackTestResultsPktsRcvdOK    INTEGER,
+    loopbackTestResultsPktsRcvdErr   INTEGER,
+    loopbackTestResultsPktsNotRcvd   INTEGER,
+    loopbackTestResultsPktErrorRate  DisplayString,
+    loopbackTestResultsErrSecs       INTEGER,
+    loopbackTestResultsSvrErrSecs    INTEGER,
+    loopbackTestResultsElpTime       INTEGER
+  }
+
+loopbackTestInputNumCycles OBJECT-TYPE
+  SYNTAX       INTEGER
+  ACCESS       read-write
+  STATUS       mandatory
+  DESCRIPTION
+    "This object corresponds the number of cycles the test 
+     to be run for. One cycle corresponds to a 15 second 
+     interval. The default value for this object is 40."
+::= { ifLoopbackTestEntry 1 }
+
+loopbackTestResultsPktsSent OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-only
+  STATUS        mandatory
+  DESCRIPTION
+    "This object corresponds to the number of packets sent"
+::= { ifLoopbackTestEntry 2 }
+
+loopbackTestResultsPktsRcvdOK OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-only
+  STATUS        mandatory
+  DESCRIPTION
+    "This object corresponds to the number of packets which were received
+     without any error"
+::= { ifLoopbackTestEntry 3 }
+
+loopbackTestResultsPktsRcvdErr OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-only
+  STATUS        mandatory
+  DESCRIPTION
+    "This object corresponds to the number of packets which were received
+     with errors"
+::= { ifLoopbackTestEntry 4 }
+
+loopbackTestResultsPktsNotRcvd OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-only
+  STATUS        mandatory
+  DESCRIPTION
+    "This object corresponds to the number of packets which were sent
+     but not received"
+::= { ifLoopbackTestEntry 5 }
+
+loopbackTestResultsPktErrorRate OBJECT-TYPE
+  SYNTAX        DisplayString (SIZE (1..32))
+  ACCESS        read-only
+  STATUS        mandatory
+  DESCRIPTION
+     "Reflects the error rate of the loopback test. this string 
+      will represent a floating point number of the form 
+      [ErrRate][eE][+-][ErrRateBase] where ErrRate and ErrRateBase
+      are integers. In Other Words 
+      ErrRate * [10^ -ErrRateBase]
+      shown below are example of the values returned.
+            123456E-5 = 1.23456
+            344567e-6 = 0.344567"
+::= { ifLoopbackTestEntry 6 }
+
+loopbackTestResultsErrSecs OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-only
+  STATUS        mandatory
+  DESCRIPTION
+    "This object corresponds to the number of errored seconds"
+::= { ifLoopbackTestEntry 7 }
+
+loopbackTestResultsSvrErrSecs OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-only
+  STATUS        mandatory
+  DESCRIPTION
+    "This object corresponds to the number of severely errored seconds"
+::= { ifLoopbackTestEntry 8 }
+
+loopbackTestResultsElpTime OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-only
+  STATUS        mandatory
+  DESCRIPTION
+    "This object corresponds to the number of seconds elapsed since the
+     start of the test."
+::= { ifLoopbackTestEntry 9 }
+
+-- The BERT group
+
+ifBERTObjectsTable OBJECT-TYPE
+    SYNTAX  SEQUENCE OF IfBERTObjectsEntry
+    ACCESS  not-accessible
+    STATUS  mandatory
+    DESCRIPTION
+    "This table contains the objects for Bit Error Rate Test. This table
+     is indexed by ifIndex."
+::= { diagIfTest 2 }
+
+ifBERTObjectsEntry  OBJECT-TYPE
+    SYNTAX  IfBERTObjectsEntry
+    ACCESS  not-accessible
+    STATUS  mandatory
+    DESCRIPTION
+    "An Entry containing objects of BERT."
+    INDEX   { ifIndex }
+::= { ifBERTObjectsTable 1 }
+
+IfBERTObjectsEntry ::=
+    SEQUENCE {
+        ifBERTTestDuration          INTEGER,
+        ifBERTElapsedTime           INTEGER,
+        ifBERTDownSyncUP            INTEGER,
+        ifBERTUpSyncUP              INTEGER,
+        ifBERTSegmentsSent          INTEGER,
+        ifBERTDownMBitsRcvd         INTEGER,
+        ifBERTUpMBitsRcvd           INTEGER,
+        ifBERTDownBitErrDetected    INTEGER,
+        ifBERTUpBitErrDetected      INTEGER,
+        ifBERTDownBitErrRate        DisplayString,
+        ifBERTUpBitErrRate          DisplayString,
+        ifBERTDownErroredSecs       INTEGER,
+        ifBERTUpErroredSecs         INTEGER,
+        ifBERTDownLineRate          INTEGER,
+        ifBERTUpLineRate            INTEGER,
+        ifBERTDownMargin            INTEGER,
+        ifBERTUpMargin              INTEGER
+    }
+
+ifBERTTestDuration  OBJECT-TYPE
+SYNTAX              INTEGER
+ACCESS              read-write
+STATUS              mandatory
+DESCRIPTION
+   "This object represents the test duration in seconds."
+::= {ifBERTObjectsEntry 1}
+
+ifBERTElapsedTime       OBJECT-TYPE
+SYNTAX              INTEGER
+ACCESS              read-only
+STATUS              mandatory
+DESCRIPTION
+   "This object represents the elapsed time in seconds."
+::= {ifBERTObjectsEntry 2}
+
+ifBERTDownSyncUP    OBJECT-TYPE
+SYNTAX              INTEGER {
+                        yes (1),
+                        no (2)
+                            }
+ACCESS              read-only
+STATUS              mandatory
+DESCRIPTION
+	"This object indicates whether Downstream sync is enabled ."
+::= {ifBERTObjectsEntry 3}
+
+ifBERTUpSyncUP      OBJECT-TYPE
+SYNTAX              INTEGER {
+                        yes (1),
+                        no (2)
+                            }
+ACCESS              read-only
+STATUS              mandatory
+DESCRIPTION
+	"This object indicates whether upstream sync is enabled."
+::= {ifBERTObjectsEntry 4}
+
+ifBERTSegmentsSent  OBJECT-TYPE
+SYNTAX              INTEGER
+ACCESS              read-only
+STATUS              mandatory
+DESCRIPTION
+	"This object represents the number of segments sent during the test"
+::= {ifBERTObjectsEntry 5}
+
+ifBERTDownMBitsRcvd OBJECT-TYPE
+SYNTAX              INTEGER
+ACCESS              read-only
+STATUS              mandatory
+DESCRIPTION
+	"This represents the number of million bits rcvd downstream."
+::= {ifBERTObjectsEntry 6}
+
+ifBERTUpMBitsRcvd   OBJECT-TYPE
+SYNTAX              INTEGER
+ACCESS              read-only
+STATUS              mandatory
+DESCRIPTION
+	"This represents the number of million bits rcvd upstream."
+::= {ifBERTObjectsEntry 7}
+
+ifBERTDownBitErrDetected    OBJECT-TYPE
+SYNTAX                      INTEGER
+ACCESS                      read-only
+STATUS                      mandatory
+DESCRIPTION
+	"This represents the number of bit errors detected downstream."
+::= {ifBERTObjectsEntry 8}
+
+ifBERTUpBitErrDetected      OBJECT-TYPE
+SYNTAX                      INTEGER
+ACCESS                      read-only
+STATUS                      mandatory
+DESCRIPTION
+	"This represents the number of bit errors detected upstream."
+::= {ifBERTObjectsEntry 9}
+
+ifBERTDownBitErrRate    OBJECT-TYPE
+SYNTAX                  DisplayString (SIZE (1..32))
+ACCESS                  read-only
+STATUS                  mandatory
+DESCRIPTION
+	  "This string will represent a floating point number of the 
+               form [Er rRate] [eE] [+-] [ErrRatebase] where ErrTare and
+               errRateBase are integers."
+::= {ifBERTObjectsEntry 10}
+
+ifBERTUpBitErrRate  OBJECT-TYPE
+SYNTAX              DisplayString (SIZE (1..32))
+ACCESS              read-only
+STATUS              mandatory
+DESCRIPTION
+	  "This object reflects the error rate of BERT in Upstream direction. 
+               This string will represent a floating point number of the form
+               [ErrRate] [eE] [+-] [ErrRatebase]
+               where ErrTare and errRateBase are integers."
+::= {ifBERTObjectsEntry 11}
+
+ifBERTDownErroredSecs   OBJECT-TYPE
+SYNTAX                  INTEGER
+ACCESS                  read-only
+STATUS                  mandatory
+DESCRIPTION
+	"This represents number of errored seconds downstream. Errored second 
+             is a second in which there is at least 1 block error."
+::= {ifBERTObjectsEntry 12}
+
+
+ifBERTUpErroredSecs OBJECT-TYPE
+SYNTAX              INTEGER
+ACCESS              read-only
+STATUS              mandatory
+DESCRIPTION
+	"This represents number of errored seconds upstream. 
+             Errored second is a second in which there is at least 1 block error."
+::= {ifBERTObjectsEntry 13}
+
+ifBERTDownLineRate  OBJECT-TYPE
+SYNTAX              INTEGER
+ACCESS              read-only
+STATUS              mandatory
+DESCRIPTION
+	"This represents the downstream line rate in KBPS"
+::= {ifBERTObjectsEntry 14}
+
+ifBERTUpLineRate    OBJECT-TYPE
+SYNTAX              INTEGER
+ACCESS              read-only
+STATUS              mandatory
+DESCRIPTION
+	"This represents the Upstream line rate in KBPS"
+::= {ifBERTObjectsEntry 15}
+
+ifBERTDownMargin    OBJECT-TYPE
+SYNTAX              INTEGER
+ACCESS              read-only
+STATUS              mandatory
+DESCRIPTION
+	"This represents the Downstream margin in decibels (DB)."
+::= {ifBERTObjectsEntry 16}
+
+ifBERTUpMargin  OBJECT-TYPE
+SYNTAX          INTEGER
+ACCESS          read-only
+STATUS          mandatory
+DESCRIPTION
+	"This represents the upstream margin in decibels (DB)."
+::= {ifBERTObjectsEntry 17}
+
+-- The BLERT group
+
+ifBLERTObjectsTable OBJECT-TYPE
+    SYNTAX  SEQUENCE OF IfBLERTObjectsEntry
+    ACCESS  not-accessible
+    STATUS  mandatory
+    DESCRIPTION
+    "This table contains the objects for Block Error Rate Test (BLERT).
+     This table is indexed by ifIndex."
+::= { diagIfTest 3 }
+
+ifBLERTObjectsEntry  OBJECT-TYPE
+    SYNTAX  IfBLERTObjectsEntry
+    ACCESS  not-accessible
+    STATUS  mandatory
+    DESCRIPTION
+    "An Entry containing objects of BLERT."
+    INDEX   { ifIndex }
+::= { ifBLERTObjectsTable 1 }
+
+IfBLERTObjectsEntry ::=
+    SEQUENCE {
+        ifBLERTTestDuration          INTEGER,
+        ifBLERTElapsedTime           INTEGER,
+        ifBLERTTxSeqCount            INTEGER,
+        ifBLERTRxSeqCount            INTEGER,
+        ifBLERTRxGoodFrames          INTEGER,
+        ifBLERTTxGoodFrames          INTEGER,
+        ifBLERTRxBadFrames	     INTEGER,
+        ifBLERTTxBadFrames           INTEGER,
+        ifBLERTDnLineRate            INTEGER,
+        ifBLERTUpLineRate            INTEGER
+    }
+
+ifBLERTTestDuration  OBJECT-TYPE
+SYNTAX              INTEGER
+ACCESS              read-write
+STATUS              mandatory
+DESCRIPTION
+   "This object represents the test duration in seconds."
+::= {ifBLERTObjectsEntry 1}
+
+ifBLERTElapsedTime       OBJECT-TYPE
+SYNTAX              INTEGER
+ACCESS              read-only
+STATUS              mandatory
+DESCRIPTION
+   "This object represents the elapsed time in seconds since the test started."
+::= {ifBLERTObjectsEntry 2}
+
+ifBLERTTxSeqCount    OBJECT-TYPE
+SYNTAX              INTEGER
+ACCESS              read-only
+STATUS              mandatory
+DESCRIPTION
+   "This object indicates the next Tx sequence."
+::= {ifBLERTObjectsEntry 3}
+
+ifBLERTRxSeqCount    OBJECT-TYPE
+SYNTAX              INTEGER
+ACCESS              read-only
+STATUS              mandatory
+DESCRIPTION
+   "This object indicates the next Rx sequence."
+::= {ifBLERTObjectsEntry 4}
+
+ifBLERTRxGoodFrames  OBJECT-TYPE
+SYNTAX              INTEGER
+ACCESS              read-only
+STATUS              mandatory
+DESCRIPTION
+   "This object indicates the number of good frames received."
+::= {ifBLERTObjectsEntry 5}
+
+ifBLERTTxGoodFrames  OBJECT-TYPE
+SYNTAX              INTEGER
+ACCESS              read-only
+STATUS              mandatory
+DESCRIPTION
+   "This object indicates the number of good frames transmitted."
+::= {ifBLERTObjectsEntry 6}
+
+ifBLERTRxBadFrames  OBJECT-TYPE
+SYNTAX              INTEGER
+ACCESS              read-only
+STATUS              mandatory
+DESCRIPTION
+   "This object indicates the number of bad frames received."
+::= {ifBLERTObjectsEntry 7}
+
+ifBLERTTxBadFrames  OBJECT-TYPE
+SYNTAX      	    INTEGER
+ACCESS              read-only
+STATUS              mandatory
+DESCRIPTION
+   "This object indicates the number of bad frames transmitted."
+::= {ifBLERTObjectsEntry 8}
+
+ifBLERTDnLineRate   OBJECT-TYPE
+SYNTAX              INTEGER
+ACCESS              read-only
+STATUS              mandatory
+DESCRIPTION
+   "This object indicates the downstream line rate."
+::= {ifBLERTObjectsEntry 9}
+
+ifBLERTUpLineRate   OBJECT-TYPE
+SYNTAX      	    INTEGER
+ACCESS              read-only
+STATUS              mandatory
+DESCRIPTION
+   "This object indicates the upstream line rate."
+::= {ifBLERTObjectsEntry 10}
+
+-- The applTests group. Implementation of all objects in this group is
+-- is mandatory
+
+applMaxNumberOfTests OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-only
+  STATUS        mandatory
+  DESCRIPTION
+    "This object identifies the maximum number of application based
+     tests that can be simultaneously instantiated on the device."
+::= { diagApplTest 1 }
+
+applCurrentNumberOfTests OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-only
+  STATUS        mandatory
+  DESCRIPTION
+    "This object identifies the current number of application based
+     tests that are running on the device."
+::= { diagApplTest 2 }
+
+applStopAllTests  OBJECT-TYPE
+  SYNTAX INTEGER {
+    noOp (1),
+    stop (2),
+    stopAndClear (3)
+  }
+  ACCESS       read-write
+  STATUS       mandatory
+  DESCRIPTION
+    "The value of this object corresponds to stop all
+     application based tests on the device.
+     noOp -- no operation
+     stop -- all the application tests will be stopped
+             but current test results are still available
+     stopAndClear -- all the application tests will be stoped
+             and the results are cleared also"
+::= { diagApplTest 3 }
+
+applNewTestId OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-only
+  STATUS        mandatory
+  DESCRIPTION
+    "This value of this object corresponds to getting a
+     magic number to start an application based test.
+     The magic number is used as an index to create a
+     row for the diagApplTestTable.  If no new rows
+     can be created, this object will have a value of 0."
+::= { diagApplTest 4 }
+
+-- applTestStatusTable: This table controls all the application tests
+
+applTestStatusTable OBJECT-TYPE
+  SYNTAX       SEQUENCE OF ApplTestStatusEntry
+  ACCESS       not-accessible
+  STATUS       mandatory
+  DESCRIPTION
+    "This table controls all the application tests.  It defines a test type,
+     starts a test, and clears a test."
+::= { diagApplTest 5 }
+
+applTestStatusEntry OBJECT-TYPE
+  SYNTAX       ApplTestStatusEntry
+  ACCESS       not-accessible
+  STATUS       mandatory
+  DESCRIPTION
+    "An entry containing objects for invoking application based tests"
+  INDEX { applTestId }
+::= { applTestStatusTable 1 }
+
+ApplTestStatusEntry ::=
+  SEQUENCE {
+    applTestId                 INTEGER,
+    applTestType               AutonomousType,
+    applTestStatus             INTEGER,
+    applTestErrorCode          INTEGER,
+    applTestOwner              DisplayString,
+    applTestRowStatus          RowStatus
+  }
+
+applTestId OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-only
+  STATUS        mandatory
+  DESCRIPTION
+    "A unique ID to identify each application test."
+::= { applTestStatusEntry 1 }
+
+applTestType OBJECT-TYPE
+  SYNTAX        AutonomousType
+  ACCESS        read-write
+  STATUS        mandatory
+  DESCRIPTION
+    "This object defines the application test type."
+::= { applTestStatusEntry 2 }
+
+applTestStatus OBJECT-TYPE
+  SYNTAX        INTEGER {
+    none (1),
+    inProgress (2),
+    success (3),
+    failed (4),
+	 abort (5)
+    }
+  ACCESS        read-only
+  STATUS        mandatory
+  DESCRIPTION
+    "This object shows the current status of an application test.
+       none        - indicates waiting for test parameters.
+       inProgress  - indicates the test is in process.
+       success     - indicates the test is completed.
+       failed      - indicates the test is failed.
+		 abort       - indicates the test was aborted"
+::= { applTestStatusEntry 3 }
+
+applTestErrorCode OBJECT-TYPE
+  SYNTAX        INTEGER { none (1), timeout (2), icmpError (3), systemError (4) }
+  ACCESS        read-only
+  STATUS        mandatory
+  DESCRIPTION
+    "This object shows the reason for a test failure."
+::= { applTestStatusEntry 4 }
+
+applTestOwner OBJECT-TYPE
+  SYNTAX        DisplayString (SIZE (1..40))
+  ACCESS        read-write
+  STATUS        mandatory
+  DESCRIPTION
+    "The network manager who has started the test"
+::= { applTestStatusEntry 5 }
+
+applTestRowStatus OBJECT-TYPE
+  SYNTAX        RowStatus
+  ACCESS        read-write
+  STATUS        mandatory
+  DESCRIPTION
+    "This object is used to create a new row or delete an
+     existing row for an application test."
+::= { applTestStatusEntry 6 }
+
+-- applPintTestTable: This table is for Ping test
+
+applPingTestTable OBJECT-TYPE
+  SYNTAX        SEQUENCE OF ApplPingTestEntry
+  ACCESS        not-accessible
+  STATUS        mandatory
+  DESCRIPTION
+    "This table contains objects which allow network manager to
+     ping a destination."
+::= { diagApplTest 6 }
+
+applPingTestEntry OBJECT-TYPE
+  SYNTAX        ApplPingTestEntry
+  ACCESS        not-accessible
+  STATUS        mandatory
+  DESCRIPTION
+    "This table contains the input parameters for a ping test
+     and the results of the ping test."
+  INDEX { applPingTestId }
+::= { applPingTestTable 1}
+
+ApplPingTestEntry ::=
+  SEQUENCE {
+    applPingTestId              INTEGER,
+    applPingTestIpAddress       IpAddress,
+    applPingTestSourceIpAddr    IpAddress,
+    applPingTestPacketSize      INTEGER,
+    applPingTestTimeout         INTEGER,
+    applPingTestMaxPings        INTEGER,
+    applPingTestPktsSent        INTEGER,
+    applPingTestPktsRecv        INTEGER,
+    applPingTestMinTime         INTEGER,
+    applPingTestMaxTime         INTEGER,
+    applPingTestAvgTime         INTEGER,
+    applPingTestDomain          INTEGER,
+    applPingTestIfIndex         INTEGER
+}
+
+applPingTestId OBJECT-TYPE
+  SYNTAX    INTEGER
+  ACCESS    read-only
+  STATUS    mandatory
+  DESCRIPTION
+    "A unique ID to identify each application test."
+::= { applPingTestEntry 1 }
+
+applPingTestIpAddress OBJECT-TYPE
+  SYNTAX        IpAddress
+  ACCESS        read-write
+  STATUS        mandatory
+  DESCRIPTION
+    "The IP address to be pinged."
+::= { applPingTestEntry 2 }
+
+applPingTestSourceIpAddr OBJECT-TYPE
+  SYNTAX        IpAddress
+  ACCESS        read-write
+  STATUS        mandatory
+  DESCRIPTION
+    "The Source IP address where we are pinging from.
+     This is an optional object for some devices.
+     See operational specification for its use."
+::= { applPingTestEntry 3 }
+
+applPingTestPacketSize OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-write
+  STATUS        mandatory
+  DESCRIPTION
+    "This object corresponds to the size of the packet (in bytes)
+     which will be sent during the Ping test.
+     The default value for this object is 64 bytes"
+::= { applPingTestEntry 4 }
+
+applPingTestTimeout OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-write
+  STATUS        mandatory
+  DESCRIPTION
+    "This object corresponds to a timeout value (in seconds)
+     between Pings.
+     The default value for this object is 5 seconds"
+::= { applPingTestEntry 5 }
+
+applPingTestMaxPings OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-write
+  STATUS        mandatory
+  DESCRIPTION
+    "This object corresponds to  the maximum number of times the
+     device should Ping for the destination.
+     The default value for this object is 10"
+::= { applPingTestEntry 6 }
+
+applPingTestPktsSent OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-only
+  STATUS        mandatory
+  DESCRIPTION
+    "This object corresponds to  the total number of packets sent."
+::= { applPingTestEntry 7 }
+
+applPingTestPktsRecv OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-only
+  STATUS        mandatory
+  DESCRIPTION
+    "This object corresponds to  the total number of packets received
+     without error"
+::= { applPingTestEntry 8 }
+
+applPingTestMinTime OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-only
+  STATUS        mandatory
+  DESCRIPTION
+    "The minimum round trip time."
+::= { applPingTestEntry 9 }
+
+applPingTestMaxTime OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-only
+  STATUS        mandatory
+  DESCRIPTION
+    "The maximum round trip time."
+::= { applPingTestEntry 10 }
+
+applPingTestAvgTime OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-only
+  STATUS        mandatory
+  DESCRIPTION
+    "The average round trip time."
+::= { applPingTestEntry 11 }
+
+applPingTestDomain    OBJECT-TYPE
+  SYNTAX        INTEGER { 
+	 noop (1),
+    mgmt (2),
+    service (3)
+    }
+  ACCESS        read-write
+  STATUS        mandatory
+  DESCRIPTION
+    "This object specifies the destination ip address's domain.
+     The Default is service domain. Not allowed if source ip address is entered.
+     This is an optional object for some devices. See operational specification
+     its use."
+::= { applPingTestEntry 12 }
+
+applPingTestIfIndex  OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-write
+  STATUS        mandatory
+  DESCRIPTION
+    "This object specifies the interface over which the ping test will
+	  take place. "
+::= { applPingTestEntry 13 }
+
+-- applTracerouteConfigTable: to enter the parameters for a traceroute test
+
+applTracerouteConfigTable OBJECT-TYPE
+  SYNTAX        SEQUENCE OF ApplTracerouteConfigEntry
+  ACCESS        not-accessible
+  STATUS        mandatory
+  DESCRIPTION
+    "This table contains objects which allow network manager to
+     enter the parameters of a traceroute test."
+::= { diagApplTest 7 }
+
+applTracerouteConfigEntry OBJECT-TYPE
+  SYNTAX        ApplTracerouteConfigEntry
+  ACCESS        not-accessible
+  STATUS        mandatory
+  DESCRIPTION
+    "This table contains the input parameters for a traceroute test."
+  INDEX { applTracerouteTestId }
+::= { applTracerouteConfigTable 1}
+
+ApplTracerouteConfigEntry ::=
+  SEQUENCE {
+    applTracerouteTestId        INTEGER,
+    applTracerouteIpAddress     IpAddress,
+    applTracerouteSourceIpAddr  IpAddress,
+    applTraceroutePktsSize      INTEGER,
+    applTracerouteTimeout       INTEGER,
+    applTracerouteMaxHops       INTEGER,
+    applTracerouteDomain        INTEGER,
+    applTracerouteIfIndex       INTEGER
+}
+
+applTracerouteTestId OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-only
+  STATUS        mandatory
+  DESCRIPTION
+    "A unique ID to identify each application test."
+::= { applTracerouteConfigEntry 1 }
+
+applTracerouteIpAddress OBJECT-TYPE
+  SYNTAX        IpAddress
+  ACCESS        read-write
+  STATUS        mandatory
+  DESCRIPTION
+    "The destination IP address of a traceroute test."
+::= { applTracerouteConfigEntry 2 }
+
+applTracerouteSourceIpAddr OBJECT-TYPE
+  SYNTAX        IpAddress
+  ACCESS        read-write
+  STATUS        mandatory
+  DESCRIPTION
+    "The source IP address of where the traceroute test started.
+     This is an optional object for some devices.
+     See operational specification for its use."
+::= { applTracerouteConfigEntry 3 }
+
+applTraceroutePktsSize OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-write
+  STATUS        mandatory
+  DESCRIPTION
+    "This object corresponds to the size of the packet (in bytes)
+     which will be sent during the traceroute test. 
+     Please refer to product specific documentation for the 
+     default values supported"
+::= { applTracerouteConfigEntry 4 }
+
+applTracerouteTimeout OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-write
+  STATUS        mandatory
+  DESCRIPTION
+    "This object corresponds to a timeout value (in seconds)
+     of a traceroute test.
+     The default value for this object is 5 seconds"
+::= { applTracerouteConfigEntry 5 }
+
+applTracerouteMaxHops OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-write
+  STATUS        mandatory
+  DESCRIPTION
+    "This object corresponds to the maximum number of hops
+     to reach the destination.
+     The default value for this object is device specific. See
+	  Operational Specifications"
+::= { applTracerouteConfigEntry 6 }
+
+applTracerouteDomain    OBJECT-TYPE
+  SYNTAX        INTEGER {
+    noop (1),
+    mgmt (2),
+    service (3)
+    }
+  ACCESS        read-write
+  STATUS        mandatory
+  DESCRIPTION
+    "This object specifies the destination ip address's domain.
+     The Default is service domain. Not allowed if source ip address is entered.
+     This is an optional object for some devices. See operational specification
+     its use."
+::= { applTracerouteConfigEntry 7 }
+
+applTracerouteIfIndex  OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-write
+  STATUS        mandatory
+  DESCRIPTION
+    "This object specifies the interface over which the trace-route
+	  test will take place. " 
+::= { applTracerouteConfigEntry 8 }
+
+-- Traceroute Results Table
+
+applTracerouteResultTable OBJECT-TYPE
+  SYNTAX        SEQUENCE OF ApplTracerouteResultEntry
+  ACCESS        not-accessible
+  STATUS        mandatory
+  DESCRIPTION
+    "This table contains results of traceroute test."
+::= { diagApplTest 8 }
+
+applTracerouteResultEntry OBJECT-TYPE
+  SYNTAX        ApplTracerouteResultEntry
+  ACCESS        not-accessible
+  STATUS        mandatory
+  DESCRIPTION
+    "An entry contains the objects for the traceroute test."
+  INDEX { applTracerouteResultTestId, applTracerouteHopCount }
+::= { applTracerouteResultTable 1 }
+
+ApplTracerouteResultEntry ::=
+  SEQUENCE {
+    applTracerouteResultTestId  INTEGER,
+    applTracerouteHopCount      INTEGER,
+    applTracerouteIpAddr        IpAddress,
+    applTraceroutePktSize       INTEGER,
+    applTracerouteProbe1RTT     INTEGER,
+    applTracerouteProbe2RTT     INTEGER,
+    applTracerouteProbe3RTT     INTEGER
+  }
+
+applTracerouteResultTestId OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-only
+  STATUS        mandatory
+  DESCRIPTION
+    "A unique ID to identify each application test."
+::= { applTracerouteResultEntry 1 }
+
+applTracerouteHopCount OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-only
+  STATUS        mandatory
+  DESCRIPTION
+    "This object contains the number of hops to reach the gateway."
+::= { applTracerouteResultEntry 2 }
+
+applTracerouteIpAddr OBJECT-TYPE
+  SYNTAX        IpAddress
+  ACCESS        read-only
+  STATUS        mandatory
+  DESCRIPTION
+    "This object contains the IP address of the gateway."
+::= { applTracerouteResultEntry 3 }
+
+applTraceroutePktSize OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-only
+  STATUS        mandatory
+  DESCRIPTION
+    "This object corresponds to the size of the packet (in bytes)
+     which will be sent during the traceroute test.
+     Please refer to product specific documentation for the 
+     default values supported"
+::= { applTracerouteResultEntry 4 }
+
+applTracerouteProbe1RTT OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-only
+  STATUS        mandatory
+  DESCRIPTION
+    "This object contains the round trip time (rtt) of the first
+     probe sent to the gateway.
+     If the probe has a timeout the rtt is set to -1."
+::= { applTracerouteResultEntry 5 }
+
+applTracerouteProbe2RTT OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-only
+  STATUS        mandatory
+  DESCRIPTION
+    "This object contains the round trip time (rtt) of the second
+     probe sent to the gateway.
+     If the probe has a timeout the rtt is set to -1."
+::= { applTracerouteResultEntry 6 }
+
+applTracerouteProbe3RTT OBJECT-TYPE
+  SYNTAX        INTEGER
+  ACCESS        read-only
+  STATUS        mandatory
+  DESCRIPTION
+    "This object contains the round trip time (rtt) of the third
+     probe sent to the gateway.
+     If the probe has a timeout the rtt is set to -1."
+::= { applTracerouteResultEntry 7 }
+
+diagTestTrapEnable OBJECT-TYPE
+  SYNTAX  INTEGER
+  ACCESS  read-write
+  STATUS  mandatory
+  DESCRIPTION
+    "This object is used to disable or enable TestOver
+     and TestStart trap for all tests. It is bit sum and possible
+     bit positions are 1 TestStart trap 2 TestOver trap"
+::= { diagTest 1 }
+
+-- Traps
+
+diagApplTestStart TRAP-TYPE
+  ENTERPRISE diagTestMIBTraps
+  VARIABLES { ifIndex, applTestId, applTestType }
+  DESCRIPTION
+    "This trap signifies that an application test has been initiated."
+::= 1
+
+diagApplTestStop TRAP-TYPE
+  ENTERPRISE diagTestMIBTraps
+  VARIABLES { ifIndex, applTestId, applTestType, applTestStatus }
+  DESCRIPTION
+    "This trap signifies that an application test has completed.
+     This trap compliments the diagApplTestStart trap."
+::= 101 
+
+diagIfTestStart TRAP-TYPE
+  ENTERPRISE diagTestMIBTraps
+  VARIABLES { ifTestId }
+  DESCRIPTION
+    "This trap signifies that a diagnostic test has been initiated."
+::= 2
+
+diagIfTestOver TRAP-TYPE
+  ENTERPRISE diagTestMIBTraps
+  VARIABLES { ifTestId }
+  DESCRIPTION
+    "This trap signifies that a diagnostic test has completed.
+     This trap compliments the diagIfTestStart trap"
+::= 102
+ 
+END

@@ -6,16 +6,43 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-echo('<table class="table table-striped table-condensed table-bordered">');
+if(device_permitted($device))
+{
 
-echo("<thead><tr>
-        <th>Device</th>
-      </tr></thead>");
+  // Only show aggregate graph if we have access to the entire device.
+
+  echo generate_box_open();
+
+  echo('<table class="table table-condensed table-striped table-hover ">');
+
+ $graph_title = nicecase($vars['metric']);
+  $graph_array['type'] = "device_".$vars['metric'];
+  $graph_array['device'] = $device['device_id'];
+  $graph_array['legend'] = no;
+
+  echo('<tr><td>');
+  echo('<h3>' . $graph_title . '</h3>');
+  print_graph_row($graph_array);
+  echo('</td></tr>');
+
+  echo('</table>');
+
+  echo generate_box_close();
+
+}
+
+echo generate_box_open();
+
+echo('<table class="table table-striped table-condensed ">');
+
+//echo("<thead><tr>
+//        <th>Device</th>
+//      </tr></thead>");
 
 $row = 1;
 
@@ -31,9 +58,9 @@ foreach (dbFetchRows("SELECT * FROM `ucd_diskio` WHERE device_id = ? ORDER BY di
   $graph_array_zoom['from']   = $config['time']['twoday'];
   $graph_array_zoom['to']     = $config['time']['now'];
 
-  echo("<tr bgcolor='$row_colour'><td><span class='entity-title'>");
+  echo("<tr><td><h3>");
   echo(overlib_link($fs_url, $drive['diskio_descr'], generate_graph_tag($graph_array_zoom),  NULL));
-  echo("</span><br />");
+  echo("</h3>");
 
   $types = array("diskio_bits", "diskio_ops");
 
@@ -51,7 +78,9 @@ foreach (dbFetchRows("SELECT * FROM `ucd_diskio` WHERE device_id = ? ORDER BY di
   $row++;
 }
 
-echo("</td></tr>");
-echo("</table>");
+echo "</td></tr>";
+echo "</table>";
+
+echo generate_box_close();
 
 // EOF

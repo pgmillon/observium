@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -25,7 +25,7 @@ if($width > 500)
 $descr_len += round(($width - 250) / 8);
 
 $iter = 0;
-$colours = 'mixed';
+$colours = 'mixed-10c';
 $rrd_options .= " COMMENT:'".str_pad('Size      Used    %used', $descr_len+31, ' ', STR_PAD_LEFT)."\\l'";
 //$rrd_options .= " COMMENT:'                    Size      Used    %age\\l'";
 

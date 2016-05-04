@@ -7,14 +7,17 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
+//if ($_SESSION['permissions'] < '5')
 if ($_SESSION['userlevel'] < '5')
 {
-  include("includes/error-no-perm.inc.php");
-} else {
+  print_error_permission();
+  return;
+}
+
   if (!isset($vars['view'])) { $vars['view'] = 'details'; }
   unset($navbar);
   $link_array = array('page' => 'routing',
@@ -59,14 +62,20 @@ if ($_SESSION['userlevel'] < '5')
   if ($vars['graph'] == 'updates') { $navbar['options_right']['updates']['class'] .= ' active'; }
   $navbar['options_right']['updates']['url'] = generate_url($vars, array('view' => 'graphs', 'graph' => 'updates'));
 
-  $bgp_graphs = array('unicast'   => array('text' => 'Unicast'),
-                      'multicast' => array('text' => 'Multicast'),
-                      'mac'       => array('text' => 'MACaccounting'));
-  $bgp_graphs['unicast']['types'] = array('prefixes_ipv4unicast' => 'IPv4 Ucast Prefixes',
-                                          'prefixes_ipv6unicast' => 'IPv6 Ucast Prefixes',
-                                          'prefixes_ipv4vpn'     => 'VPNv4 Prefixes');
-  $bgp_graphs['multicast']['types'] = array('prefixes_ipv4multicast' => 'IPv4 Mcast Prefixes',
-                                            'prefixes_ipv6multicast' => 'IPv6 Mcast Prefixes');
+  $bgp_graphs = array();
+  foreach ($cache['graphs'] as $entry)
+  {
+    if (preg_match('/^bgp_(?<subtype>prefixes)_(?<afi>ipv[46])(?<safi>[a-z]+)/', $entry, $matches))
+    {
+      if (!isset($bgp_graphs[$matches['safi']]))
+      {
+        $bgp_graphs[$matches['safi']] = array('text' => nicecase($matches['safi']));
+      }
+      $bgp_graphs[$matches['safi']]['types'][$matches['subtype'].'_'.$matches['afi'].$matches['safi']] = nicecase($matches['afi']) . ' ' . nicecase($matches['safi']) . ' ' . nicecase($matches['subtype']);
+    }
+  }
+
+  $bgp_graphs['mac'] = array('text' => 'MACaccounting');
   $bgp_graphs['mac']['types'] = array('macaccounting_bits' => 'MAC Bits',
                                       'macaccounting_pkts' => 'MAC Pkts');
   foreach ($bgp_graphs as $bgp_graph => $bgp_options)
@@ -92,7 +101,6 @@ if ($_SESSION['userlevel'] < '5')
   $vars['pagination'] = TRUE;
 
   //r($cache['bgp']);
-  print_bgp($vars);
-}
+  print_bgp_table($vars);
 
 // EOF

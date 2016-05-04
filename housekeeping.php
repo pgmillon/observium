@@ -8,20 +8,16 @@
  *
  * @package    observium
  * @subpackage housekeeping
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 chdir(dirname($argv[0]));
 
-include_once("includes/defaults.inc.php");
-include_once("config.php");
+$options = getopt("A:Vyaselurptdb");
 
-$options = getopt("A:Vyaselrptd");
-
-include_once("includes/definitions.inc.php");
-include("includes/functions.inc.php");
+include("includes/sql-config.inc.php");
 
 $scriptname = basename($argv[0]);
 
@@ -52,9 +48,11 @@ $modules = array();
 if (isset($options['a']) || isset($options['s'])) { $modules[] = 'syslog'; }
 if (isset($options['a']) || isset($options['e'])) { $modules[] = 'eventlog'; }
 if (isset($options['a']) || isset($options['l'])) { $modules[] = 'alertlog'; }
+if (isset($options['a']) || isset($options['u'])) { $modules[] = 'authlog'; }
 if (isset($options['a']) || isset($options['r'])) { $modules[] = 'rrd'; }
 if (isset($options['a']) || isset($options['p'])) { $modules[] = 'ports'; }
 if (isset($options['a']) || isset($options['t'])) { $modules[] = 'timing'; }
+if (isset($options['a']) || isset($options['b'])) { $modules[] = 'staledb'; }
 
 // Get age from command line
 if (isset($options['A']))
@@ -77,7 +75,7 @@ if (!count($modules))
 {
   print_message("%n
 USAGE:
-$scriptname [-Vyaserptd] [-A <age>]
+$scriptname [-Vyaselrptdbu] [-A <age>]
 
 NOTE, by default $scriptname asks 'Are you sure want to delete (y/N)?'.
       To assume 'yes' as answer to all prompts and run non-interactively,
@@ -91,9 +89,11 @@ OPTIONS:
  -s                                          Clean up syslog
  -e                                          Clean up event log
  -l                                          Clean up alert log
+ -u                                          Clean up auth log
  -r                                          Clean up unused RRD files
  -p                                          Clean up deleted ports
  -t                                          Clean up timing data (discovery and poll times)
+ -b                                          Clean up stale database entries
  -A <age>                                    Specifies maximum age for all modules (overrides configuration)
 
 DEBUGGING OPTIONS:
@@ -112,10 +112,12 @@ EXAMPLES:
     if (is_file($config['install_dir'] . "/includes/housekeeping/$module.inc.php"))
     {
       include($config['install_dir'] . "/includes/housekeeping/$module.inc.php");
+      set_obs_attrib("housekeeping_lastrun_$module", time());
     } else {
       print_warning("Housekeeping module not found: $module");
     }
   }
+  set_obs_attrib("housekeeping_lastrun", time());
 }
 
 // EOF

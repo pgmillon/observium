@@ -1,0 +1,555 @@
+-- =================================================================
+-- Copyright (c) 2010-2013 Hewlett-Packard Development Company, L.P.
+--
+-- Description: policy-based routing(PBR) MIB File
+-- Reference:
+-- Version: V1.1
+-- History:
+--      V1.0 created by houyefei
+--        initial version 2010-12-10
+--      V1.1 2012-7-21 modified by houyefei
+--         Add hpnicfPBRLocalPolicy
+--         Add hpnicfPBRMibPolicyNodeTable, hpnicfPBRMibIfPolicyTable,
+--             hpnicfPBRMibMatchAclTable, hpnicfPBRMibMatchAclTable,
+--             hpnicfPBRMibApplyNexthopTablel,
+--             hpnicfPBRMibApplyDefaultNexthopTable
+--           2012-8-13 modified by houyefei
+--         Modify hpnicfPBRNexthopTrapEnabled
+--         Add hpnicfPBRIPv6NexthopTrapEnabled
+-- =================================================================
+HPN-ICF-PBR-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    hpnicfCommon
+        FROM HPN-ICF-OID-MIB
+    OBJECT-TYPE, MODULE-IDENTITY, NOTIFICATION-TYPE, Integer32
+        FROM SNMPv2-SMI
+    TruthValue, DisplayString, RowStatus
+        FROM SNMPv2-TC
+    ifIndex
+        FROM IF-MIB
+    InetAddress, InetAddressType
+        FROM INET-ADDRESS-MIB;
+
+hpnicfPBR MODULE-IDENTITY
+    LAST-UPDATED
+        "201012101558Z"
+    ORGANIZATION
+        ""
+    CONTACT-INFO
+        ""
+    DESCRIPTION
+        "This MIB contains objects to manage the configuration and information
+        of PBR.  It routes IP packets by user defined policy
+        other than normal destination address based routing.
+        "
+    REVISION
+        "201012101558Z"
+    DESCRIPTION
+        "The initial version of this MIB file."
+    ::= { hpnicfCommon 113 }
+
+-- Objects define
+hpnicfPBRObjects OBJECT IDENTIFIER ::= { hpnicfPBR 1 }
+
+hpnicfPBRGlobal OBJECT IDENTIFIER ::= { hpnicfPBRObjects 1 }
+
+hpnicfPBRNexthopTrapEnabled OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is a global setting only for IPv4 PBR.  If the
+         value is set to 'false', the feature is disabled."
+    DEFVAL { true }
+    ::= { hpnicfPBRGlobal 1 }
+
+hpnicfPBRLocalPolicy OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE (0..19))
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is a global setting.  An existing policy name setting enables
+        local PBR for IPv4 packets initiated by the device.
+        Only one policy can be applied locally.
+        An empty name setting disables the feature.
+        "
+    ::= { hpnicfPBRGlobal 2 }
+
+hpnicfPBRIPv6NexthopTrapEnabled OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is a global setting only for IPv6 PBR.  If the
+         value is set to 'false', the feature is disabled."
+    DEFVAL { true }
+    ::= { hpnicfPBRGlobal 3 }
+    
+-- PBR trap table
+hpnicfPBRMibTrap OBJECT IDENTIFIER ::= { hpnicfPBRObjects 2 }
+
+hpnicfPBRTrapObjects OBJECT IDENTIFIER  ::= { hpnicfPBRMibTrap 1 }
+
+hpnicfPBRNexthopAddrType OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "Indicating address type of hpnicfPBRNexthopAddr, which can be IPv4
+        or IPv6."
+    ::= { hpnicfPBRTrapObjects 1 }
+
+hpnicfPBRNexthopAddr OBJECT-TYPE
+    SYNTAX      InetAddress
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The involved next hop IP address of trap information."
+    ::= { hpnicfPBRTrapObjects 2 }
+
+hpnicfPBRTraps OBJECT IDENTIFIER  ::= { hpnicfPBRMibTrap 2 }
+
+hpnicfPBRTrapsPrefix OBJECT IDENTIFIER  ::= { hpnicfPBRTraps 0 }
+
+hpnicfPBRNexthopFailedTrap NOTIFICATION-TYPE
+    OBJECTS
+    {
+        hpnicfPBRNexthopAddrType,
+        hpnicfPBRNexthopAddr
+    }
+    STATUS      current
+    DESCRIPTION
+        "When the next hop of PBR apply clause became
+        unreachable according to routing information, trap is generated
+        and is sent to the remote monitoring device."
+    ::= { hpnicfPBRTrapsPrefix 1 }
+
+-- PBR policy node table
+hpnicfPBRTables OBJECT IDENTIFIER ::= { hpnicfPBR 2 }
+
+hpnicfPBRMibPolicyNodeTable  OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HpnicfPBRMibPolicyNodeEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A table for PBR nodes.
+                "
+    ::= { hpnicfPBRTables 1 }
+
+hpnicfPBRMibPolicyNodeEntry  OBJECT-TYPE
+    SYNTAX      HpnicfPBRMibPolicyNodeEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "An entry for PBR nodes.
+                "
+    INDEX
+    {
+            hpnicfPBRMibPolicyNodeAddrType,
+            hpnicfPBRMibPolicyName,
+            hpnicfPBRMibPolicyNodeId
+    }
+    ::= { hpnicfPBRMibPolicyNodeTable 1 }
+
+HpnicfPBRMibPolicyNodeEntry ::=
+    SEQUENCE
+    {
+            hpnicfPBRMibPolicyNodeAddrType      InetAddressType,
+            hpnicfPBRMibPolicyName              DisplayString,
+            hpnicfPBRMibPolicyNodeId            Integer32,
+            hpnicfPBRMibPolicyNodeMode          TruthValue,
+            hpnicfPBRMibPolicyNodeRowStatus     RowStatus
+    }
+
+hpnicfPBRMibPolicyNodeAddrType    OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Address type of policy node, which can be IPv4 or IPv6."
+    ::= { hpnicfPBRMibPolicyNodeEntry 1 }
+
+hpnicfPBRMibPolicyName    OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE (1..19))
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Policy name of PBR node."
+    ::= { hpnicfPBRMibPolicyNodeEntry 2 }
+
+hpnicfPBRMibPolicyNodeId   OBJECT-TYPE
+    SYNTAX      Integer32 (0..65535)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Sequence identifier of PBR node."
+    ::= { hpnicfPBRMibPolicyNodeEntry 3 }
+
+hpnicfPBRMibPolicyNodeMode   OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION "Mode of PBR node.  If the mode of a node is marked as true,
+                the packets that meet the matching rules are processed by
+                action rules in the node.  If the mode of a node is marked as
+                false, the packets that meet the matching rules are
+                sent back to the normal forwarding path."
+    DEFVAL { true }
+    ::= { hpnicfPBRMibPolicyNodeEntry 4 }
+
+hpnicfPBRMibPolicyNodeRowStatus   OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+            "Operation status of this table entry.
+            Three actions are used: active,
+            createAndGo, and destroy.
+            "
+    ::= { hpnicfPBRMibPolicyNodeEntry 5 }
+
+-- PBR local policy
+
+
+-- PBR interface policy relation table
+
+hpnicfPBRMibIfPolicyTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HpnicfPBRMibIfPolicyEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A table for interfaces being applied with PBR
+                 nodes with the same policy name.
+                "
+    ::= { hpnicfPBRTables 2 }
+
+hpnicfPBRMibIfPolicyEntry  OBJECT-TYPE
+    SYNTAX      HpnicfPBRMibIfPolicyEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "An entry for reference relation between interface and policy
+                nodes."
+    INDEX
+    {
+            hpnicfPBRMibPolicyAddressType,
+            ifIndex
+    }
+    ::= { hpnicfPBRMibIfPolicyTable 1 }
+
+HpnicfPBRMibIfPolicyEntry ::=
+    SEQUENCE
+    {
+            hpnicfPBRMibPolicyAddressType   InetAddressType,
+            hpnicfPBRMibAppliedPolicyName   DisplayString,
+            hpnicfPBRMibIfPolicyRowStatus   RowStatus
+    }
+
+hpnicfPBRMibPolicyAddressType    OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION  "Address type of policy node, which can be
+                 IPv4 or IPv6."
+    ::= { hpnicfPBRMibIfPolicyEntry 1 }
+
+hpnicfPBRMibAppliedPolicyName    OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE (1..19))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION "Policy name of PBR nodes."
+    ::= { hpnicfPBRMibIfPolicyEntry 2 }
+
+hpnicfPBRMibIfPolicyRowStatus  OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+            "Operation status of this table entry.
+            Three actions are used: active,
+            createAndGo, and destroy.
+            "
+    ::= { hpnicfPBRMibIfPolicyEntry 3 }
+
+-- PBR policy node acl rule table
+
+hpnicfPBRMibMatchAclTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HpnicfPBRMibMatchAclEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A table for ACLs being used by a policy node.  Only one ACL
+                can be used within a node at most.
+                "
+    ::= { hpnicfPBRTables 3 }
+
+hpnicfPBRMibMatchAclEntry  OBJECT-TYPE
+    SYNTAX      HpnicfPBRMibMatchAclEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "An entry for policy node that uses an ACL group as its
+                if-match rule."
+    INDEX
+    {
+            hpnicfPBRMibPolicyNodeAddrType,
+            hpnicfPBRMibPolicyName,
+            hpnicfPBRMibPolicyNodeId
+    }
+    ::= { hpnicfPBRMibMatchAclTable 1 }
+
+HpnicfPBRMibMatchAclEntry ::=
+    SEQUENCE
+    {
+            hpnicfPBRMibAclGroupId   Integer32
+    }
+
+hpnicfPBRMibAclGroupId    OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "Index of number-acl group.
+                 Setting -1 indicates closing this rule.
+                "
+    ::= { hpnicfPBRMibMatchAclEntry 1 }
+
+-- PBR policy node apply precedence action table
+
+hpnicfPBRMibApplyPrecedenceTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HpnicfPBRMibApplyPrecedenceEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A table for precedence values being used by a policy node.
+                 Only one precedence value can be used within a node at most.
+                "
+    ::= { hpnicfPBRTables 4 }
+
+hpnicfPBRMibApplyPrecedenceEntry  OBJECT-TYPE
+    SYNTAX      HpnicfPBRMibApplyPrecedenceEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "An entry for policy node with an action
+                 to set IP precedence for matching packets.
+                "
+    INDEX
+    {
+            hpnicfPBRMibPolicyNodeAddrType,
+            hpnicfPBRMibPolicyName,
+            hpnicfPBRMibPolicyNodeId
+    }
+    ::= { hpnicfPBRMibApplyPrecedenceTable 1 }
+
+HpnicfPBRMibApplyPrecedenceEntry ::=
+    SEQUENCE
+    {
+            hpnicfPBRMibApplyPrecedenceValue Integer32
+    }
+
+hpnicfPBRMibApplyPrecedenceValue    OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "Value of precedence being applied on IP header.
+                   <0-7>           Value of precedence
+                   routine         Specify routine precedence(0)
+                   priority        Specify priority precedence(1)
+                   immediate       Specify immediate precedence(2)
+                   flash           Specify flash precedence(3)
+                   flash-override  Specify flash-override precedence(4)
+                   critical        Specify critical precedence(5)
+                   internet        Specify internetwork control precedence(6)
+                   network         Specify network control precedence(7)
+                 Setting -1 indicates closing this action.
+                "
+    ::= { hpnicfPBRMibApplyPrecedenceEntry 1 }
+
+-- PBR policy node apply next hop action table
+
+hpnicfPBRMibApplyNexthopTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HpnicfPBRMibApplyNexthopEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A table for next hop actions being used by a policy node.
+                "
+    ::= { hpnicfPBRTables 5 }
+
+hpnicfPBRMibApplyNexthopEntry  OBJECT-TYPE
+    SYNTAX      HpnicfPBRMibApplyNexthopEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "An entry for policy node with an action
+                 to set next hop for matching packets.
+                "
+    INDEX
+    {
+            hpnicfPBRMibPolicyNodeAddrType,
+            hpnicfPBRMibPolicyName,
+            hpnicfPBRMibPolicyNodeId,
+            hpnicfPBRMibApplyNexthopIndex
+    }
+    ::= { hpnicfPBRMibApplyNexthopTable 1 }
+
+HpnicfPBRMibApplyNexthopEntry ::=
+    SEQUENCE
+    {
+            hpnicfPBRMibApplyNexthopIndex       Integer32,
+            hpnicfPBRMibApplyNexthopVpnName     DisplayString,
+            hpnicfPBRMibApplyNexthopAddressType InetAddressType,
+            hpnicfPBRMibApplyNexthopAddress     InetAddress,
+            hpnicfPBRMibApplyNexthopTrackId     Integer32,
+            hpnicfPBRMibApplyNexthopDirect      TruthValue,
+            hpnicfPBRMibApplyNexthopRowStatus   RowStatus
+    }
+
+hpnicfPBRMibApplyNexthopIndex    OBJECT-TYPE
+    SYNTAX      Integer32 (0..2147483647)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Index of next hop for the apply next hop action."
+    ::= { hpnicfPBRMibApplyNexthopEntry 1 }
+
+hpnicfPBRMibApplyNexthopVpnName    OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE (0..31))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION "Name of VPN instance where apply next hop action is used."
+    ::= { hpnicfPBRMibApplyNexthopEntry 2 }
+
+hpnicfPBRMibApplyNexthopAddressType     OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION "Address type of hpnicfPBRMibApplyNexthopAddress,
+                 which can be IPv4 or IPv6."
+    ::= { hpnicfPBRMibApplyNexthopEntry 3 }
+
+
+hpnicfPBRMibApplyNexthopAddress     OBJECT-TYPE
+    SYNTAX      InetAddress
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION "Next hop IP address of apply next hop action."
+    ::= { hpnicfPBRMibApplyNexthopEntry 4 }
+
+hpnicfPBRMibApplyNexthopTrackId     OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION "Identifier of track object related with next hop.
+                 Setting 0 indicates closing this function.
+                "
+    ::= { hpnicfPBRMibApplyNexthopEntry 5 }
+
+hpnicfPBRMibApplyNexthopDirect        OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION "Direct route attribute of next hop
+                according to route information."
+    DEFVAL { false }
+    ::= { hpnicfPBRMibApplyNexthopEntry 6 }
+
+
+hpnicfPBRMibApplyNexthopRowStatus  OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+            "Operation status of this table entry.
+            Three actions are used: active,
+            createAndGo, and destroy.
+            "
+    ::= { hpnicfPBRMibApplyNexthopEntry 7 }
+
+-- PBR policy node apply default next hop action table
+
+hpnicfPBRMibApplyDefaultNexthopTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HpnicfPBRMibApplyDefaultNexthopEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A table for default next hop actions being used by a policy
+                node."
+    ::= { hpnicfPBRTables 6 }
+
+hpnicfPBRMibApplyDefaultNexthopEntry  OBJECT-TYPE
+    SYNTAX      HpnicfPBRMibApplyDefaultNexthopEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "An entry for policy node with an action
+                 to set default next hop for matching packets.
+                "
+    INDEX
+    {
+            hpnicfPBRMibPolicyNodeAddrType,
+            hpnicfPBRMibPolicyName,
+            hpnicfPBRMibPolicyNodeId,
+            hpnicfPBRMibApplyDefaultNexthopIndex
+    }
+    ::= { hpnicfPBRMibApplyDefaultNexthopTable 1 }
+
+HpnicfPBRMibApplyDefaultNexthopEntry ::=
+    SEQUENCE
+    {
+            hpnicfPBRMibApplyDefaultNexthopIndex       Integer32,
+            hpnicfPBRMibApplyDefaultNexthopVpnName     DisplayString,
+            hpnicfPBRMibApplyDefaultNexthopAddressType InetAddressType,
+            hpnicfPBRMibApplyDefaultNexthopAddress     InetAddress,
+            hpnicfPBRMibApplyDefaultNexthopTrackId     Integer32,
+            hpnicfPBRMibApplyDefaultNexthopDirect      TruthValue,
+            hpnicfPBRMibApplyDefaultNexthopRowStatus   RowStatus
+    }
+
+hpnicfPBRMibApplyDefaultNexthopIndex    OBJECT-TYPE
+    SYNTAX      Integer32 (0..2147483647)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Index of default next hop  for the apply
+                default next hop action."
+    ::= { hpnicfPBRMibApplyDefaultNexthopEntry 1 }
+
+hpnicfPBRMibApplyDefaultNexthopVpnName    OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE (0..31))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION "Name of VPN instance where apply default next hop action
+                is used."
+    ::= { hpnicfPBRMibApplyDefaultNexthopEntry 2 }
+
+hpnicfPBRMibApplyDefaultNexthopAddressType     OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION "Address type of hpnicfPBRMibApplyDefaultNexthopAddress,
+                 which can be IPv4 or IPv6."
+    ::= { hpnicfPBRMibApplyDefaultNexthopEntry 3 }
+
+
+hpnicfPBRMibApplyDefaultNexthopAddress     OBJECT-TYPE
+    SYNTAX      InetAddress
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION "Next hop IP address of apply default next hop action."
+    ::= { hpnicfPBRMibApplyDefaultNexthopEntry 4 }
+
+hpnicfPBRMibApplyDefaultNexthopTrackId     OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION "Identifier of track object related with default next hop.
+                 Setting 0 indicates closing this function."
+    ::= { hpnicfPBRMibApplyDefaultNexthopEntry 5 }
+
+hpnicfPBRMibApplyDefaultNexthopDirect        OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION "Direct route attribute of apply default next hop
+                address according to route information."
+    DEFVAL { false }
+    ::= { hpnicfPBRMibApplyDefaultNexthopEntry 6 }
+
+
+hpnicfPBRMibApplyDefaultNexthopRowStatus  OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+            "Operation status of this table entry.
+            Three actions are used: active,
+            createAndGo, and destroy.
+            "
+    ::= { hpnicfPBRMibApplyDefaultNexthopEntry 7 }
+
+END

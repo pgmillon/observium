@@ -6,15 +6,17 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 if ($vars['editing'])
 {
-  if ($_SESSION['userlevel'] > "7")
+  if ($readonly)
   {
+    print_error_permission('You have insufficient permissions to edit settings.');
+  } else {
     $param = array('icon' => $vars['icon']);
 
     $rows_updated = dbUpdate($param, 'devices', '`device_id` = ?', array($device['device_id']));
@@ -32,22 +34,25 @@ if ($vars['editing'])
     } else {
       $update_message = "Device icon update error.";
     }
-  } else {
-    include("includes/error-no-perm.inc.php");
   }
-}
 
-if ($updated && $update_message)
-{
-  print_message($update_message);
-} elseif ($update_message) {
-  print_error($update_message);
+  if ($updated && $update_message)
+  {
+    print_message($update_message);
+  }
+  else if ($update_message)
+  {
+    print_error($update_message);
+  }
 }
 
 ?>
 
-<h3>Device icon</h3>
-
+<div class="box box-solid">
+  <div class="box-header with-border">
+    <h3 class="box-title">Device icon</h3>
+  </div>
+<div class="box-body" style="padding: 10px;">
 <table cellpadding="0" cellspacing="0">
   <tr>
     <td>
@@ -82,12 +87,6 @@ if ($numicons %10 == 0)
 }
 ?>
           </tr>
-          <tr>
-            <td colspan="10">
-              <br />
-              <input type="submit" name="Submit" value="Save" />
-            </td>
-          </tr>
         </table>
         <br />
       </form>
@@ -96,6 +95,12 @@ if ($numicons %10 == 0)
     <td></td>
   </tr>
 </table>
+</div>
+  <div class="box-footer">
+    <btn class="btn" type="submit" name="Submit" value="Save">Save</btn>
+  </div>
+</div>
+
 <?php
 
 // EOF

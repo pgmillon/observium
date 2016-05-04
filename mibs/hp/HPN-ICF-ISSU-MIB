@@ -1,0 +1,692 @@
+-- ===========================================================================================================
+-- Copyright (c) 2010-2014 Hewlett-Packard Development Company, L.P.
+--
+-- Description: ISSU MIB
+-- Reference:
+-- Version: V1.1
+-- History:
+--  Revision 1.0 2012-12-20 created by Wang Feng
+--               2013-4-20 modified by Zhu Liuxing
+--  Revision 1.1 2014-01-10 change hpnicfIssuUpgradeImageIndex and
+--               hpnicfIssuUpgradeImageURL range by z03030
+-- ============================================================================================================
+
+HPN-ICF-ISSU-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    hpnicfCommon
+        FROM HPN-ICF-OID-MIB
+    Integer32, OBJECT-TYPE, MODULE-IDENTITY, NOTIFICATION-TYPE
+        FROM SNMPv2-SMI
+    DisplayString, RowStatus, TruthValue
+        FROM SNMPv2-TC;
+
+hpnicfIssuUpgrade MODULE-IDENTITY
+    LAST-UPDATED "201301151536Z"        -- January 15, 2013 at 15:36 GMT
+    ORGANIZATION
+        ""
+    CONTACT-INFO
+        ""
+    DESCRIPTION
+        "This MIB provides objects for upgrading images on modules in the
+        system, objects for showing the result of an upgrade operation,
+        and objects for showing the result of a test operation.
+
+        To perform an upgrade operation, a management application
+        must first read the hpnicfIssuUpgradeImageTable table and use the
+        information in other tables, as explained below.  You can
+        configure a new image name for each image type as listed in
+        hpnicfIssuUpgradeImageTable.  The system will use this image on the
+        particular module at the next reboot.
+
+        The management application used to perform an upgrade
+        operation must first check if an upgrade operation is already
+        in progress in the system.  This is done by reading the
+        hpnicfIssuOpType ('none' indicates that
+        no other upgrade operation is in progress.  Any other value
+        indicates that an upgrade is already in progress and a new upgrade
+        operation is not allowed.  To start an 'install' operation,
+        the user must first perform a 'test' operation to examine the
+        version compatibility between the given set of images
+        and the running images.  Only if the result of the 'test'
+        operation is 'success' can the user proceed to do an install
+        operation.  The table hpnicfIssuTestResultTable
+        provides the result of the 'test' operation performed by using hpnicfIssuOpType.
+        The table hpnicfIssuUpgradeResultTable provides the result of the 'install' operation
+        performed by using hpnicfIssuOpType.
+        "
+    REVISION "201301151536Z"        -- January 15, 2013 at 15:36 GMT
+    DESCRIPTION
+        "Initial version of this MIB module.
+        Added hpnicfIssuUpgradeImageTable hpnicfIssuOp hpnicfIssuCompatibleResult
+        hpnicfIssuTestResultTable hpnicfIssuUpgradeResultTable"
+    ::= { hpnicfCommon 133 }
+
+--
+-- Node definitions
+--
+
+hpnicfIssuUpgradeMibObjects OBJECT IDENTIFIER ::= { hpnicfIssuUpgrade 1 }
+
+
+hpnicfIssuUpgradeGroup OBJECT IDENTIFIER ::= { hpnicfIssuUpgradeMibObjects 1 }
+
+
+hpnicfIssuUpgradeImageTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfIssuUpgradeImageEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "A table listing the image variable types that
+        exist in the device."
+    ::= { hpnicfIssuUpgradeGroup 1 }
+
+
+hpnicfIssuUpgradeImageEntry OBJECT-TYPE
+    SYNTAX HpnicfIssuUpgradeImageEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "An hpnicfIssuUpgradeImageEntry entry.  Each entry provides an
+        image variable type that exists in the device."
+    INDEX { hpnicfIssuUpgradeImageIndex }
+    ::= { hpnicfIssuUpgradeImageTable 1 }
+
+
+HpnicfIssuUpgradeImageEntry ::=
+    SEQUENCE {
+        hpnicfIssuUpgradeImageIndex
+            Integer32,
+        hpnicfIssuUpgradeImageType
+            INTEGER,
+        hpnicfIssuUpgradeImageURL
+            DisplayString,
+        hpnicfIssuUpgradeImageRowStatus
+            RowStatus
+     }
+
+hpnicfIssuUpgradeImageIndex OBJECT-TYPE
+    SYNTAX Integer32 (1..2147483647)
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Index of each image."
+    ::= { hpnicfIssuUpgradeImageEntry 1 }
+
+
+hpnicfIssuUpgradeImageType OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        boot(1),
+        system(2),
+        feature(3),
+        ipe(4)
+        }
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Types of images that the system can run.  The value of
+        this object has four image variables names
+        - 'boot', 'system', 'feature' and 'ipe'.  This table will then
+        list these four strings as follows:
+
+              hpnicfIssuUpgradeImageType
+                  boot
+                  system
+                  feature
+                  IPE
+
+              The user can assign images (using hpnicfIssuUpgradeImageURL)
+              to these variables and the system will use the assigned
+              images to boot."
+    ::= { hpnicfIssuUpgradeImageEntry 2 }
+
+
+hpnicfIssuUpgradeImageURL OBJECT-TYPE
+    SYNTAX DisplayString (SIZE (1..127))
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "This object contains the path of the image
+        of this entity."
+    ::= { hpnicfIssuUpgradeImageEntry 3 }
+
+
+hpnicfIssuUpgradeImageRowStatus OBJECT-TYPE
+    SYNTAX RowStatus
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Row-status of image table."
+    ::= { hpnicfIssuUpgradeImageEntry 4 }
+
+
+hpnicfIssuOp OBJECT IDENTIFIER ::= { hpnicfIssuUpgradeGroup 2 }
+
+
+hpnicfIssuOpType OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        none(1),
+        done(2),
+        test(3),
+        install(4),
+        rollback(5)
+        }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "Command to be executed.
+        The 'test' command must be performed before the 'install'
+        command can be executed.  The 'install'
+        command is allowed only if a read of
+        this object returns 'test' and the value of object
+        hpnicfIssuOpStatus is 'success'.
+
+        Command                 Remarks
+
+        none      If the user sets this object to 'none', the agent will return a success
+                  without performing an upgrade operation.
+        done      If this object returns any value other than
+                  'none', setting this to 'done' will do
+                  the required cleanup of the previous upgrade
+                  operation and get the system ready for a new
+                  upgrade operation.
+        test      Check the version compatibility and upgrade method
+                  for the given set of image files.
+        install   For all the image entities listed in the
+                  hpnicfIssuUpgradeImageTable, perform the required
+                  upgrade operation listed in that table.
+        rollback  Abort the current 'install' operation and roll back
+                  to the previous version.
+          "
+    DEFVAL { none }
+    ::= { hpnicfIssuOp 1 }
+
+
+hpnicfIssuImageFileOverwrite OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "If you want to overwrite the existing file, set the value of
+        this object to enable.  Otherwise, set the value of this
+        object to disable."
+    DEFVAL { true }
+    ::= { hpnicfIssuOp 2 }
+
+
+hpnicfIssuOpTrapEnable OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "If you want to enable the trap, set the value of
+        this object to enable.  Otherwise, set the value of this
+        object to disable."
+    DEFVAL { true }
+    ::= { hpnicfIssuOp 3 }
+
+
+hpnicfIssuOpStatus OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        none(1),
+        failure(2),
+        inProgress(3),
+        success(4),
+        rollbackInProgress(5),
+        rollbackSuccess(6)
+        }
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Status of the specified operation.
+        none                - No operation was performed.
+        failure             - Specified operation has failed.
+        inProgress          - Specified operation is in progress.
+        success             - Specified operation completed successfully.
+        rollbackInProgress     - Rollback operation is in progress.
+        rollbackSuccess        - Rollback operation completed successfully.
+          "
+    DEFVAL { none }
+    ::= { hpnicfIssuOp 4 }
+
+
+hpnicfIssuFailedReason OBJECT-TYPE
+    SYNTAX DisplayString (SIZE (0..255))
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Indicates the the cause of 'failure' state
+        of the object 'hpnicfIssuOpStatus'.
+        This object would be a null string if the value of
+        'hpnicfIssuOpStatus' is not 'failure'."
+    ::= { hpnicfIssuOp 5 }
+
+
+hpnicfIssuOpTimeCompleted OBJECT-TYPE
+    SYNTAX DisplayString (SIZE (0..255))
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Indicates the time when the upgrade operation was completed.
+        This object would be a null string if hpnicfIssuOpType is
+        'none'. "
+    ::= { hpnicfIssuOp 6 }
+
+
+hpnicfIssuLastOpType OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        none(1),
+        done(2),
+        test(3),
+        install(4),
+        rollback(5)
+        }
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "This object indicates the previous hpnicfIssuOp value.
+        It will be updated after a new hpnicfIssuOp is set and delivered
+        to the upgrade process.
+
+        Command                 Remarks
+
+        none      If the user sets this object to 'none', agent will return a success
+                  without performing an upgrade operation.
+        done      If this object returns any value other than
+                  'none', setting this to 'done' will do
+                  the required cleanup of the previous upgrade
+                  operation and get the system ready for a new
+                  upgrade operation.
+        test      Check the version compatibility and upgrade method
+                  for the given set of image files.
+        install   For all the image entities listed in the
+                  hpnicfIssuUpgradeImageTable, perform the required
+                  upgrade operation listed in that table.
+        rollback  Abort the current install operation and roll back
+                  to the previous version.
+        "
+    DEFVAL { none }
+    ::= { hpnicfIssuOp 7 }
+
+
+hpnicfIssuLastOpStatus OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        none(1),
+        failure(2),
+        inProgress(3),
+        success(4),
+        rollbackInProgress(5),
+        rollbackSuccess(6)
+        }
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "This object indicates previous hpnicfIssuOpStatus value.
+        It will be updated after new hpnicfIssuOp is set and delivered
+        to upgrade process.
+        none                - No operation was performed.
+        failure             - Specified operation has failed.
+        inProgress          - Specified operation is active.
+        success             - Specified operation completed successfully.
+        rollbackInProgress     - Rollback operation is in progress.
+        rollbackSuccess        - Rollback operation completed successfully.
+        "
+    DEFVAL { none }
+    ::= { hpnicfIssuOp 8 }
+
+
+hpnicfIssuLastOpFailedReason OBJECT-TYPE
+    SYNTAX DisplayString (SIZE (0..255))
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Indicates the cause of 'failure' state
+        of the object 'hpnicfIssuOpStatus'.
+        This object would be a null string if the value of
+        'hpnicfIssuOpStatus' is not 'failure'.
+        The value will be updated when new hpnicfIssuOp is set
+        and delivered to the upgrade process."
+    ::= { hpnicfIssuOp 9 }
+
+
+hpnicfIssuLastOpTimeCompleted OBJECT-TYPE
+    SYNTAX DisplayString (SIZE (0..255))
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Indicates the previous hpnicfIssuOpTimeCompleted value.
+        The value will be updated when new hpnicfIssuOp is set
+        and delivered to the upgrade process."
+    ::= { hpnicfIssuOp 10 }
+
+
+hpnicfIssuUpgradeResultGroup OBJECT IDENTIFIER ::= { hpnicfIssuUpgradeMibObjects 2 }
+
+
+hpnicfIssuCompatibleResult OBJECT IDENTIFIER ::= { hpnicfIssuUpgradeResultGroup 1 }
+
+
+hpnicfIssuCompatibleResultStatus OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        none(1),
+        inCompatible(2),
+        compatible(3),
+        failure(4)
+        }
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Specifies whether the images provided in
+        hpnicfIssuUpgradeImageTable are compatible with each other as
+        far as this module is concerned.
+        none            - No operation was performed.
+        inCompatible    - The images provided are compatible
+                          and can be run on this module.
+        compatible      - The images provided are incompatible
+                          and can be run on this module.
+        failure         - Failed to get the compatibility.
+        "
+    DEFVAL { none }
+    ::= { hpnicfIssuCompatibleResult 1 }
+
+
+hpnicfIssuCompatibleResultFailedReason OBJECT-TYPE
+    SYNTAX DisplayString (SIZE (0..255))
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Indicates the cause of 'failure' state
+        of the object 'hpnicfIssuCompatibleResultStatus'.
+        This object would be a null string if the value of
+        'hpnicfIssuCompatibleResultStatus' is not 'failure'."
+    ::= { hpnicfIssuCompatibleResult 2 }
+
+
+hpnicfIssuTestResultTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfIssuTestResultEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Shows the result of the test operation, from which you can
+        see the upgrade method."
+    ::= { hpnicfIssuUpgradeResultGroup 2 }
+
+
+hpnicfIssuTestResultEntry OBJECT-TYPE
+    SYNTAX HpnicfIssuTestResultEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "An hpnicfIssuTestResultEntry entry.  Each entry provides the
+        test result of a card in the device."
+    INDEX { hpnicfIssuTestResultIndex }
+    ::= { hpnicfIssuTestResultTable 1 }
+
+
+HpnicfIssuTestResultEntry ::=
+    SEQUENCE {
+        hpnicfIssuTestResultIndex
+            Integer32,
+        hpnicfIssuTestDeviceChassisID
+            Integer32,
+        hpnicfIssuTestDeviceSlotID
+            Integer32,
+        hpnicfIssuTestDeviceCpuID
+            Integer32,
+        hpnicfIssuTestDeviceUpgradeWay
+            INTEGER
+     }
+
+hpnicfIssuTestResultIndex OBJECT-TYPE
+    SYNTAX Integer32 (1..65535)
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Internal index, not accessible."
+    ::= { hpnicfIssuTestResultEntry 1 }
+
+
+hpnicfIssuTestDeviceChassisID OBJECT-TYPE
+    SYNTAX Integer32 (0..255)
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Chassis ID of the card."
+    ::= { hpnicfIssuTestResultEntry 2 }
+
+
+hpnicfIssuTestDeviceSlotID OBJECT-TYPE
+    SYNTAX Integer32 (0..255)
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Slot ID of the card."
+    ::= { hpnicfIssuTestResultEntry 3 }
+
+
+hpnicfIssuTestDeviceCpuID OBJECT-TYPE
+    SYNTAX Integer32 (0..7)
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "CPU ID of the card."
+    ::= { hpnicfIssuTestResultEntry 4 }
+
+
+hpnicfIssuTestDeviceUpgradeWay OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        none(1),
+        reboot(2),
+        sequenceReboot(3),
+        issuReboot(4),
+        serviceUpgrade(5),
+        fileUpgrade(6),
+        incompatibleUpgrade(7)
+        }
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Upgrade method of the device.
+        none                   - No operation was performed.
+        reboot                 - The upgrade method of this device is Reboot.
+        sequenceReboot         - The upgrade method of this device is SequenceReboot.
+        issuReboot             - The upgrade method of this device is IssuReboot.
+        serviceUpgrade         - The upgrade method of this device is ServiceReboot.
+        fileUpgrade            - The upgrade method of this device is FileReboot.
+        incompatibleUpgrade    - The upgrade method of this device is IncompatibleUpgrade.
+        "
+    DEFVAL { none }
+    ::= { hpnicfIssuTestResultEntry 5 }
+
+
+hpnicfIssuUpgradeResultTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfIssuUpgradeResultEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Shows the result of the install operation."
+    ::= { hpnicfIssuUpgradeResultGroup 3 }
+
+
+hpnicfIssuUpgradeResultEntry OBJECT-TYPE
+    SYNTAX HpnicfIssuUpgradeResultEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "An hpnicfIssuUpgradeResultEntry entry.  Each entry provides the
+        upgrade result of a card in the device."
+    INDEX { hpnicfIssuUpgradeResultIndex }
+    ::= { hpnicfIssuUpgradeResultTable 1 }
+
+
+HpnicfIssuUpgradeResultEntry ::=
+    SEQUENCE {
+        hpnicfIssuUpgradeResultIndex
+            Integer32,
+        hpnicfIssuUpgradeDeviceChassisID
+            Integer32,
+        hpnicfIssuUpgradeDeviceSlotID
+            Integer32,
+        hpnicfIssuUpgradeDeviceCpuID
+            Integer32,
+        hpnicfIssuUpgradeState
+            INTEGER,
+        hpnicfIssuDeviceUpgradeWay
+            INTEGER,
+        hpnicfIssuUpgradeDeviceStatus
+            INTEGER,
+        hpnicfIssuUpgradeFailedReason
+            DisplayString
+     }
+
+hpnicfIssuUpgradeResultIndex OBJECT-TYPE
+    SYNTAX Integer32 (1..65535)
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Internal Index, not accessible."
+    ::= { hpnicfIssuUpgradeResultEntry 1 }
+
+
+hpnicfIssuUpgradeDeviceChassisID OBJECT-TYPE
+    SYNTAX Integer32 (0..255)
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Chassis ID of the card."
+    ::= { hpnicfIssuUpgradeResultEntry 2 }
+
+
+hpnicfIssuUpgradeDeviceSlotID OBJECT-TYPE
+    SYNTAX Integer32 (0..255)
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Slot ID of the card."
+    ::= { hpnicfIssuUpgradeResultEntry 3 }
+
+
+hpnicfIssuUpgradeDeviceCpuID OBJECT-TYPE
+    SYNTAX Integer32 (0..7)
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "CPU ID of the card."
+    ::= { hpnicfIssuUpgradeResultEntry 4 }
+
+
+hpnicfIssuUpgradeState OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        init(1),
+        loading(2),
+        loaded(3),
+        switching(4),
+        switchover(5),
+        committing(6),
+        committed(7),
+        rollbacking(8),
+        rollbacked(9)
+        }
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Upgrade status of the device.
+        init           -The current status of the device is Init.
+        loading        -The current status of the device is Loading.
+        loaded         -The current status of the device is Loaded.
+        switching      -The current status of the device is Switching.
+        switchover     -The current status of the device is Switchover.
+        committing     -The current status of the device is Committing.
+        committed      -The current status of the device is Committed.
+        rollbacking    -The current status of the device is Rollbacking.
+        rollbacked     -The current status of the device is Rollbacked.
+        "
+    ::= { hpnicfIssuUpgradeResultEntry 5 }
+
+
+hpnicfIssuDeviceUpgradeWay OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        none(1),
+        reboot(2),
+        sequenceReboot(3),
+        issuReboot(4),
+        serviceUpgrade(5),
+        fileUpgrade(6),
+        incompatibleUpgrade(7)
+        }
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Upgrade method of the card.
+        none                   - No operation was performed.
+        reboot                 - The upgrade method of this device is Reboot.
+        sequenceReboot         - The upgrade method of this device is SequenceReboot.
+        issuReboot             - The upgrade method of this device is IssuReboot.
+        serviceUpgrade         - The upgrade method of this device is ServiceReboot.
+        fileUpgrade            - The upgrade method of this device is FileReboot.
+        incompatibleUpgrade    - The upgrade method of this device is IncompatibleUpgrade.
+        "
+    ::= { hpnicfIssuUpgradeResultEntry 6 }
+
+
+hpnicfIssuUpgradeDeviceStatus OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        waitingUpgrade(1),
+        inProcess(2),
+        success(3),
+        failure(4)
+        }
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Upgrade status of the device."
+    ::= { hpnicfIssuUpgradeResultEntry 7 }
+
+
+hpnicfIssuUpgradeFailedReason OBJECT-TYPE
+    SYNTAX DisplayString (SIZE (0..255))
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Indicates the cause of 'failure' state
+        of the object 'hpnicfIssuUpgradeDeviceStatus'.
+        This object would be a null string if the value of
+        'hpnicfIssuCompatibleResultStatus' is not 'failure'."
+    ::= { hpnicfIssuUpgradeResultEntry 8 }
+
+
+hpnicfIssuUpgradeNotify OBJECT IDENTIFIER ::= { hpnicfIssuUpgrade 2 }
+
+
+hpnicfIssuUpgradeTrapPrefix OBJECT IDENTIFIER ::= { hpnicfIssuUpgradeNotify 0 }
+
+
+hpnicfIssuUpgradeOpCompletionNotify NOTIFICATION-TYPE
+    OBJECTS { hpnicfIssuOpType, hpnicfIssuOpStatus, hpnicfIssuFailedReason, hpnicfIssuOpTimeCompleted }
+    STATUS current
+    DESCRIPTION
+        "An hpnicfIssuUpgradeOpCompletionNotify is sent at the
+        completion of upgrade operation denoted by
+        hpnicfIssuOp object, if such a notification
+        was requested when the operation was initiated.
+        hpnicfIssuOpType indicates the type of the
+        operation.  hpnicfIssuOpStatus indicates the
+        result of the operation.  hpnicfIssuFailedReason
+        indicates the operation failure reason.
+        hpnicfIssuOpTimeCompleted indicates the time
+        when the operation was completed."
+    ::= { hpnicfIssuUpgradeTrapPrefix 1 }
+
+
+
+END

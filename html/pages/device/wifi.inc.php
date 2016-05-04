@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -46,7 +46,7 @@ switch ($vars['view'])
   case 'radios':
   case 'wlans':
   case 'clients':
-    include("wifi/".$vars['view'].".inc.php");
+    include($config['html_dir']."/pages/device/wifi/".$vars['view'].".inc.php");
     break;
   default:
     echo('<h2>Error. No section '.$vars['view'].'.<br /> Please report this to observium developers.</h2>');

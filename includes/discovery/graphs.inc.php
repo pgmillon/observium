@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -17,4 +17,3 @@ $include_dir = "includes/discovery/graphs/";
 include("includes/include-dir-mib.inc.php");
 
 // EOF
-

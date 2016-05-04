@@ -6,15 +6,17 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 if ($vars['editing'])
 {
-  if ($_SESSION['userlevel'] > 7)
+  if ($readonly)
   {
+    print_error_permission('You have insufficient permissions to edit settings.');
+  } else {
     if ($vars['ipmi_hostname']  != '')  { set_dev_attrib($device, 'ipmi_hostname' , $vars['ipmi_hostname']);  } else { del_dev_attrib($device, 'ipmi_hostname'); }
     if ($vars['ipmi_username']  != '')  { set_dev_attrib($device, 'ipmi_username' , $vars['ipmi_username']);  } else { del_dev_attrib($device, 'ipmi_username'); }
     if ($vars['ipmi_password']  != '')  { set_dev_attrib($device, 'ipmi_password' , $vars['ipmi_password']);  } else { del_dev_attrib($device, 'ipmi_password'); }
@@ -40,90 +42,87 @@ if ($vars['editing'])
     $update_message = "Device IPMI data updated.";
     $updated = 1;
   }
-  else
+
+  if ($updated && $update_message)
   {
-    include("includes/error-no-perm.inc.php");
+    print_message($update_message);
+  }
+  else if ($update_message)
+  {
+    print_error($update_message);
   }
 }
 
-if ($updated && $update_message)
+$ipmi_userlevels = array();
+foreach ($config['ipmi']['userlevels'] as $type => $descr)
 {
-  print_message($update_message);
-} elseif ($update_message) {
-  print_error($update_message);
+  $ipmi_userlevels[$type] = array('name' => $descr['text']);
+}
+$ipmi_interfaces = array();
+foreach ($config['ipmi']['interfaces'] as $type => $descr)
+{
+  $ipmi_interfaces[$type] = array('name' => $descr['text']);
 }
 
-?>
+      $form = array('type'      => 'horizontal',
+                    'id'        => 'edit',
+                    //'space'     => '20px',
+                    'title'     => 'IPMI Settings',
+                    //'icon'      => 'oicon-gear',
+                    //'class'     => 'box box-solid',
+                    'fieldset'  => array('edit' => ''),
+                    );
 
-<form id="edit" name="edit" method="post" action="" class="form-horizontal">
-  <fieldset>
-  <legend>IPMI Settings</legend>
-  <input type="hidden" name="editing" value="yes">
+      $form['row'][0]['editing']   = array(
+                                      'type'        => 'hidden',
+                                      'value'       => 'yes');
+      $form['row'][1]['ipmi_hostname'] = array(
+                                      'type'        => 'text',
+                                      'name'        => 'IPMI Hostname',
+                                      'width'       => '250px',
+                                      'readonly'    => $readonly,
+                                      'value'       => escape_html(get_dev_attrib($device, 'ipmi_hostname')));
+      $form['row'][2]['ipmi_port'] = array(
+                                      'type'        => 'text',
+                                      'name'        => 'IPMI Port',
+                                      'width'       => '250px',
+                                      'readonly'    => $readonly,
+                                      'value'       => escape_html(get_dev_attrib($device, 'ipmi_port')));
+      $form['row'][3]['ipmi_username'] = array(
+                                      'type'        => 'text',
+                                      'name'        => 'IPMI Username',
+                                      'width'       => '250px',
+                                      'readonly'    => $readonly,
+                                      'value'       => escape_html(get_dev_attrib($device, 'ipmi_username')));
+      $form['row'][4]['ipmi_password'] = array(
+                                      'type'        => 'password',
+                                      'name'        => 'IPMI Password',
+                                      'width'       => '250px',
+                                      'readonly'    => $readonly,
+                                      'show_password' => !$readonly,
+                                      'value'       => escape_html(get_dev_attrib($device, 'ipmi_password')));
+      $form['row'][5]['ipmi_userlevel'] = array(
+                                      'type'        => 'select',
+                                      'name'        => 'IPMI Userlevel',
+                                      'width'       => '250px',
+                                      'readonly'    => $readonly,
+                                      'values'      => $ipmi_userlevels,                                      
+                                      'value'       => escape_html(get_dev_attrib($device, 'ipmi_userlevel')));
+      $form['row'][6]['ipmi_interface'] = array(
+                                      'type'        => 'select',
+                                      'name'        => 'IPMI Interface',
+                                      'width'       => '250px',
+                                      'readonly'    => $readonly,
+                                      'values'      => $ipmi_interfaces,                                
+                                      'value'       => escape_html(get_dev_attrib($device, 'ipmi_interface')));
+      $form['row'][7]['submit']    = array(
+                                      'type'        => 'submit',
+                                      'name'        => 'Save Changes',
+                                      'icon'        => 'icon-ok icon-white',
+                                      'class'       => 'btn-primary',
+                                      'readonly'    => $readonly,
+                                      'value'       => 'save');
+      print_form($form);
+      unset($form);
 
-  <div class="control-group">
-    <label class="control-label" for="ipmi_hostname">IPMI Hostname</label>
-    <div class="controls">
-      <input name="ipmi_hostname" type="text" size="32" value="<?php echo(escape_html(get_dev_attrib($device, 'ipmi_hostname'))); ?>"/>
-    </div>
-  </div>
-
-  <div class="control-group">
-    <label class="control-label" for="ipmi_port">IPMI Port</label>
-    <div class="controls">
-      <input type=text name="ipmi_port" size="32" value="<?php echo(escape_html(get_dev_attrib($device, 'ipmi_port'))); ?>"/>
-    </div>
-  </div>
-
-  <div class="control-group">
-    <label class="control-label" for="ipmi_username">IPMI Username</label>
-    <div class="controls">
-      <input name="ipmi_username" type="text" size="32" value="<?php echo(escape_html(get_dev_attrib($device, 'ipmi_username'))); ?>"/>
-    </div>
-  </div>
-
-  <div class="control-group">
-    <label class="control-label" for="ipmi_password">IPMI Password</label>
-    <div class="controls">
-      <input name="ipmi_password" type="password" size="32" value="<?php echo(escape_html(get_dev_attrib($device, 'ipmi_password'))); // FIXME. For passwords we should use filter instead escape! ?>"/>
-    </div>
-  </div>
-
-  <div class="control-group">
-  <label class="control-label" for="ipmi_interface">IPMI Userlevel</label>
-    <div class="controls">
-      <select class="selectpicker" name="ipmi_userlevel">
-        <?php
-        foreach ($config['ipmi']['userlevels'] as $type => $descr)
-        {
-          echo("<option value='".$type."'");
-          if ($type == get_dev_attrib($device,'ipmi_userlevel')) { echo(" selected='selected'"); }
-          echo(">".$descr['text']."</option>");
-        }
-        ?>
-      </select>
-    </div>
-  </div>
-
-  <div class="control-group">
-  <label class="control-label" for="ipmi_interface">IPMI Interface</label>
-    <div class="controls">
-      <select class="selectpicker" name="ipmi_interface">
-        <?php
-        foreach ($config['ipmi']['interfaces'] as $type => $descr)
-        {
-          echo("<option value='".$type."'");
-          if ($type == get_dev_attrib($device,'ipmi_interface')) { echo(" selected='selected'"); }
-          echo(">".$descr['text']."</option>");
-        }
-        ?>
-      </select>
-    </div>
-  </div>
-
-  <div class="form-actions">
-    <button type="submit" class="btn btn-primary" name="submit" value="save"><i class="icon-ok icon-white"></i> Save Changes</button>
-    <span class="help-inline">To disable IPMI polling, please clear the setting fields and click <strong>Save Changes</strong>.</span>
-  </div>
-
-  </fieldset>
-</form>
+// EOF

@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -41,7 +41,7 @@ if (dbFetchCell("SELECT COUNT(service_id) FROM `services` WHERE device_id = ?", 
   $i = "1";
   foreach (dbFetchRows("SELECT * FROM `services` WHERE `device_id` = ? ORDER BY `service_type`", array($device['device_id'])) as $service)
   {
-    include("includes/print-service.inc.php");
+    include($config['html_dir']."/includes/print-service.inc.php");
 
        if ($vars['view'] == "details")
        {

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -178,7 +178,7 @@ $cache['mge'] = array();
 foreach (array("upsmgBattery") as $table)
 {
   echo("$table ");
-  $cache['mge'] = snmpwalk_cache_multi_oid($device, $table, $cache['mge'], "MG-SNMP-UPS-MIB", NULL, TRUE);
+  $cache['mge'] = snmpwalk_cache_multi_oid($device, $table, $cache['mge'], "MG-SNMP-UPS-MIB", NULL, OBS_SNMP_ALL_NUMERIC);
 }
 
 foreach ($cache['mge'] as $index => $entry)
@@ -285,7 +285,7 @@ $cache['mge'] = array();
 foreach (array("upsmgEnviron") as $table)
 {
   echo("$table ");
-  $cache['mge'] = snmpwalk_cache_multi_oid($device, $table, $cache['mge'], "MG-SNMP-UPS-MIB", NULL, TRUE);
+  $cache['mge'] = snmpwalk_cache_multi_oid($device, $table, $cache['mge'], "MG-SNMP-UPS-MIB", NULL, OBS_SNMP_ALL_NUMERIC);
 }
 
 // MG-SNMP-UPS-MIB::upsmgEnvironAmbientTemp.0 = INTEGER: 0
@@ -318,7 +318,7 @@ $cache['mge'] = array();
 foreach (array("upsmgConfigEnvironmentTable","upsmgEnvironmentSensorTable") as $table)
 {
   echo("$table ");
-  $cache['mge'] = snmpwalk_cache_multi_oid($device, $table, $cache['mge'], "MG-SNMP-UPS-MIB", NULL, TRUE);
+  $cache['mge'] = snmpwalk_cache_multi_oid($device, $table, $cache['mge'], "MG-SNMP-UPS-MIB", NULL, OBS_SNMP_ALL_NUMERIC);
 }
 
 // upsmgConfigSensorIndex.1 = 1

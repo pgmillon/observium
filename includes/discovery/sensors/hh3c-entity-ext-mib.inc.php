@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -33,7 +33,12 @@ foreach ($entity_array as $index => $entry)
   {
     $limits['limit_low']       = $entry['hh3cEntityExtLowerTemperatureThreshold'];
     $limits['limit_high_warn'] = $entry['hh3cEntityExtTemperatureThreshold'];
-    $limits['limit_high']      = ($entry['hh3cEntityExtCriticalTemperatureThreshold'] != 65535 ? $entry['hh3cEntityExtCriticalTemperatureThreshold'] : $entry['hh3cEntityExtTemperatureThreshold'] + 10);
+    if (($entry['hh3cEntityExtCriticalTemperatureThreshold'] != 65535 && $entry['hh3cEntityExtCriticalTemperatureThreshold'] >= $entry['hh3cEntityExtTemperatureThreshold']))
+    {
+      $limits['limit_high']    = $entry['hh3cEntityExtCriticalTemperatureThreshold'];
+    } else {
+      $limits['limit_high']    = $entry['hh3cEntityExtTemperatureThreshold'] + 10;
+    }
 
     $value = $entry['hh3cEntityExtTemperature'];
     $oid   = ".1.3.6.1.4.1.25506.2.6.1.1.1.1.12.$index";

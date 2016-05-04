@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -17,8 +17,6 @@ include_once("includes/polling/functions.inc.php");
 
 /// FIXME. From this uses only check_valid_sensors(), maybe need move to global functions or copy to polling. --mike
 include_once("includes/discovery/functions.inc.php");
-
-echo("IPMI: ");
 
 if ($ipmi['host'] = get_dev_attrib($device,'ipmi_hostname'))
 {
@@ -49,7 +47,5 @@ foreach ($config['ipmi_unit'] as $type)
 {
   check_valid_sensors($device, $type, $ipmi_sensors, 'ipmi');
 }
-
-echo("\n");
 
 // EOF

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -15,7 +15,7 @@
 //
 //  FROGFOOT-RESOURCES-MIB::loadValue.2 = Gauge32: 0
 
-echo(" FROGFOOT-RESOURCES-MIB ");
+echo("FROGFOOT-RESOURCES-MIB ");
 
 $descr = "Processor";
 $usage = snmp_get($device, "loadValue.2", "-OQUvs", "FROGFOOT-RESOURCES-MIB");
@@ -25,4 +25,3 @@ if (is_numeric($usage))
 }
 
 // EOF
-

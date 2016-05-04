@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -25,7 +25,7 @@ foreach (dbFetchRows('SELECT `port_id`, `device_id`, `ifDescr`, `ifName`, `ifAli
                         WHERE `device_id` = ? AND `port_id` != 0 GROUP BY `port_id`;', array($device['device_id'])) as $data)
 {
   humanize_port($data);
-  $port_ids[$data['port_id']] = $data['label'];
+  $port_ids[$data['port_id']] = $data['port_label'];
 }
 natcasesort($port_ids);
 // Ports names field

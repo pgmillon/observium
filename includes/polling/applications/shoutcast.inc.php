@@ -7,12 +7,14 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 if (!empty($agent_data['app']['shoutcast']))
 {
+  $app_id = discover_app($device, 'shoutcast');
+
   // Polls shoutcast statistics from agent script
   $shoutcast = $agent_data['app']['shoutcast'];
 
@@ -34,7 +36,7 @@ if (!empty($agent_data['app']['shoutcast']))
       $peak              = $data['6'];
       $max               = $data['7'];
       $unique            = $data['8'];
-      $rrdfile           = "app-shoutcast-".$app['app_id']."-".$host."_".$port.".rrd";
+      $rrdfile           = "app-shoutcast-$app_id-".$host."_".$port.".rrd";
 
       rrdtool_create($device, $rrdfile, " \
                   DS:bitrate:GAUGE:600:0:125000000000 \

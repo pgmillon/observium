@@ -7,8 +7,8 @@
  *
  * @package    observium
  * @subpackage discovery
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -16,7 +16,7 @@ $count = @dbFetchCell("SELECT COUNT(*) FROM processors WHERE device_id = ? AND p
 
 if ($device['os_group'] == "unix" && $count == "0")
 {
-  echo(" UCD-SNMP-MIB ");
+  echo("UCD-SNMP-MIB ");
 
   $system = snmp_get($device, "ssCpuSystem.0", "-OvQ", "UCD-SNMP-MIB", mib_dirs());
   $user   = snmp_get($device, "ssCpuUser.0"  , "-OvQ", "UCD-SNMP-MIB", mib_dirs());

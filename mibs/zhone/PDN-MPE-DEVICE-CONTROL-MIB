@@ -1,0 +1,736 @@
+-- ===============================================================
+-- Copyright (C) 2002 Paradyne Corporation.
+-- Enterprise device control mib (mpe support)
+-- This MIB contains objects that is used to perform
+-- various operations on a device.
+PDN-MPE-DEVICE-CONTROL-MIB DEFINITIONS ::= BEGIN
+
+
+
+IMPORTS
+ResetStates 
+FROM PDN-TC
+IpAddress, Integer32, Counter32, TimeTicks, 
+NOTIFICATION-TYPE,
+OBJECT-IDENTITY, OBJECT-TYPE,
+MODULE-IDENTITY
+FROM SNMPv2-SMI
+OBJECT-GROUP, NOTIFICATION-GROUP
+FROM SNMPv2-CONF
+entPhysicalIndex
+FROM ENTITY-MIB
+pdn-mpe
+FROM PDN-HEADER-MIB
+RowStatus,
+DisplayString
+FROM SNMPv2-TC
+;
+
+mpeDevControl MODULE-IDENTITY
+	LAST-UPDATED  	"0204290000Z"
+   	ORGANIZATION    "Paradyne Corporation
+		         MIB Working Group"
+
+   	CONTACT-INFO    "Paradyne Corporation
+		         8545 126th Avenue North
+		         Largo, FL 33733
+		         www.paradyne.com
+
+		         General Comments to: mibwg_team@paradyne.com
+
+		         Editors
+                         Prakash Easwar
+		         Rajesh Raghaven
+		         Kathy Wilson
+			 Aamir Shaikh"
+
+	DESCRIPTION	"This MIB Module allows a user to reset a device
+			in the DSLAM, as well as perform various operations
+			related to the storage and retrieval of firmware
+			and configuration files on devices."
+
+	REVISION	"0204290000Z"
+	DESCRIPTION	"Aamir Shaikh
+	o  Adding mpeDevControlExtendedSelfTest object"
+
+ 	REVISION	"0204090905Z"
+	DESCRIPTION	"Kathy Wilson
+	o  Add mpeDevFileXferFileFormat object"
+
+	REVISION	"0011211800Z"
+	DESCRIPTION	"Delete CCM objects and traps"
+
+	REVISION	"0010261400Z"
+	DESCRIPTION	"Combine the mpeCCMResync objects"
+
+	REVISION	"0010181830Z"
+	DESCRIPTION	"Addition of mpeCCMAutoBackupType object"
+
+	REVISION	"0010061800Z"
+	DESCRIPTION	"Initial conversion to SMIv2"
+
+
+	::= { pdn-mpe 10 }
+
+mpeDevControlMIBObjects     OBJECT IDENTIFIER ::= { mpeDevControl 1 }
+mpeDevControlMIBTraps       OBJECT IDENTIFIER ::= { mpeDevControl 2 }
+mpeDevControlMIBGroups	    OBJECT IDENTIFIER ::= { mpeDevControl 3 }
+mpeDevHwControl             OBJECT IDENTIFIER ::= { mpeDevControlMIBObjects 1 }
+mpeDevFileXferConfig        OBJECT IDENTIFIER ::= { mpeDevControlMIBObjects 2 }
+mpeDevFirmwareControl       OBJECT IDENTIFIER ::= { mpeDevControlMIBObjects 3 }
+mpeDevTestControl	    OBJECT IDENTIFIER ::= { mpeDevControlMIBObjects 4 }
+
+mpeDevControlMIBTrapsV2		OBJECT-IDENTITY
+	STATUS 	current
+	DESCRIPTION	"The traps for the device control MIB."
+	::= { mpeDevControlMIBTraps 0 }
+
+-- Device Reset Object
+-- Used to reset (warm boot) the device.
+
+mpeDevControlTable OBJECT-TYPE
+   SYNTAX  SEQUENCE OF DevControlEntry
+   MAX-ACCESS  not-accessible
+   STATUS  current
+    DESCRIPTION
+         "A table that contains generic information about
+           Card Control."
+    ::= { mpeDevHwControl  1 }
+
+mpeDevControlEntry OBJECT-TYPE
+   SYNTAX  DevControlEntry
+   MAX-ACCESS  not-accessible
+   STATUS  current
+   DESCRIPTION
+         "A list of information for device Control."
+   INDEX  { entPhysicalIndex }
+    ::= { mpeDevControlTable 1 }
+
+DevControlEntry ::=
+    SEQUENCE {
+              mpeDevControlReset                    ResetStates
+             }
+
+mpeDevControlReset OBJECT-TYPE
+    SYNTAX  ResetStates
+    MAX-ACCESS  read-create
+    STATUS  current
+    DESCRIPTION
+        "Writing the value reset (2) to this object 
+         initiates a Hardware power-on reset of the device. 
+         Writing the value resetToFactoryDefaults (3) causes the device to re-configure 
+         itself with factory defaults. Writing the value (4) causes the device
+	 to re-configure itself with a previously loaded active configuration. 
+	 The value read from this object is noOp(1)."
+     ::= { mpeDevControlEntry 1 }
+
+--
+-- Device reset and put it in extended selftest mode 
+--
+
+mpeDevControlSelfTestTable OBJECT-TYPE
+   SYNTAX  SEQUENCE OF DevControlSelfTestEntry
+   MAX-ACCESS  not-accessible
+   STATUS  current
+    DESCRIPTION
+         "A table containing information to control device specific Self-Test
+	  operations."
+    ::= { mpeDevHwControl  2 }
+
+mpeDevControlSelfTestEntry OBJECT-TYPE
+   SYNTAX  DevControlSelfTestEntry
+   MAX-ACCESS  not-accessible
+   STATUS  current
+   DESCRIPTION
+         "A list of objects for performing Self-Test operations."
+   INDEX  { entPhysicalIndex }
+    ::= { mpeDevControlSelfTestTable 1 }
+
+DevControlSelfTestEntry ::=
+    SEQUENCE {
+              	mpeDevControlExtendedSelfTest	    INTEGER
+             }
+
+mpeDevControlExtendedSelfTest OBJECT-TYPE
+    SYNTAX  INTEGER {
+                     noOp(1),
+                     enableExtendSelfTestAndReset(2)
+                    }
+    MAX-ACCESS  read-write
+    STATUS  current
+    DESCRIPTION
+        "This object is used to start the extended Power-On Self-Test
+	 test.  Writing the value enableExtendSelfTestAndReset(2) to this
+	 object resets the device and puts it into extended Power-On 
+	 Self-Test mode.  During device initialization, the extended
+	 Self-Test would be carried out first and then the device would
+	 carry out its normal boot operation. The value read from this
+	 object is noOp(1). Writing back the same value, noOp(1) will not
+	 start the test. Note that if extended Self-Test fails for some
+	 reason, after re-initialization, the value of this object will 
+	 default to enableExtendSelfTestAndReset(2) again unless the 
+	 manager explicitly chooses not to do so."
+
+     ::= { mpeDevControlSelfTestEntry 1 }
+
+--
+-- Perform Device specific tests
+--
+
+mpeDevControlTestTable OBJECT-TYPE
+   SYNTAX  SEQUENCE OF MpeDevControlTestEntry
+   MAX-ACCESS  not-accessible
+   STATUS  current
+    DESCRIPTION
+         "A table that contains configuration information to perform
+	  device specific tests."
+    ::= { mpeDevTestControl  3 }
+
+mpeDevControlTestEntry OBJECT-TYPE
+   SYNTAX  MpeDevControlTestEntry
+   MAX-ACCESS  not-accessible
+   STATUS  current
+   DESCRIPTION
+         "A list of configuration information for device specific tests."
+   INDEX  { entPhysicalIndex }
+    ::= { mpeDevControlTestTable 1 }
+
+MpeDevControlTestEntry ::=
+    SEQUENCE {
+              	mpeDevControlTestType 	    INTEGER,
+		mpeDevControlTestStatus     INTEGER,
+		mpeDevControlTestCmd 	    INTEGER
+             }
+
+mpeDevControlTestType OBJECT-TYPE
+    SYNTAX  INTEGER {
+                     lampTest(1)
+                    }
+    MAX-ACCESS  read-write
+    STATUS  current
+    DESCRIPTION
+        "This object is used to specify the type of the test to start."
+
+     ::= { mpeDevControlTestEntry 1 }
+
+mpeDevControlTestStatus OBJECT-TYPE
+    SYNTAX  INTEGER {
+                      active(1),
+	              inactive(2)
+                    }
+    MAX-ACCESS  read-only
+    STATUS  current
+    DESCRIPTION
+        "The test status on the device. This object indicates whether
+         the indexed test is currently active(1) or inactive(2)."
+
+     ::= { mpeDevControlTestEntry 2 }
+
+mpeDevControlTestCmd OBJECT-TYPE
+    SYNTAX  INTEGER {
+                    start  (1),
+	            stop   (2)
+                    }
+    MAX-ACCESS  read-write
+    STATUS  current
+    DESCRIPTION
+        "Used to start or stop the indexed test.
+         When read, the value returned will be the next logical command."
+
+     ::= { mpeDevControlTestEntry 3 }
+
+-- =======================================================
+--
+--  The Paradyne File Transfer Group  (J.Strain)
+-- =======================================================
+
+mpeDevFileXferConfigTable OBJECT-TYPE
+    SYNTAX  SEQUENCE OF MpeDevFileXferConfigEntry
+    MAX-ACCESS  not-accessible
+    STATUS  current
+    DESCRIPTION
+           "The Paradyne  FileXfer Client Config Table."
+    ::= { mpeDevFileXferConfig  1 }
+
+mpeDevFileXferConfigEntry OBJECT-TYPE
+    SYNTAX  MpeDevFileXferConfigEntry
+    MAX-ACCESS  not-accessible
+    STATUS  current
+    DESCRIPTION
+
+       " Use of the File Tranfer MIB could be used with other MIBS in
+              the following manner:
+                  a) Use another MIB/means to verify available space /make room
+                     for a file to be transfered to this device
+                  b) Use this MIB to download the file
+                  c) Use another MIB/means to select the file you want to make 
+                     active
+                                        if your selecting firmware for example.
+                  d) Use another MIB/means to reset the device.
+
+        A management station wishing to initiate a file transfer needs to
+                         create an entry in this table. To do so, you must
+       first identify the entPhysicalIndex of the device you intend to
+       do the transfer with.  You should
+       then create the associated instance of the row status
+       It must also, either in the same
+       or in successive PDUs, create an instance of
+       mpeDevFileXferFileName, mpeDevFileXferFileType, 
+.      mpeDevFileXferServerIpAddress,
+       mpeDevFileXferOperation.
+
+       It should also modify the default values for the other
+       configuration objects if the defaults are not appropriate.
+
+       Once the appropriate instance of all the configuration
+       objects have been created, either by an explicit SNMP
+       set request or by default, the row status should be set
+       to active to initiate the request. Note that this entire
+       procedure may be initiated via a single set request which
+       specifies a row status of createAndGo as well as specifies
+       valid values for the non-defaulted configuration objects.
+
+       Once the MpeDevFileXferConfigEntry request has been created (i.e. the
+       mpeDevFileXferRowStatus has been made active), the entry
+       cannot be modified - the only operation possible
+       after this is to delete the row.
+
+       Once the request completes, the management station should
+       retrieve the values of the status objects of interest, and
+       should then delete the entry.  In order to prevent old
+       entries from clogging the table, entries could be aged out,
+       but an entry will never be deleted within 5 minutes of
+       completing.  "
+    INDEX   { entPhysicalIndex }
+    ::= { mpeDevFileXferConfigTable  1 }
+
+MpeDevFileXferConfigEntry ::=
+    SEQUENCE {
+
+    mpeDevFileXferFileName
+        DisplayString,
+
+    mpeDevFileXferCopyProtocol
+        INTEGER,
+
+    mpeDevFileXferFileType
+        INTEGER,
+
+    mpeDevFileXferServerIpAddress
+        IpAddress,
+
+    mpeDevFileXferUserName
+        DisplayString,
+
+    mpeDevFileXferUserPassword
+        DisplayString,
+
+    mpeDevFileXferOperation
+        INTEGER,
+
+    mpeDevFileXferPktsSent
+        Counter32,
+
+    mpeDevFileXferPktsRecv
+        Counter32,
+
+    mpeDevFileXferOctetsSent
+        Counter32,
+
+    mpeDevFileXferOctetsRecv
+        Counter32,
+
+    mpeDevFileXferOwnerString
+        OCTET STRING,
+
+    mpeDevFileXferStatus
+        INTEGER,
+
+    mpeDevFileXferErrorStatus
+        Integer32,
+
+    mpeDevFileXferSendEvent
+        INTEGER,
+
+    mpeDevFileXferRowStatus
+        RowStatus,
+		
+    mpeDevFileXferXferTime
+	TimeTicks,	
+		
+    mpeDevFileXferFileFormat
+	INTEGER	
+    }
+
+mpeDevFileXferFileName OBJECT-TYPE
+    SYNTAX  DisplayString
+    MAX-ACCESS  read-create
+    STATUS  current
+    DESCRIPTION
+           "This object contains the name of the filetransfer file."
+    ::= { mpeDevFileXferConfigEntry  1 }
+
+mpeDevFileXferCopyProtocol OBJECT-TYPE
+    SYNTAX   INTEGER {
+                         tftp(1),
+                         ftp(2)
+                                                }
+    MAX-ACCESS  read-create
+    STATUS  current
+        DESCRIPTION
+          "The transfer protocol that should be used to copy the file
+           across the network. If the file transfer is to occur locally on the 
+           SNMP agent, the method of transfer is left upto the implementation, 
+           and is not restricted to the protocols below."
+
+--    DEFVAL  { tftp }
+    ::= { mpeDevFileXferConfigEntry  2 }
+
+mpeDevFileXferFileType OBJECT-TYPE
+    SYNTAX  INTEGER {
+                                firmware(1),
+                                config(2)
+                                }
+
+    MAX-ACCESS  read-create
+    STATUS  current
+    DESCRIPTION
+           "Specifies the type of file your want to transfer."
+    ::= { mpeDevFileXferConfigEntry  3 }
+
+mpeDevFileXferServerIpAddress OBJECT-TYPE
+    SYNTAX  IpAddress
+    MAX-ACCESS  read-create
+    STATUS  current
+    DESCRIPTION
+           "This object contains the file transfer server's IP address. "
+    ::= { mpeDevFileXferConfigEntry  4 }
+
+mpeDevFileXferUserName OBJECT-TYPE
+    SYNTAX  DisplayString
+    MAX-ACCESS  read-create
+    STATUS  current
+    DESCRIPTION
+           "This object contains the username if a username is needed
+        to login to the server."
+    ::= { mpeDevFileXferConfigEntry  5 }
+
+mpeDevFileXferUserPassword OBJECT-TYPE
+    SYNTAX  DisplayString
+    MAX-ACCESS  read-create
+    STATUS  current
+    DESCRIPTION
+           "This object contains the password if a password is needed
+            to login to the server. This object will return null on a read 
+            operation."
+    ::= { mpeDevFileXferConfigEntry  6 }
+
+mpeDevFileXferOperation OBJECT-TYPE
+    SYNTAX  INTEGER {
+                                get(1),
+                                put(2)
+                                        }
+    MAX-ACCESS  read-create
+    STATUS  current
+    DESCRIPTION
+           "This object contains the operation the file transfer wants to 
+perform."
+    ::= { mpeDevFileXferConfigEntry  7 }
+
+mpeDevFileXferPktsSent OBJECT-TYPE
+    SYNTAX  Counter32
+    MAX-ACCESS  read-only
+    STATUS  current
+    DESCRIPTION
+           "This object contains the the number of packets sent to the
+        server at the time of interrogation."
+    ::= { mpeDevFileXferConfigEntry  8 }
+
+mpeDevFileXferPktsRecv OBJECT-TYPE
+    SYNTAX  Counter32
+    MAX-ACCESS  read-only
+    STATUS  current
+    DESCRIPTION
+           "This object contains the the number of packets received from the
+        server at the time of interrogation."
+    ::= { mpeDevFileXferConfigEntry  9 }
+
+mpeDevFileXferOctetsSent OBJECT-TYPE
+    SYNTAX  Counter32
+    MAX-ACCESS  read-only
+    STATUS  current
+    DESCRIPTION
+           "This object contains the the number of octets sent to the
+        server at the time of interrogation."
+    ::= { mpeDevFileXferConfigEntry  10 }
+
+mpeDevFileXferOctetsRecv OBJECT-TYPE
+    SYNTAX  Counter32
+    MAX-ACCESS  read-only
+    STATUS  current
+    DESCRIPTION
+           "This object contains the the number of octets received from the
+        server at the time of interrogation."
+    ::= { mpeDevFileXferConfigEntry  11 }
+
+mpeDevFileXferOwnerString OBJECT-TYPE
+    SYNTAX   OCTET STRING (SIZE(0..255))
+    MAX-ACCESS  read-create
+    STATUS  current
+    DESCRIPTION
+           "The entity which currently has the 'ownership'
+        required to invoke the operation on this index."
+    ::= { mpeDevFileXferConfigEntry  12 }
+
+mpeDevFileXferStatus OBJECT-TYPE
+    SYNTAX  INTEGER {
+                 none(1),
+                 success(2),
+                 failure(3),
+                 inprogress(4)
+               }
+    MAX-ACCESS  read-only
+    STATUS  current
+    DESCRIPTION
+           "This object contains the status of the file transfer."
+    ::= { mpeDevFileXferConfigEntry  13 }
+
+mpeDevFileXferErrorStatus OBJECT-TYPE
+    SYNTAX  Integer32
+    MAX-ACCESS  read-only
+    STATUS  current
+    DESCRIPTION
+           "This object contains the reason code of the failure determined in 
+mpeDevFileXferStatus.
+        The reason code are specific to the file transfer protocol.
+
+        Please refer to the file transfer protocols respective RFC for 
+clarification
+        of the error code value meanings.
+
+        TFTP Error Codes from rfc 1350
+        FTP Error Codes from rfc 959"
+
+    ::= { mpeDevFileXferConfigEntry  14 }
+
+mpeDevFileXferSendEvent OBJECT-TYPE
+    SYNTAX INTEGER {
+    active(1),
+    inactive(2)
+    }
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "This object indicates whether or not to send the 
+         mpeDevFileXferEvent event trap ."
+    ::= { mpeDevFileXferConfigEntry  15 }
+
+mpeDevFileXferRowStatus OBJECT-TYPE
+    SYNTAX  RowStatus
+    MAX-ACCESS  read-create
+    STATUS  current
+    DESCRIPTION
+           "This object is used to create
+     a new row or delete an
+     existing row in this table."
+    ::= { mpeDevFileXferConfigEntry  16 }
+
+mpeDevFileXferXferTime OBJECT-TYPE
+    SYNTAX  TimeTicks 
+    MAX-ACCESS  read-only
+    STATUS  current
+    DESCRIPTION
+        "This object indicates the elapsed time 
+		(in hundredths of a second) of the file transfer."
+    ::= { mpeDevFileXferConfigEntry 17 }
+
+mpeDevFileXferFileFormat OBJECT-TYPE
+    SYNTAX  INTEGER {
+                      ascii(1),
+                      binary(2)
+                    }
+    MAX-ACCESS  read-create
+    STATUS  current
+    DESCRIPTION
+           "This object contains the file representation type. A
+	   file representation type of ascii implies an ASCII,
+	   non-print text file. A file representation type of 
+	   binary implies an binary image file. The default file
+	   representation type is binary(2)."
+
+--    DEFVAL  { binary }
+    ::= { mpeDevFileXferConfigEntry  18 }
+
+
+-- ====================================================================
+--
+-- Firmware Control Table
+--
+-- This table is used to control and provide information concerning
+-- firmware/executable images.
+--
+-- ====================================================================
+
+mpeDevFirmwareControlTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF DevFirmwareControlEntry
+    MAX-ACCESS  not-accessible
+    STATUS  current
+    DESCRIPTION
+        "A list of the current Firmware Releases and their associated
+         status.  Each Firmware Release will be indexed by a number
+         from 1 to N.  The user will be able to view the Firmware
+         Release String and Operational Status of the release (valid
+                 or invalid) and activate a valid Firmware Release by changing
+                 the Administration Status to active."
+    ::= { mpeDevFirmwareControl 1 }
+
+mpeDevFirmwareControlEntry OBJECT-TYPE
+    SYNTAX  DevFirmwareControlEntry
+    MAX-ACCESS  not-accessible
+    STATUS  current
+    DESCRIPTION
+        "The Device Firmware Release entry."
+    INDEX  { entPhysicalIndex, mpeDevFirmwareControlIndex }
+    ::= { mpeDevFirmwareControlTable 1 }
+
+DevFirmwareControlEntry ::=
+    SEQUENCE {
+    mpeDevFirmwareControlIndex
+    Integer32,
+    mpeDevFirmwareControlRelease
+        DisplayString,
+    mpeDevFirmwareControlOperStatus
+        INTEGER,
+    mpeDevFirmwareControlAdminStatus
+        INTEGER
+    }
+
+mpeDevFirmwareControlIndex OBJECT-TYPE
+    SYNTAX Integer32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "This object is used to index the Firmware table (range 1 to N)."
+::= { mpeDevFirmwareControlEntry 1 }
+
+mpeDevFirmwareControlRelease OBJECT-TYPE
+    SYNTAX  DisplayString (SIZE (1..16))
+    MAX-ACCESS  read-only
+    STATUS  current
+    DESCRIPTION
+    "This object indicates the Software Release for
+     this Firmware. If the Software Firmware is Operational Status
+     is invalid, the Software Revision Number will be blank."
+::= { mpeDevFirmwareControlEntry 2 }
+
+mpeDevFirmwareControlOperStatus OBJECT-TYPE
+    SYNTAX INTEGER {
+    valid(1),
+    invalid(2),
+    unknown(3)
+    }
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+     "This object indicates whether or not the indexed
+     Firmware entry contains a valid(1) or invalid(2) Firmware."
+::= { mpeDevFirmwareControlEntry 3 }
+
+mpeDevFirmwareControlAdminStatus OBJECT-TYPE
+    SYNTAX INTEGER {
+    active(1),
+    inactive(2)
+    }
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "This object indicates whether or not the indexed
+     Firmware entry is active(1) or inactive(2).
+     Writing active(1) will activate that software release
+     and cause the unit to reset (response may timeout).
+     Writing active(1) to a Firmware entry whose
+     mpeDevFirmwareControlOperStatus is invalid will return BAD VALUE.
+     Writing inactive(2) will always return BAD VALUE."
+::= { mpeDevFirmwareControlEntry 4 }
+
+--
+--      File Transfer Traps
+--
+
+mpeDevFileXferEvent NOTIFICATION-TYPE
+	OBJECTS {  mpeDevFileXferStatus , mpeDevFileXferErrorStatus,
+                                mpeDevFileXferOperation, mpeDevFileXferFileType,
+                                mpeDevFileXferFileName }
+	STATUS		current
+   	DESCRIPTION
+     		"This trap is to communicate a couple of things about
+      		the completion of a file transfer.
+
+                mpeDevFileXferStatus       - Did it complete successfully or not.
+                mpeDevFileXferErrorStatus  - If not, what was the error code.
+                mpeDevFileXferOperation    - What operation was performed?.
+                mpeDevFileXferFileType     - Was it a firmware xfer or config?
+                mpeDevFileXferFileName     - The name of the file transfered.
+         	"
+
+ ::= { mpeDevControlMIBTrapsV2 1 }
+
+mpeDevHwControlGroup	OBJECT-GROUP
+	OBJECTS		{ mpeDevControlReset,
+		  	  mpeDevControlExtendedSelfTest  }
+	STATUS		current
+	DESCRIPTION	"Objects necessary to implement minimal hardware 
+			control"
+ ::= { mpeDevControlMIBGroups 1 }
+
+mpeDevFileXferConfigGroup	OBJECT-GROUP
+	OBJECTS		{ mpeDevFileXferFileName,
+			  mpeDevFileXferCopyProtocol,
+			  mpeDevFileXferFileType,
+			  mpeDevFileXferServerIpAddress,
+			  mpeDevFileXferUserName,
+			  mpeDevFileXferUserPassword,
+			  mpeDevFileXferOperation,
+			  mpeDevFileXferPktsSent,
+			  mpeDevFileXferPktsRecv,
+			  mpeDevFileXferOctetsSent,
+			  mpeDevFileXferOctetsRecv,
+			  mpeDevFileXferOwnerString,
+			  mpeDevFileXferStatus,
+			  mpeDevFileXferErrorStatus,
+			  mpeDevFileXferSendEvent,
+			  mpeDevFileXferRowStatus,
+			  mpeDevFileXferXferTime, 
+			  mpeDevFileXferFileFormat }
+	STATUS		current
+	DESCRIPTION	"Object group used to implement file transfer 
+			functionality"
+  ::= { mpeDevControlMIBGroups 2 }
+
+mpeDevFirmwareControlGroup	OBJECT-GROUP
+	OBJECTS		{ mpeDevFirmwareControlIndex,
+		 	  mpeDevFirmwareControlRelease,
+			  mpeDevFirmwareControlOperStatus,
+			  mpeDevFirmwareControlAdminStatus }
+	STATUS		current
+	DESCRIPTION	"Object group used to manage firmware releases on 
+			devices"
+  ::= { mpeDevControlMIBGroups 3 }
+
+mpeDevTestControlGroup		OBJECT-GROUP
+	OBJECTS       { mpeDevControlTestType,
+			mpeDevControlTestStatus,
+			mpeDevControlTestCmd
+             	      }
+	STATUS       current
+	DESCRIPTION  "Objects necessary to implement device specific tests"
+  ::= { mpeDevControlMIBGroups 4 }
+
+mpeDevFileXferEventGroup	NOTIFICATION-GROUP
+	NOTIFICATIONS	{ mpeDevFileXferEvent }
+	STATUS		current
+	DESCRIPTION	"Notifications associated with 
+			mpeDevFileXferConfigGroup"
+  ::= { mpeDevControlMIBGroups 5 }
+
+END

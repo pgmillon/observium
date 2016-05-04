@@ -7,9 +7,13 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
+
+// FIXME : bit hacky, I think.
+
+if($vars['id'] == OBS_VAR_UNSET) { $vars['id'] = ''; }
 
 foreach (dbFetchRows("SELECT * FROM `devices` WHERE `location` = ?", array($vars['id'])) as $device)
 {

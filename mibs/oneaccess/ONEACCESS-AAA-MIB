@@ -1,0 +1,741 @@
+--          *****************************
+--          *                           *
+--          *         ONEOS MIB         *
+--          *                           *
+--          *****************************
+--
+--          ONEOS_MIB_STD_V05.1.R005_E001
+--
+--          Creation date : 07/08/2010
+
+	ONEACCESS-AAA-MIB DEFINITIONS ::= BEGIN
+
+		IMPORTS
+			OBJECT-GROUP
+				FROM SNMPv2-CONF
+			IpAddress, Integer32, Counter32, Counter64, OBJECT-TYPE,
+			MODULE-IDENTITY
+				FROM SNMPv2-SMI
+			DisplayString, RowStatus, PhysAddress, TruthValue
+				FROM SNMPv2-TC
+			InterfaceIndex
+				FROM IF-MIB
+			oacExpIMManagement, oacMIBModules
+		        FROM ONEACCESS-GLOBAL-REG;
+
+	oacAAAConfigMIB MODULE-IDENTITY
+
+        LAST-UPDATED    "201107260000Z"
+        ORGANIZATION    " OneAccess "
+        CONTACT-INFO
+           "Pascal KESTELOOT
+            Postal: ONE ACCESS
+                    381 Avenue du Général de Gaulle
+                    92140 Clamart, France
+		    FRANCE
+
+            Tel: (+33) 01 41 87 70 00
+            Fax: (+33) 01 41 87 74 00
+
+            E-mail: pascal.kesteloot@oneaccess-net.com"
+
+	DESCRIPTION
+			"Fixed the issues related to octet string range"
+	REVISION	"201107260000Z"
+
+	DESCRIPTION
+                    	"Contact updated"
+	REVISION        "201106150000Z"
+    
+	DESCRIPTION
+		"Add index for oacAAAAuthenticationServerConfigEntry and oacAAAGroupServerConfigEntry"
+	REVISION	"201012170001Z"
+
+
+	DESCRIPTION
+		"Fixed some minor corrections"
+	REVISION	"201007080001Z"
+			
+	DESCRIPTION
+        "This MIB defines configuration capabilities relating to AAA.
+		OneOS supports authentication with two types of servers.
+			1) Radius Server.
+			2) TACACS Server.
+		The device can be configured to authenticate with a radius server or
+		an tacacs server or use the local user database on the system.
+
+		This MIB defines configuring clients for:
+			Radius Server
+			Tacacs Server
+
+		also AAA configuration on ONEOS which includes authenticating
+		a user to login to the device or use the enable command.
+		Defines the AAA accounting configuration.
+      "
+
+		::= { oacMIBModules 690 }
+
+--
+-- Node definitions
+--
+
+	    -- 1.3.6.1.4.1.13191.1.10.3.4.10
+	    oacAAAConfig OBJECT IDENTIFIER ::= { oacExpIMManagement 10 }
+
+	    -- 1.3.6.1.4.1.13191.1.10.3.4.10.1
+	    oacAAAConfigObjects      OBJECT IDENTIFIER ::= { oacAAAConfig 1  }
+
+	    -- 1.3.6.1.4.1.13191.1.10.3.4.10.2
+	    oacAAAConfigConformance  OBJECT IDENTIFIER ::= { oacAAAConfig 2  }
+
+--
+-- Radius Server Table
+--
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.1
+		oacAAARadiusServerConfigTable OBJECT-TYPE
+			SYNTAX SEQUENCE OF OacAAARadiusServerConfigEntry
+			MAX-ACCESS 	not-accessible
+			STATUS 		current
+			DESCRIPTION
+				"Configuring Radius Server:
+				For the device to authenticate with an radius server
+				database, the following parameters have to be configured.
+				The cli command for adding a radius server details is
+				radius-server <RADIUS-server-ip> [<RADIUS-UDP-port>] <shared-key> [ <interface> <unit> ]
+				The snmp table will contain the following attributes.
+				1) hostname or IP Address  			String
+				2) Radius Server Port 				Integer 1-65535
+				3) Shared Key   					String.
+				4) Retransmit  						Integer 1-100  default 3
+				5) Timeout 							Integer 1-600  default 3
+				6) Interface 						InterfaceIndex"
+			::= { oacAAAConfigObjects 1 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.1.1
+		oacAAARadiusServerConfigEntry OBJECT-TYPE
+			SYNTAX OacAAARadiusServerConfigEntry
+			MAX-ACCESS 	not-accessible
+			STATUS 		current
+			DESCRIPTION
+				"The Radius Server config entry will hold the details
+				of one radius servers configured for the client to
+				send the requests for authentication.
+				This table is indexed on oacAAARadiusServrInfo which can
+				be either an ipaddress or hostname of the Radius Server.
+				"
+			INDEX { oacAAARadiusServerInfo, oacAAARadiusServerPort }
+			::= { oacAAARadiusServerConfigTable 1 }
+
+		OacAAARadiusServerConfigEntry ::=
+			SEQUENCE {
+				oacAAARadiusServerInfo
+					DisplayString,
+				oacAAARadiusServerPort
+					INTEGER,
+				oacAAARadiusServerSharedKey
+					OCTET STRING,
+				oacAAARadiusServerRetries
+					INTEGER,
+				oacAAARadiusServerTimeout
+					INTEGER,
+				oacAAARadiusServerInterface
+					InterfaceIndex,
+				oacAAARadiusServerRowStatus
+					RowStatus
+			}
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.1.1.1
+		oacAAARadiusServerInfo  OBJECT-TYPE
+			SYNTAX DisplayString
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"The Info can be an :
+					A.B.C.D  IPv4 host address
+					A.B.C.D  Ipv4 subnet
+					hostname Hostname."
+			::= { oacAAARadiusServerConfigEntry 1 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.1.1.2
+		oacAAARadiusServerPort	OBJECT-TYPE
+			SYNTAX	INTEGER	(1..65535)
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"The default server port to which radius client will
+				connect to a radius server is 1812. But the user can
+				always specify the port to which the client should
+				connect when contacting	the configured radius server."
+			DEFVAL { 1812 }
+			::= { oacAAARadiusServerConfigEntry 2 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.1.1.3
+		oacAAARadiusServerSharedKey  OBJECT-TYPE
+			SYNTAX	OCTET STRING (SIZE(8..255))
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"Pre shared key between the radius client and server."
+			::= { oacAAARadiusServerConfigEntry 3 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.1.1.4
+		oacAAARadiusServerRetries	OBJECT-TYPE
+			SYNTAX	INTEGER (1..100)
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"The Client can do the configured number of retries to
+				this radius server before moving to the next radius server.
+				The default number of retries is 3."
+			DEFVAL { 3 }
+			::= { oacAAARadiusServerConfigEntry 4 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.1.1.5
+		oacAAARadiusServerTimeout	OBJECT-TYPE
+			SYNTAX		INTEGER	(1..600)
+			MAX-ACCESS 	read-create
+			STATUS 		current
+			DESCRIPTION
+				"The nummber of seconds to wait before to call a timeout.
+				The default value is 3 seconds."
+			DEFVAL { 3 }
+			::= { oacAAARadiusServerConfigEntry 5 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.1.1.6
+		oacAAARadiusServerInterface	OBJECT-TYPE
+			SYNTAX		InterfaceIndex
+			MAX-ACCESS 	read-create
+			STATUS 		current
+			DESCRIPTION
+				"The interface for this device to use to contact the radius
+				server for auth requests. It is identified by the ifIndex.
+				Each interface/unit is identified by an ifIndex."
+			::= { oacAAARadiusServerConfigEntry 6 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.1.1.7
+		oacAAARadiusServerRowStatus	OBJECT-TYPE
+			SYNTAX	RowStatus
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"The Row status for an entry in the oacAAARadiusServerConfigTable."
+			::= { oacAAARadiusServerConfigEntry 7 }
+
+--
+-- Radius Accouting Port
+--
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.2
+		oacAAARadiusConfigAccPort OBJECT-TYPE
+			SYNTAX		INTEGER (1..65535)
+			MAX-ACCESS 	read-write
+			STATUS		current
+			DESCRIPTION
+				"Set the port for Radius accouting.
+				reset or deletion of this value is not possible
+				the port value can only be modified."
+			::= { oacAAAConfigObjects 2 }
+
+--
+-- Tacacs Server Table
+--
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.3
+		oacAAATacacsServerConfigTable OBJECT-TYPE
+			SYNTAX SEQUENCE OF OacAAATacacsServerConfigEntry
+			MAX-ACCESS 		not-accessible
+			STATUS 			current
+			DESCRIPTION
+				"Configuring Tacacs client:
+				The cli to add tacacs server info for the tacacs client is
+				tacacs-server <host> [<port>] <key> [ <interface> <unit> ]
+				Hence the snmp table for to hold the tacacs server info has the following
+    	    	1) hostname or IP Address 			OCTET STRING
+				2) TACACs serverport 				Integer 1-65535
+				3) Shared Key 						OCTET STRING
+				4) Timeout 							integer	1-600 default 3
+				5) Interface 						InterfaceIndex"
+			::= { oacAAAConfigObjects 3 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.3.1
+		oacAAATacacsServerConfigEntry OBJECT-TYPE
+			SYNTAX OacAAATacacsServerConfigEntry
+			MAX-ACCESS 	not-accessible
+			STATUS 		current
+			DESCRIPTION
+				"An entry holds the information per tacacs server configured.
+				the entry is uniquely identified/indexed by the oacAAATacacsServerInfo
+				which can be either the IPv4 address or an hostname."
+			INDEX { oacAAATacacsServerInfo, oacAAATacacsServerPort }
+			::= { oacAAATacacsServerConfigTable 1 }
+
+		OacAAATacacsServerConfigEntry ::=
+			SEQUENCE {
+				oacAAATacacsServerInfo
+					DisplayString,
+				oacAAATacacsServerPort
+					INTEGER,
+				oacAAATacacsServerSharedKey
+					OCTET STRING,
+				oacAAATacacsServerTimeout
+					INTEGER,
+				oacAAATacacsServerInterface
+					InterfaceIndex,
+				oacAAATacacsServerRowStatus
+					RowStatus
+			}
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.3.1.1
+		oacAAATacacsServerInfo  OBJECT-TYPE
+			SYNTAX 		DisplayString
+			MAX-ACCESS 	read-create
+			STATUS 		current
+			DESCRIPTION
+				"The Info can be an :
+					A.B.C.D  IPv4 host address
+					A.B.C.D  Ipv4 subnet
+					hostname Hostname."
+			::= { oacAAATacacsServerConfigEntry 1 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.3.1.2
+		oacAAATacacsServerPort	OBJECT-TYPE
+			SYNTAX		INTEGER	(1..65535)
+			MAX-ACCESS 	read-create
+			STATUS 		current
+			DESCRIPTION
+				"The default for an tacacs client to connect to tacacs server
+				is 49. But this can vary depending on the server configuration.
+				Hence when a tacacs server is added the port on which this server
+				is running has to be specified."
+			DEFVAL { 49 }
+			::= { oacAAATacacsServerConfigEntry 2 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.3.1.3
+		oacAAATacacsServerSharedKey  OBJECT-TYPE
+			SYNTAX		OCTET STRING (SIZE(8..255))
+			MAX-ACCESS 	read-create
+			STATUS 		current
+			DESCRIPTION
+				"The shared key will be used to authenticate a tacacs client
+				with the tacacs server. This has key is different from the
+				user authentication keys."
+			::= { oacAAATacacsServerConfigEntry 3 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.3.1.4
+		oacAAATacacsServerTimeout	OBJECT-TYPE
+			SYNTAX		INTEGER	(1..600)
+			MAX-ACCESS 	read-create
+			STATUS 		current
+			DESCRIPTION
+				"The default timeout value for an client to wait for a response
+				from the tacacs server is set to 3 seconds. but this can be
+				modified by setting a value."
+			DEFVAL { 3 }
+			::= { oacAAATacacsServerConfigEntry 4 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.3.1.5
+		oacAAATacacsServerInterface	 OBJECT-TYPE
+			SYNTAX		InterfaceIndex
+			MAX-ACCESS 	read-create
+			STATUS 		current
+			DESCRIPTION
+				"The interface which this tacacs client should use to contact
+				the configured tacacs server. The interface is identified by
+				the ifIndex."
+			::= { oacAAATacacsServerConfigEntry 5 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.3.1.6
+		oacAAATacacsServerRowStatus	OBJECT-TYPE
+			SYNTAX		RowStatus
+			MAX-ACCESS 	read-create
+			STATUS 		current
+			DESCRIPTION
+				"The Rowstatus for this entry."
+			::= { oacAAATacacsServerConfigEntry 6 }
+
+--
+-- User name usage
+--
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.4
+		oacAAATacacsConfigUseUsername OBJECT-TYPE
+			SYNTAX		TruthValue
+			MAX-ACCESS 	read-write
+			STATUS		current
+			DESCRIPTION
+				"usage of user name for authentication for enable command."
+			DEFVAL { false }
+			::= { oacAAAConfigObjects 4 }
+
+--
+-- AAA authentication Table
+--
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.5
+		oacAAAAuthenticationServerConfigTable OBJECT-TYPE
+			SYNTAX SEQUENCE OF OacAAAAuthenticationServerConfigEntry
+			MAX-ACCESS 	not-accessible
+			STATUS 		current
+			DESCRIPTION
+				"AAA configuration on OneOS
+				The AAA servers can be configured to either authenticate
+				user login or authenticate enable commands for a given user.
+				OneOS can either use all radius servers or all tacas servers
+				or	a group of configured radius servers
+				or a group of configured tacacs servers
+				or only the local database. By default if a radius/tacacs
+				servers are configured,	ONEOS will use the AAA servers in the
+				order in which they are configured.
+				The following commands are available to configure the AAA servers.
+				aaa authentication login {default|console|network} {<group-name>|radius|tacacs}
+				aaa authentication enable {default|console|network} {<group-name>|radius|tacacs}
+
+				Hence the following will be the attributes for the
+				AAA authentication configuration table
+				1) Authentication for (login or enable)  				Integer as enum
+				2) Authentication from (default or console or network) 	Integer as enum
+				3) Authentication servertype 							String"
+			::= { oacAAAConfigObjects 5 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.5.1
+		oacAAAAuthenticationServerConfigEntry OBJECT-TYPE
+			SYNTAX 		OacAAAAuthenticationServerConfigEntry
+			MAX-ACCESS 	not-accessible
+			STATUS 		current
+			DESCRIPTION
+				"An entry will define how a login/enable from console or network
+				will use which group of servers of either radius or tacacs.
+				Each entry is uniquly identified by an dual index."
+			INDEX { oacAAAAuthenticationFeature, oacAAAAuthenticationReqSrc }
+			::= { oacAAAAuthenticationServerConfigTable 1 }
+
+		OacAAAAuthenticationServerConfigEntry ::=
+			SEQUENCE {
+				oacAAAAuthenticationFeature
+					INTEGER,
+				oacAAAAuthenticationReqSrc
+					INTEGER,
+				oacAAAAuthenticationSvrType
+					OCTET STRING,
+				oacAAAAuthenticationServerRowStatus
+					RowStatus
+			}
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.5.1.1
+		oacAAAAuthenticationFeature OBJECT-TYPE
+			SYNTAX	INTEGER
+				{
+				login(1),
+				enable(2)
+				}
+			MAX-ACCESS read-create
+			STATUS 	current
+			DESCRIPTION
+				"A user can login to the device and just monitor. A user can
+				configure the device when he enters the enabled mode. The device
+				will challenge an user for authentication when ever he enters and
+				enabled command."
+			::= { oacAAAAuthenticationServerConfigEntry 1 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.5.1.2
+		oacAAAAuthenticationReqSrc	OBJECT-TYPE
+			SYNTAX	INTEGER
+				{
+				default(1),
+				console(2),
+				network(3)
+				}
+			MAX-ACCESS 	read-create
+			STATUS 		current
+			DESCRIPTION
+				"The user can access the device either thru the default mode or
+				from the console or from the network like ssh and telnet."
+			DEFVAL { 1 }
+			::= { oacAAAAuthenticationServerConfigEntry 2 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.5.1.3
+		oacAAAAuthenticationSvrType	OBJECT-TYPE
+			SYNTAX	OCTET STRING (SIZE(1..255))
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"The authentication servers can be either a group of radius
+				serves or a group of tacacs servers or all radius servers or all
+				tacacs server."
+			::= { oacAAAAuthenticationServerConfigEntry 3 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.5.1.4
+		oacAAAAuthenticationServerRowStatus	OBJECT-TYPE
+			SYNTAX		RowStatus
+			MAX-ACCESS 	read-create
+			STATUS 		current
+			DESCRIPTION
+				"The Row status for this entry."
+			::= { oacAAAAuthenticationServerConfigEntry 4 }
+
+--
+-- AAA authentication Table
+--
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.6
+		oacAAAAuthenticationConfigBannerSeqTable 	OBJECT-TYPE
+			SYNTAX		SEQUENCE OF OacAAAAuthenticationConfigBannerSeqEntry
+			MAX-ACCESS 	not-accessible
+			STATUS		current
+			DESCRIPTION
+				"This table holds upto 40 banner messages used in authentication"
+				::= { oacAAAConfigObjects 6 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.6.1
+		oacAAAAuthenticationConfigBannerSeqEntry 	OBJECT-TYPE
+			SYNTAX OacAAAAuthenticationConfigBannerSeqEntry
+			MAX-ACCESS 	not-accessible
+			STATUS 		current
+			DESCRIPTION
+				"Each entry will hold one banner string"
+			INDEX { oacAAAAuthenticationBannerSequence }
+			::= { oacAAAAuthenticationConfigBannerSeqTable 1 }
+
+		OacAAAAuthenticationConfigBannerSeqEntry ::=
+			SEQUENCE {
+				oacAAAAuthenticationBannerSequence
+					INTEGER,
+				oacAAAAuthenticationBannerString
+					OCTET STRING,
+				oacAAAAuthenticationBannerSeqRowStatus
+					RowStatus
+			}
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.6.1.1
+		oacAAAAuthenticationBannerSequence OBJECT-TYPE
+			SYNTAX		INTEGER (1..40)
+			MAX-ACCESS 	read-create
+			STATUS 		current
+			DESCRIPTION
+				"The maximum number of strings that can be stored are 40."
+			::= { oacAAAAuthenticationConfigBannerSeqEntry 1 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.6.1.2
+		oacAAAAuthenticationBannerString OBJECT-TYPE
+			SYNTAX		OCTET STRING (SIZE(1..255))
+			MAX-ACCESS 	read-create
+			STATUS 		current
+			DESCRIPTION
+				"banner test is a set of string maximum upto 255 characters."
+			::= { oacAAAAuthenticationConfigBannerSeqEntry 2 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.6.1.3
+		oacAAAAuthenticationBannerSeqRowStatus OBJECT-TYPE
+			SYNTAX		RowStatus
+			MAX-ACCESS 	read-create
+			STATUS 		current
+			DESCRIPTION
+				"The row status of this entry"
+			::= { oacAAAAuthenticationConfigBannerSeqEntry 3 }
+
+
+--
+-- Group Server Table
+--
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.7
+		oacAAAGroupServerConfigTable OBJECT-TYPE
+			SYNTAX SEQUENCE OF OacAAAGroupServerConfigEntry
+			MAX-ACCESS 	not-accessible
+			STATUS 		current
+			DESCRIPTION
+				"Configuring AAA Group Servers:
+    				The cli command to configure a group of servers
+						aaa group server { radius | tacacs } <group-name>
+						server {<A.B.C.D>|<hostname> }
+					The SNMP table for group servers will be
+					1) group name 		OCTET STRING
+					2) group type 		INTEGER (ENUM)
+					3) server			OCTET STRING"
+			::= { oacAAAConfigObjects 7 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.7.1
+		oacAAAGroupServerConfigEntry OBJECT-TYPE
+			SYNTAX OacAAAGroupServerConfigEntry
+			MAX-ACCESS 	not-accessible
+			STATUS 		current
+			DESCRIPTION
+				"A group server entry will hold information about an
+				configured radius or tacacs server to which group it belongs to."
+			INDEX { oacAAAServerGroupName }
+			::= { oacAAAGroupServerConfigTable 1 }
+
+		OacAAAGroupServerConfigEntry ::=
+			SEQUENCE {
+				oacAAAServerGroupName
+					DisplayString,
+				oacAAAServerGroupType
+					INTEGER,
+				oacAAAServerGroupServerInfo
+					DisplayString,
+				oacAAAServerGroupRowStatus
+					RowStatus
+			}
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.7.1.1
+		oacAAAServerGroupName	OBJECT-TYPE
+			SYNTAX	DisplayString
+			MAX-ACCESS read-create
+			STATUS current
+			DESCRIPTION
+				"The group name which is the index for each entry."
+			::= { oacAAAGroupServerConfigEntry 1 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.7.1.2
+		oacAAAServerGroupType OBJECT-TYPE
+			SYNTAX	INTEGER
+				{
+				radius(1),
+				tacacs(2)
+				}
+			MAX-ACCESS 	read-create
+			STATUS 		current
+			DESCRIPTION
+				"Only server of type defined above can be added to this group.
+				all the servers can be either of type radius or type tacacs."
+			::= { oacAAAGroupServerConfigEntry 2 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.7.1.3
+		oacAAAServerGroupServerInfo OBJECT-TYPE
+			SYNTAX		DisplayString
+			MAX-ACCESS 	read-create
+			STATUS 		current
+			DESCRIPTION
+				"This object will hold the inforamtion about the server,
+				which can be an IPv4 Address or an Hostname."
+			::= { oacAAAGroupServerConfigEntry 3 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.7.1.4
+		oacAAAServerGroupRowStatus	OBJECT-TYPE
+			SYNTAX		RowStatus
+			MAX-ACCESS 	read-create
+			STATUS 		current
+			DESCRIPTION
+				"The row status for this entry."
+			::= { oacAAAGroupServerConfigEntry 4 }
+
+--
+-- AAA authorization
+--
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.8
+		oacAAAAuthorizationConfigCmdLevelDefTacacs OBJECT-TYPE
+			SYNTAX		INTEGER (0..15)
+			MAX-ACCESS 	read-write
+			STATUS		current
+			DESCRIPTION
+				"To enable AAA authorization for a given privilege level"
+			::= { oacAAAConfigObjects 8 }
+
+--
+-- AAA Accounting
+--
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.9
+		oacAAAAccCmdsConfigTable OBJECT-TYPE
+			SYNTAX SEQUENCE OF OacAAAAccCmdsConfigEntry
+			MAX-ACCESS not-accessible
+			STATUS current
+			DESCRIPTION
+				"This table provides the information for AAA accounting commands.
+				SNMP table for the above command will be
+    			1) access level of the command  	INTEGER 0-15
+    			2) tacacs+ group					OCTET STRING default all."
+			::= { oacAAAConfigObjects 9 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.9.1
+		oacAAAAccCmdsConfigEntry OBJECT-TYPE
+			SYNTAX OacAAAAccCmdsConfigEntry
+			MAX-ACCESS 	not-accessible
+			STATUS 		current
+			DESCRIPTION
+				"each entry will define an access level and the tacacs group name."
+			INDEX { oacAAAAccCmdAccessLevel }
+			::= { oacAAAAccCmdsConfigTable 1 }
+
+		OacAAAAccCmdsConfigEntry ::=
+			SEQUENCE {
+				oacAAAAccCmdAccessLevel
+					INTEGER,
+				oacAAAAccTacacsGroupName
+					DisplayString,
+				oacAAAAccCmdsRowStatus
+					RowStatus
+			}
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.9.1.1
+		oacAAAAccCmdAccessLevel OBJECT-TYPE
+			SYNTAX		INTEGER(0..15)
+			MAX-ACCESS 	read-create
+			STATUS 		current
+			DESCRIPTION
+				"The command access level for which accounting has to be done."
+			::= { oacAAAAccCmdsConfigEntry 1 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.9.1.2
+		oacAAAAccTacacsGroupName OBJECT-TYPE
+			SYNTAX		DisplayString
+			MAX-ACCESS 	read-create
+			STATUS 		current
+			DESCRIPTION
+				"The group of servers that can be used to perform accounting
+				for a given command access level."
+			::= { oacAAAAccCmdsConfigEntry 2 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.9.1.3
+		oacAAAAccCmdsRowStatus	OBJECT-TYPE
+			SYNTAX		RowStatus
+			MAX-ACCESS 	read-create
+			STATUS 		current
+			DESCRIPTION
+				"The row status for this entry."
+			::= { oacAAAAccCmdsConfigEntry 3 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.10
+		oacAAAAccConfigExecStartStop OBJECT-TYPE
+			SYNTAX		OCTET STRING (SIZE(0..255))
+			MAX-ACCESS 	read-write
+			STATUS		current
+			DESCRIPTION
+				"Set EXEC accounting and the method is default, to use
+				start-stop record accounting notice. Uses TACACS+ server for accounting."
+			::= { oacAAAConfigObjects 10 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.1.11
+		oacAAAAccConfigSystemStartStop OBJECT-TYPE
+			SYNTAX		OCTET STRING (SIZE(0..255))
+			MAX-ACCESS 	read-write
+			STATUS		current
+			DESCRIPTION
+				"Set System accounting and the method is default, to use
+				start-stop record accounting notice. Uses TACACS+ server for accounting."
+			::= { oacAAAConfigObjects 11 }
+
+--
+-- AAA Groups
+--
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.2.1
+		oacAAAConfigGroups OBJECT IDENTIFIER ::= { oacAAAConfigConformance 1 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.2.1.1
+		oacAAAConfigGroup OBJECT-GROUP
+			OBJECTS { oacAAAAccConfigSystemStartStop }
+			STATUS current
+			DESCRIPTION
+				"Group of AAA objects"
+			::= { oacAAAConfigGroups 1 }
+
+		-- 1.3.6.1.4.1.13191.1.10.3.4.10.2.2
+		oacAAACompls OBJECT IDENTIFIER ::= { oacAAAConfigConformance 2 }
+
+END
+
+--
+-- END OF ONE ACCESS AAA MIB
+--

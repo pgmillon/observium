@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -16,7 +16,7 @@
 // Draws aggregate bits graph from multiple RRDs
 // Variables : colour_[line|area]_[in|out], rrd_filenames
 
-include_once($config['html_dir']."/includes/graphs/common.inc.php");
+include($config['html_dir']."/includes/graphs/common.inc.php");
 
 $i = 0;
 $rrd_multi = array();
@@ -57,9 +57,9 @@ if ($i)
   $rrd_options .= " CDEF:doutbits=doutoctets,8,*";
   $rrd_options .= " VDEF:95thin=inbits,95,PERCENT";
   $rrd_options .= " VDEF:95thout=outbits,95,PERCENT";
-  $rrd_options .= " VDEF:d95thout=doutbits,5,PERCENT";
+  $rrd_options .= " CDEF:pout_tmp=doutbits,-1,* VDEF:dpout_tmp=pout_tmp,95,PERCENT CDEF:dpout_tmp2=doutbits,doutbits,-,dpout_tmp,-1,*,+ VDEF:d95thout=dpout_tmp2,FIRST";
 
-  if ($_GET['previous'] == "yes")
+  if ($vars['previous'] == "yes")
   {
     $in_thingX  = implode(',', $rrd_multi['in_thingX']);
     $out_thingX = implode(',', $rrd_multi['out_thingX']);
@@ -72,7 +72,7 @@ if ($i)
     $rrd_options .= " CDEF:doutbitsX=doutoctetsX,8,*";
     $rrd_options .= " VDEF:95thinX=inbitsX,95,PERCENT";
     $rrd_options .= " VDEF:95thoutX=outbitsX,95,PERCENT";
-    $rrd_options .= " VDEF:d95thoutX=doutbitsX,5,PERCENT";
+    $rrd_options .= " CDEF:poutX_tmp=doutbitsX,-1,* VDEF:dpoutX_tmp=poutX_tmp,95,PERCENT CDEF:dpoutX_tmp2=doutbitsX,doutbitsX,-,dpoutX_tmp,-1,*,+ VDEF:d95thoutX=dpoutX_tmp2,FIRST";
   }
 
   if ($legend == 'no' || $legend == '1')
@@ -100,7 +100,7 @@ if ($i)
   $rrd_options .= " LINE1:95thin#aa0000";
   $rrd_options .= " LINE1:d95thout#aa0000";
 
-  if ($_GET['previous'] == "yes")
+  if ($vars['previous'] == "yes")
   {
     $rrd_options .= " AREA:inbitsX#9999966:";
     $rrd_options .= " AREA:doutbitsX#99999966:";

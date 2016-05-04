@@ -6,7 +6,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -41,3 +41,5 @@ $hardware     = $data['ruckusZDSystemModel'];
 $version      = $data['ruckusZDSystemVersion'];
 
 unset ($data);
+
+// EOF

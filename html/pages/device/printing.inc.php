@@ -6,12 +6,14 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-echo('<table class="table table-condensed table-striped">');
+echo generate_box_open();
+
+echo('<table class="table table-condensed table-striped  table-striped">');
 
 $graph_title = "Toner";
 $graph_type = "device_toner";
@@ -19,6 +21,16 @@ $graph_type = "device_toner";
 include("includes/print-device-graph.php");
 
 unset($graph_array);
+
+echo '</table>';
+
+echo generate_box_close();
+
+print_toner_table($vars);
+
+echo generate_box_open();
+
+echo('<table class="table table-condensed table-striped  table-striped">');
 
 if (get_dev_attrib($device, "pagecount_oid"))
 {
@@ -77,6 +89,8 @@ if (get_dev_attrib($device, "wastebox_oid"))
 
 echo('</table>');
 
+echo generate_box_close();
+
 $page_title[] = "Printing";
 
-?>
+// EOF

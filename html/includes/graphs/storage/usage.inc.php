@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -21,8 +21,6 @@ $rrd_options .= " -b 1024";
 $iter = "1";
 
 $rrd_options .= " COMMENT:'                    Size      Free   % Used\\n'";
-
-$hostname = get_device_by_device_id($storage['device_id']);
 
 $colour = "CC0000";
 $colour_area = "ffaaaa";

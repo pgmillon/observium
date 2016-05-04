@@ -3,25 +3,27 @@
 --
 -- Description:The mib file is for management of huawei RIP extension
 -- Reference:
--- Version: V1.0
+-- Version: V1.02
 -- History:
 -- 2006.5.18, publish
+-- 2014.5.28, modified
 -- ================================================================
 
     HUAWEI-RIPV2-EXT-MIB DEFINITIONS ::= BEGIN
         IMPORTS
                    hwDatacomm
                      FROM HUAWEI-MIB
-                   OBJECT-GROUP, MODULE-COMPLIANCE, NOTIFICATION-GROUP           
+                   OBJECT-GROUP, MODULE-COMPLIANCE, NOTIFICATION-GROUP         
                 	 FROM SNMPv2-CONF
-                   Integer32, Counter64, OBJECT-TYPE, MODULE-IDENTITY                  
+                   Integer32, Unsigned32, Counter64, OBJECT-TYPE, MODULE-IDENTITY, 
+                   NOTIFICATION-TYPE               
                      FROM SNMPv2-SMI
                    RowStatus, DisplayString
                      FROM SNMPv2-TC; 
                     
 -- 1.3.6.1.4.1.2011.5.25.120
     hwRipv2Ext MODULE-IDENTITY
-        LAST-UPDATED "200605261430Z"        -- November 29, 2002 at 09:00 GMT
+        LAST-UPDATED "201409180930Z"        -- Sept 18, 2014 at 09:30 GMT
         ORGANIZATION
             "Huawei Technologies Co.,Ltd."
         CONTACT-INFO
@@ -40,7 +42,21 @@
             RIP can support many processes, but mib can support only one of
         them. To get more RIP configuration, it is required to locate one 
         specified RIP process. "
+--  Revision history
+        REVISION     "201409180930Z"
+        DESCRIPTION
+                                " Modified HwRip2ProcInstEntry sequence, extra comma is removed."
+
+        REVISION     "201405281430Z"
+        DESCRIPTION  "V.1.01, Added below nodes in hwRip2Ext 
+	            	hwRip2Notifications 
+	            	   hwRip2DBOverFlow 
+	            	   hwRip2DBOverFlowResume
+                hwRip2DBLimit and hwRip2DBThresholdLevel  as parameters for 
+                hwRip2DBOverFlow and hwRip2DBOverFlowResume respectively."
         ::= { hwDatacomm 120 }
+        
+
 
 
 -- RIP Process-Instance Private Table
@@ -69,7 +85,11 @@
             hwRip2VrfName
                 OCTET STRING,
             hwRip2CurrentProcId
-                Integer32
+                Integer32,
+            hwRip2DBLimit
+                Unsigned32,
+            hwRip2DBThresholdLevel
+                OCTET STRING
             }
 
     hwRip2ProcessId OBJECT-TYPE
@@ -96,12 +116,60 @@
            "The current process id for which processing is being
             done."
        ::= { hwRip2ProcInstEntry 3 }      
+           
+   hwRip2DBLimit OBJECT-TYPE
+        SYNTAX   Unsigned32 ( 1..200000 )
+        MAX-ACCESS   accessible-for-notify
+        STATUS   current
+        DESCRIPTION
+           "Maximum number of routes that can be added to RIP database.
+           When this limit is reached, the RIP process will be suspended and hwRip2DBOverFlow notification will be sent."
+       ::= { hwRip2ProcInstEntry 4 } 
+     
+   hwRip2DBThresholdLevel OBJECT-TYPE
+        SYNTAX   OCTET STRING (SIZE(1..8))
+        MAX-ACCESS   accessible-for-notify
+        STATUS   current
+        DESCRIPTION
+           "RIP database threshold value in percentage(%). 
+            This is used only for RIP notifications."
+       ::= { hwRip2ProcInstEntry 5 } 
+
 -- conformance information
 
-hwRip2Conformance OBJECT IDENTIFIER ::= { hwRipv2Ext 2 }
-hwRip2Groups      OBJECT IDENTIFIER ::= { hwRip2Conformance 1 }
-hwRip2Compliances OBJECT IDENTIFIER ::= { hwRip2Conformance 2 }
+hwRip2Conformance   OBJECT IDENTIFIER ::= { hwRipv2Ext 2 }
+hwRip2Notifications OBJECT IDENTIFIER ::= { hwRipv2Ext 3 }
+hwRip2Groups        OBJECT IDENTIFIER ::= { hwRip2Conformance 1 }
+hwRip2Compliances   OBJECT IDENTIFIER ::= { hwRip2Conformance 2 }
 
+-- Notification definitions   
+
+hwRip2DBOverFlow NOTIFICATION-TYPE 
+    OBJECTS { hwRip2CurrentProcId,  --  The RIP process id
+              hwRip2DBLimit  -- Maximum number of routes added to RIP database                    
+           } 
+        STATUS       current 
+        DESCRIPTION 
+           "A hwRip2DBOverFlow notification signifies that there 
+           has been maximum number of routes added to RIP database for
+           the given process and no more routes can be added to RIP by
+           redistibution or by learning.
+ 
+           This notification should be generated when the number of routes
+           added to RIP database reaches maximum value. RIP process will be suspended at this state." 
+        ::= { hwRip2Notifications 1 }     
+
+hwRip2DBOverFlowResume NOTIFICATION-TYPE 
+    OBJECTS { hwRip2CurrentProcId,  --  The RIP process id
+              hwRip2DBLimit,  -- Maximum number of routes added to RIP database  
+              hwRip2DBThresholdLevel -- Threshold value at which the process recovers from overflow    
+           } 
+        STATUS       current 
+        DESCRIPTION 
+           "A hwRip2DBOverFlowResume notification signifies that the RIP database size has dropped to the
+            lower threshold. RIP process will resume it's normal operation." 
+        ::= { hwRip2Notifications 2 }          
+ 
 -- compliance statements
 
 hwRip2Compliance MODULE-COMPLIANCE
@@ -112,16 +180,35 @@ hwRip2Compliance MODULE-COMPLIANCE
 
    MODULE  -- this module
    MANDATORY-GROUPS { hwRip2ExtGroup }
+   
+   GROUP           hwRip2NotificationsGroup
+   DESCRIPTION
+       "This group is required for RIP systems that
+       support RIP notifications."
 
    ::= { hwRip2Compliances 1 }
 
 -- units of conformance
 
 hwRip2ExtGroup OBJECT-GROUP
-    OBJECTS { hwRip2VrfName, hwRip2CurrentProcId
-    }
+    OBJECTS {
+                        hwRip2VrfName, 
+                        hwRip2CurrentProcId ,
+                        hwRip2DBLimit ,
+                        hwRip2DBThresholdLevel 
+                       }
     STATUS  current
     DESCRIPTION
        "The HUAWEI RIPv2 extension Table."
     ::= { hwRip2Groups 2 }
+
+hwRip2NotificationsGroup NOTIFICATION-GROUP 
+            NOTIFICATIONS   { 
+                            hwRip2DBOverFlow, 
+                            hwRip2DBOverFlowResume 
+                            } 
+            STATUS          current 
+            DESCRIPTION 
+                "This group is used for RIP notifications" 
+            ::= { hwRip2Groups 3 }
 END

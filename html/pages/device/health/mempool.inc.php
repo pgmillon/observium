@@ -6,68 +6,36 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-$graph_type = "mempool_usage";
-
-echo("<div style='margin-top: 5px; padding: 0px;'>");
-echo('<table class="table table-striped-two table-condensed table-bordered">');
-
-echo("<thead><tr>
-        <th>Memory Pool</th>
-        <th>History</th>
-        <th>Usage</th>
-        <th>Used</th>
-      </tr></thead>");
-
-$sql  = "SELECT *, `mempools`.mempool_id as mempool_id";
-$sql .= " FROM  `mempools`";
-$sql .= " LEFT JOIN  `mempools-state` ON  `mempools`.mempool_id =  `mempools-state`.mempool_id";
-$sql .= " WHERE `device_id` = ?";
-
-foreach (dbFetchRows($sql, array($device['device_id'])) as $mempool)
+if(device_permitted($device))
 {
-  $text_descr = rewrite_entity_name($mempool['mempool_descr']);
 
-  $mempool_url   = "graphs/id=".$mempool['mempool_id']."/type=".$graph_type;
-  $mini_url = "graph.php?id=".$mempool['mempool_id']."&amp;type=".$graph_type."&amp;from=".$config['time']['day']."&amp;to=".$config['time']['now']."&amp;width=80&amp;height=20&amp;bg=f4f4f4";
+  // Only show aggregate graph if we have access to the entire device.
 
-  $mempool_popup  = "onmouseover=\"return overlib('<div class=entity-title>".$device['hostname']." - ".$text_descr;
-  $mempool_popup .= "</div><img src=\'graph.php?id=" . $mempool['mempool_id'] . "&amp;type=".$graph_type."&amp;from=".$config['time']['month']."&amp;to=".$config['time']['now']."&amp;width=400&amp;height=125\'>";
-  $mempool_popup .= "', RIGHT".$config['overlib_defaults'].");\" onmouseout=\"return nd();\"";
+  echo '<div class="box box-solid">';
 
-  $total = formatStorage($mempool['mempool_total']);
-  $used = formatStorage($mempool['mempool_used']);
-  $free = formatStorage($mempool['mempool_free']);
+  echo('<table class="table table-condensed table-striped table-hover ">');
 
-  $perc = round($mempool['mempool_used'] / $mempool['mempool_total'] * 100);
+  $graph_title = nicecase($vars['metric']);
+  $graph_array['type'] = "device_".$vars['metric'];
+  $graph_array['device'] = $device['device_id'];
+  $graph_array['legend'] = no;
 
-  $background = get_percentage_colours($percent);
-  $right_background = $background['right'];
-  $left_background  = $background['left'];
-
-  echo("<tr><td><a class='entity-title' href='".$mempool_url."' $mempool_popup>" . $text_descr . "</a></td>
-           <td width=90><a href='".$mempool_url."'  $mempool_popup><img src='$mini_url'></a></td>
-           <td width=200><a href='".$mempool_url."' $mempool_popup>
-           ".print_percentage_bar (400, 20, $perc, "$used / $total", "ffffff", $left_background, $free , "ffffff", $right_background)."
-            </a></td>
-            <td width=50>".$perc."%</td>
-         </tr>");
-
-  echo("<tr><td colspan=5>");
-
-  $graph_array['id'] = $mempool['mempool_id'];
-  $graph_array['type'] = $graph_type;
-
+  echo('<tr><td>');
+  echo('<h3>' . $graph_title . '</h3>');
   print_graph_row($graph_array);
+  echo('</td></tr>');
 
-  echo("</td></tr>");
+  echo('</table>');
+
+  echo '</div>';
+
 }
 
-echo("</table>");
-echo("</div>");
+print_mempool_table($vars);
 
 // EOF

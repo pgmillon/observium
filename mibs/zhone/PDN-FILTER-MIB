@@ -1,0 +1,1557 @@
+PDN-FILTER-MIB DEFINITIONS ::= BEGIN
+
+-- Version :  1.1 PROPOSED 
+-- Enterprise filter mib
+-- Copyright (C) 2000 Paradyne Corporation.
+
+-- Created by : Prakash Easwar
+
+--  CHANGE HISTORY
+--
+--  04/27/00 Prakash Easwar
+--  1) Top level oid changes
+--  2) added support for filter injection traps (moved the ones that
+--     were deprecated from hot_xdsl.mib to this mib
+--
+-- 11/13/01 Dragana Gough
+--  1) Added common filter configuration table for ethernet and ip
+--     filters (sysDevFilterConfigTable) that looks similar to
+--     sysDevIpFilterConfigTable. Added object Type.
+-- 
+-- 11/15/01 Dragana Gough
+--  1) Added layer 2 filter rule table. Added common binding
+--     table and new scalar object for index next search.
+--
+-- 01/11/01 Dragana Gough
+-- 1) updated tables (Filter, rules and binding tables)
+--
+-- 07/30/02 Dragana Gough
+-- 1) Added new sysDevL3FilterRuleConfigTable
+--
+-- 08/14/02 Dragana Gough
+-- 1) Updated CHANGE HISTORY
+-- 2) Depricated sysDevIpFilterRuleConfigTable
+-- 3) Added (3) 'none' to sysDevL3FilterRuleSrcAddrAction
+--    and sysDevL3FilterRuleDestAddrAction
+-- 4) Changed sysDevL3FilterRuleName display string limit
+--    to 255 from 12
+-- 5) Added description to RuleName (unique name recommended)
+--    and SrcPortNum and DestPortNum (if out-range or in-range 
+--    CompType than this is start of range)
+-- 6) Added description to objects that provide Next RuleIndex and
+--    next FilterIndex
+--
+
+IMPORTS
+RowStatus,DisplayString
+  FROM SNMPv2-TC
+IpAddress, Counter
+  FROM RFC1155-SMI
+OBJECT-TYPE
+  FROM RFC-1212
+TRAP-TYPE
+  FROM RFC-1215
+ifIndex
+  FROM RFC1213-MIB
+VnidRange
+	FROM PDN-TC
+pdn-filter
+  FROM PDN-HEADER-MIB
+;
+
+sysDevFilterMIBObjects OBJECT IDENTIFIER ::= { pdn-filter 1 }
+sysDevFilterMIBTraps   OBJECT IDENTIFIER ::= { pdn-filter 2 }
+sysDevFilter OBJECT IDENTIFIER ::= { sysDevFilterMIBObjects 1 }
+sysDevIpFilter OBJECT IDENTIFIER ::= { sysDevFilterMIBObjects 2 }
+
+-- The filter group.
+
+-- IP Filter sub group.
+
+ sysDevIpFilterConfigTable OBJECT-TYPE
+   SYNTAX SEQUENCE OF SysDevIpFilterConfigTableEntry
+   ACCESS not-accessible
+   STATUS mandatory
+   DESCRIPTION
+     "This table allows the user to configure filtering information.
+      Every filter is comprised of a number of rules(see SysDevRuleTable).
+	  When a filter is bound to an interface, all the rules of that particular
+      filter apply to that particular interface. Also the same filter
+      maybe bound to several interfaces. This table only allows
+      us to configure information about a particular filter.
+      this table is indexed by sysDevIpFilterName." 
+    ::= { sysDevIpFilter 1 }
+
+sysDevIpFilterConfigTableEntry OBJECT-TYPE
+   SYNTAX SysDevIpFilterConfigTableEntry
+   ACCESS not-accessible
+   STATUS mandatory
+   DESCRIPTION
+     "Describes a specific entry of the filter configuration table."
+   INDEX { sysDevIpFilterName }
+    ::= { sysDevIpFilterConfigTable 1 }
+
+ SysDevIpFilterConfigTableEntry ::=
+   SEQUENCE {
+     sysDevIpFilterName       		   DisplayString,
+     sysDevIpDefFilterAction   		   INTEGER,
+     sysDevIpFilterNumOfDynamicRules       INTEGER,
+     sysDevIpFilterNumOfStaticRules        INTEGER,
+     sysDevIpFilterRefCount	           INTEGER,
+	 sysDevIpFilterTcpAckFilterAction  INTEGER,
+	 sysDevIpFilterDhcpFilterAction	   INTEGER,
+     sysDevIpFilterRowStatus		   RowStatus
+	}
+
+ sysDevIpFilterName OBJECT-TYPE
+   SYNTAX  DisplayString (SIZE(1..12))
+   ACCESS read-only
+   STATUS mandatory
+   DESCRIPTION
+     "The value of this object corresponds directly to the name
+     of the filter."
+ ::= { sysDevIpFilterConfigTableEntry 1 }
+
+ sysDevIpDefFilterAction OBJECT-TYPE
+   SYNTAX INTEGER {
+     forward (1),
+     discard (2),
+     delete (3)
+   }
+   ACCESS read-write
+   STATUS mandatory
+   DESCRIPTION
+     "The value of this object corresponds to the  default action
+      taken on a particular IP packet based on the filter rule.
+      forward - the packet is forwarded
+        discard - the packet is discarded.
+        delete - the rule of a particular filter or the 
+        filter as a whole is deleted."
+ ::= { sysDevIpFilterConfigTableEntry 2 }
+
+ sysDevIpFilterNumOfDynamicRules OBJECT-TYPE
+   SYNTAX INTEGER
+   ACCESS read-only
+   STATUS mandatory
+   DESCRIPTION
+     "This object corresponds to the number of dynamic rules 
+      configured for this filter"
+ ::= { sysDevIpFilterConfigTableEntry 3 }
+ 
+ sysDevIpFilterNumOfStaticRules OBJECT-TYPE
+   SYNTAX INTEGER
+   ACCESS read-only
+   STATUS mandatory
+   DESCRIPTION
+     "This object corresponds to the number of static rules 
+      configured for this filter"
+ ::= { sysDevIpFilterConfigTableEntry 4 }
+ 
+ sysDevIpFilterRefCount OBJECT-TYPE
+   SYNTAX INTEGER
+   ACCESS read-only
+   STATUS mandatory
+   DESCRIPTION
+     "This object corresponds to the number of 
+      references for this filter by the various 
+      interfaces of the system
+      For Example if filter 'abc' is bound to
+      two of the DSL interfaces as input filters. then
+      the reference count for this filter is 2.
+      if a filter 'def' is bound to the 10BaseT interface
+      as both an input and an output filter. The reference count
+      for this filter would be 2. Filters can be deleted from the
+      system (by a user) only if the reference count equals 0"
+ ::= { sysDevIpFilterConfigTableEntry 5 }
+
+ sysDevIpFilterTcpAckFilterAction OBJECT-TYPE
+ SYNTAX INTEGER {
+	 forward (1),
+	 discard (2),
+	 noOp (3)
+  }
+ ACCESS read-write
+ STATUS mandatory
+ DESCRIPTION
+	"The value of this object corresponds to the  default action
+	taken on the first TCP ACK packet of the TCP connection. This
+	object is not supported for MCC."
+ ::= { sysDevIpFilterConfigTableEntry 6 }
+
+ sysDevIpFilterDhcpFilterAction OBJECT-TYPE
+ SYNTAX INTEGER {
+	 forward (1),
+	 discard (2),
+	 noOp (3)
+ }
+ ACCESS read-write
+ STATUS mandatory
+ DESCRIPTION
+	"The value of this object corresponds to the  default action
+	taken on the DHCP transaction messages. This object is not supported
+	for mcc."
+ ::= { sysDevIpFilterConfigTableEntry 7 }
+
+ sysDevIpFilterRowStatus OBJECT-TYPE
+    SYNTAX RowStatus 
+    ACCESS read-write
+    STATUS mandatory
+    DESCRIPTION
+        "The object is used to add or delete a row from
+         this table." 
+ ::= { sysDevIpFilterConfigTableEntry 8 }
+
+ sysDevIpFilterRuleConfigTable OBJECT-TYPE
+   SYNTAX SEQUENCE OF SysDevIpFilterRuleConfigTableEntry
+   ACCESS not-accessible
+   STATUS deprecated
+   DESCRIPTION
+     "This table allows the user to configure the rules of each IP filter.
+	 When a filter is bound to an interface, all the rules of that particular 
+	 filter apply to that particular interface. Also, the same filter may be
+	 found to several interfaces. This table is indexed by
+	 sysDevIpFilterName and sysDevIpFilterRuleNumber."
+    ::= { sysDevIpFilter 2 }
+
+sysDevIpFilterRuleConfigTableEntry OBJECT-TYPE
+   SYNTAX SysDevIpFilterRuleConfigTableEntry
+   ACCESS not-accessible
+   STATUS deprecated
+   DESCRIPTION
+     "Describes a specific entry of the filter rule configuration table."
+   INDEX { sysDevIpRuleFilterName, sysDevIpFilterRuleNumber }
+    ::= { sysDevIpFilterRuleConfigTable 1 }
+
+ SysDevIpFilterRuleConfigTableEntry ::=
+   SEQUENCE {
+     sysDevIpRuleFilterName    		    DisplayString (SIZE(1..12)),
+     sysDevIpFilterRuleNumber    		INTEGER,
+     sysDevIpFilterRuleSrcAddress    	IpAddress,
+     sysDevIpFilterRuleSrcAddrMask   	IpAddress,
+	 sysDevIpFilterRuleSrcAddrCompEnable	INTEGER,
+     sysDevIpFilterRuleSrcPortNum    	INTEGER,
+     sysDevIpFilterRuleMaxSrcPortNum 	INTEGER,
+     sysDevIpFilterRuleSrcCompType   	INTEGER,
+     sysDevIpFilterRuleDestAddress   	IpAddress,
+     sysDevIpFilterRuleDestAddrMask   	IpAddress,
+	 sysDevIpFilterRuleDestAddrCompEnable	INTEGER,
+     sysDevIpFilterRuleDestPortNum    	INTEGER,
+     sysDevIpFilterRuleMaxDestPortNum 	INTEGER,
+     sysDevIpFilterRuleDestCompType  	INTEGER,
+     sysDevIpFilterRuleType            	INTEGER,
+     sysDevIpFilterRuleProtocolTypeUdp  INTEGER,
+     sysDevIpFilterRuleProtocolTypeTcp  INTEGER,
+     sysDevIpFilterRuleProtocolTypeIcmp INTEGER,
+     sysDevIpFilterRuleRowStatus 		RowStatus
+   }
+
+ sysDevIpRuleFilterName OBJECT-TYPE
+   SYNTAX  DisplayString (SIZE(1..12))
+   ACCESS read-only
+   STATUS deprecated
+   DESCRIPTION
+     "The value of this object corresponds directly to the name
+     of the filter."
+ ::= { sysDevIpFilterRuleConfigTableEntry 1 }
+
+ sysDevIpFilterRuleNumber OBJECT-TYPE
+   SYNTAX INTEGER (1..33)
+   ACCESS read-only
+   STATUS deprecated
+   DESCRIPTION
+     "The value of this object corresponds directly to a rule 
+      within a particular filter. If the value of this object
+      is 0, then the sets apply to the filter as a whole. For
+      example one may want to delete the whole filter. for
+      a get only the name of the filter is returned."
+   ::= { sysDevIpFilterRuleConfigTableEntry 2 }
+
+ sysDevIpFilterRuleSrcAddress OBJECT-TYPE
+   SYNTAX IpAddress
+   ACCESS read-write
+   STATUS deprecated
+   DESCRIPTION
+     "The value of this object corresponds directly to an source
+      IP Address. This object could be set if IP packets need to be
+      filtered based on where it is coming from. Setting this object
+	  to 0.0.0.0 disables source IP address comparison."
+   ::= { sysDevIpFilterRuleConfigTableEntry 3 }
+
+ sysDevIpFilterRuleSrcAddrMask OBJECT-TYPE
+   SYNTAX IpAddress
+   ACCESS read-write
+   STATUS deprecated
+   DESCRIPTION
+     "The value of this object corresponds directly to an source
+      IP Address Mask. The value of this object is bitwise anded
+      with the source address within the IP packet and then compared
+      with the sysDevIPFilterSrcAddress."
+   ::= { sysDevIpFilterRuleConfigTableEntry 4 }
+
+ sysDevIpFilterRuleSrcAddrCompEnable OBJECT-TYPE
+   SYNTAX INTEGER {
+	enable (1),
+	disable (2),
+	noOp (3)
+	}
+   ACCESS read-write
+   STATUS deprecated
+   DESCRIPTION
+      "This object enables or disables the source address comparison.
+	  It is not supported for MCC."
+   ::= { sysDevIpFilterRuleConfigTableEntry 5 }
+
+ sysDevIpFilterRuleSrcPortNum OBJECT-TYPE
+   SYNTAX INTEGER (0..65535)
+   ACCESS read-write
+   STATUS deprecated
+   DESCRIPTION
+     "The UDP or TCP port number of the source on which this filter 
+      is applied."
+   ::= { sysDevIpFilterRuleConfigTableEntry 6 }
+
+ sysDevIpFilterRuleMaxSrcPortNum OBJECT-TYPE
+   SYNTAX INTEGER (0..65535)
+   ACCESS read-write
+   STATUS deprecated
+   DESCRIPTION
+     "The maximum UDP or TCP port number of the source on which
+      this filter is applied. This object is valid only if the source 
+      comparison type is in-range or out-range"
+   ::= { sysDevIpFilterRuleConfigTableEntry 7 }
+
+ sysDevIpFilterRuleSrcCompType OBJECT-TYPE
+   SYNTAX INTEGER {
+     none (1),
+     eq (2),
+     neq (3),
+     gt (4),
+     lt (5),
+     inRange (6),
+     outRange (7)
+   }
+   ACCESS read-write
+   STATUS deprecated
+   DESCRIPTION
+     "The value of this object corresponds to the type of
+      comparison which is to be made for source based filtering 
+      for the particular rule of the filter.
+        none - no comparison is to be made.
+        eq - equal to
+        neq - not equal to
+        gt - greater than
+        lt - less than
+        inRange - the source port number of the TCP or UDP packet
+                  is within a specified range.
+        outRange - the source port number of the TCP or UDP packet
+                   lies outside a specified range."
+   ::= { sysDevIpFilterRuleConfigTableEntry 8 }
+
+ sysDevIpFilterRuleDestAddress OBJECT-TYPE
+   SYNTAX IpAddress
+   ACCESS read-write
+   STATUS deprecated
+   DESCRIPTION
+     "The value of this object corresponds directly to an destination
+      IP Address. This object could be set if IP packets need to be
+      filtered based on where it is going to."
+   ::= { sysDevIpFilterRuleConfigTableEntry 9 }
+
+ sysDevIpFilterRuleDestAddrMask OBJECT-TYPE
+   SYNTAX IpAddress
+   ACCESS read-write
+   STATUS deprecated
+   DESCRIPTION
+     "The value of this object corresponds directly to an destination
+      IP Address Mask. The value of this object is bitwise anded
+      with the destination address within the IP packet and then compared
+      with the sysDevIPFilterRuleDestAddress"
+   ::= { sysDevIpFilterRuleConfigTableEntry 10 }
+
+ sysDevIpFilterRuleDestAddrCompEnable OBJECT-TYPE
+   SYNTAX INTEGER {
+	enable (1),
+	disable (2),
+	noOp (3)
+	}
+   ACCESS read-write
+   STATUS deprecated
+   DESCRIPTION
+      "This object enables or disables the destination address comparison.
+	  It is not supported for MCC."
+   ::= { sysDevIpFilterRuleConfigTableEntry 11 }
+
+ sysDevIpFilterRuleDestPortNum OBJECT-TYPE
+   SYNTAX INTEGER (0..65535)
+   ACCESS read-write
+   STATUS deprecated
+   DESCRIPTION
+     "The UDP or TCP port number of the destination on which this filter 
+      is applied"
+   ::= { sysDevIpFilterRuleConfigTableEntry 12 }
+
+ sysDevIpFilterRuleMaxDestPortNum OBJECT-TYPE
+   SYNTAX INTEGER (0..65535)
+   ACCESS read-write
+   STATUS deprecated
+   DESCRIPTION
+     "The maximum UDP or TCP port number of the destination on which
+      this filter is applied. This object is valid only if the destination
+      comparison type is in-range or out-range"
+   ::= { sysDevIpFilterRuleConfigTableEntry 13 }
+
+ sysDevIpFilterRuleDestCompType OBJECT-TYPE
+   SYNTAX INTEGER {
+     none (1),
+     eq (2),
+     neq (3),
+     gt (4),
+     lt (5),
+     inRange (6),
+     outRange (7)
+   }
+   ACCESS read-write
+   STATUS deprecated
+  DESCRIPTION
+    "The value of this object corresponds to the type of
+     comparison which is to be made for destination based filtering 
+     for the particular rule of the filter.
+       none - no comparison is to be made.
+       eq - equal to
+       neq - not equal to
+       gt - greater than
+       lt - less than
+       inRange - the source port number of the TCP or UDP packet
+                 is within a specified range.
+       outRange - the source port number of the TCP or UDP packet
+                  lies outside a specified range."
+   ::= { sysDevIpFilterRuleConfigTableEntry 14 }
+
+ sysDevIpFilterRuleType OBJECT-TYPE
+   SYNTAX INTEGER {
+     static (1),
+     dynamic (2)
+   }
+   ACCESS read-only
+   STATUS deprecated
+   DESCRIPTION
+     "The value of this object corresponds to the type of
+      type of rule configured
+           static - This indicates that the rule was configured
+                    by an NMS either by SNMP, console or using
+                    telnet
+           dynamic - this indicates that the rule was configured
+                    by the the system for end-users who have obtaimed
+                    an IP address using the DHCP protocol."
+   ::= { sysDevIpFilterRuleConfigTableEntry 15 }
+ 
+ sysDevIpFilterRuleProtocolTypeUdp OBJECT-TYPE
+   SYNTAX INTEGER {
+     forward (1),
+     discard (2)
+     }
+    ACCESS read-write
+    STATUS deprecated
+    DESCRIPTION
+      "The value of this object corresponds to the action
+      taken on a particular UDP packet based on the source/
+      destination port comparison rule."
+   ::= { sysDevIpFilterRuleConfigTableEntry 16 }
+ 
+ sysDevIpFilterRuleProtocolTypeTcp OBJECT-TYPE
+    SYNTAX INTEGER {
+        forward (1),
+        discard (2)
+    }
+    ACCESS read-write
+    STATUS deprecated
+    DESCRIPTION
+        "The value of this object corresponds to the action
+         taken on a particular TCP packet bases on the source/
+         destination port comparison rule."
+   ::= { sysDevIpFilterRuleConfigTableEntry 17 }
+ 
+ sysDevIpFilterRuleProtocolTypeIcmp OBJECT-TYPE
+    SYNTAX INTEGER {
+        forward (1),
+        discard (2)
+    }
+    ACCESS read-write
+    STATUS deprecated
+    DESCRIPTION
+        "The value of this object corresponds to the action
+         taken on a particular ICMP packet bases on the protocol
+         type comparison rule."
+   ::= { sysDevIpFilterRuleConfigTableEntry 18 }
+
+ sysDevIpFilterRuleRowStatus OBJECT-TYPE
+    SYNTAX RowStatus 
+    ACCESS read-write
+    STATUS deprecated
+    DESCRIPTION
+        "The object is used to add or delete a row from
+         this table." 
+   ::= { sysDevIpFilterRuleConfigTableEntry 19 }
+
+ sysDevMaxNumOfInputIpFilters OBJECT-TYPE
+   SYNTAX INTEGER
+   ACCESS read-only
+   STATUS mandatory
+   DESCRIPTION
+     "The value of this object corresponds directly to the max
+	 number of input IP filters supported by each device."
+ ::= { sysDevIpFilter 3 }
+
+ sysDevMaxNumOfOutputIpFilters OBJECT-TYPE
+   SYNTAX INTEGER
+   ACCESS read-only
+   STATUS mandatory
+   DESCRIPTION
+     "The value of this object corresponds directly to the max
+	 number of Output IP filters supported by each device."
+ ::= { sysDevIpFilter 4 }
+
+-- Filter Bindings
+
+ sysDevIpFilterBindingTable OBJECT-TYPE
+   SYNTAX SEQUENCE OF SysDevIpFilterBindingTableEntry
+   ACCESS not-accessible
+   STATUS mandatory
+   DESCRIPTION
+     "This table allows us to bind filters to a particular interface.
+      As such this table is doubly indexed by ifIndex and
+      sysDevIpBindingFilterName."
+ ::= { sysDevIpFilter 5 }
+ 
+ sysDevIpFilterBindingTableEntry OBJECT-TYPE
+   SYNTAX SysDevIpFilterBindingTableEntry
+   ACCESS not-accessible
+   STATUS mandatory
+   DESCRIPTION
+     "Describes a specific entry of the filter binding table."
+   INDEX { ifIndex, sysDevIpBindingFilterName }
+ ::= { sysDevIpFilterBindingTable 1 }
+ 
+ SysDevIpFilterBindingTableEntry ::=
+   SEQUENCE {
+	 sysDevIpBindingFilterName			DisplayString (SIZE(1..12)),
+     sysDevIpBindingFilterType          INTEGER,
+     sysDevIpBindingFilterRowStatus     RowStatus
+   }
+ 
+ sysDevIpBindingFilterName OBJECT-TYPE
+   SYNTAX  DisplayString (SIZE(1..12))
+   ACCESS read-only
+   STATUS mandatory
+   DESCRIPTION
+     "The value of this object corresponds directly to the name
+     of the filter."
+ ::= { sysDevIpFilterBindingTableEntry 1 }
+
+ sysDevIpBindingFilterType OBJECT-TYPE
+   SYNTAX INTEGER {
+     inputFilter (1),
+     outputFilter (2),
+     inputOutputFilter (3)
+   }
+   ACCESS read-write
+   STATUS mandatory
+   DESCRIPTION
+     "The value of this object corresponds directly to the type
+      of the filter which needs to be bound to a particular interface.
+        inputFilter - This indicates that the filter is applied to the
+                      packets coming in to the interface.
+        outputFilter - this indicates that the filter is applied to
+                       packets going out the interface.
+        inputOutputFilter - this indicates that the filter is applied
+                       packets going out the interface and to packets
+                       coming in to the interface."
+ ::= { sysDevIpFilterBindingTableEntry 2 }
+ 
+ sysDevIpBindingFilterRowStatus OBJECT-TYPE
+   SYNTAX RowStatus 
+   ACCESS read-write
+   STATUS mandatory
+   DESCRIPTION
+     "This object is used to add or delete a row from this table."
+ ::= { sysDevIpFilterBindingTableEntry 3 }
+
+ -- Service Node Filter bindings
+
+ sysDevIpFilterSNBindingTable OBJECT-TYPE
+ SYNTAX SEQUENCE OF SysDevIpFilterSNBindingTableEntry
+ ACCESS not-accessible
+ STATUS mandatory
+ DESCRIPTION
+  "This table allows us to bind filters to a particular interface on
+   portcards.  This table is indexed by ifIndex, sysDevIpSNBindingVnidId
+   and sysDevIpSNBindingFilterName."
+ ::= { sysDevIpFilter 6 }
+
+ sysDevIpFilterSNBindingTableEntry OBJECT-TYPE
+ SYNTAX SysDevIpFilterSNBindingTableEntry
+ ACCESS not-accessible
+ STATUS mandatory
+ DESCRIPTION
+  "Describes a specific entry of the SNfilter binding table."
+ INDEX { ifIndex, sysDevIpSNBindingVnidId, sysDevIpSNBindingFilterName }
+ ::= { sysDevIpFilterSNBindingTable 1 }
+
+ SysDevIpFilterSNBindingTableEntry ::=
+ SEQUENCE {
+    sysDevIpSNBindingVnidId			   VnidRange,
+	sysDevIpSNBindingFilterName        DisplayString,
+	sysDevIpSNBindingFilterType        INTEGER,
+	sysDevIpSNBindingFilterRowStatus   RowStatus
+  }
+
+ sysDevIpSNBindingVnidId OBJECT-TYPE
+ SYNTAX  VnidRange
+ ACCESS  read-only
+ STATUS  mandatory
+ DESCRIPTION
+   "The VNID Id number of the virtual network to which this filter
+    is bound."
+ ::= { sysDevIpFilterSNBindingTableEntry 1 }
+
+ sysDevIpSNBindingFilterName OBJECT-TYPE
+ SYNTAX  DisplayString (SIZE(1..12))
+ ACCESS read-only
+ STATUS mandatory
+ DESCRIPTION
+	 "The value of this object corresponds directly to the name of the filter."
+ ::= { sysDevIpFilterSNBindingTableEntry 2 }
+
+ sysDevIpSNBindingFilterType OBJECT-TYPE
+ SYNTAX INTEGER {
+	inputFilter (1),
+    outputFilter (2),
+	inputOutputFilter (3)
+  }
+ ACCESS read-write
+ STATUS mandatory
+ DESCRIPTION
+   "The value of this object corresponds directly to the type
+   of the filter which needs to be bound to a particular interface.
+   inputFilter - This indicates that the filter is applied to the
+   packets coming in to the interface.
+   outputFilter - this indicates that the filter is applied to
+   packets going out the interface.
+   inputOutputFilter - this indicates that the filter is applied
+   packets going out the interface and to packets coming in to the interface."
+ ::= { sysDevIpFilterSNBindingTableEntry 3 }
+
+ sysDevIpSNBindingFilterRowStatus OBJECT-TYPE
+ SYNTAX RowStatus
+ ACCESS read-write
+ STATUS mandatory
+ DESCRIPTION
+   "This object is used to add or delete a row from this table."
+ ::= { sysDevIpFilterSNBindingTableEntry 4 }
+
+-- Filter Stats
+
+ sysDevIpInputPacketsFiltered OBJECT-TYPE
+   SYNTAX Counter
+   ACCESS read-only
+   STATUS mandatory
+   DESCRIPTION
+     "The number of IP packets that have been filtered on all the
+      incoming interfaces due to not matching programmed filter 
+      entries on interfaces that are activated for IP filtering.This
+	  is supported on MCC only"
+   ::= { sysDevIpFilter 7 }
+
+ sysDevIpOutputPacketsFiltered OBJECT-TYPE
+   SYNTAX Counter
+   ACCESS read-only
+   STATUS mandatory
+   DESCRIPTION
+     "The number of IP packets that have been filtered on all the
+      outgoing interfaces due to not matching programmed filter 
+      entries on interfaces that are activated for IP filtering.This
+	  is supported on MCC only"
+   ::= { sysDevIpFilter 8 }
+ 
+ -- The SNInjection group.
+
+sysDevSNInjectionType OBJECT-TYPE
+    SYNTAX  INTEGER {
+            ipFilter (1)
+    }
+    ACCESS  not-accessible
+    STATUS  mandatory
+    DESCRIPTION
+       "The value of this object corresponds to the remote
+        injection type"
+    ::= { sysDevFilter 1 }
+
+sysDevSNInjectionVnid OBJECT-TYPE
+    SYNTAX  VnidRange
+    ACCESS  not-accessible
+    STATUS  mandatory
+    DESCRIPTION
+       "This object corresponds to the vnid id
+        (bound to an interface) on which filter injection 
+		  is not supported or has failed"
+    ::= { sysDevFilter 2 }
+
+--*******************************************************************
+-- Common Filter sub group.
+-- Configure filter table
+-- Rule table
+-- Binding table
+--********************************************************************
+-- The sysDevFilterConfigTable is used to create new filters.
+-- To create new filter, filter index, filter name, type and 
+-- and default action are neccessary to be specified. Next the 
+-- user should create rules that will be attached to his filter. 
+-- To create rule user should use L2 or L3, L4 FilterRuleTable)
+-- depending on what type of rules user needs to create. To create
+-- L2 (layer two) rule user needs to specify rule index, rule name, 
+-- ether type (RFC 1700) and frame type that will be accepted. 
+-- The user should also configure what action should be taken if  
+-- the rule is matched to a frame. The ether type can be a range
+-- of hex numbers (2bytes) so range objects should be used. 
+-- Next the rule should be bound to one or more filters that are 
+-- created. This binding is done by using FilterToRule binding 
+-- table. This table is indexed by rule index and
+-- filter index. Next the filter-rule binding (completed filter) 
+-- should be bound to an interface by using FilterBindingTable. 
+-- This table is indexed by ifIndex (interface we want filter 
+-- bound to), filter index and direction that filter/rule 
+-- combination is applied to (inboudn, outbound and inboundoutbound).
+-- After this step the filter will take in effect and every 
+-- packet on this interface will be examined for rule or set of  
+-- rules that are bound to this filter. Filter should not be 
+-- bound to an interface if the rule is not bound to a filter.
+-- it can be done but the default action will take in effect 
+-- and every packet will be checked. The rule cannot be deleted  
+-- until all filter-rule bindings for this filter are deleted.
+-- The rule cannot be deleted until all filter-interface 
+-- bindings for this filter are disabled.
+--***************************************************************************************
+
+ sysDevFilterConfigTable OBJECT-TYPE
+   SYNTAX SEQUENCE OF SysDevFilterConfigTableEntry
+   ACCESS not-accessible
+   STATUS mandatory
+   DESCRIPTION
+     "This table allows the user to configure filtering information.
+      Every filter is comprised of a number of rules(see SysDevRuleTable).
+      When a filter is bound to an interface, all the rules of that particular
+      filter apply to that particular interface. Also the same filter
+      maybe bound to several interfaces. This table only allows
+      us to configure information about a particular filter.
+      this table is indexed by sysDevFilterName." 
+    ::= { sysDevFilter 3 }
+
+sysDevFilterConfigTableEntry OBJECT-TYPE
+   SYNTAX SysDevFilterConfigTableEntry
+   ACCESS not-accessible
+   STATUS mandatory
+   DESCRIPTION
+     "Describes a specific entry of the filter configuration table."
+   INDEX { sysDevFilterIndex }
+    ::= { sysDevFilterConfigTable 1 }
+
+ SysDevFilterConfigTableEntry ::=
+   SEQUENCE {
+     sysDevFilterIndex       		   INTEGER,
+     sysDevFilterName       		   DisplayString,
+     sysDevFilterType       		   INTEGER,
+     sysDevDefFilterAction   		   INTEGER,
+     sysDevFilterNumOfDynamicRules         INTEGER,
+     sysDevFilterNumOfStaticRules          INTEGER,
+     sysDevFilterRefCount		   INTEGER,
+     sysDevFilterRowStatus		   RowStatus
+	}
+
+ sysDevFilterIndex OBJECT-TYPE
+   SYNTAX  INTEGER
+   ACCESS read-only
+   STATUS mandatory
+   DESCRIPTION
+     "The value of this object is an index of the filter.
+      This object is used by sysDevFilterConfigTable to identify
+      the row in the table. When creating new row of this table
+      the value of this object may be obtained by retreiving the
+      value of sysDevFilterIndexNext."
+ ::= { sysDevFilterConfigTableEntry 1 }
+
+ sysDevFilterName OBJECT-TYPE
+   SYNTAX  DisplayString (SIZE(1..12))
+   ACCESS read-write
+   STATUS mandatory
+   DESCRIPTION
+     "The value of this object corresponds directly to the name
+     of the filter."
+ ::= { sysDevFilterConfigTableEntry 2 }
+
+
+ sysDevFilterType OBJECT-TYPE
+   SYNTAX  INTEGER { 
+       layer1 (1),
+       layer2       (2),
+       layer3       (3),
+       layer4       (4),
+       layer5       (5),
+       layer6       (6),
+       layer7       (7),
+       unknown  (8)
+       }
+   ACCESS read-write
+   STATUS mandatory
+   DESCRIPTION
+     "The value of this object corresponds directly to the type 
+     of the filter. Ethernet is layer 2 filter, Ip are layer 3 filters
+     (include layer 4 protocol filtering)."
+ ::= { sysDevFilterConfigTableEntry 3 }
+
+ sysDevDefFilterAction OBJECT-TYPE
+   SYNTAX INTEGER {
+     forward (1),
+     discard (2)
+   }
+   ACCESS read-write
+   STATUS mandatory
+   DESCRIPTION
+     "The value of this object corresponds to the  default action
+      taken on a particular IP packet based on the filter rule.
+      forward - the packet is forwarded
+        discard - the packet is discarded."
+ ::= { sysDevFilterConfigTableEntry 4 }
+
+ sysDevFilterNumOfDynamicRules OBJECT-TYPE
+   SYNTAX INTEGER
+   ACCESS read-only
+   STATUS mandatory
+   DESCRIPTION
+     "This object corresponds to the number of dynamic rules 
+      configured for this filter. Default is zero."
+ ::= { sysDevFilterConfigTableEntry 5 }
+ 
+ sysDevFilterNumOfStaticRules OBJECT-TYPE
+   SYNTAX INTEGER
+   ACCESS read-only
+   STATUS mandatory
+   DESCRIPTION
+     "This object corresponds to the number of static rules 
+      configured for this filter. Default is zero"
+ ::= { sysDevFilterConfigTableEntry 6 }
+ 
+ sysDevFilterRefCount OBJECT-TYPE
+   SYNTAX INTEGER
+   ACCESS read-only
+   STATUS mandatory
+   DESCRIPTION
+     "This object corresponds to the number of 
+      references for this filter by the various 
+      interfaces of the system
+      For Example if filter 'abc' is bound to
+      two of the DSL interfaces as inbound filter then
+      the reference count for this filter is 2.
+      Filters can be deleted from the 
+      system (by a user) only if the reference count equals 0.
+      (the filter is not bound to any interfaces). The default is 0."
+ ::= { sysDevFilterConfigTableEntry 7 }
+
+
+ sysDevFilterRowStatus OBJECT-TYPE
+    SYNTAX RowStatus 
+    ACCESS read-write
+    STATUS mandatory
+    DESCRIPTION
+        "The object is used to add or delete a row from
+         this table." 
+ ::= { sysDevFilterConfigTableEntry 8 }
+
+--####################################
+--#  Filter Layer2 rules 
+--####################################
+
+ sysDevL2FilterRuleConfigTable OBJECT-TYPE
+   SYNTAX SEQUENCE OF SysDevL2FilterRuleConfigTableEntry
+   ACCESS not-accessible
+   STATUS mandatory
+   DESCRIPTION
+     "This table allows the user to configure the rules of each IP filter.
+	 When a filter is bound to an interface, all the rules of that particular 
+	 filter apply to that particular interface. Also, the same filter may be
+	 found to several interfaces. This table is indexed by
+	 sysDevL2FilterRuleIndex."
+    ::= { sysDevFilter 4 }
+
+sysDevL2FilterRuleConfigTableEntry OBJECT-TYPE
+   SYNTAX SysDevL2FilterRuleConfigTableEntry
+   ACCESS not-accessible
+   STATUS mandatory
+   DESCRIPTION
+     "Describes a specific entry of the filter rule configuration table."
+   INDEX { sysDevL2FilterRuleIndex }
+    ::= { sysDevL2FilterRuleConfigTable 1 }
+
+ SysDevL2FilterRuleConfigTableEntry ::=
+   SEQUENCE {
+     sysDevL2FilterRuleIndex    		  INTEGER, 
+     sysDevL2FilterRuleName    		  DisplayString (SIZE(1..12)),
+     sysDevL2FilterRuleEtherFrameType       INTEGER,
+     sysDevL2FilterRuleEtherType            INTEGER,
+     sysDevL2FilterRuleEtherTypeRangeStarts INTEGER,
+     sysDevL2FilterRuleEtherTypeRangeEnds   INTEGER,
+     sysDevL2FilterRuleAction     	  INTEGER,
+     sysDevL2FilterRuleRowStatus            RowStatus
+   }
+
+ sysDevL2FilterRuleIndex OBJECT-TYPE
+   SYNTAX INTEGER
+   ACCESS read-only
+   STATUS mandatory
+   DESCRIPTION
+     "The value of this object is an index of the filter
+      rule table. This object is used by sysDevFilterConfigTable
+      to identify the row in the table. When creating new
+      row of this table the value of this object may be
+      obtained by retreiving the value of
+      sysDevL2FilterRuleIndexNext."
+ ::= { sysDevL2FilterRuleConfigTableEntry 1 }
+
+ sysDevL2FilterRuleName OBJECT-TYPE
+   SYNTAX  DisplayString (SIZE(1..12))
+   ACCESS read-write
+   STATUS mandatory
+   DESCRIPTION
+     "The value of this object corresponds directly to the name
+     of the rule."
+ ::= { sysDevL2FilterRuleConfigTableEntry 2 }
+
+ sysDevL2FilterRuleEtherFrameType OBJECT-TYPE 
+   SYNTAX INTEGER {
+		    dix(1),
+		    snap(2)
+		  }
+   ACCESS read-write
+   STATUS mandatory
+   DESCRIPTION
+      "This value descirbes if Ethernet frame types
+       defined that can be transmitted." 
+ ::= { sysDevL2FilterRuleConfigTableEntry 3 }
+   
+ sysDevL2FilterRuleEtherType OBJECT-TYPE 
+   SYNTAX INTEGER {
+		    range(1),
+		    singleType(2)
+		  }
+   ACCESS read-write
+   STATUS mandatory
+   DESCRIPTION
+      "This value descirbes if Ethernet types
+       defined in RFC1700 are specified as range
+       or one single type. It is possible to create
+       rule using a range of types and therefore
+       next object is added to create start of the range.This
+       object is the first in range and the value 
+       of it has to be smaller or equal to a hex 
+       Ethernet type value entered in
+       sysDevL2FilterRuleEtherTypeRangeEnds. 
+       If this object specifies that the value used
+       is a single type than
+       sysDevL2FilterRuleEtherTypeRangeEnds will
+       not be considered  valid."
+ ::= { sysDevL2FilterRuleConfigTableEntry 4 }
+   
+ sysDevL2FilterRuleEtherTypeRangeStarts OBJECT-TYPE 
+   SYNTAX INTEGER 
+   ACCESS read-write
+   STATUS mandatory
+   DESCRIPTION
+      "This value corresponds to Ethernet types
+       defined in RFC1700. It is possible to create
+       rule using a range of types and therefore
+       next object is added to create range. This
+       object is the first in range and the value 
+       of it has to be smaller or equal to a hex 
+       Ethernet type value entered next. If the
+       value of sysDevL2FilterRuleEtherType is singleType(2)
+       then only this value is considered."
+ ::= { sysDevL2FilterRuleConfigTableEntry 5 }
+   
+ sysDevL2FilterRuleEtherTypeRangeEnds   OBJECT-TYPE 
+   SYNTAX INTEGER
+   ACCESS read-write
+   STATUS mandatory
+   DESCRIPTION
+      "This value corresponds to Ethernet types
+       defined in RFC1700. It is possible to create
+       rule using a range of types and therefore
+       this object is added to create range. This
+       object is the second value in the range. The value 
+       of it has to be larger or equal to a hex 
+       Ethernet type value entered previously. This object
+       is not considered valid if the value
+       of sysDevL2FilterRuleEtherType is singleType(2)."
+ ::= { sysDevL2FilterRuleConfigTableEntry 6 }
+
+ sysDevL2FilterRuleAction   OBJECT-TYPE
+     SYNTAX INTEGER {
+	 forward (1),
+	 discard (2)
+	 }
+     ACCESS read-write
+     STATUS mandatory
+     DESCRIPTION
+	"The value of this object specify the action to
+	 be done if the rule is matched to a packet."
+ ::= { sysDevL2FilterRuleConfigTableEntry 7 }
+
+ sysDevL2FilterRuleRowStatus OBJECT-TYPE
+    SYNTAX RowStatus 
+    ACCESS read-write
+    STATUS mandatory
+    DESCRIPTION
+        "The object is used to add or delete a row from
+         this table." 
+ ::= { sysDevL2FilterRuleConfigTableEntry 8 }
+
+
+--####################################
+--#  Filter Layer3 rules 
+--####################################
+
+ sysDevL3FilterRuleConfigTable OBJECT-TYPE
+   SYNTAX SEQUENCE OF SysDevL3FilterRuleConfigTableEntry
+   ACCESS not-accessible
+   STATUS mandatory
+   DESCRIPTION
+     "This table allows the user to configure the rules for layer three filter.
+	 When a filter is bound to an interface, all the rules of that particular 
+	 filter apply to the specified interface. Also, the same filter may be
+	 bound to several interfaces. This table is indexed by
+	 sysDevL3FilterRuleIndex."
+    ::= { sysDevFilter 9 }
+
+sysDevL3FilterRuleConfigTableEntry OBJECT-TYPE
+   SYNTAX SysDevL3FilterRuleConfigTableEntry
+   ACCESS not-accessible
+   STATUS mandatory
+   DESCRIPTION
+     "Describes a specific entry of the filter rule configuration table."
+   INDEX { sysDevL3FilterRuleIndex }
+    ::= { sysDevL3FilterRuleConfigTable 1 }
+
+ SysDevL3FilterRuleConfigTableEntry ::=
+   SEQUENCE {
+     sysDevL3FilterRuleIndex    	INTEGER,
+     sysDevL3FilterRuleName    		DisplayString,
+     sysDevL3FilterRuleSrcAddress    	IpAddress,
+     sysDevL3FilterRuleSrcAddrMask   	IpAddress,
+     sysDevL3FilterRuleSrcAddrAction	INTEGER,
+     sysDevL3FilterRuleSrcPortNum    	INTEGER,
+     sysDevL3FilterRuleMaxSrcPortNum 	INTEGER,
+     sysDevL3FilterRuleSrcCompType   	INTEGER,
+     sysDevL3FilterRuleDestAddress   	IpAddress,
+     sysDevL3FilterRuleDestAddrMask   	IpAddress,
+     sysDevL3FilterRuleDestAddrAction	INTEGER,
+     sysDevL3FilterRuleDestPortNum    	INTEGER,
+     sysDevL3FilterRuleMaxDestPortNum 	INTEGER,
+     sysDevL3FilterRuleDestCompType  	INTEGER,
+     sysDevL3FilterRuleProtocolTypeUdp  INTEGER,
+     sysDevL3FilterRuleProtocolTypeTcp  INTEGER,
+     sysDevL3FilterRuleProtocolTypeIcmp INTEGER,
+     sysDevL3FilterRuleRowStatus 		RowStatus
+   }
+
+ sysDevL3FilterRuleIndex OBJECT-TYPE
+   SYNTAX INTEGER 
+   ACCESS read-only
+   STATUS mandatory
+   DESCRIPTION
+     "The value of this object is an index of the filter
+      rule table. This object is used by sysDevFilterConfigTable
+      to identify the row in the table. When creating new
+      row of this table the value of this object may be
+      obtained by retreiving the value of
+      sysDevL3FilterRuleIndexNext."
+   ::= { sysDevL3FilterRuleConfigTableEntry 1 }
+
+ sysDevL3FilterRuleName OBJECT-TYPE
+   SYNTAX  DisplayString 
+   ACCESS read-write
+   STATUS mandatory
+   DESCRIPTION
+     "The value of this object corresponds directly to the name
+     of the rule. It is highly recommended that the RuleName
+     be unique user friendly name."
+ ::= { sysDevL3FilterRuleConfigTableEntry 2 }
+
+
+ sysDevL3FilterRuleSrcAddress OBJECT-TYPE
+   SYNTAX IpAddress
+   ACCESS read-write
+   STATUS mandatory
+   DESCRIPTION
+     "The value of this object corresponds directly to a source
+      IP Address. This object could be set if IP packets need to be
+      filtered based on where it is coming from. Setting this object
+	  to 0.0.0.0 disables source IP address comparison."
+   ::= { sysDevL3FilterRuleConfigTableEntry 3 }
+
+ sysDevL3FilterRuleSrcAddrMask OBJECT-TYPE
+   SYNTAX IpAddress
+   ACCESS read-write
+   STATUS mandatory
+   DESCRIPTION
+     "The value of this object corresponds directly to an source
+      IP Address Mask. The value of this object is bitwise anded
+      with the source address within the IP packet." 
+   ::= { sysDevL3FilterRuleConfigTableEntry 4 }
+
+ sysDevL3FilterRuleSrcAddrAction OBJECT-TYPE
+   SYNTAX INTEGER {
+	forward (1),
+	discard (2),
+	none (3)
+	}
+   ACCESS read-write
+   STATUS mandatory
+   DESCRIPTION
+      "This object specifies action taken with the source address
+       filtering. If the selection allows any SrcAddr (effectively 
+       ignoring this filed) than 'none' (3) is valid choice for this
+       object."
+    ::= { sysDevL3FilterRuleConfigTableEntry 5 }
+
+ sysDevL3FilterRuleSrcPortNum OBJECT-TYPE
+   SYNTAX INTEGER 
+   ACCESS read-write
+   STATUS mandatory
+   DESCRIPTION
+     "The UDP or TCP port number of the source on which this filter 
+      is applied. This object is used as a start of range if
+      the source comparison type is in-range or out-range."
+   ::= { sysDevL3FilterRuleConfigTableEntry 6 }
+
+ sysDevL3FilterRuleMaxSrcPortNum OBJECT-TYPE
+   SYNTAX INTEGER
+   ACCESS read-write
+   STATUS mandatory
+   DESCRIPTION
+     "The maximum UDP or TCP port number of the source on which
+      this filter is applied. This object is valid only if the source 
+      comparison type is in-range or out-range"
+   ::= { sysDevL3FilterRuleConfigTableEntry 7 }
+
+ sysDevL3FilterRuleSrcCompType OBJECT-TYPE
+   SYNTAX INTEGER {
+     none (1),
+     eq (2),
+     neq (3),
+     gt (4),
+     lt (5),
+     inRange (6),
+     outRange (7)
+   }
+   ACCESS read-write
+   STATUS mandatory
+   DESCRIPTION
+     "The value of this object corresponds to the type of
+      comparison which is to be made for source based filtering 
+      for the particular rule of the filter.
+        none - no comparison is to be made.
+        eq - equal to
+        neq - not equal to
+        gt - greater than
+        lt - less than
+        inRange - the source port number of the TCP or UDP packet
+                  is within a specified range.
+        outRange - the source port number of the TCP or UDP packet
+                   lies outside a specified range."
+   ::= { sysDevL3FilterRuleConfigTableEntry 8 }
+
+ sysDevL3FilterRuleDestAddress OBJECT-TYPE
+   SYNTAX IpAddress
+   ACCESS read-write
+   STATUS mandatory
+   DESCRIPTION
+     "The value of this object corresponds directly to an destination
+      IP Address. This object could be set if IP packets need to be
+      filtered based on where it is going to."
+   ::= { sysDevL3FilterRuleConfigTableEntry 9 }
+
+ sysDevL3FilterRuleDestAddrMask OBJECT-TYPE
+   SYNTAX IpAddress
+   ACCESS read-write
+   STATUS mandatory
+   DESCRIPTION
+     "The value of this object corresponds directly to an destination
+      IP Address Mask. The value of this object is bitwise anded
+      with the destination address within the IP packet." 
+   ::= { sysDevL3FilterRuleConfigTableEntry 10 }
+
+ sysDevL3FilterRuleDestAddrAction OBJECT-TYPE
+   SYNTAX INTEGER {
+	forward (1),
+	discard (2),
+	none (3)
+	}
+   ACCESS read-write
+   STATUS mandatory
+   DESCRIPTION
+      "This object specifies action taken for destination address 
+       filtering. If the selection allows any DestAddr (effectively 
+       ignoring this filed) than 'none' (3) is valid choice for this
+       object."
+   ::= { sysDevL3FilterRuleConfigTableEntry 11 }
+
+ sysDevL3FilterRuleDestPortNum OBJECT-TYPE
+   SYNTAX INTEGER 
+   ACCESS read-write
+   STATUS mandatory
+   DESCRIPTION
+     "The UDP or TCP port number of the destination on which this filter 
+      is applied. This object is used as a start of range if
+      the source comparison type is in-range or out-range."
+   ::= { sysDevL3FilterRuleConfigTableEntry 12 }
+
+ sysDevL3FilterRuleMaxDestPortNum OBJECT-TYPE
+   SYNTAX INTEGER 
+   ACCESS read-write
+   STATUS mandatory
+   DESCRIPTION
+     "The maximum UDP or TCP port number of the destination on which
+      this filter is applied. This object is valid only if the destination
+      comparison type is in-range or out-range"
+   ::= { sysDevL3FilterRuleConfigTableEntry 13 }
+
+ sysDevL3FilterRuleDestCompType OBJECT-TYPE
+   SYNTAX INTEGER {
+     none (1),
+     eq (2),
+     neq (3),
+     gt (4),
+     lt (5),
+     inRange (6),
+     outRange (7)
+   }
+   ACCESS read-write
+   STATUS mandatory
+  DESCRIPTION
+    "The value of this object corresponds to the type of
+     comparison which is to be made for destination based filtering 
+     for the particular rule of the filter.
+       none - no comparison is to be made.
+       eq - equal to
+       neq - not equal to
+       gt - greater than
+       lt - less than
+       inRange - the source port number of the TCP or UDP packet
+                 is within a specified range.
+       outRange - the source port number of the TCP or UDP packet
+                  lies outside a specified range."
+   ::= { sysDevL3FilterRuleConfigTableEntry 14 }
+
+ 
+ sysDevL3FilterRuleProtocolTypeUdp OBJECT-TYPE
+   SYNTAX INTEGER {
+     forward (1),
+     discard (2),
+     none (3)
+     }
+    ACCESS read-write
+    STATUS mandatory
+    DESCRIPTION
+      "The value of this object corresponds to the action
+      taken on a particular UDP packet based on the source/
+      destination port comparison rule.
+      If the selection allows any Udp packet (effectively 
+      ignoring this filed) than 'none' (3) is valid choice for this
+      object."
+   ::= { sysDevL3FilterRuleConfigTableEntry 15 }
+ 
+ sysDevL3FilterRuleProtocolTypeTcp OBJECT-TYPE
+    SYNTAX INTEGER {
+        forward (1),
+        discard (2),
+	none (3)
+    }
+    ACCESS read-write
+    STATUS mandatory
+    DESCRIPTION
+        "The value of this object corresponds to the action
+         taken on a particular TCP packet bases on the source/
+         destination port comparison rule.
+         If the selection allows any Tcp packet (effectively 
+         ignoring this filed) than 'none' (3) is valid choice for this
+         object."
+   ::= { sysDevL3FilterRuleConfigTableEntry 16 }
+ 
+ sysDevL3FilterRuleProtocolTypeIcmp OBJECT-TYPE
+    SYNTAX INTEGER {
+        forward (1),
+        discard (2),
+	none (3)
+    }
+    ACCESS read-write
+    STATUS mandatory
+    DESCRIPTION
+        "The value of this object corresponds to the action
+         taken on a particular ICMP packet bases on the protocol
+         type comparison rule.
+         If the selection allows any Icmp packet (effectively 
+         ignoring this filed) than 'none' (3) is valid choice for this
+         object."
+   ::= { sysDevL3FilterRuleConfigTableEntry 17 }
+
+ sysDevL3FilterRuleRowStatus OBJECT-TYPE
+    SYNTAX RowStatus 
+    ACCESS read-write
+    STATUS mandatory
+    DESCRIPTION
+        "The object is used to add or delete a row from
+         this table." 
+   ::= { sysDevL3FilterRuleConfigTableEntry 18 }
+
+-- Filter Bindings
+
+ sysDevFilterBindingTable OBJECT-TYPE
+   SYNTAX SEQUENCE OF SysDevFilterBindingTableEntry
+   ACCESS not-accessible
+   STATUS mandatory
+   DESCRIPTION
+     "This table allows us to bind filters to a particular interface.
+      As such this table is indexed by ifIndex,
+      and by sysDevFilterBindingIndex."
+ ::= { sysDevFilter 5 }
+ 
+ sysDevFilterBindingTableEntry OBJECT-TYPE
+   SYNTAX SysDevFilterBindingTableEntry
+   ACCESS not-accessible
+   STATUS mandatory
+   DESCRIPTION
+     "Describes a specific entry of the filter binding table."
+   INDEX { ifIndex, sysDevFilterBindingIndex, sysDevFilterBindingDirection }
+ ::= { sysDevFilterBindingTable 1 }
+ 
+ SysDevFilterBindingTableEntry ::=
+   SEQUENCE {
+     sysDevFilterBindingIndex         INTEGER,  
+     sysDevFilterBindingDirection     INTEGER,
+     sysDevFilterBindingAdminStatus   INTEGER, 
+     sysDevFilterBindingOperStatus    INTEGER, 
+     sysDevFilterBindingRowStatus     RowStatus
+   }
+
+ sysDevFilterBindingIndex OBJECT-TYPE
+   SYNTAX INTEGER 
+   ACCESS read-only
+   STATUS mandatory
+   DESCRIPTION
+     "The value of this object corresponds directly to the 
+      filter index from sysDevFilterConfigTable."
+  ::= { sysDevFilterBindingTableEntry 1 }
+
+ sysDevFilterBindingDirection OBJECT-TYPE
+   SYNTAX INTEGER {
+     inboundFilter (1),
+     outboundFilter (2),
+     inboundOutboundFilter (3)
+   }
+   ACCESS read-only
+   STATUS mandatory
+   DESCRIPTION
+     "The value of this object corresponds directly to the type
+      of the filter which needs to be bound to a particular interface.
+        inboundFilter - This indicates that the filter is applied to the
+                      packets coming in to the interface.
+        outboundFilter - this indicates that the filter is applied to
+                       packets going out the interface.
+        inboundOutboundFilter - this indicates that the filter is applied
+                       packets going out the interface and to packets
+                       coming in to the interface."
+ ::= { sysDevFilterBindingTableEntry 2 }
+
+ sysDevFilterBindingAdminStatus OBJECT-TYPE
+   SYNTAX INTEGER { 
+		up (1),
+		down (2)
+	        } 
+   ACCESS read-write
+   STATUS mandatory
+   DESCRIPTION
+     "The value of this is used to configure admin status 
+      of filter binding. If admin status is up(1) that means
+      that the binding is active. If the status is down(2)
+      it means that this binding is inactive for specified
+      interface. If the filter is bound to more than one
+      interface the binings on the other interfaces will
+      have to be configured separately. To read this object
+      use sysDevFilterBindingOperStatus."
+ ::= { sysDevFilterBindingTableEntry 3 }
+ 
+ sysDevFilterBindingOperStatus OBJECT-TYPE
+   SYNTAX INTEGER { 
+		up (1),
+		down (2)
+	        } 
+   ACCESS read-write
+   STATUS mandatory
+   DESCRIPTION
+     "The value of this is used to read oper status 
+      of filter binding. If oper status is up(1) that means
+      that the binding is active. If the status is down(2)
+      it means that this binding is inactive for specified
+      interface. To configure this object
+      use sysDevFilterBindingAdminStatus."
+ ::= { sysDevFilterBindingTableEntry 4 }
+
+ sysDevFilterBindingRowStatus OBJECT-TYPE
+   SYNTAX RowStatus 
+   ACCESS read-write
+   STATUS mandatory
+   DESCRIPTION
+     "This object is used to add or delete a row from this table."
+ ::= { sysDevFilterBindingTableEntry 5 }
+
+-- Filter to Rule binding table
+
+ sysDevFilterToRuleBindingTable OBJECT-TYPE
+   SYNTAX SEQUENCE OF SysDevFilterToRuleBindingTableEntry
+   ACCESS not-accessible
+   STATUS mandatory
+   DESCRIPTION
+     "This table allows us to bind filters to a particular rules.
+      As such this table is indexed by sysDevFilterToRuleBindingIndex,
+      and by sysDevL2FilterIndex."
+ ::= { sysDevFilter 8 }
+ 
+ sysDevFilterToRuleBindingTableEntry OBJECT-TYPE
+   SYNTAX SysDevFilterToRuleBindingTableEntry
+   ACCESS not-accessible
+   STATUS mandatory
+   DESCRIPTION
+     "Describes a specific entry of the filter binding table."
+   INDEX { sysDevFilterIndex, sysDevFilterToRuleBindingIndex }
+ ::= { sysDevFilterToRuleBindingTable 1 }
+ 
+ SysDevFilterToRuleBindingTableEntry ::=
+   SEQUENCE {
+     sysDevFilterToRuleBindingIndex         INTEGER,  
+     sysDevFilterToRulePriority		    INTEGER,
+     sysDevFilterToRuleBindingRowStatus     RowStatus  
+     }
+
+ sysDevFilterToRuleBindingIndex OBJECT-TYPE
+   SYNTAX INTEGER 
+   ACCESS read-only
+   STATUS mandatory
+   DESCRIPTION
+     "The value of this object corresponds directly to the 
+      rule index from sysDevL2FilterRuleTable."
+  ::= { sysDevFilterToRuleBindingTableEntry 1 }
+
+sysDevFilterToRulePriority  OBJECT-TYPE
+    SYNTAX INTEGER
+    ACCESS read-write
+    STATUS mandatory
+    DESCRIPTION
+        "Internally the table will be sorted based on this object-
+	in the increasing order of priority. The highest priority being 1.
+	The table cannot be created without rules being specified.
+	The table lookups will be done on the sorted table."
+::= { sysDevFilterToRuleBindingTableEntry 2 }
+
+
+ sysDevFilterToRuleBindingRowStatus OBJECT-TYPE
+   SYNTAX RowStatus 
+   ACCESS read-write
+   STATUS mandatory
+   DESCRIPTION
+     "This object is used to add or delete a row from this table."
+ ::= { sysDevFilterToRuleBindingTableEntry 3 }
+
+ sysDevFilterIndexNext OBJECT-TYPE
+   SYNTAX  INTEGER
+   ACCESS  read-only 
+   STATUS mandatory
+   DESCRIPTION
+	" This object contains an appropriate value to be
+	  used for sysDevFilterConfigTable.
+	  The value of 0 indicates that no unassigned 
+	  entries are available.  To obtain 
+	  sysDevFilterIndex value for the new entry 
+	  the manager issues a management protocol retrieval 
+	  operation to obtain a current value of this object.
+	  After each retrieval, the agent must modify the value
+	  to the next unassigned index to prevent assignment
+	  of the same value to multiple management systems. A
+	  management systems should repeat the read to obtain a new
+	  value should an attempt to create the new row using
+	  previously returned index fail. As this is a scalar object
+	  if the mib walk is done on this object it would
+	  return the next unused value."
+ ::= { sysDevFilter 6 }
+
+ sysDevL2FilterRuleIndexNext OBJECT-TYPE
+   SYNTAX  INTEGER
+   ACCESS  read-only 
+   STATUS mandatory
+   DESCRIPTION
+	" This object contains an appropriate value to be
+	  used for sysDevL2FilterRuleConfigTable.
+	  The value of 0 indicates that no unassigned 
+	  entries are available.  To obtain 
+	  sysDevL2FilterRuleIndex value for the new entry 
+	  the manager issues a management protocol retrieval 
+	  operation to obtain a current value of this object.
+	  After each retrieval, the agent must modify the value
+	  to the next unassigned index to prevent assignment
+	  of the same value to multiple management systems. A
+	  management systems should repeat the read to obtain a new
+	  value should an attempt to create the new row using
+	  previously returned index fail. As this is a scalar object
+	  if the mib walk is done on this object it would
+	  return the next unused value."
+ ::= { sysDevFilter 7 }
+
+ sysDevL3FilterRuleIndexNext OBJECT-TYPE
+   SYNTAX  INTEGER
+   ACCESS  read-only 
+   STATUS mandatory
+   DESCRIPTION
+	" This object contains an appropriate value to be
+	  used for sysDevL3FilterRuleConfigTable.
+	  The value of 0 indicates that no unassigned 
+	  entries are available.  To obtain 
+	  sysDevL3FilterRuleIndex value for the new entry 
+	  the manager issues a management protocol retrieval 
+	  operation to obtain a current value of this object.
+	  After each retrieval, the agent must modify the value
+	  to the next unassigned index to prevent assignment
+	  of the same value to multiple management systems. A
+	  management systems should repeat the read to obtain a new
+	  value should an attempt to create the new row using
+	  previously returned index fail. As this is a scalar object
+	  if the mib walk is done on this object it would
+	  return the next unused value."
+ ::= { sysDevFilter 10 }
+--
+-- Traps
+--
+
+ sysDevSNInjectionFailureTrap  TRAP-TYPE
+  ENTERPRISE sysDevFilterMIBTraps
+  VARIABLES {ifIndex, sysDevSNInjectionVnid, sysDevSNInjectionType }
+  DESCRIPTION
+   "This trap signifies that the injection of filters to SN failed
+    It is of warning class"
+  ::= 22
+
+ sysDevSNInjectionIncompatibleTrap  TRAP-TYPE
+  ENTERPRISE sysDevFilterMIBTraps
+  VARIABLES {ifIndex, sysDevSNInjectionVnid, sysDevSNInjectionType }
+  DESCRIPTION
+   "This trap signifies that the injection of filters is not supported
+    by the SN. It is of warning class"
+  ::= 23
+
+END

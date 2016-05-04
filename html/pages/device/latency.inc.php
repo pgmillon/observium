@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -32,7 +32,8 @@ foreach (array('incoming', 'outgoing') as $view)
 
 print_navbar($navbar);
 
-echo('<table class="table table-striped">');
+echo generate_box_open();
+echo '<table class="table table-condensed table-striped table-hover ">';
 
 if($vars['view'] == "incoming")
 {
@@ -41,7 +42,7 @@ if($vars['view'] == "incoming")
     $graph_array['type']        = "device_smokeping_in_all_avg";
     $graph_array['device']      = $device['device_id'];
     echo('<tr><td>');
-    echo('<h3>Average</h3>');
+    echo('<h3>Average</h4>');
 
     print_graph_row($graph_array);
 
@@ -50,7 +51,7 @@ if($vars['view'] == "incoming")
     $graph_array['type']        = "device_smokeping_in_all";
     $graph_array['legend']      = 'no';
     echo('<tr><td>');
-    echo('<h3>Aggregate</h3>');
+    echo('<h3>Aggregate</h4>');
 
     print_graph_row($graph_array);
 
@@ -66,7 +67,7 @@ if($vars['view'] == "incoming")
       if (is_numeric($host['device_id']))
       {
         echo('<tr><td>');
-        echo('<h3>'.generate_device_link($host).'</h3>');
+        echo('<h3>'.generate_device_link($host).'</h4>');
         $graph_array['type']    = "smokeping_in";
         $graph_array['device']  = $device['device_id'];
         $graph_array['src']     = $host['device_id'];
@@ -85,7 +86,7 @@ elseif ($vars['view'] == "outgoing")
     $graph_array['type']        = "device_smokeping_out_all_avg";
     $graph_array['device']      = $device['device_id'];
     echo('<tr><td>');
-    echo('<h3>Average</h3>');
+    echo('<h3>Average</h4>');
 
     print_graph_row($graph_array);
 
@@ -94,7 +95,7 @@ elseif ($vars['view'] == "outgoing")
     $graph_array['type']        = "device_smokeping_out_all";
     $graph_array['legend']      = 'no';
     echo('<tr><td>');
-    echo('<h3>Aggregate</h3>');
+    echo('<h3>Aggregate</h4>');
 
     print_graph_row($graph_array);
 
@@ -113,7 +114,7 @@ elseif ($vars['view'] == "outgoing")
       if (is_numeric($host['device_id']))
       {
         echo('<tr><td>');
-        echo('<h3>'.generate_device_link($host).'</h3>');
+        echo('<h3>'.generate_device_link($host).'</h4>');
         $graph_array['type']    = "smokeping_out";
         $graph_array['device']  = $device['device_id'];
         $graph_array['dest']    = $host['device_id'];
@@ -126,7 +127,9 @@ elseif ($vars['view'] == "outgoing")
   }
 }
 
-echo('</table>');
+echo '</table>';
+
+echo generate_box_close();
 
 $page_title[] = "Latency";
 

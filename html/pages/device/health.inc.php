@@ -6,22 +6,21 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-$datas[] = 'overview';
+$datas = array('overview' => array('icon' => 'oicon-application-list'));
 
-if (dbFetchCell("SELECT COUNT(*) FROM `processors` WHERE `device_id` = ?", array($device['device_id']))) { $datas[] = 'processor'; }
-if (dbFetchCell("SELECT COUNT(*) FROM `mempools` WHERE `device_id` = ?", array($device['device_id']))) { $datas[] = 'mempool'; }
-if (dbFetchCell("SELECT COUNT(*) FROM `storage` WHERE `device_id` = ?", array($device['device_id']))) { $datas[] = 'storage'; }
-if (dbFetchCell("SELECT COUNT(*) FROM `ucd_diskio` WHERE `device_id` = ?", array($device['device_id']))) { $datas[] = 'diskio'; }
-if (dbFetchCell("SELECT COUNT(*) FROM `status` WHERE `device_id` = ?", array($device['device_id']))) { $datas[] = 'status'; }
-
+if (dbFetchCell("SELECT COUNT(*) FROM `processors` WHERE `device_id` = ?", array($device['device_id']))) { $datas['processor'] = array('icon' => $config['entities']['processor']['icon']); }
+if (dbFetchCell("SELECT COUNT(*) FROM `mempools` WHERE `device_id` = ?", array($device['device_id']))) { $datas['mempool'] = array('icon' => $config['entities']['mempool']['icon']); }
+if (dbFetchCell("SELECT COUNT(*) FROM `storage` WHERE `device_id` = ?", array($device['device_id']))) { $datas['storage'] = array('icon' => $config['entities']['storage']['icon']); }
+if (dbFetchCell("SELECT COUNT(*) FROM `ucd_diskio` WHERE `device_id` = ?", array($device['device_id']))) { $datas['diskio'] = array('icon' => 'oicon-drive--arrow'); }
+if (dbFetchCell("SELECT COUNT(*) FROM `status` WHERE `device_id` = ?", array($device['device_id']))) { $datas['status'] = array('icon' => $config['entities']['status']['icon']); }
 
 $sensors_device = dbFetchRows("SELECT `sensor_class` FROM `sensors` WHERE device_id = ? GROUP BY `sensor_class`", array($device['device_id']));
-foreach ($sensors_device as $sensor) { $datas[] = $sensor['sensor_class']; }
+foreach ($sensors_device as $sensor) { $datas[$sensor['sensor_class']] = array('icon' => $config['sensor_types'][$sensor['sensor_class']]['icon']); }
 
 $link_array = array('page'    => 'device',
                     'device'  => $device['device_id'],
@@ -33,9 +32,15 @@ if (!$vars['view'])   { $vars['view']   = "details"; }
 $navbar['brand'] = "Health";
 $navbar['class'] = "navbar-narrow";
 
-foreach ($datas as $type)
+$navbar_count = count($datas);
+foreach ($datas as $type => $options)
 {
   if ($vars['metric'] == $type) { $navbar['options'][$type]['class'] = "active"; }
+  else if ($navbar_count > 8 && $type != 'overview') { $navbar['options'][$type]['class'] = "icon"; } // Show only icons if too many items in navbar
+  if (isset($options['icon']))
+  {
+    $navbar['options'][$type]['icon'] = $options['icon'];
+  }
   $navbar['options'][$type]['url']  = generate_url(array('page' => 'device', 'device' => $device['device_id'], 'tab' => 'health', 'metric' => $type));
   $navbar['options'][$type]['text'] = nicecase($type);
 }
@@ -53,30 +58,39 @@ if ($vars['view'] == "graphs")
 }
 
 print_navbar($navbar);
+unset($navbar);
 
-if ($config['sensor_types'][$vars['metric']])
+if ($config['sensor_types'][$vars['metric']] || $vars['metric'] == "sensors")
 {
-  include("pages/device/health/sensors.inc.php");
+  include($config['html_dir']."/pages/device/health/sensors.inc.php");
 }
-elseif (is_file("pages/device/health/".$vars['metric'].".inc.php"))
+elseif (is_file($config['html_dir']."/pages/device/health/".$vars['metric'].".inc.php"))
 {
-  include("pages/device/health/".$vars['metric'].".inc.php");
+  include($config['html_dir']."/pages/device/health/".$vars['metric'].".inc.php");
 } else {
 
-  echo('<table class="table table-condensed table-striped table-hover table-bordered">');
+  echo generate_box_open();
 
-  foreach ($datas as $type)
+  echo('<table class="table table-condensed table-striped table-hover ">');
+
+  foreach ($datas as $type => $options)
   {
     if ($type != "overview")
     {
-
       $graph_title = nicecase($type);
       $graph_array['type'] = "device_".$type;
+      $graph_array['device'] = $device['device_id'];
 
-      include("includes/print-device-graph.php");
+      echo('<tr><td>');
+      echo('<h3>' . $graph_title . '</h3>');
+      print_graph_row($graph_array);
+      echo('</td></tr>');
     }
   }
   echo('</table>');
+
+  echo generate_box_close();
+
 }
 
 $page_title[] = "Health";

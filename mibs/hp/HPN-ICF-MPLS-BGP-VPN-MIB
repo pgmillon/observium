@@ -1,0 +1,692 @@
+-- =============================================================================
+-- Copyright (c) 2010-2013 Hewlett-Packard Development Company, L.P.
+--
+-- Description:MPLS-BGP-VPN-MIB 
+-- Reference:This MIB was extracted from draft-ietf-mpls-arch-06.txt
+-- Version: V1.11
+-- History:
+--   V1.1 Add copyright information
+--   V1.11 Update description of the MODULE
+-- =============================================================================
+HPN-ICF-MPLS-BGP-VPN-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+   MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE,
+   experimental, Integer32, Counter32, Unsigned32,
+   TimeTicks
+      FROM SNMPv2-SMI
+
+   MODULE-COMPLIANCE, OBJECT-GROUP, NOTIFICATION-GROUP
+      FROM SNMPv2-CONF
+
+   TEXTUAL-CONVENTION, TruthValue, RowStatus, StorageType,
+   TimeStamp, DisplayString
+      FROM SNMPv2-TC
+
+   InterfaceIndex
+      FROM IF-MIB
+
+   SnmpAdminString
+      FROM SNMP-FRAMEWORK-MIB
+
+   InetAddress, InetAddressType
+      FROM INET-ADDRESS-MIB
+
+   hpnicfMpls
+      FROM HPN-ICF-OID-MIB;
+
+hpnicfMplsVpn MODULE-IDENTITY
+   LAST-UPDATED "200107201200Z"  -- 20 July 2001 12:00:00 GMT
+   ORGANIZATION
+       ""
+   CONTACT-INFO
+       ""
+   DESCRIPTION
+        "This MIB contains managed object definitions for the
+         Multiprotocol Label Switching (MPLS)/Border Gateway
+         Protocol (BGP) Virtual Private Networks (VPNs) as
+         defined in : Rosen, E., Viswanathan, A., and R.
+         Callon, Multiprotocol Label Switching Architecture,
+         Internet Draft <draft-ietf-mpls-arch-06.txt>,
+         August 1999."
+
+  -- Revision history.
+   REVISION
+        "200107201200Z"  -- 20 July 2001 12:00:00 GMT
+   DESCRIPTION
+        "Re-published as PPVPN working group draft. No changes
+         between this version and last; just name change."
+   REVISION
+        "200107171200Z"  -- 17 July 2001 12:00:00 GMT
+   DESCRIPTION
+        "Removed hpnicfmplsVpnVrfRouteTargetImport/Export from route target
+         table, and modified indexing to better reflect N <> R
+         distribution policy. Also added new object called
+	 hpnicfmplsVpnVrfRouteTargetType which denotes import/export
+	 policy for the specified route target.
+
+         Added hpnicfmplsVpnInterfaceConfRowStatus which allows for
+         an interface to be associated with a VPN through SNMP
+         configuration.
+
+         Added VrfName to index of VrfInterfaceConfEntry which allows
+         interfaces to be associated with the appropriate VRF.
+
+         Modified description of hpnicfmplsVpnVrfConfMaxPossibleRoutes and
+         hpnicfmplsVpnVrfConfMaxRoutes to allow for undetermined value.
+
+         Removed 'both' enumerated value in hpnicfmplsVpnVrfBgpNbrRole.
+
+	 Updated example to reflect these changes."
+   REVISION
+         "200107101200Z"  -- 10 July 2001 12:00:00 GMT
+   DESCRIPTION
+        "Renamed hpnicfmplsNumVrfSecViolationThreshExceeded to
+         hpnicfmplsNumVrfSecIllegalLabelThreshExceeded, and removed
+         hpnicfmplsVpnInterfaceConfIndex from varbind.
+
+         Changed HpnicfMplsVpnId TC from SnmpAdminString to OCTET STRING.
+
+         Added hpnicfmplsVpnVrfSecIllegalLabelRcvThresh to
+         hpnicfmplsVpnVrfSecEntry.
+
+         Changed duplicate hpnicfmplsVpnVrfRouteTargetImport in
+         hpnicfmplsVpnVrfRouteTargetEntry INDEX to
+         hpnicfmplsVpnVrfRouteTargetExport."
+  REVISION
+        "200106191200Z"  -- 19 June 2001 12:00:00 GMT
+   DESCRIPTION
+        "Fixed several compile errors."
+  REVISION
+       "200105301200Z"  -- 30 May 2001 12:00:00 EST
+   DESCRIPTION
+        "Updated most of document and MIB to reflect comments from WG."
+  REVISION
+       "200009301200Z"  -- 30 September 2000 12:00:00 EST
+   DESCRIPTION
+      "Initial draft version."
+   ::= { hpnicfMpls 3 } -- To be assigned
+
+-- Textual Conventions.
+
+HpnicfMplsVpnId ::= TEXTUAL-CONVENTION
+   STATUS        current
+   DESCRIPTION
+       "An identifier that is assigned to each MPLS/BGP VPN and
+        is used to uniquely identify it. This is assigned by the
+        system operator or NMS and SHOULD be unique throughout
+        the MPLS domain. If this is the case, then this identifier
+        can then be used at any LSR within a specific MPLS domain
+        to identify this MPLS/BGP VPN. It may also be possible to
+        preserve the uniqueness of this identifier across MPLS
+        domain boundaries, in which case this identifier can then
+        be used to uniquely identify MPLS/BGP VPNs on a more global
+        basis."
+   REFERENCE
+        "RFC 2685 [VPN-RFC2685] Fox B., et al, 'Virtual Private
+        Networks Identifier', September 1999."
+   SYNTAX OCTET STRING(SIZE (0..31))
+
+HpnicfMplsVpnRouteDistinguisher ::= TEXTUAL-CONVENTION
+   STATUS        current
+   DESCRIPTION
+       "Syntax for a route distinguisher and route target."
+   SYNTAX  OCTET STRING(SIZE (0..256))
+
+
+-- Top level components of this MIB.
+hpnicfmplsVpnObjects       OBJECT IDENTIFIER ::= { hpnicfMplsVpn 1 }
+hpnicfmplsVpnScalars       OBJECT IDENTIFIER ::= { hpnicfmplsVpnObjects 1 }
+hpnicfmplsVpnConf          OBJECT IDENTIFIER ::= { hpnicfmplsVpnObjects 2 }
+hpnicfmplsVpnRoute         OBJECT IDENTIFIER ::= { hpnicfmplsVpnObjects 3 }
+
+
+-- Scalar Objects
+hpnicfmplsVpnConfiguredVrfs OBJECT-TYPE
+   SYNTAX        Unsigned32
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+       "The number of VRFs which are configured on this node."
+::= { hpnicfmplsVpnScalars 1 }
+
+hpnicfmplsVpnActiveVrfs OBJECT-TYPE
+   SYNTAX        Unsigned32
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+       "The number of VRFs which are active on this node.
+        That is, those whose operStatus = Up (1)."
+::= { hpnicfmplsVpnScalars 2 }
+
+-- VPN Interface Configuration Table
+
+hpnicfmplsVpnInterfaceConfTable  OBJECT-TYPE
+   SYNTAX        SEQUENCE OF HpnicfMplsVpnInterfaceConfEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+       "This table specifies per-interface MPLS capability
+        and associated information."
+   ::= { hpnicfmplsVpnConf 1 }
+
+hpnicfmplsVpnInterfaceConfEntry OBJECT-TYPE
+   SYNTAX        HpnicfMplsVpnInterfaceConfEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+       "An entry in this table is created by an LSR for
+        every interface capable of supporting MPLS/BGP VPN.
+        Each entry in this table is meant to correspond to
+        an entry in the Interfaces Table."
+   INDEX       { hpnicfmplsVpnVrfName, hpnicfmplsVpnInterfaceConfIndex }
+      ::= { hpnicfmplsVpnInterfaceConfTable 1 }
+
+HpnicfMplsVpnInterfaceConfEntry ::= SEQUENCE {
+  hpnicfmplsVpnInterfaceConfIndex             InterfaceIndex,
+  hpnicfmplsVpnInterfaceLabelEdgeType         INTEGER,
+  hpnicfmplsVpnInterfaceVpnClassification     INTEGER,
+  hpnicfmplsVpnInterfaceIpAddress             InetAddress,
+  hpnicfmplsVpnInterfaceIpAddressMask         InetAddress,
+  hpnicfmplsVpnInterfaceConfRowStatus         RowStatus
+}
+
+hpnicfmplsVpnInterfaceConfIndex OBJECT-TYPE
+   SYNTAX        InterfaceIndex
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+       "This is a unique index for an entry in the
+        hpnicfmplsVpnInterfaceConfTable."
+   REFERENCE
+       "RFC 2233 - The Interfaces Group MIB using SMIv2,
+        McCloghrie, K., and F. Kastenholtz, Nov. 1997"
+   ::= { hpnicfmplsVpnInterfaceConfEntry 1 }
+
+hpnicfmplsVpnInterfaceLabelEdgeType OBJECT-TYPE
+   SYNTAX  INTEGER { providerEdge (1),
+                     customerEdge (2)
+                   }
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+       "Either the providerEdge(1) (PE) or customerEdge(2)
+       (CE) bit MUST be set."
+   DEFVAL { providerEdge }
+   ::= { hpnicfmplsVpnInterfaceConfEntry 2 }
+
+hpnicfmplsVpnInterfaceVpnClassification OBJECT-TYPE
+   SYNTAX        INTEGER { carrierOfCarrier (1),
+                           enterprise (2),
+                           interProvider (3)
+   }
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+       "Denotes whether this link participates in a
+        carrier-of-carrier's, enterprise, or inter-provider
+        scenario."
+::= { hpnicfmplsVpnInterfaceConfEntry 3 }
+
+hpnicfmplsVpnInterfaceIpAddress  OBJECT-TYPE
+   SYNTAX      InetAddress
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION
+       "The IP address of this interface."
+   ::= { hpnicfmplsVpnInterfaceConfEntry 4 }
+
+hpnicfmplsVpnInterfaceIpAddressMask  OBJECT-TYPE
+   SYNTAX      InetAddress
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION
+       "The IP address mask of this interface."
+   ::= { hpnicfmplsVpnInterfaceConfEntry 5 }
+
+hpnicfmplsVpnInterfaceConfRowStatus  OBJECT-TYPE
+   SYNTAX      RowStatus
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION
+       "The row status for this entry. This value is
+        used to create a row in this table, signifying
+        that the specified interface is to be associated
+        with the specified interface. If this operation
+        suceeds, the interface will have been associated,
+        otherwise the agent would not allow the association.
+        If the agent only allows read-only operations on
+        this table, it will create entries in this table
+        as they are created."
+   ::= { hpnicfmplsVpnInterfaceConfEntry 6 }
+
+-- VRF Configuration Table
+
+hpnicfmplsVpnVrfConfTable  OBJECT-TYPE
+   SYNTAX        SEQUENCE OF HpnicfMplsVpnVrfConfEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+       "This table specifies per-interface MPLS/BGP VPN
+        VRF Table capability and associated information.
+        Entries in this table define VRF routing instances
+        associated with MPLS/VPN interfaces. Note that
+        multiple interfaces can belong to the same VRF
+        instance. The collection of all VRF instances
+        comprises an actual VPN."
+   ::= { hpnicfmplsVpnConf 2 }
+
+hpnicfmplsVpnVrfConfEntry OBJECT-TYPE
+   SYNTAX        HpnicfMplsVpnVrfConfEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+       "An entry in this table is created by an LSR for
+        every VRF capable of supporting MPLS/BGP VPN. The
+        indexing provides an ordering of VRFs per-VPN
+        interface."
+   INDEX       { hpnicfmplsVpnVrfName }
+      ::= { hpnicfmplsVpnVrfConfTable 1 }
+
+HpnicfMplsVpnVrfConfEntry ::= SEQUENCE {
+  hpnicfmplsVpnVrfName                         HpnicfMplsVpnId,
+  hpnicfmplsVpnVrfRouteDistinguisher           HpnicfMplsVpnRouteDistinguisher,
+  hpnicfmplsVpnVrfNetPrefixType                INTEGER,
+  hpnicfmplsVpnVrfNetPrefix                    InetAddress,
+  hpnicfmplsVpnVrfIpRouteRedistributeConn      TruthValue,
+  hpnicfmplsVpnVrfIpRouteRedistributeStatic    TruthValue,
+  hpnicfmplsVpnVrfIpRouteRedistributeRip       TruthValue,
+  hpnicfmplsVpnVrfConfHighRouteThreshold       Unsigned32,
+  hpnicfmplsVpnVrfConfIsWarnOnly               TruthValue,
+  hpnicfmplsVpnVrfConfMaxRoutes                Unsigned32,
+  hpnicfmplsVpnVrfConfRowStatus                RowStatus
+}
+
+hpnicfmplsVpnVrfName OBJECT-TYPE
+   SYNTAX        HpnicfMplsVpnId
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+       "The human-readable name of this VPN. This MAY
+        be equivalent to the RFC2685 VPN-ID."
+   REFERENCE
+       "RFC 2685 [VPN-RFC2685] Fox B., et al, `Virtual
+        Private Networks Identifier`, September 1999."
+   ::= { hpnicfmplsVpnVrfConfEntry 1 }
+
+hpnicfmplsVpnVrfRouteDistinguisher OBJECT-TYPE
+   SYNTAX        HpnicfMplsVpnRouteDistinguisher
+   MAX-ACCESS    read-create
+   STATUS        current
+   DESCRIPTION
+       "The route distinguisher for this VRF."
+   ::= { hpnicfmplsVpnVrfConfEntry 2 }
+
+hpnicfmplsVpnVrfNetPrefixType  OBJECT-TYPE
+   SYNTAX        INTEGER { other(1),
+                           rip(2),
+                           ospf(3),
+                           isis(4),
+                           bgp(5),
+                           static(6)
+                         }
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+       "Denotes the type network prefix in use for the
+        PE-CE connections. "
+   ::= { hpnicfmplsVpnVrfConfEntry 3 }
+
+hpnicfmplsVpnVrfNetPrefix  OBJECT-TYPE
+   SYNTAX        InetAddress
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+       "Denotes the network prefix for the
+        PE-CE connections."
+  ::= { hpnicfmplsVpnVrfConfEntry 4 }
+
+hpnicfmplsVpnVrfIpRouteRedistributeConn OBJECT-TYPE
+   SYNTAX        TruthValue
+   MAX-ACCESS    read-create
+   STATUS        current
+   DESCRIPTION
+     "Denotes the redistribution of directly connected
+      networks into the VRF BGP table."
+  ::= { hpnicfmplsVpnVrfConfEntry 5 }
+
+hpnicfmplsVpnVrfIpRouteRedistributeStatic OBJECT-TYPE
+   SYNTAX        TruthValue
+   MAX-ACCESS    read-create
+   STATUS        current
+   DESCRIPTION
+     "Denotes the redistribution of static routes
+      into the VRF BGP table."
+  ::= { hpnicfmplsVpnVrfConfEntry 6 }
+
+hpnicfmplsVpnVrfIpRouteRedistributeRip OBJECT-TYPE
+   SYNTAX        TruthValue
+   MAX-ACCESS    read-create
+   STATUS        current
+   DESCRIPTION
+     "Denotes the redistribution of rip routes
+      into the VRF BGP table."
+  ::= { hpnicfmplsVpnVrfConfEntry 7 }
+
+hpnicfmplsVpnVrfConfHighRouteThreshold  OBJECT-TYPE
+   SYNTAX        Unsigned32
+   MAX-ACCESS    read-create
+   STATUS        current
+   DESCRIPTION
+     "Denotes high-level water marker for the number of
+      routes which  this VRF may hold."
+  ::= { hpnicfmplsVpnVrfConfEntry 8 }
+
+hpnicfmplsVpnVrfConfIsWarnOnly OBJECT-TYPE
+   SYNTAX        TruthValue
+   MAX-ACCESS    read-create
+   STATUS        current
+   DESCRIPTION
+     "Denotes the action when the amount of VPN's routes
+      exceed the hpnicfmplsVpnVrfConfHighRouteThreshold."
+  ::= { hpnicfmplsVpnVrfConfEntry 9 }
+
+hpnicfmplsVpnVrfConfMaxRoutes  OBJECT-TYPE
+   SYNTAX        Unsigned32
+   MAX-ACCESS    read-create
+   STATUS        current
+   DESCRIPTION
+     "Denotes maximum number of routes which this VRF is
+      configured to hold. This value MUST be less than or
+      equal to hpnicfmplsVrfMaxPossibleRoutes unless it is set
+      to 0."
+  ::= { hpnicfmplsVpnVrfConfEntry 10 }
+
+hpnicfmplsVpnVrfConfRowStatus OBJECT-TYPE
+   SYNTAX        RowStatus
+   MAX-ACCESS    read-create
+   STATUS        current
+   DESCRIPTION
+       "This variable is used to create, modify, and/or
+        delete a row in this table."
+  ::= { hpnicfmplsVpnVrfConfEntry 11 }
+
+-- hpnicfmplsVpnVrfRouteTargetTable
+
+   hpnicfmplsVpnVrfRouteTargetTable OBJECT-TYPE
+      SYNTAX        SEQUENCE OF HpnicfMplsVpnVrfRouteTargetEntry
+      MAX-ACCESS    not-accessible
+      STATUS        current
+      DESCRIPTION
+          "This table specifies per-VRF route target association.
+           Each entry identifies a connectivity policy supported
+           as part of a VPN."
+      ::= { hpnicfmplsVpnConf 3 }
+
+   hpnicfmplsVpnVrfRouteTargetEntry OBJECT-TYPE
+      SYNTAX        HpnicfMplsVpnVrfRouteTargetEntry
+      MAX-ACCESS    not-accessible
+      STATUS        current
+      DESCRIPTION
+          " An entry in this table is created by an LSR for
+           each route target configured for a VRF supporting
+           a MPLS/BGP VPN instance. The indexing provides an
+           ordering per-VRF instance."
+      INDEX  { hpnicfmplsVpnVrfName, hpnicfmplsVpnVrfRouteTarget,
+               hpnicfmplsVpnVrfRouteTargetType }
+         ::= { hpnicfmplsVpnVrfRouteTargetTable 1 }
+
+   HpnicfMplsVpnVrfRouteTargetEntry ::= SEQUENCE {
+     hpnicfmplsVpnVrfRouteTarget           HpnicfMplsVpnRouteDistinguisher,
+     hpnicfmplsVpnVrfRouteTargetType       INTEGER,
+     hpnicfmplsVpnVrfRouteTargetRowStatus  RowStatus
+   }
+
+hpnicfmplsVpnVrfRouteTarget OBJECT-TYPE
+   SYNTAX        HpnicfMplsVpnRouteDistinguisher
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+       "The route target distribution policy."
+   ::= { hpnicfmplsVpnVrfRouteTargetEntry 1 }
+
+hpnicfmplsVpnVrfRouteTargetType OBJECT-TYPE
+   SYNTAX        INTEGER { import(1), export(2) }
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+       "The route target export distribution type."
+   ::= { hpnicfmplsVpnVrfRouteTargetEntry 2 }
+
+hpnicfmplsVpnVrfRouteTargetRowStatus OBJECT-TYPE
+   SYNTAX        RowStatus
+   MAX-ACCESS    read-create
+   STATUS        current
+   DESCRIPTION
+       "Row status for this entry."
+   ::= { hpnicfmplsVpnVrfRouteTargetEntry 3 }
+
+-- hpnicfmplsVpnVrfBgpNbrAddrTable
+-- Ed Note: how does this table relate to the BGP peering table;
+--          this is only EBGP; what about IBGP info?
+--          route/tag distributions
+
+   hpnicfmplsVpnVrfBgpNbrAddrTable OBJECT-TYPE
+      SYNTAX        SEQUENCE OF HpnicfMplsVpnVrfBgpNbrAddrEntry
+      MAX-ACCESS    not-accessible
+      STATUS        current
+      DESCRIPTION
+          "This table specifies per-interface MPLS/BGP neighbor
+           addresses for both PEs and CEs."
+      ::= { hpnicfmplsVpnConf 4 }
+
+   hpnicfmplsVpnVrfBgpNbrAddrEntry OBJECT-TYPE
+      SYNTAX        HpnicfMplsVpnVrfBgpNbrAddrEntry
+      MAX-ACCESS    not-accessible
+      STATUS        current
+      DESCRIPTION
+          "An entry in this table is created by an LSR for
+           every VRF capable of supporting MPLS/BGP VPN. The
+           indexing provides an ordering of VRFs per-VPN
+           interface."
+      INDEX  { hpnicfmplsVpnVrfName, hpnicfmplsVpnVrfBgpNbrAddr }
+
+         ::= { hpnicfmplsVpnVrfBgpNbrAddrTable 1 }
+
+   HpnicfMplsVpnVrfBgpNbrAddrEntry ::= SEQUENCE {
+     hpnicfmplsVpnVrfBgpNbrAddr         InetAddress,
+     hpnicfmplsVpnVrfBgpNbrRole         INTEGER,
+     hpnicfmplsVpnVrfBgpNbrType         InetAddressType,
+     hpnicfmplsVpnVrfBgpNbrAsNumber     Unsigned32,
+     hpnicfmplsVpnVrfBgpNbrAdminStatus  INTEGER,
+     hpnicfmplsVpnVrfBgpNbrRowStatus    RowStatus
+}
+
+   hpnicfmplsVpnVrfBgpNbrAddr  OBJECT-TYPE
+      SYNTAX        InetAddress
+      MAX-ACCESS    read-only
+      STATUS        current
+      DESCRIPTION
+          "Denotes the BGP neighbor address."
+     ::= { hpnicfmplsVpnVrfBgpNbrAddrEntry 1 }
+
+   hpnicfmplsVpnVrfBgpNbrRole  OBJECT-TYPE
+      SYNTAX        INTEGER { ce(1), pe(2) }
+      MAX-ACCESS    read-create
+      STATUS        current
+      DESCRIPTION
+          "Denotes the role played by this BGP neighbor
+           with respect to this VRF."
+     ::= { hpnicfmplsVpnVrfBgpNbrAddrEntry 2 }
+
+   hpnicfmplsVpnVrfBgpNbrType  OBJECT-TYPE
+      SYNTAX        InetAddressType 
+      MAX-ACCESS    read-create
+      STATUS        current
+      DESCRIPTION
+          "Denotes the address family of the PE address."
+     ::= { hpnicfmplsVpnVrfBgpNbrAddrEntry 3 }
+
+   hpnicfmplsVpnVrfBgpNbrAsNumber OBJECT-TYPE
+      SYNTAX        Unsigned32
+      MAX-ACCESS    read-create
+      STATUS        current
+      DESCRIPTION
+          "The Automonous System that the BGP's neighbour in."
+      ::= { hpnicfmplsVpnVrfBgpNbrAddrEntry 4 }
+
+   hpnicfmplsVpnVrfBgpNbrAdminStatus OBJECT-TYPE
+      SYNTAX        INTEGER { mplsVpnVrfBgpNbrSetUp   (1),
+                              mplsVpnVrfBgpNbrSetDown (2)
+                            }
+      MAX-ACCESS    read-create
+      STATUS        current
+      DESCRIPTION
+          "The action set by SNMP client."
+      ::= { hpnicfmplsVpnVrfBgpNbrAddrEntry 5 }
+
+   hpnicfmplsVpnVrfBgpNbrRowStatus OBJECT-TYPE
+      SYNTAX        RowStatus
+      MAX-ACCESS    read-create
+      STATUS        current
+      DESCRIPTION
+          "This variable is used to create, modify, and/or
+           delete a row in this table."
+      ::= { hpnicfmplsVpnVrfBgpNbrAddrEntry 6 }
+
+
+-- VRF Routing Table
+
+hpnicfmplsVpnVrfRouteTable  OBJECT-TYPE
+   SYNTAX        SEQUENCE OF HpnicfMplsVpnVrfRouteEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+       "This table specifies per-interface MPLS/BGP VPN VRF Table
+        routing information. Entries in this table define VRF routing
+        entries associated with the specified MPLS/VPN interfaces. Note
+        that this table contains both BGP and IGP routes, as both may
+        appear in the same VRF."
+    REFERENCE
+       "1.  RFC 1213 Section 6.6, The IP Group.
+        2.  RFC 2096 "
+   ::= { hpnicfmplsVpnRoute 1 }
+
+hpnicfmplsVpnVrfRouteEntry OBJECT-TYPE
+   SYNTAX        HpnicfMplsVpnVrfRouteEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+       "An entry in this table is created by an LSR for every route
+        present configured (either dynamically or statically) within
+        the context of a specific VRF capable of supporting MPLS/BGP
+        VPN. The indexing provides an ordering of VRFs per-VPN
+        interface."
+      INDEX  { hpnicfmplsVpnVrfName, hpnicfmplsVpnVrfRouteDest,
+               hpnicfmplsVpnVrfRouteMask, hpnicfmplsVpnVrfRouteNextHop }
+
+      ::= { hpnicfmplsVpnVrfRouteTable 1 }
+
+HpnicfMplsVpnVrfRouteEntry ::= SEQUENCE {
+       hpnicfmplsVpnVrfRouteDest               InetAddress,
+       hpnicfmplsVpnVrfRouteMask               InetAddress,
+       hpnicfmplsVpnVrfRouteNextHop            InetAddress,
+       hpnicfmplsVpnVrfRouteIfIndex            InterfaceIndex,
+       hpnicfmplsVpnVrfRouteProto              INTEGER,
+       hpnicfmplsVpnVrfRouteRowStatus          RowStatus
+}
+
+hpnicfmplsVpnVrfRouteDest  OBJECT-TYPE
+      SYNTAX        InetAddress
+      MAX-ACCESS    read-only
+      STATUS        current
+      DESCRIPTION
+          "The destination IP address of this route.
+           This object may not take a Multicast (Class D)
+           address value."
+      ::= { hpnicfmplsVpnVrfRouteEntry 1 }
+
+hpnicfmplsVpnVrfRouteMask  OBJECT-TYPE
+      SYNTAX        InetAddress
+      MAX-ACCESS    read-create
+      STATUS        current
+      DESCRIPTION
+          "Indicate the mask to be logical-ANDed with the
+           destination  address  before  being compared to
+           the value  in  the  hpnicfmplsVpnVrfRouteDest field.
+           For those  systems  that  do  not support
+           arbitrary subnet masks, an agent constructs the
+           value of the hpnicfmplsVpnVrfRouteMask by reference
+           to the IP Address Class.
+
+           Any assignment (implicit or otherwise) of an
+           instance of this object to a value x must be
+           rejected if the bit-wise logical-AND of x with
+           the value of the corresponding instance of the
+           hpnicfmplsVpnVrfRouteDest object is not equal to
+           hpnicfmplsVpnVrfRouteDest."
+      ::= { hpnicfmplsVpnVrfRouteEntry 2 }
+
+hpnicfmplsVpnVrfRouteNextHop  OBJECT-TYPE
+      SYNTAX        InetAddress
+      MAX-ACCESS    read-only
+      STATUS        current
+      DESCRIPTION
+          "On remote routes, the address of the next
+           system en route; Otherwise, 0.0.0.0. ."
+      ::= { hpnicfmplsVpnVrfRouteEntry 3 }
+
+hpnicfmplsVpnVrfRouteIfIndex  OBJECT-TYPE
+      SYNTAX        InterfaceIndex
+      MAX-ACCESS    read-create
+      STATUS        current
+      DESCRIPTION
+          "The ifIndex value that identifies the local
+           interface  through  which  the next hop of this
+           route should be reached."
+      ::= { hpnicfmplsVpnVrfRouteEntry 4 }
+
+hpnicfmplsVpnVrfRouteProto  OBJECT-TYPE
+      SYNTAX INTEGER {
+                   other     (1),  -- not specified
+                   local     (2),  -- local interface
+                   netmgmt   (3),  -- static route
+                   icmp      (4),  -- result of ICMP Redirect
+
+                           -- the following are all dynamic
+                           -- routing protocols
+
+                   egp        (5),  -- Exterior Gateway Protocol
+                   ggp        (6),  -- Gateway-Gateway Protocol
+                   hello      (7),  -- FuzzBall HelloSpeak
+                   rip        (8),  -- Berkeley RIP or RIP-II
+                   isIs       (9),  -- Dual IS-IS
+                   esIs       (10), -- ISO 9542
+                   ciscoIgrp  (11), -- Cisco IGRP
+                   bbnSpfIgp  (12), -- BBN SPF IGP
+                   ospf       (13), -- Open Shortest Path First
+                   bgp        (14), -- Border Gateway Protocol
+                   idpr       (15), -- InterDomain Policy Routing
+                   ciscoEigrp (16)  -- Cisco EIGRP
+                }
+
+      MAX-ACCESS    read-create
+      STATUS        current
+      DESCRIPTION
+          "The routing mechanism via which this route was
+           learned.  Inclusion of values for gateway rout-
+           ing protocols is not  intended  to  imply  that
+           hosts should support those protocols."
+      ::= { hpnicfmplsVpnVrfRouteEntry 5 }
+
+hpnicfmplsVpnVrfRouteRowStatus  OBJECT-TYPE
+      SYNTAX        RowStatus
+      MAX-ACCESS    read-create
+      STATUS        current
+      DESCRIPTION
+          "Row status for this table. It is used according
+           to row installation and removal conventions."
+      ::= { hpnicfmplsVpnVrfRouteEntry 6 }
+
+-- End of MPLS-VPN-MIB
+END

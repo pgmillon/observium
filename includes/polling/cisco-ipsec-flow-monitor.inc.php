@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -78,7 +78,7 @@ if (is_device_mib($device, 'CISCO-IPSEC-FLOW-MONITOR-MIB'))
   $rrd_create .= " DS:NoSaFails:COUNTER:600:0:100000000000";
   $rrd_create .= " DS:SysCapFails:COUNTER:600:0:100000000000";
 
-  if (is_file($rrd_filename) || $data['cipSecGlobalActiveTunnels'])
+  if (is_file(get_rrd_path($device, $rrd_filename)) || $data['cipSecGlobalActiveTunnels'])
   {
     rrdtool_create($device, $rrd_filename, $rrd_create);
 

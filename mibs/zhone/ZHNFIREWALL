@@ -1,0 +1,391 @@
+
+-- Copyright (C) 2012 by Zhone Technologies.  All Rights Reserved.
+
+-- ======================================================================
+-- ==                                                                  ==
+-- ==                    ZHNFIREWALL MIB                               ==
+-- ==                                                                  ==
+-- ==  Copyright (C) 2012 Zhone Technologies, Inc.                     ==
+-- ==  Confidential, Unpublished Property of Zhone Technologies.       ==
+-- ==  Rights Reserved Under the Copyright Laws of the United States.  ==
+-- ==                                                                  ==
+-- ======================================================================
+
+ZHNFIREWALL DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY , OBJECT-TYPE , enterprises,
+    Integer32, Unsigned32, IpAddress, Gauge32
+        FROM SNMPv2-SMI
+    MODULE-COMPLIANCE, OBJECT-GROUP
+        FROM SNMPv2-CONF
+    TEXTUAL-CONVENTION, MacAddress, RowStatus, TruthValue
+        FROM SNMPv2-TC
+    ZhoneRowStatus
+        FROM Zhone-TC
+    zhoneWtn
+        FROM Zhone
+    lanDeviceIndex, lanEthernetIndex
+        FROM ZHNLANDEVICE;
+
+-- 1.3.6.1.4.1.5504.2.5.41
+zhnFirewall  MODULE-IDENTITY
+    LAST-UPDATED  "201204181200Z" -- Apr 18, 2012
+    ORGANIZATION
+        "Zhone Technologies, Inc."
+    CONTACT-INFO 
+        "Zhone Technologies, Inc.
+         Florida Design Center
+         8545 126th Avenue North
+         Largo, FL 33773
+
+	 Toll-Free: +1 877-ZHONE20 (+1 877-946-6320)
+	 Tel: +1-510-777-7000
+	 Fax: +1-510-777-7001
+	 E-mail: support@zhone.com"
+
+
+    DESCRIPTION
+        "This file defines the private Enterprise MIB extensions
+         that define LAN Management Access Service Filters and Port
+	 Forwarding objects supported by the Zhone CPEs."
+
+
+    REVISION "201204181200Z" -- Apr 18, 2012
+    DESCRIPTION "Added https to FirewallMgmtAccessServiceValues"
+
+    REVISION "201202031200Z"  -- Feb 03, 2012
+    DESCRIPTION "First Draft"
+
+::= { zhoneWtn 45 }
+
+
+
+-- 1.3.6.1.4.1.5504.2.5.45.1
+zhnFirewallObjects           OBJECT IDENTIFIER ::= { zhnFirewall 1 }
+
+--
+-- Textual Conventions
+--
+FirewallMgmtAccessServiceValues ::= TEXTUAL-CONVENTION
+  STATUS        current
+  DESCRIPTION   "LAN Management Access Services that can be blocked from the 
+                 CPEs management network."
+  SYNTAX INTEGER {
+          http (1),
+          https (2),
+          ping (3),
+          snmp (4),
+          snmpTrap (5),
+          ssh (6),
+          telnet (7)
+  }
+
+FirewallMgmtAccessServiceActions ::= TEXTUAL-CONVENTION
+  STATUS        current
+  DESCRIPTION   "LAN Management Access Service actions to perform for the 
+                 specified service."
+  SYNTAX INTEGER {
+          allow (1),
+          deny (2),
+          undefined (3)
+  }
+
+
+FirewallPortTypeValues ::= TEXTUAL-CONVENTION
+  STATUS        current
+  DESCRIPTION   "LAN Port Forwarding actions supported."
+  SYNTAX INTEGER {
+          portRange (1),  -- Range indicates that any traffic on those ports will be 
+                          -- sent to the private IP address. 
+          portRemap (2),  -- Remap indicates that any traffic on those ports will be 
+                          -- sent to the private IP address at the private port.
+          dmz (3)         -- When DMZ is chosen it is the only rule allowed on that
+                          -- interface. A DMZ rule is effectively the same as a Range 
+                          -- rule with all ports included. Range rules are more secure 
+                          -- than setting a DMZ rule, because Range rules allow specific 
+                          -- ports or groups of ports to be opened up. 
+  }
+
+FirewallPortProtocolValues  ::= TEXTUAL-CONVENTION
+  STATUS        current
+  DESCRIPTION   "LAN Port Forwarding protocols that can be filtered, per port."
+  SYNTAX INTEGER {
+          tcp (1),
+          udp (2),
+          tcpOrUdp (3),
+          icmp (4),
+	  icmpv4 (5),
+          none (6)
+  }
+
+
+
+--
+-- LAN Device Objects 
+-- InternetGatewayDevice.LANDevice.{i}.LANHostConfigManagement.IPInterface.{i}.X_ZHONE_MgmtAccessCfg.{i}.
+--
+-- 1.3.6.1.4.1.5504.2.5.45.1.1
+--
+firewallMgmtAccessTable OBJECT-TYPE
+  SYNTAX        SEQUENCE OF FirewallMgmtAccessEntry
+  MAX-ACCESS    not-accessible
+  STATUS        current
+  DESCRIPTION
+    "Table of LAN Management Access Service Filters"
+  ::= { zhnFirewallObjects 1}
+
+firewallMgmtAccessEntry OBJECT-TYPE
+  SYNTAX        FirewallMgmtAccessEntry
+  MAX-ACCESS    not-accessible
+  STATUS        current
+  DESCRIPTION
+    "Table of entries of LAN Management Access service filters. This
+     table is used to configure management access on the device. It
+     is useful in making the device management network by blocking 
+     protocols or services that are highly susceptible to external
+     attacks."
+  INDEX        { lanDeviceIndex, lanEthernetIndex, firewallMgmtServiceIndex }
+  ::= { firewallMgmtAccessTable 1}
+
+FirewallMgmtAccessEntry ::=
+  SEQUENCE {
+      firewallMgmtServiceIndex           FirewallMgmtAccessServiceValues,
+      firewallMgmtService                OCTET STRING,
+      firewallMgmtAction                 FirewallMgmtAccessServiceActions
+  }
+
+firewallMgmtServiceIndex OBJECT-TYPE
+  SYNTAX        FirewallMgmtAccessServiceValues       
+  MAX-ACCESS    not-accessible
+  STATUS        current
+  DESCRIPTION
+    "LAN Management Access Services Table index. Enumerated values:
+          Http (1),
+          Https (2),
+          Ping (3),
+          Snmp (4),
+          SnmpTrap (5),
+          Ssh (6),
+          Telnet (7)
+     "
+  ::= { firewallMgmtAccessEntry 1}
+
+firewallMgmtService OBJECT-TYPE
+  SYNTAX        OCTET STRING       
+  MAX-ACCESS    read-only
+  STATUS        current
+  DESCRIPTION
+    "LAN Management Access Service description."
+  ::= { firewallMgmtAccessEntry 2}
+
+firewallMgmtAction OBJECT-TYPE
+  SYNTAX        FirewallMgmtAccessServiceActions
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION
+    "LAN Management Access Service filtering action. Enumerated values:
+          Allow (1),
+          Deny (2),
+          Undefined (3)
+    "
+  ::= { firewallMgmtAccessEntry 3}
+
+
+--
+-- LAN Device Objects 
+-- InternetGatewayDevice.LANDevice.{i}.LANHostConfigManagement.IPInterface.{i}.X_ZHONE_PortForwardingCfg.{i}.
+--
+-- 1.3.6.1.4.1.5504.2.5.45.1.2
+--
+firewallPortForwardingTable OBJECT-TYPE
+  SYNTAX        SEQUENCE OF FirewallPortForwardingEntry
+  MAX-ACCESS    not-accessible
+  STATUS        current
+  DESCRIPTION
+    "Table of LAN Port Forwarding Rules. Note that the rules in this table
+     have no effect until the global firewall object (sysFirewallEnable)
+     is enabled."
+  ::= { zhnFirewallObjects 2}
+
+firewallPortForwardingEntry OBJECT-TYPE
+  SYNTAX        FirewallPortForwardingEntry
+  MAX-ACCESS    not-accessible
+  STATUS        current
+  DESCRIPTION
+    "This table is used to configure port forwarding firewall rules for
+     the device."
+  INDEX        { lanDeviceIndex, lanEthernetIndex, firewallPortForwardingIndex }
+  ::= { firewallPortForwardingTable 1}
+
+FirewallPortForwardingEntry ::=
+  SEQUENCE {
+      firewallPortForwardingIndex           Unsigned32,
+      firewallPortForwardingName            OCTET STRING,
+      firewallPortType                      FirewallPortTypeValues,
+      firewallPortProtocol                  FirewallPortProtocolValues,
+      firewallPortPublicPortStart           Unsigned32,
+      firewallPortPublicPortEnd             Unsigned32,
+      firewallPortPrivatePort               Unsigned32, 
+      firewallPortPrivateIPAddress          IpAddress,
+      firewallPortForwardingRowStatus       ZhoneRowStatus
+  }
+
+firewallPortForwardingIndex OBJECT-TYPE
+  SYNTAX        Unsigned32
+  MAX-ACCESS    not-accessible
+  STATUS        current
+  DESCRIPTION
+    "LAN Port Forwarding Rules index."
+  ::= { firewallPortForwardingEntry 1}
+
+firewallPortForwardingName OBJECT-TYPE
+  SYNTAX        OCTET STRING       
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION
+    "Descriptive name for a LAN Port Forwarding Rule."
+  ::= { firewallPortForwardingEntry 2}
+
+firewallPortType OBJECT-TYPE
+  SYNTAX        FirewallPortTypeValues
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION
+    "Enumerated value of:
+          portRange (1),  -- Range indicates that any traffic on those ports will be 
+                          -- sent to the private IP address. 
+          portRemap (2),  -- Remap indicates that any traffic on those ports will be 
+                          -- sent to the private IP address at the private port.
+          dmz (3)         -- When DMZ is chosen it is the only rule allowed on that
+                          -- interface. A DMZ rule is effectively the same as a Range 
+                          -- rule with all ports included. Range rules are more secure 
+                          -- than setting a DMZ rule, because Range rules allow specific 
+                          -- ports or groups of ports to be opened up. 
+    "
+  ::= { firewallPortForwardingEntry 3}
+
+firewallPortProtocol OBJECT-TYPE
+  SYNTAX        FirewallPortProtocolValues
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION
+    "Enumerated value of:
+          tcp (1),
+          udp (2),
+          tcpOrUdp (3),
+          icmp (4),
+	  icmpv4 (5),
+          none (6)
+    "
+  ::= { firewallPortForwardingEntry 4}
+
+firewallPortPublicPortStart OBJECT-TYPE
+  SYNTAX        Unsigned32
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION
+    "Lowest value port number for the range."
+  ::= { firewallPortForwardingEntry 5}
+
+firewallPortPublicPortEnd OBJECT-TYPE
+  SYNTAX        Unsigned32
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION
+    "Highest value port number for the range. This can be equal to 
+     firewallPortPublicPortStart if there is only one port."
+  ::= { firewallPortForwardingEntry 6}
+
+firewallPortPrivatePort OBJECT-TYPE
+  SYNTAX        Unsigned32
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION
+    "The port number with which to send the traffic."
+  ::= { firewallPortForwardingEntry 7}
+
+firewallPortPrivateIPAddress OBJECT-TYPE
+  SYNTAX        IpAddress
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION
+    "The port IP Address with which to send the traffic."
+  ::= { firewallPortForwardingEntry 8}
+
+firewallPortForwardingRowStatus OBJECT-TYPE
+  SYNTAX        ZhoneRowStatus
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION   
+    "The SNMP RowStatus of the current row. The following objects must
+     be specified upon row creation:
+        firewallPortForwardingName    
+        firewallPortPrivateIPAddress
+    "
+  ::= { firewallPortForwardingEntry 9}
+
+
+-- ****************************************************************************
+--
+-- Conformance Information
+--
+
+zhnFirewallConformance OBJECT IDENTIFIER ::= { zhnFirewall 3 }
+
+zhnFirewallGroups OBJECT IDENTIFIER ::= { zhnFirewallConformance 1}
+zhnFirewallCompliances OBJECT IDENTIFIER ::= { zhnFirewallConformance 2}
+ 
+--
+-- Compliance Statements
+--
+
+zhnFirewallCompliance  MODULE-COMPLIANCE
+  STATUS        current
+  DESCRIPTION
+        "The Compliance statement for SNMP entities which
+         manage the Zhone CPE LAN Firewall Management Access Services 
+	 and Port Forwarding Information"
+  MODULE  -- this module
+  MANDATORY-GROUPS {
+      zhnFirewallMgmtAccessGroup
+  }
+  ::= {zhnFirewallCompliances 1}
+
+
+--
+-- Units of Conformance
+--
+
+zhnFirewallMgmtAccessGroup OBJECT-GROUP
+   OBJECTS {
+      firewallMgmtService,
+      firewallMgmtAction
+   }
+   STATUS current
+   DESCRIPTION
+      "A collection of Zhone IP objects that describe the 
+       LAN Management Access Services that can be filtered for 
+       a particular LAN interface."
+   ::= { zhnFirewallGroups 1}
+
+zhnFirewallPortForwardingGroup OBJECT-GROUP
+   OBJECTS {
+      firewallPortForwardingName,
+      firewallPortType,
+      firewallPortProtocol,
+      firewallPortPublicPortStart,
+      firewallPortPublicPortEnd,
+      firewallPortPrivatePort,
+      firewallPortPrivateIPAddress,
+      firewallPortForwardingRowStatus
+   }
+   STATUS current
+   DESCRIPTION
+      "A collection of Zhone IP objects that describe the 
+       LAN Port Forwarding Management rules for filtering
+       protocols and ports for a particular LAN interface."
+   ::= { zhnFirewallGroups 2}
+
+
+END

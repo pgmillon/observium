@@ -7,11 +7,11 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-echo(" SMARTNODE-MIB ");
+echo("SMARTNODE-MIB ");
 
 $processors_array = snmpwalk_cache_oid($device, "cpu", array(), "SMARTNODE-MIB", mib_dirs('patton'));
 

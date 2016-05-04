@@ -13,14 +13,8 @@
  *
  */
 
-include_once("../includes/defaults.inc.php");
-include_once("../config.php");
-include_once("../includes/definitions.inc.php");
+include_once("../includes/sql-config.inc.php");
 
-include($config['install_dir'] . "/includes/common.inc.php");
-include($config['install_dir'] . "/includes/dbFacile.php");
-include($config['install_dir'] . "/includes/rewrites.inc.php");
-include($config['install_dir'] . "/includes/entities.inc.php");
 include($config['html_dir'] . "/includes/functions.inc.php");
 include($config['html_dir'] . "/includes/authenticate.inc.php");
 
@@ -45,7 +39,7 @@ header("Content-type: image/svg+xml");
 
 /********** HTTP GET Based Conf ***********/
 $ifnum    = $port['ifIndex'];             // BSD / SNMP interface name / number
-$ifname   = escape_html($port['label']);  //Interface name that will be showed on top right of graph
+$ifname   = escape_html($port['port_label']);  //Interface name that will be showed on top right of graph
 $hostname = short_hostname($device['hostname']);
 
 if($vars['title']) { $ifname = escape_html($vars['title']); }

@@ -1,0 +1,1221 @@
+
+-- Copyright (C) 2010-2012 by Zhone Technologies.  All Rights Reserved.
+
+-- ======================================================================
+-- ==                                                                  ==
+-- ==                    ZHNLAYER2BRIDGING MIB                         ==
+-- ==                                                                  ==
+-- ==  Copyright (C) 2010-2012 Zhone Technologies, Inc.                ==
+-- ==  Confidential, Unpublished Property of Zhone Technologies.       ==
+-- ==  Rights Reserved Under the Copyright Laws of the United States.  ==
+-- ==                                                                  ==
+-- ======================================================================
+
+ZHNLAYER2BRIDGING DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY , OBJECT-TYPE , enterprises,
+    Integer32, Unsigned32, IpAddress
+        FROM SNMPv2-SMI
+    MODULE-COMPLIANCE, OBJECT-GROUP
+        FROM SNMPv2-CONF
+    TEXTUAL-CONVENTION, MacAddress, TruthValue
+        FROM SNMPv2-TC
+    ZhoneRowStatus
+        FROM Zhone-TC
+    ifIndex, InterfaceIndex, InterfaceIndexOrZero
+        FROM IF-MIB
+    zhoneWtn
+        FROM Zhone;
+
+-- 1.3.6.1.4.1.5504.2.5.42
+zhnLayer2Bridging  MODULE-IDENTITY
+    LAST-UPDATED  "201207111200Z" -- July 11, 2012
+    ORGANIZATION
+        "Zhone Technologies, Inc."
+    CONTACT-INFO 
+        "Zhone Technologies, Inc.
+         Florida Design Center
+         8545 126th Avenue North
+         Largo, FL 33773
+
+	 Toll-Free: +1 877-ZHONE20 (+1 877-946-6320)
+	 Tel: +1-510-777-7000
+	 Fax: +1-510-777-7001
+	 E-mail: support@zhone.com"
+
+
+    DESCRIPTION
+        "This file defines the private Enterprise MIB extensions
+         that define Layer 2 Bridging objects supported by the
+	     Zhone VoIP CPEs. "
+
+    REVISION "201207111200Z" -- July 11, 2012
+    DESCRIPTION "Changed vlanIDType to read-only"
+
+    REVISION "201206211200Z" -- June 21, 2012
+    DESCRIPTION "Moved OMCI from VlanTypeValues to VlanIDType"
+
+    REVISION "201206051200Z" -- June 5, 2012
+    DESCRIPTION "Updated VlanTypeValues"
+
+    REVISION "201205161200Z" -- May 16, 2012
+    DESCRIPTION "Renamed filterTable to  filterBridgeTable"
+
+    REVISION "201201261200Z" -- Jan 26, 2012
+    DESCRIPTION "Added layer2BridgingGlobalObjects"
+
+    REVISION "201101110000Z" -- Jan 11, 2011
+    DESCRIPTION "General file cleanup and fixed MIB compilation errors."
+
+    REVISION "201008100000Z"  -- Aug 10, 2010
+    DESCRIPTION "Removed pppoeEnabledUplink object from BridgeTable."
+
+    REVISION "201004010000Z"  -- Apr 01, 2010
+    DESCRIPTION "First Draft"
+
+::= { zhoneWtn 42 }
+
+
+
+-- 1.3.6.1.4.1.5504.2.5.42.1
+layer2BridgingObjects           OBJECT IDENTIFIER ::= { zhnLayer2Bridging 1 }
+
+
+--
+-- Textual Conventions
+--
+BridgeEntryStatusValues ::= TEXTUAL-CONVENTION
+  STATUS        current
+  DESCRIPTION   "Status of an entry in the bridge, filter or marking tables.
+                 List of supported strings:
+                    Disabled
+                    Enabled
+                    Error
+                "
+  SYNTAX OCTET STRING (SIZE (0..16))
+
+
+VlanTypeValues ::= TEXTUAL-CONVENTION
+  STATUS        current
+  DESCRIPTION   "Type of VLAN associated with a bridge table entry.
+                 List of supported strings:
+                    Unknown
+                    Bridged
+                    Routed
+                    TLS-Bridged
+                    PPPoE_Routed
+                    PPPoE_Bridged
+                    BRouted
+                    PWE-Bridged
+                 "
+  SYNTAX OCTET STRING (SIZE (0..16))
+
+
+VlanSecureType ::= TEXTUAL-CONVENTION
+  STATUS        current
+  DESCRIPTION   "Secure setting for a VLAN associated with a bridge table entry.
+                 List of supported strings:
+                     Disable - indicates traffic will be bridged normally.
+                     Enable - indicates all outgoing traffic will be forced out the uplink.
+                     Unknown - indicates the secure settined has not been configured.
+                 "
+  SYNTAX OCTET STRING (SIZE (0..16))
+
+
+VlanIDType ::= TEXTUAL-CONVENTION
+  STATUS        current
+  DESCRIPTION   "Type of VLAN port membership.
+                 List of supported strings:
+                    Unknown  - indicates the port membership has not been configured.
+                    Untagged - indicates the frame leaving the device has no VLAN tag.
+                    Tagged   - indicates the frame leaving the device has one VLAN tag.
+                    S-TAG    - indicates the frame leaving the device has a service VLAN tag or 
+                               a Service VLAN tag and a customer VLAN tag.
+                    TLS      - indicates the frame leaving the device may have a customer VLAN tag 
+                               or no VLAN tag.
+                    OMCI     - indicates the frame leaving the device on the provised the GEM Port.
+                "
+  SYNTAX OCTET STRING (SIZE (0..16))
+
+
+BridgingIntfTypeValues ::= TEXTUAL-CONVENTION
+  STATUS        current
+  DESCRIPTION   "Type of LAN/WAN connection for the interface.
+                 List of supported strings:
+                    lanInterface
+                    wanInterface
+                    lanRouterConnection
+                    wanRouterConnection
+                "
+  SYNTAX OCTET STRING (SIZE (0..32))
+
+
+VlanTLSMode ::= TEXTUAL-CONVENTION
+  STATUS        current
+  DESCRIPTION   "Transparent LAN Service Mode. Enumeration of:
+                    sTag       - S-TAG mode. All traffic must be encapsulated within a 
+                                 configured S-Tag.  Untagged or single-tagged traffic
+                                 can be S-tagged upon LAN port ingress based on the 
+                                 configured Port Defaults.
+                    unknown    - not defined
+                    normal     - All traffic must be encapsulated within a configured
+                                 VLAN tag.  Untagged traffic can be tagged upon LAN
+                                 port ingress based on the configured Port Defaults.
+                "
+  SYNTAX INTEGER {
+                sTag (1),      -- S-TAG mode. 
+                unknown (2),   -- Unknown mode
+                normal (3)     -- CPE device operates according to the IEEE 802.1Q or 
+                               -- 802.1D specifications.
+  }
+
+VlanTLSServiceTags ::= TEXTUAL-CONVENTION
+  STATUS        current
+  DESCRIPTION   "Transparent Service Tags. Enumeration of:
+                    none
+                    sTag8100
+                    sTag88A8
+                    sTag9100
+                    sTag9200
+                    sTag9300
+                "
+  SYNTAX INTEGER {
+                none (1),      -- no S-TAG specified
+                sTag8100 (2), -- Tag ID 0x8100
+                sTag88A8 (3), -- Tag ID 0x88A8
+                sTag9100 (4), -- Tag ID 0x9100
+                sTag9200 (5), -- Tag ID 0x9200
+                sTag9300 (6)  -- Tag ID 0x9300
+  }
+
+VlanQOSMethods ::= TEXTUAL-CONVENTION
+  STATUS        current
+  DESCRIPTION   "Quality of Service Method. Enumeration of:
+                    layer2     - Layer 2 VLAN COS method will check the COS bits in 
+                                 the Ethernet Packet to define the QOS.
+                    layer3     - Layer 3 IP Precedence method will check the DSCP field
+                                 in the IP header to determine priority of the packet.
+                "
+  SYNTAX INTEGER {
+                layer2 (1),    -- Layer 2 VLAN COS
+                layer3 (2)     -- Layer 3 IP Precendence
+  }
+
+
+
+--
+-- Layer 2 Bridging Objects 
+-- TR-98 InternetGatewayDevice.Layer2Bridging.
+--
+-- Layer-2 bridging table specifies bridges between layer-2 LAN and/or 
+-- WAN interfaces. Bridges can be defined to include layer-2 filter 
+-- criteria to selectively bridge traffic between interfaces.
+--
+-- 1.3.6.1.4.1.5504.2.5.42.1
+--
+
+maxBridgeEntries OBJECT-TYPE
+  SYNTAX        Unsigned32
+  MAX-ACCESS    read-only
+  STATUS        current
+  DESCRIPTION
+    "The maximum number of entries available in the Bridge table."
+  ::= { layer2BridgingObjects 1}
+
+maxFilterEntries OBJECT-TYPE
+  SYNTAX        Unsigned32
+  MAX-ACCESS    read-only
+  STATUS        current
+  DESCRIPTION
+    "The maximum number of entries available in the Filter table."
+  ::= { layer2BridgingObjects 2}
+
+maxMarkingEntries OBJECT-TYPE
+  SYNTAX        Unsigned32
+  MAX-ACCESS    read-only
+  STATUS        current
+  DESCRIPTION
+    "The maximum number of entries available in the Marking table."
+  ::= { layer2BridgingObjects 3}
+
+bridgeNumberOfEntries OBJECT-TYPE
+  SYNTAX        Unsigned32
+  MAX-ACCESS    read-only
+  STATUS        current
+  DESCRIPTION
+    "Number of entries in the Bridge table."
+  ::= { layer2BridgingObjects 4}
+
+filterNumberOfEntries OBJECT-TYPE
+  SYNTAX        Unsigned32
+  MAX-ACCESS    read-only
+  STATUS        current
+  DESCRIPTION
+    "Number of entries in the Filter table."
+  ::= { layer2BridgingObjects 5}
+
+markingNumberOfEntries OBJECT-TYPE
+  SYNTAX        Unsigned32
+  MAX-ACCESS    read-only
+  STATUS        current
+  DESCRIPTION
+    "Number of entries in the Marking table."
+  ::= { layer2BridgingObjects 6}
+
+availableInterfaceNumberOfEntries OBJECT-TYPE
+  SYNTAX        Unsigned32
+  MAX-ACCESS    read-only
+  STATUS        current
+  DESCRIPTION
+    "Number of entries in the AvailableInterfaces table."
+  ::= { layer2BridgingObjects 7}
+
+
+--
+-- Layer 2 Bridge Table
+-- TR-98 InternetGatewayDevice.Layer2Bridging.Bridge.{i}.
+--
+-- 1.3.6.1.4.1.5504.2.5.41.1.8
+--
+bridgeTable OBJECT-TYPE
+  SYNTAX        SEQUENCE OF BridgeEntry
+  MAX-ACCESS    not-accessible
+  STATUS        current
+  DESCRIPTION
+    "Bridge Table."
+  ::= { layer2BridgingObjects 8 }
+
+bridgeEntry OBJECT-TYPE
+  SYNTAX        BridgeEntry
+  MAX-ACCESS    not-accessible
+  STATUS        current
+  DESCRIPTION
+    "Bridge Table."
+  INDEX        { bridgeKey }
+  ::= { bridgeTable 1}
+
+BridgeEntry ::=
+  SEQUENCE {
+      bridgeKey                  Unsigned32,
+      bridgeEnable               TruthValue,
+      bridgeStatus               BridgeEntryStatusValues,
+      bridgeName                 OCTET STRING,
+      vlanID                     Unsigned32,
+      vlanType                   VlanTypeValues,
+      secureVlan                 VlanSecureType,
+      bridgeTableRowStatus       ZhoneRowStatus
+  }
+
+bridgeKey OBJECT-TYPE
+  SYNTAX        Unsigned32(0..4096)
+  MAX-ACCESS    read-only
+  STATUS        current
+  DESCRIPTION
+    "Unique key for each Bridge table entry."
+  ::= { bridgeEntry 1}
+
+bridgeEnable OBJECT-TYPE
+  SYNTAX        TruthValue
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION
+    "Enables or disables this Bridge table entry."
+  ::= { bridgeEntry 2}
+
+bridgeStatus OBJECT-TYPE
+  SYNTAX        BridgeEntryStatusValues
+  MAX-ACCESS    read-only
+  STATUS        current
+  DESCRIPTION
+    "The status of the bridge table entry. Enumeration of:
+        Disabled
+	Enabled
+	Error
+    "
+  ::= { bridgeEntry 3}
+
+bridgeName OBJECT-TYPE
+  SYNTAX        OCTET STRING
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION
+    "Human-readable name for this Bridge table entry."
+  ::= { bridgeEntry 4}
+
+vlanID OBJECT-TYPE
+  SYNTAX        Unsigned32(0..4096)
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION
+    "The 802.1Q VLAN ID associated with this Bridge entry. A value 
+    of 0 indicates either Untagged or PriorityOnly tagging, which
+    are treated identically."
+  ::= { bridgeEntry 5}
+
+vlanType OBJECT-TYPE
+  SYNTAX        VlanTypeValues
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION
+    "The type of 802.1Q VLAN associated with this Bridge entry. 
+     Enumeration of:
+                    Unknown
+                    Bridged
+		    Routed
+		    TlsBridged
+		    PppoeRouted
+		    PppoeBridged
+		    BRouted
+		    PWEBridged
+		    CPU-Bridged
+    "
+  ::= { bridgeEntry 6}
+
+secureVlan OBJECT-TYPE
+  SYNTAX        VlanSecureType
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION   
+    "Secure setting for a VLAN associated with a bridge table entry.
+     Enumeration of: 
+                    disable
+	            enable
+	            unknown
+    "
+  ::= { bridgeEntry 7}
+
+bridgeTableRowStatus OBJECT-TYPE
+  SYNTAX        ZhoneRowStatus
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION   
+    "The SNMP RowStatus of the current row. The following objects must
+    be specified upon row creation:
+        vlanID
+        vlanType
+        bridgeName
+    "
+  ::= { bridgeEntry 8}
+
+
+
+--
+-- Layer 2 Bridge Filter Table
+-- TR-98 InternetGatewayDevice.Layer2Bridging.Filter.{i}.
+--
+-- 1.3.6.1.4.1.5504.2.5.41.1.2.9
+--
+filterBridgeTable OBJECT-TYPE
+  SYNTAX        SEQUENCE OF FilterBridgeEntry
+  MAX-ACCESS    not-accessible
+  STATUS        current
+  DESCRIPTION
+    "Filter table containing filter entries each of which is associated 
+     with one Bridge as specified by a Bridge table entry.
+    "
+  ::= { layer2BridgingObjects 9 }
+
+filterBridgeEntry OBJECT-TYPE
+  SYNTAX        FilterBridgeEntry
+  MAX-ACCESS    not-accessible
+  STATUS        current
+  DESCRIPTION
+    "Bridge Filter Table."
+  INDEX        { filterKey, filterBridgeReference }
+  ::= { filterBridgeTable 1}
+
+FilterBridgeEntry ::=
+  SEQUENCE {
+      filterKey                  		Unsigned32,
+      filterEnable               		TruthValue,
+      zhnFilterStatus               		BridgeEntryStatusValues,
+      filterBridgeReference                 	Unsigned32,
+      filterInterface                     	OCTET STRING,
+      sourceMACFromVendorClassIDFilter          OCTET STRING,
+      sourceMACFromVendorClassIDFilterExclude   TruthValue,
+      bridgeFilterRowStatus                     ZhoneRowStatus
+  }
+
+filterKey OBJECT-TYPE
+  SYNTAX        Unsigned32(0..4096)
+  MAX-ACCESS    read-only
+  STATUS        current
+  DESCRIPTION
+    "Unique key for each Bridge Filter table entry."
+  ::= { filterBridgeEntry 1}
+
+filterEnable OBJECT-TYPE
+  SYNTAX        TruthValue
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION
+    "Enables or disables this Filter table entry."
+  ::= { filterBridgeEntry 2}
+
+zhnFilterStatus OBJECT-TYPE
+  SYNTAX        BridgeEntryStatusValues
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION
+    "The status of this Filter table entry. Enumeration of:
+        Disabled
+        Enabled
+        Error
+    "   
+  ::= { filterBridgeEntry 3}
+
+filterBridgeReference OBJECT-TYPE
+  SYNTAX        Unsigned32
+  MAX-ACCESS    read-only
+  STATUS        current
+  DESCRIPTION
+    "The BridgeKey value of the Bridge table entry associated with 
+     this Filter. "
+  ::= { filterBridgeEntry 4}
+
+filterInterface OBJECT-TYPE
+  SYNTAX        OCTET STRING
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION
+    "The interface or interfaces associated with this Filter table
+     entry. The bridge corresponding to this Filter table entry is 
+     defined to admit packets on ingress to the bridge from the 
+     specified interfaces that meet all of the criteria specified 
+     in the Filter table entry. The following values are defined. 
+
+         - To associate this Filter with a single interface 
+	 listed in the AvailableInterface table, the Filter 
+	 Interface value is set to the value of corresponding 
+	 AvailableInterfaceKey. 
+
+	 - AllInterfaces indicates that this Filter is associated 
+	 with all LAN and WAN interfaces listed in the AvailableInterface 
+	 table (all entries of InterfaceType LANInterface or WANInterface). 
+
+	 - LANInterfaces indicates that this Filter is associated with all 
+	 LAN interfaces listed in the AvailableInterface table (all entries 
+	 of InterfaceType LANInterface). 
+	 
+	 - WANInterfaces indicates that this Filter is associated with all 
+	 WAN interfaces listed in the AvailableInterface table (all entries 
+	 of InterfaceType WANInterface). 
+	 
+	 - An empty string indicates the Filter table entry is not associated 
+	 with any interface (and has no effect).
+    "
+  ::= { filterBridgeEntry 5}
+
+sourceMACFromVendorClassIDFilter OBJECT-TYPE
+  SYNTAX        OCTET STRING
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION
+    "A string used to identify one or more devices via DHCP for which 
+     MAC address filtering would subsequently apply. A device is considered 
+     matching if it its DHCP Vendor Class Identifier (Option 60 as defined 
+     in RFC 2132) in the most recent DHCP lease acquisition or renewal was 
+     equal to the specified value.
+    "
+  ::= { filterBridgeEntry 6}
+
+sourceMACFromVendorClassIDFilterExclude OBJECT-TYPE
+  SYNTAX        TruthValue
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION
+    "If false, on ingress to the interfaces associated with this Filter, 
+     the Bridge admits only those packets whose source MAC Address matches 
+     that of a LAN device previously identified as described in 
+     SourceMACFromVendorClassIDFilter. 
+     
+         - If SourceMACFromVendorClassIDFilter is empty, no packets are admitted. 
+
+         - If SourceMACFromVendorClassIDFilter is true on ingress to the interfaces 
+	   associated with this Filter, the Bridge admits all packets except those 
+	   packets whose source MAC Address matches that of a LAN device previously 
+	   identified as described in SourceMACFromVendorClassIDFilter. 
+	   
+	 - If the SourceMACFromVendorClassIDFilter is empty, packets are admitted 
+	   regardless of MAC address. 
+    "
+  ::= { filterBridgeEntry 7}
+
+bridgeFilterRowStatus OBJECT-TYPE
+  SYNTAX        ZhoneRowStatus
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION   
+    "The SNMP RowStatus of the current row. The following objects must
+     be specified upon row creation:
+        filterBridgeReference
+    "
+  ::= { filterBridgeEntry 8}
+
+
+--
+-- Layer 2 Bridge Marking Table
+-- TR-98 InternetGatewayDevice.Layer2Bridging.Marking.{i}
+--
+-- 1.3.6.1.4.1.5504.2.5.41.1.2.10
+--
+markingTable OBJECT-TYPE
+  SYNTAX        SEQUENCE OF MarkingEntry
+  MAX-ACCESS    not-accessible
+  STATUS        current
+  DESCRIPTION
+    "Marking table identifies non-default layer-2 marking behavior for 
+     packets on egress from the specified interfaces.
+    "
+  ::= { layer2BridgingObjects 10}
+
+markingEntry OBJECT-TYPE
+  SYNTAX        MarkingEntry
+  MAX-ACCESS    not-accessible
+  STATUS        current
+  DESCRIPTION
+    "Marking table identifies non-default layer-2 marking behavior for 
+     packets on egress from the specified interfaces.
+    "
+  INDEX        { markingKey, markingBridgeReference }
+  ::= { markingTable 1}
+
+MarkingEntry ::=
+  SEQUENCE {
+      markingKey                  	Unsigned32,
+      markingEnable               	TruthValue,
+      markingStatus               	BridgeEntryStatusValues,
+      markingBridgeReference            Unsigned32,
+      markingInterface                  OCTET STRING,
+      vlanIDUntag                       TruthValue,
+      vlanIDMark                        INTEGER,
+      ethernetPriorityMark              INTEGER,
+      ethernetPriorityOverride          TruthValue,
+      vlanIDType                        VlanIDType,
+      bridgeMarkingRowStatus            ZhoneRowStatus 
+  }
+
+markingKey OBJECT-TYPE
+  SYNTAX        Unsigned32(0..4096)
+  MAX-ACCESS    read-only
+  STATUS        current
+  DESCRIPTION
+    "Unique key for each Bridge Marking table entry."
+  ::= { markingEntry 1}
+
+markingEnable OBJECT-TYPE
+  SYNTAX        TruthValue
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION
+    "Enables or disables this Marking table entry."
+  ::= { markingEntry 2}
+
+markingStatus OBJECT-TYPE
+  SYNTAX        BridgeEntryStatusValues
+  MAX-ACCESS    read-only
+  STATUS        current
+  DESCRIPTION
+    "The status of this Marking table entry. Enumeration of:
+        Disabled
+        Enabled
+        Error
+    "   
+  ::= { markingEntry 3}
+
+markingBridgeReference OBJECT-TYPE
+  SYNTAX Unsigned32
+  MAX-ACCESS    read-only
+  STATUS        current
+  DESCRIPTION
+    "The BridgeKey value of the Bridge table entry associated with 
+     this Marking.
+    
+     The effect of a Marking table entry applies only to packets that 
+     have been admitted to the specified bridge (regardless of the 
+     ingress interface). 
+    "
+  ::= { markingEntry 4}
+
+markingInterface OBJECT-TYPE
+  SYNTAX        OCTET STRING
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION
+    "The interface or interfaces associated with this Marking table
+     entry. The bridge corresponding to this Marking table entry is 
+     defined to admit packets on ingress to the bridge from the 
+     specified interfaces that meet all of the criteria specified 
+     in the Marking table entry. The following values are defined. 
+
+         - To associate this Marking with a single interface 
+	 listed in the AvailableInterface table, the Marking 
+	 Interface value is set to the value of corresponding 
+	 AvailableInterfaceKey. 
+
+	 - AllInterfaces indicates that this Marking is associated 
+	 with all LAN and WAN interfaces listed in the AvailableInterface 
+	 table (all entries of InterfaceType LANInterface or WANInterface). 
+
+	 - LANInterfaces indicates that this Marking is associated with all 
+	 LAN interfaces listed in the AvailableInterface table (all entries 
+	 of InterfaceType LANInterface). 
+	 
+	 - WANInterfaces indicates that this Marking is associated with all 
+	 WAN interfaces listed in the AvailableInterface table (all entries 
+	 of InterfaceType WANInterface). 
+	 
+	 - An empty string indicates the Marking table entry is not associated 
+	 with any interface (and has no effect).
+
+     If there is more than one enabled Marking table entry that specifies 
+     one or more of the same interfaces for the same bridge (i.e. identical 
+     values of MarkingBridgeReference), then for packets on egress from 
+     the specified bridge to those interfaces, the applied marking MUST be 
+     that specified in the Marking table entry among those in conflict 
+     with the lowest MarkingKey value. 
+     
+     If an interface in a given bridge does not have a corresponding 
+     Marking table entry, the marking is left unchanged on egress. 
+    "
+  ::= { markingEntry 5}
+
+vlanIDUntag OBJECT-TYPE
+  SYNTAX        TruthValue
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION
+    "If true, on egress to the interfaces associated with this Marking table 
+     entry, all packets are Untagged. That is, the VLAN tag is stripped from 
+     the packet. If false, on egress to the interfaces associated with this 
+     Marking table entry, all VLAN tags are left intact (including those added 
+     on ingress).
+    "
+  ::= { markingEntry 6}
+
+vlanIDMark OBJECT-TYPE
+  SYNTAX INTEGER (-1..4095)
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION
+    "The 802.1Q VLAN ID to be used on egress to the interfaces associated 
+     with this Marking table entry (if VLANIDUntag is false). A value of -1 
+     indicates that the default VLAN ID for the Bridge should be used instead 
+     (as specified by InternetGatewayDevice.Layer2Bridging.Bridge.{i}.vlanID 
+     for the Bridge table entry associated with this Marking table entry).
+    "
+  ::= { markingEntry 7}
+
+ethernetPriorityMark OBJECT-TYPE
+  SYNTAX INTEGER (-1..7)
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION
+    "Ethernet priority code (as defined in 802.1D) to mark traffic with that 
+    falls into this Bridge on egress to the interfaces associated with this 
+    Marking table entry. A value of -1 indicates no change from the incoming 
+    packet or the mark assigned by the classifier. 
+    "
+  ::= { markingEntry 8}
+
+ethernetPriorityOverride OBJECT-TYPE
+  SYNTAX        TruthValue
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION
+    "If false, on egress to the interfaces associated with this Marking table 
+     entry, the EthernetPriorityMark, if specified, is applied only to packets 
+     of priority 0. 
+     
+     If true, on egress to the interfaces associated with this Marking table 
+     entry, the EthernetPriorityMark, if specified, is to be applied to all 
+     packets on Bridge. 
+     
+     If VLANIDUntag is true, then no priority marking is done since the tag 
+     containing the Ethernet priority is removed. 
+    "
+  ::= { markingEntry 9}
+
+vlanIDType OBJECT-TYPE
+  SYNTAX        VlanIDType
+  MAX-ACCESS    read-only
+  STATUS        current
+  DESCRIPTION
+    "This parameter specifies the port VLAN membership type. The supported 
+     VLAN membership types are: 
+
+         Tagged - The frame leaving the device has one VLAN tag.
+
+         Untagged - The frame leaving the device has no VLAN tag.
+
+         S-TAG - The frame leaving the device has a service VLAN tag or 
+         a Service VLAN tag and a customer VLAN tag.
+
+         TLS - The frame leaving the device may have a customer VLAN tag 
+         or no VLAN tag.
+
+         OMCI - The frame leaves the device on the provised the GEM Port.
+    "
+  ::= { markingEntry 10}
+
+bridgeMarkingRowStatus OBJECT-TYPE
+  SYNTAX        ZhoneRowStatus
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION   
+    "The SNMP RowStatus of the current row. 
+    "
+  ::= { markingEntry 11}
+
+
+--
+-- Layer 2 Bridge Available Interface Table
+-- TR-98 InternetGatewayDevice.Layer2Bridging.AvailableInterface.{i}
+--
+-- 1.3.6.1.4.1.5504.2.5.41.1.2.11
+--
+availableInterfaceTable OBJECT-TYPE
+  SYNTAX        SEQUENCE OF AvailableInterfaceEntry
+  MAX-ACCESS    not-accessible
+  STATUS        current
+  DESCRIPTION
+    "Table containing all LAN and WAN interfaces that are available to 
+     be referenced by the Bridge table. Only interfaces that can carry 
+     layer-2 bridged traffic are included. 
+    "
+  ::= { layer2BridgingObjects 11}
+
+availableInterfaceEntry OBJECT-TYPE
+  SYNTAX        AvailableInterfaceEntry
+  MAX-ACCESS    not-accessible
+  STATUS        current
+  DESCRIPTION
+    "Table containing all LAN and WAN interfaces that are available to 
+     be referenced by the Bridge table. Only interfaces that can carry 
+     layer-2 bridged traffic are included. 
+    "
+  INDEX        { availableInterfaceKey }
+  ::= { availableInterfaceTable 1}
+
+AvailableInterfaceEntry ::=
+  SEQUENCE {
+      availableInterfaceKey                  Unsigned32,
+      interfaceType                 	     BridgingIntfTypeValues,
+      interfaceReference                     OCTET STRING,
+      availableInterfaceRowStatus            ZhoneRowStatus
+  }
+
+availableInterfaceKey OBJECT-TYPE
+  SYNTAX        Unsigned32(0..4096)
+  MAX-ACCESS    read-only
+  STATUS        current
+  DESCRIPTION
+    "Unique key for each interface entry."
+  ::= { availableInterfaceEntry 1}
+
+interfaceType OBJECT-TYPE
+  SYNTAX        BridgingIntfTypeValues
+  MAX-ACCESS    read-only
+  STATUS        current
+  DESCRIPTION
+    "Indicates whether the interface is a LAN-side or WAN-side interface, 
+     or a LAN-side or WAN-side connection to the Gateway.
+    "
+  ::= { availableInterfaceEntry 2}
+
+interfaceReference OBJECT-TYPE
+  SYNTAX        OCTET STRING
+  MAX-ACCESS    read-only
+  STATUS        current
+  DESCRIPTION
+    "This table should contain a single entry for each available LAN 
+     and WAN interface. For a WAN interface, this parameter is the full 
+     hierarchical parameter name of a particular WANConnectionDevice. 
+     A WANConnectionDevice is considered available (included in this 
+     table) only if it supports layer-2 bridged traffic. That is, this 
+     table MUST include only WANConnectionDevices that contain either 
+     a WANEthernetLinkConfig object, or that contain a WANDSLLinkConfig 
+     object for which the LinkType is EoA (Ethernet over ATM). For example: 
+         InternetGatewayDevice.WANDevice.1.WANConnectionDevice.2
+
+     For a LAN interface, this parameter is the full hierarchical parameter
+     name of a particular LAN InterfaceConfig object, or a WLANConfiguration 
+     object.  This table SHOULD include one entry for each such object. For 
+     example:
+         InternetGatewayDevice.LANDevice.1.LANEthernetInterfaceConfig.2
+	 
+     For a WAN-side connection to the Gateway's IP router, this parameter 
+     is the full hierarchical parameter name of a particular WANConnection
+     service. This table SHOULD include an entry for each layer-3 WAN 
+     connection.  For example: 
+         InternetGatewayDevice.WANDevice.1.WANConnectionDevice.2.WANPPPConnection.1
+	 
+     For a LAN-side connection to the Gateway's IP router, this parameter 
+     is the full hierarchical parameter name of a particular LANDevice. This
+     table SHOULD include an entry for each LANDevice, each of which is 
+     associated with a LAN-side layer-3 connection to the Gateway's IP 
+     router. For example:
+         InternetGatewayDevice.LANDevice.2
+    "
+  ::= { availableInterfaceEntry 3}
+
+availableInterfaceRowStatus OBJECT-TYPE
+  SYNTAX        ZhoneRowStatus
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION   
+    "The SNMP RowStatus of the current row."
+  ::= { availableInterfaceEntry 4}
+
+
+--
+-- Layer 2 VLAN Port Membership Table
+--
+-- Since the TR-98 like Layer2Bridging tables are rather 
+-- cumbersome to use, this Zhone proprietary MIB can be 
+-- used as an alternative way to assign layer 2 bridging 
+-- interfaces/ports to a VLAN.
+--
+-- 1.3.6.1.4.1.5504.2.5.41.1.2.12
+--
+vlanPortMembershipTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF VlanPortMembershipEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+      "Layer 2 VLAN Port Membership Table."
+  ::= { layer2BridgingObjects 12}
+	
+vlanPortMembershipEntry OBJECT-TYPE
+    SYNTAX       VlanPortMembershipEntry
+    MAX-ACCESS  not-accessible
+    STATUS       current
+    DESCRIPTION  
+      "Layer 2 VLAN Port Membership Table."
+    INDEX {  ifIndex,  vlanPortVlanID }
+    ::= { vlanPortMembershipTable  1 }
+	
+VlanPortMembershipEntry ::= SEQUENCE {
+   vlanPort                    OCTET STRING, 
+   vlanPortVlanID              Unsigned32, 
+   vlanPortMembershipType      VlanIDType, 
+   vlanPortMembershipAction    ZhoneRowStatus
+}
+
+vlanPort OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS   read-only 
+    STATUS       current
+    DESCRIPTION  
+      "Bridge interface(port) name."
+    ::= { vlanPortMembershipEntry  1 }
+
+
+vlanPortVlanID OBJECT-TYPE
+    SYNTAX       Unsigned32
+    MAX-ACCESS   read-write 
+    STATUS       current
+    DESCRIPTION  
+      "The 802.1Q VLAN ID associated with this Bridge entry." 
+    ::= { vlanPortMembershipEntry  2 }
+
+vlanPortMembershipType OBJECT-TYPE
+    SYNTAX       VlanIDType
+    MAX-ACCESS   read-write 
+    STATUS       current
+    DESCRIPTION  
+      "This parameter specifies the port VLAN membership type. When creating a
+     new Vlan Port Member Entry, the supported VLAN membership types are: 
+
+         Tagged - The frame leaving the device has one VLAN tag.
+
+         Untagged - The frame leaving the device has no VLAN tag.
+
+         S-TAG - The frame leaving the device has a service VLAN tag or 
+         a Service VLAN tag and a customer VLAN tag.
+
+         TLS - The frame leaving the device may have a customer VLAN tag 
+         or no VLAN tag.
+
+         OMCI - The frame leaving the device is on the provisioned GEM Port.
+       " 
+    ::= { vlanPortMembershipEntry  3 }
+
+
+vlanPortMembershipAction OBJECT-TYPE
+    SYNTAX       ZhoneRowStatus
+    MAX-ACCESS   read-write 
+    STATUS       current
+    DESCRIPTION
+      "The SNMP RowStatus of the current row."
+    ::= { vlanPortMembershipEntry  4 }
+
+
+--
+-- Bridging Global Scalar Objects
+--
+-- 1.3.6.1.4.1.5504.2.5.42.1.13
+--
+layer2BridgingGlobalObjects           OBJECT IDENTIFIER ::= { layer2BridgingObjects 13 }
+
+vlanTLSMode OBJECT-TYPE
+  SYNTAX        VlanTLSMode
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION
+    " This object implements transparent LAN service (TLS) by using a 
+      S-Tag (Service Provider tag) to tunnel the customer traffic over 
+      a service provider network. The CPE can operate in normal or S-Tag 
+      mode. In normal mode, CPE device operates according to the IEEE 
+      802.1Q or 802.1D specifications. In S-TAG mode, the CPE device 
+      operates as follows: 
+        1) The CPE's TPID (tag protocol ID) must be provisioned.
+	2) A S-Tag frame consists of a VLAN ID and a TPID that 
+	matches the CPE's provisioned TPID.
+	3) When the CPE adds a S-TAG, the S-Tag's VLAN ID will be 
+	taken from the CPE's default PVID and the TPID will be taken 
+	from the CPE's provisioned TPID. 
+	4) The CPE device supports a TLS-Bridge. The ports on this 
+	bridge can be either S-TAG or TLS members. 
+	    S-Tag port - The input frames from the service provider 
+	                 port may or may not have a S-TAG. 
+			 The CPE will compare the tagged frame's TPID 
+			 against the provisioned S-TAG TPID. If there 
+			 is a match, the CPE will bridge the frame based 
+			 on the VLAN ID in the S-Tag. If there is not a 
+			 match, the frame is forwarded to the CPU.
+            TLS port -   The CPE will add a S-Tag to all input frames
+	                 from this port regardless of whether the frames 
+			 have a 802.1Q tag or not. The CPE will bridge the 
+			 frames based on the VLAN ID in the S-Tag. Only 
+			 a VLAN-tagged or untagged frames are expected 
+			 from the ingress of a TLS (customer) port.
+    "
+  ::= { layer2BridgingGlobalObjects 1 }
+
+vlanServiceTagTPID OBJECT-TYPE
+  SYNTAX        VlanTLSServiceTags
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION
+    " This object specifies the TPID (Tag Protocol ID) of the S-Tag.
+      It is only used when the device's VlanMode is set to S-Tag. The 
+      supported Service TPIDs are:
+                    none
+                    sTag8100
+                    sTag88A8
+                    sTag9100
+                    sTag9200
+                    sTag9300
+    "
+  ::= { layer2BridgingGlobalObjects 2 }
+
+vlanRouteAcrossVlans OBJECT-TYPE
+  SYNTAX        TruthValue
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION
+    " This object defines the VLAN router operation. If this object is set 
+      to TRUE, the router will route between IP subnets across VLANs. Route 
+      table lookups will ignore the VLAN ID of the ingress and egress ports.
+      If there is a match, the packet is routed out the interface specified
+      in the Route Table, regardless of the VLAN with which it is a member.
+      
+      If set to FALSE, the router will only route between IP subnets that
+      are on the same VLAN. Packets will be forwarded to the configured Default
+      Route for the VLAN that they arrived on, unless there is a Route Table
+      match within that same VLAN. Routing of packets across VLANs is
+      prevented, providing traffic isolation.
+    "
+  ::= { layer2BridgingGlobalObjects 3 }
+
+vlanQOSMethod OBJECT-TYPE
+  SYNTAX        VlanQOSMethods
+  MAX-ACCESS    read-write
+  STATUS        current
+  DESCRIPTION
+    " This object defines the VLAN router operation. If this object is set 
+      to TRUE, the router will route between IP subnets across VLANs. If
+      it is set to FALSE, the router will only route between IP subnets 
+      that are on the same VLAN.
+    "
+  ::= { layer2BridgingGlobalObjects 4 }
+
+
+
+-- ****************************************************************************
+--
+-- Conformance Information
+--
+
+zhnLayer2BridgeConformance       OBJECT IDENTIFIER ::= { zhnLayer2Bridging 2 }
+
+zhnLayer2BridgeGroups OBJECT IDENTIFIER ::= { zhnLayer2BridgeConformance 1}
+zhnLayer2BridgeCompliances OBJECT IDENTIFIER ::= { zhnLayer2BridgeConformance 2}
+ 
+--
+-- Compliance Statements
+--
+
+zhnLayer2BridgeCompliance  MODULE-COMPLIANCE
+  STATUS        current
+  DESCRIPTION
+        "The Compliance statement for SNMP entities which
+         manage display the Zhone CPE Layer Bridging Information.
+
+	 The Layer 2 Bridging filterBridgeTable is not required to 
+	 be supported. If it is supported, not all objects defined
+	 as read-write are required to be writable.
+	 "
+  MODULE  -- this module
+  MANDATORY-GROUPS {
+         zhnBridgeGroup, zhnBridgeTableGroup, zhnBridgeMarkingTableGroup,
+	 zhnBridgeAvailableInterfaceGroup, zhnPortMembershipGroup
+  }
+
+  OBJECT      bridgeEnable
+  MIN-ACCESS  read-only
+  DESCRIPTION "Write access is not required."
+
+  OBJECT      markingEnable
+  MIN-ACCESS  read-only
+  DESCRIPTION "Write access is not required."
+
+  OBJECT      vlanIDMark
+  MIN-ACCESS  read-only
+  DESCRIPTION "Write access is not required."
+
+  OBJECT      ethernetPriorityMark
+  MIN-ACCESS  read-only
+  DESCRIPTION "Write access is not required."
+
+  OBJECT      ethernetPriorityOverride
+  MIN-ACCESS  read-only
+  DESCRIPTION "Write access is not required."
+
+  ::= {zhnLayer2BridgeCompliances 1}
+
+
+--
+-- Units of Conformance
+--
+
+zhnBridgeGroup OBJECT-GROUP
+   OBJECTS {
+     maxBridgeEntries,
+     maxFilterEntries,
+     maxMarkingEntries,
+     bridgeNumberOfEntries,
+     filterNumberOfEntries,
+     markingNumberOfEntries ,
+     availableInterfaceNumberOfEntries
+   }
+   STATUS current
+   DESCRIPTION
+      "A collection of Zhone Bridge table objects that describe the 
+       bridged interfaces of the device."
+   ::= { zhnLayer2BridgeGroups 1}
+
+
+
+zhnBridgeTableGroup OBJECT-GROUP
+   OBJECTS {
+      bridgeKey,
+      bridgeEnable,
+      bridgeStatus,
+      bridgeName,
+      vlanID,
+      vlanType,
+      secureVlan,
+      bridgeTableRowStatus
+   }
+   STATUS current
+   DESCRIPTION
+      "A collection of Zhone Bridge table objects that describe the 
+       bridged interfaces of the device."
+   ::= { zhnLayer2BridgeGroups 2}
+
+
+zhnFilterGroup OBJECT-GROUP
+   OBJECTS {
+      filterKey,
+      filterEnable,
+      zhnFilterStatus,
+      filterBridgeReference,
+      filterInterface,
+      sourceMACFromVendorClassIDFilter,
+      sourceMACFromVendorClassIDFilterExclude,
+      bridgeFilterRowStatus
+   }
+   STATUS current
+   DESCRIPTION
+      "A collection of Zhone Bridge Filter table objects that describe the 
+       filtering for bridged interfaces of the device."
+   ::= { zhnLayer2BridgeGroups 3}
+
+
+zhnBridgeMarkingTableGroup OBJECT-GROUP
+   OBJECTS {
+      markingKey,
+      markingEnable,
+      markingStatus,
+      markingBridgeReference,
+      markingInterface,
+      vlanIDUntag,
+      vlanIDMark,
+      ethernetPriorityMark,
+      ethernetPriorityOverride,
+      vlanIDType,
+      bridgeMarkingRowStatus
+   }
+   STATUS current
+   DESCRIPTION
+      "A collection of Zhone Bridge Marking table objects that describe
+       the VLAN marking for bridged interfaces of the device."
+   ::= { zhnLayer2BridgeGroups 4}
+
+
+zhnBridgeAvailableInterfaceGroup OBJECT-GROUP
+   OBJECTS {
+      availableInterfaceKey,
+      interfaceType,
+      interfaceReference,
+      availableInterfaceRowStatus
+   }
+   STATUS current
+   DESCRIPTION
+      "A collection of Zhone Bridge Available Interface table objects that 
+       identify the available bridged interfaces of the device."
+   ::= { zhnLayer2BridgeGroups 5}
+
+
+zhnPortMembershipGroup OBJECT-GROUP
+   OBJECTS {
+      vlanPort,
+      vlanPortVlanID,
+      vlanPortMembershipType,
+      vlanPortMembershipAction
+   }
+   STATUS current
+   DESCRIPTION
+      "A collection of Zhone VLAN Port Membership table objects that 
+       map bridge ports to VLANs."
+   ::= { zhnLayer2BridgeGroups 6}
+
+
+
+zhnVlanGlobalGroup OBJECT-GROUP
+   OBJECTS {
+      vlanTLSMode,
+      vlanServiceTagTPID,
+      vlanRouteAcrossVlans,
+      vlanQOSMethod
+   }
+   STATUS current
+   DESCRIPTION
+      "A collection of Zhone VLAN Global scalar objects."
+   ::= { zhnLayer2BridgeGroups 7}
+
+
+END

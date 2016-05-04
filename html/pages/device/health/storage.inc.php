@@ -6,63 +6,37 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-$graph_type = "storage_usage";
-
-echo('<table class="table table-striped-two table-condensed table-bordered">');
-
-echo('<thead><tr>
-        <th>Drive</th>
-        <th style="width: 420px;">Usage</th>
-        <th style="width: 50px;">Free</th>
-      </tr></thead>');
-
-$row = 1;
-
-$sql  = "SELECT *, `storage`.`storage_id` as `storage_id`";
-$sql .= " FROM  `storage`";
-$sql .= " LEFT JOIN  `storage-state` ON  `storage`.storage_id =  `storage-state`.storage_id";
-$sql .= " WHERE `device_id` = ?";
-
-foreach (dbFetchRows($sql, array($device['device_id'])) as $drive)
+if(device_permitted($device))
 {
 
-  $total = $drive['storage_size'];
-  $used  = $drive['storage_used'];
-  $free  = $drive['storage_free'];
-  $perc  = round($drive['storage_perc'], 0);
-  $used = formatStorage($used);
-  $total = formatStorage($total);
-  $free = formatStorage($free);
+  // Only show aggregate graph if we have access to the entire device.
 
-  $fs_url   = "graphs/id=".$drive['storage_id']."/type=".$graph_type;
+  echo '<div class="box box-solid">';
 
-  $fs_popup  = "onmouseover=\"return overlib('<div class=entity-title>".$device['hostname']." - ".$drive['storage_descr'];
-  $fs_popup .= "</div><img src=\'graph.php?id=" . $drive['storage_id'] . "&amp;type=".$graph_type."&amp;from=".$config['time']['month']."&amp;to=".$config['time']['now']."&amp;width=400&amp;height=125\'>";
-  $fs_popup .= "', RIGHT, FGCOLOR, '#e5e5e5');\" onmouseout=\"return nd();\"";
+  echo('<table class="table table-condensed table-striped table-hover ">');
 
-  $background = get_percentage_colours($percent);
+  $graph_title = nicecase($vars['metric']);
+  $graph_array['type'] = "device_".$vars['metric'];
+  $graph_array['device'] = $device['device_id'];
+  $graph_array['legend'] = no;
 
-  echo("<tr><td><a href='$fs_url' $fs_popup>" . $drive['storage_descr'] . "</a></td>
-          <td><a href='$fs_url' $fs_popup>".print_percentage_bar (400, 20, $perc, "$used / $total", "ffffff", $background['left'], $perc . "%", "ffffff", $background['right'])."</a>
-          </td><td>" . $free . "</td></tr>");
-
-  $graph_array['id'] = $drive['storage_id'];
-  $graph_array['type'] = $graph_type;
-
-  echo('<tr><td colspan="6">');
-
+  echo('<tr><td>');
+  echo('<h3>' . $graph_title . '</h3>');
   print_graph_row($graph_array);
-
   echo('</td></tr>');
 
-  $row++;
+  echo('</table>');
+
+  echo '</div>';
+
+
 }
 
-echo('</table>');
+print_storage_table($vars);
 
 // EOF

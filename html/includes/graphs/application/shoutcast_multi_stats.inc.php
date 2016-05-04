@@ -7,18 +7,16 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-//$device = device_by_id_cache($data['id']);
-
-//$colour     = "random";
 $unit_text  = "ShoutCast Server";
 $total_text = "Total of all ShoutCast Servers";
 $nototal    = 0;
 
 // Not compatible this way with get_rrd_path; as long as no advanced storage is used this will work
+// Call get_rrd_path below instead of using $rrddir.
 $$rrddir     = $config['rrd_dir']."/".$device['hostname'];
 $files      = array();
 $i          = 0;
@@ -42,7 +40,7 @@ foreach ($files as $id => $file)
 {
   $hostname                 = eregi_replace('app-shoutcast-'.$app['app_id'].'-', '', $file);
   $hostname                 = eregi_replace('.rrd', '', $hostname);
-  list($host, $port)        = split('_', $hostname, 2);
+  list($host, $port)        = explode('_', $hostname, 2);
   $rrd_filenames[]          = $rrddir."/".$file;
   $rrd_list[$i]['filename'] = $rrddir."/".$file;
   $rrd_list[$i]['descr']    = $host.":".$port;

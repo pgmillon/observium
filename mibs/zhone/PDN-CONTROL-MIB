@@ -1,0 +1,1572 @@
+PDN-CONTROL-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+SwitchState 
+	FROM PDN-TC
+RowStatus, DisplayString 
+	FROM SNMPv2-TC
+ifIndex 
+	FROM IF-MIB
+Integer32, Counter32, IpAddress, TimeTicks, NOTIFICATION-TYPE, OBJECT-IDENTITY,
+OBJECT-TYPE, MODULE-IDENTITY 
+	FROM SNMPv2-SMI
+OBJECT-GROUP, NOTIFICATION-GROUP 
+	FROM SNMPv2-CONF 
+entPhysicalIndex 
+	FROM ENTITY-MIB
+pdn-common 
+	FROM PDN-HEADER-MIB;
+
+-- ====================================================================
+--
+--  Device Control, Version 4.0, 12/2/97
+--
+--  Last Updated: 12/23/97 by R. Steinberger (ras@eng.paradyne.com)
+--                (Added devControlRMON and devControlLatency groups,
+--                 Added global comments,
+--                 Added Enum values to devControlTestStatus,
+--                 Modified comments on devControlTestCommand)
+--                12/31/97 - 1/6/97 by R. Steinberger (ras@eng.paradyne.com)
+--                (Completely removed devControlSLA
+--                 Changed Enum values for devControlRMON.)
+--                03/01/2000 by J. Colom (jaime@paradyne.com)
+--                (added new ftp control group)
+--                03/02/2000 by Rajesh Gowda (rgowda@nj.paradyne.com)
+--                (added devSNSwitchFirmwareTable for old service nodes)
+--
+--  Device Control, Version 5.0, 11/20/00
+--		  Conversion to SMIv2 by Rajesh Raghavan
+--		  Addition of Configuration Change Management Objects and Traps
+--
+--  Device Control, Version 5.1, 05/03/01 by M. Mohankumar (mohanm@eng.paradyne.com)
+--		  Added Auto Firmware Download Group
+--
+--  Device Control, Version 5.2, 06/13/01 by M. Mohankumar (mohanm@eng.paradyne.com)
+--		  Changed the description for devAutoFwStatus and devIsAutoFwEnabled of
+--                pdnAutoFwGroup
+--
+--  Device Control, Version 5.3, 11/12/01 by Dragana Gough (dgough@paradyne.com)
+--		 Added new Ftp transfer table that is indexed by session ID and contains
+--		 three new objects(different from devFileXferConfigTable) -
+--	         pdnDevFileXferSessionID, pdnDevFileXferifIndex, pdnDevFileXferUserAccount.
+--
+--               Added new objects to pdnCCMAutoBackup Group - pdnCCMAutoBackupFilename,
+--               pdnCCMAutoBackupAppendTimeStampToFilename, pdnCCMAutoBackupServerIpAddress,
+--		 pdnCCMAutoBackupUserName, pdnCCMAutoBackupUserPassword, 
+--               pdnCCMAutoBackuUserAccount, and pdnCCMAutoBackupCopyProtocol
+--
+--		Added new objects to pdnConfigChangeManagement group -
+--		pdnCCMOperation.
+--
+--  Device Control, Version 5.4, 11/14/01 by Dragana Gough (dgough@paradyne.com)
+--		 Added group definition, switched RowStatus and XferXferTime positions
+--		 in the table. Added pdnDevFileXferSessionIDNext singular object
+--  Device Control, Version 5.5, 12/04/01 by Dragana Gough (dgough@paradyne.com)
+--		 Added pdnDevFileXferApply.
+--
+-- ====================================================================
+--
+pdnControl MODULE-IDENTITY
+	LAST-UPDATED 	"0011201800Z"
+	ORGANIZATION 	"Paradyne Networks MIB Working Group"
+	CONTACT-INFO 	"Paradyne Networks
+			331 Newman Springs Road
+			Red Bank, NJ 07701
+			www.paradyne.com
+
+			General Comments to: mibwg_team@eng.paradyne.com"
+
+	DESCRIPTION	"This MIB Module allow a user to reset a device
+			in the DSLAM, as well as perform various operations
+			related to the storage and retrieval of firmware
+			and configuration files on devices."
+
+	REVISION	"0011201800Z"
+	DESCRIPTION	"Initial Conversion to SMIv2"
+	::= { pdn-common 10 }
+		     
+--
+-- Device Reset Object
+--
+-- Used to reset (warm boot) the device.
+--
+devHWControlReset OBJECT-TYPE
+    SYNTAX  INTEGER {
+        noOp(1),
+        reset(2)
+            }
+    MAX-ACCESS  read-write
+    STATUS current 
+    DESCRIPTION
+        "Writing the value reset(2) to this object initiates a
+         Hardware power-on reset of the device.  
+         The value read from this object is noOp(1)."
+    ::= { pdnControl 1 }
+
+-- ====================================================================
+--
+-- Test Table
+--
+-- This table controls device level tests.
+--
+devControlTestTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF DevControlTestEntry
+    MAX-ACCESS  not-accessible
+    STATUS current 
+    DESCRIPTION
+        "A list of Device tests that may be run."
+    ::= { pdnControl 2 }
+
+devControlTestEntry OBJECT-TYPE
+    SYNTAX  DevControlTestEntry
+    MAX-ACCESS  not-accessible
+    STATUS current 
+    DESCRIPTION
+        "The device Test Table."
+    INDEX  { devControlTest }
+    ::= { devControlTestTable 1 }
+
+DevControlTestEntry ::=
+    SEQUENCE {
+    devControlTest
+        INTEGER,
+    devControlTestStatus
+        INTEGER,
+    devControlTestCmd
+        INTEGER
+    }
+
+devControlTest OBJECT-TYPE
+    SYNTAX INTEGER {
+        lampTest (1),
+        v35DTELpbkTest (2)
+    }
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "An index into the test table that indicates which test 
+         the row involves."
+::= { devControlTestEntry 1 }
+
+devControlTestStatus OBJECT-TYPE
+    SYNTAX  INTEGER {
+        active(1),
+        inactive(2)
+    }
+    MAX-ACCESS  read-only
+    STATUS current 
+    DESCRIPTION
+        "The test status on the device. This object indicates whether
+         the indexed test is currently active(1) or inactive(2)."
+::= { devControlTestEntry 2 }
+
+devControlTestCmd OBJECT-TYPE
+    SYNTAX INTEGER {
+        start  (1),
+        stop   (2)
+    }
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Used to start or stop the indexed test.
+         When read, the value returned will be the next logical command."
+::= { devControlTestEntry 3 }
+
+-- ====================================================================
+--
+-- Download Control Table
+--
+-- This table is used to control and provide information concerning
+-- downloaded executable images. 
+--
+devControlDownLoadTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF DevControlDownLoadEntry
+    MAX-ACCESS  not-accessible
+    STATUS current 
+    DESCRIPTION
+        "A list of the current Download Releases and their associated status.
+	 Each Download Release will be indexed by a number from 1 to N.
+	 The user will be able to view the Download Release String and 
+	 Operational Status of the release (valid or invalid) and 
+	 activate a valid Download Release by changing the 
+	 Administration Status to active."
+    ::= { pdnControl 3 }
+
+devControlDownLoadEntry OBJECT-TYPE
+    SYNTAX  DevControlDownLoadEntry
+    MAX-ACCESS  not-accessible
+    STATUS current 
+    DESCRIPTION
+        "The Device DownLoad Release entry."
+    INDEX  { devControlDownLoadIndex }
+    ::= { devControlDownLoadTable 1 }
+
+DevControlDownLoadEntry ::=
+    SEQUENCE {
+    devControlDownLoadIndex
+	Integer32,
+    devControlDownLoadRelease
+        DisplayString,
+    devControlDownLoadOperStatus
+        INTEGER,
+    devControlDownLoadAdminStatus
+        INTEGER
+    }
+
+devControlDownLoadIndex OBJECT-TYPE
+    SYNTAX Integer32 
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "This object is used to index the download table (range 1 to N)."
+::= { devControlDownLoadEntry 1 }
+
+devControlDownLoadRelease OBJECT-TYPE
+    SYNTAX  DisplayString (SIZE (1..16))
+    MAX-ACCESS  read-only
+    STATUS current 
+    DESCRIPTION
+  	"This object indicates the Software Release for 
+	 this Download. If the Software Download is Operational Status
+	 is invalid, the Software Revision Number will be blank."
+::= { devControlDownLoadEntry 2 }
+
+devControlDownLoadOperStatus OBJECT-TYPE
+    SYNTAX INTEGER {
+	valid(1),
+	invalid(2)
+    }
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "This object indicates whether or not the indexed 
+	 download entry contains a valid(1) or invalid(2) download."
+::= { devControlDownLoadEntry 3 }
+
+devControlDownLoadAdminStatus OBJECT-TYPE
+    SYNTAX INTEGER {
+	active(1),
+	inactive(2)
+    }
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "This object indicates whether or not the indexed 
+	 download entry is active(1) or inactive(2). 
+	 Writing active(1) will activate that software release
+	 and cause the unit to reset (response may timeout).
+	 Writing active(1) to a download entry whose 
+	 devControlDownloadOperStatus is invalid will return BAD VALUE.
+	 Writing inactive(2) will always return BAD VALUE."
+::= { devControlDownLoadEntry 4 }
+
+-- ====================================================================
+--
+-- The RMON Group
+--
+-- This group is a collection of items that control the RMON process.
+--
+devControlRMON    OBJECT IDENTIFIER ::= { pdnControl 4}
+
+devControlRMONAdminStatus OBJECT-TYPE
+    SYNTAX  INTEGER {
+        enabled(1),
+        disabled(2)
+    }
+    MAX-ACCESS  read-write
+    STATUS current 
+    DESCRIPTION
+        "The desired state of the RMON process.  If set to enabled(1), the 
+         RMON process will perform the collection tasks it is set up to do.  
+         If it is disabled(2), RMON will not perform collection."
+    ::= { devControlRMON 1 }
+
+-- ====================================================================
+--
+--  Objects that switch banks in the Service Nodes(ASN).
+--  devSNSwitchFirmwareTable is deprecated by devFirmwareControl
+--  group in sle_devControl.mib (Atlantis 4.0 onwards)
+
+devSNSwitchFirmwareTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF DevSNSwitchFirmwareEntry
+    MAX-ACCESS  not-accessible
+    STATUS current 
+    DESCRIPTION
+        "A list of objects needed to switch bank
+         and reset the Service Node (ASN)."
+    ::= { pdnControl 5 }
+
+devSNSwitchFirmwareEntry OBJECT-TYPE
+    SYNTAX  DevSNSwitchFirmwareEntry
+    MAX-ACCESS  not-accessible
+    STATUS current 
+    DESCRIPTION
+        "The Service Node Switch Firmware table."
+    INDEX  { devSNSwitchFirmwareIndex }
+    ::= { devSNSwitchFirmwareTable 1 }
+
+DevSNSwitchFirmwareEntry ::=
+    SEQUENCE {
+    devSNSwitchFirmwareIndex
+        Integer32,
+    devSNSwitchFirmwareBank
+        INTEGER
+    }
+
+devSNSwitchFirmwareIndex OBJECT-TYPE
+    SYNTAX Integer32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "An index into the Service Node switch firmware table that
+         indicates which interface the row involves. This index
+         corresponds to the entityPhysicalIndex of the entity MIB "
+::= { devSNSwitchFirmwareEntry 1 }
+
+devSNSwitchFirmwareBank OBJECT-TYPE
+    SYNTAX  INTEGER {
+        noOp(1),
+        switch(2)
+    }
+    MAX-ACCESS  read-create
+    STATUS current 
+    DESCRIPTION
+         "Writing the value switch(2) to this object will
+          switch the banks to change the firmware being
+          used on the service node. The firmware from the stand
+          by (not active) bank will be used as the currently running
+          firmware.  The value read from this object is noOp(1)."
+::= { devSNSwitchFirmwareEntry 2 }
+
+-- ====================================================================
+--
+-- The FTP Group
+--
+-- This group is a collection of items that control the FTP process
+--
+devControlFTP    OBJECT IDENTIFIER ::= { pdnControl 6}
+
+devControlFTPRate OBJECT-TYPE
+    SYNTAX  Integer32
+    MAX-ACCESS  read-write
+    STATUS current 
+    DESCRIPTION
+        "FTP max transfer rate in (Kbps)"
+    ::= { devControlFTP 1 }
+
+
+-- =======================================================
+--
+--  The Paradyne File Transfer Group  (J.Strain)
+-- =======================================================
+devFileXferMIBObjects OBJECT IDENTIFIER ::= { pdnControl 7}
+devFileXferMIBTraps OBJECT IDENTIFIER ::= { pdnControl 8 }
+
+devFileXferConfigTable OBJECT-TYPE
+    SYNTAX  SEQUENCE OF DevFileXferConfigEntry
+    MAX-ACCESS  not-accessible
+    STATUS current 
+    DESCRIPTION
+           "The Paradyne  FileXfer Client Config Table."
+    ::= { devFileXferMIBObjects 1 }
+
+devFileXferConfigEntry OBJECT-TYPE
+    SYNTAX  DevFileXferConfigEntry
+    MAX-ACCESS  not-accessible
+    STATUS current 
+    DESCRIPTION
+
+       " Use of the File Tranfer MIB could be used with other MIBS in
+              the following manner:
+                  a) Use another MIB/means to verify available space /make room
+                     for a file to be transfered to this device
+                  b) Use this MIB to download the file
+                  c) Use another MIB/means to select the file you want to make 
+                     active
+                                        if your selecting firmware for example.
+                  d) Use another MIB/means to reset the device.
+
+        A management station wishing to initiate a file transfer needs to
+                         create an entry in this table. To do so, you must
+       first identify the ifIndex of the device you intend to
+       do the transfer with.  You should
+       then create the associated instance of the row status
+       It must also, either in the same
+       or in successive PDUs, create an instance of
+       devFileXferFileName, DevFileXferFileType, 
+.      devFileXferServerIpAddress,
+       devFileXferOperation.
+
+       It should also modify the default values for the other
+       configuration objects if the defaults are not appropriate.
+
+       Once the appropriate instance of all the configuration
+       objects have been created, either by an explicit SNMP
+       set request or by default, the row status should be set
+       to active to initiate the request. Note that this entire
+       procedure may be initiated via a single set request which
+       specifies a row status of createAndGo as well as specifies
+       valid values for the non-defaulted configuration objects.
+
+       Once the DevFileXferConfigEntry request has been created (i.e. the
+       devFileXferRowStatus has been made active), the entry
+       cannot be modified - the only operation possible
+       after this is to delete the row.
+
+       Once the request completes, the management station should
+       retrieve the values of the status objects of interest, and
+       should then delete the entry.  In order to prevent old
+       entries from clogging the table, entries could be aged out,
+       but an entry will never be deleted within 5 minutes of
+       completing.  "
+    INDEX   { ifIndex }
+    ::= { devFileXferConfigTable  1 }
+
+DevFileXferConfigEntry ::=
+    SEQUENCE {
+
+    devFileXferFileName
+        DisplayString,
+
+    devFileXferCopyProtocol
+        INTEGER,
+
+    devFileXferFileType
+        INTEGER,
+
+    devFileXferServerIpAddress
+        IpAddress,
+
+    devFileXferUserName
+        DisplayString,
+
+    devFileXferUserPassword
+        DisplayString,
+
+    devFileXferOperation
+        INTEGER,
+
+    devFileXferPktsSent
+        Counter32,
+
+    devFileXferPktsRecv
+        Counter32,
+
+    devFileXferOctetsSent
+        Counter32,
+
+    devFileXferOctetsRecv
+        Counter32,
+
+    devFileXferOwnerString
+        OCTET STRING,
+
+    devFileXferStatus
+        INTEGER,
+
+    devFileXferErrorStatus
+        Integer32,
+
+    devFileXferSendEvent
+        INTEGER,
+
+    devFileXferRowStatus
+        RowStatus,
+		
+    devFileXferXferTime
+		TimeTicks	
+    }
+
+devFileXferFileName OBJECT-TYPE
+    SYNTAX  DisplayString
+    MAX-ACCESS  read-create
+    STATUS current 
+    DESCRIPTION
+           "This object contains the name of the filetransfer file."
+    ::= { devFileXferConfigEntry  1 }
+
+devFileXferCopyProtocol OBJECT-TYPE
+    SYNTAX   INTEGER {
+                         tftp(1),
+                         ftp(2)
+                                                }
+    MAX-ACCESS  read-create
+    STATUS current 
+    DESCRIPTION
+          "The transfer protocol that should be used to copy the file
+           across the network. If the file transfer is to occur locally on the 
+           SNMP agent, the method of transfer is left upto the implementation, 
+           and is not restricted to the protocols below."
+
+--    DEFVAL  { tftp }
+    ::= { devFileXferConfigEntry  2 }
+
+devFileXferFileType OBJECT-TYPE
+    SYNTAX  INTEGER {
+                                firmware(1),
+                                config(2)
+                                }
+
+    MAX-ACCESS  read-create
+    STATUS current 
+    DESCRIPTION
+           "Specifies the type of file your want to transfer."
+    ::= { devFileXferConfigEntry  3 }
+
+devFileXferServerIpAddress OBJECT-TYPE
+    SYNTAX  IpAddress
+    MAX-ACCESS  read-create
+    STATUS current 
+    DESCRIPTION
+           "This object contains the file transfer server's IP address. "
+    ::= { devFileXferConfigEntry  4 }
+
+devFileXferUserName OBJECT-TYPE
+    SYNTAX  DisplayString
+    MAX-ACCESS  read-create
+    STATUS current 
+    DESCRIPTION
+           "This object contains the username if a username is needed
+        to login to the server."
+    ::= { devFileXferConfigEntry  5 }
+
+devFileXferUserPassword OBJECT-TYPE
+    SYNTAX  DisplayString
+    MAX-ACCESS  read-create
+    STATUS current 
+    DESCRIPTION
+           "This object contains the password if a password is needed
+            to login to the server. This object will return null on a read 
+            operation."
+    ::= { devFileXferConfigEntry  6 }
+
+devFileXferOperation OBJECT-TYPE
+    SYNTAX  INTEGER {
+                                get(1),
+                                put(2)
+                                        }
+    MAX-ACCESS  read-create
+    STATUS current 
+    DESCRIPTION
+           "This object contains the operation the file transfer wants to 
+perform."
+    ::= { devFileXferConfigEntry  7 }
+
+devFileXferPktsSent OBJECT-TYPE
+    SYNTAX  Counter32
+    MAX-ACCESS  read-only
+    STATUS current 
+    DESCRIPTION
+           "This object contains the the number of packets sent to the
+        server at the time of interrogation."
+    ::= { devFileXferConfigEntry  8 }
+
+devFileXferPktsRecv OBJECT-TYPE
+    SYNTAX  Counter32
+    MAX-ACCESS  read-only
+    STATUS current 
+    DESCRIPTION
+           "This object contains the the number of packets received from the
+        server at the time of interrogation."
+    ::= { devFileXferConfigEntry  9 }
+
+devFileXferOctetsSent OBJECT-TYPE
+    SYNTAX  Counter32
+    MAX-ACCESS  read-only
+    STATUS current 
+    DESCRIPTION
+           "This object contains the the number of octets sent to the
+        server at the time of interrogation."
+    ::= { devFileXferConfigEntry  10 }
+
+devFileXferOctetsRecv OBJECT-TYPE
+    SYNTAX  Counter32
+    MAX-ACCESS  read-only
+    STATUS current 
+    DESCRIPTION
+           "This object contains the the number of octets received from the
+        server at the time of interrogation."
+    ::= { devFileXferConfigEntry  11 }
+
+devFileXferOwnerString OBJECT-TYPE
+    SYNTAX   OCTET STRING (SIZE(0..255))
+    MAX-ACCESS  read-create
+    STATUS current 
+    DESCRIPTION
+           "The entity which currently has the 'ownership'
+        required to invoke the operation on this index."
+    ::= { devFileXferConfigEntry  12 }
+
+devFileXferStatus OBJECT-TYPE
+    SYNTAX  INTEGER {
+                 none(1),
+                 success(2),
+                 failure(3),
+                 inprogress(4)
+               }
+    MAX-ACCESS  read-only
+    STATUS current 
+    DESCRIPTION
+           "This object contains the status of the file transfer."
+    ::= { devFileXferConfigEntry  13 }
+
+devFileXferErrorStatus OBJECT-TYPE
+    SYNTAX  Integer32
+    MAX-ACCESS  read-only
+    STATUS current 
+    DESCRIPTION
+           "This object contains the reason code of the failure determined in 
+devFileXferStatus.
+        The reason code are specific to the file transfer protocol.
+
+        Please refer to the file transfer protocols respective RFC for 
+clarification
+        of the error code value meanings.
+
+        TFTP Error Codes from rfc 1350
+        FTP Error Codes from rfc 959"
+
+    ::= { devFileXferConfigEntry  14 }
+
+devFileXferSendEvent OBJECT-TYPE
+    SYNTAX INTEGER {
+    active(1),
+    inactive(2)
+    }
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "This object indicates whether or not to send the 
+         devFileXferEvent event trap ."
+    ::= { devFileXferConfigEntry  15 }
+
+devFileXferRowStatus OBJECT-TYPE
+    SYNTAX  RowStatus
+    MAX-ACCESS  read-create
+    STATUS current 
+    DESCRIPTION
+           "This object is used to create
+     a new row or delete an
+     existing row in this table."
+    ::= { devFileXferConfigEntry  16 }
+
+devFileXferXferTime OBJECT-TYPE
+    SYNTAX  TimeTicks 
+    MAX-ACCESS  read-only
+    STATUS current 
+    DESCRIPTION
+        "This object indicates the elapsed time 
+		(in hundredths of a second) of the file transfer."
+    ::= { devFileXferConfigEntry 17 }
+
+-- ##########################################
+-- Net file transfer table for accessing by 
+-- session id 
+--###########################################
+
+pdnDevFileXferTable OBJECT-TYPE
+    SYNTAX  SEQUENCE OF PdnDevFileXferEntry
+    MAX-ACCESS  not-accessible
+    STATUS current 
+    DESCRIPTION
+           "The Paradyne  FileXfer Image Client Config Table accessed by session id."
+    ::= { devFileXferMIBObjects 2 }
+
+pdnDevFileXferEntry OBJECT-TYPE
+    SYNTAX  PdnDevFileXferEntry
+    MAX-ACCESS  not-accessible
+    STATUS current 
+    DESCRIPTION
+
+       " Use of the File Tranfer MIB could be used with other MIBS in
+              the following manner:
+                  a) Use another MIB/means to verify available space /make room
+                     for a file to be transfered to this device
+                  b) Use this MIB to download the file
+                  c) Use another MIB object/means to select the file you want to make 
+                     active
+                                        if your selecting firmware for example.
+                  d) Use another MIB/means to reset the device.
+
+        A management station wishing to initiate a file transfer needs to
+                         create an entry in this table. To do so, you must
+       first identify the session id of the session that   
+       the transfer is done with.  This is done by setting SessionID
+       to 0 on SET and when session is establish entering that session
+       id into this object. You should
+       then create the associated instance of the row status
+       It must also, either in the same
+       or in successive PDUs, create an instance of
+       pdnDevFileXferFileName, pdnDevFileXferFileType, 
+.      pdnDevFileXferServerIpAddress,
+       pdnDevFileXferOperation.
+
+       It should also modify the default values for the other
+       configuration objects if the defaults are not appropriate.
+
+       Once the appropriate instance of all the configuration
+       objects have been created, either by an explicit SNMP
+       set request or by default, the row status should be set
+       to active to initiate the request. Note that this entire
+       procedure may be initiated via a single set request which
+       specifies a row status of createAndGo as well as specifies
+       valid values for the non-defaulted configuration objects.
+
+       Once the request completes, the management station should
+       retrieve the values of the status objects of interest, and
+       should then delete the entry.  In order to prevent old
+       entries from clogging the table, entries could be aged out,
+       but an entry will never be deleted within 5 minutes of
+       completing.  "
+    INDEX   { pdnDevFileXferSessionID }
+    ::= { pdnDevFileXferTable  1 }
+
+PdnDevFileXferEntry ::=
+    SEQUENCE {
+
+    pdnDevFileXferSessionID
+        Integer32,
+
+    pdnDevFileXferifIndex
+        Integer32,
+
+    pdnDevFileXferFileName
+        DisplayString,
+
+    pdnDevFileXferCopyProtocol
+        INTEGER,
+
+    pdnDevFileXferFileType
+        INTEGER,
+
+    pdnDevFileXferServerIpAddress
+        IpAddress,
+
+    pdnDevFileXferUserName
+        DisplayString,
+
+    pdnDevFileXferUserPassword
+        DisplayString,
+
+    pdnDevFileXferUserAccount
+        DisplayString,
+
+    pdnDevFileXferOperation
+        INTEGER,
+
+    pdnDevFileXferPktsSent
+        Counter32,
+
+    pdnDevFileXferPktsRecv
+        Counter32,
+
+    pdnDevFileXferOctetsSent
+        Counter32,
+
+    pdnDevFileXferOctetsRecv
+        Counter32,
+
+    pdnDevFileXferOwnerString
+        OCTET STRING,
+
+    pdnDevFileXferStatus
+        INTEGER,
+
+    pdnDevFileXferApply
+        INTEGER,
+
+    pdnDevFileXferErrorStatus
+        Integer32,
+
+    pdnDevFileXferSendEvent
+        INTEGER,
+
+    pdnDevFileXferXferTime
+		TimeTicks,	
+
+    pdnDevFileXferRowStatus
+        RowStatus
+    }
+
+pdnDevFileXferSessionID OBJECT-TYPE
+    SYNTAX Integer32 
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+	   "This object is the session id. This object is used
+	    by FileXfer Table to identify the row
+	    of this table.  When creating the new row
+	    in the table the value of this object may be 
+	    obtained by retreiving the value
+	    of pdnDevFileXferSessionIDNext."
+    ::= { pdnDevFileXferEntry 1 }
+
+pdnDevFileXferifIndex OBJECT-TYPE
+    SYNTAX Integer32
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+	   "This object specifies the interface
+	    number that corresponds to RFC1213.
+	    It this object is not used the value
+	    of this object should be zero."
+    ::= { pdnDevFileXferEntry 2 }
+
+pdnDevFileXferFileName OBJECT-TYPE
+    SYNTAX  DisplayString
+    MAX-ACCESS  read-create
+    STATUS current 
+    DESCRIPTION
+           "This object contains the name of the filetransfer file."
+    ::= { pdnDevFileXferEntry  3 }
+
+pdnDevFileXferCopyProtocol OBJECT-TYPE
+    SYNTAX   INTEGER {
+                         tftp(1),
+                         ftp(2)
+                                                }
+    MAX-ACCESS  read-create
+    STATUS current 
+    DESCRIPTION
+          "The transfer protocol that should be used to copy the file
+           across the network. If the file transfer is to occur locally on the 
+           SNMP agent, the method of transfer is left upto the implementation, 
+           and is not restricted to the protocols below."
+
+--    DEFVAL  { tftp }
+    ::= { pdnDevFileXferEntry  4 }
+
+pdnDevFileXferFileType OBJECT-TYPE
+    SYNTAX  INTEGER {
+                                firmware(1),
+                                config(2)
+                                }
+
+    MAX-ACCESS  read-create
+    STATUS current 
+    DESCRIPTION
+           "Specifies the type of file your want to transfer."
+    ::= { pdnDevFileXferEntry  5 }
+
+pdnDevFileXferServerIpAddress OBJECT-TYPE
+    SYNTAX  IpAddress
+    MAX-ACCESS  read-create
+    STATUS current 
+    DESCRIPTION
+           "This object contains the file transfer server's IP address. "
+    ::= { pdnDevFileXferEntry  6 }
+
+pdnDevFileXferUserName OBJECT-TYPE
+    SYNTAX  DisplayString
+    MAX-ACCESS  read-create
+    STATUS current 
+    DESCRIPTION
+           "This object contains the username if a username is needed
+        to login to the server."
+    ::= { pdnDevFileXferEntry  7 }
+
+pdnDevFileXferUserPassword OBJECT-TYPE
+    SYNTAX  DisplayString
+    MAX-ACCESS  read-create
+    STATUS current 
+    DESCRIPTION
+           "This object contains the password if a password is needed
+            to login to the server. This object will return null on a read 
+            operation."
+    ::= { pdnDevFileXferEntry  8 }
+
+pdnDevFileXferUserAccount OBJECT-TYPE
+    SYNTAX  DisplayString
+    MAX-ACCESS  read-create
+    STATUS current 
+    DESCRIPTION
+           "This object contains the name of the the user account information
+	    that is stored on ftp server. Server  would contain user name and password
+	    under this account name. This object will return null on a read 
+            operation. The default value fo this is a null string."
+    ::= { pdnDevFileXferEntry  9 }
+
+pdnDevFileXferOperation OBJECT-TYPE
+    SYNTAX  INTEGER {
+                                get(1),
+                                put(2)
+                                        }
+    MAX-ACCESS  read-create
+    STATUS current 
+    DESCRIPTION
+           "This object contains the operation the file transfer wants to 
+            perform."
+    ::= { pdnDevFileXferEntry  10 }
+
+pdnDevFileXferPktsSent OBJECT-TYPE
+    SYNTAX  Counter32
+    MAX-ACCESS  read-only
+    STATUS current 
+    DESCRIPTION
+           "This object contains the the number of packets sent to the
+        server at the time of interrogation."
+    ::= { pdnDevFileXferEntry  11 }
+
+pdnDevFileXferPktsRecv OBJECT-TYPE
+    SYNTAX  Counter32
+    MAX-ACCESS  read-only
+    STATUS current 
+    DESCRIPTION
+           "This object contains the the number of packets received from the
+        server at the time of interrogation."
+    ::= { pdnDevFileXferEntry  12 }
+
+pdnDevFileXferOctetsSent OBJECT-TYPE
+    SYNTAX  Counter32
+    MAX-ACCESS  read-only
+    STATUS current 
+    DESCRIPTION
+           "This object contains the the number of octets sent to the
+        server at the time of interrogation."
+    ::= { pdnDevFileXferEntry  13 }
+
+pdnDevFileXferOctetsRecv OBJECT-TYPE
+    SYNTAX  Counter32
+    MAX-ACCESS  read-only
+    STATUS current 
+    DESCRIPTION
+           "This object contains the the number of octets received from the
+        server at the time of interrogation."
+    ::= { pdnDevFileXferEntry  14 }
+
+pdnDevFileXferOwnerString OBJECT-TYPE
+    SYNTAX   OCTET STRING (SIZE(0..255))
+    MAX-ACCESS  read-create
+    STATUS current 
+    DESCRIPTION
+           "The entity which currently has the 'ownership'
+        required to invoke the operation on this index."
+    ::= { pdnDevFileXferEntry  15 }
+
+pdnDevFileXferStatus OBJECT-TYPE
+    SYNTAX  INTEGER {
+                 none(1),
+                 success(2),
+                 failure(3),
+                 inprogress(4)
+               }
+    MAX-ACCESS  read-only
+    STATUS current 
+    DESCRIPTION
+           "This object contains the status of the file transfer."
+    ::= { pdnDevFileXferEntry  16 }
+
+pdnDevFileXferApply OBJECT-TYPE
+    SYNTAX  INTEGER {
+                 yes(1),
+                 no(2)
+               }
+    MAX-ACCESS  read-create
+    STATUS current 
+    DESCRIPTION
+           "This object is configured to specify if the 
+	    firmware download will be applied immediatley after 
+	    file transfer or not."
+    ::= { pdnDevFileXferEntry  17 }
+
+pdnDevFileXferErrorStatus OBJECT-TYPE
+    SYNTAX  Integer32
+    MAX-ACCESS  read-only
+    STATUS current 
+    DESCRIPTION
+           "This object contains the reason code of the failure determined in 
+            devFileXferStatus.
+            The reason code are specific to the file transfer protocol.
+            Please refer to the file transfer protocols respective RFC for 
+            clarification
+            of the error code value meanings.
+            TFTP Error Codes from rfc 1350
+            FTP Error Codes from rfc 959"
+
+    ::= { pdnDevFileXferEntry  18 }
+
+pdnDevFileXferSendEvent OBJECT-TYPE
+    SYNTAX INTEGER {
+    active(1),
+    inactive(2)
+    }
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "This object indicates whether or not to send the 
+         pdnDevFileXferEvent event trap ."
+    ::= { pdnDevFileXferEntry  19 }
+
+pdnDevFileXferXferTime OBJECT-TYPE
+    SYNTAX  TimeTicks 
+    MAX-ACCESS  read-only
+    STATUS current 
+    DESCRIPTION
+        "This object indicates the elapsed time 
+		(in hundredths of a second) of the file transfer."
+    ::= { pdnDevFileXferEntry 20 }
+
+pdnDevFileXferRowStatus OBJECT-TYPE
+    SYNTAX  RowStatus
+    MAX-ACCESS  read-create
+    STATUS current 
+    DESCRIPTION
+           "This object is used to create
+     a new row or delete an
+     existing row in this table."
+    ::= { pdnDevFileXferEntry  21 }
+
+-- ====================================================================
+--
+-- Firmware Control Table
+--
+-- This table is used to control and provide information concerning
+-- firmware/executable images.
+--
+-- ====================================================================
+devFirmwareControlMIBObjects OBJECT IDENTIFIER ::= { pdnControl 9 }
+
+devFirmwareControlTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF DevFirmwareControlEntry
+    MAX-ACCESS  not-accessible
+    STATUS  current
+    DESCRIPTION
+        "A list of the current Firmware Releases and their associated
+         status.  Each Firmware Release will be indexed by a number
+         from 1 to N.  The user will be able to view the Firmware
+         Release String and Operational Status of the release (valid
+                 or invalid) and activate a valid Firmware Release by changing
+                 the Administration Status to active."
+    ::= { devFirmwareControlMIBObjects 1 }
+
+devFirmwareControlEntry OBJECT-TYPE
+    SYNTAX  DevFirmwareControlEntry
+    MAX-ACCESS  not-accessible
+    STATUS  current
+    DESCRIPTION
+        "The Device Firmware Release entry."
+    INDEX  { devFirmwareControlIndex }
+    ::= { devFirmwareControlTable 1 }
+
+DevFirmwareControlEntry ::=
+    SEQUENCE {
+    devFirmwareControlIndex
+    	Integer32,
+    devFirmwareControlRelease
+        DisplayString,
+    devFirmwareControlOperStatus
+        INTEGER,
+    devFirmwareControlAdminStatus
+        INTEGER
+    }
+
+devFirmwareControlIndex OBJECT-TYPE
+    SYNTAX Integer32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "This object is used to index the Firmware table (range 1 to N)."
+::= { devFirmwareControlEntry 1 }
+
+devFirmwareControlRelease OBJECT-TYPE
+    SYNTAX  DisplayString (SIZE (1..16))
+    MAX-ACCESS  read-only
+    STATUS  current
+    DESCRIPTION
+    "This object indicates the Software Release for
+     this Firmware. If the Software Firmware is Operational Status
+     is invalid, the Software Revision Number will be blank."
+::= { devFirmwareControlEntry 2 }
+
+devFirmwareControlOperStatus OBJECT-TYPE
+    SYNTAX INTEGER {
+    valid(1),
+    invalid(2),
+    unknown(3)
+    }
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+     "This object indicates whether or not the indexed
+     Firmware entry contains a valid(1) or invalid(2) Firmware."
+::= { devFirmwareControlEntry 3 }
+
+devFirmwareControlAdminStatus OBJECT-TYPE
+    SYNTAX INTEGER {
+    active(1),
+    inactive(2)
+    }
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "This object indicates whether or not the indexed
+     Firmware entry is active(1) or inactive(2).
+     Writing active(1) will activate that software release
+     and cause the unit to reset (response may timeout).
+     Writing active(1) to a Firmware entry whose
+     devFirmwareControlOperStatus is invalid will return BAD VALUE.
+     Writing inactive(2) will always return BAD VALUE."
+::= { devFirmwareControlEntry 4 }
+
+-- ====================================================================
+--
+-- Configuration Change Management (CCM) Group
+-- Modified 10/4/2000 by Rajesh Raghavan
+--
+-- Objects for controlling automated backup and restore of the 
+-- configuration files of devices (cards) in the slots of the 
+-- Paradyne DSLAM chassis.
+--
+-- ====================================================================
+pdnConfigChangeMgmt OBJECT IDENTIFIER ::= { pdnControl 10 }
+
+pdnCCMAutoBackup OBJECT IDENTIFIER ::= { pdnConfigChangeMgmt 1 }
+  -- CCM Auto Backup Group
+
+pdnCCMAutoBackupType OBJECT-TYPE
+    SYNTAX	INTEGER { disabled(0), fixed(1), dynamic(2) }
+    MAX-ACCESS  read-write
+    STATUS	current
+    DESCRIPTION
+	"This object indicates whether automatic backup of device
+	configuration files to the MCC Flash File System is disabled,
+	performed according to a fixed schedule, or whether it occurs
+	dynamically at a specified interval after the latest configuration
+	change to a device."
+
+  ::= { pdnCCMAutoBackup 1 }
+
+pdnCCMAutoBackupFixedDay OBJECT-TYPE
+    SYNTAX	BITS {  sunday(0), 
+			monday(1), 
+			tuesday(2), 
+			wednesday(3), 
+			thursday(4), 
+			friday(5), 
+			saturday(6) }
+    MAX-ACCESS	read-write
+    STATUS	current
+    DESCRIPTION
+	"This object indicates the days of the week on which fixed schedule
+	automatic backups occur.  If all bits are set, backups occur daily."
+
+  ::= { pdnCCMAutoBackup 2 }
+
+pdnCCMAutoBackupFixedTime OBJECT-TYPE
+    SYNTAX	Integer32 (0..1440)
+    UNITS	"minutes"
+    MAX-ACCESS	read-write
+    STATUS	current
+    DESCRIPTION
+	"This object indicates the time of day, in minutes past midnight,
+	 at which automatic backups on a fixed schedule occur."
+
+  ::= { pdnCCMAutoBackup 3 }
+
+pdnCCMAutoBackupDynamicTime OBJECT-TYPE
+    SYNTAX	Integer32 (30..1440)
+    UNITS	"minutes"
+    MAX-ACCESS	read-write
+    STATUS	current
+    DESCRIPTION
+	"This object indicates the interval (in minutes) after the most recent
+	configuration change, when a card's configuration will be backed up
+	to the MCC Flash File System, when automatic backups are occurring on
+	a dynamic schedule.  The minimum interval is 30 minutes.
+	The maximum interval is 24 hours (1440 minutes)."
+
+  ::= { pdnCCMAutoBackup 4 }
+
+pdnCCMAutoBackupAppendTimeStampToFilename OBJECT-TYPE
+    SYNTAX	INTEGER {
+			  enable(1),
+			  disable(2)
+			}
+    MAX-ACCESS  read-create
+    STATUS current 
+    DESCRIPTION
+	"This object indicates that  the time is to be appended to filename of the file 
+	 stored to upon automated backup. The defualt value of this
+	 object is disabled(2)."
+  ::= { pdnCCMAutoBackup 5 }
+
+pdnCCMAutoBackupFilename OBJECT-TYPE
+    SYNTAX  DisplayString
+    MAX-ACCESS  read-create
+    STATUS current 
+    DESCRIPTION
+	"This is file name that the configuration will be stored to upon automated backup."
+  ::= { pdnCCMAutoBackup 6 }
+
+pdnCCMAutoBackupServerIpAddress OBJECT-TYPE
+    SYNTAX	IpAddress
+    MAX-ACCESS  read-create
+    STATUS current 
+    DESCRIPTION
+	"This object is to configure Ip address of the server used to perform autobackup."
+  ::= { pdnCCMAutoBackup 7 }
+
+pdnCCMAutoBackupUserName OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-create
+    STATUS current 
+    DESCRIPTION
+	"This object user name used to start ftp session for automatic backup."
+  ::= { pdnCCMAutoBackup 8 }
+
+pdnCCMAutoBackupUserPassword OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-create
+    STATUS current 
+    DESCRIPTION
+	"This object user password that is paired with user name for ftp server login."
+  ::= { pdnCCMAutoBackup 9 }
+
+pdnCCMAutoBackupUserAccount OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-create
+    STATUS current 
+    DESCRIPTION
+	"This object is user account name that ftp server contains.
+        Under this name ftp server stores UserName and UserPassword info.
+	If this object is null(not configured) than the 
+	pdnCCMAutoBackupUserName and pdnCCMAutoBackupUserPassword
+	are used. The default is null string."
+  ::= { pdnCCMAutoBackup 10 }
+
+pdnCCMAutoBackupCopyProtocol OBJECT-TYPE
+    SYNTAX   INTEGER {
+                         tftp(1),
+                         ftp(2)
+                                                }
+    MAX-ACCESS  read-create
+    STATUS current 
+    DESCRIPTION
+          "The transfer protocol that should be used to copy the file
+           across the network. If the file transfer is to occur locally on the 
+           SNMP agent, the method of transfer is left upto the implementation, 
+           and is not restricted to the protocols below."
+--    DEFVAL  { tftp }
+    ::= { pdnCCMAutoBackup 11 }
+
+pdnCCMAutoRestore OBJECT-TYPE
+    SYNTAX	SwitchState
+    MAX-ACCESS	read-write
+    STATUS	current
+    DESCRIPTION
+	"This object specifies whether the MCC Flash File System will restore
+	stored configuration files to newly inserted cards in the DSLAM."
+
+  ::= { pdnConfigChangeMgmt 2 }
+
+pdnCCMResyncOperation OBJECT-TYPE
+    SYNTAX  INTEGER { noOp(1), get(2), put(3) }
+    MAX-ACCESS  read-write
+    STATUS  current
+    DESCRIPTION
+	"This object contains the operation performed when ResyncState is 
+	enabled.  The value 'get' retrieves configuration files from the
+	MCC FFS to all the devices.  The value 'put' stores all the
+	configuration files on the MCC FFS. Querying this object always
+	retrieves the value noOp(1)"
+    ::= { pdnConfigChangeMgmt 3 }
+
+pdnCCMOperation OBJECT-TYPE
+    SYNTAX INTEGER {
+		     noOp   (1),
+                     apply  (2),
+		     save   (3),
+		     reset  (4),
+		     revert (5),
+		     default(6)
+		     }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+	" This object contains configuration options for operations performed
+          to manage object. SAVE(3) operation is interpreted as copying
+	  running configuration to database (nvram). APPLY(2) is operation
+	  performed to make configuration paramters take in effect. RESET(4)
+	  operation is designed to upload database (nvram),saved, configuration,
+	  and make it running configuration. REVERT(5) is configuration option used
+	  in a case of error upon set operation (before DD applies configuration
+	  parameter(s)). It will effectively make previous applied configuration 
+	  parameter set valid, running configuration. In some systems this will be an
+	  internal (user transperent) operation in case of error deteced by DD.
+	  DEFAULT(6) will upload default parameters to running configuration without
+	  changing saved configuration in a database (nvram).
+	  Querying this object always retrieves the value noOp(1)."
+    ::= { pdnConfigChangeMgmt 4 }
+ 
+-- the following object(s) can be used in conjuction with various tables
+-- to create new table entries
+
+pdnDevFileXferSessionIDNext OBJECT-TYPE
+    SYNTAX   	Integer32
+    MAX-ACCESS  read-only
+    STATUS 	current
+    DESCRIPTION
+	" This object contains an appropriate value to be
+	  used for pdnDevFileXferTable.
+	  The value of 0 indicates that no unassigned 
+	  entries are available.  To obtain 
+	  pdnDevFileXferSessionID value for the new entry 
+	  the manager issues a management protocol retrieval 
+	  operation to obtain a current value of this object.
+	  After each retrieval, the agent should modify the value
+	  to the next unassigned index.  "
+    ::= { devFileXferMIBObjects 3 }
+
+pdnControlMIBTrapsV2	OBJECT-IDENTITY
+	STATUS current
+	DESCRIPTION	"The traps for the device control MIB."
+	::= { pdnControl 0 }
+--
+--      File Transfer Traps
+--
+
+devFileXferEvent NOTIFICATION-TYPE
+	OBJECTS {  devFileXferStatus , devFileXferErrorStatus,
+                                devFileXferOperation, devFileXferFileType,
+                                devFileXferFileName }
+   STATUS	current
+   DESCRIPTION
+     "This trap is to communicate a couple of things about
+      the completion of a file transfer.
+
+                devFileXferStatus       - Did it complete successfully or not.
+                devFileXferErrorStatus  - If not, what was the error code.
+                devFileXferOperation    - What operation was performed?.
+                devFileXferFileType     - Was it a firmware xfer or config?
+                devFileXferFileName     - The name of the file transfered.
+         "
+
+ ::= { pdnControlMIBTrapsV2 1 }
+
+--
+--	Configuration Change Management Traps
+--	Added 8 Sep 2000 by Rajesh Raghavan
+--
+
+devAutoBackupFailEvent NOTIFICATION-TYPE
+	OBJECTS { entPhysicalIndex }
+	STATUS		current
+	DESCRIPTION
+	    "This trap indicates a condition exists, which prevents 
+	    automated backup of a device's configuration to the 
+	    Management Controller Card (MCC) Flash File System at a 
+	    scheduled time."
+ ::= { pdnControlMIBTrapsV2 2 }
+
+
+devConfigRestoreFailEvent NOTIFICATION-TYPE
+	OBJECTS { entPhysicalIndex }
+	STATUS		current
+	DESCRIPTION
+	    "This trap is sent by a device to indicate that an incorrect
+	    or incompatible configuration file is being downloaded to the
+	    device from the MCC Flash File System."
+ ::= { pdnControlMIBTrapsV2 3 }
+
+pdnDevFileXferEvent NOTIFICATION-TYPE
+	OBJECTS {  pdnDevFileXferStatus , pdnDevFileXferErrorStatus,
+                                pdnDevFileXferOperation, pdnDevFileXferFileType,
+                                pdnDevFileXferFileName }
+   STATUS	current
+   DESCRIPTION
+     "This trap is to communicate a couple of things about
+      the completion of a file transfer.
+
+                pdnDevFileXferStatus       - Did it complete successfully or not.
+                pdnDevFileXferErrorStatus  - If not, what was the error code.
+                pdnDevFileXferOperation    - What operation was performed?.
+                pdnDevFileXferFileType     - Was it a firmware xfer or config?
+                pdnDevFileXferFileName     - The name of the file transfered.
+         "
+
+ ::= { pdnControlMIBTrapsV2 5 }
+
+pdnControlMIBGroups	OBJECT IDENTIFIER ::= { pdnControl 11 }
+
+devResetGroup		OBJECT-GROUP
+	OBJECTS		{ devHWControlReset }
+	STATUS		current
+	DESCRIPTION	"Objects to initiate resets of a device"
+  ::= { pdnControlMIBGroups 1 }
+
+devControlTestGroup	OBJECT-GROUP
+	OBJECTS		{ devControlTest, devControlTestStatus,
+			  devControlTestCmd }
+	STATUS		current
+	DESCRIPTION	"Objects to control device level tests"
+  ::= { pdnControlMIBGroups 2 }
+
+devControlDownloadGroup	OBJECT-GROUP
+	OBJECTS		{ devControlDownLoadIndex,
+			  devControlDownLoadRelease,
+			  devControlDownLoadOperStatus,
+			  devControlDownLoadAdminStatus }
+	STATUS		current
+	DESCRIPTION	"A list of the current Download Releases and
+			their associated status."
+  ::= { pdnControlMIBGroups 3 }
+
+devControlRMONGroup	OBJECT-GROUP
+	OBJECTS		{ devControlRMONAdminStatus }
+	STATUS		current
+	DESCRIPTION	"The desired state of the RMON process."
+  ::= { pdnControlMIBGroups 4 }
+
+devSNSwitchFirmwareGroup	OBJECT-GROUP
+	OBJECTS		{ devSNSwitchFirmwareIndex, devSNSwitchFirmwareBank }
+	STATUS		current
+	DESCRIPTION	"Objects needed to switch bank and reset the
+			Service Node."
+  ::= { pdnControlMIBGroups 5 }
+
+devControlFTPGroup	OBJECT-GROUP
+	OBJECTS		{ devControlFTPRate }
+	STATUS		current
+	DESCRIPTION	"FTP Max Transfer Rate"
+  ::= { pdnControlMIBGroups 6 }
+
+devFileXferMIBGroup	OBJECT-GROUP
+	OBJECTS		{ devFileXferFileName, devFileXferCopyProtocol,
+			  devFileXferFileType, devFileXferServerIpAddress,
+			  devFileXferUserName, devFileXferUserPassword,
+			  devFileXferOperation,
+			  devFileXferPktsSent, devFileXferPktsRecv,
+			  devFileXferOctetsSent, devFileXferOctetsRecv,
+			  devFileXferOwnerString,
+			  devFileXferStatus, devFileXferErrorStatus,
+			  devFileXferSendEvent, devFileXferRowStatus,
+			  devFileXferXferTime }
+	STATUS		current
+	DESCRIPTION	"File Transfer Client Config Objects"
+  ::= { pdnControlMIBGroups 7 }
+
+devFirmwareControlGroup	OBJECT-GROUP
+	OBJECTS		{ devFirmwareControlIndex, devFirmwareControlRelease,
+			  devFirmwareControlOperStatus,
+			  devFirmwareControlAdminStatus }
+	STATUS		current
+	DESCRIPTION 	"Current Firmware Releases and associated status."
+  ::= { pdnControlMIBGroups 8 }
+
+devConfigChangeMgmtGroup	OBJECT-GROUP
+	OBJECTS		{ pdnCCMAutoBackupType,pdnCCMAutoBackupFixedDay,
+	                  pdnCCMAutoBackupFixedTime, pdnCCMAutoBackupDynamicTime,
+			  pdnCCMAutoBackupAppendTimeStampToFilename,
+			  pdnCCMAutoBackupFilename, pdnCCMAutoBackupServerIpAddress,
+			  pdnCCMAutoBackupUserName, pdnCCMAutoBackupUserPassword,
+			  pdnCCMAutoBackupUserAccount, pdnCCMAutoBackupCopyProtocol,
+			  pdnCCMAutoRestore, pdnCCMResyncOperation,
+			  pdnCCMOperation }
+	STATUS		current
+	DESCRIPTION	"Object group used to manage automatic backup and 
+			restore of device configuration files."
+  ::= { pdnControlMIBGroups 9 }
+
+devFileXferEventGroup	NOTIFICATION-GROUP
+	NOTIFICATIONS	{ devFileXferEvent }
+	STATUS		current
+	DESCRIPTION	"Notifications associated with 
+			devFileXferConfigGroup"
+  ::= { pdnControlMIBGroups 10 }
+
+devCCMEventGroup		NOTIFICATION-GROUP
+	NOTIFICATIONS	{ devAutoBackupFailEvent, 
+			  devConfigRestoreFailEvent }
+	STATUS		current
+	DESCRIPTION	"Notifications indicating a failure occuring during
+			automated backup or restore of device configuration 
+			files."
+  ::= { pdnControlMIBGroups 11 }
+
+pdnDevFileXferEventGroup	NOTIFICATION-GROUP
+	NOTIFICATIONS	{ pdnDevFileXferEvent }
+	STATUS		current
+	DESCRIPTION	"Notifications associated with 
+			pdnDevFileXferConfigGroup"
+  ::= { pdnControlMIBGroups 16 }
+
+pdnDevFileXferMIBGroup	OBJECT-GROUP
+	OBJECTS		{ pdnDevFileXferifIndex,
+			  pdnDevFileXferFileName, pdnDevFileXferCopyProtocol,
+			  pdnDevFileXferFileType, pdnDevFileXferServerIpAddress,
+			  pdnDevFileXferUserName, pdnDevFileXferUserPassword,
+			  pdnDevFileXferUserAccount, pdnDevFileXferOperation,
+			  pdnDevFileXferPktsSent, pdnDevFileXferPktsRecv,
+			  pdnDevFileXferOctetsSent, pdnDevFileXferOctetsRecv,
+			  pdnDevFileXferOwnerString,
+			  pdnDevFileXferStatus, pdnDevFileXferApply, pdnDevFileXferErrorStatus,
+			  pdnDevFileXferSendEvent, pdnDevFileXferXferTime,
+			  pdnDevFileXferRowStatus }
+	STATUS		current
+	DESCRIPTION	"File Transfer Client Objects"
+  ::= { pdnControlMIBGroups 14 }
+
+ devNextTableObjectMIBGroup OBJECT-GROUP
+	OBJECTS		 { pdnDevFileXferSessionIDNext }
+	STATUS		 current
+	DESCRIPTION	 " Group of singular objects that decided next
+			   available object for mib tables."
+  ::= { pdnControlMIBGroups 15 }
+
+-- ====================================================================
+--
+-- Auto Firmware Download (AutoFw) Group
+-- Added 5/3/2001 by Mohan Mohankumar
+--
+-- Objects for controlling automated Firmware download by MCC to the
+-- other cards in the slots of the Paradyne DSLAM chassis.
+--
+-- ====================================================================
+
+pdnAutoFw	OBJECT IDENTIFIER ::= { pdnControl 12 }
+
+devIsAutoFwEnabled OBJECT-TYPE
+    SYNTAX	SwitchState
+    MAX-ACCESS  read-write
+    STATUS current
+    DESCRIPTION
+        "Writing the value enabled(1) or disabled(2) to this object enables 
+         or disables the Automatic Firmware download feature."
+         
+     ::= { pdnAutoFw 1 }
+
+devAutoFwStatus OBJECT-TYPE
+    SYNTAX  DisplayString (SIZE (1..255))
+    MAX-ACCESS  read-only
+    STATUS  current
+    DESCRIPTION
+    "This indicates the Status of Auto Firmware Download
+     where each field is separated by a semi-colon.
+     The get function will return the status of the latest 
+     card downloaded."
+     
+     ::= { pdnAutoFw 2 }
+
+pdnAutoFwGroup	OBJECT-GROUP
+	OBJECTS		{ devIsAutoFwEnabled, devAutoFwStatus }
+	STATUS		current
+	DESCRIPTION 	"Auto Firmware Download Feature and associated status."
+  ::= { pdnControlMIBGroups 12 }
+
+devAutoFwEvent NOTIFICATION-TYPE
+	OBJECTS { devAutoFwStatus }
+	STATUS          current
+    DESCRIPTION
+    "This trap is to communicate the result of the Auto Firmware Download.
+     The variable binding for this trap would be the devAutoFwStatus
+     of pdnAutoFwGroup. The exact format of this display string will 
+     be well-documented."
+ ::= { pdnControlMIBTrapsV2 4 }
+
+devAutoFwEventGroup		NOTIFICATION-GROUP
+	NOTIFICATIONS	{ devAutoFwEvent }
+	STATUS		current
+	DESCRIPTION	"Notifications indicating the result of the Auto Firmware Download."
+  ::= { pdnControlMIBGroups 13 }
+
+END

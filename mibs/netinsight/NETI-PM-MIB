@@ -1,0 +1,2414 @@
+NETI-PM-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, Gauge32, Counter32, Unsigned32
+        FROM SNMPv2-SMI
+ 
+    TEXTUAL-CONVENTION, DisplayString, TruthValue, DateAndTime
+        FROM SNMPv2-TC
+
+    OBJECT-GROUP
+        FROM SNMPv2-CONF
+
+    netiExperimentalGeneric
+        FROM NETI-COMMON-MIB;
+
+
+netiPMMIB MODULE-IDENTITY
+    LAST-UPDATED
+        "200812121200Z"    
+    ORGANIZATION
+        "Net Insight AB"
+    CONTACT-INFO
+        "Net Insight AB
+        Box 42093
+        SE-126 14 Stockholm
+        Sweden
+        Tel +46-8-685 0400
+        info@netinsight.net"
+    DESCRIPTION
+        "The Net Insight PM (Performance Monitoring) MIB. The MIB
+         implements objects for monitoring the performance of trunk
+         interfaces, access interfaces and channels according to
+         G.826."
+
+    REVISION
+        "200812121200Z"    
+    DESCRIPTION
+        "Added tables for 24 hour current data. These tables are:
+         pmTif24hCurrentTable, pmAif24hCurrentTable and
+         mDch24hCurrentTable.
+
+         Fixed imports.
+
+         Changed index of type Integer32 to Unsigned32."
+
+     
+::= { netiExperimentalGeneric 17 }
+
+netiPMMIBObjects OBJECT IDENTIFIER ::= { netiPMMIB 1 }
+
+
+-- -------------------------------------------------------------
+-- Groups in the NETI-PM-MIB
+-- -------------------------------------------------------------
+
+pmTifGroup           OBJECT IDENTIFIER ::= { netiPMMIBObjects 1 }
+pmAifGroup           OBJECT IDENTIFIER ::= { netiPMMIBObjects 2 }
+pmDchGroup           OBJECT IDENTIFIER ::= { netiPMMIBObjects 3 }
+pmConformanceGroups  OBJECT IDENTIFIER ::= { netiPMMIBObjects 4 }
+
+
+-- -------------------------------------------------------------
+-- Textual Conventions
+-- -------------------------------------------------------------
+Counter15m ::= TEXTUAL-CONVENTION
+    STATUS  current
+    DESCRIPTION
+        "" 
+    SYNTAX  Unsigned32 (0..910)
+
+Counter24h ::= TEXTUAL-CONVENTION
+    STATUS  current
+    DESCRIPTION
+        "" 
+    SYNTAX  Unsigned32 (0..86410)
+
+-- -----------------------------------------------------------------
+-- Performance data for trunk interfaces
+-- -----------------------------------------------------------------    
+
+pmTifTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PmTifEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Table of Performance Monitored trunk interfaces"
+    ::= { pmTifGroup 1 }
+
+pmTifEntry OBJECT-TYPE
+    SYNTAX      PmTifEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "One entry for each trunk interface"
+    INDEX { pmTifIndex }
+    ::= { pmTifTable 1}
+
+PmTifEntry ::= SEQUENCE {
+    pmTifIndex                    Unsigned32,
+    pmTifAdminStatus              INTEGER,
+    pmTifOperStatus               INTEGER,
+    pmTifFailure                  DisplayString,
+    pmTifDataSource               OBJECT IDENTIFIER,
+    pmTifDataSourceName           DisplayString,
+    pmTifUatAlarmsEnabled         TruthValue,
+    pmTifTresholdAlarmsEnabled    TruthValue,
+    pmTifPeriodicEventsEnabled    TruthValue,
+    pmTifZeroSuppressionEnabled   TruthValue,
+    pmTifHistorySize              INTEGER,
+    pmTif15mTresholdES            Counter15m,
+    pmTif15mTresholdSES           Counter15m,
+    pmTif15mTresholdBBE           Gauge32,
+    pmTif15mTresholdSS            Counter15m,
+    pmTif24hTresholdES            Counter24h,
+    pmTif24hTresholdSES           Counter24h,
+    pmTif24hTresholdBBE           Gauge32,
+    pmTif24hTresholdSS            Counter24h
+}
+
+
+pmTifIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The index uniquely identifying this trunk interface."
+    ::= { pmTifEntry 1 }
+
+pmTifAdminStatus OBJECT-TYPE
+    SYNTAX  INTEGER {
+                up(1),
+                down(2) }
+    MAX-ACCESS  read-write
+    STATUS  current
+    DESCRIPTION
+        "The desired state of the PM function. Affects the operative
+         state of the PM object"
+    ::= { pmTifEntry 2 }
+
+pmTifOperStatus OBJECT-TYPE
+    SYNTAX  INTEGER {
+                 up(1),
+                 down(2) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "PM operative state."
+    ::= { pmTifEntry 3 }
+
+pmTifFailure OBJECT-TYPE
+    SYNTAX  DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Shows current failure state. An empty string indicates no
+         failure"
+    ::= { pmTifEntry 4 }
+
+pmTifDataSource OBJECT-TYPE
+    SYNTAX  OBJECT IDENTIFIER
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The PM Data Source object"
+    ::= { pmTifEntry 5 }
+
+pmTifDataSourceName OBJECT-TYPE
+    SYNTAX  DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The name of the PM Data Source"
+    ::= { pmTifEntry 6 }
+
+
+pmTifUatAlarmsEnabled OBJECT-TYPE
+    SYNTAX  TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If set to `true(1)' then UAT alarms will be sent.
+
+         Unavailable time (UAT) defines a state where a service is
+         unable to perform its normal task due to severe errors for a
+         longer period. It begins at detection of ten consecutive SES
+         events and ends at detection of ten consecutive non-SES
+         events. In both cases, the 10s are considered part of
+         unavailable respective available time and effects the
+         visibility of G.826 PM events (they are delayed 10s)
+
+         Entry and exit of UAT is declared by raising and clearing an
+         UAT alarm (if enabled)"
+    ::= { pmTifEntry 7 }
+
+pmTifTresholdAlarmsEnabled OBJECT-TYPE
+    SYNTAX  TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If set to `true(1)' then threshold alarms will be sent.
+
+         Each 15m and 24h current register counter can be assigned a
+         threshold value. When crossed, a threshold crossing alarm
+         will be sent for the interval if enabled. Raised alarm will
+         be cleared at end of a following fault free interval i.e.
+         one with all interval counter values below their threshold
+         values and with no UAT. Only one TC alarm per interval can be
+         raised, regardless of how many thresholds have been crossed."
+    ::= { pmTifEntry 8 }
+
+pmTifPeriodicEventsEnabled OBJECT-TYPE
+    SYNTAX  TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If set to `true(1)' then History Periodic Events will be sent."
+    ::= { pmTifEntry 9 }
+
+pmTifZeroSuppressionEnabled OBJECT-TYPE
+    SYNTAX  TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If set to `true(1)' then Zero Suppression mode is enabled
+
+         Zero Suppression mode tells whether intervals with all
+         current counters equal to zero shall be stored in the history
+         log or not. If enabled, once a faulty interval is found, its
+         current register content including a zero suppressed interval
+         counter will be stored in the history log. The additional
+         counter specifies how many fault free intervals have preceded
+         the faulty one. In such way, history for a larger measurement
+         period can be logged than would otherwise be possible"
+    ::= { pmTifEntry 10 }
+
+pmTifHistorySize OBJECT-TYPE
+    SYNTAX  INTEGER {
+                none(1),
+                small(2),
+                large(3) }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The size of the history log"
+    ::= { pmTifEntry 11 }
+
+pmTif15mTresholdES OBJECT-TYPE
+    SYNTAX  Counter15m
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "15 minute threshold value for ES.
+
+         Current ES value equal to or above this threshold will raise
+         a threshold alarm if enabled. A value of zero will disable
+         threshold check."
+    ::= { pmTifEntry 12 }
+
+pmTif15mTresholdSES OBJECT-TYPE
+    SYNTAX  Counter15m
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "15 minute threshold value for SES.
+
+         Current SES value equal to or above this threshold will raise
+         a threshold alarm if enabled. A value of zero will disable
+         threshold check."
+    ::= { pmTifEntry 13 }
+
+pmTif15mTresholdBBE OBJECT-TYPE
+    SYNTAX  Gauge32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "15 minute threshold value for BBE.
+
+         Current BBE value equal to or above this threshold will raise
+         a threshold alarm if enabled. A value of zero will disable
+         threshold check."
+    ::= { pmTifEntry 14 }
+
+pmTif15mTresholdSS OBJECT-TYPE
+    SYNTAX  Counter15m
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "15 minute threshold value for SS.
+
+         Current SS value equal to or above this threshold will raise
+         a threshold alarm if enabled. A value of zero will disable
+         threshold check."
+    ::= { pmTifEntry 15 }
+
+pmTif24hTresholdES OBJECT-TYPE
+    SYNTAX  Counter24h
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "24 hour threshold value for ES.
+
+         Current ES value equal to or above this threshold will raise
+         a threshold alarm if enabled. A value of zero will disable
+         threshold check."
+    ::= { pmTifEntry 16 }
+
+pmTif24hTresholdSES OBJECT-TYPE
+    SYNTAX  Counter24h
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "24 hour threshold value for SES.
+
+         Current SES value equal to or above this threshold will raise
+         a threshold alarm if enabled. A value of zero will disable
+         threshold check."
+    ::= { pmTifEntry 17 }
+
+pmTif24hTresholdBBE OBJECT-TYPE
+    SYNTAX  Gauge32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "24 hour threshold value for BBE.
+
+         Current BBE value equal to or above this threshold will raise
+         a threshold alarm if enabled. A value of zero will disable
+         threshold check."
+    ::= { pmTifEntry 18 }
+
+pmTif24hTresholdSS OBJECT-TYPE
+    SYNTAX  Counter24h
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "24 hour threshold value for SS.
+
+         Current SS value equal to or above this threshold will raise
+         a threshold alarm if enabled. A value of zero will disable
+         threshold check."
+    ::= { pmTifEntry 19 }
+
+
+-- 15 minute current
+
+pmTifCurrentTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PmTifCurrentEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Table of PM data for the current 15 minute period"
+    ::= { pmTifGroup 2 }
+
+pmTifCurrentEntry OBJECT-TYPE
+    SYNTAX      PmTifCurrentEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "One entry for each monitored object"
+    INDEX { pmTifIndex }
+    ::= { pmTifCurrentTable 1}
+
+PmTifCurrentEntry ::= SEQUENCE {
+    pmTifCurrentTime      Counter15m,
+    pmTifCurrentSuspect   TruthValue,
+    pmTifCurrentZS        Counter32,
+    pmTifCurrentESs       Counter15m,
+    pmTifCurrentSESs      Counter15m,
+    pmTifCurrentBBEs      Gauge32,
+    pmTifCurrentUASs      Counter15m,
+    pmTifCurrentSSs       Counter15m
+}
+
+pmTifCurrentTime OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Elapsed time in seconds for the current 15 minute period."
+    ::= { pmTifCurrentEntry 2 }
+
+pmTifCurrentSuspect OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Is Suspect flag, if set to `true(1)' the current 15 minute
+         measurement period has unreliable measurement data."
+    ::= { pmTifCurrentEntry 3 }
+
+pmTifCurrentZS OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Zero Suppression Counter.
+
+         If the performance monitoring uses zero suppression, this
+         counter specifies how many fault free intervals have preceded
+         the faulty one."
+    ::= { pmTifCurrentEntry 4 }
+
+pmTifCurrentESs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Errored Seconds (ES) for the current 15 minute
+         period.
+
+         ES is defined as one second of available time containing one
+         or more Errored Blocks (EB) or at least one defect"
+    ::= { pmTifCurrentEntry 5 }
+
+pmTifCurrentSESs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Severe Errored Seconds (SES) for the current 15
+         minute period.
+
+         SES is defined as one second of available time containing
+         more than 30% Errored Blocks (EB) or at least one defect."
+    ::= { pmTifCurrentEntry 6 }
+
+pmTifCurrentBBEs OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Background Block Error (BBE) for the current 15 minute period.
+
+        BBE is defined as the number of Errored Blocks (EB) during one second 
+        of available time not part of SES"
+    ::= { pmTifCurrentEntry 7 }
+
+pmTifCurrentUASs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Unavailable Second (UAS) for the current 15 minute
+         period.
+
+         UAS is defined as one second of UAT (Unavailable
+         Time). During UAT calculations of BBE, ES and SES are
+         inhibited and no data collection of them is performed"
+    ::= { pmTifCurrentEntry 8 }
+
+pmTifCurrentSSs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of SLIP Second (SS) for the current 15 minute period.
+
+         SS is defined as one second containing one or more SLIPs"
+    ::= { pmTifCurrentEntry 9 }
+
+
+-- 15 minute history
+
+pmTif15mTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PmTif15mEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Table of 15 minute PM log history"
+    ::= { pmTifGroup 3 }
+
+pmTif15mEntry OBJECT-TYPE
+    SYNTAX      PmTif15mEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "One entry for each 15 minute PM interval"
+    INDEX { pmTifIndex, pmTif15mIndex }
+    ::= { pmTif15mTable 1}
+
+
+PmTif15mEntry ::= SEQUENCE {
+    pmTif15mIndex     Unsigned32,
+    pmTif15mTime      DateAndTime,
+    pmTif15mSuspect   TruthValue,
+    pmTif15mZS        Counter32,
+    pmTif15mESs       Counter15m,
+    pmTif15mSESs      Counter15m,
+    pmTif15mBBEs      Gauge32,
+    pmTif15mUASs      Counter15m,
+    pmTif15mSSs       Counter15m
+}
+
+pmTif15mIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The index that identifies the interval for which the set of
+         statistics is available. Index of '0' indicates the most
+         recently completed interval, and the index is increased by
+         one for each interval back in time."
+    ::= { pmTif15mEntry 1 }
+
+pmTif15mTime OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Time stamp for this 15 minute interval"
+    ::= { pmTif15mEntry 2 }
+
+pmTif15mSuspect OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Suspect flag for this 15 minute interval"
+    ::= { pmTif15mEntry 3 }
+
+pmTif15mZS OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Zero Suppression Counter.
+
+         If the performance monitoring uses zero suppression, this
+         counter specifies how many fault free intervals have preceded
+         the faulty one."
+    ::= { pmTif15mEntry 4 }
+
+pmTif15mESs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Errored Seconds (ES) for this 15 minute period.
+
+         ES is defined as one second of available time containing one
+         or more Errored Blocks (EB) or at least one defect"
+    ::= { pmTif15mEntry 5 }
+
+pmTif15mSESs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Severe Errored Seconds (SES) for this 15 minute
+         period.
+
+         SES is defined as one second of available time containing
+         more than 30% Errored Blocks (EB) or at least one defect."
+    ::= { pmTif15mEntry 6 }
+
+pmTif15mBBEs OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Background Block Error (BBE) for this 15 minute
+         period.
+
+         BBE is defined as the number of Errored Blocks (EB) during
+         one second of available time not part of SES"
+    ::= { pmTif15mEntry 7 }
+
+pmTif15mUASs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Unavailable Second (UAS) for this 15 minute period.
+
+         UAS is defined as one second of UAT (Unavailable
+         Time). During UAT calculations of BBE, ES and SES are
+         inhibited and no data collection of them is performed"
+    ::= { pmTif15mEntry 8 }
+
+pmTif15mSSs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of SLIP Second (SS) for this 15 minute period.
+
+         SS is defined as one second containing one or more SLIPs"
+    ::= { pmTif15mEntry 9 }
+
+
+-- 24 hour history
+
+pmTif24hTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PmTif24hEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Table of 24 hour PM log history"
+    ::= { pmTifGroup 4 }
+
+pmTif24hEntry OBJECT-TYPE
+    SYNTAX      PmTif24hEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "One entry for each 24 hour PM interval"
+    INDEX { pmTifIndex, pmTif24hIndex }
+    ::= { pmTif24hTable 1}
+
+
+PmTif24hEntry ::= SEQUENCE {
+    pmTif24hIndex     Unsigned32,
+    pmTif24hTime      DateAndTime,
+    pmTif24hSuspect   TruthValue,
+    pmTif24hZS        Counter32,
+    pmTif24hESs       Counter24h,
+    pmTif24hSESs      Counter24h,
+    pmTif24hBBEs      Gauge32,
+    pmTif24hUASs      Counter24h,
+    pmTif24hSSs       Counter24h
+}
+
+pmTif24hIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The index that identifies the interval for which the set of
+         statistics is available. Index of '0' indicates the most
+         recently completed interval, and the index is increased by
+         one for each interval back in time."
+    ::= { pmTif24hEntry 1 }
+
+pmTif24hTime OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Time stamp for this 24 hour interval"
+    ::= { pmTif24hEntry 2 }
+
+pmTif24hSuspect OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Suspect flag for this 24 hour interval"
+    ::= { pmTif24hEntry 3 }
+
+pmTif24hZS OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Zero Suppression Counter.
+
+         If the performance monitoring uses zero suppression, this
+         counter specifies how many fault free intervals have preceded
+         the faulty one."
+    ::= { pmTif24hEntry 4 }
+
+pmTif24hESs OBJECT-TYPE
+    SYNTAX      Counter24h
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Errored Seconds (ES) for this 24 hour period.
+
+         ES is defined as one second of available time containing one
+         or more Errored Blocks (EB) or at least one defect"
+    ::= { pmTif24hEntry 5 }
+
+pmTif24hSESs OBJECT-TYPE
+    SYNTAX      Counter24h
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Severe Errored Seconds (SES) for this 24 hour
+         period.
+
+         SES is defined as one second of available time containing
+         more than 30% Errored Blocks (EB) or at least one defect."
+    ::= { pmTif24hEntry 6 }
+
+pmTif24hBBEs OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Background Block Error (BBE) for this 24 hour
+         period.
+
+         BBE is defined as the number of Errored Blocks (EB) during
+         one second of available time not part of SES"
+    ::= { pmTif24hEntry 7 }
+
+pmTif24hUASs OBJECT-TYPE
+    SYNTAX      Counter24h
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Unavailable Second (UAS) for this 24 hour period.
+
+         UAS is defined as one second of UAT (Unavailable
+         Time). During UAT calculations of BBE, ES and SES are
+         inhibited and no data collection of them is performed"
+    ::= { pmTif24hEntry 8 }
+
+pmTif24hSSs OBJECT-TYPE
+    SYNTAX      Counter24h
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of SLIP Second (SS) for this 24 hour period.
+
+         SS is defined as one second containing one or more SLIPs"
+    ::= { pmTif24hEntry 9 }
+
+
+-- 24 hour current
+
+pmTif24hCurrentTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PmTif24hCurrentEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION 
+        "Table of PM data for the current 24 hour period"
+    ::= { pmTifGroup 5 }
+
+pmTif24hCurrentEntry OBJECT-TYPE
+    SYNTAX      PmTif24hCurrentEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "One entry for each monitored object"
+    INDEX { pmTifIndex }
+    ::= { pmTif24hCurrentTable 1}
+
+
+PmTif24hCurrentEntry ::= SEQUENCE {
+    pmTif24hCurrentTime      Counter15m,
+    pmTif24hCurrentSuspect   TruthValue,
+    pmTif24hCurrentZS        Counter32,
+    pmTif24hCurrentESs       Counter15m,
+    pmTif24hCurrentSESs      Counter15m,
+    pmTif24hCurrentBBEs      Gauge32,
+    pmTif24hCurrentUASs      Counter15m,
+    pmTif24hCurrentSSs       Counter15m
+}
+
+pmTif24hCurrentTime OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Elapsed time in seconds for the current 24 hour period."
+    ::= { pmTif24hCurrentEntry 2 }
+
+pmTif24hCurrentSuspect OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Is Suspect flag, if set to `true(1)' the current 24 hour
+         measurement period has unreliable measurement data."
+    ::= { pmTif24hCurrentEntry 3 }
+
+pmTif24hCurrentZS OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Zero Suppression Counter.
+
+         If the performance monitoring uses zero suppression, this
+         counter specifies how many fault free intervals have preceded
+         the faulty one."
+    ::= { pmTif24hCurrentEntry 4 }
+
+pmTif24hCurrentESs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Errored Seconds (ES) for the current 24 hour
+         period.
+
+         ES is defined as one second of available time containing one
+         or more Errored Blocks (EB) or at least one defect"
+    ::= { pmTif24hCurrentEntry 5 }
+
+pmTif24hCurrentSESs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Severe Errored Seconds (SES) for the current 24
+         hour period.
+
+         SES is defined as one second of available time containing
+         more than 30% Errored Blocks (EB) or at least one defect."
+    ::= { pmTif24hCurrentEntry 6 }
+
+pmTif24hCurrentBBEs OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Background Block Error (BBE) for the current 24
+         hour period.
+
+         BBE is defined as the number of Errored Blocks (EB) during
+         one second of available time not part of SES"
+    ::= { pmTif24hCurrentEntry 7 }
+
+pmTif24hCurrentUASs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Unavailable Second (UAS) for the current 24 hour
+         period.
+
+         UAS is defined as one second of UAT (Unavailable
+         Time). During UAT calculations of BBE, ES and SES are
+         inhibited and no data collection of them is performed"
+    ::= { pmTif24hCurrentEntry 8 }
+
+pmTif24hCurrentSSs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of SLIP Second (SS) for the current 24 hour period.
+
+         SS is defined as one second containing one or more SLIPs"
+    ::= { pmTif24hCurrentEntry 9 }
+
+
+-- -----------------------------------------------------------------
+-- Performance data for access interfaces
+-- -----------------------------------------------------------------    
+
+pmAifTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PmAifEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Table of Performance Monitored access interfaces"
+    ::= { pmAifGroup 1 }
+
+pmAifEntry OBJECT-TYPE
+    SYNTAX      PmAifEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "One entry for each access interface"
+    INDEX { pmAifIndex }
+    ::= { pmAifTable 1}
+
+PmAifEntry ::= SEQUENCE {
+    pmAifIndex                    Unsigned32,
+    pmAifAdminStatus              INTEGER,
+    pmAifOperStatus               INTEGER,
+    pmAifFailure                  DisplayString,
+    pmAifDataSource               OBJECT IDENTIFIER,
+    pmAifDataSourceName           DisplayString,
+    pmAifUatAlarmsEnabled         TruthValue,
+    pmAifTresholdAlarmsEnabled    TruthValue,
+    pmAifPeriodicEventsEnabled    TruthValue,
+    pmAifZeroSuppressionEnabled   TruthValue,
+    pmAifHistorySize              INTEGER,
+    pmAif15mTresholdES            Counter15m,
+    pmAif15mTresholdSES           Counter15m,
+    pmAif15mTresholdBBE           Gauge32,
+    pmAif24hTresholdES            Counter24h,
+    pmAif24hTresholdSES           Counter24h,
+    pmAif24hTresholdBBE           Gauge32
+}
+
+pmAifIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The index uniquely identifying this access interface."
+    ::= { pmAifEntry 1 }
+
+pmAifAdminStatus OBJECT-TYPE
+    SYNTAX  INTEGER {
+    up(1),
+    down(2)
+    }
+    MAX-ACCESS  read-write
+    STATUS  current
+    DESCRIPTION
+        "The desired state of the PM function. Affects the operative
+         state of the PM object"
+    ::= { pmAifEntry 2 }
+
+pmAifOperStatus OBJECT-TYPE
+    SYNTAX  INTEGER {
+                up(1),
+                down(2) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "PM operative state."
+    ::= { pmAifEntry 3 }
+
+pmAifFailure OBJECT-TYPE
+    SYNTAX  DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Shows current failure state. An empty string indicates no
+         failure"
+    ::= { pmAifEntry 4 }
+
+pmAifDataSource OBJECT-TYPE
+    SYNTAX  OBJECT IDENTIFIER
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The PM Data Source object"
+    ::= { pmAifEntry 5 }
+
+pmAifDataSourceName OBJECT-TYPE
+    SYNTAX  DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The name of the PM Data Source"
+    ::= { pmAifEntry 6 }
+
+pmAifUatAlarmsEnabled OBJECT-TYPE
+    SYNTAX  TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If set to `true(1)' then UAT alarms will be sent.
+
+         Unavailable time (UAT) defines a state where a service is
+         unable to perform its normal task due to severe errors for a
+         longer period. It begins at detection of ten consecutive SES
+         events and ends at detection of ten consecutive non-SES
+         events. In both cases, the 10s are considered part of
+         unavailable respective available time and effects the
+         visibility of G.826 PM events (they are delayed 10s)
+
+         Entry and exit of UAT is declared by raising and clearing an
+         UAT alarm (if enabled)"
+    ::= { pmAifEntry 7 }
+
+pmAifTresholdAlarmsEnabled OBJECT-TYPE
+    SYNTAX  TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If set to `true(1)' then threshold alarms will be sent.
+
+         Each 15m and 24h current register counter can be assigned a
+         threshold value. When crossed, a threshold crossing alarm
+         will be sent for the interval if enabled. Raised alarm will
+         be cleared at end of a following fault free interval i.e.
+         one with all interval counter values below their threshold
+         values and with no UAT. Only one TC alarm per interval can be
+         raised, regardless of how many thresholds have been crossed."
+    ::= { pmAifEntry 8 }
+
+pmAifPeriodicEventsEnabled OBJECT-TYPE
+    SYNTAX  TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If set to `true(1)' then History Periodic Events will be
+         sent."
+    ::= { pmAifEntry 9 }
+
+pmAifZeroSuppressionEnabled OBJECT-TYPE
+    SYNTAX  TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If set to `true(1)' then Zero Suppression mode is enabled
+
+         Zero Suppression mode tells whether intervals with all
+         current counters equal to zero shall be stored in the history
+         log or not. If enabled, once a faulty interval is found, its
+         current register content including a zero suppressed interval
+         counter will be stored in the history log. The additional
+         counter specifies how many fault free intervals have preceded
+         the faulty one. In such way, history for a larger measurement
+         period can be logged than would otherwise be possible"
+    ::= { pmAifEntry 10 }
+
+pmAifHistorySize OBJECT-TYPE
+    SYNTAX  INTEGER {
+                none(1),
+                small(2),
+                large(3) }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The size of the history log"
+    ::= { pmAifEntry 11 }
+
+pmAif15mTresholdES OBJECT-TYPE
+    SYNTAX  Counter15m
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "15 minute threshold value for ES.
+
+         Current ES value equal to or above this threshold will raise
+         a threshold alarm if enabled. A value of zero will disable
+         threshold check."
+    ::= { pmAifEntry 12 }
+
+pmAif15mTresholdSES OBJECT-TYPE
+    SYNTAX  Counter15m
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "15 minute threshold value for SES.
+
+         Current SES value equal to or above this threshold will raise
+         a threshold alarm if enabled. A value of zero will disable
+         threshold check."
+    ::= { pmAifEntry 13 }
+
+pmAif15mTresholdBBE OBJECT-TYPE
+    SYNTAX  Gauge32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "15 minute threshold value for BBE.
+
+         Current BBE value equal to or above this threshold will raise
+         a threshold alarm if enabled. A value of zero will disable
+         threshold check."
+    ::= { pmAifEntry 14 }
+
+pmAif24hTresholdES OBJECT-TYPE
+    SYNTAX  Counter24h
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "24 hour threshold value for ES.
+
+         Current ES value equal to or above this threshold will raise
+         a threshold alarm if enabled. A value of zero will disable
+         threshold check."
+    ::= { pmAifEntry 15 }
+
+pmAif24hTresholdSES OBJECT-TYPE
+    SYNTAX  Counter24h
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "24 hour threshold value for SES.
+
+         Current SES value equal to or above this threshold will raise
+         a threshold alarm if enabled. A value of zero will disable
+         threshold check."
+    ::= { pmAifEntry 16 }
+
+pmAif24hTresholdBBE OBJECT-TYPE
+    SYNTAX  Gauge32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "24 hour threshold value for BBE.
+
+         Current BBE value equal to or above this threshold will raise
+         a threshold alarm if enabled. A value of zero will disable
+         threshold check."
+    ::= { pmAifEntry 17 }
+
+
+-- 15 miunte current
+
+pmAifCurrentTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PmAifCurrentEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Table of PM data for the current 15 minute period"
+    ::= { pmAifGroup 2 }
+
+pmAifCurrentEntry OBJECT-TYPE
+    SYNTAX      PmAifCurrentEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "One entry for each monitored object"
+    INDEX { pmAifIndex }
+    ::= { pmAifCurrentTable 1}
+
+PmAifCurrentEntry ::= SEQUENCE {
+    pmAifCurrentTime      Counter15m,
+    pmAifCurrentSuspect   TruthValue,
+    pmAifCurrentZS        Counter32,
+    pmAifCurrentESs       Counter15m,
+    pmAifCurrentSESs      Counter15m,
+    pmAifCurrentBBEs      Gauge32,
+    pmAifCurrentUASs      Counter15m
+}
+
+pmAifCurrentTime OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Elapsed time in seconds for the current 15 minute period."
+    ::= { pmAifCurrentEntry 2 }
+
+pmAifCurrentSuspect OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Is Suspect flag, if set to `true(1)' the current 15 minute
+         measurement period has unreliable measurement data."
+    ::= { pmAifCurrentEntry 3 }
+
+pmAifCurrentZS OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Zero Suppression Counter.
+
+         If the performance monitoring uses zero suppression, this
+         counter specifies how many fault free intervals have preceded
+         the faulty one."
+    ::= { pmAifCurrentEntry 4 }
+
+pmAifCurrentESs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Errored Seconds (ES) for the current 15 minute
+         period.
+
+         ES is defined as one second of available time containing one
+         or more Errored Blocks (EB) or at least one defect"
+    ::= { pmAifCurrentEntry 5 }
+
+pmAifCurrentSESs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Severe Errored Seconds (SES) for the current 15
+         minute period.
+
+         SES is defined as one second of available time containing
+         more than 30% Errored Blocks (EB) or at least one defect."
+    ::= { pmAifCurrentEntry 6 }
+
+pmAifCurrentBBEs OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Background Block Error (BBE) for the current 15
+         minute period.
+
+         BBE is defined as the number of Errored Blocks (EB) during
+         one second of available time not part of SES"
+    ::= { pmAifCurrentEntry 7 }
+
+pmAifCurrentUASs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Unavailable Second (UAS) for the current 15 minute
+         period.
+
+         UAS is defined as one second of UAT (Unavailable
+         Time). During UAT calculations of BBE, ES and SES are
+         inhibited and no data collection of them is performed"
+    ::= { pmAifCurrentEntry 8 }
+
+
+-- 15 minute history
+
+pmAif15mTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PmAif15mEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Table of 15 minute PM interval history"
+    ::= { pmAifGroup 3 }
+
+pmAif15mEntry OBJECT-TYPE
+    SYNTAX      PmAif15mEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "One entry for each 15 minute PM interval"
+    INDEX { pmAifIndex, pmAif15mIndex }
+    ::= { pmAif15mTable 1}
+
+
+PmAif15mEntry ::= SEQUENCE {
+    pmAif15mIndex     Unsigned32,
+    pmAif15mTime      DateAndTime,
+    pmAif15mSuspect   TruthValue,
+    pmAif15mZS        Counter32,
+    pmAif15mESs       Counter15m,
+    pmAif15mSESs      Counter15m,
+    pmAif15mBBEs      Gauge32,
+    pmAif15mUASs      Counter15m
+}
+
+pmAif15mIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The index that identifies the interval for which the set of
+         statistics is available. Index of '0' indicates the most
+         recently completed interval, and the index is increased by
+         one for each interval back in time."
+    ::= { pmAif15mEntry 1 }
+
+pmAif15mTime OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Time stamp for this 15 minute interval"
+    ::= { pmAif15mEntry 2 }
+
+pmAif15mSuspect OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Suspect flag for this 15 minute interval"
+    ::= { pmAif15mEntry 3 }
+
+pmAif15mZS OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Zero Suppression Counter.
+
+         If the performance monitoring uses zero suppression, this
+         counter specifies how many fault free intervals have preceded
+         the faulty one."
+    ::= { pmAif15mEntry 4 }
+
+pmAif15mESs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Errored Seconds (ES) for this 15 minute period.
+
+         ES is defined as one second of available time containing one
+         or more Errored Blocks (EB) or at least one defect"
+    ::= { pmAif15mEntry 5 }
+
+pmAif15mSESs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Severe Errored Seconds (SES) for this 15 minute
+         period.
+
+         SES is defined as one second of available time containing
+         more than 30% Errored Blocks (EB) or at least one defect."
+    ::= { pmAif15mEntry 6 }
+
+pmAif15mBBEs OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Background Block Error (BBE) for this 15 minute
+         period.
+
+         BBE is defined as the number of Errored Blocks (EB) during
+         one second of available time not part of SES"
+    ::= { pmAif15mEntry 7 }
+
+pmAif15mUASs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Unavailable Second (UAS) for this 15 minute period.
+
+         UAS is defined as one second of UAT (Unavailable
+         Time). During UAT calculations of BBE, ES and SES are
+         inhibited and no data collection of them is performed"
+    ::= { pmAif15mEntry 8 }
+
+
+-- 24 hour history
+
+pmAif24hTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PmAif24hEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Table of 24 hour PM log history"
+    ::= { pmAifGroup 4 }
+
+pmAif24hEntry OBJECT-TYPE
+    SYNTAX      PmAif24hEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "One entry for each 24 hour PM interval"
+    INDEX { pmAifIndex, pmAif24hIndex }
+    ::= { pmAif24hTable 1}
+
+
+PmAif24hEntry ::= SEQUENCE {
+    pmAif24hIndex     Unsigned32,
+    pmAif24hTime      DateAndTime,
+    pmAif24hSuspect   TruthValue,
+    pmAif24hZS        Counter32,
+    pmAif24hESs       Counter24h,
+    pmAif24hSESs      Counter24h,
+    pmAif24hBBEs      Gauge32,
+    pmAif24hUASs      Counter24h
+}
+
+pmAif24hIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The index that identifies the interval for which the set of
+         statistics is available. Index of '0' indicates the most
+         recently completed interval, and the index is increased by
+         one for each interval back in time."
+    ::= { pmAif24hEntry 1 }
+
+pmAif24hTime OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Time stamp for this 24 hour interval"
+    ::= { pmAif24hEntry 2 }
+
+pmAif24hSuspect OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Suspect flag for this 24 hour interval"
+    ::= { pmAif24hEntry 3 }
+
+pmAif24hZS OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Zero Suppression Counter.
+
+         If the performance monitoring uses zero suppression, this
+         counter specifies how many fault free intervals have preceded
+         the faulty one."
+    ::= { pmAif24hEntry 4 }
+
+pmAif24hESs OBJECT-TYPE
+    SYNTAX      Counter24h
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Errored Seconds (ES) for this 24 hour period.
+
+         ES is defined as one second of available time containing one
+         or more Errored Blocks (EB) or at least one defect"
+    ::= { pmAif24hEntry 5 }
+
+pmAif24hSESs OBJECT-TYPE
+    SYNTAX      Counter24h
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Severe Errored Seconds (SES) for this 24 hour
+         period.
+
+         SES is defined as one second of available time containing
+         more than 30% Errored Blocks (EB) or at least one defect."
+    ::= { pmAif24hEntry 6 }
+
+pmAif24hBBEs OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Background Block Error (BBE) for this 24 hour
+         period.
+
+         BBE is defined as the number of Errored Blocks (EB) during
+         one second of available time not part of SES"
+    ::= { pmAif24hEntry 7 }
+
+pmAif24hUASs OBJECT-TYPE
+    SYNTAX      Counter24h
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Unavailable Second (UAS) for this 24 hour period.
+
+         UAS is defined as one second of UAT (Unavailable
+         Time). During UAT calculations of BBE, ES and SES are
+         inhibited and no data collection of them is performed"
+    ::= { pmAif24hEntry 8 }
+
+
+-- 24 hour current
+
+pmAif24hCurrentTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PmAif24hCurrentEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Table of PM data for the current 24 hour period"
+    ::= { pmAifGroup 5 }
+
+pmAif24hCurrentEntry OBJECT-TYPE
+    SYNTAX      PmAif24hCurrentEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "One entry for each monitored object"
+    INDEX { pmAifIndex }
+    ::= { pmAif24hCurrentTable 1}
+
+PmAif24hCurrentEntry ::= SEQUENCE {
+    pmAif24hCurrentTime      Counter15m,
+    pmAif24hCurrentSuspect   TruthValue,
+    pmAif24hCurrentZS        Counter32,
+    pmAif24hCurrentESs       Counter15m,
+    pmAif24hCurrentSESs      Counter15m,
+    pmAif24hCurrentBBEs      Gauge32,
+    pmAif24hCurrentUASs      Counter15m
+}
+
+pmAif24hCurrentTime OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Elapsed time in seconds for the current 24 hour period."
+    ::= { pmAif24hCurrentEntry 2 }
+
+pmAif24hCurrentSuspect OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Is Suspect flag, if set to `true(1)' the current 24 hour
+         measurement period has unreliable measurement data."
+    ::= { pmAif24hCurrentEntry 3 }
+
+pmAif24hCurrentZS OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Zero Suppression Counter.
+
+         If the performance monitoring uses zero suppression, this
+         counter specifies how many fault free intervals have preceded
+         the faulty one."
+    ::= { pmAif24hCurrentEntry 4 }
+
+pmAif24hCurrentESs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Errored Seconds (ES) for the current 24 hour
+         period.
+
+         ES is defined as one second of available time containing one
+         or more Errored Blocks (EB) or at least one defect"
+    ::= { pmAif24hCurrentEntry 5 }
+
+pmAif24hCurrentSESs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Severe Errored Seconds (SES) for the current 24
+         hour period.
+
+         SES is defined as one second of available time containing
+         more than 30% Errored Blocks (EB) or at least one defect."
+    ::= { pmAif24hCurrentEntry 6 }
+
+pmAif24hCurrentBBEs OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Background Block Error (BBE) for the current 24
+         hour period.
+
+         BBE is defined as the number of Errored Blocks (EB) during
+         one second of available time not part of SES"
+    ::= { pmAif24hCurrentEntry 7 }
+
+pmAif24hCurrentUASs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Unavailable Second (UAS) for the current 24 hour
+         period.
+
+         UAS is defined as one second of UAT (Unavailable
+         Time). During UAT calculations of BBE, ES and SES are
+         inhibited and no data collection of them is performed"
+    ::= { pmAif24hCurrentEntry 8 }
+
+
+-- -----------------------------------------------------------------
+-- Performande data channels
+-- -----------------------------------------------------------------    
+
+pmDchTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PmDchEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Table of Performance Monitored DTM channel"
+    ::= { pmDchGroup 1 }
+
+pmDchEntry OBJECT-TYPE
+    SYNTAX      PmDchEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "One entry for each DTM channel"
+    INDEX { pmDchIndex }
+    ::= { pmDchTable 1}
+
+PmDchEntry ::= SEQUENCE {
+    pmDchIndex                    Unsigned32,
+    pmDchAdminStatus              INTEGER,
+    pmDchOperStatus               INTEGER,
+    pmDchFailure                  DisplayString,
+    pmDchDataSource               OBJECT IDENTIFIER,
+    pmDchDataSourceName           DisplayString,
+    pmDchUatAlarmsEnabled         TruthValue,
+    pmDchTresholdAlarmsEnabled    TruthValue,
+    pmDchPeriodicEventsEnabled    TruthValue,
+    pmDchZeroSuppressionEnabled   TruthValue,
+    pmDchHistorySize              INTEGER,
+    pmDch15mTresholdES            Counter15m,
+    pmDch15mTresholdSES           Counter15m,
+    pmDch15mTresholdBBE           Gauge32,
+    pmDch24hTresholdES            Counter24h,
+    pmDch24hTresholdSES           Counter24h,
+    pmDch24hTresholdBBE           Gauge32
+}
+
+pmDchIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The index uniquely identifying this DTM channel."
+    ::= { pmDchEntry 1 }
+
+pmDchAdminStatus OBJECT-TYPE
+    SYNTAX  INTEGER {
+    up(1),
+    down(2)
+    }
+    MAX-ACCESS  read-write
+    STATUS  current
+    DESCRIPTION
+        "The desired state of the PM function. Affects the operative
+         state of the PM object"
+    ::= { pmDchEntry 2 }
+
+pmDchOperStatus OBJECT-TYPE
+    SYNTAX  INTEGER {
+                up(1),
+                down(2) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "PM operative state."
+    ::= { pmDchEntry 3 }
+
+pmDchFailure OBJECT-TYPE
+    SYNTAX  DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Shows current failure state. An empty string indicates no
+         failure"
+    ::= { pmDchEntry 4 }
+
+pmDchDataSource OBJECT-TYPE
+    SYNTAX  OBJECT IDENTIFIER
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The PM Data Source object"
+    ::= { pmDchEntry 5 }
+
+pmDchDataSourceName OBJECT-TYPE
+    SYNTAX  DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The name of the PM Data Source"
+    ::= { pmDchEntry 6 }
+
+pmDchUatAlarmsEnabled OBJECT-TYPE
+    SYNTAX  TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If set to `true(1)' then UAT alarms will be sent.
+
+         Unavailable time (UAT) defines a state where a service is
+         unable to perform its normal task due to severe errors for a
+         longer period. It begins at detection of ten consecutive SES
+         events and ends at detection of ten consecutive non-SES
+         events. In both cases, the 10s are considered part of
+         unavailable respective available time and effects the
+         visibility of G.826 PM events (they are delayed 10s)
+
+         Entry and exit of UAT is declared by raising and clearing an
+         UAT alarm (if enabled)"
+    ::= { pmDchEntry 7 }
+
+pmDchTresholdAlarmsEnabled OBJECT-TYPE
+    SYNTAX  TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If set to `true(1)' then threshold alarms will be sent.
+
+         Each 15m and 24h current register counter can be assigned a
+         threshold value. When crossed, a threshold crossing alarm
+         will be sent for the interval if enabled. Raised alarm will
+         be cleared at end of a following fault free interval i.e.
+         one with all interval counter values below their threshold
+         values and with no UAT. Only one TC alarm per interval can be
+         raised, regardless of how many thresholds have been crossed."
+    ::= { pmDchEntry 8 }
+
+pmDchPeriodicEventsEnabled OBJECT-TYPE
+    SYNTAX  TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If set to `true(1)' then History Periodic Events will be
+        sent."
+    ::= { pmDchEntry 9 }
+
+pmDchZeroSuppressionEnabled OBJECT-TYPE
+    SYNTAX  TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If set to `true(1)' then Zero Suppression mode is enabled
+
+         Zero Suppression mode tells whether intervals with all
+         current counters equal to zero shall be stored in the history
+         log or not. If enabled, once a faulty interval is found, its
+         current register content including a zero suppressed interval
+         counter will be stored in the history log. The additional
+         counter specifies how many fault free intervals have preceded
+         the faulty one. In such way, history for a larger measurement
+         period can be logged than would otherwise be possible"
+    ::= { pmDchEntry 10 }
+
+pmDchHistorySize OBJECT-TYPE
+    SYNTAX  INTEGER {
+                none(1),
+                small(2),
+                large(3) }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The size of the history log"
+    ::= { pmDchEntry 11 }
+
+pmDch15mTresholdES OBJECT-TYPE
+    SYNTAX  Counter15m
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "15 minute threshold value for ES.
+
+         Current ES value equal to or above this threshold will raise
+         a threshold alarm if enabled. A value of zero will disable
+         threshold check."
+    ::= { pmDchEntry 12 }
+
+pmDch15mTresholdSES OBJECT-TYPE
+    SYNTAX  Counter15m
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "15 minute threshold value for SES.
+
+         Current SES value equal to or above this threshold will raise
+         a threshold alarm if enabled. A value of zero will disable
+         threshold check."
+    ::= { pmDchEntry 13 }
+
+pmDch15mTresholdBBE OBJECT-TYPE
+    SYNTAX  Gauge32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "15 minute threshold value for BBE.
+
+         Current BBE value equal to or above this threshold will raise
+         a threshold alarm if enabled. A value of zero will disable
+         threshold check."
+    ::= { pmDchEntry 14 }
+
+pmDch24hTresholdES OBJECT-TYPE
+    SYNTAX  Counter24h
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "24 hour threshold value for ES.
+
+         Current ES value equal to or above this threshold will raise
+         a threshold alarm if enabled. A value of zero will disable
+         threshold check."
+    ::= { pmDchEntry 15 }
+
+pmDch24hTresholdSES OBJECT-TYPE
+    SYNTAX  Counter24h
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "24 hour threshold value for SES.
+
+         Current SES value equal to or above this threshold will raise
+         a threshold alarm if enabled. A value of zero will disable
+         threshold check."
+    ::= { pmDchEntry 16 }
+
+pmDch24hTresholdBBE OBJECT-TYPE
+    SYNTAX  Gauge32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "24 hour threshold value for BBE.
+
+         Current BBE value equal to or above this threshold will raise
+         a threshold alarm if enabled. A value of zero will disable
+         threshold check."
+    ::= { pmDchEntry 17 }
+
+
+-- 15 minute current
+
+pmDchCurrentTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PmDchCurrentEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Table of PM data for the current 15 minute period"
+    ::= { pmDchGroup 2 }
+
+pmDchCurrentEntry OBJECT-TYPE
+    SYNTAX      PmDchCurrentEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "One entry for each monitored object"
+    INDEX { pmDchIndex }
+    ::= { pmDchCurrentTable 1}
+
+PmDchCurrentEntry ::= SEQUENCE {
+    pmDchCurrentTime      Counter15m,
+    pmDchCurrentSuspect   TruthValue,
+    pmDchCurrentZS        Counter32,
+    pmDchCurrentESs       Counter15m,
+    pmDchCurrentSESs      Counter15m,
+    pmDchCurrentBBEs      Gauge32,
+    pmDchCurrentUASs      Counter15m
+}
+
+pmDchCurrentTime OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Elapsed time in seconds for the current 15 minute period."
+    ::= { pmDchCurrentEntry 2 }
+
+pmDchCurrentSuspect OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Is Suspect flag, if set to `true(1)' the current 15 minute
+         measurement period has unreliable measurement data."
+    ::= { pmDchCurrentEntry 3 }
+
+pmDchCurrentZS OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Zero Suppression Counter.
+
+         If the performance monitoring uses zero suppression, this
+         counter specifies how many fault free intervals have preceded
+         the faulty one."
+    ::= { pmDchCurrentEntry 4 }
+
+pmDchCurrentESs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Errored Seconds (ES) for the current 15 minute
+         period.
+
+         ES is defined as one second of available time containing one
+         or more Errored Blocks (EB) or at least one defect"
+    ::= { pmDchCurrentEntry 5 }
+
+pmDchCurrentSESs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Severe Errored Seconds (SES) for the current 15
+         minute period.
+
+         SES is defined as one second of available time containing
+         more than 30% Errored Blocks (EB) or at least one defect."
+    ::= { pmDchCurrentEntry 6 }
+
+pmDchCurrentBBEs OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Background Block Error (BBE) for the current 15
+         minute period.
+
+         BBE is defined as the number of Errored Blocks (EB) during
+         one second of available time not part of SES"
+    ::= { pmDchCurrentEntry 7 }
+
+pmDchCurrentUASs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Unavailable Second (UAS) for the current 15 minute
+         period.
+
+         UAS is defined as one second of UAT (Unavailable
+         Time). During UAT calculations of BBE, ES and SES are
+         inhibited and no data collection of them is performed"
+    ::= { pmDchCurrentEntry 8 }
+
+
+-- 15 minute history
+
+pmDch15mTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PmDch15mEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Table of 15 minute PM interval history"
+    ::= { pmDchGroup 3 }
+
+pmDch15mEntry OBJECT-TYPE
+    SYNTAX      PmDch15mEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "One entry for each 15 minute PM interval"
+    INDEX { pmDchIndex, pmDch15mIndex }
+    ::= { pmDch15mTable 1}
+
+PmDch15mEntry ::= SEQUENCE {
+    pmDch15mIndex     Unsigned32,
+    pmDch15mTime      DateAndTime,
+    pmDch15mSuspect   TruthValue,
+    pmDch15mZS        Counter32,
+    pmDch15mESs       Counter15m,
+    pmDch15mSESs      Counter15m,
+    pmDch15mBBEs      Gauge32,
+    pmDch15mUASs      Counter15m
+}
+
+pmDch15mIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The index that identifies the interval for which the set of
+         statistics is available. Index of '0' indicates the most
+         recently completed interval, and the index is increased by
+         one for each interval back in time."
+    ::= { pmDch15mEntry 1 }
+
+pmDch15mTime OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Time stamp for this 15 minute interval"
+    ::= { pmDch15mEntry 2 }
+
+pmDch15mSuspect OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Suspect flag for this 15 minute interval"
+    ::= { pmDch15mEntry 3 }
+
+pmDch15mZS OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Zero Suppression Counter.
+
+         If the performance monitoring uses zero suppression, this
+         counter specifies how many fault free intervals have preceded
+         the faulty one."
+    ::= { pmDch15mEntry 4 }
+
+pmDch15mESs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Errored Seconds (ES) for this 15 minute period.
+
+         ES is defined as one second of available time containing one
+         or more Errored Blocks (EB) or at least one defect"
+    ::= { pmDch15mEntry 5 }
+
+pmDch15mSESs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Severe Errored Seconds (SES) for this 15 minute
+         period.
+
+         SES is defined as one second of available time containing
+         more than 30% Errored Blocks (EB) or at least one defect."
+    ::= { pmDch15mEntry 6 }
+
+pmDch15mBBEs OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Background Block Error (BBE) for this 15 minute
+         period.
+
+         BBE is defined as the number of Errored Blocks (EB) during one
+         second of available time not part of SES"
+    ::= { pmDch15mEntry 7 }
+
+pmDch15mUASs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Unavailable Second (UAS) for this 15 minute period.
+
+         UAS is defined as one second of UAT (Unavailable
+         Time). During UAT calculations of BBE, ES and SES are
+         inhibited and no data collection of them is performed"
+    ::= { pmDch15mEntry 8 }
+
+
+-- 24 hour history
+
+pmDch24hTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PmDch24hEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Table of 24 hour PM interval history"
+    ::= { pmDchGroup 4 }
+
+pmDch24hEntry OBJECT-TYPE
+    SYNTAX      PmDch24hEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "One entry for each 24 hour PM interval"
+    INDEX { pmDchIndex, pmDch24hIndex }
+    ::= { pmDch24hTable 1}
+
+PmDch24hEntry ::= SEQUENCE {
+    pmDch24hIndex     Unsigned32,
+    pmDch24hTime      DateAndTime,
+    pmDch24hSuspect   TruthValue,
+    pmDch24hZS        Counter32,
+    pmDch24hESs       Counter24h,
+    pmDch24hSESs      Counter24h,
+    pmDch24hBBEs      Gauge32,
+    pmDch24hUASs      Counter24h
+}
+
+pmDch24hIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The index that identifies the interval for which the set of
+         statistics is available. Index of '0' indicates the most
+         recently completed interval, and the index is increased by
+         one for each interval back in time."
+    ::= { pmDch24hEntry 1 }
+
+pmDch24hTime OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Time stamp for this 24 hour interval"
+    ::= { pmDch24hEntry 2 }
+
+pmDch24hSuspect OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Suspect flag for this 24 hour interval"
+    ::= { pmDch24hEntry 3 }
+
+pmDch24hZS OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Zero Suppression Counter.
+
+         If the performance monitoring uses zero suppression, this
+         counter specifies how many fault free intervals have preceded
+         the faulty one."
+    ::= { pmDch24hEntry 4 }
+
+pmDch24hESs OBJECT-TYPE
+    SYNTAX      Counter24h
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Errored Seconds (ES) for this 24 hour period.
+
+         ES is defined as one second of available time containing one
+         or more Errored Blocks (EB) or at least one defect"
+    ::= { pmDch24hEntry 5 }
+
+pmDch24hSESs OBJECT-TYPE
+    SYNTAX      Counter24h
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Severe Errored Seconds (SES) for this 24 hour
+         period.
+
+         SES is defined as one second of available time containing
+         more than 30% Errored Blocks (EB) or at least one defect."
+    ::= { pmDch24hEntry 6 }
+
+pmDch24hBBEs OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Background Block Error (BBE) for this 24 hour
+         period.
+
+         BBE is defined as the number of Errored Blocks (EB) during
+         one second of available time not part of SES"
+    ::= { pmDch24hEntry 7 }
+
+pmDch24hUASs OBJECT-TYPE
+    SYNTAX      Counter24h
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Unavailable Second (UAS) for this 24 hour period.
+
+         UAS is defined as one second of UAT (Unavailable
+         Time). During UAT calculations of BBE, ES and SES are
+         inhibited and no data collection of them is performed"
+    ::= { pmDch24hEntry 8 }
+
+
+-- 24 hour current
+
+pmDch24hCurrentTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PmDch24hCurrentEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Table of PM data for the current 24 hour period"
+    ::= { pmDchGroup 5 }
+
+pmDch24hCurrentEntry OBJECT-TYPE
+    SYNTAX      PmDch24hCurrentEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "One entry for each monitored object"
+    INDEX { pmDchIndex }
+    ::= { pmDch24hCurrentTable 1}
+
+
+PmDch24hCurrentEntry ::= SEQUENCE {
+    pmDch24hCurrentTime      Counter15m,
+    pmDch24hCurrentSuspect   TruthValue,
+    pmDch24hCurrentZS        Counter32,
+    pmDch24hCurrentESs       Counter15m,
+    pmDch24hCurrentSESs      Counter15m,
+    pmDch24hCurrentBBEs      Gauge32,
+    pmDch24hCurrentUASs      Counter15m
+}
+
+pmDch24hCurrentTime OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Elapsed time in seconds for the current 24 hour period."
+    ::= { pmDch24hCurrentEntry 2 }
+
+pmDch24hCurrentSuspect OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Is Suspect flag, if set to `true(1)' the current 24 hour
+         measurement period has unreliable measurement data."
+    ::= { pmDch24hCurrentEntry 3 }
+
+pmDch24hCurrentZS OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Zero Suppression Counter.
+
+         If the performance monitoring uses zero suppression, this
+         counter specifies how many fault free intervals have preceded
+         the faulty one."
+    ::= { pmDch24hCurrentEntry 4 }
+
+pmDch24hCurrentESs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Errored Seconds (ES) for the current 24 hour
+         period.
+
+         ES is defined as one second of available time containing one
+         or more Errored Blocks (EB) or at least one defect"
+    ::= { pmDch24hCurrentEntry 5 }
+
+pmDch24hCurrentSESs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Severe Errored Seconds (SES) for the current 24
+         hour period.
+
+         SES is defined as one second of available time containing
+         more than 30% Errored Blocks (EB) or at least one defect."
+    ::= { pmDch24hCurrentEntry 6 }
+
+pmDch24hCurrentBBEs OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Background Block Error (BBE) for the current 24
+         hour period.
+
+         BBE is defined as the number of Errored Blocks (EB) during
+         one second of available time not part of SES"
+    ::= { pmDch24hCurrentEntry 7 }
+
+pmDch24hCurrentUASs OBJECT-TYPE
+    SYNTAX      Counter15m
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of Unavailable Second (UAS) for the current 24 hour
+         period.
+
+         UAS is defined as one second of UAT (Unavailable
+         Time). During UAT calculations of BBE, ES and SES are
+         inhibited and no data collection of them is performed"
+    ::= { pmDch24hCurrentEntry 8 }
+
+
+-- -----------------------------------------------------------------
+-- The PM Conformance Groups 
+-- -----------------------------------------------------------------    
+pmTifConformanceGroup OBJECT-GROUP
+    OBJECTS {
+    pmTifAdminStatus,    
+    pmTifOperStatus,    
+    pmTifFailure,    
+    pmTifDataSource,    
+    pmTifDataSourceName,    
+    pmTifUatAlarmsEnabled,    
+    pmTifTresholdAlarmsEnabled,    
+    pmTifPeriodicEventsEnabled,    
+    pmTifZeroSuppressionEnabled,    
+    pmTifHistorySize,    
+    pmTif15mTresholdES,    
+    pmTif15mTresholdSES,    
+    pmTif15mTresholdBBE,    
+    pmTif15mTresholdSS,    
+    pmTif24hTresholdES,    
+    pmTif24hTresholdSES,    
+    pmTif24hTresholdBBE,    
+    pmTif24hTresholdSS,
+    
+    pmTifCurrentTime,
+    pmTifCurrentSuspect,
+    pmTifCurrentZS,
+    pmTifCurrentESs,
+    pmTifCurrentSESs,
+    pmTifCurrentBBEs,
+    pmTifCurrentUASs,
+    pmTifCurrentSSs,
+    
+    pmTif15mTime,
+    pmTif15mSuspect,
+    pmTif15mZS,
+    pmTif15mESs,
+    pmTif15mSESs,
+    pmTif15mBBEs,
+    pmTif15mUASs,
+    pmTif15mSSs,
+
+    pmTif24hTime,
+    pmTif24hSuspect,
+    pmTif24hZS,
+    pmTif24hESs,
+    pmTif24hSESs,
+    pmTif24hBBEs,
+    pmTif24hUASs,
+    pmTif24hSSs,
+
+    pmTif24hCurrentTime,
+    pmTif24hCurrentSuspect,
+    pmTif24hCurrentZS,
+    pmTif24hCurrentESs,
+    pmTif24hCurrentSESs,
+    pmTif24hCurrentBBEs,
+    pmTif24hCurrentUASs,
+    pmTif24hCurrentSSs    
+    }
+    
+    STATUS current
+    DESCRIPTION
+        "The PM Trunk Interface Conformance Group."
+    ::= { pmConformanceGroups 1 }
+
+
+
+
+pmAifConformanceGroup OBJECT-GROUP
+    OBJECTS {
+    pmAifAdminStatus,    
+    pmAifOperStatus,    
+    pmAifFailure,    
+    pmAifDataSource,    
+    pmAifDataSourceName,    
+    pmAifUatAlarmsEnabled,    
+    pmAifTresholdAlarmsEnabled,    
+    pmAifPeriodicEventsEnabled,    
+    pmAifZeroSuppressionEnabled,    
+    pmAifHistorySize,    
+    pmAif15mTresholdES,    
+    pmAif15mTresholdSES,    
+    pmAif15mTresholdBBE,    
+    pmAif24hTresholdES,    
+    pmAif24hTresholdSES,    
+    pmAif24hTresholdBBE,    
+    
+    pmAifCurrentTime,
+    pmAifCurrentSuspect,
+    pmAifCurrentZS,
+    pmAifCurrentESs,
+    pmAifCurrentSESs,
+    pmAifCurrentBBEs,
+    pmAifCurrentUASs,
+    
+    pmAif15mTime,
+    pmAif15mSuspect,
+    pmAif15mZS,
+    pmAif15mESs,
+    pmAif15mSESs,
+    pmAif15mBBEs,
+    pmAif15mUASs,
+    
+    pmAif24hTime,
+    pmAif24hSuspect,
+    pmAif24hZS,
+    pmAif24hESs,
+    pmAif24hSESs,
+    pmAif24hBBEs,
+    pmAif24hUASs,
+
+    pmAif24hCurrentTime,
+    pmAif24hCurrentSuspect,
+    pmAif24hCurrentZS,
+    pmAif24hCurrentESs,
+    pmAif24hCurrentSESs,
+    pmAif24hCurrentBBEs,
+    pmAif24hCurrentUASs
+    }
+    
+    STATUS current
+    DESCRIPTION
+        "The PM Access Interface Conformance Group."
+    ::= { pmConformanceGroups 2 }
+
+
+
+pmDchConformanceGroup OBJECT-GROUP
+    OBJECTS {
+    pmDchAdminStatus,    
+    pmDchOperStatus,    
+    pmDchFailure,    
+    pmDchDataSource,    
+    pmDchDataSourceName,    
+    pmDchUatAlarmsEnabled,    
+    pmDchTresholdAlarmsEnabled,    
+    pmDchPeriodicEventsEnabled,    
+    pmDchZeroSuppressionEnabled,    
+    pmDchHistorySize,    
+    pmDch15mTresholdES,    
+    pmDch15mTresholdSES,    
+    pmDch15mTresholdBBE,    
+    pmDch24hTresholdES,    
+    pmDch24hTresholdSES,    
+    pmDch24hTresholdBBE,    
+    
+    pmDchCurrentTime,
+    pmDchCurrentSuspect,
+    pmDchCurrentZS,
+    pmDchCurrentESs,
+    pmDchCurrentSESs,
+    pmDchCurrentBBEs,
+    pmDchCurrentUASs,
+    
+    pmDch15mTime,
+    pmDch15mSuspect,
+    pmDch15mZS,
+    pmDch15mESs,
+    pmDch15mSESs,
+    pmDch15mBBEs,
+    pmDch15mUASs,
+    
+    pmDch24hTime,
+    pmDch24hSuspect,
+    pmDch24hZS,
+    pmDch24hESs,
+    pmDch24hSESs,
+    pmDch24hBBEs,
+    pmDch24hUASs,
+
+    pmDch24hCurrentTime,
+    pmDch24hCurrentSuspect,
+    pmDch24hCurrentZS,
+    pmDch24hCurrentESs,
+    pmDch24hCurrentSESs,
+    pmDch24hCurrentBBEs,
+    pmDch24hCurrentUASs    
+    }
+    
+    STATUS current
+    DESCRIPTION
+        "The PM Channel Conformance Group."
+    ::= { pmConformanceGroups 3 }
+
+-- -----------------------------------------------------------------
+-- The End 
+-- -----------------------------------------------------------------    
+    
+END

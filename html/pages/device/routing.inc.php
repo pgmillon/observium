@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -41,15 +41,15 @@ foreach ($routing_tabs as $type)
 print_navbar($navbar);
 unset($navbar);
 
-if (is_file("pages/device/routing/".$vars['proto'].".inc.php"))
+if (is_file($config['html_dir']."/pages/device/routing/".$vars['proto'].".inc.php"))
 {
-  include("pages/device/routing/".$vars['proto'].".inc.php");
+  include($config['html_dir']."/pages/device/routing/".$vars['proto'].".inc.php");
 } else {
   foreach ($routing_tabs as $type)
   {
     if ($type != "overview")
     {
-      if (is_file("pages/device/routing/overview/".$type.".inc.php"))
+      if (is_file($config['html_dir']."/pages/device/routing/overview/".$type.".inc.php"))
       {
         $g_i++;
         if (!is_integer($g_i/2)) { $row_colour = $list_colour_a; } else { $row_colour = $list_colour_b; }
@@ -57,7 +57,7 @@ if (is_file("pages/device/routing/".$vars['proto'].".inc.php"))
         echo('<div style="background-color: '.$row_colour.';">');
         echo('<div style="padding:4px 0px 0px 8px;"><span class=graphhead>'.$type_text[$type].'</span>');
 
-        include("pages/device/routing/overview/".$type.".inc.php");
+        include($config['html_dir']."/pages/device/routing/overview/".$type.".inc.php");
 
         echo('</div>');
         echo('</div>');

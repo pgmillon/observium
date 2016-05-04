@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -43,7 +43,7 @@ foreach ($radios_snmp as $radio_number => $radio)
 
   $radio['radio_protection'] = $radio['ruckusRadioProtectionMode'];
   $radio['radio_mac']        = array('NULL');                 // Hardcoded, data doesnt' exist in this MIB
-  
+
   if (OBS_DEBUG && count($radio)) { print_vars($radio); }
 
   discover_wifi_radio($device['device_id'], $radio);

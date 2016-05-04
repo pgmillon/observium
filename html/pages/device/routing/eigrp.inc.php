@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -29,7 +29,7 @@ unset($navbar);
 switch($vars['view'])
 {
   case "ports":
-    include("eigrp_ports.inc.php");
+    include("eigrp/ports.inc.php");
     break;
 
 }

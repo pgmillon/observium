@@ -6,7 +6,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -43,9 +43,9 @@ $data = snmpwalk_cache_oid($device, 'ruckusSwRevTable', array(), 'RUCKUS-SWINFO-
 
 print_r($data);
 
-foreach($data as $sw_rev)
+foreach ($data as $sw_rev)
 {
-  if($sw_rev['ruckusSwRevStatus'] = "active")
+  if ($sw_rev['ruckusSwRevStatus'] = "active")
   {
     $version = $sw_rev['ruckusSwRevision'];
   }

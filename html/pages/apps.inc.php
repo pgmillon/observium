@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -23,6 +23,11 @@ foreach ($app_list as $app)
   }
   $navbar['options'][$app['app_type']]['url']  = generate_url(array('page' => 'apps', 'app' => $app['app_type']));
   $navbar['options'][$app['app_type']]['text'] = nicecase($app['app_type']);
+
+  $image = $config['html_dir'].'/images/icons/'.$app['app_type'].'.png';
+  $icon = (is_file($image) ? $app['app_type'] : 'apps');
+  $navbar['options'][$app['app_type']]['image'] = 'images/icons/'.$icon.'.png';
+
   $app_types[$app['app_type']] = array();
 }
 
@@ -31,14 +36,15 @@ unset($navbar);
 
 if ($vars['app'])
 {
-  if (is_file("pages/apps/".$vars['app'].".inc.php"))
+  $include = $config['html_dir'].'/pages/apps/'.$vars['app'].'.inc.php';
+  if (is_file($include))
   {
-    include("pages/apps/".$vars['app'].".inc.php");
+    include($include);
   } else {
-    include("pages/apps/default.inc.php");
+    include($config['html_dir'].'/pages/apps/default.inc.php');
   }
 } else {
-  include("pages/apps/overview.inc.php");
+  include($config['html_dir'].'/pages/apps/overview.inc.php');
 }
 
 $page_title[] = "Apps";

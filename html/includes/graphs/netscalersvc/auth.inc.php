@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -23,9 +23,9 @@ if (is_numeric($vars['id']))
     $rrd_filename = get_rrd_path($device, "nscaler-svc-".$svc['svc_name'].".rrd");
 
     $title  = generate_device_link($device);
-    $title .= " :: Netscaler VServer :: " . htmlentities($svc['svc_name']);
+    $title .= " :: Netscaler VServer :: " . escape_html($svc['svc_name']);
     $auth = TRUE;
   }
 }
 
-?>
+// EOF

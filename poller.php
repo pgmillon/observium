@@ -8,21 +8,17 @@
  *
  * @package    observium
  * @subpackage poller
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 chdir(dirname($argv[0]));
 
-include_once("includes/defaults.inc.php");
-include_once("config.php");
-
 // Get options before definitions!
-$options = getopt("h:i:m:n:dqrV");
+$options = getopt("h:i:m:n:dqrMV");
 
-include_once("includes/definitions.inc.php");
-include("includes/functions.inc.php");
+include("includes/sql-config.inc.php");
 include("includes/polling/functions.inc.php");
 
 $scriptname = basename($argv[0]);
@@ -37,9 +33,41 @@ if (isset($options['V']))
   if (is_array($options['V'])) { print_versions(); }
   exit;
 }
+else if (isset($options['M']))
+{
+  print_message(OBSERVIUM_PRODUCT." ".OBSERVIUM_VERSION);
+
+  print_message('Enabled poller modules:');
+  $m_disabled = array();
+  foreach ($config['poller_modules'] as $module => $ok)
+  {
+    if ($ok) { print_message('  '.$module); }
+    else { $m_disabled[] = $module; }
+  }
+  if (count($m_disabled))
+  {
+    print_message('Disabled poller modules:');
+    print_message('  '.implode("\n  ", $m_disabled));
+  }
+  exit;
+}
+
 if (!isset($options['q']))
 {
-  print_message("%g".OBSERVIUM_PRODUCT." ".OBSERVIUM_VERSION."\n%WPoller%n\n", 'color');
+
+print_cli_banner();
+
+$latest['version']  = get_obs_attrib('latest_ver');
+$latest['revision'] = get_obs_attrib('latest_rev');
+$latest['date']     = get_obs_attrib('latest_rev_date');
+
+if ($latest['revision'] > OBSERVIUM_REV)
+{
+  print_message("%GThere is a newer revision of Observium available!%n", 'color');
+  print_message("%GVersion %r" . $latest['version']."%G (" . format_unixtime(datetime_to_unixtime($latest['date']), 'jS F Y').") is %r". ($latest['revision']-OBSERVIUM_REV) ."%G revisions ahead.%n\n", 'color');
+}
+
+//  print_message("%g".OBSERVIUM_PRODUCT." ".OBSERVIUM_VERSION."\n%WPoller%n\n", 'color');
   if (OBS_DEBUG) { print_versions(); }
 }
 
@@ -100,6 +128,7 @@ OPTIONS:
  -i                                          Poll instance.
  -n                                          Poll number.
  -q                                          Quiet output.
+ -M                                          Show globally enabled/disabled modules and exit.
  -V                                          Show version and exit.
 
 DEBUGGING OPTIONS:
@@ -117,9 +146,11 @@ if (isset($options['r']))
   $config['norrd'] = TRUE;
 }
 
+$cache['maint'] = cache_alert_maintenance();
+
 rrdtool_pipe_open($rrd_process, $rrd_pipes);
 
-echo("Starting polling run:\n\n");
+print_cli_heading("%WStarting polling run at ".date("Y-m-d H:i:s"), 0);
 $polled_devices = 0;
 if (!isset($query))
 {
@@ -146,20 +177,36 @@ if ($polled_devices)
 $string = $argv[0] . ": $doing - $polled_devices devices polled in $poller_time secs";
 print_debug($string);
 
+print_cli_heading("%WCompleted polling run at ".date("Y-m-d H:i:s"), 0);
+
+
 if (!isset($options['q']))
 {
   if ($config['snmp']['hide_auth'])
   {
-    print_debug("NOTE, \$config['snmp']['hide_auth'] sets as TRUE, snmp community and snmp v3 auth hidden from debug output.");
+    print_debug("NOTE, \$config['snmp']['hide_auth'] is set to TRUE, snmp community and snmp v3 auth hidden from debug output.");
   }
-  print_message('Memory usage: '.formatStorage(memory_get_usage(TRUE), 2, 4).' (peak: '.formatStorage(memory_get_peak_usage(TRUE), 2, 4).')');
-  print_message('MySQL: Cell['.($db_stats['fetchcell']+0).'/'.round($db_stats['fetchcell_sec']+0,2).'s]'.
-                       ' Row['.($db_stats['fetchrow']+0). '/'.round($db_stats['fetchrow_sec']+0,2).'s]'.
-                      ' Rows['.($db_stats['fetchrows']+0).'/'.round($db_stats['fetchrows_sec']+0,2).'s]'.
-                    ' Column['.($db_stats['fetchcol']+0). '/'.round($db_stats['fetchcol_sec']+0,2).'s]'.
-                    ' Update['.($db_stats['update']+0).'/'.round($db_stats['update_sec']+0,2).'s]'.
-                    ' Insert['.($db_stats['insert']+0). '/'.round($db_stats['insert_sec']+0,2).'s]'.
-                    ' Delete['.($db_stats['delete']+0). '/'.round($db_stats['delete_sec']+0,2).'s]');
+
+  print_cli_data('Devices Polled', $polled_devices, 0);
+
+  print_cli_data('Poller Time', $poller_time ." secs", 0);
+
+  print_cli_data('Memory usage', formatStorage(memory_get_usage(TRUE), 2, 4).' (peak: '.formatStorage(memory_get_peak_usage(TRUE), 2, 4).')', 0);
+
+  print_cli_data('MySQL Usage', 'Cell['.($db_stats['fetchcell']+0).'/'.round($db_stats['fetchcell_sec']+0,3).'s]'.
+                       ' Row['.($db_stats['fetchrow']+0). '/'.round($db_stats['fetchrow_sec']+0,3).'s]'.
+                      ' Rows['.($db_stats['fetchrows']+0).'/'.round($db_stats['fetchrows_sec']+0,3).'s]'.
+                    ' Column['.($db_stats['fetchcol']+0). '/'.round($db_stats['fetchcol_sec']+0,3).'s]'.
+                    ' Update['.($db_stats['update']+0).'/'.round($db_stats['update_sec']+0,3).'s]'.
+                    ' Insert['.($db_stats['insert']+0). '/'.round($db_stats['insert_sec']+0,3).'s]'.
+                    ' Delete['.($db_stats['delete']+0). '/'.round($db_stats['delete_sec']+0,3).'s]', 0);
+
+  foreach($GLOBALS['rrdtool'] AS $cmd => $data)
+  {
+    $rrd_times[] = $cmd."[".$data['count']."/".round($data['time'],3)."s]";
+  }
+
+  print_cli_data('RRDTool Usage', implode(" ", $rrd_times), 0);
 }
 
 logfile($string);
@@ -167,5 +214,7 @@ rrdtool_pipe_close($rrd_process, $rrd_pipes);
 unset($config); // Remove this for testing
 
 #print_vars(get_defined_vars());
+
+echo("\n");
 
 // EOF

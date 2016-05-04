@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -23,7 +23,7 @@ if (is_numeric($vars['id']))
     $rrd_filename = get_rrd_path($device, get_status_rrd($device, $status));
 
     $title  = generate_device_link($device);
-    $title .= " :: Status :: " . htmlentities($status['status_descr']);
+    $title .= " :: Status :: " . escape_html($status['status_descr']);
     $auth = TRUE;
   }
 }

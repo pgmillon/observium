@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -28,7 +28,7 @@
 #NETSWITCH-MIB::hpGlobalMemAllocBytes.1 = INTEGER: 1668728
 
 $mib = 'NETSWITCH-MIB';
-echo(" $mib ");
+echo("$mib ");
 
 $mempool_array = snmpwalk_cache_oid($device, "hpLocal", NULL, $mib, mib_dirs('hp'));
 

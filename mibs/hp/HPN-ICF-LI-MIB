@@ -1,0 +1,789 @@
+-- ============================================================================
+-- Copyright (c) 2010-2013 Hewlett-Packard Development Company, L.P.
+--
+-- Description: Lawful Interception MIB
+-- Reference:
+-- Version: V1.0
+-- History:
+--   V1.0 2009-08-25 Initial version Created by Lixin Xu
+-- ============================================================================
+HPN-ICF-LI-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    hpnicfCommon
+        FROM HPN-ICF-OID-MIB
+    Counter64, Counter32, Integer32, Unsigned32,
+    OBJECT-TYPE, MODULE-IDENTITY, NOTIFICATION-TYPE
+        FROM SNMPv2-SMI
+    RowStatus, TruthValue, MacAddress, DateAndTime
+        FROM SNMPv2-TC
+    InetAddress, InetAddressType, InetAddressPrefixLength, InetPortNumber
+        FROM INET-ADDRESS-MIB
+    InterfaceIndexOrZero
+        FROM IF-MIB
+    SnmpAdminString
+        FROM SNMP-FRAMEWORK-MIB;
+
+hpnicfLI MODULE-IDENTITY
+    LAST-UPDATED "200908251000Z"
+    ORGANIZATION
+        ""
+    CONTACT-INFO
+        ""
+    DESCRIPTION
+        "Lawful Interception MIB"
+    REVISION
+        "200908251000Z"
+    DESCRIPTION
+        "Initial version."
+    ::= { hpnicfCommon 111 }
+
+--
+-- Node definitions
+--
+
+hpnicfLICommon OBJECT IDENTIFIER ::= { hpnicfLI 1 }
+
+hpnicfLITrapBindObjects OBJECT IDENTIFIER ::= { hpnicfLICommon 1 }
+
+hpnicfLIBoardInformation OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "It is a slot number."
+    ::= { hpnicfLITrapBindObjects 1 }
+
+hpnicfLINotifications OBJECT IDENTIFIER ::= { hpnicfLICommon 2 }
+
+hpnicfLINotificationsPrefix OBJECT IDENTIFIER ::= { hpnicfLINotifications 0 }
+
+hpnicfLIActive NOTIFICATION-TYPE
+    OBJECTS {
+              hpnicfLIStreamtype
+            }
+    STATUS current
+    DESCRIPTION
+        "This Notification is sent when a type of intercepting configuration
+        is changed from inactive to active.
+        The value of the hpnicfLIStreamtype which identify the actual intercept
+        stream is included in this notification."
+    ::= { hpnicfLINotificationsPrefix 1 }
+
+hpnicfLITimeOut NOTIFICATION-TYPE
+    OBJECTS { hpnicfLIMediationRowStatus }
+    STATUS current
+    DESCRIPTION
+        "When the time specified in hpnicfLIMediationTimeout arrives,
+        the device notifies the manager corresponding intercept is removed."
+    ::= { hpnicfLINotificationsPrefix 2 }
+
+hpnicfLIFailureInformation NOTIFICATION-TYPE
+    OBJECTS {
+                hpnicfLIStreamtype,
+                hpnicfLIBoardInformation
+            }
+    STATUS current
+    DESCRIPTION
+        "When interception is configured on distributed device,
+        the configuration perhaps failed on some board.
+        If this happened, this notification will occur."
+    ::= { hpnicfLINotificationsPrefix 3 }
+
+hpnicfLIObjects OBJECT IDENTIFIER ::= { hpnicfLICommon 3 }
+
+hpnicfLINewIndex OBJECT-TYPE
+    SYNTAX Integer32 (1..2147483647)
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "This object will be used as an index value for a new
+        hpnicfLIMediationEntry.  Whenever read, the agent will
+        give a non-used value.  This is to reduce the probability
+        of conflict during creation of new hpnicfLIMediationTable entries."
+    ::= { hpnicfLIObjects 1 }
+--
+-- hpnicfLIMediationTable definition
+--
+hpnicfLIMediationTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfLIMediationEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table describes interception gateway information with which
+        interception device communicates."
+    ::= { hpnicfLIObjects 2 }
+
+hpnicfLIMediationEntry OBJECT-TYPE
+    SYNTAX HpnicfLIMediationEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "An entry of configuring mediation device."
+    INDEX { hpnicfLIMediationIndex }
+    ::= { hpnicfLIMediationTable 1 }
+
+HpnicfLIMediationEntry ::=
+    SEQUENCE {
+        hpnicfLIMediationIndex                 Integer32,
+        hpnicfLIMediationDestAddrType          InetAddressType,
+        hpnicfLIMediationDestAddr              InetAddress,
+        hpnicfLIMediationDestPort              InetPortNumber,
+        hpnicfLIMediationSrcInterface          InterfaceIndexOrZero,
+        hpnicfLIMediationDscp                  Integer32,
+        hpnicfLIMediationTimeOut               DateAndTime,
+        hpnicfLIMediationTransport             INTEGER,
+        hpnicfLIMediationNotificationEnable    TruthValue,
+        hpnicfLIMediationRowStatus             RowStatus
+     }
+
+hpnicfLIMediationIndex OBJECT-TYPE
+    SYNTAX Integer32 (1..2147483647)
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "hpnicfLIMediationIndex is a entry identifier.  The Mediation Device
+            should be responsible for making sure these are unique.
+            Before creating a new entry, a value for this variable may be
+            obtained by reading hpnicfLINewIndex to reduce the probability
+            of a value collision."
+    ::= { hpnicfLIMediationEntry 1 }
+
+hpnicfLIMediationDestAddrType OBJECT-TYPE
+    SYNTAX InetAddressType
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The type of hpnicfLIMediationDestAddr."
+    ::= { hpnicfLIMediationEntry 2 }
+
+hpnicfLIMediationDestAddr OBJECT-TYPE
+    SYNTAX InetAddress
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The IP Address of the Mediation Device to receive intercepted traffic."
+    ::= { hpnicfLIMediationEntry 3 }
+
+hpnicfLIMediationDestPort OBJECT-TYPE
+    SYNTAX InetPortNumber
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The L4-port number on the Mediation Device
+         to receive intercepted traffic."
+    ::= { hpnicfLIMediationEntry 4 }
+
+hpnicfLIMediationSrcInterface OBJECT-TYPE
+    SYNTAX InterfaceIndexOrZero
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The interface on the intercepting device from which to
+        transmit intercepted data.
+        If zero, intercepting device will select an outbound
+        interface according to hpnicfLIMediationDestAddr."
+    ::= { hpnicfLIMediationEntry 5 }
+
+hpnicfLIMediationDscp OBJECT-TYPE
+    SYNTAX Integer32
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The Differentiated Services Code Point the intercepting
+        device applies to the IP packets encapsulating the intercepted traffic."
+    DEFVAL { 34 }
+    ::= { hpnicfLIMediationEntry 6 }
+
+hpnicfLIMediationTimeOut OBJECT-TYPE
+    SYNTAX DateAndTime
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The time at which this row and all related Stream Table rows
+        should be automatically removed, and the intercept function expire."
+    ::= { hpnicfLIMediationEntry 7 }
+
+hpnicfLIMediationTransport OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+            udp(1)
+        }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The protocol used in transferring intercepted data to the
+        Mediation Device."
+    ::= { hpnicfLIMediationEntry 8 }
+
+hpnicfLIMediationNotificationEnable OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "This variable controls the generation of any notifications or
+        informs by the MIB agent for this table entry."
+    DEFVAL { true }
+    ::= { hpnicfLIMediationEntry 9 }
+
+hpnicfLIMediationRowStatus OBJECT-TYPE
+    SYNTAX RowStatus
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Operation status of this table entry."
+    ::= { hpnicfLIMediationEntry 10 }
+
+--
+-- hpnicfLIStreamTable definition
+--
+hpnicfLIStreamTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfLIStreamEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table lists the traffic stream's type to be intercepted.
+         The specified filter is defined in hpnicfLIIPStreamTable,
+         hpnicfLIMACStreamTable or hpnicfLIUserStreamTable, according to
+         hpnicfLIStreamtype.  Also it contains counters for packets to
+         be intercepted and dropped by attached type of filter."
+    ::= { hpnicfLIObjects 3 }
+
+hpnicfLIStreamEntry OBJECT-TYPE
+    SYNTAX HpnicfLIStreamEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "A single type of data stream to be intercepted."
+    INDEX { hpnicfLIMediationIndex, hpnicfLIStreamIndex }
+    ::= { hpnicfLIStreamTable 1 }
+
+HpnicfLIStreamEntry ::=
+    SEQUENCE {
+        hpnicfLIStreamIndex        Integer32,
+        hpnicfLIStreamtype         INTEGER,
+        hpnicfLIStreamEnable       TruthValue,
+        hpnicfLIStreamPackets      Counter32,
+        hpnicfLIStreamDrops        Counter32,
+        hpnicfLIStreamHPackets     Counter64,
+        hpnicfLIStreamHDrops       Counter64,
+        hpnicfLIStreamRowStatus    RowStatus
+     }
+
+hpnicfLIStreamIndex OBJECT-TYPE
+    SYNTAX Integer32 (1..2147483647)
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "The index of the stream entry."
+    ::= { hpnicfLIStreamEntry 1 }
+
+hpnicfLIStreamtype OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+            ip(1),
+            mac(2),
+            userConnection(3)
+        }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "Identifies the type of stream, and according to it uses filter table.
+        It can not be changed after a filter table is attached to it.
+        The following types of streams are supported:
+         ip:             IP filter.  The exact definition is a row in
+                         hpnicfLIIPStreamTable.
+         mac:            MAC filter.  The exact definition is a row in
+                         hpnicfLIMACStreamTable.
+         userConnecton:  User connection filter.  The exact definition
+                         is a row in hpnicfLIUserStreamTable."
+    ::= { hpnicfLIStreamEntry 2 }
+
+hpnicfLIStreamEnable OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "If 'true', the interception is active.  And it is set to 'true'
+         only after an additional filter specification has been attached
+         to this stream."
+    DEFVAL { false }
+    ::= { hpnicfLIStreamEntry 3 }
+
+hpnicfLIStreamPackets OBJECT-TYPE
+    SYNTAX Counter32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The numbers of packets that have been intercepted."
+    ::= { hpnicfLIStreamEntry 4 }
+
+hpnicfLIStreamDrops OBJECT-TYPE
+    SYNTAX Counter32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The numbers of packets were dropped in the lawful intercept process."
+    ::= { hpnicfLIStreamEntry 5 }
+
+hpnicfLIStreamHPackets OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The numbers of packets have been intercepted.
+        This object is a 64-bit version of hpnicfLIStreamPackets."
+    ::= { hpnicfLIStreamEntry 6 }
+
+hpnicfLIStreamHDrops OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The numbers of packets were dropped in the lawful intercept process.
+        This object is a 64-bit version of hpnicfLIStreamDrops."
+    ::= { hpnicfLIStreamEntry 7 }
+
+hpnicfLIStreamRowStatus OBJECT-TYPE
+    SYNTAX RowStatus
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Operation status of this table entry."
+    ::= { hpnicfLIStreamEntry 8 }
+
+--
+-- hpnicfLIIPStreamTable definition
+--
+hpnicfLIIPStream OBJECT IDENTIFIER ::= { hpnicfLI 2 }
+
+hpnicfLIIPStreamObjects OBJECT IDENTIFIER ::= { hpnicfLIIPStream 1 }
+
+hpnicfLIIPStreamTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfLIIPStreamEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table lists the IPv4 and IPv6 streams to be intercepted.
+        It is associated with hpnicfLIMediationTable and hpnicfLIStreamTable."
+    ::= { hpnicfLIIPStreamObjects 1 }
+
+hpnicfLIIPStreamEntry OBJECT-TYPE
+    SYNTAX HpnicfLIIPStreamEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "A single stream to be intercepted.
+        The first index indicates the Mediation Device.
+        The second index is that of the stream's counter entry
+        in the hpnicfLIStreamTable.  The second index permits multiple
+        classifiers to be used together, such as having an IP address
+        as source or destination."
+    INDEX { hpnicfLIMediationIndex, hpnicfLIStreamIndex }
+    ::= { hpnicfLIIPStreamTable 1 }
+
+HpnicfLIIPStreamEntry ::=
+    SEQUENCE {
+        hpnicfLIIPStreamInterface          InterfaceIndexOrZero,
+        hpnicfLIIPStreamAddrType           InetAddressType,
+        hpnicfLIIPStreamDestAddr           InetAddress,
+        hpnicfLIIPStreamDestAddrLength     InetAddressPrefixLength,
+        hpnicfLIIPStreamSrcAddr            InetAddress,
+        hpnicfLIIPStreamSrcAddrLength      InetAddressPrefixLength,
+        hpnicfLIIPStreamTosByte            Integer32,
+        hpnicfLIIPStreamTosByteMask        Integer32,
+        hpnicfLIIPStreamFlowId             Integer32,
+        hpnicfLIIPStreamProtocol           Integer32,
+        hpnicfLIIPStreamDestL4PortMin      InetPortNumber,
+        hpnicfLIIPStreamDestL4PortMax      InetPortNumber,
+        hpnicfLIIPStreamSrcL4PortMin       InetPortNumber,
+        hpnicfLIIPStreamSrcL4PortMax       InetPortNumber,
+        hpnicfLIIPStreamVRF                SnmpAdminString,
+        hpnicfLIIPStreamRowStatus          RowStatus
+     }
+
+hpnicfLIIPStreamInterface OBJECT-TYPE
+    SYNTAX InterfaceIndexOrZero
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "Traffic received or transmitted over this interface
+         will be intercepted.
+
+         This value must be set when creating a stream entry,
+         either zero, or a valid interface index.
+
+         If the value is zero, interception accepts any interface.
+         Then at least one additional parameter must be selected,
+         and not be default value."
+    ::= { hpnicfLIIPStreamEntry 1 }
+
+hpnicfLIIPStreamAddrType OBJECT-TYPE
+    SYNTAX InetAddressType
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The type of address, used in packet selection."
+    DEFVAL { ipv4 }
+    ::= { hpnicfLIIPStreamEntry 2 }
+
+hpnicfLIIPStreamDestAddr OBJECT-TYPE
+    SYNTAX InetAddress
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The Destination address  used in packet selection.
+        This address will be consistent with the type specified in
+        hpnicfLIIPStreamAddrType."
+    DEFVAL  { '00000000'H }
+    ::= { hpnicfLIIPStreamEntry 3 }
+
+hpnicfLIIPStreamDestAddrLength OBJECT-TYPE
+    SYNTAX InetAddressPrefixLength
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The length of the Destination Prefix.  A value of zero means
+        all addresses to match.  This prefix length will be consistent
+        with the type specified in hpnicfLIIPStreamAddrType."
+    DEFVAL { 0 }
+    ::= { hpnicfLIIPStreamEntry 4 }
+
+hpnicfLIIPStreamSrcAddr OBJECT-TYPE
+    SYNTAX InetAddress
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The Source Address used in packet selection.  This address will
+        be consistent with the type specified in hpnicfLIIPStreamAddrType."
+    DEFVAL  { '00000000'H }
+    ::= { hpnicfLIIPStreamEntry 5 }
+
+hpnicfLIIPStreamSrcAddrLength OBJECT-TYPE
+    SYNTAX InetAddressPrefixLength
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The length of the Source Prefix.  A value of zero means all
+        addresses to match.  This prefix length will be consistent with
+        the type specified in hpnicfLIIPStreamAddrType."
+    DEFVAL { 0 }
+    ::= { hpnicfLIIPStreamEntry 6 }
+
+hpnicfLIIPStreamTosByte OBJECT-TYPE
+    SYNTAX Integer32 (0..255)
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The value of the TOS byte.
+        If hpnicfLIIPStreamTosByte&(~hpnicfLIIPStreamTosByteMask)!=0,
+        configuration is rejected."
+    DEFVAL { 0 }
+    ::= { hpnicfLIIPStreamEntry 7 }
+
+hpnicfLIIPStreamTosByteMask OBJECT-TYPE
+    SYNTAX Integer32 (0..255)
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "This value is ANDed with the value of the TOS byte in a packet
+         and compared with hpnicfLIIPStreamTosByte.  If the values are equal,
+         the comparison is equal.
+         If both the mask and the TosByte value are zero,
+         the result is to always accept."
+    DEFVAL { 0 }
+    ::= { hpnicfLIIPStreamEntry 8 }
+
+hpnicfLIIPStreamFlowId OBJECT-TYPE
+    SYNTAX Integer32 (-1 | 0..1048575)
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The flow identifier in an IPv6 header.  -1 indicates that the
+        Flow Id is unused."
+    DEFVAL { -1 } -- any flow identifier value
+    ::= { hpnicfLIIPStreamEntry 9 }
+
+hpnicfLIIPStreamProtocol OBJECT-TYPE
+    SYNTAX Integer32 (-1 | 0..255)
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The IP protocol to match against the IPv4 protocol number or
+        the IPv6 Next- Header number in the packet."
+    DEFVAL { -1 } -- any IP protocol
+    ::= { hpnicfLIIPStreamEntry 10 }
+
+hpnicfLIIPStreamDestL4PortMin OBJECT-TYPE
+    SYNTAX InetPortNumber
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The minimum value that the layer-4 destination port number in
+         the packet must have in order to match.  This value must be
+         equal to or less than the value specified for this entry in
+         hpnicfLIIPStreamDestL4PortMax.
+
+         If both hpnicfLIIPStreamDestL4PortMin and hpnicfLIIPStreamDestL4PortMax
+         are at their default values, the port number is effectively unused.
+         If hpnicfLIIPStreamDestL4PortMin is equal to
+         hpnicfLIIPStreamDestL4PortMax, only one port number to be intercepted."
+    DEFVAL { 0 }
+    ::= { hpnicfLIIPStreamEntry 11 }
+
+hpnicfLIIPStreamDestL4PortMax OBJECT-TYPE
+    SYNTAX InetPortNumber
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The maximum value that the layer-4 destination port number in
+         the packet must have in order to match this classifier entry.
+         This value must be equal to or greater than the value specified
+         for this entry in hpnicfLIIPStreamDestL4PortMin.
+         If both hpnicfLIIPStreamDestL4PortMin and hpnicfLIIPStreamDestL4PortMax
+         are at their default values, the port number is effectively unused.
+         If hpnicfLIIPStreamDestL4PortMin is equal to hpnicfLIIPStreamDestL4PortMax,
+         only one port number to be intercepted."
+    DEFVAL { 65535 }
+    ::= { hpnicfLIIPStreamEntry 12 }
+
+hpnicfLIIPStreamSrcL4PortMin OBJECT-TYPE
+    SYNTAX InetPortNumber
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The minimum value that the layer-4 destination port number in
+         the packet must have in order to match.  This value must be
+         equal to or less than the value specified for this entry in
+         hpnicfLIIPStreamSrcL4PortMax.
+         If both hpnicfLIIPStreamSrcL4PortMin and hpnicfLIIPStreamSrcL4PortMax
+         are at their default values, the port number is effectively unused.
+         If hpnicfLIIPStreamSrcL4PortMin is equal to
+         hpnicfLIIPStreamSrcL4PortMax, only one port number to be intercepted."
+    DEFVAL { 0 }
+    ::= { hpnicfLIIPStreamEntry 13 }
+
+hpnicfLIIPStreamSrcL4PortMax OBJECT-TYPE
+    SYNTAX InetPortNumber
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The maximum value that the layer-4 destination port number in
+         the packet must have in order to match this classifier entry.
+         This value must be equal to or greater than the value specified
+         for this entry in hpnicfLIIPStreamSrcL4PortMin.
+         If both hpnicfLIIPStreamSrcL4PortMin and hpnicfLIIPStreamSrcL4PortMax
+         are at their default values, the port number is effectively unused.
+         If hpnicfLIIPStreamSrcL4PortMin is equal to hpnicfLIIPStreamSrcL4PortMax,
+         only one port number to be intercepted."
+    DEFVAL { 65535 }
+    ::= { hpnicfLIIPStreamEntry 14 }
+
+hpnicfLIIPStreamVRF OBJECT-TYPE
+    SYNTAX SnmpAdminString
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "It is the name of a Virtual Routing and Forwarding (VRF) of a VPN."
+    DEFVAL { "" }
+    ::= { hpnicfLIIPStreamEntry 15 }
+
+hpnicfLIIPStreamRowStatus OBJECT-TYPE
+    SYNTAX RowStatus
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Operation status of this table entry."
+    ::= { hpnicfLIIPStreamEntry 18 }
+
+--
+-- hpnicfLIMACStreamTable definition
+--
+hpnicfLIMACStream OBJECT IDENTIFIER ::= { hpnicfLI 3 }
+
+hpnicfLIMACStreamObjects OBJECT IDENTIFIER ::= { hpnicfLIMACStream 1 }
+
+hpnicfLIMACStreamTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfLIMACStreamEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table lists the IEEE 802 streams to be intercepted.
+        It is associated with hpnicfLIMediationTable and hpnicfLIStreamTable."
+    ::= { hpnicfLIMACStreamObjects 1 }
+
+hpnicfLIMACStreamEntry OBJECT-TYPE
+    SYNTAX HpnicfLIMACStreamEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "A single stream to be intercepted.
+        The first index indicates the Mediation Device.
+        The second index is that of the stream's counter entry
+        in the hpnicfLIStreamTable.  The second index permits multiple
+        classifiers to be used together, such as having an MAC address
+        as source or destination."
+    INDEX { hpnicfLIMediationIndex, hpnicfLIStreamIndex }
+    ::= { hpnicfLIMACStreamTable 1 }
+
+HpnicfLIMACStreamEntry ::=
+    SEQUENCE {
+        hpnicfLIMACStreamFields        BITS,
+        hpnicfLIMACStreamInterface     InterfaceIndexOrZero,
+        hpnicfLIMACStreamDestAddr      MacAddress,
+        hpnicfLIMACStreamSrcAddr       MacAddress,
+        hpnicfLIMACStreamEthPid        Unsigned32,
+        hpnicfLIMACStreamDSap          Unsigned32,
+        hpnicfLIMACStreamSSap          Unsigned32,
+        hpnicfLIMACStreamRowStatus     RowStatus
+     }
+
+hpnicfLIMACStreamFields OBJECT-TYPE
+    SYNTAX BITS {
+                    interface(0),
+                    dstMacAddress(1),
+                    srcMacAddress(2),
+                    ethernetPid(3),
+                    dSap(4),
+                    sSap(5)
+                }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "This object displays what attributes will be compared to
+         identify traffic.
+         interface:     indicates that traffic on the stated
+                                interface is to be intercepted
+         dstMacAddress: indicates that traffic destined to a
+                                given address should be intercepted
+         srcMacAddress: indicates that traffic sourced from a
+                                given address should be intercepted
+         ethernetPid:   indicates that traffic with a stated
+                                Ethernet Protocol Identifier should
+                                be intercepted
+         dSap:          indicates that traffic with an certain
+                                802.2 LLC Destination SAP should be
+                                intercepted
+         sSap:          indicates that traffic with an certain
+                                802.2 LLC Source SAP should be intercepted
+
+         At least one of the bits has to be set in order to activate an
+         entry.  If multiple bits are set, traffic to be intercepted must
+         be satisfied with all set attributes."
+    ::= { hpnicfLIMACStreamEntry 1 }
+
+hpnicfLIMACStreamInterface OBJECT-TYPE
+    SYNTAX InterfaceIndexOrZero
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "Traffic received or transmitted over this interface
+         will be intercepted.
+         This value must be set when creating a stream entry,
+         either zero, or a valid interface index.
+         If the value is zero, interception accepts any interface.
+         Additional parameter must be selected together."
+    ::= { hpnicfLIMACStreamEntry 2 }
+
+hpnicfLIMACStreamDestAddr OBJECT-TYPE
+    SYNTAX MacAddress
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The Destination address used in packet selection."
+    ::= { hpnicfLIMACStreamEntry 3 }
+
+hpnicfLIMACStreamSrcAddr OBJECT-TYPE
+    SYNTAX MacAddress
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The Source Address used in packet selection."
+    ::= { hpnicfLIMACStreamEntry 4 }
+
+hpnicfLIMACStreamEthPid OBJECT-TYPE
+    SYNTAX Unsigned32
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The value of the Ethernet Protocol Identifier in the
+        Ethernet traffic or IEEE 802.2 SNAP traffic."
+    ::= { hpnicfLIMACStreamEntry 5 }
+
+hpnicfLIMACStreamDSap OBJECT-TYPE
+    SYNTAX Unsigned32
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The value of the IEEE 802.2 Destination SAP."
+    ::= { hpnicfLIMACStreamEntry 6 }
+
+hpnicfLIMACStreamSSap OBJECT-TYPE
+    SYNTAX Unsigned32
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The value of the IEEE 802.2 Source SAP."
+    ::= { hpnicfLIMACStreamEntry 7 }
+
+hpnicfLIMACStreamRowStatus OBJECT-TYPE
+    SYNTAX RowStatus
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Operation status of this table entry."
+    ::= { hpnicfLIMACStreamEntry 8 }
+
+--
+-- hpnicfLIUserStreamTable definition
+--
+hpnicfLIUserStream OBJECT IDENTIFIER ::= { hpnicfLI 4 }
+
+hpnicfLIUserStreamObjects OBJECT IDENTIFIER ::= { hpnicfLIUserStream 1 }
+
+hpnicfLIUserStreamTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfLIUserStreamEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table lists the user connection streams to be intercepted.
+        It is associated with hpnicfLIMediationTable and hpnicfLIStreamTable."
+    ::= { hpnicfLIUserStreamObjects 1 }
+
+hpnicfLIUserStreamEntry OBJECT-TYPE
+    SYNTAX HpnicfLIUserStreamEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "A single stream to be intercepted.
+        The first index indicates the Mediation Device.
+        The second index is that of the stream's counter entry
+        in the hpnicfLIStreamTable.  This permits multiple classifiers
+        to be used together."
+    INDEX { hpnicfLIMediationIndex, hpnicfLIStreamIndex }
+    ::= { hpnicfLIUserStreamTable 1 }
+
+HpnicfLIUserStreamEntry ::=
+    SEQUENCE {
+        hpnicfLIUserStreamAcctSessID       OCTET STRING,
+        hpnicfLIUserStreamRowStatus        RowStatus
+     }
+
+hpnicfLIUserStreamAcctSessID OBJECT-TYPE
+    SYNTAX OCTET STRING (SIZE (0..253))
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "This is the RADIUS attribute 44 acct-session-ID.
+         The string must be set, and the length not be zero."
+    ::= { hpnicfLIUserStreamEntry 1 }
+
+hpnicfLIUserStreamRowStatus OBJECT-TYPE
+    SYNTAX RowStatus
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Operation status of this table entry."
+    ::= { hpnicfLIUserStreamEntry 2 }
+
+END

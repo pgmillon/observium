@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -64,6 +64,8 @@ $search[] = array('type'    => 'multiselect',
 $search[] = array('type'    => 'text',
                   'name'    => 'MAC Address',
                   'id'      => 'address',
+                  'placeholder' => TRUE,
+                  'submit_by_key' => TRUE,
                   'value'   => $vars['address']);
 
 print_search($search, "FDB Table", NULL, 'search/search=fdb/');
@@ -79,3 +81,7 @@ $page_title[] = "FDB Search";
 
   </div> <!-- col-md-12 -->
 </div> <!-- row -->
+
+<?php
+
+// EOF

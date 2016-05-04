@@ -8,7 +8,9 @@ IMPORTS
     DisplayString, RowStatus
       FROM SNMPv2-TC			-- [RFC2579]
     snSwitch, snTraps
-      FROM FOUNDRY-SN-ROOT-MIB;
+      FROM FOUNDRY-SN-ROOT-MIB
+    PhysAddress
+      FROM FOUNDRY-SN-SWITCH-GROUP-MIB;
 
 fdryLinkAggregationGroupMIB MODULE-IDENTITY
     LAST-UPDATED "201006020000Z"  -- 04 June 2010
@@ -51,6 +53,7 @@ fdryLinkAggregationGroupMIB MODULE-IDENTITY
 fdryLinkAggregationGroupNotifyObjects  OBJECT IDENTIFIER ::= { fdryLinkAggregationGroupMIB 0 }
 fdryLinkAggregationGroupTableObjects  OBJECT IDENTIFIER ::= { fdryLinkAggregationGroupMIB 1 }
 fdryLinkAggregationGroupPortTableObjects  OBJECT IDENTIFIER ::= { fdryLinkAggregationGroupMIB 2 }
+fdryLinkAggregationGroupLacpPortTableObjects  OBJECT IDENTIFIER ::= { fdryLinkAggregationGroupMIB 3 }
 
 -- LinkAggregationGroup Global Scalar Object Section
 
@@ -82,7 +85,7 @@ FdryLinkAggregationGroupEntry ::= SEQUENCE {
     fdryLinkAggregationGroupType                  INTEGER,
     fdryLinkAggregationGroupAdminStatus       INTEGER,
     fdryLinkAggregationGroupIfList                  OCTET STRING,
-    fdryLinkAggregationGroupPrimaryPort        InterfaceIndex,
+    fdryLinkAggregationGroupPrimaryPort        InterfaceIndexOrZero,
     fdryLinkAggregationGroupTrunkType          INTEGER,
     fdryLinkAggregationGroupTrunkThreshold   Unsigned32,
     fdryLinkAggregationGroupLacpTimeout       INTEGER,
@@ -136,13 +139,14 @@ fdryLinkAggregationGroupIfList OBJECT-TYPE
     ::= { fdryLinkAggregationGroupEntry 4 }
 
 fdryLinkAggregationGroupPrimaryPort OBJECT-TYPE
-    SYNTAX     InterfaceIndex
+    SYNTAX     InterfaceIndexOrZero
     MAX-ACCESS read-create
     STATUS     current
     DESCRIPTION
             "The primary port for the Link Aggregation Group. This must
             be set before deploying the LinkAggregateGroup unless this is
-            a keepalive LinkAggregateGroup."
+            a keepalive LinkAggregateGroup. Zero will be returned 
+            for primary ports not set"
     ::= { fdryLinkAggregationGroupEntry 5 }
 
 fdryLinkAggregationGroupTrunkType OBJECT-TYPE
@@ -289,5 +293,114 @@ fdryTrapLagUndeployed NOTIFICATION-TYPE
    --#STATE OPERATIONAL
    ::= { snTraps 1205 }
 
+--
+-- LinkAggregationGroupLacpPort Table
+--
+
+fdryLinkAggregationGroupLacpPortTable OBJECT-TYPE
+    SYNTAX     SEQUENCE OF FdryLinkAggregationGroupLacpPortEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+            "A table that contains Link Aggregation Control
+             information about every LACP port associated with this device.
+            A row appears in this table for each physical port."
+    ::= { fdryLinkAggregationGroupLacpPortTableObjects 1 }
+
+fdryLinkAggregationGroupLacpPortEntry OBJECT-TYPE
+    SYNTAX     FdryLinkAggregationGroupLacpPortEntry
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+            "An entry of the Link Aggregate Group LACP Port table.
+            Applicable for dynamic and keepalive LAG only."
+    INDEX { fdryLinkAggregationGroupName, ifIndex }
+    ::= { fdryLinkAggregationGroupLacpPortTable 1 }
+
+FdryLinkAggregationGroupLacpPortEntry ::= SEQUENCE {
+    fdryLinkAggregationGroupLacpPortAdminStatus             INTEGER,
+    fdryLinkAggregationGroupLacpPortLinkStatus                INTEGER,
+    fdryLinkAggregationGroupLacpPortLacpStatus               INTEGER,
+    fdryLinkAggregationGroupLacpPortLacpSysID                 PhysAddress,
+    fdryLinkAggregationGroupLacpPortLacpKey                    INTEGER,
+    fdryLinkAggregationGroupLacpPortLacpRemoteSysID     PhysAddress,
+    fdryLinkAggregationGroupLacpPortLacpRemoteKey        INTEGER
+}
+
+fdryLinkAggregationGroupLacpPortAdminStatus OBJECT-TYPE
+    SYNTAX  INTEGER {
+				up(1),       -- ready to pass packets
+				down(2),
+				testing(3)   -- in some test mode
+			}
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+            "The current admin state of the interface.
+            The testing(3) state indicates that no operational
+	    packets can be passed. 
+	    (same as ifAdminStatus in MIB-II)"
+    ::= { fdryLinkAggregationGroupLacpPortEntry 1 }
+
+fdryLinkAggregationGroupLacpPortLinkStatus OBJECT-TYPE
+    SYNTAX  INTEGER {
+				up(1),       -- ready to pass packets
+				down(2),
+				testing(3)   -- in some test mode
+			}
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+            "The current operational state of the interface.
+            The testing(3) state indicates that no operational
+	    packets can be passed. 
+	    (same as ifOperStatus in MIB-II)"
+    ::= { fdryLinkAggregationGroupLacpPortEntry 2 }
+
+ fdryLinkAggregationGroupLacpPortLacpStatus OBJECT-TYPE
+    SYNTAX  INTEGER {
+				operation(1),     
+				down(2),
+				blocked(3),
+				inactive(4),
+				pexforceup(5)				
+			}
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+            "The current LACP state of the interface."
+    ::= { fdryLinkAggregationGroupLacpPortEntry 3 }
+
+ fdryLinkAggregationGroupLacpPortLacpSysID OBJECT-TYPE
+    SYNTAX  PhysAddress
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+            "The LACP system ID of the LAG."
+    ::= { fdryLinkAggregationGroupLacpPortEntry 4 }
+
+ fdryLinkAggregationGroupLacpPortLacpKey OBJECT-TYPE
+    SYNTAX  INTEGER
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+            "The LACP key ID of the interface."
+    ::= { fdryLinkAggregationGroupLacpPortEntry 5 }
+
+ fdryLinkAggregationGroupLacpPortLacpRemoteSysID OBJECT-TYPE
+    SYNTAX  PhysAddress
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+            "The LACP remote system ID of the LAG."
+    ::= { fdryLinkAggregationGroupLacpPortEntry 6 }
+
+ fdryLinkAggregationGroupLacpPortLacpRemoteKey OBJECT-TYPE
+    SYNTAX  INTEGER
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+            "The LACP remote key ID of the interface."
+    ::= { fdryLinkAggregationGroupLacpPortEntry 7 }
 
 END

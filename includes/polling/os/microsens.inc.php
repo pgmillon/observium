@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -15,7 +15,7 @@
 $version = trim(snmp_get($device, "agentFirmware.0", "-Ovq", "MS-SWITCH30-MIB"), '"');
 
 // MS-SWITCH30-MIB::deviceArtNo = STRING: "MS450860M-G5"
-$hardware = strstr(trim(snmp_get($device, "deviceArtNo.0", "-Ovq", "MS-SWITCH30-MIB"), '"'),'STRING: ');
+$hardware = trim(snmp_get($device, "deviceArtNo.0", "-Ovq", "MS-SWITCH30-MIB"), '"');
 
 // MS-SWITCH30-MIB::deviceSerNo.0 = STRING: "001146758"
 $serial = trim(snmp_get($device, "deviceSerNo.0", "-Ovq", "MS-SWITCH30-MIB"), '"');

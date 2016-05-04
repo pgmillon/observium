@@ -7,12 +7,12 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 $mib = 'SW-MIB';
-echo(" $mib ");
+echo("$mib ");
 
 // Hardcoded for VDX switches that has 2GB of RAM includes all the current models.
 $total   = 2147483648;

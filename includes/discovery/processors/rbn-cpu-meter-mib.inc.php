@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -15,7 +15,7 @@
 //
 // RBN-CPU-METER-MIB::rbnCpuMeterFiveMinuteAvg.0
 
-echo(" RBN-CPU-METER-MIB ");
+echo("RBN-CPU-METER-MIB ");
 
 $descr = "Processor";
 $usage = snmp_get($device, ".1.3.6.1.4.1.2352.2.6.1.3.0", "-Ovq");

@@ -7,12 +7,14 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 if (!empty($agent_data['app']['postfix_mailgraph']))
 {
+  $app_id = discover_app($device, 'postfix_mailgraph');
+
   $postfix_mailgraph = $agent_data['app']['postfix_mailgraph'];
 
   foreach (explode("\n",$postfix_mailgraph) as $line)
@@ -21,7 +23,6 @@ if (!empty($agent_data['app']['postfix_mailgraph']))
     $queue_data[trim($item)] = trim($value);
   }
 
-  $old_rrd_filename = "app-postfix-mailgraph-".$app['app_id'].".rrd";
   $rrd_filename = "app-postfix-mailgraph.rrd";
 
   rrdtool_create($device, $rrd_filename, " \

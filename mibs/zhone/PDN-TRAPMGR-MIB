@@ -1,0 +1,246 @@
+PDN-TRAPMGR-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+	IpAddress
+		FROM RFC1155-SMI
+	OBJECT-TYPE
+		FROM RFC-1212
+	SwitchState
+		FROM PDN-TC
+        DisplayString, RowStatus
+                FROM SNMPv2-TC
+     	pdn-traps
+		FROM PDN-HEADER-MIB;
+
+-- ===============================================================
+--
+-- Device Traps Manager,  01/30/97 
+--
+-- This MIB will allow an SNMP Manager the ability to edit the Trap Manager
+-- table on a Paradyne device. It provides a mechanism to add, delete or edit
+-- trap manager entries.
+--
+-- ===============================================================
+--
+-- 09/03/2002   Jesus Pinto pinto@paradyne.com
+-- Added pdnDevTrapMgrTable
+--
+-- ===============================================================
+--
+-- 09/11/2002   Jesus Pinto pinto@paradyne.com
+-- Implement changes as per MIBWG review meeting:
+--    o Move sysDevConfigTrapsEnable to this mib
+--      (renamed as pdnDevConfigTrapsEnable).
+--    o Remove devTrapMgrLevel from this mib
+--      (not being used, never approved)
+--
+-- ===============================================================
+
+devTrapMgrMaxNumber OBJECT-TYPE
+    SYNTAX  INTEGER
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+        "Maximum number of managers allowed in the devTrapMgrTable. This 
+        may vary per device."
+    ::= { pdn-traps 1 }
+
+devTrapMgrCurrentNumber OBJECT-TYPE
+    SYNTAX  INTEGER
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+        "Current number of managers in devTrapMgrTable."
+    ::= { pdn-traps 2 }
+
+devTrapMgrTable OBJECT-TYPE
+    SYNTAX  SEQUENCE OF DevTrapMgrEntry
+    ACCESS  not-accessible
+    STATUS  mandatory
+    DESCRIPTION
+        "The trap manager table."
+    ::= { pdn-traps 3 }
+
+devTrapMgrEntry OBJECT-TYPE
+    SYNTAX  DevTrapMgrEntry
+    ACCESS  not-accessible
+    STATUS  mandatory
+    DESCRIPTION
+        "An entry in the trap manager table."
+    INDEX { devTrapMgrIpAddress }
+    ::= { devTrapMgrTable 1 }
+
+--
+-- Layout of one entry in the devTrapManagerTable
+--
+
+DevTrapMgrEntry ::=
+    SEQUENCE {
+        devTrapMgrIpAddress
+            IpAddress,
+        devTrapMgrDestination
+            INTEGER,
+        devTrapMgrCircuit
+            INTEGER,
+	devTrapMgrSubCircuit
+	    INTEGER
+    } 
+
+devTrapMgrIpAddress OBJECT-TYPE
+    SYNTAX  IpAddress
+    ACCESS  read-write
+    STATUS  mandatory
+    DESCRIPTION
+        "Unique IP address identifying a Trap Manager. An
+	 existing Trap Manager may be deleted by setting
+	 the devTrapMgrIpAddress object to 0.0.0.0 or by
+	 setting the devTrapMgrIpAddress object to a new
+	 address.  A new Trap Manager may be added by setting
+	 the devTrapMgrIpAddress object of 0.0.0.0 to the new
+	 address as long as there is still room for another
+	 Trap Manager."
+    ::= { devTrapMgrEntry 1 }
+
+devTrapMgrDestination OBJECT-TYPE
+    SYNTAX INTEGER 
+    ACCESS  read-write
+    STATUS  mandatory
+    DESCRIPTION
+        "The ifIndex to be used with the associated IpAddress
+	 when sending traps."
+    ::= { devTrapMgrEntry 2 }
+
+devTrapMgrCircuit OBJECT-TYPE
+    SYNTAX INTEGER 
+    ACCESS  read-write
+    STATUS  mandatory
+    DESCRIPTION
+        "The circuit used for management when multiple circuits
+	 are allowed over the specified interface (ifIndex). If
+	 the interface allows only one circuit, devTrapMgrCircuit
+	 is set to 0."
+    ::= { devTrapMgrEntry 3 }
+
+devTrapMgrSubCircuit OBJECT-TYPE
+    SYNTAX INTEGER
+    ACCESS  read-write
+    STATUS  mandatory
+    DESCRIPTION
+	"The subcircuit used for management when devTrapMgrCircuit
+	 can be further subdivided."
+    ::= {devTrapMgrEntry 4}
+
+--
+-- pdnDevTrapMgrTable.
+--
+-- This table contains details of the managers configured to 
+-- receive TRAPS from the device. This table allows one
+-- to modify parameters that are specific to trap managers 
+-- e.g., community string, port dest) from their typical
+-- default values.
+--
+
+pdnDevTrapMgrTable OBJECT-TYPE
+    SYNTAX  	SEQUENCE OF PdnDevTrapMgrEntry
+    ACCESS  	not-accessible
+    STATUS  	mandatory
+    DESCRIPTION
+        "The paradyne's device trap manager table."
+    ::= { pdn-traps 4}
+
+pdnDevTrapMgrEntry OBJECT-TYPE
+    SYNTAX  	PdnDevTrapMgrEntry
+    ACCESS  	not-accessible
+    STATUS  	mandatory
+    DESCRIPTION
+        "An entry of a trap manager configuration."
+    INDEX { pdnDevTrapMgrDestAddress, pdnDevTrapMgrSubnetMask }
+    ::= { pdnDevTrapMgrTable 1 }
+
+--
+-- Layout of one entry in the pdnDevTrapMgrTable
+--
+
+PdnDevTrapMgrEntry ::=
+    SEQUENCE {
+  	pdnDevTrapMgrDestAddress   IpAddress,
+	pdnDevTrapMgrSubnetMask    IpAddress,
+	pdnDevTrapMgrDestPort	   INTEGER,
+	pdnDevTrapMgrCommunityName DisplayString (SIZE(1..32)),
+	pdnDevTrapMgrEnable	   INTEGER,
+	pdnDevTrapMgrRowStatus	   RowStatus
+    }
+
+pdnDevTrapMgrDestAddress OBJECT-TYPE
+   SYNTAX 	IpAddress
+   ACCESS 	read-only
+   STATUS 	mandatory
+   DESCRIPTION
+     "The IP Address of the destination to which a trap
+      must be sent."
+   ::= { pdnDevTrapMgrEntry 1 }
+
+pdnDevTrapMgrSubnetMask OBJECT-TYPE
+   SYNTAX 	IpAddress
+   ACCESS 	read-only
+   STATUS 	mandatory
+   DESCRIPTION
+     "This object is used to specify the subnet mask"
+   ::= { pdnDevTrapMgrEntry 2 }
+
+pdnDevTrapMgrDestPort OBJECT-TYPE
+   SYNTAX 	INTEGER
+   ACCESS 	read-write
+   STATUS 	mandatory
+   DESCRIPTION
+     "The Port destination used to send the trap."
+   DEFVAL { 162 }
+   ::= { pdnDevTrapMgrEntry 3 }
+
+pdnDevTrapMgrCommunityName OBJECT-TYPE
+   SYNTAX  	DisplayString (SIZE(1..32))
+   ACCESS   	read-write
+   STATUS 	mandatory
+   DESCRIPTION
+     "This object corresponds to the name of the SNMP Community
+      that will be used when sending the trap out to this
+      manager destination."
+   DEFVAL { "public" }
+   ::= { pdnDevTrapMgrEntry 4 }
+
+pdnDevTrapMgrEnable OBJECT-TYPE
+   SYNTAX 	INTEGER {
+     		enable (1),
+     		disable (2)
+   		}
+   ACCESS 	read-write
+   STATUS 	mandatory
+   DESCRIPTION
+     "This object corresponds to turning traps 
+      on/off for a particular destination.
+      enable (1) - traps will be sent to the 
+	specified destination.
+      disable (2)- traps will not be sent to the 
+	specified destination."
+   ::= { pdnDevTrapMgrEntry 5 }
+
+pdnDevTrapMgrRowStatus OBJECT-TYPE
+   SYNTAX 	RowStatus 
+   ACCESS 	read-write
+   STATUS 	mandatory
+   DESCRIPTION
+     "This object is used to add/delete rows
+     to/from the table."
+   ::= { pdnDevTrapMgrEntry 6 }
+
+
+pdnDevConfigTrapsEnable OBJECT-TYPE
+   SYNTAX  	SwitchState
+   ACCESS  	read-write
+   STATUS 	mandatory
+   DESCRIPTION
+	" This objects allows NMS to turn off/on the
+	  generation of Traps in the device."
+ ::= {  pdn-traps 5 }
+
+END

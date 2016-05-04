@@ -7,11 +7,11 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-echo(" GEIST-MIB-V3 ");
+echo("GEIST-MIB-V3 ");
 
 $productTitle = snmp_get($device, 'productTitle.0', '-OQv', 'GEIST-MIB-V3', mib_dirs('geist'));
 

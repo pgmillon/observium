@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -17,7 +17,7 @@
 #F10-CHASSIS-MIB::chRpmCpuUtil5Min.2 = Gauge32: 34
 #F10-CHASSIS-MIB::chRpmCpuUtil5Min.3 = Gauge32: 34
 
-echo(" F10-CHASSIS-MIB ");
+echo("F10-CHASSIS-MIB ");
 
 $processors_array = snmpwalk_cache_oid($device, "chRpmCpuUtil5Min", array(), "F10-CHASSIS-MIB", mib_dirs('force10'));
 if (OBS_DEBUG > 1) { print_vars($processors_array); }

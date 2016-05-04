@@ -7,43 +7,40 @@
  *
  * @package    observium
  * @subpackage ajax
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-/* DEBUG enabled in definitions
-if (isset($_GET['debug']) && $_GET['debug'])
-{
-  ini_set('display_errors', 1);
-  ini_set('display_startup_errors', 1);
-  ini_set('log_errors', 0);
-  ini_set('allow_url_fopen', 0);
-  ini_set('error_reporting', E_ALL);
-}
-*/
+$config['install_dir'] = "../..";
 
-include_once("../../includes/defaults.inc.php");
-include_once("../../config.php");
-include_once("../../includes/definitions.inc.php");
+include_once("../../includes/sql-config.inc.php");
 
-include($config['install_dir'] . "/includes/common.inc.php");
-include($config['install_dir'] . "/includes/dbFacile.php");
-include($config['install_dir'] . "/includes/rewrites.inc.php");
-include($config['install_dir'] . "/includes/entities.inc.php");
 include($config['html_dir'] . "/includes/functions.inc.php");
 include($config['html_dir'] . "/includes/authenticate.inc.php");
 
 if (!$_SESSION['authenticated']) { echo("unauthenticated"); exit; }
 
-if (is_numeric($_GET['device_id']))
+if (is_numeric($_GET['device_id']) && device_permitted($_GET['device_id']))
 {
-  foreach (dbFetch("SELECT * FROM ports WHERE device_id = ? AND deleted = 0", array($_GET['device_id'])) as $interface)
+  foreach (dbFetchRows("SELECT `port_id`,`port_label_short`,`ifAlias`,`ifDescr`,`ifName` FROM `ports` WHERE `device_id` = ? AND deleted = 0 ORDER BY ifIndex", array($_GET['device_id'])) as $interface)
   {
-    $string = addslashes($interface['ifDescr']." - ".$interface['ifAlias']); # FIXME wtf mres? is it supposed to escape javascript stuff?
+    $descr = array();
+    if (empty($interface['port_label_short']))
+    {
+      $device = device_by_id_cache($interface['port_id']);
+      process_port_label($interface, $device);
+    }
+    $descr[] = $interface['port_label_short'];
+
+    if ($interface['ifAlias'])
+    {
+      // second part
+      $descr[] = $interface['ifAlias'];
+    }
+    $string = addslashes(implode(" - ", $descr));
     echo("obj.options[obj.options.length] = new Option('".$string."','".$interface['port_id']."');\n");
-    #echo("obj.options[obj.options.length] = new Option('".$interface['ifDescr']." - ".$interface['ifAlias']."','".$interface['port_id']."');\n");
   }
 }
 
-?>
+// EOF

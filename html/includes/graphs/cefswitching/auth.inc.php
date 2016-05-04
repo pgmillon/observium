@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -22,9 +22,9 @@ if (is_numeric($vars['id']))
     $rrd_filename = get_rrd_path($device, "cefswitching-".$cef['entPhysicalIndex']."-".$cef['afi']."-".$cef['cef_index'].".rrd");
 
     $title  = generate_device_link($device);
-    $title .= " :: CEF Switching :: " . htmlentities($cef['cef_descr']);
+    $title .= " :: CEF Switching :: " . escape_html($cef['cef_descr']);
     $auth = TRUE;
   }
 }
 
-?>
+// EOF

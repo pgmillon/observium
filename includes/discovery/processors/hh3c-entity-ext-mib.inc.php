@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -16,7 +16,7 @@
 // HH3C-ENTITY-EXT-MIB::hh3cEntityExtCpuUsage.42 = INTEGER: 5
 // HH3C-ENTITY-EXT-MIB::hh3cEntityExtCpuUsage.48 = INTEGER: 12
 
-echo(" HH3C-ENTITY-EXT-MIB ");
+echo("HH3C-ENTITY-EXT-MIB ");
 
 $chassis_count = 0;
 

@@ -7,17 +7,17 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-echo(" JUNIPER-SRX5000-SPU-MONITORING-MIB ");
+echo("JUNIPER-SRX5000-SPU-MONITORING-MIB ");
 
 $srx_spu_array = array();
 
-$srx_spu_array = snmpwalk_cache_multi_oid($device, "jnxJsSPUMonitoringNodeDescr", $srx_spu_array, "JUNIPER-SRX5000-SPU-MONITORING-MIB", mib_dirs('junos'));
-$srx_spu_array = snmpwalk_cache_multi_oid($device, "jnxJsSPUMonitoringFPCIndex", $srx_spu_array, "JUNIPER-SRX5000-SPU-MONITORING-MIB", mib_dirs('junos'));
-$srx_spu_array = snmpwalk_cache_multi_oid($device, "jnxJsSPUMonitoringCPUUsage", $srx_spu_array, "JUNIPER-SRX5000-SPU-MONITORING-MIB", mib_dirs('junos'));
+$srx_spu_array = snmpwalk_cache_multi_oid($device, "jnxJsSPUMonitoringNodeDescr", $srx_spu_array, "JUNIPER-SRX5000-SPU-MONITORING-MIB");
+$srx_spu_array = snmpwalk_cache_multi_oid($device, "jnxJsSPUMonitoringFPCIndex", $srx_spu_array, "JUNIPER-SRX5000-SPU-MONITORING-MIB");
+$srx_spu_array = snmpwalk_cache_multi_oid($device, "jnxJsSPUMonitoringCPUUsage", $srx_spu_array, "JUNIPER-SRX5000-SPU-MONITORING-MIB");
 
 if (OBS_DEBUG > 1) { print_vars($srx_spu_array); }
 

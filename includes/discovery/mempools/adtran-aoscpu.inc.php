@@ -7,12 +7,12 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 $mib = 'ADTRAN-AOSCPU';
-echo(" $mib ");
+echo("$mib ");
 
 // ADTRAN-AOSCPU::adGenAOSMemPool.0 = Gauge32: 134217727
 // ADTRAN-AOSCPU::adGenAOSHeapSize.0 = Gauge32: 103795696
@@ -30,4 +30,3 @@ if (is_numeric($total))
 unset ($total, $used, $free);
 
 // EOF
-

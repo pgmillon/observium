@@ -5,7 +5,8 @@ require(dirname(__FILE__) . '/data/CsvFileIterator.php');
 
 // Base observium includes
 include(dirname(__FILE__) . '/../includes/defaults.inc.php');
-include(dirname(__FILE__) . '/../config.php');
+//include(dirname(__FILE__) . '/../config.php'); // Do not include user editable config here
+include(dirname(__FILE__) . '/data/test_definitions.inc.php'); // Fake definitions for testing
 include(dirname(__FILE__) . '/../includes/definitions.inc.php');
 include(dirname(__FILE__) . '/../includes/functions.inc.php');
 
@@ -76,61 +77,59 @@ class IncludesRewritesTest extends PHPUnit_Framework_TestCase
   }
 
   /**
-  * @dataProvider providerSimpleTemplate
-  * @group template
-  */
-  public function testSimpleTemplate($template, $keys, $result)
+   * @dataProvider providerTrimQuotes
+   * @group string
+   */
+  public function testTrimQuotes($string, $result)
   {
-    $this->assertSame($result, simple_template($template, $keys));
+    $this->assertEquals($result, trim_quotes($string));
   }
 
-  public function providerSimpleTemplate()
+  public function providerTrimQuotes()
   {
-    $return = array(
-      // One line php-style comments
-      array(
-        '<h1>{{title}}</h1>   // just something interesting... #or ^not...',
-        array('title' => 'A Comedy of Errors'),
-        '<h1>A Comedy of Errors</h1>'
-      ),
-      // Multiline php-style comments
-      array(
-        '/**
-          * just something interesting... #or ^not...
-          */
-        <h1>{{title}}</h1>
-        /**
-          * just something interesting... #or ^not...
-          */',
-        array('title' => 'A Comedy of Errors'),
-        '        <h1>A Comedy of Errors</h1>'.PHP_EOL
-      ),
-      // Var not exist
-      array(
-        '<h1>{{title}}</h1>',
-        array('non_exist' => 'A Comedy of Errors'),
-        '<h1></h1>'
-      ),
+    return array(
+      array('\"sdfslfkm s\'fdsf" a;lm aamjn ',          '"sdfslfkm s\'fdsf" a;lm aamjn'),
+      array('sdfslfkm s\'fdsf" a;lm aamjn \"',          'sdfslfkm s\'fdsf" a;lm aamjn "'),
+      array('sdfslfkm s\'fdsf" a;lm aamjn ',            'sdfslfkm s\'fdsf" a;lm aamjn'),
+      array('\"sdfslfkm s\'fdsf" a;lm aamjn \"',        'sdfslfkm s\'fdsf" a;lm aamjn '),
+      array('"sdfslfkm s\'fdsf" a;lm aamjn "',          'sdfslfkm s\'fdsf" a;lm aamjn '),
+      array('"\"sdfslfkm s\'fdsf" a;lm aamjn \""',      'sdfslfkm s\'fdsf" a;lm aamjn '),
+      array('\'\"sdfslfkm s\'fdsf" a;lm aamjn \"\'',    'sdfslfkm s\'fdsf" a;lm aamjn '),
+      array('  \'\"sdfslfkm s\'fdsf" a;lm aamjn \"\' ', 'sdfslfkm s\'fdsf" a;lm aamjn '),
+      array('"""sdfslfkm s\'fdsf" a;lm aamjn """',      'sdfslfkm s\'fdsf" a;lm aamjn '),
+      array('"""sdfslfkm s\'fdsf" a;lm aamjn """"""""', 'sdfslfkm s\'fdsf" a;lm aamjn """""'),
+      array('"""""""sdfslfkm s\'fdsf" a;lm aamjn """',  '""""sdfslfkm s\'fdsf" a;lm aamjn '),
+      // escaped quotes
+      array('\"Mike Stupalov\" <mike@observium.org>',      '"Mike Stupalov" <mike@observium.org>'),
+      // utf-8
+      array('Avenue Léon, België ',                     'Avenue Léon, België'),
+      array('\"Avenue Léon, België \"',                 'Avenue Léon, België '),
+      array('"Винни пух и все-все-все "',               'Винни пух и все-все-все '),
+      // multilined
+      array('  \'\"\"sdfslfkm s\'fdsf"
+            a;lm aamjn \"\"\' ', 'sdfslfkm s\'fdsf"
+            a;lm aamjn '),
     );
+  }
 
-    $templates_dir = dirname(__FILE__) . '/templates';
-    foreach (scandir($templates_dir) as $dir)
-    {
-      $json = $templates_dir.'/'.$dir.'/'.$dir.'.json';
-      if ($dir != '.' && $dir != '..' && is_dir($templates_dir.'/'.$dir) && is_file($json))
-      {
-        $template = $templates_dir.'/'.$dir.'/'.$dir.'.mustache';
-        $result   = $templates_dir.'/'.$dir.'/'.$dir.'.txt';
+  /**
+   * @dataProvider providerRewriteDefinitionHardware
+   * @group hardware
+   */
+  public function testRewriteDefinitionHardware($os, $id, $result)
+  {
+    $device = array('os' => $os, 'sysObjectID' => $id);
+    $this->assertEquals($result, rewrite_definition_hardware($device));
+  }
 
-        $return[] = array(
-                      file_get_contents($template),
-                      json_decode(file_get_contents($json), TRUE),
-                      file_get_contents($result)
-                    );
-      }
-    }
-
-    return $return;
+  public function providerRewriteDefinitionHardware()
+  {
+    return array(
+      array('calix', '.1.3.6.1.4.1.6321.1.2.2.5.3', 'E7-2'),
+      array('calix', '.1.3.6.1.4.1.6321.1.2.1',     'C7'),
+      array('calix', '.1.3.6.1.4.1.6321',           'C7'),
+      array('calix', '.1.3.6.1.4.1.6321.1.2.3',     'E5-100'),
+    );
   }
 }
 

@@ -1,0 +1,668 @@
+-- =================================================================
+-- ==                                                             ==
+-- ==  Paradyne Extension to the BRIDGE-MIB.                      ==
+-- ==                                                             ==
+-- ==  Paradyne Networks was acquired by Zhone Technologies on    ==
+-- ==  September 1, 2005.                                         ==
+-- ==                                                             ==
+-- ==         Copyright (C) 2005 Zhone Technologies, Inc.         ==
+-- ==                                                             ==
+-- =================================================================
+
+
+PDN-BRIDGE-EXT-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+   MODULE-IDENTITY, OBJECT-TYPE, Integer32, Unsigned32
+      FROM SNMPv2-SMI
+   OBJECT-GROUP, MODULE-COMPLIANCE
+      FROM SNMPv2-CONF
+   RowStatus, TestAndIncr
+        FROM SNMPv2-TC
+   SnmpAdminString
+      FROM SNMP-FRAMEWORK-MIB
+   dot1dBasePortEntry, dot1dBasePort
+      FROM BRIDGE-MIB
+   PdnTestAndIncrDerivedIndexTC
+      FROM PDN-TC
+   pdn-common
+      FROM PDN-HEADER-MIB;
+
+pdnBridgeExtMIB MODULE-IDENTITY
+   LAST-UPDATED "200510260000Z"  -- October 26, 2005
+   ORGANIZATION "Paradyne Networks
+                 MIB Working Group
+                 Other information about group editing the MIB"
+   CONTACT-INFO "Paradyne Networks, Inc.
+                 8545 126th Avenue North
+                 Largo, FL 33733
+                 www.paradyne.com
+        
+                 General Comments to: mibwg_team@paradyne.com
+
+                 Editors
+                    Clay Sikes,
+                    Jesus Pinto,
+                    Dave Hammers,
+                    Prakash Easwar"
+
+   DESCRIPTION  "This MIB module provides objects that extend the
+                 BRIDGE-MIB.
+
+                 ====================================================
+                 ==                                                ==
+                 ==   Copyright (C) 2005 Zhone Technologies, Inc   ==
+                 ==                                                ==
+                 ===================================================="
+   
+   REVISION     "200510260000Z"  -- October 26, 2005
+   DESCRIPTION  "VLAN stacking (Q in Q) extentions for Dot1dBasePort."
+
+   REVISION     "200510050000Z"  -- October 5, 2005
+   DESCRIPTION  "Added IMPLIED keyword to index for the
+                 pdnDot1dTrafficProfileInvMappingTable."
+
+   REVISION     "200509290000Z"  -- September 29, 2005
+   DESCRIPTION  "Change the size restriction for 
+                 pdnDot1dTrafficProfileName such that a 
+                 zero-length string is not supported."
+
+   REVISION     "200509120000Z"  -- September 12, 2005
+   DESCRIPTION  "Added a Layer 2 Traffic Profile Group to support the 
+                 configuration of attributes associated with traffic
+                 profiles."
+
+   REVISION     "200508150000Z"  -- August 15, 2005
+   DESCRIPTION  "Added pdnDot1dBasePortUnknownMulticastForwardingMode to
+                 direct what to do with unknown layer 2 multicast 
+                 frames."
+
+   REVISION     "200412100000Z"  -- December 10, 2004
+   DESCRIPTION  "Initial release."
+
+::=  { pdn-common 58 }
+
+
+
+-- ====================================================================
+-- == Define groups for Notifications, MIB Objects, Accessible for   ==
+-- == Notifications (AFNs), and Conformance.                         ==
+-- == These may just be place holders.                               ==
+-- ====================================================================
+pdnBridgeExtNotifications OBJECT IDENTIFIER ::= { pdnBridgeExtMIB 0 }
+pdnBridgeExtObjects       OBJECT IDENTIFIER ::= { pdnBridgeExtMIB 1 }
+pdnBridgeExtAFNs          OBJECT IDENTIFIER ::= { pdnBridgeExtMIB 2 } 
+pdnBridgeExtConformance   OBJECT IDENTIFIER ::= { pdnBridgeExtMIB 3 }
+
+
+-- ====================================================================
+-- ==                     Groups                                     ==
+-- ====================================================================
+pdnDot1dTrafficProfile   OBJECT IDENTIFIER ::= { pdnBridgeExtObjects 2 }
+
+
+
+-- ====================================================================
+-- ==              Textual Conventions                               ==
+-- ====================================================================
+-- None defined.
+
+
+
+
+-- ====================================================================
+-- ==                  MIB Objects                                   ==
+-- ====================================================================
+
+
+-- ===================================================================
+-- == pdnDot1dBasePortExtTable                                      ==
+-- ===================================================================
+pdnDot1dBasePortExtTable  OBJECT-TYPE
+   SYNTAX      SEQUENCE OF PdnDot1dBasePortExtEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION "Extends the dot1dBasePortTable in the BRIDGE-MIB."                              
+   ::= { pdnBridgeExtObjects 1 }
+
+pdnDot1dBasePortExtEntry  OBJECT-TYPE
+   SYNTAX      PdnDot1dBasePortExtEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION "An entry in the dot1dBasePortTable Table."
+   AUGMENTS    { dot1dBasePortEntry }
+   ::= { pdnDot1dBasePortExtTable 1 }
+
+PdnDot1dBasePortExtEntry ::=
+   SEQUENCE {
+      pdnDot1dBasePortMaxFdbEntries                   Integer32,
+      pdnDot1dBasePortRole                            INTEGER,
+      pdnDot1dBasePortUnknownMulticastForwardingMode  INTEGER,
+      pdnDot1dBasePortOuterTag                        Integer32,
+      pdnDot1dBasePortOuterPriority                   Integer32,
+      pdnDot1dBasePortOuterEthertype                  Integer32
+   }
+
+pdnDot1dBasePortMaxFdbEntries  OBJECT-TYPE
+   SYNTAX      Integer32(0..99999)
+   MAX-ACCESS  read-write
+   STATUS      current
+   DESCRIPTION "This object configures the maximum number of entries
+                in the bridge port's Forwarding Database.  The value
+                `0' is a special case that indicates that there is
+                no limit to the number of entries in the database."
+   DEFVAL      { 0 }
+   ::= { pdnDot1dBasePortExtEntry 1 }
+
+pdnDot1dBasePortRole  OBJECT-TYPE
+   SYNTAX      INTEGER {
+                 subscriber (1),
+                 network    (2)
+               }
+   MAX-ACCESS  read-write
+   STATUS      current
+   DESCRIPTION "This object defines the role of a bridge port.
+
+               The role on a bridge port role can be defined as
+               subscriber or network as follows:
+
+               Subscriber:
+               ----------
+               A port on the IP DSLAM or Aggregator that faces toward
+               or directly connects to a DSL interface on which an end
+               user (subscriber) would be located.
+
+               This would typically be the DSL ports directly on a unit
+               or the ports on an aggregator that connect to another DSLAM.
+
+               Network:
+               -------
+               A Port that connects to the service providers network,
+               aggregation device or to a shared resource such as a server.
+               "
+   ::= { pdnDot1dBasePortExtEntry 2 }
+
+pdnDot1dBasePortUnknownMulticastForwardingMode  OBJECT-TYPE
+   SYNTAX      INTEGER {
+                   flood (1),
+                   drop  (2)
+               }
+   MAX-ACCESS  read-write
+   STATUS      current
+   DESCRIPTION "Configures the layer 2 unknown multicast forwarding 
+                mode.  A layer 2 frame is `unknown' if there is no
+                entry in the Forwarding Database which identifies
+                the set of ports to forward the multicast frame on.
+                When set to `flood(1)', the `unknown' multicast frame 
+                will be forwarded on all bridge ports.  When set to 
+                `drop(2)', the `unknown' multicast frame will be 
+                dropped and not be forwarded on any bridge port."
+   ::= { pdnDot1dBasePortExtEntry 3 }
+
+pdnDot1dBasePortOuterTag  OBJECT-TYPE
+    SYNTAX      Integer32 (0..4094)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "When VLAN stacking (Q in Q) is desired for untagged 
+                 packets on a port, this object contains the value 
+                 of the outer 802.1q VLAN outer tag. A value of 
+                 zero (0) indicates that VLAN stacking is not enabled."
+    DEFVAL      { 0 }
+    ::= { pdnDot1dBasePortExtEntry 4 }
+
+pdnDot1dBasePortOuterPriority  OBJECT-TYPE
+    SYNTAX      Integer32 (0..7)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "When VLAN stacking (Q in Q) is desired for untagged
+                 packets on a port, this object contains the value 
+                 of the priority bits in the 802.1q VLAN outer tag.
+                 If pdnDot1dBasePortOuterTag (above) is zero (0) this
+                 object is ignored."
+    DEFVAL      { 0 }
+    ::= { pdnDot1dBasePortExtEntry 5 }
+
+pdnDot1dBasePortOuterEthertype  OBJECT-TYPE
+    SYNTAX      Integer32 (0..65535)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "When VLAN stacking (Q in Q) is desired for untagged 
+                 packets on a port, this object contains the value of
+                 the ethertype in the 802.1q VLAN outer tag.  If 
+                 pdnDot1dBasePortOuterTag (above) is zero (0) this 
+                 object is ignored."
+    DEFVAL      { 33024 } -- 0x8100 hexidecimal
+    ::= { pdnDot1dBasePortExtEntry 6 }
+
+
+-- ===================================================================
+-- ==                                                               ==
+-- ==            Layer 2 Traffic Profile Group                      ==
+-- ==                                                               ==
+-- ===================================================================
+
+
+
+-- ===================================================================
+-- == Next Index for the Paradyne Layer 2 Traffic Profile Table     ==
+-- ==                                                               ==
+-- == (for the pdnDot1dTrafficProfileTable)                         ==
+-- ===================================================================
+pdnDot1dTrafficProfileNextIndex  OBJECT-TYPE
+   SYNTAX      TestAndIncr
+   MAX-ACCESS  read-write
+   STATUS      current
+   DESCRIPTION "This object is used to establish the next unused 
+                index (pdnDot1dTrafficProfileIndex) for the 
+                pdnDot1dTrafficProfileTable.
+
+                This object is used to assist the manager in
+                selecting a value for pdnDot1dTrafficProfileIndex.  
+                Because this object is of syntax TestAndIncr (see the
+                SNMPv2-TC document, RFC 2579), it can also be used
+                to avoid race conditions with multiple managers
+                trying to create rows in the table.
+
+                If the result of the SET for 
+                pdnDot1dTrafficProfileIndex is not success, this means
+                the value has been changed from index (i.e. another 
+                manager used the value), so a new value is required.
+
+                The algorithm is:
+                done = false
+                while done == false
+                   index = GET (pdnDot1dTrafficProfileNextIndex.0)
+                   SET (pdnDot1dTrafficProfileNextIndex.0=index)
+                   if (set failed)
+                      done = false
+                   else
+                      pdnDot1dTrafficProfileRowStatus.index=createAndGo
+                      SET (pdnDot1dTrafficProfileRowStatus.index)
+                      if (set failed)
+                         done = false
+                      else
+                         done = true
+                         other error handling
+
+                This description was modeled from RFC2494, 
+                DS0BUNDLE-MIB."
+   ::= { pdnDot1dTrafficProfile 1 }
+
+
+
+-- ===================================================================
+-- == Paradyne Layer 2 Traffic Profile Table                        ==
+-- ==                                                               ==
+-- == pdnDot1dTrafficProfileTable                                   ==
+-- ===================================================================
+pdnDot1dTrafficProfileTable  OBJECT-TYPE
+   SYNTAX      SEQUENCE OF PdnDot1dTrafficProfileEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION "The Paradyne Layer 2 Traffic Profile Table.
+                Provides attributes for traffic profiles for MAC 
+                bridges based on the IEEE 802.1D standard."
+   ::= { pdnDot1dTrafficProfile 2 }
+
+pdnDot1dTrafficProfileEntry  OBJECT-TYPE
+   SYNTAX      PdnDot1dTrafficProfileEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION "Each entry represents a particular traffic profile.
+                Another table in this module will map to entries in 
+                this table."
+   INDEX       { pdnDot1dTrafficProfileIndex }
+   ::= { pdnDot1dTrafficProfileTable 1 }
+
+PdnDot1dTrafficProfileEntry ::=
+   SEQUENCE {
+      pdnDot1dTrafficProfileIndex          PdnTestAndIncrDerivedIndexTC,
+      pdnDot1dTrafficProfileRowStatus      RowStatus,
+      pdnDot1dTrafficProfileName           SnmpAdminString,
+      pdnDot1dTrafficProfileNbrRefs        Unsigned32,
+      pdnDot1dTrafficProfileTrafficClass   INTEGER,
+      pdnDot1dTrafficProfileMaxRate        Unsigned32
+   }
+
+pdnDot1dTrafficProfileIndex  OBJECT-TYPE
+   SYNTAX      PdnTestAndIncrDerivedIndexTC
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION "A unique identifier for a table entry.  This object
+                is expected to be derived from the use of 
+                pdnDot1dTrafficProfileNextIndex object above."
+   ::= { pdnDot1dTrafficProfileEntry 1 }
+
+pdnDot1dTrafficProfileRowStatus OBJECT-TYPE
+   SYNTAX      RowStatus
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION "This object allows create, change, and delete 
+                operations on the table.  The delete operation can
+                only occur when the pdnDot1dTrafficProfileNbrRefs
+                is 0 meaning that there are no references to this
+                particular traffic profile."
+   ::= { pdnDot1dTrafficProfileEntry 2 }
+
+pdnDot1dTrafficProfileName  OBJECT-TYPE
+   SYNTAX      SnmpAdminString (SIZE(1..32))
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION "An alphanumeric string to name the profile for the
+                table entry."
+   ::= { pdnDot1dTrafficProfileEntry 3 }
+
+pdnDot1dTrafficProfileNbrRefs OBJECT-TYPE
+   SYNTAX      Unsigned32(0..2147483647)
+   MAX-ACCESS  read-only
+   STATUS      current
+   DESCRIPTION "The number of entries in the Traffic Profile Mapping
+                Table that reference this traffic profile entry."
+   ::= { pdnDot1dTrafficProfileEntry 4 }
+
+pdnDot1dTrafficProfileTrafficClass   OBJECT-TYPE
+   SYNTAX      INTEGER {
+                  data  (1),
+                  video (2),
+                  voice (3)
+               }
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION "The classification of traffic the entry is to be
+                associated with."
+   ::= { pdnDot1dTrafficProfileEntry 5 }
+
+pdnDot1dTrafficProfileMaxRate  OBJECT-TYPE
+   SYNTAX      Unsigned32(0..4294967295)
+   UNITS       "bps"
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION "The maximum rate attribute in bits per second.  This
+                provides `rate limiting' functionality.  If the value
+                of this object is `0', then this attribute is not
+                applied to the traffic profile.  That is, the traffic
+                classified for this entry in the table is not `rate
+                limited'."
+   ::= { pdnDot1dTrafficProfileEntry 6 }
+
+
+
+-- ===================================================================
+-- == Paradyne Layer 2 Traffic Profile Inverse Mapping Table        ==
+-- ==                                                               ==
+-- == pdnDot1dTrafficProfileInvMappingTable                         ==
+-- ===================================================================
+pdnDot1dTrafficProfileInvMappingTable  OBJECT-TYPE
+   SYNTAX      SEQUENCE OF PdnDot1dTrafficProfileInvMappingEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION "This table identifies the mapping from a 
+                profile name (pdnDot1dTrafficProfileName) to a 
+                profile index (pdnDot1dTrafficProfileIndex)."
+   ::= { pdnDot1dTrafficProfile 3 }
+
+pdnDot1dTrafficProfileInvMappingEntry  OBJECT-TYPE
+   SYNTAX      PdnDot1dTrafficProfileInvMappingEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION "Each entry represents the profile index that is mapped
+                from the profile name."
+   INDEX       { IMPLIED pdnDot1dTrafficProfileName }
+   ::= { pdnDot1dTrafficProfileInvMappingTable 1 }
+
+PdnDot1dTrafficProfileInvMappingEntry ::=
+   SEQUENCE {
+      pdnDot1dTrafficProfileInvIndex       PdnTestAndIncrDerivedIndexTC
+   }
+
+pdnDot1dTrafficProfileInvIndex   OBJECT-TYPE
+   SYNTAX      PdnTestAndIncrDerivedIndexTC
+   MAX-ACCESS  read-only
+   STATUS      current
+   DESCRIPTION "The profile index that corresponds to the table 
+                entry."
+   ::= { pdnDot1dTrafficProfileInvMappingEntry 1 }
+
+
+
+-- ===================================================================
+-- == Paradyne Layer 2 Traffic Profile Mapping Table                ==
+-- ==                                                               ==
+-- == pdnDot1dTrafficProfileMappingTable                            ==
+-- ===================================================================
+pdnDot1dTrafficProfileMappingTable  OBJECT-TYPE
+   SYNTAX      SEQUENCE OF PdnDot1dTrafficProfileMappingEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION "Maps a MAC bridge port and traffic class to an entry
+                in the Traffic Profile Table 
+                (pdnDot1dTrafficProfileTable)."
+   ::= { pdnDot1dTrafficProfile 4 }
+
+pdnDot1dTrafficProfileMappingEntry  OBJECT-TYPE
+   SYNTAX      PdnDot1dTrafficProfileMappingEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION "An entry maps a MAC bridge port and a subport to a
+                traffic class profile.
+
+                The pdnDot1dTrafficProfileNbrRefs object in the
+                pdnDot1dTrafficProfileTable indicates the number of 
+                entries in this table that references or maps to a
+                particular entry in the pdnDot1dTrafficProfileTable."
+   INDEX       { dot1dBasePort, 
+                 pdnDot1dTrafficProfileMappingSubPort }
+   ::= { pdnDot1dTrafficProfileMappingTable 1 }
+
+PdnDot1dTrafficProfileMappingEntry ::=
+   SEQUENCE {
+      pdnDot1dTrafficProfileMappingSubPort         Integer32,
+      pdnDot1dTrafficProfileMappingRowStatus       RowStatus,
+      pdnDot1dTrafficProfileMappingIndex   PdnTestAndIncrDerivedIndexTC
+   }
+
+pdnDot1dTrafficProfileMappingSubPort   OBJECT-TYPE
+   SYNTAX      Integer32(1..8)
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION "The subport portion of the entry definition.  Subports
+                are supported in implementations where MAC bridge 
+                ports can be subdivided.  Implementations that do not
+                support the subdividing of MAC bridge ports should set
+                this object to `1'."
+   ::= { pdnDot1dTrafficProfileMappingEntry 1 }
+
+pdnDot1dTrafficProfileMappingRowStatus OBJECT-TYPE
+   SYNTAX      RowStatus
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION "This object allows create, change, and delete 
+                operations on the table."
+   ::= { pdnDot1dTrafficProfileMappingEntry 2 }
+
+pdnDot1dTrafficProfileMappingIndex   OBJECT-TYPE
+   SYNTAX      PdnTestAndIncrDerivedIndexTC
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION "The traffic profile in the pdnDot1dTrafficProfileTable,
+                identified by the pdnDot1dTrafficProfileIndex that this
+                entry maps to."
+   ::= { pdnDot1dTrafficProfileMappingEntry 3 }
+
+
+
+-- ====================================================================
+-- ==                  Accessible for Notifications (AFNs)           ==
+-- ====================================================================
+-- None defined
+
+
+
+-- ===================================================================
+-- ==                  Traps/Notifications                          ==
+-- ===================================================================
+-- None defined
+
+
+
+-- ====================================================================
+-- ==                  Conformance Information                       ==
+-- ====================================================================
+
+pdnBridgeExtCompliances  OBJECT IDENTIFIER ::= { pdnBridgeExtConformance 1 }
+pdnBridgeExtGroups       OBJECT IDENTIFIER ::= { pdnBridgeExtConformance 2 }
+
+
+-- ===========================
+-- == Compliance Statements ==
+-- ===========================
+
+
+pdnBridgeExtCompliance  MODULE-COMPLIANCE
+   STATUS      current
+   DESCRIPTION "The compliance statement for network elements 
+                implementing extensions to the BRIDGE-MIB."
+   MODULE      -- this module
+   -- No mandatory groups are specified.    
+
+   GROUP       pdnDot1dBasePortMaxFdbEntriesGroup
+   DESCRIPTION "This group is only required for implementations that
+                need to allow a user-configurable limit to the 
+                maximum number of entries allowed in the Forwarding
+                Database for a bridge port."
+
+   GROUP       pdnDot1dBasePortRoleGroup
+   DESCRIPTION "This group contains the objects related to 
+                the configuration of the bridge port's role attribute."
+
+   GROUP       pdnDot1dBasePortUnknownMulticastForwardingModeGroup
+   DESCRIPTION "This group is only required for implementations that
+                need to configure the forwarding mode of unknown
+                multicast frames."
+
+   GROUP       pdnDot1dTrafficProfileBasicGroup
+   DESCRIPTION "This group is only required for implementations that
+                need to support the configuration of traffic profiles."
+
+   GROUP       pdnDot1dTrafficProfileMaxRateGroup
+   DESCRIPTION "This group is only require for implementations that
+                need to support the configuration of a maximum
+                rate traffic profile attribute."
+
+   GROUP       pdnDot1dQinQVlanGroup
+   DESCRIPTION "This group is only required for implementations that
+                need to support the QinQ for VLANS (802.1ad)."
+   ::= { pdnBridgeExtCompliances 1 }
+
+
+-- ==========================
+-- == Units of Conformance ==
+-- ==========================
+
+pdnBridgeExtObjGroups   OBJECT IDENTIFIER ::= { pdnBridgeExtGroups 1 }
+pdnBridgeExtAfnGroups   OBJECT IDENTIFIER ::= { pdnBridgeExtGroups 2 }
+pdnBridgeExtNtfyGroups  OBJECT IDENTIFIER ::= { pdnBridgeExtGroups 3 }
+
+
+pdnBridgeExtTPGroups    OBJECT IDENTIFIER ::= { pdnBridgeExtObjGroups 4 }
+
+
+-- ===================
+-- == Object Groups ==
+-- ===================
+
+
+pdnDot1dBasePortMaxFdbEntriesGroup  OBJECT-GROUP
+   OBJECTS {
+      pdnDot1dBasePortMaxFdbEntries
+   }
+   STATUS      current
+   DESCRIPTION "Configures the maximum number of entries allowed in
+                a bridge port's forwarding database."
+   ::= { pdnBridgeExtObjGroups 1 }
+
+pdnDot1dBasePortRoleGroup  OBJECT-GROUP
+   OBJECTS {
+      pdnDot1dBasePortRole
+   }
+   STATUS      current
+   DESCRIPTION "Objects related to the role attribute on a bridge 
+                port."
+   ::= { pdnBridgeExtObjGroups 2 }
+
+pdnDot1dBasePortUnknownMulticastForwardingModeGroup  OBJECT-GROUP
+   OBJECTS {
+      pdnDot1dBasePortUnknownMulticastForwardingMode
+   }
+   STATUS      current
+   DESCRIPTION "Provides the ability to configure the forwarding
+                mode for unknown multicast frames."
+   ::= { pdnBridgeExtObjGroups 3 }
+
+pdnDot1dQinQVlanGroup OBJECT-GROUP
+   OBJECTS {
+      pdnDot1dBasePortOuterTag,
+      pdnDot1dBasePortOuterPriority,
+      pdnDot1dBasePortOuterEthertype
+   }
+   STATUS      current
+   DESCRIPTION "Objects related to QinQ VLAN (802.1ad"
+   ::= { pdnBridgeExtObjGroups 5 }
+
+-- =================================
+-- ==                             ==
+-- == Traffic Profile Groups      ==
+-- ==                             ==
+-- == { pdnBridgeExtObjGroups 4 } ==
+-- ==                             ==
+-- =================================
+
+
+pdnDot1dTrafficProfileBasicGroup  OBJECT-GROUP
+   OBJECTS {
+      pdnDot1dTrafficProfileNextIndex,
+      pdnDot1dTrafficProfileName,
+      pdnDot1dTrafficProfileRowStatus,
+      pdnDot1dTrafficProfileNbrRefs,
+      pdnDot1dTrafficProfileTrafficClass,
+      pdnDot1dTrafficProfileInvIndex,
+      pdnDot1dTrafficProfileMappingRowStatus,
+      pdnDot1dTrafficProfileMappingIndex
+   }
+   STATUS      current  
+   DESCRIPTION "Objects supporting the `basic' framework for 
+                configuring traffic profiles.  Objects supporting
+                specific attributes of a profile exist in other
+                groups."
+   ::= { pdnBridgeExtTPGroups 1 }
+
+
+pdnDot1dTrafficProfileMaxRateGroup  OBJECT-GROUP
+   OBJECTS {
+      pdnDot1dTrafficProfileMaxRate
+   }
+   STATUS      current
+   DESCRIPTION "Object to support the configuration of the maximum
+                rate traffic profile attribute."
+  ::= { pdnBridgeExtTPGroups 2 }
+
+
+-- =========================================
+-- == Accessible for Notifications Groups ==
+-- =========================================
+-- None defined
+
+
+
+-- =========================
+-- == Notification Groups ==
+-- =========================
+-- None defined
+
+
+
+
+-- =========
+-- == END ==
+-- =========
+END

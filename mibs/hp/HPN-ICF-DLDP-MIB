@@ -1,0 +1,419 @@
+-- =====================================================================
+-- Copyright (c) 2010-2013 Hewlett-Packard Development Company, L.P.
+--
+-- Description: Device link detection protocol (DLDP) MIB.
+-- Device Link Detection Protocol is private Layer2 protocol,
+-- which is used for automatically detecting unidirectional link to
+-- prevent a loop communication.
+-- Reference:
+-- Version: V1.2
+-- History:
+-- V1.0 2004-12-13 created by tangshun
+-- V1.1 2006-11-24 modify SYNTAX and DEFVAL of hpnicfDLDPInterval by yubo
+-- V1.2 2011-11-23 modify SYNTAX and DESCRIPTION of
+--                 hpnicfDLDPAuthenticationPassword by zhangwei
+-- =====================================================================
+HPN-ICF-DLDP-MIB DEFINITIONS ::= BEGIN
+IMPORTS
+    TruthValue, MacAddress, TEXTUAL-CONVENTION
+        FROM SNMPv2-TC
+    MODULE-IDENTITY, OBJECT-TYPE, Counter32, Integer32, NOTIFICATION-TYPE
+        FROM SNMPv2-SMI
+    ifIndex
+        FROM RFC1213-MIB
+    hpnicfCommon
+        FROM HPN-ICF-OID-MIB;
+
+-- ==================================================================
+--
+-- module identity part
+--
+-- ==================================================================
+hpnicfDldp MODULE-IDENTITY
+    LAST-UPDATED
+        "200412130000Z"
+    ORGANIZATION
+        ""
+    CONTACT-INFO
+        ""
+    DESCRIPTION "DLDP (Device Link Detection Protocol) MIB"
+    REVISION
+        "200412130000Z"
+    DESCRIPTION
+        "The initial version of this MIB module."
+    ::= { hpnicfCommon 43 }
+
+-- ==================================================================
+-- Textual Conventions
+-- ==================================================================
+EnabledStatus ::=  TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "The current state of the Ethernet port.
+        This object has two defined values:
+        - 'enabled', which indicates that the Ethernet port enables DLDP.
+        - 'disabled', which indicates that the Ethernet port does not enable DLDP.
+        "
+    SYNTAX      INTEGER
+        {
+            enabled(1),
+            disabled(2)
+        }
+
+
+DLDPStatus ::=  TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "Operating state of DLDP on the port.
+        This object has six defined values:
+        - 'initial', which indicates that the Ethernet port does not enable DLDP.
+        This status does not appear in the 'hpnicfDLDPPortDLDPState' object (below)
+        because the port which is not enabled DLDP does not appear in
+        'hpnicfDLDPPortDLDPTable', it appears in 'hpnicfDLDPPortStateTable'.
+        - 'inactive', which indicates that the Ethernet port enables DLDP and
+        the link status of the port is down.
+        - 'active', which indicates that the Ethernet port enables DLDP and
+        the link status of the port is up.
+        - 'advertisement', which indicates that all neighbors of the port are
+        bidirectional communication.
+        - 'probe', which indicates that the port sends PDU to detect
+        the communication mode between it and it's neighbors.
+        - 'disable', which indicates that an unidirectional communication
+        between the port and it's neighbor.
+
+        When the user get or walk the 'hpnicfDLDPPortDLDPState' objects (below)
+        these status will output."
+    SYNTAX      INTEGER
+        {
+            initial(1),
+            inactive(2),
+            active(3),
+            advertisement(4),
+            probe(5),
+            disable(6)
+        }
+
+
+DLDPNeighborStatus ::=  TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "The current state of the neighbor of a port.
+        This object has three defined values:
+        - 'unidirection', which indicates an unidirectional communication
+        between the port and it's neighbor.
+        - 'bidirection', which indicates a bidirectional communication
+        between the port and it's neighbor.
+        - 'unknown', which indicates that the port does not know
+        the communication mode between it and it's neighbor.
+
+        When the user get or walk the 'hpnicfDLDPNeighborState' objects (below)
+        these status will output. "
+    SYNTAX      INTEGER
+        {
+            unidirection(1),
+            bidirection(2),
+            unknown(3)
+        }
+
+-- ==================================================================
+--
+-- =====================object definition begin======================
+--
+-- ==================================================================
+hpnicfDLDPMibObject        OBJECT IDENTIFIER ::= { hpnicfDldp 1 }
+hpnicfDLDPConfigGroup      OBJECT IDENTIFIER ::= { hpnicfDLDPMibObject 1 }
+
+hpnicfDLDPWorkMode OBJECT-TYPE
+    SYNTAX      INTEGER
+        {
+            normal(1),
+            enhance(2)
+        }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The work mode of DLDP.
+        Normal mode means DLDP does not detect neighbor on its own initiative
+        when all neighbors aged.
+        Enhance mode means DLDP detects neighbor on its own initiative
+        when all neighbors aged.
+        "
+    DEFVAL          { normal }
+    ::= { hpnicfDLDPConfigGroup 1 }
+
+hpnicfDLDPSystemEnable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "DLDP enable or disable systematically.
+        This node only supports set operation.
+        If setting it to true, all the fiber ports will enable DLDP and
+        the agent automatically creates new rows for each port in
+        hpnicfDLDPPortDLDPTable.
+        If setting it to false, all the fiber ports will disable DLDP
+        and the agent automatically destroy the corresponding rows in
+        hpnicfDLDPPortDLDPTable."
+    ::= { hpnicfDLDPConfigGroup 2 }
+
+hpnicfDLDPSystemReset OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "DLDP reset systematically.
+        This node only supports set operation.
+        If the value of hpnicfDLDPSystemReset is true,
+        and the current state is disable,
+        it will change to inactive while the port is down
+        or active while the port is up.
+        If hpnicfDLDPPortDLDPState is not disable, it does not change.
+        "
+    ::= { hpnicfDLDPConfigGroup 3 }
+
+hpnicfDLDPInterval OBJECT-TYPE
+    SYNTAX      INTEGER(1..100)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The interval of sending an advertisement PDU.
+        unit : second
+        "
+    DEFVAL          { 5 }
+    ::= { hpnicfDLDPConfigGroup 4 }
+
+hpnicfDLDPAuthenticationMode OBJECT-TYPE
+    SYNTAX      INTEGER
+        {
+            none(1),        --DLDP exchanges are not authenticated.
+            simple(2),      --DLDP exchanges are authenticated by a clear text password.
+            md5(3)          --DLDP exchanges are authenticated by a MD5 digest.
+
+        }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Type of authentication mode."
+    DEFVAL          { none }
+    ::= { hpnicfDLDPConfigGroup 5 }
+
+hpnicfDLDPAuthenticationPassword OBJECT-TYPE
+    SYNTAX      OCTET STRING(SIZE(1..53))
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This is the password for authentication.
+        If the value of hpnicfDLDPAuthenticationMode is null,
+        the user cannot set this node.
+        If the value of hpnicfDLDPAuthenticationMode is simple or MD5,
+        the user must set this node with a string.
+
+        When the user gets or walks this node,
+        it displays a cipher password if hpnicfDLDPAuthenticationMode is MD5 or
+        simple or a zero-length string if hpnicfDLDPAuthenticationMode is null.
+        "
+    ::= { hpnicfDLDPConfigGroup 6 }
+
+hpnicfDLDPUnidirectionalShutdown OBJECT-TYPE
+    SYNTAX      INTEGER
+        {
+            auto(1),
+            manual(2)
+        }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The mode of unidirectional shutdown.
+        It indicates the shutdown mode when a unidirectional link happened.
+        Auto mode means the port will be shut down automatically
+        when DLDP detects unidirectional link.
+        Manual mode means the port needs to be shut down by
+        the administrator manually when DLDP detects unidirectional link.
+        "
+    DEFVAL  { auto }
+    ::= { hpnicfDLDPConfigGroup 7 }
+
+--hpnicfDLDPPortStateTable--
+hpnicfDLDPPortStateTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HpnicfDLDPPortStateEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The table of the Ethernet ports of a LAN switch."
+    ::= { hpnicfDLDPMibObject 2 }
+
+hpnicfDLDPPortStateEntry OBJECT-TYPE
+    SYNTAX      HpnicfDLDPPortStateEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Information about a hpnicfDLDPPortDLDPTable entity."
+    INDEX
+        {
+            ifIndex
+        }
+    ::= { hpnicfDLDPPortStateTable 1 }
+
+HpnicfDLDPPortStateEntry ::= SEQUENCE
+    {
+        hpnicfDLDPPortState    EnabledStatus
+    }
+
+hpnicfDLDPPortState OBJECT-TYPE
+    SYNTAX      EnabledStatus
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "State of a port.
+        If setting it to enabled, the port will enable DLDP and a new row
+        will be added in hpnicfDLDPPortDLDPTable for this port.
+        If setting it to disabled, the port will disable DLDP and the
+        corresponding row will be destroyed in hpnicfDLDPPortDLDPTable."
+    DEFVAL          { disabled }
+    ::= { hpnicfDLDPPortStateEntry 1 }
+
+--hpnicfDLDPPortDLDPTable--
+hpnicfDLDPPortDLDPTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HpnicfDLDPPortDLDPEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Table of a LAN switch's ports, which enable DLDP."
+    ::= { hpnicfDLDPMibObject  3 }
+
+hpnicfDLDPPortDLDPEntry OBJECT-TYPE
+    SYNTAX      HpnicfDLDPPortDLDPEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The information of a port, which enable DLDP."
+    INDEX
+        {
+            ifIndex
+        }
+    ::= { hpnicfDLDPPortDLDPTable 1 }
+
+HpnicfDLDPPortDLDPEntry ::= SEQUENCE
+    {
+        hpnicfDLDPPortDLDPState    DLDPStatus,
+        hpnicfDLDPLinkState        INTEGER,
+        hpnicfDLDPPortDLDPReset    TruthValue
+    }
+
+hpnicfDLDPPortDLDPState OBJECT-TYPE
+    SYNTAX      DLDPStatus
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Operating state of DLDP on the port.
+        It is relational with hpnicfDLDPPortState and hpnicfDLDPLinkState."
+    ::= { hpnicfDLDPPortDLDPEntry 1 }
+
+hpnicfDLDPLinkState OBJECT-TYPE
+    SYNTAX      INTEGER
+        {
+            down(1),
+            up(2),
+            unknown(3)
+        }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The link state of the port."
+    ::= { hpnicfDLDPPortDLDPEntry 2 }
+
+hpnicfDLDPPortDLDPReset OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "DLDP reset systematically.
+        This node only supports set operation.
+        If the value of hpnicfDLDPPortDLDPReset is true,
+        and the current state is disable,
+        it will change to inactive while the port is down
+        or active while the port is up.
+        "
+    ::= { hpnicfDLDPPortDLDPEntry 3 }
+
+
+
+--hpnicfDLDPNeighborTable--
+hpnicfDLDPNeighborTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HpnicfDLDPNeighborEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Table of a port's neighbors."
+    ::= { hpnicfDLDPMibObject  4 }
+
+hpnicfDLDPNeighborEntry OBJECT-TYPE
+    SYNTAX      HpnicfDLDPNeighborEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The information of a neighbor."
+    INDEX
+        {
+            ifIndex,
+            hpnicfDLDPNeighborBridgeMac,
+            hpnicfDLDPNeighborPortIndex
+        }
+    ::= { hpnicfDLDPNeighborTable 1 }
+
+HpnicfDLDPNeighborEntry ::= SEQUENCE
+    {
+        hpnicfDLDPNeighborBridgeMac    MacAddress,
+        hpnicfDLDPNeighborPortIndex    Integer32,
+        hpnicfDLDPNeighborState        DLDPNeighborStatus,
+        hpnicfDLDPNeighborAgingTime    Integer32
+    }
+hpnicfDLDPNeighborBridgeMac OBJECT-TYPE
+    SYNTAX      MacAddress
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The bridge MAC address of a neighbor."
+    ::= { hpnicfDLDPNeighborEntry 1 }
+
+hpnicfDLDPNeighborPortIndex OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The port index of a neighbor."
+    ::= { hpnicfDLDPNeighborEntry 2 }
+
+hpnicfDLDPNeighborState OBJECT-TYPE
+    SYNTAX      DLDPNeighborStatus
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The state of a neighbor."
+    ::= { hpnicfDLDPNeighborEntry 3 }
+
+hpnicfDLDPNeighborAgingTime OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The aging time of a neighbor. unit: second."
+    ::= { hpnicfDLDPNeighborEntry 4 }
+
+--trap--
+hpnicfDLDPTrapObject OBJECT IDENTIFIER ::= {  hpnicfDldp 2  }
+
+hpnicfDLDPNotification OBJECT IDENTIFIER ::= { hpnicfDLDPTrapObject 1 }
+
+hpnicfDLDPUnidirectionalPort NOTIFICATION-TYPE
+    OBJECTS
+        {
+            ifIndex
+        }
+    STATUS      current
+    DESCRIPTION
+        "It will send a SNMP trap when the state of a port
+        has changed to unidirectional-link."
+    ::= { hpnicfDLDPNotification 1 }
+
+END

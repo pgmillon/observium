@@ -6,21 +6,18 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 if ($_SESSION['userlevel'] < 10)
 {
-  include("includes/error-no-perm.inc.php");
-
-  exit;
+  print_error_permission();
+  return;
 }
 
-echo '<div class="row">';
-
-echo("<h2>Add Device</h2>");
+//echo("<h2>Add Device</h2>");
 
 if ($vars['hostname'])
 {
@@ -61,9 +58,12 @@ if ($vars['hostname'])
       print_error("Unsupported SNMP Version. There was a dropdown menu, how did you reach this error?"); // We have a hacker!
     }
 
-    if ($vars['ignorerrd'] == 'confirm') { $config['rrd_override'] = TRUE; }
+    if ($vars['ignorerrd'] == 'confirm' || $vars['ignorerrd'] == '1' || $vars['ignorerrd'] == 'on') { $config['rrd_override'] = TRUE; }
 
-    $result = add_device($hostname, $snmp_version, $snmp_port, strip_tags($vars['snmp_transport']));
+    $snmp_options = array();
+    if ($vars['ping_skip'] == '1' || $vars['ping_skip'] == 'on') { $snmp_options['ping_skip'] = TRUE; }
+
+    $result = add_device($hostname, $snmp_version, $snmp_port, strip_tags($vars['snmp_transport']), $snmp_options);
     if ($result)
     {
       print_success("Device added (id = $result)");
@@ -93,203 +93,201 @@ if ($vars['hostname'])
 
 $page_title[] = "Add Device";
 
+// Add form
+$transports = array();
+foreach ($config['snmp']['transports'] as $transport)
+{
+  $transports[$transport] = strtoupper($transport);
+}
+
+      $form = array('type'      => 'horizontal',
+                    'id'        => 'edit',
+                    //'space'     => '20px',
+                    //'title'     => 'Add Device',
+                    //'icon'      => 'oicon-gear',
+                    );
+      // top row div
+      $form['fieldset']['edit']    = array('div'   => 'top',
+                                           'title' => 'Basic Configuration',
+                                           'icon'  => 'oicon-gear',
+                                           'class' => 'col-md-6');
+      $form['fieldset']['snmpv2']  = array('div'   => 'top',
+                                           'title' => 'Authentication Configuration',
+                                           'icon'  => 'oicon-lock-warning',
+                                           //'right' => TRUE,
+                                           'class' => 'col-md-6 col-md-pull-0');
+      $form['fieldset']['snmpv3']  = array('div'   => 'top',
+                                           'title' => 'Authentication Configuration',
+                                           'icon'  => 'oicon-lock-warning',
+                                           //'right' => TRUE,
+                                           'class' => 'col-md-6 col-md-pull-0');
+      // bottom row div
+      $form['fieldset']['submit']  = array('div'   => 'bottom',
+                                           'style' => 'padding: 0px;',
+                                           'class' => 'col-md-12');
+
+      //$form['row'][0]['editing']   = array(
+      //                                'type'        => 'hidden',
+      //                                'value'       => 'yes');
+      // left fieldset
+      $form['row'][1]['hostname'] = array(
+                                      'type'        => 'text',
+                                      'fieldset'    => 'edit',
+                                      'name'        => 'Hostname',
+                                      'width'       => '250px',
+                                      'value'       => escape_html($vars['hostname']));
+      $form['row'][2]['ping_skip'] = array(
+                                      'type'        => 'checkbox',
+                                      'fieldset'    => 'edit',
+                                      'name'        => 'Skip ping',
+                                      'placeholder' => 'Skip ICMP echo checks, only SNMP availability',
+                                      'value'       => '');
+      $form['row'][3]['snmp_version'] = array(
+                                      'type'        => 'select',
+                                      'fieldset'    => 'edit',
+                                      'name'        => 'Protocol Version',
+                                      'width'       => '250px',
+                                      'values'      => array('v1' => 'v1', 'v2c' => 'v2c', 'v3' => 'v3'),
+                                      'value'       => ($vars['snmp_version'] ? $vars['snmp_version'] : $config['snmp']['version']));
+      $form['row'][4]['snmp_transport'] = array(
+                                      'type'        => 'select',
+                                      'fieldset'    => 'edit',
+                                      'name'        => 'Transport',
+                                      'width'       => '250px',
+                                      'values'      => $transports,
+                                      'value'       => ($vars['snmp_transport'] ? $vars['snmp_transport'] : $config['snmp']['transports'][0]));
+      $form['row'][5]['snmp_port'] = array(
+                                      'type'        => 'text',
+                                      'fieldset'    => 'edit',
+                                      'name'        => 'Port',
+                                      'placeholder' => '161',
+                                      'width'       => '250px',
+                                      'value'       => escape_html($vars['snmp_port']));
+      $form['row'][6]['snmp_timeout'] = array(
+                                      'type'        => 'text',
+                                      'fieldset'    => 'edit',
+                                      'name'        => 'Timeout',
+                                      'placeholder' => '1',
+                                      'width'       => '250px',
+                                      'value'       => escape_html($vars['snmp_timeout']));
+      $form['row'][7]['snmp_retries'] = array(
+                                      'type'        => 'text',
+                                      'fieldset'    => 'edit',
+                                      'name'        => 'Retries',
+                                      'placeholder' => '5',
+                                      'width'       => '250px',
+                                      'value'       => escape_html($vars['snmp_retries']));
+      $form['row'][8]['ignorerrd'] = array(
+                                      'type'        => 'checkbox',
+                                      'fieldset'    => 'edit',
+                                      'name'        => 'Ignore RRD exist',
+                                      'placeholder' => 'Add device anyway if directory with RRDs already exists',
+                                      'disabled'    => $config['rrd_override'],
+                                      'value'       => $config['rrd_override']);
+
+      // Snmp v1/2c fieldset
+      $form['row'][16]['snmp_community'] = array(
+                                      'type'        => 'text',
+                                      'fieldset'    => 'snmpv2',
+                                      'name'        => 'SNMP Community',
+                                      'width'       => '250px',
+                                      'value'       => escape_html($vars['snmp_community'])); // FIXME. For passwords we should use filter instead escape!
+
+      // Snmp v3 fieldset
+      $form['row'][17]['snmp_authlevel'] = array(
+                                      'type'        => 'select',
+                                      'fieldset'    => 'snmpv3',
+                                      'name'        => 'Auth Level',
+                                      'width'       => '250px',
+                                      'values'      => array('noAuthNoPriv' => 'noAuthNoPriv',
+                                                             'authNoPriv'   => 'authNoPriv',
+                                                             'authPriv'     => 'authPriv'),
+                                      'value'       => $vars['snmp_authlevel']);
+      $form['row'][18]['snmp_authname'] = array(
+                                      'type'        => 'text',
+                                      'fieldset'    => 'snmpv3',
+                                      'name'        => 'Auth Username',
+                                      'width'       => '250px',
+                                      'value'       => escape_html($vars['snmp_authname']));
+      $form['row'][19]['snmp_authpass'] = array(
+                                      'type'        => 'text',
+                                      'fieldset'    => 'snmpv3',
+                                      'name'        => 'Auth Password',
+                                      'width'       => '250px',
+                                      'value'       => escape_html($vars['snmp_authpass'])); // FIXME. For passwords we should use filter instead escape!
+      $form['row'][20]['snmp_authalgo'] = array(
+                                      'type'        => 'select',
+                                      'fieldset'    => 'snmpv3',
+                                      'name'        => 'Auth Algorithm',
+                                      'width'       => '250px',
+                                      'values'      => array('MD5' => 'MD5', 'SHA' => 'SHA'),
+                                      'value'       => $vars['snmp_authalgo']);
+      $form['row'][21]['snmp_cryptopass'] = array(
+                                      'type'        => 'text',
+                                      'fieldset'    => 'snmpv3',
+                                      'name'        => 'Crypto Password',
+                                      'width'       => '250px',
+                                      'value'       => escape_html($vars['snmp_cryptopass'])); // FIXME. For passwords we should use filter instead escape!
+      $form['row'][22]['snmp_cryptoalgo'] = array(
+                                      'type'        => 'select',
+                                      'fieldset'    => 'snmpv3',
+                                      'name'        => 'Crypto Algorithm',
+                                      'width'       => '250px',
+                                      'values'      => array('AES' => 'AES', 'DES' => 'DES'),
+                                      'value'       => $vars['snmp_cryptoalgo']);
+
+      $form['row'][30]['submit']    = array(
+                                      'type'        => 'submit',
+                                      'fieldset'    => 'submit',
+                                      'name'        => 'Add device',
+                                      'icon'        => 'icon-ok icon-white',
+                                      //'right'       => TRUE,
+                                      'class'       => 'btn-primary',
+                                      'value'       => 'save');
+
+      print_form_box($form);
+      unset($form);
+
 ?>
 
-<form id="edit" name="edit" method="post" class="form-horizontal" action="">
-  <input type="hidden" name="editing" value="yes">
+<script type="text/javascript">
+<!--
+$("#snmp_version").change(function() {
+   var select = this.value;
+        if (select === 'v3') {
+            $('#snmpv3').show();
+            $("#snmpv2").hide();
+        } else {
+            $('#snmpv2').show();
+            $('#snmpv3').hide();
+        }
+}).change();
 
-  <div class="row">
-    <div class="col-md-6">
-
-      <div class="widget widget-table">
-        <div class="widget-header">
-          <i class="oicon-gear"></i><h3>Basic Configuration</h3>
-        </div>
-        <div class="widget-content"  style="padding-top: 10px;">
-
-          <fieldset>
-
-            <div class="control-group">
-              <label class="control-label" for="hostname">Hostname</label>
-              <div class="controls">
-                <input type=text name="hostname" size="32" value="<?php echo(escape_html($vars['hostname'])); ?>" />
-              </div>
-            </div>
-
-            <div class="control-group">
-              <label class="control-label" for="snmp_version">Protocol Version</label>
-              <div class="controls">
-                <select class="selectpicker" name="snmp_version" id="snmp_version">
-                  <option value="v1"  <?php echo($snmp_version == 'v1'  ? 'selected' : ''); ?> >v1</option>
-                  <option value="v2c" <?php echo($snmp_version == 'v2c' ? 'selected' : ''); ?> >v2c</option>
-                  <option value="v3"  <?php echo($snmp_version == 'v3'  ? 'selected' : ''); ?> >v3</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="control-group">
-              <label class="control-label" for="snmp_transport">Transport</label>
-              <div class="controls">
-                <select class="selectpicker" name="snmp_transport">
-                  <?php
-                  foreach ($config['snmp']['transports'] as $transport)
-                  {
-                    echo("<option value='".$transport."'");
-                    if ($transport == $snmp_transport) { echo(" selected='selected'"); }
-                    echo(">".$transport."</option>");
-                  }
-                  ?>
-                </select>
-              </div>
-            </div>
-
-            <div class="control-group">
-              <label class="control-label" for="snmp_port">Port</label>
-              <div class="controls">
-                <input type=text name="snmp_port" size="32" value="<?php echo(escape_html($vars['snmp_port'])); ?>"/>
-              </div>
-            </div>
-
-            <div class="control-group">
-              <label class="control-label" for="snmp_timeout">Timeout</label>
-              <div class="controls">
-                <input type=text name="snmp_timeout" size="32" value="<?php echo(escape_html($vars['snmp_timeout'])); ?>"/>
-              </div>
-            </div>
-
-            <div class="control-group">
-              <label class="control-label" for="snmp_retries">Retries</label>
-              <div class="controls">
-                <input type=text name="snmp_retries" size="32" value="<?php echo(escape_html($vars['snmp_retries'])); ?>"/>
-              </div>
-            </div>
-
-            <div class="control-group">
-              <label class="control-label" for="ignorerrd">Ignore RRD exist</label>
-              <div class="controls">
-                <label class="checkbox">
-                <input type="checkbox" name="ignorerrd" value="confirm" <?php if ($config['rrd_override']) { echo('disabled checked'); } ?> />Add device anyway if directory with RRDs already exists
-                </label>
-              </div>
-            </div>
-          </fieldset>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-lg-6 pull-right">
-      <div class="widget widget-table">
-        <div class="widget-header">
-          <i class="oicon-lock-warning"></i><h3>Authentication Configuration</h3>
-        </div>
-        <div class="widget-content" style="padding-top: 10px;">
-
-          <!-- To be able to hide it -->
-          <div id="snmpv2">
-            <fieldset>
-              <div class="control-group">
-                <label class="control-label" for="snmp_community">SNMP Community</label>
-                <div class="controls">
-                  <input type=text name="snmp_community" size="32" value="<?php echo(escape_html($vars['snmp_community'])); // FIXME. For passwords we should use filter instead escape! ?>"/>
-                </div>
-              </div>
-            </fieldset>
-          </div>
-
-          <!-- To be able to hide it -->
-          <div id="snmpv3">
-            <fieldset>
-              <div class="control-group">
-                <label class="control-label" for="snmp_authlevel">Auth Level</label>
-                <div class="controls">
-                  <select class="selectpicker" name="snmp_authlevel" id="snmp_authlevel">
-                    <option value="noAuthNoPriv" <?php echo($vars['snmp_authlevel'] == 'noAuthNoPriv' ? 'selected' : ''); ?> >noAuthNoPriv</option>
-                    <option value="authNoPriv"   <?php echo($vars['snmp_authlevel'] == 'authNoPriv' ? 'selected' : ''); ?> >authNoPriv</option>
-                    <option value="authPriv"     <?php echo($vars['snmp_authlevel'] == 'authPriv' ? 'selected' : ''); ?> >authPriv</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="control-group">
-                <label class="control-label" for="snmp_authname">Auth User Name</label>
-                <div class="controls">
-                  <input type=text name="snmp_authname" size="32" value="<?php echo(escape_html($vars['snmp_authname'])); ?>"/>
-                </div>
-              </div>
-
-              <div class="control-group">
-                <label class="control-label" for="snmp_authpass">Auth Password</label>
-                <div class="controls">
-                  <input type="password" name="snmp_authpass" size="32" value="<?php echo(escape_html($vars['snmp_authpass'])); // FIXME. For passwords we should use filter instead escape! ?>"/>
-                </div>
-              </div>
-
-              <div class="control-group">
-                <label class="control-label" for="snmp_authalgo">Auth Algorithm</label>
-                <div class="controls">
-                  <select class="selectpicker" name="snmp_authalgo">
-                    <option value="MD5" <?php echo($vars['snmp_authalgo'] == 'MD5' ? 'selected' : ''); ?> >MD5</option>
-                    <option value="SHA" <?php echo($vars['snmp_authalgo'] == 'SHA' ? 'selected' : ''); ?> >SHA</option>
-                  </select>
-                </div>
-              </div>
-              <div id="authPriv"> <!-- only show this when auth level = authPriv -->
-                <div class="control-group">
-                  <label class="control-label" for="snmp_cryptopass">Crypto Password</label>
-                  <div class="controls">
-                    <input type="password" name="snmp_cryptopass" size="32" value="<?php echo(escape_html($vars['snmp_cryptopass'])); // FIXME. For passwords we should use filter instead escape! ?>"/>
-                  </div>
-                </div>
-
-                <div class="control-group">
-                  <label class="control-label" for="snmp_cryptoalgo">Crypto Algorithm</label>
-                  <div class="controls">
-                    <select class="selectpicker" name="snmp_cryptoalgo">
-                      <option value="AES" <?php echo($vars['snmp_cryptoalgo'] == "AES" ? 'selected' : ''); ?> >AES</option>
-                      <option value="DES" <?php echo($vars['snmp_cryptoalgo'] == "DES" ? 'selected' : ''); ?> >DES</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            </fieldset>
-          </div> <!-- end col -->
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="col-md-12">
-    <div class="form-actions">
-      <button type="submit" class="btn btn-primary" name="submit" value="save"><i class="icon-plus icon-white"></i> Add Device</button>
-    </div>
-  </div>
-</form>
-
-<script>
-
-  // Show/hide SNMPv1/2c or SNMPv3 authentication settings pane based on setting of protocol version.
-  //$("#snmpv2").hide();
-  //$("#snmpv3").hide();
-
-  $("#snmp_version").change(function() {
-    var select = this.value;
-    if (select === 'v3') {
-      $('#snmpv3').show();
-      $("#snmpv2").hide();
-    } else {
-      $('#snmpv2').show();
-      $('#snmpv3').hide();
-    }
-  }).change();
-
-  $("#snmp_authlevel").change(function() {
-    var select = this.value;
-    if (select === 'authPriv') {
-      $('#authPriv').show();
-    } else {
-      $('#authPriv').hide();
-    }
-  }).change();
-
+$("#snmp_authlevel").change(function() {
+  var select = this.value;
+  if (select === 'authPriv') {
+    $('[id^="snmp_authname"]').show();
+    $('[id^="snmp_authpass"]').show();
+    $('[id^="snmp_authalgo"]').show();
+    $('[id^="snmp_cryptopass"]').show();
+    $('[id^="snmp_cryptoalgo"]').show();
+  } else if (select === 'authNoPriv') {
+    $('[id^="snmp_authname"]').show();
+    $('[id^="snmp_authpass"]').show();
+    $('[id^="snmp_authalgo"]').show();
+    $('[id^="snmp_cryptopass"]').hide();
+    $('[id^="snmp_cryptoalgo"]').hide();
+  } else {
+    $('[id^="snmp_authname"]').hide();
+    $('[id^="snmp_authpass"]').hide();
+    $('[id^="snmp_authalgo"]').hide();
+    $('[id^="snmp_cryptopass"]').hide();
+    $('[id^="snmp_cryptoalgo"]').hide();
+  }
+}).change();
+// -->
 </script>
 
-</div>
+<?php
+
+// EOF

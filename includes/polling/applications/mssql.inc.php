@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -163,7 +163,7 @@ foreach ($wmi['mssql']['services'] as $instance)
     $app['type'] = "mssql";
     $app['name'] = "MSSQL";
     $app['instance'] = $instance['Name'];
-    wmi_dbAppInsert($device['device_id'], $app);
+    wmi_dbAppInsert($device['device_id'], $app); // FIXME discover_app ?
   }
 
   $sql = "SELECT * FROM `applications` AS A LEFT JOIN `applications-state` AS S ON `A`.`app_id`=`S`.`application_id` WHERE `A`.`device_id` = ? AND `A`.`app_instance` = ? AND `A`.`app_type` = 'mssql'";

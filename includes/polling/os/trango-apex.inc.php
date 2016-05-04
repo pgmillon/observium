@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2014 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -17,4 +17,3 @@ $hardware = trim(snmp_get($device, 'sysModel.0',    '-OQv', 'TRANGO-APEX-SYS-MIB
 $serial   = trim(snmp_get($device, 'sysSerialID.0', '-OQv', 'TRANGO-APEX-SYS-MIB', mib_dirs('trango')), '"');
 
 // EOF
-

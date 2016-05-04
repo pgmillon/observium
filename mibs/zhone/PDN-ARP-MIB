@@ -1,0 +1,860 @@
+-- ======================================================================
+-- ==                                                                  ==
+-- ==        Copyright (C) 2005 Paradyne Networks, Inc.                ==
+-- ==                                                                  ==
+-- ======================================================================
+
+
+PDN-ARP-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+   SwitchState, VnidRange
+      FROM PDN-TC
+   MacAddress, TruthValue, RowStatus
+      FROM SNMPv2-TC
+   IpAddress, OBJECT-TYPE, MODULE-IDENTITY, NOTIFICATION-TYPE,
+   Integer32, Unsigned32
+      FROM SNMPv2-SMI
+   MODULE-COMPLIANCE, OBJECT-GROUP, NOTIFICATION-GROUP
+      FROM SNMPv2-CONF
+   ifIndex
+      FROM IF-MIB
+   ipNetToMediaIfIndex, ipNetToMediaEntry, ipNetToMediaPhysAddress
+      FROM IP-MIB
+   pdn-common
+      FROM PDN-HEADER-MIB;
+
+pdn-arp MODULE-IDENTITY
+   LAST-UPDATED "200507190000Z"  -- July 19, 2005
+   ORGANIZATION "Paradyne Networks, Inc.
+                 MIB Working Group"
+   CONTACT-INFO "Paradyne Corporation
+                 8545 126th Avenue North
+                 Largo, FL 33733
+                 www.paradyne.com
+
+                 General Comments to: mibwg_team@paradyne.com
+
+                 Editors
+                    Wayne Jadoo
+                    Prakash Easwar
+                    Dragana Gough
+                    Clay Sikes"
+
+  DESCRIPTION
+     "This MIB contains objects that are used to configure
+      ARP entries and display ARP information.
+
+      =================================================================
+      ==                                                             ==
+      ==          Copyright (C) 2005 Paradyne Networks, Inc.         ==
+      ==                                                             ==
+      ================================================================="
+
+
+   REVISION    "200507190000Z"  -- July 19, 2005
+   DESCRIPTION "Clean up formatting and eliminated tabs.  Added missing
+                periods. 
+                Corrected SMIv2 issues identified by libsmi including:
+                   1.  INTEGER objects that were not enumerations, were 
+                       changed to Integer32.  
+                   2.  Reworked the conformance.  Had to change the OID 
+                       structure because the MODULE-COMPLIANCE section
+                       was missing resulting in `group-unref' issues.
+                   3.  The OID for unauthorizedUserEvent was change
+                       such that the second-to-the-last number is now
+                       `0' to satisfy SMIv2.
+                   4.  Masked the warning that 
+                       pdnNetTo8023MediaConfigVnidId should be 
+                       non-accessible.
+                   5.  Changed the import for ifIndex to be the IF-MIB.
+                   6.  Change the import for ipNetToMedia objects to be
+                       the IP-MIB.
+
+                Added the pdnNetToMediaParamsAprTable to support 
+                periodic sending of ARP requests.
+
+                Noticed several inconsistencies with respect to ranges
+                specified in the syntax clause and where was described
+                in the description text.  These inconsistencies were
+                not touched as in doing so could cause over-the-wire
+                issues.
+                Clay Sikes"
+
+   REVISION    "200208020000Z"
+   DESCRIPTION "Added vlan to ipNetToMediaConfig for the BitStorm 4800
+                (Speedway product's R2.0 release."
+   REVISION    "200204180000Z"
+   DESCRIPTION "Added utl to ipNetToMediaConfig for the BitStorm 4800
+                (Speedway) product."
+
+   REVISION    "200112310000Z"
+   DESCRIPTION "Added ipNetToMediaExtTable to extend ipNetToMediaTable adding
+                NHR filed to it. 
+                Added ipNetToMediaConfig objects (mux/basic and default nhr)
+                Added ipNetToMediaLimit table."
+
+   REVISION    "200101150000Z"
+   DESCRIPTION "pdnNetTo8023Media MAC Address set to read-write to add ARP 
+                entries other needed variables are index variables."
+
+   REVISION    "200005020000Z"
+   DESCRIPTION "Updated MIB file to add history." 
+
+   ::= { pdn-common 27 }
+
+
+
+pdnNetToMediaGenericMIBObjects  OBJECT IDENTIFIER ::= { pdn-arp 1 }
+pdnNetToMediaMIBTraps           OBJECT IDENTIFIER ::= { pdn-arp 2 }
+pdnNetToMediaMIBNotifications   OBJECT IDENTIFIER ::= { pdnNetToMediaMIBTraps 0 }
+pdnNetToMediaParams             OBJECT IDENTIFIER ::= { pdnNetToMediaGenericMIBObjects 1 }
+pdnNetToMediaConfig             OBJECT IDENTIFIER ::= { pdnNetToMediaGenericMIBObjects 2 }
+pdnNetTo8023MediaConfig         OBJECT IDENTIFIER ::= { pdnNetToMediaGenericMIBObjects 3 }
+pdnNetToMediaConformance        OBJECT IDENTIFIER ::= { pdnNetToMediaGenericMIBObjects 4 }
+
+
+-- =================================================
+-- == The ARP Parameters Configuration  group
+-- =================================================
+
+pdnNetToMediaParamsCompEntryTimeout OBJECT-TYPE
+   SYNTAX      Integer32(0..99999)
+   MAX-ACCESS  read-write
+   STATUS      current
+   DESCRIPTION "Complete Entry Timeout is the length of time that 
+                a complete entry remains in the ARP table before 
+                removal.  A complete entry is one for which there is 
+                a MAC address -- i.e. a node has responded to the
+                ARP request.  If an entry gets this old without being
+                referenced, it will be removed from the table.  The 
+                range for this parameter is 1  to 200000 minutes."
+   DEFVAL { 20 }
+   ::= { pdnNetToMediaParams 1 }
+
+pdnNetToMediaParamsIncompEntryTimeout OBJECT-TYPE
+   SYNTAX      Integer32(0..99999) 
+   MAX-ACCESS  read-write
+   STATUS      current
+   DESCRIPTION "Incomplete Entry Timeout is the length of time that 
+                an incomplete entry remains in the ARP table before 
+                removal.  An incomplete entry is one for which there 
+                is no MAC address -- i.e. an ARP request has been made,
+                but no response has been received.  This is also the 
+                amount of time that a packet will remain in the system 
+                while waiting for address resolution.  The range 
+                for this parameter is  1 to  255  minutes."
+   DEFVAL { 3 }
+   ::= { pdnNetToMediaParams 2 }
+        
+pdnNetToMediaParamsDefRouteEntryTimeout OBJECT-TYPE
+   SYNTAX      Integer32(0..99999) 
+   MAX-ACCESS  read-write
+   STATUS      current 
+   DESCRIPTION "Default Route Entry Timeout is the length of time 
+                a default route entry will remain in the ARP table. 
+                If default route gets this old without being referenced,
+                an ARP request will be sent to the next hop router.
+                If no response is received, it will be removed from 
+                the ARP table and the card will switch to the next 
+                reachable default route with the highest preference. 
+                The range for this parameter is 1  to  20  minutes."
+   DEFVAL { 1 }
+   ::= { pdnNetToMediaParams 3 }
+
+
+-- =======================================
+-- == ARP Periodic Request (APR) Table
+-- =======================================
+pdnNetToMediaParamsAprTable OBJECT-TYPE
+   SYNTAX      SEQUENCE OF PdnNetToMediaParamsAprEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION "The ARP Periodic Request Table.
+                This table allows timers which control the rate in 
+                which ARP requests are periodically sent to IP 
+                addresses to be configured and displayed."
+   ::= { pdnNetToMediaParams 4 }
+
+pdnNetToMediaParamsAprEntry OBJECT-TYPE
+   SYNTAX      PdnNetToMediaParamsAprEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION "An entry in the ARP Periodic Request Table.
+                Each entry represents an IP address to send an ARP
+                request to."
+   INDEX       {  pdnNetToMediaParamsAprIpAddr }
+   ::= { pdnNetToMediaParamsAprTable 1 }
+
+PdnNetToMediaParamsAprEntry ::=
+   SEQUENCE {
+      pdnNetToMediaParamsAprIpAddr       IpAddress,
+      pdnNetToMediaParamsAprRowStatus    RowStatus,
+      pdnNetToMediaParamsAprReqPeriod    Unsigned32,
+      pdnNetToMediaParamsAprTimeToNext   Unsigned32
+   }
+
+pdnNetToMediaParamsAprIpAddr OBJECT-TYPE
+   SYNTAX      IpAddress
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION "Identifies the IP address to periodically send an ARP
+                request to and is used to identify corresponding rows
+                in the table."
+   ::= { pdnNetToMediaParamsAprEntry 1 }
+
+pdnNetToMediaParamsAprRowStatus OBJECT-TYPE
+   SYNTAX      RowStatus
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION "This object allows create, change, and delete operations
+                on the table."
+   ::= { pdnNetToMediaParamsAprEntry 2 }
+
+pdnNetToMediaParamsAprReqPeriod OBJECT-TYPE
+   SYNTAX      Unsigned32(1..1440)
+   UNITS       "minutes"
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION "Configures the period, in minutes, that ARP requests
+                are periodically sent.  The range is from one request
+                every minute to one request every day (1440 minutes)."
+   ::= { pdnNetToMediaParamsAprEntry 3 }
+
+pdnNetToMediaParamsAprTimeToNext OBJECT-TYPE
+   SYNTAX      Unsigned32
+   UNITS       "minutes"
+   MAX-ACCESS  read-only
+   STATUS      current
+   DESCRIPTION "Indicates the time, in minutes, remaining before the
+                next ARP request will be sent."
+   ::= { pdnNetToMediaParamsAprEntry 4 }
+
+
+-- ===========================================================
+-- == The ARP Entry Configuration Table for 802.3 Media Cards
+-- ===========================================================
+
+pdnNetToMediaConfigTable OBJECT-TYPE
+   SYNTAX      SEQUENCE OF PdnNetToMediaConfigEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current 
+   DESCRIPTION "A table displaying information about ARP entries."      
+   ::= { pdnNetToMediaConfig 1 }
+
+pdnNetToMediaConfigEntry OBJECT-TYPE
+   SYNTAX      PdnNetToMediaConfigEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION "A list of information for each ARP entry in the 
+                ARP table to be displayed."
+   INDEX       { ifIndex, pdnNetToMediaConfigIpAddr }
+   ::= { pdnNetToMediaConfigTable 1 }
+
+PdnNetToMediaConfigEntry ::=
+   SEQUENCE {
+      pdnNetToMediaConfigIpAddr     IpAddress,
+      pdnNetToMediaConfigMacAddr    MacAddress,
+      pdnNetToMediaConfigMin        Integer32,
+      pdnNetToMediaConfigFlags      Integer32,
+      pdnNetToMediaConfigTrailer    SwitchState,
+      pdnNetToMediaConfigPerm       TruthValue,
+      pdnNetToMediaConfigRowStatus  RowStatus
+   }
+          
+pdnNetToMediaConfigIpAddr OBJECT-TYPE
+   SYNTAX       IpAddress
+   MAX-ACCESS   not-accessible
+   STATUS       current
+   DESCRIPTION" This objects corresponds to an IP Address of a
+                Host or Client."
+   ::= { pdnNetToMediaConfigEntry 1 }
+
+pdnNetToMediaConfigMacAddr OBJECT-TYPE
+   SYNTAX      MacAddress
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION "This object corresponds to a MAC Address of a Host 
+                or Client."
+   ::= { pdnNetToMediaConfigEntry 2 }
+
+pdnNetToMediaConfigMin OBJECT-TYPE
+   SYNTAX      Integer32(0..99999)
+   MAX-ACCESS  read-only
+   STATUS      current
+   DESCRIPTION "This objects displays the number of minutes since an 
+                ARP entry was last used." 
+   ::= { pdnNetToMediaConfigEntry 3 }
+
+pdnNetToMediaConfigFlags OBJECT-TYPE
+   SYNTAX      Integer32 
+   MAX-ACCESS  read-only
+   STATUS      current
+   DESCRIPTION "This object contains multiple information for an entry.
+                The information can be interpreted as follows: 
+                   0x0004  -- permanent entry 
+                   0x0008  -- publish entry (respond for other host) 
+                   0x0010  -- has requested trailers 
+                   0x0020  -- Proxy ARP entry 
+                   0x0040  -- Subnetted Proxy ARP entry 
+                   0x0100  -- ARP For Default Gateway."
+   ::= { pdnNetToMediaConfigEntry 4 }
+
+pdnNetToMediaConfigTrailer OBJECT-TYPE
+   SYNTAX      SwitchState
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION "This object is used to specify whether 
+                or not trailer encapsulation should be 
+                enabled or disabled."
+   ::= { pdnNetToMediaConfigEntry 5 }
+
+pdnNetToMediaConfigPerm OBJECT-TYPE
+   SYNTAX  TruthValue 
+   MAX-ACCESS  read-create
+   STATUS  current
+   DESCRIPTION "This object is used to specify whether 
+                or not an entry should be stored permanently
+                in Non-volatile storage.  If the value is 
+                'true' (1) a permanent entry is added to 
+                non-volatile storage." 
+   ::= { pdnNetToMediaConfigEntry 6 }
+
+pdnNetToMediaConfigRowStatus OBJECT-TYPE
+   SYNTAX  RowStatus 
+   MAX-ACCESS  read-create
+   STATUS  current
+   DESCRIPTION "This object is used to create or delete a row in this
+                table." 
+::= { pdnNetToMediaConfigEntry 7 }
+
+
+-- ===========================================================
+-- == The ARP Entry Configuration Table for 802.3 Media Cards
+-- ===========================================================
+
+pdnNetTo8023MediaConfigTable OBJECT-TYPE
+   SYNTAX  SEQUENCE OF PdnNetTo8023MediaConfigEntry
+   MAX-ACCESS  not-accessible
+   STATUS  current
+   DESCRIPTION "A table displaying  information about ARP entries."
+   ::= { pdnNetTo8023MediaConfig 1 }
+
+pdnNetTo8023MediaConfigEntry OBJECT-TYPE
+   SYNTAX      PdnNetTo8023MediaConfigEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION "A list of information for each ARP entry in the 
+                ARP table to be displayed."
+   INDEX       { ifIndex,
+                 pdnNetTo8023MediaConfigIpAddr, 
+                 pdnNetTo8023MediaConfigVnidId }
+   ::= { pdnNetTo8023MediaConfigTable 1 }
+
+PdnNetTo8023MediaConfigEntry ::=
+   SEQUENCE {
+      pdnNetTo8023MediaConfigIpAddr     IpAddress,
+      pdnNetTo8023MediaConfigVnidId     VnidRange,
+      pdnNetTo8023MediaConfigMacAddr    MacAddress,
+      pdnNetTo8023MediaConfigMin        Integer32,
+      pdnNetTo8023MediaConfigFlags      Integer32,
+      pdnNetTo8023MediaConfigTrailer    SwitchState,
+      pdnNetTo8023MediaConfigPerm       TruthValue,
+      pdnNetTo8023MediaConfigRowStatus  RowStatus
+   }
+
+pdnNetTo8023MediaConfigIpAddr OBJECT-TYPE
+   SYNTAX  IpAddress
+   MAX-ACCESS  not-accessible
+   STATUS  current
+   DESCRIPTION "This objects corresponds to an IP Address of a
+                Host or Client."
+   ::= { pdnNetTo8023MediaConfigEntry 1 }
+
+pdnNetTo8023MediaConfigVnidId    OBJECT-TYPE
+   SYNTAX  VnidRange
+   MAX-ACCESS  read-only
+   STATUS  current
+   DESCRIPTION "The VNID Id number of the virtual network for which this 
+                entry contains management information."
+   ::= { pdnNetTo8023MediaConfigEntry 2 }
+
+pdnNetTo8023MediaConfigMacAddr OBJECT-TYPE
+   SYNTAX      MacAddress
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION "This object corresponds to a MAC Address of a Host 
+                or Client."
+   ::= { pdnNetTo8023MediaConfigEntry 3 }
+
+pdnNetTo8023MediaConfigMin OBJECT-TYPE
+   SYNTAX  Integer32(0..99999)
+   MAX-ACCESS  read-only
+   STATUS  current
+   DESCRIPTION "This objects displays the number of
+                minutes since an ARP entry was last 
+                used." 
+   ::= { pdnNetTo8023MediaConfigEntry 4 }
+
+pdnNetTo8023MediaConfigFlags OBJECT-TYPE
+   SYNTAX      Integer32 
+   MAX-ACCESS  read-only
+   STATUS      current
+   DESCRIPTION "This object contains multiple information
+                for an entry.  The information can be
+                interpreted as follows: 
+                   0x0004  -- permanent entry 
+                   0x0008  -- publish entry (respond for other host) 
+                   0x0010  -- has requested trailers 
+                   0x0020  -- Proxy ARP entry 
+                   0x0040  -- Subnetted Proxy ARP entry 
+                   0x0100  -- ARP For Default Gateway." 
+   ::= { pdnNetTo8023MediaConfigEntry 5 }
+
+pdnNetTo8023MediaConfigTrailer OBJECT-TYPE
+   SYNTAX      SwitchState
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION "This object is used to specify whether 
+                or not trailer encapsulation should be 
+                enabled or disabled." 
+   ::= { pdnNetTo8023MediaConfigEntry 6 }
+
+pdnNetTo8023MediaConfigPerm OBJECT-TYPE
+   SYNTAX      TruthValue 
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION "This object is used to specify whether 
+                or not an entry should be stored permanently
+                in Non-volatile storage.  If the value is 
+                'true' (1) a permanent entry is added to 
+                non-volatile storage." 
+   ::= { pdnNetTo8023MediaConfigEntry 7 }
+
+pdnNetTo8023MediaConfigRowStatus OBJECT-TYPE
+   SYNTAX      RowStatus 
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION "This object is used to create or delete a row in this
+                table." 
+   ::= { pdnNetTo8023MediaConfigEntry 8 }
+
+
+-- ========================
+-- == groups for ARP MIB
+-- ========================
+
+pdnNetToMediaClearAllArp  OBJECT-TYPE
+   SYNTAX      INTEGER {
+                  noop (1),
+                  clear (2)
+               }
+   MAX-ACCESS  read-write
+   STATUS      current
+   DESCRIPTION "Setting this object to a value of 'clear' will remove 
+                all entries from the ARP table."
+   ::= { pdnNetToMediaConfig 2 }
+
+
+-- ==============
+-- == Proxy ARP 
+-- ==============
+
+pdnNetToMediaProxyArpTable  OBJECT-TYPE
+   SYNTAX      SEQUENCE OF PdnNetToMediaProxyArpEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current 
+   DESCRIPTION "This table is used to enable or disable
+                proxy ARP for the specified interface. "
+   ::= { pdnNetToMediaConfig 3 }
+
+pdnNetToMediaProxyArpEntry OBJECT-TYPE
+   SYNTAX      PdnNetToMediaProxyArpEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION "This is an entry that allows user to enable or disable
+                proxy ARP for the specified interface."
+   INDEX       { ifIndex }
+   ::= { pdnNetToMediaProxyArpTable 1 }
+
+PdnNetToMediaProxyArpEntry ::=
+   SEQUENCE {
+      pdnNetToMediaProxyArpStatus  INTEGER
+   }
+
+pdnNetToMediaProxyArpStatus   OBJECT-TYPE
+   SYNTAX      INTEGER  { 
+                  disable (1), 
+                  enable (2) 
+               }
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION "Setting this object to a value 'enable' will enable
+                proxy ARP for the interface identified by IfIndex.
+                The value 'disable' will disable proxy ARP for
+                the interface. "
+   ::= { pdnNetToMediaProxyArpEntry 1 }
+
+
+-- ==============================================
+-- == this group is used to configure proxy ARP
+-- ==============================================
+
+ipNetToMediaConfig OBJECT IDENTIFIER ::= { pdnNetToMediaConfig 4 }
+
+
+ipNetToMediaForwardingMode   OBJECT-TYPE
+   SYNTAX      INTEGER  { 
+                  basic (1), 
+                  mux (2), 
+                  sms (3), 
+                  ult(4), 
+                  vlan(5) 
+               }
+   MAX-ACCESS  read-write
+   STATUS      current 
+   DESCRIPTION "Setting this object to a value 'basic' will configure 
+                bridge to run in basic (transparent) mode.  Setting the 
+                value to mux(2), will set bridge to run in
+                mux forwarding mode.  For more information about 
+                transparent vs. forwarding mode refer to RFC1483 that 
+                defines bridge functionality and the mib RFC1493 that
+                defines mib needed to support different bridge 
+                functionality.
+
+                Setting the value to ult(4), will enable Uplink Tagging.
+                The Uplink Tagging Feature was added for the BitStorm 
+                4800 and implements a portion of the IEEE 802.3Q VLAN 
+                standard to provide tagged Ethernet frames on the uplink 
+                port with a one-to-one mapping of ingress ADSL 
+                (subscriber) link to the LAN identifier carried in the 
+                Ethernet tag header.  See Speedway (4800) R1.1 Requirements 
+                for detail. vlan(5) enables general VLAN support."
+
+   ::= { ipNetToMediaConfig 1 }
+
+ipNetToMediaDefaultNHR   OBJECT-TYPE
+   SYNTAX      IpAddress
+   MAX-ACCESS  read-write
+   STATUS      current
+   DESCRIPTION "Setting this address will configure default NHR for the
+                system."
+   ::= { ipNetToMediaConfig 2 }
+
+
+-- ======================================================================
+-- == this table is designed to augment ipNetToMediaTable from RFC1213
+-- == new element is ipNetToMediaNHR
+-- ======================================================================
+
+-- ==============================================
+-- == Extension to ip address translation table
+-- ==============================================
+
+ipNetToMediaExtTable OBJECT-TYPE
+   SYNTAX      SEQUENCE OF IpNetToMediaExtEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION "The IP Address Translation table used for mapping
+                from IP addresses to physical addresses."
+   ::= { ipNetToMediaConfig 3 }
+
+ipNetToMediaExtEntry OBJECT-TYPE
+   SYNTAX      IpNetToMediaExtEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION "Each entry contains one IpAddress to `physical'
+                address equivalence."
+   AUGMENTS   { ipNetToMediaEntry }
+   ::= { ipNetToMediaExtTable 1 }
+
+IpNetToMediaExtEntry ::=
+   SEQUENCE {
+      ipNetToMediaNHR     IpAddress
+   }
+
+ipNetToMediaNHR OBJECT-TYPE
+   SYNTAX      IpAddress 
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION "This object is used to configure nhr for the interface
+                using proxy ARP."
+::= { ipNetToMediaExtEntry 1 }
+
+
+-- ==================================
+-- == Proxy ARP configuration table
+-- ==================================
+
+ipNetToMediaLimitTable OBJECT-TYPE
+   SYNTAX      SEQUENCE OF IpNetToMediaLimitEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION "This table is used for to configure max number 
+                of IP addresses allowed on that interface."
+   ::= { ipNetToMediaConfig 4 }
+
+ipNetToMediaLimitEntry OBJECT-TYPE
+   SYNTAX      IpNetToMediaLimitEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION "Each entry contains number of IP addresses allowed 
+                on that interface."
+   INDEX       { ipNetToMediaIfIndex }
+   ::= { ipNetToMediaLimitTable 1 }
+
+IpNetToMediaLimitEntry ::=
+   SEQUENCE {
+      ipNetToMediaLimitEnabled       TruthValue,
+      ipNetToMediaMaxIPAddresses     Integer32
+}
+
+ipNetToMediaLimitEnabled OBJECT-TYPE
+   SYNTAX      TruthValue
+   MAX-ACCESS  read-create
+   STATUS      current
+   DESCRIPTION "This object is used to enable/disable limiting number of
+                ip addresses on interfaces using proxy ARP."
+   ::= { ipNetToMediaLimitEntry 1 }
+
+ipNetToMediaMaxIPAddresses OBJECT-TYPE
+   SYNTAX  Integer32(0..99999)
+   MAX-ACCESS  read-create
+   STATUS  current
+   DESCRIPTION "This object is used to configure number of
+                ip addresses allowed on interfaces using proxy ARP."
+   ::= { ipNetToMediaLimitEntry 2 }
+
+
+-- =============================================================
+-- == NOTIFICATIONS
+-- =============================================================
+
+unauthorizedUserEvent NOTIFICATION-TYPE
+   OBJECTS { 
+               ipNetToMediaIfIndex, 
+               ipNetToMediaPhysAddress 
+   } 
+   STATUS      current
+   DESCRIPTION "This trap is to communicate that on the interface
+                where security authorization (MAC or IP to port) is
+                enabled, frame arrived that is not authorized for that 
+                interface."
+   ::= { pdnNetToMediaMIBNotifications 1 }
+
+
+
+
+-- ======================================================================
+-- ==                  Conformance Information                         ==
+-- ======================================================================
+
+pdnNetToMediaCompliances OBJECT IDENTIFIER ::= { pdnNetToMediaConformance 1 }
+pdnNetToMediaGroups      OBJECT IDENTIFIER ::= { pdnNetToMediaConformance 2 }
+
+
+-- ===========================
+-- == Compliance Statements ==
+-- ===========================
+
+pdnNetToMediaCompliance MODULE-COMPLIANCE
+   STATUS      current
+   DESCRIPTION "The compliance statement for the entities which
+                implement the PDN-ARP-MIB."
+   MODULE      -- this module
+   -- No mandatory groups are specified
+
+   --
+   -- Optional Groups
+   --
+
+   GROUP       pdnNetToMediaParamsGroup
+   DESCRIPTION "This group is only required for implementations that
+                need to configure the ARP table."
+
+   GROUP       pdnNetToMediaConfigGroup
+   DESCRIPTION "This group is only required for implementations that
+                need to be able to add ARP table entries."
+
+   GROUP       pdnNetToMedia8023ConfigGroup
+   DESCRIPTION "This group is only required for implementations that
+                need to be able to add 802.3 ARP table entries."
+
+   GROUP       pdnNetToMediaClearGroup
+   DESCRIPTION "This group is only required for implementations that
+                need to be able to clear all ARP entries from a table."
+
+   GROUP       pdnNetToMediaProxyArpGroup
+   DESCRIPTION "This group is only required for implementations that
+                need to be able to set all proxy ARP entries."
+
+   GROUP       pdnNetToMediaConfigProxyArpGroup
+   DESCRIPTION "This group is only required for implementations that
+                need to allow the setting of some proxy ARP entries."
+
+   GROUP       pdnNetToMediaExtGroup
+   DESCRIPTION "This group is only required for implementations that
+                need to allow the configuration of a next-hop router."
+
+   GROUP       pdnNetToMediaLimitGroup
+   DESCRIPTION "This group is only required for implementations that
+                need to allow the configuration of limits for proxy
+                ARP."
+
+   GROUP       pdnNetToMediaUnauthorizedUserEventGroup
+   DESCRIPTION "This group is only required for implementations that
+                need generate notifications of unauthorized user
+                events."
+
+   GROUP       pdnNetToMediaParamsAprConfigGroup
+   DESCRIPTION "This group is only required for implementations that
+                need to configure a timer to send ARP requests to IP 
+                addresses periodically."
+
+   GROUP       pdnNetToMediaParamsAprTimeToNextGroup
+   DESCRIPTION "This group is only required for implementations that
+                need to configure a timer to send ARP requests to IP
+                addresses periodically and that need to display the
+                amount of time remaining until the next ARP request
+                gets sent to a particular IP address."
+
+   ::= { pdnNetToMediaCompliances 1 }
+
+
+-- ==========================
+-- == Units of Conformance ==
+-- ==========================
+
+pdnNetToMediaObjGroups   OBJECT IDENTIFIER ::= { pdnNetToMediaGroups 1 }
+pdnNetToMediaNtfyGroups  OBJECT IDENTIFIER ::= { pdnNetToMediaGroups 2 }
+
+
+
+-- ===================
+-- == Object Groups ==
+-- ===================
+
+pdnNetToMediaParamsGroup    OBJECT-GROUP
+   OBJECTS {
+               pdnNetToMediaParamsCompEntryTimeout,
+               pdnNetToMediaParamsIncompEntryTimeout,
+               pdnNetToMediaParamsDefRouteEntryTimeout
+   }
+   STATUS      current
+   DESCRIPTION "A collection of objects providing way to configure ARP table
+                entries."
+   ::= { pdnNetToMediaObjGroups 1 }
+
+pdnNetToMediaConfigGroup    OBJECT-GROUP
+   OBJECTS {
+               pdnNetToMediaConfigMacAddr,
+               pdnNetToMediaConfigMin,
+               pdnNetToMediaConfigFlags,
+               pdnNetToMediaConfigTrailer,
+               pdnNetToMediaConfigPerm,
+               pdnNetToMediaConfigRowStatus
+   }
+   STATUS      current
+   DESCRIPTION "A collection of objects providing way to add ARP table
+                entries."
+   ::= { pdnNetToMediaObjGroups 2 }
+
+pdnNetToMedia8023ConfigGroup    OBJECT-GROUP
+   OBJECTS {
+               pdnNetTo8023MediaConfigVnidId,
+               pdnNetTo8023MediaConfigMacAddr,
+               pdnNetTo8023MediaConfigMin,
+               pdnNetTo8023MediaConfigFlags,
+               pdnNetTo8023MediaConfigTrailer,
+               pdnNetTo8023MediaConfigPerm,
+               pdnNetTo8023MediaConfigRowStatus
+   }
+   STATUS      current
+   DESCRIPTION "A collection of objects providing way to add 802.3 ARP table
+                entries."
+   ::= { pdnNetToMediaObjGroups 3 }
+
+pdnNetToMediaClearGroup OBJECT-GROUP
+   OBJECTS {
+               pdnNetToMediaClearAllArp
+   }
+   STATUS      current
+   DESCRIPTION "A collection of objects that allows to clear all arp entries 
+                from a table."
+   ::= { pdnNetToMediaObjGroups 4 }
+
+pdnNetToMediaProxyArpGroup OBJECT-GROUP
+   OBJECTS { 
+               pdnNetToMediaProxyArpStatus
+   }
+   STATUS      current
+   DESCRIPTION "A collection of objects that allows to set all proxy
+                ARP entries."
+   ::= { pdnNetToMediaObjGroups 5 }
+
+pdnNetToMediaConfigProxyArpGroup OBJECT-GROUP
+   OBJECTS {
+               ipNetToMediaForwardingMode,
+               ipNetToMediaDefaultNHR
+   } 
+   STATUS      current
+   DESCRIPTION "A collection of objects that allows to set some proxy
+                ARP entries."
+   ::= { pdnNetToMediaObjGroups 6 }
+
+pdnNetToMediaExtGroup OBJECT-GROUP
+   OBJECTS {
+               ipNetToMediaNHR
+   }
+   STATUS      current
+   DESCRIPTION "A collection of objects that allows to set some proxy
+                ARP entries."
+   ::= { pdnNetToMediaObjGroups 7 }
+
+pdnNetToMediaLimitGroup OBJECT-GROUP
+   OBJECTS {
+               ipNetToMediaLimitEnabled,
+               ipNetToMediaMaxIPAddresses
+   }
+   STATUS      current
+   DESCRIPTION "A collection of objects that allows to set some proxy 
+                ARP entries."
+   ::= { pdnNetToMediaObjGroups 8 }
+
+pdnNetToMediaParamsAprConfigGroup OBJECT-GROUP
+   OBJECTS {
+               pdnNetToMediaParamsAprRowStatus,
+               pdnNetToMediaParamsAprReqPeriod
+   }
+   STATUS      current
+   DESCRIPTION "A collection of objects to configure a timer to send
+                ARP request to IP addresses periodically."
+   ::= { pdnNetToMediaObjGroups 9 }
+
+pdnNetToMediaParamsAprTimeToNextGroup OBJECT-GROUP
+   OBJECTS {
+               pdnNetToMediaParamsAprTimeToNext
+   }
+   STATUS      current
+   DESCRIPTION "Object to display the amount of time remaining until the
+                next ARP request gets sent for a particular IP address."
+   ::= { pdnNetToMediaObjGroups 10 }
+
+
+
+-- =========================
+-- == Notification Groups ==
+-- =========================
+
+pdnNetToMediaUnauthorizedUserEventGroup NOTIFICATION-GROUP
+   NOTIFICATIONS {
+               unauthorizedUserEvent
+   }
+   STATUS      current
+   DESCRIPTION "Unauthorized user event group."
+   ::= { pdnNetToMediaNtfyGroups 1 }
+
+-- =========^M
+-- == END == ^M
+-- =========^M
+END

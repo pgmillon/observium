@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -59,13 +59,13 @@ if (is_file($rrd_filename))
   $rrd_options .= " 'COMMENT:Memory        Current   Average   Maximum\\n'";
 
   $rrd_options .= " 'LINE1:usedreal#ffaa66:'";
-  $rrd_options .= " 'AREA:usedreal#f0e0a0:RAM Used :'";
+  $rrd_options .= " 'AREA:usedreal#f0e0a0:RAM Used '";
   $rrd_options .= " 'GPRINT:usedreal:LAST:%6.2lf%sB'";
   $rrd_options .= " 'GPRINT:usedreal:AVERAGE:%6.2lf%sB'";
   $rrd_options .= " 'GPRINT:usedreal:MAX:%6.2lf%sB'";
   $rrd_options .= " 'GPRINT:real_perc:LAST:%3.0lf%%\\n'";
 
-  $rrd_options .= " 'AREA:trueused#ffaa66:-Ca,Sh,Bu:'";
+  $rrd_options .= " 'AREA:trueused#ffaa66:-Ca,Sh,Bu'";
   $rrd_options .= " 'GPRINT:trueused:LAST:%6.2lf%sB'";
   $rrd_options .= " 'GPRINT:trueused:AVERAGE:%6.2lf%sB'";
   $rrd_options .= " 'GPRINT:trueused:MAX:%6.2lf%sB'";
@@ -90,13 +90,13 @@ if (is_file($rrd_filename))
 
   $rrd_options .= " 'COMMENT: \\n'";
 
-  $rrd_options .= " 'AREA:trueused#ffaa66::'";
+  $rrd_options .= " 'AREA:trueused#ffaa66:'";
   $rrd_options .= " 'AREA:buffered#cc0000::STACK'";
   $rrd_options .= " 'AREA:cached#f0e0a0::STACK'";
 
-  $rrd_options .= " 'LINE1:usedreal#d0b080::'";
+  $rrd_options .= " 'LINE1:usedreal#d0b080:'";
 
-  $rrd_options .= " 'LINE1.25:trueused#ffaa66::'";
+  $rrd_options .= " 'LINE1.25:trueused#ffaa66:'";
 
   $rrd_options .= " 'LINE1.25:buffered#cc0000:Buffers  :STACK'";
   $rrd_options .= " 'GPRINT:buffered:LAST:%6.2lf%sB'";
@@ -110,7 +110,7 @@ if (is_file($rrd_filename))
   $rrd_options .= " 'GPRINT:cached:MAX:%6.2lf%sB'";
   $rrd_options .= " 'GPRINT:cached_perc:LAST:%3.0lf%%\\n'";
 
-  $rrd_options .= " 'LINE1.25:shared#008fea:Shared   :'";
+  $rrd_options .= " 'LINE1.25:shared#008fea:Shared   '";
   $rrd_options .= " 'GPRINT:shared:LAST:%6.2lf%sB'";
   $rrd_options .= " 'GPRINT:shared:AVERAGE:%6.2lf%sB'";
   $rrd_options .= " 'GPRINT:shared:MAX:%6.2lf%sB'";

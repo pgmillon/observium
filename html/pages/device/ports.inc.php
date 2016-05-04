@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -36,12 +36,13 @@ if(dbFetchCell("SELECT COUNT(*) FROM `vlans_fdb` WHERE `device_id` = ?", array($
   $navbar['options']['fdb']['text'] = 'FDB Table';
 }
 
-if(dbFetchCell("SELECT * FROM links AS L, ports AS I WHERE I.device_id = ? AND I.port_id = L.local_port_id", array($device['device_id'])))
+if (dbFetchCell("SELECT COUNT(*) FROM `neighbours` LEFT JOIN `ports` USING(`port_id`) WHERE `device_id` = ?;", array($device['device_id'])))
 {
   $navbar['options']['neighbours']['text'] = 'Neighbours';
   $navbar['options']['map']['text']        = 'Map';
 }
-if(dbFetchCell("SELECT COUNT(*) FROM `ports` WHERE `ifType` = 'adsl' AND `device_id` = ?", array($device['device_id'])))
+
+if (dbFetchCell("SELECT COUNT(*) FROM `ports` WHERE `ifType` = 'adsl' AND `device_id` = ?", array($device['device_id'])))
 {
   $navbar['options']['adsl']['text'] = 'ADSL';
 }
@@ -98,7 +99,7 @@ if (isset($vars['view']) && ($vars['view'] == 'basic' || $vars['view'] == 'detai
   }
   $filter_options['all'] = ($filters_array['all']) ? 'Reset ALL' : 'Hide ALL';
 
-  // Generate filted links
+  // Generate filtered links
   $navbar['options_right']['filters']['text'] = 'Quick Filters';
   foreach ($filter_options as $option => $text)
   {
@@ -148,13 +149,16 @@ if ($vars['view'] == 'minigraphs')
     </div>");
   }
   echo("</div>");
-} elseif ($vars['view'] == "arp" || $vars['view'] == "adsl" || $vars['view'] == "neighbours" || $vars['view'] == "fdb" || $vars['view'] == "map") {
-  include("ports/".$vars['view'].".inc.php");
+}
+else if (in_array($vars['view'], array("arp", "adsl", "neighbours", "fdb", "map")))
+{
+  include($config['html_dir']."/pages/device/ports/".$vars['view'].".inc.php");
 } else {
   if ($vars['view'] == "details") { $port_details = 1; }
 
   if ($vars['view'] == "graphs") { $table_class = "table-striped-two"; } else { $table_class = "table-striped"; }
-  echo('<table class="table table-hover table-bordered table-condensed table-rounded '.$table_class.'">');
+  echo '<div class="box box-solid">';
+  echo('<table class="table table-hover  table-condensed  '.$table_class.'">');
 
   echo('  <thead>');
   echo('<tr>');
@@ -167,7 +171,7 @@ if ($vars['view'] == 'minigraphs')
                 'graphs' => NULL,
                 'traffic' => 'Traffic',
                 'speed' => 'Speed',
-                'media' => 'Media',
+                // 'media' => 'Media',
                 'mac' => 'MAC Address',
                 'details' => NULL);
 
@@ -205,7 +209,7 @@ if ($vars['view'] == 'minigraphs')
   $ports = dbFetchRows($sql, array($device['device_id']));
 
   // Sort ports, sharing code with global ports page.
-  include("includes/port-sort.inc.php");
+  include($config['html_dir']."/includes/port-sort.inc.php");
 
   // As we've dragged the whole database, lets pre-populate our caches :)
   foreach ($ports as $port)
@@ -215,45 +219,44 @@ if ($vars['view'] == 'minigraphs')
   }
 
   // Collect port IDs and ifIndexes who has adsl/cbqos/pagp/ip and other.
-  $ports_has_ext = array();
-  $ext_tables = array('ports_adsl', 'ports_cbqos', 'mac_accounting');
+  $cache['ports_option'] = array();
+  $ext_tables = array('ports_adsl', 'ports_cbqos', 'mac_accounting', 'neighbours');
   if ($port_details)
   {
     $ext_tables = array_merge($ext_tables, array('ipv4_addresses', 'ipv6_addresses', 'pseudowires'));
     // Here stored ifIndex!
-    $ports_has_ext['ports_pagp']       = dbFetchColumn("SELECT `pagpGroupIfIndex` FROM `ports`   WHERE `device_id` = ? GROUP BY `pagpGroupIfIndex`", array($device['device_id']));
-    $ports_has_ext['ports_stack_low']  = dbFetchColumn("SELECT `port_id_low`  FROM `ports_stack` WHERE `device_id` = ? AND `port_id_high` != 0 GROUP BY `port_id_low`",  array($device['device_id']));
-    $ports_has_ext['ports_stack_high'] = dbFetchColumn("SELECT `port_id_high` FROM `ports_stack` WHERE `device_id` = ? AND `port_id_low`  != 0 GROUP BY `port_id_high`", array($device['device_id']));
+    $cache['ports_option']['ports_pagp']       = dbFetchColumn("SELECT `pagpGroupIfIndex` FROM `ports`   WHERE `device_id` = ? GROUP BY `pagpGroupIfIndex`", array($device['device_id']));
+    $cache['ports_option']['ports_stack_low']  = dbFetchColumn("SELECT `port_id_low`  FROM `ports_stack` WHERE `device_id` = ? AND `port_id_high` != 0 GROUP BY `port_id_low`",  array($device['device_id']));
+    $cache['ports_option']['ports_stack_high'] = dbFetchColumn("SELECT `port_id_high` FROM `ports_stack` WHERE `device_id` = ? AND `port_id_low`  != 0 GROUP BY `port_id_high`", array($device['device_id']));
   }
 
-  $where = ' IN ('.implode(',', array_keys($port_cache)).')';
+  //$where = ' IN ('.implode(',', array_keys($port_cache)).')';
+  $where = generate_query_values(array_keys($port_cache), 'port_id');
   foreach ($ext_tables as $table)
   {
     // Here stored port_id!
-    $ports_has_ext[$table] = dbFetchColumn("SELECT `port_id` FROM `$table` WHERE `port_id` $where GROUP BY `port_id`");
+    $cache['ports_option'][$table] = dbFetchColumn("SELECT DISTINCT `port_id` FROM `$table` WHERE 1 " . $where);
   }
-  $ports_has_ext['links'] = dbFetchColumn("SELECT `local_port_id` FROM `links` WHERE `local_port_id` $where AND `remote_port_id` != 0 GROUP BY `local_port_id`");
 
-  $ports_vlan_cache = array(); // Cache port vlans
+  $cache['ports_vlan'] = array(); // Cache port vlans
   foreach (dbFetchRows('SELECT * FROM `ports_vlans` AS PV LEFT JOIN vlans AS V ON PV.`vlan` = V.`vlan_vlan` AND PV.`device_id` = V.`device_id`
                        WHERE PV.`device_id` = ? ORDER BY PV.`vlan`', array($device['device_id'])) as $entry)
   {
-    $ports_vlan_cache[$entry['port_id']][$entry['vlan']] = $entry;
+    $cache['ports_vlan'][$entry['port_id']][$entry['vlan']] = $entry;
   }
 
   foreach ($ports as $port)
   {
     if (is_filtered()) { continue; }
 
-    include("includes/print-interface.inc.php");
-
-    $i++;
+    print_port_row($port, $vars);
   }
   echo("</table>");
+  echo '</div>';
 }
 
 $page_title[] = "Ports";
 
-unset($ports_has_ext, $where, $ext_tables, $ports_vlan_cache);
+unset($where, $ext_tables, $cache['ports_option'], $cache['ports_vlan']);
 
 // EOF

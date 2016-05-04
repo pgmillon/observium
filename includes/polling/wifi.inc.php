@@ -7,13 +7,13 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 if ($device['type'] == 'network' || $device['type'] == 'firewall' || $device['type'] == 'wireless')
 {
-  echo("Wireless: ");
+  print_cli_data_field("MIBs", 2);
 
   foreach (dbFetchRows("SELECT * FROM `wifi_radios` WHERE `device_id` = ?", array($device['device_id'])) as $radio)
   {
@@ -28,9 +28,7 @@ if ($device['type'] == 'network' || $device['type'] == 'firewall' || $device['ty
   $include_dir = "includes/polling/wifi";
   include("includes/include-dir-mib.inc.php");
 
-
   /// FIXME : everything below this point is horrible shit that needs to be moved elsewhere. These aren't wireless entities, they're just graphs. They go in graphs.
-
 
   /// FIXME. Move this to MIB based includes
   if ($device['os'] == 'airport')
@@ -127,7 +125,5 @@ if ($device['type'] == 'network' || $device['type'] == 'firewall' || $device['ty
 
   unset($wificlients2, $wificlients1);
 }
-
-echo(PHP_EOL);
 
 // EOF

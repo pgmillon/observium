@@ -7,11 +7,11 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-echo(" CISCO-ENTITY-QFP-MIB ");
+echo("CISCO-ENTITY-QFP-MIB ");
 
 $array = snmpwalk_cache_multi_oid($device, "CISCO-ENTITY-QFP-MIB::ceqfpUtilizationEntry", NULL, "CISCO-ENTITY-QFP-MIB", mib_dirs('cisco'));
 

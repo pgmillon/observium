@@ -114,7 +114,7 @@ snStackingGlobalPersistentMacTimer OBJECT-TYPE
 		ARP table of peers. If you decide to use new active unit's MAC address, one must enter
 		this timer again to reactivate the persistent MAC.
 				  0 - keep it forever.
-				  5  to 3600 - valid value range.
+				  5  to 6000 - valid value range.
 				  60 - default value."
 	::= { snStackingGlobalObjects 4 }
 
@@ -130,6 +130,34 @@ snStackingGlobalTopology OBJECT-TYPE
 	DESCRIPTION
 		"The topology of the stacking system "
 	::= { snStackingGlobalObjects 5 }
+
+snStackingGlobalMode OBJECT-TYPE
+	SYNTAX     INTEGER {
+			stackingMode(1),
+			nonStackingMode(2)
+			}
+	MAX-ACCESS read-only
+	STATUS     current
+	DESCRIPTION
+		"The stacking mode of the system. 
+		stackingMode: the system has been installed STK EEPROM, and it is in stacking mode.
+		nonStackingMode:the system has not been installed STK EEPROM, and it is not in stacking mode.
+		"
+	::= { snStackingGlobalObjects 6 }
+
+snStackingGlobalMixedMode OBJECT-TYPE
+	SYNTAX     INTEGER {
+			mixedStackingMode(1),
+			classicStackingMode(2)
+			}
+	MAX-ACCESS read-only
+	STATUS     current
+	DESCRIPTION
+		"The mixed stacking mode of the system. 
+		mixedStackingMode: the system is in mixed stacking mode (heterogeneous stacking).
+		classicStackingMode: the system is not in mixed stacking mode (homogeneous stacking).
+		"
+	::= { snStackingGlobalObjects 7 }
 
 --
 -- Stacking system Table Object Section
@@ -165,7 +193,9 @@ SnStackingConfigUnitEntry ::= SEQUENCE {
 	snStackingConfigUnitType                          DisplayString,
 	snStackingConfigUnitState                          INTEGER,
 	snStackingConfigUnitStackPort1                  InterfaceIndexOrZero,
-	snStackingConfigUnitStackPort2                  InterfaceIndexOrZero
+	snStackingConfigUnitStackPort2                  InterfaceIndexOrZero,
+	snStackingConfigUnitConnectPort1              InterfaceIndexOrZero,
+	snStackingConfigUnitConnectPort2              InterfaceIndexOrZero
 }
 
 snStackingConfigUnitIndex OBJECT-TYPE
@@ -256,6 +286,28 @@ snStackingConfigUnitState OBJECT-TYPE
 	DESCRIPTION
 		"Second stack port for each unit. It returns 0 if stack port does not exist."
 	::= { snStackingConfigUnitEntry 8 }
+
+ snStackingConfigUnitConnectPort1 OBJECT-TYPE
+	SYNTAX		InterfaceIndexOrZero
+	MAX-ACCESS read-write
+	STATUS     current
+	DESCRIPTION
+		"First connect port for a peripheral unit in a mixed stacking system.  A peripheral
+		unit can have up to two connect ports that is is conected to. They are suggested
+		neighbor linking ports. Thus, they could be code units' periport/trunk or peripheral 
+		units' stacking port. It returns 0 if connect port does not exist."
+	::= { snStackingConfigUnitEntry 9 }
+
+ snStackingConfigUnitConnectPort2 OBJECT-TYPE
+	SYNTAX		InterfaceIndexOrZero
+	MAX-ACCESS read-write
+	STATUS     current
+	DESCRIPTION
+		"second connect port for a peripheral unit in a mixed stacking system.  A peripheral
+		unit can have up to two connect ports that is is conected to. They are suggested
+		neighbor linking ports. Thus, they could be code units' periport/trunk or peripheral 
+		units' stacking port. It returns 0 if connect port does not exist."
+	::= { snStackingConfigUnitEntry 10 }
 
 --
 -- Stacking operation unit Table
@@ -431,5 +483,314 @@ snStackingOperUnitBuildlVer OBJECT-TYPE
 	DESCRIPTION
 		"The version of the running software build"
 	::= { snStackingOperUnitEntry 14 }
+
+--
+-- Stacking configuration stack trunk Table
+-- Use this table to display and configure stack trunks for each unit
+--
+
+snStackingConfigStackTrunkTable OBJECT-TYPE
+	SYNTAX     SEQUENCE OF SnStackingConfigStackTrunkEntry
+	MAX-ACCESS not-accessible
+	STATUS     current
+	DESCRIPTION
+		"Stacking configuration stack trunk table."
+	::= { snStackingTableObjects 3 }
+
+snStackingConfigStackTrunkEntry OBJECT-TYPE
+	SYNTAX     SnStackingConfigStackTrunkEntry
+	MAX-ACCESS not-accessible
+	STATUS     current
+	DESCRIPTION
+		"An entry in the stacking configuration Stack trunk table."
+	INDEX { snStackingConfigStackTrunkUnit, snStackingConfigStackTrunkPort1,
+	             snStackingConfigStackTrunkPort2 }
+	::= { snStackingConfigStackTrunkTable 1 }
+
+SnStackingConfigStackTrunkEntry ::= SEQUENCE {
+	snStackingConfigStackTrunkUnit                   Integer32,
+	snStackingConfigStackTrunkPort1                 InterfaceIndexOrZero,
+	snStackingConfigStackTrunkPort2                 InterfaceIndexOrZero,
+	snStackingConfigStackTrunkRowStatus        INTEGER,
+ 	snStackingConfigStackTrunkNumPort1          Integer32,
+ 	snStackingConfigStackTrunkNumPort2          Integer32
+}
+
+snStackingConfigStackTrunkUnit OBJECT-TYPE
+	SYNTAX Integer32
+	MAX-ACCESS not-accessible
+	STATUS     current
+	DESCRIPTION
+		"The stacking unit Id"
+	::= { snStackingConfigStackTrunkEntry 1 }
+
+ snStackingConfigStackTrunkPort1 OBJECT-TYPE
+	SYNTAX		InterfaceIndexOrZero
+	MAX-ACCESS  not-accessible
+	STATUS     current
+	DESCRIPTION
+		"The IfIndex for the first (primary) port of the configured stack trunk. 
+		There are two ports per stack trunk. In some case, a physical port may contain 
+		more than one port, e.g. one 40G (1/2/2) for ICX6610 has 4x10G ports. 
+		It returns 0 if the port does not exist." 
+	::= { snStackingConfigStackTrunkEntry 2 }
+
+ snStackingConfigStackTrunkPort2 OBJECT-TYPE
+	SYNTAX		InterfaceIndexOrZero
+	MAX-ACCESS  not-accessible
+	STATUS     current
+	DESCRIPTION
+		"The IfIndex for the second port of the configured stack trunk. 
+		There are two ports per stack trunk. In some case, a physical port may contain 
+		more than one logical port, e.g. one 40G (1/2/2) for ICX6610 has 4x10G ports. 
+		It returns 0 if the port does not exist." 
+	::= { snStackingConfigStackTrunkEntry 3 }
+
+snStackingConfigStackTrunkRowStatus OBJECT-TYPE
+	SYNTAX     INTEGER {
+				 other(1),
+				 valid(2),
+				 delete(3),
+		                 create(4)
+			   }
+	MAX-ACCESS read-write
+	STATUS     current
+	DESCRIPTION
+			"This object is used to delete row in the
+			table and control if they are used. The values that
+			can be written are:
+			delete(3)...deletes the row
+
+			If the row exists, then a SET with value of create(4)
+			returns error 'wrongValue'. Deleted rows go away immediately.
+			The following values can be returned on reads:
+			noSuchName...no such row
+			other(1).....some other cases
+			valid(2)....the row exists and is valid"
+	::= { snStackingConfigStackTrunkEntry 4 }
+
+ snStackingConfigStackTrunkNumPort1 OBJECT-TYPE
+	SYNTAX		Integer32
+	MAX-ACCESS  read-only
+	STATUS     current
+	DESCRIPTION
+		" Number of logical ports for the first (primary) port of the configured stack trunk. 
+		In some case, a physical port may contain more than one logical port, 
+		e.g. one 40G (1/2/2) for ICX6610 has 4x10G ports.  It returns 0 if the port 
+		does not exist." 
+	::= { snStackingConfigStackTrunkEntry 5 }
+
+ snStackingConfigStackTrunkNumPort2 OBJECT-TYPE
+	SYNTAX		Integer32
+	MAX-ACCESS  read-only
+	STATUS     current
+	DESCRIPTION
+		" Number of logical ports for the second port of the configured stack trunk. 
+		In some case, a physical port may contain more than one logical port, 
+		e.g. one 40G (1/2/2) for ICX6610 has 4x10G ports.  It returns 0 if the port 
+		does not exist." 
+	::= { snStackingConfigStackTrunkEntry 6 }
+
+--
+-- Stacking configuration peripheral port Table
+-- Use this table to display and configure mixed stacking peripheral ports  for each unit
+--
+
+snStackingConfigPeriPortTable OBJECT-TYPE
+	SYNTAX     SEQUENCE OF SnStackingConfigPeriPortEntry
+	MAX-ACCESS not-accessible
+	STATUS     current
+	DESCRIPTION
+		"Stacking configuration peripheral port table."
+	::= { snStackingTableObjects 4 }
+
+snStackingConfigPeriPortEntry OBJECT-TYPE
+	SYNTAX     SnStackingConfigPeriPortEntry
+	MAX-ACCESS not-accessible
+	STATUS     current
+	DESCRIPTION
+		"An entry in the stacking configuration peripheral port table."
+	INDEX { snStackingConfigPeriPortUnit, snStackingConfigPeriPortPort }
+	::= { snStackingConfigPeriPortTable 1 }
+
+SnStackingConfigPeriPortEntry ::= SEQUENCE {
+	snStackingConfigPeriPortUnit                   Integer32,
+	snStackingConfigPeriPortPort                  InterfaceIndexOrZero,
+	snStackingConfigPeriPortRowStatus        INTEGER
+}
+
+snStackingConfigPeriPortUnit OBJECT-TYPE
+	SYNTAX Integer32
+	MAX-ACCESS not-accessible
+	STATUS     current
+	DESCRIPTION
+		"The stacking unit Id"
+	::= { snStackingConfigPeriPortEntry 1 }
+
+ snStackingConfigPeriPortPort OBJECT-TYPE
+	SYNTAX		InterfaceIndexOrZero
+	MAX-ACCESS  not-accessible
+	STATUS     current
+	DESCRIPTION
+		"The IfIndex for the configured mixed stacking peripheral port. 
+		It is up to eight peripheral ports per unit. "
+	::= { snStackingConfigPeriPortEntry 2 }
+
+snStackingConfigPeriPortRowStatus OBJECT-TYPE
+	SYNTAX     INTEGER {
+				 other(1),
+				 valid(2),
+				 delete(3),
+		                 create(4)
+			   }
+	MAX-ACCESS read-write
+	STATUS     current
+	DESCRIPTION
+			"This object is used to delete row in the
+			table and control if they are used. The values that
+			can be written are:
+			delete(3)...deletes the row
+
+			If the row exists, then a SET with value of create(4)
+			returns error 'wrongValue'. Deleted rows go away immediately.
+			The following values can be returned on reads:
+			noSuchName...no such row
+			other(1).....some other cases
+			valid(2)....the row exists and is valid"
+	::= { snStackingConfigPeriPortEntry 3 }
+
+
+--
+-- Stacking configuration peripheral trunk Table
+-- Use this table to display and configure mixed stacking peripheral trunks  for each unit
+--
+
+snStackingConfigPeriTrunkTable OBJECT-TYPE
+	SYNTAX     SEQUENCE OF SnStackingConfigPeriTrunkEntry
+	MAX-ACCESS not-accessible
+	STATUS     current
+	DESCRIPTION
+		"Stacking configuration peripheral trunk table."
+	::= { snStackingTableObjects 5 }
+
+snStackingConfigPeriTrunkEntry OBJECT-TYPE
+	SYNTAX     SnStackingConfigPeriTrunkEntry
+	MAX-ACCESS not-accessible
+	STATUS     current
+	DESCRIPTION
+		"An entry in the stacking configuration peripheral trunk table."
+	INDEX { snStackingConfigPeriTrunkUnit, snStackingConfigPeriTrunkPort1,
+	             snStackingConfigPeriTrunkPort2 }
+	::= { snStackingConfigPeriTrunkTable 1 }
+
+SnStackingConfigPeriTrunkEntry ::= SEQUENCE {
+	snStackingConfigPeriTrunkUnit                   Integer32,
+	snStackingConfigPeriTrunkPort1                 InterfaceIndexOrZero,
+	snStackingConfigPeriTrunkPort2                 InterfaceIndexOrZero,
+	snStackingConfigPeriTrunkRowStatus        INTEGER
+}
+
+snStackingConfigPeriTrunkUnit OBJECT-TYPE
+	SYNTAX Integer32
+	MAX-ACCESS not-accessible
+	STATUS     current
+	DESCRIPTION
+		"The stacking unit Id"
+	::= { snStackingConfigPeriTrunkEntry 1 }
+
+ snStackingConfigPeriTrunkPort1 OBJECT-TYPE
+	SYNTAX		InterfaceIndexOrZero
+	MAX-ACCESS  not-accessible
+	STATUS     current
+	DESCRIPTION
+		"The IfIndex for the first port of the configured mixed stacking peripheral trunk. 
+		There are two ports per peripheral trunk. It is up to four peripheral trunks per unit." 
+	::= { snStackingConfigPeriTrunkEntry 2 }
+
+ snStackingConfigPeriTrunkPort2 OBJECT-TYPE
+	SYNTAX		InterfaceIndexOrZero
+	MAX-ACCESS  not-accessible
+	STATUS     current
+	DESCRIPTION
+		"The IfIndex for the second port of the configured mixed stacking peripheral trunk. 
+		There are two ports per peripheral trunk. It is up to four peripheral trunks per unit." 
+	::= { snStackingConfigPeriTrunkEntry 3 }
+
+snStackingConfigPeriTrunkRowStatus OBJECT-TYPE
+	SYNTAX     INTEGER {
+				 other(1),
+				 valid(2),
+				 delete(3),
+		                 create(4)
+			   }
+	MAX-ACCESS read-write
+	STATUS     current
+	DESCRIPTION
+			"This object is used to delete row in the
+			table and control if they are used. The values that
+			can be written are:
+			delete(3)...deletes the row
+
+			If the row exists, then a SET with value of create(4)
+			returns error 'wrongValue'. Deleted rows go away immediately.
+			The following values can be returned on reads:
+			noSuchName...no such row
+			other(1).....some other cases
+			valid(2)....the row exists and is valid"
+	::= { snStackingConfigPeriTrunkEntry 4 }
+
+--
+-- Stacking neighbor port Table
+-- Use this table to display stacking neighbor ports  for each unit
+--
+
+snStackingNeighborPortTable OBJECT-TYPE
+	SYNTAX     SEQUENCE OF SnStackingNeighborPortEntry
+	MAX-ACCESS not-accessible
+	STATUS     current
+	DESCRIPTION
+		"Stacking neighbor port table."
+	::= { snStackingTableObjects 6 }
+
+snStackingNeighborPortEntry OBJECT-TYPE
+	SYNTAX     SnStackingNeighborPortEntry
+	MAX-ACCESS not-accessible
+	STATUS     current
+	DESCRIPTION
+		"An entry in the stacking neighborport table."
+	INDEX { snStackingNeighborPortUnit, snStackingNeighborPortStackPort }
+	::= { snStackingNeighborPortTable 1 }
+
+SnStackingNeighborPortEntry ::= SEQUENCE {
+	snStackingNeighborPortUnit                   Integer32,
+	snStackingNeighborPortStackPort                  InterfaceIndexOrZero,
+	snStackingNeighborPortNeighborPort                  InterfaceIndexOrZero
+}
+
+snStackingNeighborPortUnit OBJECT-TYPE
+	SYNTAX Integer32
+	MAX-ACCESS not-accessible
+	STATUS     current
+	DESCRIPTION
+		"The stacking unit Id"
+	::= { snStackingNeighborPortEntry 1 }
+
+ snStackingNeighborPortStackPort OBJECT-TYPE
+	SYNTAX		InterfaceIndexOrZero
+	MAX-ACCESS  not-accessible
+	STATUS     current
+	DESCRIPTION
+		"The IfIndex for the stack port on this unit. 
+		It is up to ten stack ports and peripheral ports per unit. "
+	::= { snStackingNeighborPortEntry 2 }
+
+ snStackingNeighborPortNeighborPort OBJECT-TYPE
+	SYNTAX		InterfaceIndexOrZero
+	MAX-ACCESS  read-only
+	STATUS     current
+	DESCRIPTION
+		"The IfIndex for the neighbor port of  the stack port on this unit. 
+		It returns 0 if neighbor port does not exist for this stack port. "
+	::= { snStackingNeighborPortEntry 3 }
 
 END

@@ -1,0 +1,718 @@
+-- ============================================================================
+-- Copyright (c) 2010-2013 Hewlett-Packard Development Company, L.P.
+--
+-- Description: This MIB is designed for IP Accounting Software
+-- Reference:
+-- Version: V1.0
+-- History:
+-- V1.0 created by kongfanhua.
+-- ============================================================================
+HPN-ICF-IPA-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, Counter32, Counter64,
+    Integer32, IpAddress
+        FROM SNMPv2-SMI
+    RowStatus, TEXTUAL-CONVENTION
+        FROM SNMPv2-TC
+    hpnicfCommon
+        FROM HPN-ICF-OID-MIB;
+
+
+hpnicfIpa MODULE-IDENTITY
+       LAST-UPDATED "200411010000Z"
+       ORGANIZATION
+           ""
+       CONTACT-INFO
+           ""
+       DESCRIPTION
+            "
+            This MIB is used to acquire ip accounting information.
+
+            The hpnicfIpaAccountListTable is set by user to define the group of ip address
+            which they want to account.
+            This module can be enabled in each port,
+            which was defined in the hpnicfIpaIfConfigTable.
+
+            If this module has been enabled, the packets will be accounted
+            when crossing the router from the ports having been enabled by user,
+            according to whether the source/destination ip address is in hpnicfIpaAccountListTable
+            and what kinds of function(in/out/both/fw) are enabled
+            and also whether it is denied by the firewall.
+            If it is denied by the firewall, it will be accounted in hpnicfIpaFWListTable
+            If it is accepted by the firewall, and ip source or ip destination is in hpnicfIpaAccountListTable,
+            it will be accounted in hpnicfIpaIntListTable, otherwise it will be accounted
+            in hpnicfIpaExtListTable.
+
+            And IP Accounting function also differentiates the packets by direction.
+            If the packet is inbound, the accounting information can be seen as
+              hpnicfIpaIntListInPackets/hpnicfIpaIntListInBytes in hpnicfIpaIntListTable,
+              hpnicfIpaExtListInPackets/hpnicfIpaExtListInBytes in hpnicfIpaExtListTable,
+              hpnicfIpaFWListInPackets/hpnicfIpaFWListInBytes in hpnicfIpaFWListTable.
+
+            or else the accounting information can be seen as
+              hpnicfIpaIntListOutPackets/hpnicfIpaIntListOutBytes in hpnicfIpaIntListTable,
+              hpnicfIpaExtListOutPackets/hpnicfIpaExtListOutBytes in hpnicfIpaExtListTable,
+              hpnicfIpaFWListOutPackets/hpnicfIpaFWListOutBytes in hpnicfIpaFWListTable.
+            "
+        ::= { hpnicfCommon 25 }
+
+   InterfaceIndex ::= TEXTUAL-CONVENTION
+       DISPLAY-HINT "d"
+       STATUS       current
+       DESCRIPTION
+               "A unique value, greater than zero, for each interface
+               or interface sub-layer in the managed system.  It is
+               recommended that values are assigned contiguously
+               starting from 1.  The value for each interface sub-
+               layer must remain constant at least from one re-
+               initialization of the entity's network management
+               system to the next re-initialization."
+       SYNTAX       Integer32 (1..2147483647)
+
+
+-- =============================================================================
+   -- hpnicfIpaGlobalConfigTable
+   --  The Global Data Set By User of IPA
+
+    hpnicfIpaGlobalStats OBJECT IDENTIFIER ::= { hpnicfIpa 1 }
+
+    hpnicfIpaGlobalEnable OBJECT-TYPE
+        SYNTAX      INTEGER {
+                        disabled(1),  -- the IPA function is disabled
+                        enabled(2)    -- the IPA function is enabled
+                       }
+           MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+               "
+               The indication of whether Ip Accounting function is enabled.
+               If it is disabled, ip packets will not be accounted.
+               "
+        DEFVAL        { disabled }
+        ::= { hpnicfIpaGlobalStats 1 }
+
+    hpnicfIpaTimeOutSeconds OBJECT-TYPE
+        SYNTAX      Integer32
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+               "
+               The value of List aging timeout.
+               The unit is second.
+               If exceeding the interval, the item in hpnicfIpaIntListTable, hpnicfIpaExtListTable
+               and hpnicfIpaFWListTable will be removed automaticlly.
+               The range is (3600..604800).
+               "
+        DEFVAL        { 43200 }
+        ::= { hpnicfIpaGlobalStats 2 }
+
+    hpnicfIpaIntListMaxItemNum OBJECT-TYPE
+        SYNTAX      Integer32
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+               "
+               The max number of items in hpnicfIpaIntListTable.
+               The range is (0..16384).
+               "
+        DEFVAL        { 512 }
+        ::= { hpnicfIpaGlobalStats 3 }
+
+    hpnicfIpaExtListMaxItemNum OBJECT-TYPE
+        SYNTAX      Integer32
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+               "
+               The max number of items in hpnicfIpaExtListTable.
+               The range is (0..8192).
+               "
+        DEFVAL        { 0 }
+        ::= { hpnicfIpaGlobalStats 4 }
+
+    hpnicfIpaFWListMaxItemNum OBJECT-TYPE
+        SYNTAX      Integer32
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+               "
+               The max number of items in hpnicfIpaFWListTable.
+               "
+        ::= { hpnicfIpaGlobalStats 5 }
+
+     hpnicfIpaAccountListMaxItemNum OBJECT-TYPE
+        SYNTAX      Integer32
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+               "
+               The max number of items in hpnicfIpaAccountListTable.
+               "
+        ::= { hpnicfIpaGlobalStats 6 }
+
+     hpnicfIpaAccountListNextIndex OBJECT-TYPE
+        SYNTAX      Integer32
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+               "
+               The next available index for creating rows of hpnicfIpaAccountListTable.
+               If the value is zero, it means the table is full and no available index
+               can be used.
+               "
+        ::= { hpnicfIpaGlobalStats 7 }
+
+    hpnicfIpaListCleaningFlag OBJECT-TYPE
+        SYNTAX      INTEGER {
+                        idle(1),             -- idling
+                        cleaningAll(2),      -- clearing all of the tables below.
+                        cleaningIntList(3),  -- clearing hpnicfIpaIntListTable
+                        cleaningExtList(4),  -- clearing hpnicfIpaExtListTable
+                        cleaningFWList(5)    -- clearing hpnicfIpaFWListTable
+                    }
+          MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+               "
+               Cleaning List in this module.
+               The default value is idle. If user wants to clean some lists, he
+               can set the value to 2, 3, 4 and 5 to clean the corresponding list.
+               After the operation, the value will return to idle.
+               "
+        DEFVAL        { idle }
+        ::= { hpnicfIpaGlobalStats 8 }
+
+
+-- =============================================================================
+   -- hpnicfIpaIfConfigTable
+   --  enable or disable and show ip accounting function under interface
+
+     hpnicfIpaIfConfigTable OBJECT-TYPE
+         SYNTAX   SEQUENCE OF HpnicfIpaIfConfigEntry
+         MAX-ACCESS   not-accessible
+         STATUS   current
+         DESCRIPTION
+            "
+            Enable or disable the ip accounting inbound/outbound
+            function under a particular interface.
+            "
+         ::= { hpnicfIpa 2 }
+
+    hpnicfIpaIfConfigEntry OBJECT-TYPE
+         SYNTAX   HpnicfIpaIfConfigEntry
+         MAX-ACCESS   not-accessible
+         STATUS   current
+         DESCRIPTION
+            "
+            Entry of the table.
+            "
+         INDEX { hpnicfIpaIfConfigIfIndex }
+         ::= { hpnicfIpaIfConfigTable 1 }
+
+    HpnicfIpaIfConfigEntry ::=
+        SEQUENCE {
+            hpnicfIpaIfConfigIfIndex
+                InterfaceIndex,
+            hpnicfIpaIfConfigInEnable
+                INTEGER,
+            hpnicfIpaIfConfigOutEnable
+                INTEGER,
+            hpnicfIpaIfConfigFWEnable
+                INTEGER
+        }
+
+    hpnicfIpaIfConfigIfIndex OBJECT-TYPE
+        SYNTAX   InterfaceIndex
+        MAX-ACCESS   not-accessible
+        STATUS   current
+        DESCRIPTION
+            "It equals to ifIndex"
+        ::= { hpnicfIpaIfConfigEntry 1 }
+
+    hpnicfIpaIfConfigInEnable OBJECT-TYPE
+        SYNTAX      INTEGER {
+            disabled(1),  -- inbound packets are not accounted in this interface
+            enabled(2)    -- inbound packets are accounted in this interface
+        }
+        MAX-ACCESS  read-write
+        STATUS      current
+
+        DESCRIPTION
+            "
+            This object is applicable to hpnicfIpaIntListTable and hpnicfIpaExtListTable.
+            If the value is disabled, inbound ip packets are not accounted.
+            "
+        DEFVAL        { disabled }
+        ::= { hpnicfIpaIfConfigEntry 2 }
+
+    hpnicfIpaIfConfigOutEnable OBJECT-TYPE
+        SYNTAX      INTEGER {
+            disabled(1),  -- outbound packets are not accounted in this interface
+            enabled(2)    -- outbound packets are accounted in this interface
+        }
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+            "
+            This object is applicable to hpnicfIpaIntListTable and hpnicfIpaExtListTable.
+            If the value is disabled, outbound ip packets are not accounted.
+            "
+        DEFVAL        { disabled }
+        ::= { hpnicfIpaIfConfigEntry 3 }
+
+    hpnicfIpaIfConfigFWEnable OBJECT-TYPE
+        SYNTAX      INTEGER {
+            nodirection(1),
+            inbound(2),
+            outbound(3),
+            bidirection(4)
+        }
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+            "
+            This object is applicable to hpnicfIpaFWListTable only.
+
+            If the value is 'inbound', then inbound ip packets which are denied by firewall
+            are accounted.
+            If the value is 'outbound', then outbound ip packets which were denied by firewall
+            are accounted.
+            If the value is 'nodirection', neither inbound nor outbound ip packets
+            which were denied by firewall are accounted.
+            If the value is 'bidirection', both inbound and outbound ip packets which
+            were denied by firewall are accounted.
+            "
+        DEFVAL        { nodirection }
+        ::= { hpnicfIpaIfConfigEntry 4 }
+
+-- =============================================================================
+     -- hpnicfIpaAccountListTable
+     -- The function of hpnicfIpaAccountListTable is to classify the ip packets
+     -- hpnicfIpaAccountListTable is set and deleted by user
+
+    hpnicfIpaAccountListTable OBJECT-TYPE
+        SYNTAX   SEQUENCE OF HpnicfIpaAccountListEntry
+        MAX-ACCESS   not-accessible
+        STATUS   current
+        DESCRIPTION
+            "
+            The List is used by user to sort packets into two groups
+            by source or destination ip address.
+            When source/destination ip address of a packet matches a item in this table,
+            the packet is accounted in hpnicfIpaIntListTable.
+            When source/destination ip address of a packet does not match any item
+            in this table, the packet is accounted in hpnicfIpaExtListTable.
+            "
+         ::= { hpnicfIpa 3 }
+
+    hpnicfIpaAccountListEntry OBJECT-TYPE
+        SYNTAX   HpnicfIpaAccountListEntry
+        MAX-ACCESS   not-accessible
+        STATUS   current
+        DESCRIPTION
+            "
+            Entry of the table.
+            "
+        INDEX { hpnicfIpaAccountListIndex }
+        ::= { hpnicfIpaAccountListTable 1 }
+
+    HpnicfIpaAccountListEntry ::=
+        SEQUENCE {
+            hpnicfIpaAccountListIndex
+                Integer32,
+            hpnicfIpaAccountListIpAddr
+                IpAddress,
+            hpnicfIpaAccountListIpMask
+                IpAddress,
+            hpnicfIpaAccountListRowStatus
+                RowStatus
+        }
+
+    hpnicfIpaAccountListIndex OBJECT-TYPE
+        SYNTAX   Integer32(1..2147483647)
+        MAX-ACCESS   not-accessible
+        STATUS   current
+        DESCRIPTION
+            "
+            The Index of the table.
+            "
+        ::= { hpnicfIpaAccountListEntry 1 }
+
+    hpnicfIpaAccountListIpAddr OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "
+            The IP address to which this entry's addressing information
+            pertains.
+            "
+        ::= { hpnicfIpaAccountListEntry 2 }
+
+    hpnicfIpaAccountListIpMask OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "
+            The subnet mask associated with the IP address of this
+            entry.  The value of the mask is an IP address with all the
+            network bits set to 1 and all the hosts bits set to 0.
+            "
+        ::= { hpnicfIpaAccountListEntry 3 }
+
+    hpnicfIpaAccountListRowStatus  OBJECT-TYPE
+        SYNTAX RowStatus
+        MAX-ACCESS read-create
+        STATUS current
+        DESCRIPTION
+           "
+           The row status of the entry,
+           Supporting CreateAndGo and Destroy operation.
+           "
+        ::= { hpnicfIpaAccountListEntry 4 }
+
+
+-- =============================================================================
+     -- hpnicfIpaIntListTable
+     -- for showing accounting information of packet not match hpnicfIpaAccountListTable
+
+    hpnicfIpaIntListTable OBJECT-TYPE
+        SYNTAX   SEQUENCE OF HpnicfIpaIntListEntry
+        MAX-ACCESS   not-accessible
+        STATUS   current
+        DESCRIPTION
+            "
+            If matching the ip address recorded in hpnicfIpaAccountListTable
+            and not denied by the firewall, the packets will be accounted
+            in this list.
+            "
+        ::= { hpnicfIpa 4 }
+
+    hpnicfIpaIntListEntry OBJECT-TYPE
+        SYNTAX   HpnicfIpaIntListEntry
+        MAX-ACCESS   not-accessible
+        STATUS   current
+        DESCRIPTION
+            "
+            Entry of the table.
+            "
+        INDEX { hpnicfIpaIntListIpSrc,
+                hpnicfIpaIntListIpDst,
+                hpnicfIpaIntListProtocol
+              }
+        ::= { hpnicfIpaIntListTable 1 }
+
+    HpnicfIpaIntListEntry ::=
+        SEQUENCE {
+            hpnicfIpaIntListIpSrc
+                IpAddress,
+            hpnicfIpaIntListIpDst
+                IpAddress,
+            hpnicfIpaIntListProtocol
+                Integer32,
+            hpnicfIpaIntListInPackets
+                Counter32,
+            hpnicfIpaIntListInBytes
+                Counter64,
+            hpnicfIpaIntListOutPackets
+                Counter32,
+            hpnicfIpaIntListOutBytes
+                Counter64
+        }
+
+    hpnicfIpaIntListIpSrc OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "
+            Source IP-address of these accounted packets.
+            "
+        ::= { hpnicfIpaIntListEntry 1 }
+
+    hpnicfIpaIntListIpDst OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "
+            Destination IP-address of these accounted packets.
+            "
+        ::= { hpnicfIpaIntListEntry 2 }
+
+    hpnicfIpaIntListProtocol OBJECT-TYPE
+        SYNTAX Integer32(0..2147483647)
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "
+            The type of these accounted IP packets defined in RFC 1700.
+            "
+        ::= { hpnicfIpaIntListEntry 3 }
+
+    hpnicfIpaIntListInPackets OBJECT-TYPE
+        SYNTAX      Counter32
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "
+            The number of inbound packets in hpnicfIpaIntListTable.
+            "
+        ::= { hpnicfIpaIntListEntry 4 }
+
+    hpnicfIpaIntListInBytes OBJECT-TYPE
+        SYNTAX      Counter64
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "
+            The number of inbound bytes in hpnicfIpaIntListTable.
+            "
+        ::= { hpnicfIpaIntListEntry 5 }
+
+    hpnicfIpaIntListOutPackets OBJECT-TYPE
+        SYNTAX      Counter32
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "
+            The number of outbound Packets in hpnicfIpaIntListTable.
+            "
+        ::= { hpnicfIpaIntListEntry 6 }
+
+    hpnicfIpaIntListOutBytes OBJECT-TYPE
+        SYNTAX      Counter64
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "
+            The number of outbound bytes in hpnicfIpaIntListTable.
+            "
+        ::= { hpnicfIpaIntListEntry 7 }
+
+-- =============================================================================
+    -- hpnicfIpaExtListTable
+    -- for showing accounting information of packet not match hpnicfIpaAccountListTable
+
+    hpnicfIpaExtListTable OBJECT-TYPE
+        SYNTAX   SEQUENCE OF HpnicfIpaExtListEntry
+        MAX-ACCESS   not-accessible
+        STATUS   current
+        DESCRIPTION
+            "
+            If mismatching the ip address recorded in the hpnicfIpaAccountListTable
+            and not denied by the firewall, the packets will be accounted
+            in this list.
+            "
+        ::= { hpnicfIpa 5 }
+
+    hpnicfIpaExtListEntry OBJECT-TYPE
+        SYNTAX   HpnicfIpaExtListEntry
+        MAX-ACCESS   not-accessible
+        STATUS   current
+        DESCRIPTION
+           "
+           Entry of the table.
+           "
+        INDEX { hpnicfIpaExtListIpSrc,
+                hpnicfIpaExtListIpDst,
+                hpnicfIpaExtListProtocol
+              }
+        ::= { hpnicfIpaExtListTable 1 }
+
+    HpnicfIpaExtListEntry ::=
+        SEQUENCE {
+            hpnicfIpaExtListIpSrc
+                IpAddress,
+            hpnicfIpaExtListIpDst
+                IpAddress,
+            hpnicfIpaExtListProtocol
+                Integer32,
+            hpnicfIpaExtListInPackets
+                Counter32,
+            hpnicfIpaExtListInBytes
+                Counter64,
+            hpnicfIpaExtListOutPackets
+                Counter32,
+            hpnicfIpaExtListOutBytes
+                Counter64
+        }
+
+    hpnicfIpaExtListIpSrc OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "
+            Source IP-address of these accounted packets.
+            "
+        ::= { hpnicfIpaExtListEntry 1 }
+
+    hpnicfIpaExtListIpDst OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "
+            Destination IP-address of these accounted packets.
+            "
+        ::= { hpnicfIpaExtListEntry 2 }
+
+    hpnicfIpaExtListProtocol OBJECT-TYPE
+        SYNTAX Integer32(0..2147483647)
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "
+            The value indicates the value of the 'protocol' field
+            which is part of ip packet header.
+            "
+        ::= { hpnicfIpaExtListEntry 3 }
+
+    hpnicfIpaExtListInPackets OBJECT-TYPE
+        SYNTAX      Counter32
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "
+            The number of inbound packets in hpnicfIpaExtListTable.
+            "
+        ::= { hpnicfIpaExtListEntry 4 }
+
+    hpnicfIpaExtListInBytes OBJECT-TYPE
+        SYNTAX      Counter64
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "
+            The number of inbound bytes in hpnicfIpaExtListTable.
+            "
+        ::= { hpnicfIpaExtListEntry 5 }
+
+    hpnicfIpaExtListOutPackets OBJECT-TYPE
+        SYNTAX      Counter32
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "
+            The number of outbound packets in hpnicfIpaExtListTable.
+            "
+        ::= { hpnicfIpaExtListEntry 6 }
+
+    hpnicfIpaExtListOutBytes OBJECT-TYPE
+        SYNTAX      Counter64
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "
+            The number of outbound bytes in hpnicfIpaExtListTable.
+            "
+        ::= { hpnicfIpaExtListEntry 7 }
+
+-- =============================================================================
+    -- hpnicfIpaFWListTable
+    -- for showing accounting information of packet denied by the firewall
+
+    hpnicfIpaFWListTable OBJECT-TYPE
+        SYNTAX   SEQUENCE OF HpnicfIpaFWListEntry
+        MAX-ACCESS   not-accessible
+        STATUS   current
+        DESCRIPTION
+            "
+            If the packet is denied by the firewall,
+            it will be accounted in this list.
+            "
+        ::= { hpnicfIpa 6 }
+
+    hpnicfIpaFWListEntry OBJECT-TYPE
+        SYNTAX   HpnicfIpaFWListEntry
+        MAX-ACCESS   not-accessible
+        STATUS   current
+        DESCRIPTION
+            "
+            Entry of the table.
+            "
+        INDEX { hpnicfIpaFWListIpSrc,
+                hpnicfIpaFWListIpDst
+              }
+        ::= { hpnicfIpaFWListTable 1 }
+
+    HpnicfIpaFWListEntry ::=
+        SEQUENCE {
+            hpnicfIpaFWListIpSrc
+                IpAddress,
+            hpnicfIpaFWListIpDst
+                IpAddress,
+            hpnicfIpaFWListInPackets
+                Counter32,
+            hpnicfIpaFWListInBytes
+                Counter64,
+            hpnicfIpaFWListOutPackets
+                Counter32,
+            hpnicfIpaFWListOutBytes
+                Counter64
+        }
+
+    hpnicfIpaFWListIpSrc OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+             "
+             Source IP-address of these accounted packets.
+             "
+        ::= { hpnicfIpaFWListEntry 1 }
+
+    hpnicfIpaFWListIpDst OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+             "
+             Destination IP-address of these accounted packets.
+             "
+        ::= { hpnicfIpaFWListEntry 2 }
+
+    hpnicfIpaFWListInPackets OBJECT-TYPE
+        SYNTAX      Counter32
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+             "
+             The number of outbound packets in hpnicfIpaFWListTable.
+             "
+        ::= { hpnicfIpaFWListEntry 3 }
+
+    hpnicfIpaFWListInBytes OBJECT-TYPE
+        SYNTAX      Counter64
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "
+            The number of inbound bytes in hpnicfIpaFWListTable.
+            "
+        ::= { hpnicfIpaFWListEntry 4 }
+
+    hpnicfIpaFWListOutPackets OBJECT-TYPE
+        SYNTAX      Counter32
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "
+            The number of outbound packets in hpnicfIpaFWListTable.
+            "
+        ::= { hpnicfIpaFWListEntry 5 }
+
+   hpnicfIpaFWListOutBytes OBJECT-TYPE
+       SYNTAX      Counter64
+       MAX-ACCESS  read-only
+       STATUS      current
+       DESCRIPTION
+           "
+           The number of outbound bytes in hpnicfIpaFWListTable.
+           "
+       ::= { hpnicfIpaFWListEntry 6 }
+
+END

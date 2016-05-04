@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage web
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -42,12 +42,11 @@ function print_mac_addresses($vars)
           $where .= generate_query_values($value, 'device_id');
           break;
         case 'interface':
-          $where .= ' AND `ifDescr` LIKE ?';
-          $param[] = $value;
+          $where .= generate_query_values($value, 'ifDescr', 'LIKE');
           break;
         case 'address':
-          $where .= ' AND `ifPhysAddress` LIKE ?';
-          $param[] = '%'.str_replace(array(':', ' ', '-', '.', '0x'),'', $value).'%';
+          $value = str_replace(array(':', ' ', '-', '.', '0x'), '', $value);
+          $where .= generate_query_values($value, 'ifPhysAddress', '%LIKE%');
           break;
       }
     }
@@ -72,7 +71,8 @@ function print_mac_addresses($vars)
   $list = array('device' => FALSE);
   if (!isset($vars['device']) || empty($vars['device']) || $vars['page'] == 'search') { $list['device'] = TRUE; }
 
-  $string = '<table class="table table-bordered table-striped table-hover table-condensed">' . PHP_EOL;
+  $string = generate_box_open($vars['header']);
+  $string .= '<table class="table  table-striped table-hover table-condensed">' . PHP_EOL;
   if (!$short)
   {
     $string .= '  <thead>' . PHP_EOL;
@@ -102,7 +102,7 @@ function print_mac_addresses($vars)
       {
         $port_error = generate_port_link($entry, '<span class="label label-important">Errors</span>', 'port_errors');
       }
-      $string .= '    <td class="entity">' . generate_port_link($entry, short_ifname($entry['label'])) . ' ' . $port_error . '</td>' . PHP_EOL;
+      $string .= '    <td class="entity">' . generate_port_link($entry, $entry['port_label_short']) . ' ' . $port_error . '</td>' . PHP_EOL;
       $string .= '    <td style="width: 160px;">' . generate_popup_link('mac', $entry['human_mac']) . '</td>' . PHP_EOL;
       $string .= '    <td>' . $entry['ifAlias'] . '</td>' . PHP_EOL;
       $string .= '  </tr>' . PHP_EOL;
@@ -111,6 +111,7 @@ function print_mac_addresses($vars)
 
   $string .= '  </tbody>' . PHP_EOL;
   $string .= '</table>';
+  $string .= generate_box_close();
 
   // Print pagination header
   if ($pagination) { $string = pagination($vars, $count) . $string . pagination($vars, $count); }

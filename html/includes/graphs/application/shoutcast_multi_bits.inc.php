@@ -7,11 +7,9 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
-
-//$device = device_by_id_cache($data['id']);
 
 $units           = "b";
 $total_units     = "B";
@@ -31,7 +29,8 @@ $colour_line_out = "000099";
 $colour_area_in  = "CDEB8B";
 $colour_area_out = "C3D9FF";
 
-// Not compatible this way with get_rrd_path; as long as no advanced storage is used this will work
+// FIXME Not compatible this way with get_rrd_path; as long as no advanced storage is used this will work
+// Call get_rrd_path below instead of using $rrddir.
 $rrddir          = $config['rrd_dir']."/".$device['hostname'];
 $files           = array();
 $i               = 0;
@@ -54,7 +53,7 @@ foreach ($files as $id => $file)
 {
   $hostname                 = eregi_replace('app-shoutcast-'.$app['app_id'].'-', '', $file);
   $hostname                 = eregi_replace('.rrd', '', $hostname);
-  list($host, $port)        = split('_', $hostname, 2);
+  list($host, $port)        = explode('_', $hostname, 2);
   $rrd_filenames[]          = $rrddir."/".$file;
   $rrd_list[$i]['filename'] = $rrddir."/".$file;
   $rrd_list[$i]['descr']    = $host.":".$port;
@@ -65,4 +64,4 @@ foreach ($files as $id => $file)
 
 include("includes/graphs/generic_multi_bits_separated.inc.php");
 
-?>
+// EOF

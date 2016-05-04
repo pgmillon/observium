@@ -7,12 +7,14 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 if (!empty($agent_data['app']['postgresql']))
 {
+  $app_id = discover_app($device, 'postgresql');
+
   $pgsql = $agent_data['app']['postgresql'];
 
   foreach (explode("\n",$pgsql) as $line)
@@ -21,7 +23,7 @@ if (!empty($agent_data['app']['postgresql']))
     $pgsql_data[trim($item)] = trim($value);
   }
 
-  $rrd_filename = "app-postgresql-".$app['app_id'].".rrd";
+  $rrd_filename = "app-postgresql-$app_id.rrd";
 
   // there are differences between stats in postgresql 8.x and 9.x
   // if $pgsql_data['version']

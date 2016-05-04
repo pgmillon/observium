@@ -7,11 +7,12 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-/// FIXME. From this uses only check_valid_sensors(), maybe need move to global functions or copy to polling. --mike
+// FIXME. From this uses only check_valid_sensors(), maybe need move to global functions or copy to polling. --mike
+// Also check_valid_virtual_machines. We (should) do a lot more discovery through the agent, IMO we should do away with the distinction. --tom
 include_once("includes/discovery/functions.inc.php");
 
 global $valid, $agent_sensors;
@@ -73,6 +74,9 @@ if ($device['os_group'] == "unix")
     {
       list($section, $data) = explode(">>>", $section);
 
+      $sa = '';
+      $sb = '';
+      $sc = '';
       switch ($section)
       {
         // Compatibility with versions of scripts with and without app-
@@ -148,13 +152,9 @@ if ($device['os_group'] == "unix")
         if (file_exists('includes/polling/applications/'.$key.'.inc.php'))
         {
           echo(" ");
-          $app = @dbFetchRow("SELECT * FROM `applications` WHERE `device_id` = ? AND `app_type` = ?", array($device['device_id'],$key));
 
-          if (empty($app))
-          {
-            @dbInsert(array('device_id' => $device['device_id'], 'app_type' => $key, 'app_state' => 'UNKNOWN'), 'applications');
-            echo("+");
-          }
+          // FIXME Currently only used by drbd to get $app['app_instance'] - shouldn't the drbd parser get instances from somewhere else?
+          $app = @dbFetchRow("SELECT * FROM `applications` WHERE `device_id` = ? AND `app_type` = ?", array($device['device_id'],$key));
 
           print_debug('Including: applications/'.$key.'.inc.php');
 
@@ -178,61 +178,6 @@ if ($device['os_group'] == "unix")
       #print_vars($processlist);
       echo("\n");
     }
-
-    // Apache
-    if (!empty($agent_data['app']['apache']))
-    {
-      $app_found['apache'] = TRUE;
-      if (dbFetchCell("SELECT COUNT(*) FROM `applications` WHERE `device_id` = ? AND `app_type` = ?", array($device['device_id'], 'apache')) == "0")
-      {
-        echo("Found new application 'Apache'\n");
-        dbInsert(array('device_id' => $device['device_id'], 'app_type' => 'apache'), 'applications');
-      }
-    }
-
-    // Memcached
-    if (!empty($agent_data['app']['memcached']))
-    {
-      foreach ($agent_data['app']['memcached'] as $memcached_host => $memcached_data)
-      {
-        // Only add if the host has a colon in it, and it doesn't already exist
-        if (strpos($memcached_host, ":") && dbFetchCell("SELECT COUNT(*) FROM `applications` WHERE `device_id` = ? AND `app_type` = ? AND `app_instance` = ?", array($device['device_id'], 'memcached', $memcached_host)) == "0")
-        {
-          echo("Found new application 'Memcached $instance'\n");
-          dbInsert(array('device_id' => $device['device_id'], 'app_type' => 'memcached', 'app_instance' => $memcached_host), 'applications');
-        }
-      }
-    }
-
-    // MySQL
-    if (!empty($agent_data['app']['mysql']))
-    {
-      $app_found['mysql'] = TRUE;
-      if (dbFetchCell("SELECT COUNT(*) FROM `applications` WHERE `device_id` = ? AND `app_type` = ?", array($device['device_id'], 'mysql')) == "0")
-      {
-        echo("Found new application 'MySQL'\n");
-        dbInsert(array('device_id' => $device['device_id'], 'app_type' => 'mysql'), 'applications');
-      }
-    }
-
-    // DRBD
-    if (!empty($agent_data['drbd']))
-    {
-      $agent_data['app']['drbd'] = array();
-      foreach (explode("\n", $agent_data['drbd']) as $drbd_entry)
-      {
-        list($drbd_dev, $drbd_data) = explode(":", $drbd_entry);
-        if (preg_match("/^drbd/", $drbd_dev))
-        {
-          $agent_data['app']['drbd'][$drbd_dev] = $drbd_data;
-          if (dbFetchCell("SELECT COUNT(*) FROM `applications` WHERE `device_id` = ? AND `app_type` = ? AND `app_instance` = ?", array($device['device_id'], 'drbd', $drbd_dev)) == "0")
-          {
-            echo("Found new application 'DRBD' $drbd_dev\n");
-            dbInsert(array('device_id' => $device['device_id'], 'app_type' => 'drbd', 'app_instance' => $drbd_dev), 'applications');
-          }
-        }
-      }
-    }
   }
 
   echo("Sensors: ");
@@ -240,6 +185,10 @@ if ($device['os_group'] == "unix")
   {
     check_valid_sensors($device, $sensor_class, $valid['sensor'], 'agent');
   }
+  echo("\n");
+
+  echo("Virtual machines: ");
+  check_valid_virtual_machines($device, $valid['vm'], 'agent');
   echo("\n");
 }
 

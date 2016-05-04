@@ -1,0 +1,899 @@
+-- ****************************************************************************
+--
+--  This module provides authoritative definitions for Dell Networking OS
+--  Virtual Link Trunk Mib.
+--
+-- ****************************************************************************
+--
+
+F10-VIRTUAL-LINK-TRUNK-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+       MODULE-IDENTITY, 
+       OBJECT-TYPE,
+       NOTIFICATION-TYPE,
+       Counter32,
+       Unsigned32       
+              FROM SNMPv2-SMI
+       MODULE-COMPLIANCE, 
+       OBJECT-GROUP, 
+       NOTIFICATION-GROUP
+              FROM SNMPv2-CONF
+       TEXTUAL-CONVENTION,
+       MacAddress, 
+       TimeInterval
+              FROM SNMPv2-TC
+       InterfaceIndex
+              FROM IF-MIB
+       InetAddressType, 
+       InetAddress
+              FROM INET-ADDRESS-MIB       
+       f10Mgmt
+              FROM FORCE10-SMI;
+
+-- ****************************************************************************
+-- *   MODULE IDENTITY
+-- ****************************************************************************
+
+f10VirtualLinkTrunkMib MODULE-IDENTITY
+
+       LAST-UPDATED         "201211280000Z" 
+       ORGANIZATION         "Dell Inc"
+       CONTACT-INFO
+                            "http://www.force10networks.com/support"
+       DESCRIPTION
+
+              "This MIB module provides information on Dual Brain Virtual Link
+              Trunk(VLT) feature which is a control plane mechanism to provide
+              Layer2 multipathing between access network devices (switches or 
+              servers) and the core network.
+       
+              VLT represents a single logical layer 2 domain from the view of 
+              downstream devices that have LAG bundles terminating on separate
+              chassis in the virtual link trunk domain.
+
+              However, the two VLT chassis are independent L2/L3 switches for 
+              devices in the upstream network.
+
+              A sample of VLT scenario:
+
+              ---------------------------------------------------------------
+              |                       _______________                       |
+              |                      |  Edge router  |                      |
+              |                      |_______________|                      |
+              |                     /                 \                     |
+              |                    /                   \                    |
+              | VLT               /                     \                   |
+              |      ____________/_______________________\____________    . |
+              |     |    _______/      Back Up Link       \_______    |  /|\|
+              |     |   |       |-------------------------|       |   |   | |
+              |     |   |       |         -------         |       |   | L3| |
+              |     |   | S4810 |________| Inter |________| S4810 |   |_____|
+              |     |   |       |________|Chassis|________|       |   | L2| |
+              |     |   |       |        | Link  |        |       |   |   | |
+              | VLT port \_____\          -------          /____/VLT port\|/|  
+              |     |_____\_____\_________________________/____/_____|    . | 
+              |            \     \      -----------------/    /             |
+              |             \     \----/------------         /              |
+              |              \        /             \       /               |
+              |               \      /               \     /                |
+              |Lag(active)<--- \    /                 \   /--->Lag(active)  |
+              |              ___\__/___________________\_/______            |
+              |             |  _______     Stacking   ______    |           |
+              |             | |  S60  |--------------|  S60 |   |           |
+              |             | |__\____|              |____/_|   |           |
+              |             |_____\______________________/______|           |
+              |                    \                    /-->Nic teaming     |
+              |                     \__________________/                    |
+              |                    | Nic1          Nic2 |                   |
+              |                    |       Server       |                   |
+              |                    |____________________|                   |
+              ---------------------------------------------------------------
+              
+              Benefits of VLT are as follows: 
+               > Allows a single device to use LAG across two upstream devices
+               > Eliminates Spanning Tree Protocol (STP) blocked ports
+               > Provides a loop-free topology
+               > Uses all available uplink bandwidth
+               > Provides fast convergence if either the link or a device fails
+               > Provides link-level resiliency
+               > Assures high availability
+              
+                            GLOSSARY AND ABBREVIATIONS
+              
+              VLT - Virtual Link Trunk 
+                     The combined port channel between the VLT peer devices and
+                     the downstream device.
+       
+              VLT Peer device 
+                     One of a pair of devices that are connected with the 
+                     special port channel known as the chassis interconnect 
+                     trunk.
+              
+              VLT Chassis Interconnect Trunk
+                     The link used to synchronize states between the VLT peer 
+                     devices. 
+              
+              VLT domain 
+                     This domain includes both VLT peer devices, the VLT chassis
+                     interconnect trunk, and all of the port channels in the VLT
+                     connected to the downstream devices. 
+       
+              VLT Backup link 
+                     The backup link monitors the vitality of a VLT peer device.
+                     The backup trunk sends configurable, periodic heart beat 
+                     messages between VLT peer devices.
+
+              ICL 
+                     Abbreviation for Chassis InterConnect Link."
+
+       REVISION      "201211280000Z" -- Nov 29, 2012
+       DESCRIPTION
+                     " - Added new objects f10VLTPeerRouting,
+                         f10VLTPeerRoutingTimeout,f10VLTRemotePeerRouting
+                         in f10VirtualLinkTrunkTable
+                       - Added additional error reason peerRoutMismatch
+                         in f10VltErrorReason object"
+
+       REVISION      "201205210000Z" -- May 21, 2012
+       DESCRIPTION
+                     "Added new object f10VLTCfgSysMacAddr in 
+                     f10VirtualLinkTrunkTable"
+                     
+       REVISION      "201205140000Z" -- May 14, 2012
+       DESCRIPTION
+                     "Re arranged MIB objects in the f10VirtualLinkTrunkTable
+                      to make it compatible with older version. Moved the newly
+                      added objects at the bottom"
+
+      
+       REVISION      "201204020000Z" -- April 2, 2012
+       DESCRIPTION 
+                     "Re arrenged the f10VirtualLinkTrunkTable, additional 
+                      objects are added.
+                      - f10VirtualLinkTrunkNotifications added to make 
+                        notifications separate subtree from f10VirtualLinkTrunkMib.
+                      - f10VirtualLinkDetailsTable is added for VLT details.
+                      - f10VLTIclBwUsageExceed, f10VLTDomainConfigError new 
+                        notifications are added.
+                      - Updated the corresponding conformance groups
+                      - Some indentation change"
+
+       REVISION      "201105060000Z" -- May 6, 2011
+       DESCRIPTION 
+                     "Modified MIB OID from 13 to 16."
+
+       REVISION      "201103140000Z" -- March 14, 2011
+       DESCRIPTION   "Initial draft of VLT MIB."
+
+       ::= { f10Mgmt 17 }
+
+f10VirtualLinkTrunkObjects OBJECT IDENTIFIER 
+       ::={ f10VirtualLinkTrunkMib 1 }
+
+f10VirtualLinkTrunkNotifObjects OBJECT IDENTIFIER 
+       ::={ f10VirtualLinkTrunkMib 2 } -- For Notifications
+
+-- Textual Conventions
+
+F10VLTMemberLinkStatus      ::= TEXTUAL-CONVENTION
+       STATUS        current
+       DESCRIPTION
+              "This defines the status of the link.
+              The states are:
+              linkNotEstablished   - Initial State.
+              linkUp               - Link is established and the VLT operations 
+                                     specific to this link are up.
+              linkDown             - Communication with Peer is lost.
+              linkError            - Configuration incompatible."
+       SYNTAX        INTEGER {
+                        linkNotEstablished(0),
+                        linkUp(1),
+                        linkDown(2),
+                        linkError(3)
+                     }
+
+-- ****************************************************************************
+-- Virtual Link Trunk Table
+-- ****************************************************************************
+
+f10VirtualLinkTrunkTable    OBJECT-TYPE
+       SYNTAX               SEQUENCE OF F10VirtualLinkTrunkTableEntry
+       MAX-ACCESS           not-accessible
+       STATUS               current
+       DESCRIPTION 
+              "This table provides the information about Virtual Link Trunks.
+               A row is added to the table when a VLT domain is configured in
+               the device. A row is deleted from the table when the configured
+               VLT domain is removed."
+
+       ::= {f10VirtualLinkTrunkObjects 1 }
+
+f10VirtualLinkTrunkTableEntry      OBJECT-TYPE
+       SYNTAX                      F10VirtualLinkTrunkTableEntry
+       MAX-ACCESS                  not-accessible
+       STATUS                      current
+       DESCRIPTION
+              "Each entry represents information about the specific VLT domain."
+       INDEX           { f10VLTDomainId }
+
+       ::= { f10VirtualLinkTrunkTable 1 }
+
+F10VirtualLinkTrunkTableEntry   ::= 
+       SEQUENCE {
+           f10VLTDomainId               Unsigned32,
+           f10VLTMacAddr                MacAddress,
+           f10VLTPriority               Unsigned32,
+           f10VLTIclIfIndex             InterfaceIndex,
+           f10VLTRole                   INTEGER,
+           f10VLTPeerStatus             INTEGER,
+           f10VLTIclStatus              F10VLTMemberLinkStatus,
+           f10VLTHBeatStatus            F10VLTMemberLinkStatus,
+           f10VLTBkUpIpAddrType         InetAddressType,
+           f10VLTBkUpIpAddr             InetAddress,
+           f10VLTBkUpInterval           TimeInterval,
+           f10VLTRemoteMacAddr          MacAddress,
+           f10VLTRemoteRolePriority     Unsigned32,
+           f10VLTUnitId                 Unsigned32,
+           f10VLTVersionMajor           Unsigned32,
+           f10VLTVersionMinor           Unsigned32,
+           f10VLTRemoteUnitId           Unsigned32,
+           f10VLTRemoteVersionMajor     Unsigned32,
+           f10VLTRemoteVersionMinor     Unsigned32,
+           f10VLTIclBwStatus            INTEGER,
+           f10VLTCfgSysMacAddr          MacAddress,
+           f10VLTPeerRouting            INTEGER,
+           f10VLTPeerRoutingTimeout     TimeInterval,
+           f10VLTRemotePeerRouting      INTEGER
+           }
+
+f10VLTDomainId              OBJECT-TYPE
+       SYNTAX               Unsigned32
+       MAX-ACCESS           read-only
+       STATUS               current
+       DESCRIPTION   
+              "This oject represents the Virtual Link Trunk Domain's id."
+       ::= { f10VirtualLinkTrunkTableEntry 1 }
+
+f10VLTMacAddr               OBJECT-TYPE
+       SYNTAX               MacAddress
+       MAX-ACCESS           read-only 
+       STATUS               current
+       DESCRIPTION
+              " This object represents the MAC Address value assigned to this 
+              Virtual Link Trunk domain."
+       ::= { f10VirtualLinkTrunkTableEntry 2 }
+
+f10VLTPriority              OBJECT-TYPE
+       SYNTAX               Unsigned32(1..65535)
+       MAX-ACCESS           read-only
+       STATUS               current 
+       DESCRIPTION
+              "This object represents the Virtual Link Trunk domain's System
+              Priority value."
+       DEFVAL               { 32768 }
+       ::= { f10VirtualLinkTrunkTableEntry 3 }
+
+f10VLTIclIfIndex            OBJECT-TYPE
+       SYNTAX               InterfaceIndex
+       MAX-ACCESS           read-only
+       STATUS               current
+       DESCRIPTION
+              "This object represents the interface index of the link configured
+              as the Inter Chassis Link for the Virtual Link Trunk domain."
+       ::= { f10VirtualLinkTrunkTableEntry 4 }
+
+             
+f10VLTRole                  OBJECT-TYPE
+       SYNTAX               INTEGER {
+                                standAlone(0),
+                                primary(1),
+                                secondary(2)
+                            }
+       MAX-ACCESS           read-only
+       STATUS               current
+       DESCRIPTION
+              "This object represents the role of the device in the Virtual 
+              Link Trunk domain configured."
+       ::= { f10VirtualLinkTrunkTableEntry 5 }
+
+f10VLTPeerStatus            OBJECT-TYPE
+       SYNTAX               INTEGER {
+                                notEstablished(0),
+                                peerUp(1),
+                                peerDown(2),
+                                linkDown(3)
+                            }
+       MAX-ACCESS           read-only 
+       STATUS               current
+       DESCRIPTION
+              "This object represents the status of the VLT Peer i.e whether
+              it is active, or in disabled/errored state.
+              notEstablished     - set if ICL Link is either in notEstablished 
+                                   status or error status.
+              peerUp             - set if ICL Link is up.
+              peerDown           - set if both ICL link and Backup link are down
+              linkDown           - set if ICL link down and Backup link is up. "
+       ::= { f10VirtualLinkTrunkTableEntry 6 }
+
+f10VLTIclStatus             OBJECT-TYPE
+       SYNTAX               F10VLTMemberLinkStatus
+       MAX-ACCESS           read-only
+       STATUS               current
+       DESCRIPTION
+              "This object represents the state of the IC link aggregation.
+               linkNotEstablished - ICL Hello has not yet started.Initial State.
+               linkUp             - Hello protocol is established and the VLT
+                                    operations are up.
+               linkDown           - Communication with Peer is lost.
+               linkError          - Communication with Peer is established but 
+                                    configuration incompatible."
+       ::= { f10VirtualLinkTrunkTableEntry 7 }
+
+f10VLTHBeatStatus           OBJECT-TYPE
+       SYNTAX               F10VLTMemberLinkStatus
+       MAX-ACCESS           read-only
+       STATUS               current
+       DESCRIPTION
+              "This object represents the status of the heart beat link/backup
+              link.
+              linkNotEstablished - Heartbeat has not yet started. Initial stage.
+              linkUp             - Heartbeat started and Remote is Up. 
+              linkDown           - Heartbeat lost.
+              linkError          - This indicates a configuration error."
+       ::= { f10VirtualLinkTrunkTableEntry 8 }
+
+f10VLTBkUpIpAddrType        OBJECT-TYPE
+       SYNTAX               InetAddressType
+       MAX-ACCESS           read-only
+       STATUS               current
+       DESCRIPTION
+              "This object represents the address family of the Backup link 
+              designated for the Virtual Link Trunk Domain."
+       ::= { f10VirtualLinkTrunkTableEntry 9 }
+
+f10VLTBkUpIpAddr            OBJECT-TYPE
+       SYNTAX               InetAddress
+       MAX-ACCESS           read-only
+       STATUS               current
+       DESCRIPTION
+              "This object represents the Ip address of the backup link."
+       ::= { f10VirtualLinkTrunkTableEntry 10 }
+
+f10VLTBkUpInterval          OBJECT-TYPE
+       SYNTAX               TimeInterval(100..500)
+       MAX-ACCESS           read-only
+       STATUS               current
+       DESCRIPTION   
+              "This object represents the time interval for the VLT heart-beat
+              timer. "      
+       DEFVAL               { 100 }
+       ::= { f10VirtualLinkTrunkTableEntry 11 }
+
+f10VLTRemoteMacAddr         OBJECT-TYPE
+       SYNTAX               MacAddress
+       MAX-ACCESS           read-only
+       STATUS               current
+       DESCRIPTION
+              "This object represents the MAC Address of the Remote system that
+              is part of the VLT Domain."
+       ::= { f10VirtualLinkTrunkTableEntry 12 }
+
+f10VLTRemoteRolePriority    OBJECT-TYPE
+       SYNTAX               Unsigned32(1..65535)
+       MAX-ACCESS           read-only
+       STATUS               current       
+       DESCRIPTION
+              "This object represents the role priority of the Remote System 
+              that is part of the Virtual Link Trunk Domain."
+       DEFVAL               { 32768 }
+       ::= { f10VirtualLinkTrunkTableEntry 13 }
+
+f10VLTUnitId                OBJECT-TYPE
+       SYNTAX               Unsigned32
+       MAX-ACCESS           read-only
+       STATUS               current
+       DESCRIPTION
+              "This object represents the configured unit ID for the Virtual 
+               Link Trunk domain."
+       ::= { f10VirtualLinkTrunkTableEntry 14 }
+             
+f10VLTVersionMajor          OBJECT-TYPE
+       SYNTAX               Unsigned32
+       MAX-ACCESS           read-only
+       STATUS               current
+       DESCRIPTION
+              "This object represents the major version of for the Virtual 
+               Link Trunk domain protocol running."
+       ::= { f10VirtualLinkTrunkTableEntry 15 }
+
+f10VLTVersionMinor          OBJECT-TYPE
+       SYNTAX               Unsigned32
+       MAX-ACCESS           read-only
+       STATUS               current
+       DESCRIPTION
+              "This object represents the minor version of for the Virtual 
+               Link Trunk domain protocol running."
+       ::= { f10VirtualLinkTrunkTableEntry 16 }
+
+f10VLTRemoteUnitId          OBJECT-TYPE
+       SYNTAX               Unsigned32
+       MAX-ACCESS           read-only
+       STATUS               current
+       DESCRIPTION
+              "This object represents the configured unit ID for the Virtual 
+               Link Trunk domain on the remote node."
+       ::= { f10VirtualLinkTrunkTableEntry 17 }
+             
+f10VLTRemoteVersionMajor    OBJECT-TYPE
+       SYNTAX               Unsigned32
+       MAX-ACCESS           read-only
+       STATUS               current
+       DESCRIPTION
+              "This object represents the major version of for the Virtual 
+               Link Trunk domain protocol running on the remote node."
+       ::= { f10VirtualLinkTrunkTableEntry 18 }
+
+f10VLTRemoteVersionMinor    OBJECT-TYPE
+       SYNTAX               Unsigned32
+       MAX-ACCESS           read-only
+       STATUS               current
+       DESCRIPTION
+              "This object represents the minor version of for the Virtual 
+               Link Trunk domain protocol running on the remote node."
+       ::= { f10VirtualLinkTrunkTableEntry 19 }
+
+f10VLTIclBwStatus           OBJECT-TYPE
+       SYNTAX               INTEGER {
+                                belowthreshold(0),
+                                abovethreshold(1)
+                            }
+       MAX-ACCESS           read-only
+       STATUS               current
+       DESCRIPTION
+              "This object represents the status of the VLT ICL Bandwidth usage
+              i.e whether it crosses threshold, or below threshold state.
+              below-threshold    - set if ICL Link BW usage is below 80%
+              above-threshold    - set if ICL link BW usage is above 80%. "
+       ::= { f10VirtualLinkTrunkTableEntry 20 }
+
+f10VLTCfgSysMacAddr         OBJECT-TYPE
+       SYNTAX               MacAddress
+       MAX-ACCESS           read-only 
+       STATUS               current
+       DESCRIPTION
+              " This object represents the System MAC Address value configured  
+              the Virtual Link Trunk domain."
+       ::= { f10VirtualLinkTrunkTableEntry 21 }
+
+f10VLTPeerRouting           OBJECT-TYPE
+       SYNTAX               INTEGER {
+                                disabled(0),
+                                enabled(1)
+                            }
+       MAX-ACCESS           read-only
+       STATUS               current
+       DESCRIPTION
+            "This object represents the state of the VLT Peer routing i.e
+             whether it is enabled or disabled."
+       ::= { f10VirtualLinkTrunkTableEntry 22 }
+
+f10VLTPeerRoutingTimeout    OBJECT-TYPE
+       SYNTAX               TimeInterval(0..65535)
+       MAX-ACCESS           read-only
+       STATUS               current
+       DESCRIPTION   
+              "This object represents the time interval for VLT peer-routing
+              timer, which is configured for removing the local-da of the other
+              peer in case of peer failure."      
+       ::= { f10VirtualLinkTrunkTableEntry 23 }
+
+f10VLTRemotePeerRouting     OBJECT-TYPE
+       SYNTAX               INTEGER {
+                                disabled(0),
+                                enabled(1)
+                            }
+       MAX-ACCESS           read-only
+       STATUS               current
+       DESCRIPTION
+            "This object represents the state of the VLT Peer routing 
+            configured on the remote peer node i.e whether it is enabled or 
+            disabled."
+       ::= { f10VirtualLinkTrunkTableEntry 24 }
+
+-- ****************************************************************************
+-- Virtual Link Statistics Table 
+-- ****************************************************************************
+
+f10VirtualLinkStatsTable   OBJECT-TYPE
+       SYNTAX              SEQUENCE OF F10VirtualLinkStatsTableEntry
+       MAX-ACCESS          not-accessible
+       STATUS              current
+       DESCRIPTION
+              "This table provides the details of the statistical information on
+              traffic traversing port channels to attached devices, Interchassis
+              link, and backup link."
+       ::= { f10VirtualLinkTrunkObjects 2 }
+
+f10VirtualLinkStatsTableEntry      OBJECT-TYPE
+       SYNTAX                      F10VirtualLinkStatsTableEntry
+       MAX-ACCESS                  not-accessible
+       STATUS                      current
+       DESCRIPTION
+              "Each entry is the device specific statistical information on 
+              traffic in the links in VLT domain."
+       AUGMENTS           { f10VirtualLinkTrunkTableEntry }
+       ::= { f10VirtualLinkStatsTable 1 }
+
+F10VirtualLinkStatsTableEntry       ::=
+       SEQUENCE{
+           f10VLTStatNumHelloSent         Counter32,
+           f10VLTStatNumHelloRcvd         Counter32,
+           f10VLTStatNumHbeatSent         Counter32,
+           f10VLTStatNumHbeatRcvd         Counter32,
+           f10VLTStatNumDomainErrors      Counter32,
+           f10VLTStatNumVersionErrors     Counter32
+           }
+
+f10VLTStatNumHelloSent      OBJECT-TYPE
+       SYNTAX               Counter32
+       MAX-ACCESS           read-only
+       STATUS               current
+       DESCRIPTION
+              "The count of Hello Packets sent across the ICL for 
+              synchronization."
+       ::= { f10VirtualLinkStatsTableEntry 1 }
+
+f10VLTStatNumHelloRcvd      OBJECT-TYPE
+       SYNTAX               Counter32
+       MAX-ACCESS           read-only
+       STATUS               current
+       DESCRIPTION 
+              "The count of Hello Packets received from the remote VLT through 
+              the ICL."
+       ::= { f10VirtualLinkStatsTableEntry 2 }
+
+f10VLTStatNumHbeatSent      OBJECT-TYPE
+       SYNTAX               Counter32
+       MAX-ACCESS           read-only
+       STATUS               current
+       DESCRIPTION
+              "The count of periodic Keepalive messages sent by the VLT device
+              to the peer."
+       ::= { f10VirtualLinkStatsTableEntry 3 }
+
+f10VLTStatNumHbeatRcvd      OBJECT-TYPE
+       SYNTAX               Counter32
+       MAX-ACCESS           read-only
+       STATUS               current
+       DESCRIPTION
+              "The count of periodic Keepalive messages received by the VLT 
+              device from the peer."
+       ::= { f10VirtualLinkStatsTableEntry 4 }
+
+f10VLTStatNumDomainErrors   OBJECT-TYPE
+       SYNTAX               Counter32
+       MAX-ACCESS           read-only
+       STATUS               current
+       DESCRIPTION
+             "The count of hello/heartbeat packets dropped by the VLT device 
+             which failed to match the device's VLT domain Id."
+       ::= { f10VirtualLinkStatsTableEntry 5 }
+
+f10VLTStatNumVersionErrors  OBJECT-TYPE
+       SYNTAX               Counter32
+       MAX-ACCESS           read-only
+       STATUS               current
+       DESCRIPTION
+             "The count of hello/heartbeat packets dropped by the VLT device
+             which failed to match the device's VLT message's version."
+       ::= { f10VirtualLinkStatsTableEntry 6 }
+
+-- ****************************************************************************
+-- Virtual Link Trunk Details Table
+-- ****************************************************************************
+
+f10VirtualLinkDetailsTable         OBJECT-TYPE
+       SYNTAX                      SEQUENCE OF F10VirtualLinkDetailsTableEntry
+       MAX-ACCESS                  not-accessible
+       STATUS                      current
+       DESCRIPTION
+              "This table provides the details of port channel information by
+              traversing port channels to attached devices, peer port-channel 
+              ID, status and Active Vlans"
+       ::= { f10VirtualLinkTrunkObjects 3 }
+
+f10VirtualLinkDetailsTableEntry    OBJECT-TYPE
+       SYNTAX                      F10VirtualLinkDetailsTableEntry
+       MAX-ACCESS                  not-accessible
+       STATUS                      current
+       DESCRIPTION
+              "Each entry is the port channel specific information on links
+              between TOR and VLT domain."
+       INDEX           { f10VLTDetailLocalLagID }
+       ::= { f10VirtualLinkDetailsTable 1 }
+
+F10VirtualLinkDetailsTableEntry       ::=
+       SEQUENCE{
+           f10VLTDetailLocalLagID      Unsigned32,
+           f10VLTDetailPeerLagID       Unsigned32,
+           f10VLTDetailLocalStatus     INTEGER,
+           f10VLTDetailPeerStatus      INTEGER
+       }
+
+f10VLTDetailLocalLagID      OBJECT-TYPE
+       SYNTAX               Unsigned32(1..65535)
+       MAX-ACCESS           read-only 
+       STATUS               current
+       DESCRIPTION
+              "The Detail of the vlt local lag ID."
+       ::= { f10VirtualLinkDetailsTableEntry 1 }
+
+f10VLTDetailPeerLagID       OBJECT-TYPE
+       SYNTAX               Unsigned32(1..65535)
+       MAX-ACCESS           read-only
+       STATUS               current
+       DESCRIPTION
+              "The Detail of the vlt peer lag ID"
+       ::= { f10VirtualLinkDetailsTableEntry 2 }
+
+f10VLTDetailLocalStatus     OBJECT-TYPE
+       SYNTAX               INTEGER {
+                                down(0),
+                                up(1)
+                            }
+       MAX-ACCESS           read-only
+       STATUS               current
+       DESCRIPTION
+              "The interface operational status of the vlt local LAG ID"
+       ::= { f10VirtualLinkDetailsTableEntry 3 }
+
+f10VLTDetailPeerStatus      OBJECT-TYPE
+       SYNTAX               INTEGER {
+                                down(0),
+                                up(1)
+                            }
+       MAX-ACCESS           read-only
+       STATUS               current
+       DESCRIPTION
+              "The interface operational status of the vlt peer LAG ID."
+       ::= { f10VirtualLinkDetailsTableEntry 4 }
+
+-- This object is for f10VLTDomainConfigError Trap/Notification
+
+f10VLTErrorReason          OBJECT-TYPE 
+       SYNTAX              INTEGER {
+                               noError(1),
+                               domainIdMismatch(2),
+                               unitIdMismatch(3),
+                               versionMismatch(4),
+                               sysMacMismatch(5),
+                               peerRoutingMismatch(6)
+                           }
+       MAX-ACCESS          accessible-for-notify
+       STATUS              current
+       DESCRIPTION
+              "This object represents the VLT domain config error,the possible
+               errors are:
+              noError             - No Error.
+              domainIdMismatch    - local and remote vlt domain Id mismatch.
+              unitIdMismatch      - local or remote vlt Unit Id is Identical or 
+                                    not configured.
+              versionMismatch     - local and remote vlt version does not meet
+                                    criteria for peer UP.
+              sysMacMismatch      - local and remote vlt system MAC mismatch.
+              peerRoutingMismatch - local and remote vlt peer-routing config
+                                    mismatch"
+       ::= { f10VirtualLinkTrunkObjects 4}
+
+-- ****************************************************************************
+-- * Virtual link Trunk Alarms and Notifications
+-- ****************************************************************************
+
+f10VirtualLinkTrunkNotifications OBJECT IDENTIFIER 
+       ::={ f10VirtualLinkTrunkNotifObjects 0 } -- For Notifications
+
+f10VLTRoleChange            NOTIFICATION-TYPE
+       OBJECTS              { 
+                                f10VLTRole 
+                            }
+       STATUS               current
+       DESCRIPTION 
+              "The agent generates this norification to denote the change in 
+              role of the VLT device in the VLT domain. This notification 
+              carries the information about the new role.
+              The possible roles are as follows:
+              1. StandAlone
+              2. Primary
+              3. Secondary"
+       ::= { f10VirtualLinkTrunkNotifications 1 }
+
+f10VLTIclStatusChange       NOTIFICATION-TYPE
+       OBJECTS              { 
+                                f10VLTIclStatus 
+                            }
+       STATUS               current
+       DESCRIPTION
+              "The agent generates this notification to denote the change in 
+              InterConnect Link Status.The notification contains information on
+              the new ICL status. The possible states are as follows:
+              1. NotEstabished
+              2. LinkUp
+              3. LinkDown
+              4. LinkError"
+       ::= { f10VirtualLinkTrunkNotifications 2 }
+
+f10VLTPeerStatusChange      NOTIFICATION-TYPE
+       OBJECTS              {
+                                f10VLTPeerStatus
+                            }
+       STATUS               current
+       DESCRIPTION
+              "The agent generates this notification to denote the change in
+              Status of the Peer in the VLT domain. This notification contains 
+              information on the new status of the peer device. The possible 
+              states are as follows: 
+              1. NotEstablished
+              2. PeerUp
+              3. PeerDown
+              4. LinkDown"
+       ::= { f10VirtualLinkTrunkNotifications 3 }
+
+f10VLTHBeatStatusChange     NOTIFICATION-TYPE
+       OBJECTS              {
+                                f10VLTHBeatStatus
+                            }
+       STATUS               current
+       DESCRIPTION
+              "The agent generates this notification to denote the change in
+              Backup Link Status. The notification contains information on
+              the new BackupLink Status. The possible states are as follows:
+              1. NotEstabished
+              2. LinkUp
+              3. LinkDown
+              4. LinkError"
+       ::= { f10VirtualLinkTrunkNotifications 4 }
+
+f10VLTIclBwUsageExceed      NOTIFICATION-TYPE
+        OBJECTS             {
+                                f10VLTIclIfIndex,
+                                f10VLTIclBwStatus
+                            }
+        STATUS              current
+        DESCRIPTION
+               "The IFM agent generates this notification to denote the change
+               in Bandwidth usage of ICL Link, when it crosses the threshold
+               above 80 %. The possible states are as follows:
+               0. Below threshold
+               1. Above threshold"
+        ::= { f10VirtualLinkTrunkNotifications 5 }
+
+f10VLTDomainConfigError     NOTIFICATION-TYPE
+       OBJECTS              {
+                                f10VLTErrorReason
+                            }
+       STATUS               current
+       DESCRIPTION
+              "The agent generates this notification to denote there is a 
+               error/conflict in the VLT domain config parameters (either 
+               locally or in remote node which prevent the peer up. The mismatch
+               can be domain Id, unitId,version or system MAC. The notification 
+               contains information on the error/mismatch type."
+       ::= { f10VirtualLinkTrunkNotifications 6 }
+
+-- ****************************************************************************
+-- Conformance Information
+-- ****************************************************************************
+
+f10VirtualLinkTrunkConformance     OBJECT IDENTIFIER 
+       ::= { f10VirtualLinkTrunkMib 3 }
+       
+f10VirtualLinkTrunkCompliances     OBJECT IDENTIFIER
+       ::= { f10VirtualLinkTrunkConformance 1 }
+       
+f10VirtualLinkTrunkGroups          OBJECT IDENTIFIER
+       ::= { f10VirtualLinkTrunkConformance 2 }
+
+-- ****************************************************************************
+-- * Compliance Statements
+-- ****************************************************************************
+
+f10VirtualLinkTrunkCompliance   MODULE-COMPLIANCE
+       STATUS                   current
+       DESCRIPTION
+              "The compliance statement for the Dell Networking OS Virtual Link Trunk MIB."
+       MODULE  
+       MANDATORY-GROUPS { 
+                     f10VirtualLinkTrunkGroup,
+                     f10VirtualLinkStatisticsGroup,
+                     f10VirtualLinkNotificationGroup,
+                     f10VirtualLinkDetailsTableGroup
+              }
+       ::= { f10VirtualLinkTrunkCompliances 1}
+       
+-- ****************************************************************************
+-- Units of Conformance
+-- ****************************************************************************
+
+f10VirtualLinkTrunkGroup OBJECT-GROUP
+       OBJECTS {
+           f10VLTDomainId,
+           f10VLTMacAddr,
+           f10VLTPriority,
+           f10VLTIclIfIndex,
+           f10VLTRole,
+           f10VLTPeerStatus,
+           f10VLTIclStatus,
+           f10VLTHBeatStatus,
+           f10VLTBkUpIpAddrType,
+           f10VLTBkUpIpAddr,
+           f10VLTBkUpInterval,
+           f10VLTRemoteMacAddr,
+           f10VLTRemoteRolePriority,
+           f10VLTUnitId,
+           f10VLTVersionMajor,
+           f10VLTVersionMinor,
+           f10VLTRemoteUnitId,
+           f10VLTRemoteVersionMajor,
+           f10VLTRemoteVersionMinor,
+           f10VLTIclBwStatus,
+           f10VLTCfgSysMacAddr,
+           f10VLTPeerRouting,
+           f10VLTPeerRoutingTimeout,
+           f10VLTRemotePeerRouting,
+           f10VLTErrorReason --No Separate group added for this object.
+       }
+       STATUS               current
+       DESCRIPTION
+              "This group represents a collection of objects providing the 
+              overall VLT information."
+       ::= { f10VirtualLinkTrunkGroups 1 }
+
+f10VirtualLinkStatisticsGroup   OBJECT-GROUP
+      OBJECTS {
+          f10VLTStatNumHelloSent,
+          f10VLTStatNumHelloRcvd,
+          f10VLTStatNumHbeatSent,
+          f10VLTStatNumHbeatRcvd,
+          f10VLTStatNumDomainErrors,
+          f10VLTStatNumVersionErrors
+      }
+      STATUS                    current
+      DESCRIPTION 
+             "This group represents a collection of objects providing the 
+             overall statistical information on the VLT."
+      ::= { f10VirtualLinkTrunkGroups 2 }
+
+f10VirtualLinkNotificationGroup NOTIFICATION-GROUP
+       NOTIFICATIONS {
+           f10VLTRoleChange,
+           f10VLTIclStatusChange,
+           f10VLTPeerStatusChange,
+           f10VLTHBeatStatusChange,
+           f10VLTIclBwUsageExceed,
+           f10VLTDomainConfigError
+       }
+       STATUS               current
+       DESCRIPTION
+              "A collection of notification objects for the Dell Networking OS VLT mib"
+       ::= { f10VirtualLinkTrunkGroups 3 }
+
+f10VirtualLinkDetailsTableGroup    OBJECT-GROUP
+      OBJECTS {
+          f10VLTDetailLocalLagID,
+          f10VLTDetailPeerLagID,
+          f10VLTDetailLocalStatus,
+          f10VLTDetailPeerStatus
+      }
+      STATUS                    current
+      DESCRIPTION
+             "This group represents a collection of objects providing the
+             LAG details on the VLT."
+      ::= { f10VirtualLinkTrunkGroups 4 }
+
+-- ****************************************************************************
+-- End of Units of conformance
+-- ****************************************************************************
+
+END
+

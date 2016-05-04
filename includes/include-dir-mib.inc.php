@@ -7,8 +7,8 @@
  *
  * @package    observium
  * @subpackage common
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -30,6 +30,8 @@ if (isset($config['os'][$device['os']]['detect']) && $config['os'][$device['os']
 
 // This is an include so that we don't lose variable scope.
 
+$include_lib = isset($include_lib) && $include_lib;
+
 foreach (get_device_mibs($device) as $mib)
 {
   $inc_dir  = $config['install_dir'] . '/' . $include_dir . '/' . strtolower($mib);
@@ -40,7 +42,14 @@ foreach (get_device_mibs($device) as $mib)
     if (is_file($inc_file))
     {
       if (OBS_DEBUG) { echo("[[$mib]]"); }
+
       include($inc_file);
+
+      if ($include_lib && is_file($inc_dir . '.lib.php'))
+      {
+        // separated functions include, for exclude fatal redeclare errors
+        include_once($inc_dir . '.lib.php');
+      }
     }
     else if (is_dir($inc_dir))
     {
@@ -52,10 +61,15 @@ foreach (get_device_mibs($device) as $mib)
           include($dir_file);
         }
       }
+      if ($include_lib && is_file($inc_dir . '.lib.php'))
+      {
+        // separated functions include, for exclude fatal redeclare errors
+        include_once($inc_dir . '.lib.php');
+      }
     }
   }
 }
 
-unset($include_dir, $inc_file, $inc_dir, $dir_file, $mib);
+unset($include_dir, $include_lib, $inc_file, $inc_dir, $dir_file, $mib);
 
 // EOF

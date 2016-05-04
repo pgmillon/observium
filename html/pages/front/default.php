@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage web
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -18,7 +18,10 @@ foreach ($config['frontpage']['order'] as $module)
   switch ($module)
   {
     case "status_summary":
-      include("includes/status-summary.inc.php");
+      $div_class = "col-md-6"; // Class for each block
+      echo('<div class="row hidden-xl">' . PHP_EOL); // Moved on XL screen to panel side
+      include($config['html_dir']."/includes/status-summary.inc.php");
+      echo('</div>' . PHP_EOL);
       break;
     case "map":
       show_map($config);
@@ -37,6 +40,15 @@ foreach ($config['frontpage']['order'] as $module)
       break;
     case "custom_traffic":
       show_customtraffic($config);
+      break;
+    case "alert_table":
+
+      print_alert_table(array('status' => 'failed', 'pagination' => FALSE, 'short' => TRUE,
+                              'header' => array('title' => 'Current Alerts',
+                                                'url' => '/alerts/'
+                                                )
+                       ));
+
       break;
     case "splitlog":
       show_splitlog($config);
@@ -59,8 +71,10 @@ foreach ($config['frontpage']['order'] as $module)
 function show_map($config)
 {
   ?>
-<div class="row" style="margin-bottom: 10px;">
-  <div class="col-md-12">
+<div class="row">
+  <div class="col-sm-12">
+
+  <div class="box box-solid">
 
   <style type="text/css">
     #chart_div label { width: auto; display:inline; }
@@ -68,6 +82,8 @@ function show_map($config)
   </style>
   <!-- <div id="reset" style="width: 100%; text-align: right;"><input type="button" onclick="resetMap();" value="Reset Map" /></div> -->
   <div id="chart_div" style="height: <?php echo($config['frontpage']['map']['height']); ?>px;"></div>
+
+  </div>
 
 <?php
   switch ($config['frontpage']['map']['api'])
@@ -81,19 +97,17 @@ function show_map($config)
       break;
   }
 
-  if (is_file("includes/map/$map.inc.php"))
+  if (is_file($config['html_dir']."/includes/map/$map.inc.php"))
   {
-    include("includes/map/$map.inc.php");
+    include($config['html_dir']."/includes/map/$map.inc.php");
   } else {
     print_error("Unknown map type: $map");
   }
-
 ?>
   </div>
 </div>
 <?php
-}
-  // End show_map
+} // End show_map
 
   function show_traffic($config)
   {
@@ -120,16 +134,16 @@ function show_map($config)
       {
         $links['transit']      = generate_url(array("page" => "iftype", "type" => "transit"));
         $ports['transit_list'] = implode(',', $ports['transit']);
-        echo('  <div class="col-md-6 ">');
+        echo('  <div class="col-sm-6 ">');
         echo('    <h3><a href="/iftype/type=transit">Overall Transit Traffic Today</a></h3>');
-        echo('    <a href="'.$links['transit'].'"><img src="graph.php?type=multiport_bits_separate&amp;id='.$ports['transit_list'].'&amp;legend=no&amp;from='.$config['time']['day'].'&amp;to='.$config['time']['now'].'&amp;width=480&amp;height=100" alt="" /></a>');
+        echo('    <a href="'.$links['transit'].'"><img src="graph.php?type=multi-port_bits_separate&amp;id='.$ports['transit_list'].'&amp;legend=no&amp;from='.$config['time']['day'].'&amp;to='.$config['time']['now'].'&amp;width=480&amp;height=100" alt="" /></a>');
         echo('  </div>');
 
         if (empty($ports['peering']))
         {
-          echo('  <div class="col-md-6 ">');
+          echo('  <div class="col-sm-6 ">');
           echo('    <h3><a href="/iftype/type=transit">Overall Transit Traffic This Week</a></h3>');
-          echo('    <a href="'.$links['transit'].'"><img src="graph.php?type=multiport_bits_separate&amp;id='.$ports['transit_list'].'&amp;legend=no&amp;from='.$config['time']['week'].'&amp;to='.$config['time']['now'].'&amp;width=480&amp;height=100" alt="" /></a>');
+          echo('    <a href="'.$links['transit'].'"><img src="graph.php?type=multi-port_bits_separate&amp;id='.$ports['transit_list'].'&amp;legend=no&amp;from='.$config['time']['week'].'&amp;to='.$config['time']['now'].'&amp;width=480&amp;height=100" alt="" /></a>');
           echo('  </div>');
         }
       }
@@ -138,16 +152,16 @@ function show_map($config)
       {
         $links['peering']      = generate_url(array("page" => "iftype", "type" => "peering"));
         $ports['peering_list'] = implode(',', $ports['peering']);
-        echo('  <div class="col-md-6 ">');
+        echo('  <div class="col-sm-6 ">');
         echo('    <h3><a href="/iftype/type=peering">Overall Peering Traffic Today</a></h3>');
-        echo('    <a href="'.$links['peering'].'"><img src="graph.php?type=multiport_bits_separate&amp;id='.$ports['peering_list'].'&amp;legend=no&amp;from='.$config['time']['day'].'&amp;to='.$config['time']['now'].'&amp;width=480&amp;height=100" alt="" /></a>');
+        echo('    <a href="'.$links['peering'].'"><img src="graph.php?type=multi-port_bits_separate&amp;id='.$ports['peering_list'].'&amp;legend=no&amp;from='.$config['time']['day'].'&amp;to='.$config['time']['now'].'&amp;width=480&amp;height=100" alt="" /></a>');
         echo('  </div>');
 
         if (empty($ports['transit']))
         {
-          echo('  <div class="col-md-6 ">');
+          echo('  <div class="col-sm-6 ">');
           echo('    <h3><a href="/iftype/type=peering">Overall Peering Traffic This Week</a></h3>');
-          echo('    <a href="'.$links['peering'].'"><img src="graph.php?type=multiport_bits_separate&amp;id='.$ports['peering_list'].'&amp;legend=no&amp;from='.$config['time']['week'].'&amp;to='.$config['time']['now'].'&amp;width=480&amp;height=100" alt="" /></a>');
+          echo('    <a href="'.$links['peering'].'"><img src="graph.php?type=multi-port_bits_separate&amp;id='.$ports['peering_list'].'&amp;legend=no&amp;from='.$config['time']['week'].'&amp;to='.$config['time']['now'].'&amp;width=480&amp;height=100" alt="" /></a>');
           echo('  </div>');
         }
       }
@@ -158,54 +172,53 @@ function show_map($config)
       {
         $links['peer_trans']  = generate_url(array("page" => "iftype", "type" => "peering,transit"));
         echo('<div class="row">');
-        echo('  <div class="col-md-12">');
+        echo('  <div class="col-sm-12">');
         echo('    <h3><a href="/iftype/type=transit%2Cpeering">Overall Transit &amp; Peering Traffic This Month</a></h3>');
-        echo('    <a href="'.$links['peer_trans'].'"><img src="graph.php?type=multiport_bits_duo_separate&amp;id='.$ports['peering_list'].'&amp;idb='.$ports['transit_list'].'&amp;legend=no&amp;from='.$config['time']['month'].'&amp;to='.$config['time']['now'].'&amp;width=1100&amp;height=200" alt="" /></a>');
+        echo('    <a href="'.$links['peer_trans'].'"><img src="graph.php?type=multi-port_bits_duo_separate&amp;id='.$ports['peering_list'].'&amp;idb='.$ports['transit_list'].'&amp;legend=no&amp;from='.$config['time']['month'].'&amp;to='.$config['time']['now'].'&amp;width=1100&amp;height=200" alt="" /></a>');
         echo('  </div>');
         echo('</div>');
       }
       else if ($ports['transit_list'] && !$ports['peering_list'])
       {
         echo('<div class="row">');
-        echo('  <div class="col-md-12">');
+        echo('  <div class="col-sm-12">');
         echo('    <h3><a href="/iftype/type=transit">Overall Transit Traffic This Month</a></h3>');
-        echo('    <a href="'.$links['transit'].'"><img src="graph.php?type=multiport_bits_separate&amp;id='.$ports['transit_list'].'&amp;legend=no&amp;from='.$config['time']['month'].'&amp;to='.$config['time']['now'].'&amp;width=1100&amp;height=200" alt="" /></a>');
+        echo('    <a href="'.$links['transit'].'"><img src="graph.php?type=multi-port_bits_separate&amp;id='.$ports['transit_list'].'&amp;legend=no&amp;from='.$config['time']['month'].'&amp;to='.$config['time']['now'].'&amp;width=1100&amp;height=200" alt="" /></a>');
         echo('  </div>');
         echo('</div>');
       }
       else if (!$ports['transit_list'] && $ports['peering_list'])
       {
         echo('<div class="row">');
-        echo('  <div class="col-md-12">');
+        echo('  <div class="col-sm-12">');
         echo('    <h3><a href="/iftype/type=peering">Overall Peering Traffic This Month</a></h3>');
-        echo('    <a href="'.$links['peering'].'"><img src="graph.php?type=multiport_bits_separate&amp;id='.$ports['peering_list'].'&amp;legend=no&amp;from='.$config['time']['month'].'&amp;to='.$config['time']['now'].'&amp;width=1100&amp;height=200" alt="" /></a>');
+        echo('    <a href="'.$links['peering'].'"><img src="graph.php?type=multi-port_bits_separate&amp;id='.$ports['peering_list'].'&amp;legend=no&amp;from='.$config['time']['month'].'&amp;to='.$config['time']['now'].'&amp;width=1100&amp;height=200" alt="" /></a>');
         echo('  </div>');
         echo('</div>');
       }
     }
-  }
-  // End show_traffic
+  } // End show_traffic
 
   function show_customtraffic($config)
   {
-  // Show Custom Traffic
+    // Show Custom Traffic
     if ($_SESSION['userlevel'] >= '5')
     {
       $config['frontpage']['custom_traffic']['title'] = (empty($config['frontpage']['custom_traffic']['title']) ? "Custom Traffic" : $config['frontpage']['custom_traffic']['title']);
       echo('<div class="row">');
-      echo('  <div class="col-md-6 ">');
+      echo('  <div class="col-sm-6 ">');
       echo('    <h3 class="bill">'.$config['frontpage']['custom_traffic']['title'].' Today</h3>');
-      echo('    <img src="graph.php?type=multiport_bits&amp;id='.$config['frontpage']['custom_traffic']['ids'].'&amp;legend=no&amp;from='.$config['time']['day'].'&amp;to='.$config['time']['now'].'&amp;width=480&amp;height=100" alt="" />');
+      echo('    <img src="graph.php?type=multi-port_bits&amp;id='.$config['frontpage']['custom_traffic']['ids'].'&amp;legend=no&amp;from='.$config['time']['day'].'&amp;to='.$config['time']['now'].'&amp;width=480&amp;height=100" alt="" />');
       echo('  </div>');
-      echo('  <div class="col-md-6 ">');
+      echo('  <div class="col-sm-6 ">');
       echo('    <h3 class="bill">'.$config['frontpage']['custom_traffic']['title'].' This Week</h3>');
-      echo('    <img src="graph.php?type=multiport_bits&amp;id='.$config['frontpage']['custom_traffic']['ids'].'&amp;legend=no&amp;from='.$config['time']['week'].'&amp;to='.$config['time']['now'].'&amp;width=480&amp;height=100" alt="" />');
+      echo('    <img src="graph.php?type=multi-port_bits&amp;id='.$config['frontpage']['custom_traffic']['ids'].'&amp;legend=no&amp;from='.$config['time']['week'].'&amp;to='.$config['time']['now'].'&amp;width=480&amp;height=100" alt="" />');
       echo('  </div>');
       echo('</div>');
       echo('<div class="row">');
-      echo('  <div class="col-md-12 ">');
+      echo('  <div class="col-sm-12 ">');
       echo('    <h3 class="bill">'.$config['frontpage']['custom_traffic']['title'].' This Month</h3>');
-      echo('    <img src="graph.php?type=multiport_bits&amp;id='.$config['frontpage']['custom_traffic']['ids'].'&amp;legend=no&amp;from='.$config['time']['month'].'&amp;to='.$config['time']['now'].'&amp;width=1100&amp;height=200" alt="" />');
+      echo('    <img src="graph.php?type=multi-port_bits&amp;id='.$config['frontpage']['custom_traffic']['ids'].'&amp;legend=no&amp;from='.$config['time']['month'].'&amp;to='.$config['time']['now'].'&amp;width=1100&amp;height=200" alt="" />');
       echo('  </div>');
       echo('</div>');
     }
@@ -217,9 +230,11 @@ function show_map($config)
     if ($_SESSION['userlevel'] >= '5')
     {
       $minigraphs = explode(';', $config['frontpage']['minigraphs']['ids']);
+      $width = $config['frontpage']['minigraphs']['width'];
+      $height = $config['frontpage']['minigraphs']['height'];
       $legend = (($config['frontpage']['minigraphs']['legend'] == false) ? 'no' : 'yes');
       echo('<div class="row">');
-      echo('  <div class="col-md-12">');
+      echo('  <div class="col-sm-12">');
       if ($config['frontpage']['minigraphs']['title'])
       {
         echo('    <h3 class="bill">'.$config['frontpage']['minigraphs']['title'].'</h3>');
@@ -227,16 +242,22 @@ function show_map($config)
 
       foreach ($minigraphs as $graph)
       {
+        if (!$graph) { continue; } // Skip empty graphs from excess semicolons
         list($device, $type, $header) = explode(',', $graph, 3);
         if (strpos($type, 'device') === false)
         {
-          $links = generate_url(array('page' => 'graphs', 'type' => $type, 'id' => $device));
+          if (strpos($type, 'multi') !== false) // Copy/pasted id= from multi graph url works, prevents broken uri
+          {
+            $links = generate_url(array('page' => 'graphs', 'type' => $type, 'id' => urldecode($device)));
+          } else {
+            $links = generate_url(array('page' => 'graphs', 'type' => $type, 'id' => $device));
+          }
           //, 'from' => $config['time']['day'], 'to' => $config['time']['now']));
-          echo('    <div class="pull-left"><p style="text-align: center; margin-bottom: 0px;"><strong>'.$header.'</strong></p><a href="'.$links.'"><img src="graph.php?type='.$type.'&amp;id='.$device.'&amp;legend='.$legend.'&amp;from='.$config['time']['day'].'&amp;to='.$config['time']['now'].'&amp;width=215&amp;height=100"/></a></div>');
+          echo('    <div class="pull-left"><p style="text-align: center; margin-bottom: 0px;"><strong>'.$header.'</strong></p><a href="'.$links.'"><img src="graph.php?type='.$type.'&amp;id='.$device.'&amp;legend='.$legend.'&amp;from='.$config['time']['day'].'&amp;to='.$config['time']['now'].'&amp;width='.$width.'&amp;height='.$height.'"/></a></div>');
         } else {
           $links = generate_url(array('page' => 'graphs', 'type' => $type, 'device' => $device));
           //, 'from' => $config['time']['day'], 'to' => $config['time']['now']));
-          echo('    <div class="pull-left"><p style="text-align: center; margin-bottom: 0px;"><strong>'.$header.'</strong></p><a href="'.$links.'"><img src="graph.php?type='.$type.'&amp;device='.$device.'&amp;legend='.$legend.'&amp;from='.$config['time']['day'].'&amp;to='.$config['time']['now'].'&amp;width=215&amp;height=100"/></a></div>');
+          echo('    <div class="pull-left"><p style="text-align: center; margin-bottom: 0px;"><strong>'.$header.'</strong></p><a href="'.$links.'"><img src="graph.php?type='.$type.'&amp;device='.$device.'&amp;legend='.$legend.'&amp;from='.$config['time']['day'].'&amp;to='.$config['time']['now'].'&amp;width='.$width.'&amp;height='.$height.'"/></a></div>'); // Apply custom dimensions to device graphs
         }
       }
 
@@ -254,8 +275,8 @@ function show_map($config)
       $width = $config['frontpage']['micrograph_settings']['width'];
       $height = $config['frontpage']['micrograph_settings']['height'];
       echo('<div class="row">');
-      echo('  <div class="col-md-12">');
-      echo('  <table class="table table-bordered table-condensed-more table-rounded">');
+      echo('  <div class="col-sm-12">');
+      echo('  <table class="box box-solid table  table-condensed-more table-rounded">');
       echo('    <tbody>');
       foreach ($config['frontpage']['micrographs'] as $row)
       {
@@ -270,15 +291,22 @@ function show_map($config)
         echo('      <td>');
         foreach ($micrographs as $graph)
         {
+          if (!$graph) { continue; } // Skip empty graphs from excess semicolons
           list($device, $type, $header) = explode(',', $graph, 3);
           if (strpos($type, 'device') === false)
           {
             $which = 'id';
+            if (strpos($type, 'multi') !== false) // Copy/pasted id= from multi graph url works, prevents broken uri
+            {
+              $links = generate_url(array('page' => 'graphs', 'type' => $type, 'id' => urldecode($device)));
+            } else {
+              $links = generate_url(array('page' => 'graphs', 'type' => $type, 'id' => $device));
+            }
           } else {
             $which = 'device';
+            $links = generate_url(array('page' => 'graphs', 'type' => $type, 'device' => $device));
           }
 
-          $links = generate_url(array('page' => 'graphs', 'type' => $type, $which => $device));
           echo('<div class="pull-left">');
           if ($header)
           {
@@ -304,19 +332,17 @@ function show_map($config)
   function show_status($config)
   {
     // Show Status
-    echo('<div class="row">' . PHP_EOL);
-    echo('  <div class="col-md-12">' . PHP_EOL);
-    echo('    <h3><a href="/alerts/">Device Alerts</a></h3>' . PHP_EOL);
+
+    echo generate_box_open(array('title' => '<a href="/alerts/">Device Status Notifications</a>', 'header-border' => TRUE));
     print_status($config['frontpage']['device_status']);
-    echo('  </div>' . PHP_EOL);
-    echo('</div>' . PHP_EOL);
+    echo generate_box_close();
   } // End show_status
 
   function show_status_boxes($config)
   {
     // Show Status Boxes
     echo('<div class="row">' . PHP_EOL);
-    echo('  <div class="col-md-12" style="padding-right: 0px;">' . PHP_EOL);
+    echo('  <div class="col-sm-12" style="padding-right: 0px;">' . PHP_EOL);
     print_status_boxes($config['frontpage']['device_status']);
     echo('  </div>' . PHP_EOL);
     echo('</div>' . PHP_EOL);
@@ -325,38 +351,32 @@ function show_map($config)
   function show_syslog($config)
   {
     // Show syslog
-    echo('<div class="row">' . PHP_EOL);
-    echo('  <div class="col-md-12 ">' . PHP_EOL);
-    echo('    <h3><a href="/syslog/">Recent Syslog Messages</a></h3>' . PHP_EOL);
-    print_syslogs(array('short' => TRUE, 'pagesize' => $config['frontpage']['syslog']['items'], 'priority' => $config['frontpage']['syslog']['priority']));
-    echo('  </div>' . PHP_EOL);
-    echo('</div>' . PHP_EOL);
+
+    print_syslogs(array('short' => TRUE, 'pagesize' => $config['frontpage']['syslog']['items'], 'priority' => $config['frontpage']['syslog']['priority'],
+                        'header' => array('url' => '/syslog/', 'title' => 'Recent Syslog Messages', 'header-border' => TRUE)));
+
   } // End show_syslog
 
   function show_eventlog($config)
   {
-    // Show eventlog
-    echo('<div class="row">' . PHP_EOL);
-    echo('  <div class="col-md-12">' . PHP_EOL);
-    echo('    <h3><a href="/eventlog/">Recent Eventlog Entries</a></h3>' . PHP_EOL);
-    print_events(array('short' => TRUE, 'pagesize' => $config['frontpage']['eventlog']['items']));
-    echo('  </div>' . PHP_EOL);
-    echo('</div>' . PHP_EOL);
+    print_events(array('short' => TRUE, 'pagesize' => $config['frontpage']['eventlog']['items'], 'severity' => $config['frontpage']['eventlog']['severity'],
+                       'header' => array('url' => '/eventlog/', 'title' => 'Recent Events', 'header-border' => TRUE)));
+
   } // End show_eventlog
 
   function show_splitlog($config)
   {
-    //Show syslog and eventlog
-    echo('<div class="row">' . PHP_EOL);
-    echo('  <div class="col-md-6">' . PHP_EOL);
-    echo('    <h3><a href="/eventlog/">Recent Eventlog Entries</a></h3>' . PHP_EOL);
-    print_events(array('short' => true, 'pagesize' => $config['frontpage']['eventlog']['items']));
-    echo('  </div>' . PHP_EOL);
-    echo('  <div class="col-md-6">' . PHP_EOL);
-    echo('    <h3 class="bill"><a href="/syslog/">Recent Syslog Messages</a></h3>' . PHP_EOL);
-    print_syslogs(array('short' => true, 'pagesize' => $config['frontpage']['syslog']['items'], 'priority' => $config['frontpage']['syslog']['priority']));
-    echo('  </div>' . PHP_EOL);
-    echo('</div>' . PHP_EOL);
+    echo '<div class="row">' . PHP_EOL;
+    echo '  <div class="col-sm-6">' . PHP_EOL;
+    print_events(array('short' => TRUE, 'pagesize' => $config['frontpage']['eventlog']['items'], 'severity' => $config['frontpage']['eventlog']['severity'],
+                       'header' => array('url' => '/eventlog/', 'title' => 'Recent Events', 'header-border' => TRUE)));
+    echo '  </div>';
+
+    echo '  <div class="col-sm-6">' . PHP_EOL;
+    print_syslogs(array('short' => TRUE, 'pagesize' => $config['frontpage']['syslog']['items'], 'priority' => $config['frontpage']['syslog']['priority'],
+                        'header' => array('url' => '/syslog/', 'title' => 'Recent Syslog Messages', 'header-border' => TRUE)));
+    echo '  </div>';
+    echo '</div>';
   }
 
 // EOF

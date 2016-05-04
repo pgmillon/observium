@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -26,7 +26,7 @@ foreach ($temp as $index => $entry)
                    'entPhysicalIndex' => $index);
   $value = $entry['bsnSensorTemperature'];
 
-  if (is_numeric($value))
+  if (is_numeric($value) && $value < 5000)
   {
     discover_sensor($valid['sensor'], 'temperature', $device, $oid, $index, 'wlc', $descr, 1, $value, $options);
   }

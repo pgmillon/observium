@@ -1,0 +1,680 @@
+PDN-CONFIG-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    ifIndex
+        FROM RFC1213-MIB
+    Gauge
+        FROM RFC1155-SMI
+    DateAndTime
+        FROM SNMPv2-TC
+    TRAP-TYPE
+        FROM RFC-1215
+    OBJECT-TYPE
+        FROM RFC-1212
+    pdn-devConfig
+        FROM PDN-HEADER-MIB;
+
+-- ===============================================================
+--
+-- Device Configuration
+--
+-- Version 1.0.11
+--
+--
+-- Updated 10/11/03 Sue Alfano - Added devCfgClkRate object,
+--                               added new enum, external2, to devCfgClkSource.
+--
+-- Updated 03/07/02 Mohan Mohankumar - changed the description for the object
+--				       devConfigTrapEnable to include support
+--				       for path Trap and Latency Trap.
+--
+-- Updated 12/13/01 Dragana Gough - added new objects devConfigTestTimeout,
+--				    devConfigTestDuration, devConfigComDiscTime,
+--				    devConfigComInactivityTO, devConfigPortNumDisplayFormat,
+--				    devConfigDateDisplayFormat, devAcceptRemoteResetFrame
+--
+-- 
+-- Updated 12/04/01 Dragana Gough - updated DESCRIPTION filed for
+--				    devConfigTimeOfDay
+-- Updated 09/18/2000 Rob Steinberger - Added Usage Comments to 
+--                                      devConfigChangeKeysTable
+--
+-- Updated 09/08/2000 Rob Steinberger - Added devConfigChangeKeysTable
+--
+-- Updated 05/19/2000 Rob Steinberger - Added dslNam and t3Nam card types
+--
+-- Updated 03/08/2000 Dragana Gough -updated devConfigTrapEnable documentation
+--   to specify cases when the trap configuration is set per interface vs per 
+--   entity.  Added Configuration change trap
+--
+-- Updated 02/10/2000 Dragana Gough -added bit field positions to devConfigTrapEnable
+--   to enable disabling/enabling of linkUp and linkDown Traps
+--
+-- Updated 08/18/99 by J. Colom (jaime@paradyne.com)
+--         (Added devConfigNetSyncRole 
+--             Added devConfigTimeOfDay )
+--
+-- Updated 7/14/99 Jaime Colom - Adds dce6APM, sruAPM, ocu4APM, 
+--   pktVoiceAPM, dpNAM, stNAM, ddsNAM, dualDsxNniNAM, t3NniNAM card 
+--   types as well as acceptingAPM and failedAPM states.
+--
+-- Updated 7/29/98 Vince Ciletti - Adds 2 and 6 port OCU APM card types.
+--
+-- ==================================================================
+
+devConfigArea OBJECT IDENTIFIER ::= { pdn-devConfig 1 }
+
+devConfigAreaCopy OBJECT-TYPE
+    SYNTAX  INTEGER {
+        noOp(1),
+        active-to-customer1(2),
+        active-to-customer2(3),
+        customer1-to-active(4),
+        customer1-to-customer2(5),
+        customer2-to-active(6),
+        customer2-to-customer1(7),
+        factory1-to-active(8),
+        factory1-to-customer1(9),
+        factory1-to-customer2(10),
+        factory2-to-active(11),
+        factory2-to-customer1(12),
+        factory2-to-customer2(13),
+        factory3-to-active(14),
+        factory3-to-customer1(15),
+        factory3-to-customer2(16),
+        factory4-to-active(17),
+        factory4-to-customer1(18),
+        factory4-to-customer2(19),
+        factory5-to-active(20),
+        factory5-to-customer1(21),
+        factory5-to-customer2(22),
+        factory6-to-active(23),
+        factory6-to-customer1(24),
+        factory6-to-customer2(25),
+        factory7-to-active(26),
+        factory7-to-customer1(27),
+        factory7-to-customer2(28),
+        factory8-to-active(29),
+        factory8-to-customer1(30),
+        factory8-to-customer2(31),
+        factory9-to-active(32),
+        factory9-to-customer1(33),
+        factory9-to-customer2(34)
+    }
+    ACCESS  read-write
+    STATUS  mandatory
+    DESCRIPTION
+       "This object is used to copy the entire contents of one
+        configuration area into another configuration area.  The
+        supported number of factory configuration areas depends
+        on the device model.  The value read from this object is
+        always noOp(1)."
+    ::= { devConfigArea 1 }
+
+-- General device-wide configuration items
+
+-- The Test Timeout group.  This group is used for configuring
+-- timers associated with tests on the device.
+
+devConfigTestTimer    OBJECT IDENTIFIER ::= { pdn-devConfig 2 }
+
+devConfigTestTimeout OBJECT-TYPE
+    SYNTAX  INTEGER {
+        disable(1),    -- Tests will not be terminated
+                       -- based on a timer.
+        enable(2)      -- Tests will be terminated after
+                       -- the duration specified by
+                       -- devConfigTestDuration
+    }
+    ACCESS  read-write
+    STATUS  mandatory
+    DESCRIPTION
+       "This object specifies whether tests are to be terminated
+    after a defined duration.  If the value is enable(2), the
+    duration is defined by devConfigTestDuration."
+    ::= { devConfigTestTimer 1 }
+
+devConfigTestDuration OBJECT-TYPE
+    SYNTAX  INTEGER
+    ACCESS  read-write
+    STATUS  mandatory
+    DESCRIPTION
+       "This object specifies the duration that a test will be
+    allowed to run before it is automatically terminated.
+    Tests will only be terminated if devConfigTestTimeout
+    is set to enable."
+    ::= { devConfigTestTimer 2 }
+
+-- The Clock Source group.
+
+devConfigClockSrc    OBJECT IDENTIFIER ::= { pdn-devConfig 3 }
+
+devConfigClockSrcTable OBJECT-TYPE
+    SYNTAX  SEQUENCE OF DevConfigClockSrcEntry
+    ACCESS  not-accessible
+    STATUS  mandatory
+    DESCRIPTION
+        "The clock source table."
+    ::= { devConfigClockSrc 1 }
+ 
+devConfigClockSrcEntry OBJECT-TYPE
+    SYNTAX  DevConfigClockSrcEntry
+    ACCESS  not-accessible
+    STATUS  mandatory
+    DESCRIPTION
+        "An entry in the clock source table."
+    INDEX { devCfgClkWhichSrc }
+    ::= { devConfigClockSrcTable 1 }
+ 
+--
+-- Layout of one entry in the devConfigClockSrcTable
+--
+ 
+DevConfigClockSrcEntry ::=
+    SEQUENCE {
+        devCfgClkWhichSrc    INTEGER,
+        devCfgClkSource      INTEGER,
+        devCfgClkIfIndex     INTEGER,
+        devCfgClkRate        INTEGER
+    }
+
+devCfgClkWhichSrc OBJECT-TYPE
+    SYNTAX  INTEGER {
+        primary(1),     -- The primary master clock source
+        secondary(2)    -- The secondary master clock source
+    }
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+    "The clock source to which this entry is applicable."
+    ::= { devConfigClockSrcEntry 1 }
+
+devCfgClkSource OBJECT-TYPE
+    SYNTAX  INTEGER {
+        internal(1),    -- Master clock is the internal clock
+        external(2),    -- Master clock is external clock source 1
+        interface(3),   -- clock source is provided via an interface
+        dbm(4),         -- clock source is provided via a backup module
+        external2(5)    -- Master clock is external clock source 2
+    }
+    ACCESS  read-write
+    STATUS  mandatory
+    DESCRIPTION
+       "This object is used to select the source for the master
+        clock for the device.  The source selected provides
+        synchronization for all the timing within the device,
+        and the clocks for all of the external interfaces.
+
+        If this object is interface(3), the specific interface
+        used as the master clock source is specified using
+        devCfgClkIfIndex.
+
+        If this object is external(2), or external2(5), the clock
+        rate can be specified using devCfgClkRate."
+    ::= { devConfigClockSrcEntry 2 }
+
+devCfgClkIfIndex OBJECT-TYPE
+    SYNTAX  INTEGER
+    ACCESS  read-write
+    STATUS  mandatory
+    DESCRIPTION
+       "This object is used to select the interface to be used
+        as the source for the master clock for the device, if
+        devCfgClkSource is set to interface(3).  The interface
+        selected provides synchronization for all the timing
+        within the device, and the clocks for all of the
+        external interfaces.
+        NOTE:  if a synchronous data port is selected and the EDL
+               is enabled for that synchronous data port, then the
+               external device must provide a clock 8 Kbps less
+               than the expected data port rate.  For example, if
+               the data port rate is set at 64 Kbps, the external
+               clock source needs to supply a 56 Kbps clock signal.
+
+        If devCfgClkSource is not interface(3), the value of this
+        object is meaningless."
+    ::= { devConfigClockSrcEntry 3 }
+
+devCfgClkRate OBJECT-TYPE
+    SYNTAX  INTEGER {
+        rate400Hz(1),
+        rate8KHz(2),
+        rate64KHz(3),
+        rate1544KHz(4),
+        rate2048KHz(5)
+    }
+    ACCESS  read-write
+    STATUS  mandatory
+    DESCRIPTION
+       "This object is used to specify the clock signal
+        rate associated with the external source selected by
+        the devCfgClkSource object."
+    ::= { devConfigClockSrcEntry 4 }
+
+
+-- The Trap Configuration group.
+
+devConfigTrap    OBJECT IDENTIFIER ::= { pdn-devConfig 4 }
+
+devConfigTrapEnable OBJECT-TYPE
+    SYNTAX  INTEGER
+    ACCESS  read-write
+    STATUS  mandatory
+    DESCRIPTION
+       "Which trap types will be sent by the entity.  This
+        object is a bit map represented as a sum, therefore,
+        multiple trap types can be enabled simultaneously.
+        This objects sets flag (enable/disable) value
+        on entity level. If trap enable/disable flags are
+        set per interface level by some other object
+        this object will read 'enabled' if any one of the 
+        interfaces is enabled. If any of the traps
+        below are set to enabled by this object 
+        it will enable that trap on all interfaces 
+        on the entity.
+        The various bit positions are:
+            1  warmStart traps
+            2  authenticationFailure traps
+            4  enterpriseSpecific traps
+            8  LinkUp trap
+            16 LinkDown Trap
+            32 path Trap
+            64 Latency Trap."
+    ::= { devConfigTrap 1 }
+
+cCNTrapEnable OBJECT-TYPE
+  SYNTAX  INTEGER
+  ACCESS  read-write
+  STATUS  mandatory
+  DESCRIPTION
+    " This object is used to enable or disable
+      configuration change trap. It is a bit 
+      sequence sum with only accepted values
+      1 or 2. Setting the bit sequence to 2 
+      would mean enabling the trap and 1 
+      would mean disabling it."
+  ::= { devConfigTrap 2 }
+
+-- The Paradyne System Alarm group.
+
+devConfigAlarm    OBJECT IDENTIFIER ::= { pdn-devConfig 5 }
+
+devConfigAlarmRelayCutoff OBJECT-TYPE
+    SYNTAX  INTEGER {
+        noOp(1),
+        off(2)
+    }
+    ACCESS  read-write
+    STATUS  mandatory
+    DESCRIPTION
+       "Writing off(2) to this object will turn off the System
+        Alarm Relay.  Reading this object will always return
+        noOp(1)."
+    ::= { devConfigAlarm 6 }
+
+-- The Paradyne Card Type table.
+
+-- This table is used by multi-slot devices.  It shows what
+-- type of card has been configured to occupy each slot in
+-- the chassis, and what card type is actually present in the
+-- chassis.  If the configured and actual card types do not
+-- match, this table allows the actual card type to be accepted,
+-- which will change the configuration information for the card.
+
+devConfigCardType    OBJECT IDENTIFIER ::= { pdn-devConfig 6 }
+
+devConfigCardTypeTable OBJECT-TYPE
+    SYNTAX  SEQUENCE OF DevConfigCardTypeEntry
+    ACCESS  not-accessible
+    STATUS  mandatory
+    DESCRIPTION
+       "The Paradyne Card Type Table."
+    ::= { devConfigCardType 7 }
+
+devConfigCardTypeEntry OBJECT-TYPE
+    SYNTAX  DevConfigCardTypeEntry
+    ACCESS  not-accessible
+    STATUS  mandatory
+    DESCRIPTION
+       "An entry in the Paradyne Card Type Table."
+    INDEX  { devCfgCardSlot }
+    ::= { devConfigCardTypeTable 1 }
+
+-- Layout of one entry in the devConfigCardTypeTable
+
+DevConfigCardTypeEntry ::=
+    SEQUENCE {
+    devCfgCardSlot      INTEGER,
+    devCfgCardConfig    INTEGER,
+    devCfgCardActual    INTEGER,
+    devCfgCardAction    INTEGER
+    }
+
+
+devCfgCardSlot OBJECT-TYPE
+    SYNTAX  INTEGER
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+       "The slot number which this card occupies in the chassis."
+    ::= { devConfigCardTypeEntry 1 }
+
+devCfgCardConfig OBJECT-TYPE
+    SYNTAX  INTEGER {
+        emptySlot(1),          -- an empty slot
+        unsupportedAPM(2),     -- an unrecognized APM
+        t1NAM(3),              -- a 1T1/1DSX NAM
+        syncDataAPM(4),        -- a synchronous data port APM
+        voiceFxsAPM(5),        -- an FXS Voice APM
+        voiceEmAPM(6),         -- an E&amp;M Voice APM
+        voiceFxoAPM(7),        -- an FXO Voice APM
+        dsxAPM(8),             -- an DSX-1 APM
+        t1NoDsxNAM(9),         -- a 2T1 with No DSX NAM
+        misconfiguredAPM(10),  -- a misconfigured APM
+        ocu2APM(11),           -- a 2 port OCU APM
+        ocu6APM(12),           -- a 6 port OCU APM
+        dce6APM(13),           -- a 6-port DCE APM 
+        sruAPM(14),           -- a 5-port SubRate APM
+        ocu4APM(15),           -- a 4-port Office Channel Unit APM
+        pktVoiceAPM(16),       -- a Packet Voice APM  
+        acceptingAPM(17),      -- Accepting State
+        failedAPM(18),         -- APM position has failed card
+        dpNAM(19),             -- Data Port NAM
+        stNAM(20),             -- S/T ISDN NAM
+        ddsNAM(21),            -- DDS NAM
+        dualDsxNniNAM(22),     -- Dual Dsx-1 NNI NAM
+        t3NniNAM(23),          -- T3 NNI NAM
+        t3NAM(24),             -- T3 NAM
+        dslNAM(25)             -- DSL NAM
+    }
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+       "The type of card which has been configured for this slot."
+    ::= { devConfigCardTypeEntry 2 }
+
+devCfgCardActual OBJECT-TYPE
+    SYNTAX  INTEGER {
+        emptySlot(1),         -- an empty slot
+        unsupportedAPM(2),    -- an unrecognized APM
+        t1NAM(3),             -- a T1 NAM
+        syncDataAPM(4),       -- a synchronous data port APM
+        voiceFxsAPM(5),       -- an FXS Voice APM
+        voiceEmAPM(6),        -- an E&amp;M Voice APM
+        voiceFxoAPM(7),       -- an FXO Voice APM
+        voiceDsxAPM(8),       -- an DSX-1 APM
+        t1NoDsxNAM(9),        -- a 2T1 with No DSX NAM
+        misconfigured(10),    -- a misconfigured APM
+        ocu2APM(11),          -- a 2 port OCU APM
+        ocu6APM(12),          -- a 6 port OCU APM
+        dce6APM(13),          -- a 6-port DCE APM 
+        sruAPM(14),          -- a 5-port SubRate APM
+        ocu4APM(15),          -- a 4-port Office Channel Unit APM
+        pktVoiceAPM(16),      -- a Packet Voice APM  
+        acceptingAPM(17),     -- Accepting State
+        failedAPM(18),        -- APM position has failed card
+        dpNAM(19),            -- Data Port NAM
+        stNAM(20),            -- S/T ISDN NAM
+        ddsNAM(21),           -- DDS NAM
+        dualDsxNniNAM(22),    -- Dual Dsx-1 NNI NAM
+        t3NniNAM(23),         -- T3 NNI NAM
+        t3NAM(24),            -- T3 NAM
+        dslNAM(25)            -- DSL NAM
+    }
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+       "The type of card which is present in this slot."
+    ::= { devConfigCardTypeEntry 3 }
+
+devCfgCardAction OBJECT-TYPE
+    SYNTAX  INTEGER {
+        noOp(1),
+        accept(2)
+    }
+    ACCESS  read-write
+    STATUS  mandatory
+    DESCRIPTION
+       "Writing accept(2) to this object changes the configured
+        card type to match the type of card currently present
+        in the slot.  Reading this object always returns noOp(1)."
+    ::= { devConfigCardTypeEntry 4 }
+
+-- The Paradyne Device Network Synchronization group.
+
+devConfigNetSync    OBJECT IDENTIFIER ::= { pdn-devConfig 7 }
+
+devConfigNetSyncRole OBJECT-TYPE
+    SYNTAX  INTEGER {
+        none(1),
+        tributary(2),
+        controller(3)
+    }
+    ACCESS  read-write
+    STATUS  mandatory
+    DESCRIPTION
+       "Network Time Synchronization role item for a device in the network.
+          none       - Device will ignore network time synchronization messages.
+          tributary  - Update the network reference time each time the device  
+                       receives an update massage.
+          controller - The device will generate the synchronization message and
+                       Time of Day clock will be the same as the Network
+                       Reference Time."
+    DEFVAL  { tributary }
+    ::= { devConfigNetSync 1 }
+
+-- The Paradyne Device Configuration Time group.
+
+devConfigTime    OBJECT IDENTIFIER ::= { pdn-devConfig 8 }
+
+devConfigTimeOfDay OBJECT-TYPE
+    SYNTAX  DateAndTime
+    ACCESS  read-write
+    STATUS  mandatory
+    DESCRIPTION
+    "This is standard definition of Device Time of Day
+     (DateAndTime) SYNTAX. The only difference is
+     that our group is defining timezone filed (8)
+     optional.
+
+     Display format-&gt; 2d-1d-1d,1d:1d:1d.1d,1a1d:1d
+	    Fields description
+            field  octets  contents                  range
+            -----  ------  --------                  -----
+              1      1-2   year*                     0..65536
+              2       3    month                     1..12
+              3       4    day                       1..31
+              4       5    hour                      0..23
+              5       6    minutes                   0..59
+              6       7    seconds                   0..60
+                           (use 60 for leap-second)
+              7       8    deci-seconds              0..9
+              8       9    direction from UTC        '+' / '-'
+              9      10    hours from UTC*           0..13
+             10      11    minutes from UTC          0..59
+
+            * Notes:
+            - the value of year is in network-byte order
+            - daylight saving time in New Zealand is +13
+
+            For example, Tuesday May 26, 1992 at 1:30:15 PM EDT would be
+            displayed as:
+
+                             1992-5-26,13:30:15.0,-4:0
+
+	    Timezone information (fileds 8-10)
+	    is optional.
+            Note that if only local time is known, then timezone
+            information (fields 8-10) is not present."
+    ::= { devConfigTime 1 }
+
+-- The Paradyne Device Configuration Change Key Group
+
+devConfigChangeKeys OBJECT IDENTIFIER ::= { pdn-devConfig 9 }
+
+--
+-- Configuration Change Keys Table
+--
+-- This table contains a set of keys specific to each non-volatile
+-- database on the device.  The keys are ensured to change each time
+-- there is a change to the database that they represent.
+--
+-- Example of Use:
+--
+--   1) Database Discovery
+--      This MIB can be used to discover the various non-volatile
+--      databases on a device.  Each database has a unique key.
+--
+--      The discovery process consists of walking devConfigChangeKeysDbKey.
+--      Each response corresponds to a different database type.  The NMS
+--      only needs to be concerned with the databases that affect them.
+--      Each of the "interesting" database keys should be stored for later
+--      reference.
+--
+--   2) Database monitoring
+--         After discovery, the NMS can check the database keys of the
+--         databases of interest to it either at specific intervals or
+--         based on configuration change traps.  When using trap directed,
+--         polling, a default polling interval should still apply in case
+--         a trap is lost in the transmission process.
+--         
+--         Checking the keys consists of performing a get operation on
+--         devConfigChangeKeysDbKey for the specific database(s) of interest.  
+--         If the key has changed from that previously stored, the database
+--         has changed.  The new key should be stored for future reference.
+--
+
+devConfigChangeKeysTable OBJECT-TYPE
+    SYNTAX  SEQUENCE OF DevConfigChangeKeysEntry
+    ACCESS  not-accessible
+    STATUS  mandatory
+    DESCRIPTION
+       "The Paradyne Configuration Change Key Table. This table
+        is in place to allow a Network Manager to know when the
+        configuration on the device changes.  Configuration can
+        be found in several databases that may each have a
+        unique access method.  For this reason, the keys are
+        in the form of a table."
+    ::= { devConfigChangeKeys 1 }
+
+devConfigChangeKeysEntry OBJECT-TYPE
+    SYNTAX  DevConfigChangeKeysEntry
+    ACCESS  not-accessible
+    STATUS  mandatory
+    DESCRIPTION
+       "An entry in the Paradyne Configuration Change Key Table."
+    INDEX  { devConfigChangeKeysDbType }
+    ::= { devConfigChangeKeysTable 1 }
+
+DevConfigChangeKeysEntry ::=
+    SEQUENCE {
+    devConfigChangeKeysDbType   INTEGER,
+    devConfigChangeKeysDbKey    Gauge
+    }
+
+devConfigChangeKeysDbType OBJECT-TYPE
+    SYNTAX  INTEGER {
+              generalConfig(1),
+              rmonAlarm(2),
+              rmonUserHistory(3),
+              routerConfig(4)
+            }
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+       "The type of database that is being keyed.  If a specific
+        type is not supported by the device, noSuchName should be
+        returned."
+    ::= { devConfigChangeKeysEntry 1 }
+
+devConfigChangeKeysDbKey OBJECT-TYPE
+    SYNTAX  Gauge
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+       "A unique value that will change each time the database is
+        altered.  Effort should be made to increase the number of
+        times the database can change without seeing the same
+        key."
+    ::= { devConfigChangeKeysEntry 2 }
+
+-- The General Configuration group.
+
+devConfiguration    OBJECT IDENTIFIER ::= { pdn-devConfig 10 }
+
+	devConfigComDiscTime OBJECT-TYPE
+	     SYNTAX  INTEGER
+	     ACCESS  read-write
+	     STATUS  mandatory
+	     DESCRIPTION
+		"This object is used to specify how long
+		 to wait before disconnecting. Inactivity
+		 is defined as no keyboard activity within
+		 a given period of time. The time is kept
+		 in seconds. The default is 300 seconds."
+	    ::= { devConfiguration 1  }
+
+        devConfigPortNumDisplayFormat OBJECT-TYPE
+	    SYNTAX INTEGER {
+		       sle(1),
+		       unitport(2),
+		       name(3)
+		}
+	    ACCESS read-write 
+	    STATUS mandatory
+	    DESCRIPTION
+	       "This object is used to set display format for the
+		port numbers. The default is unit/port number.
+		sle(1) - this method is to use Single Logical Entity
+			 interface numbers. For example, if sle is  
+			 confiugred the sle numbers range from 1 to
+			 384 for a stack of 8 units
+			 with 48 ports each.
+		unitport(2) - this method uses unitnumber/portnumber
+			      For previous example the numbers would
+			      be from 1/1 to  8/48.
+		name(3) - This method allowes user to assign character
+			  strings (names) to each interface and to view
+			  the interfaces by names."
+            ::= { devConfiguration 2 }
+
+
+	devConfigDateDisplayFormat OBJECT-TYPE
+	    SYNTAX INTEGER {
+		    ddmmyy(1),
+		    mmddyy(2)  
+		}
+	    ACCESS read-write
+	    STATUS mandatory
+	    DESCRIPTION
+	      "This object is used to specify which format
+	       will date be displayed in.The default is 'mmddyy'"
+	    ::= { devConfiguration 3 }
+
+       devAcceptRemoteResetFrame OBJECT-TYPE
+	   SYNTAX INTEGER {
+		    enable(1),
+		    disable(2)
+		 }
+	   ACCESS read-write
+	   STATUS mandatory
+	   DESCRIPTION
+	     "This object is used to enable/disable 
+	      acceptance of remote reset frame which
+	      would result in hardware reset.
+	      The default setting is disabled."
+	  ::= { devConfiguration 4 }
+
+
+--TRAP Group
+
+cCN TRAP-TYPE
+  ENTERPRISE devConfigTrap 
+  VARIABLES { ifIndex }
+  DESCRIPTION
+    "This trap signifies a Configuration change  or 
+     software upgrade. This trap 
+     is of 'warning' class"
+ ::= 7
+
+END

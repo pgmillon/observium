@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage web
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -59,7 +59,7 @@ function print_addresses($vars)
           $where .= generate_query_values($value, 'I.ifDescr', 'LIKE%');
           break;
         case 'network':
-          $where .= generate_query_values($value, 'A.ip_network_id');
+          $where .= generate_query_values($value, 'N.ip_network', 'LIKE%');
           break;
         case 'address':
           list($addr, $mask) = explode('/', $value);
@@ -157,7 +157,8 @@ function print_addresses($vars)
   $list = array('device' => FALSE);
   if (!isset($vars['device']) || empty($vars['device']) || $vars['page'] == 'search') { $list['device'] = TRUE; }
 
-  $string = '<table class="table table-bordered table-striped table-hover table-condensed">' . PHP_EOL;
+  $string = generate_box_open($vars['header']);
+  $string .= '<table class="'.OBS_CLASS_TABLE_STRIPED.'">' . PHP_EOL;
   if (!$short)
   {
     $string .= '  <thead>' . PHP_EOL;
@@ -200,7 +201,7 @@ function print_addresses($vars)
           {
             $port_error = generate_port_link($entry, '<span class="label label-important">Errors</span>', 'port_errors');
           }
-          $entity_link = generate_port_link($entry, short_ifname($entry['label'])) . ' ' . $port_error;
+          $entity_link = generate_port_link($entry, $entry['port_label_short']) . ' ' . $port_error;
         }
         $device_link = generate_device_link($entry);
         $string .= '  <tr>' . PHP_EOL;
@@ -210,7 +211,7 @@ function print_addresses($vars)
         }
         $string .= '    <td class="entity">' . $entity_link . '</td>' . PHP_EOL;
         if ($address_type === 'ipv6') { $entry[$address_type.'_address'] = Net_IPv6::compress($entry[$address_type.'_address']); }
-        $string .= '    <td>' . $entry[$address_type.'_address'] . '/' . $length . '</td>' . PHP_EOL;
+        $string .= '    <td>' . generate_popup_link('ip', $entry[$address_type.'_address'] . '/' . $length) . '</td>' . PHP_EOL;
         $string .= '    <td>' . $entry['ifAlias'] . '</td>' . PHP_EOL;
         $string .= '  </tr>' . PHP_EOL;
       }
@@ -219,6 +220,7 @@ function print_addresses($vars)
 
   $string .= '  </tbody>' . PHP_EOL;
   $string .= '</table>';
+  $string .= generate_box_close();
 
   // Print pagination header
   if ($pagination) { $string = pagination($vars, $count) . $string . pagination($vars, $count); }

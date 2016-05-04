@@ -7,14 +7,14 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 // Hardcoded discovery of device CPU usage on Alcatel-Lucent Omniswitches.
 // NOTE. Because Alcatel changed their MIBs content (same oid names have different indexes), here used only numeric OIDs.
 
-echo(" ALCATEL-IND1-HEALTH-MIB ");
+echo("ALCATEL-IND1-HEALTH-MIB ");
 
 // Old AOS
 $descr = 'Device CPU';

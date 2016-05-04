@@ -1,9 +1,9 @@
 -- =================================================================
--- Copyright (C) 2009 by H3C Technologies.  All rights reserved.
+-- Copyright (c) 2004-2014 Hangzhou H3C Tech. Co., Ltd. All rights reserved.
 --
 -- Description:
 -- Reference:
--- Version: V1.3
+-- Version: V1.5
 -- History:
 -- V1.0 created by liujingya.
 --    Initial version of the MIB
@@ -15,6 +15,10 @@
 --    hh3cHPEOCOffLineCnuNumber, hh3cHPEOCDownLoadCNUFWResult,
 --    hh3cHPEOCCltAutoUpgradeType, hh3cHPEOCServerAddress, hh3cHPEOCServerUser,
 --    hh3cHPEOCServerPassword and hh3cHPEOCCnuMacLimit by liujingya.
+-- V1.4 2011-12-28 Added hh3cHPEOCCltLinkState by gaoguangping.
+--      2012-03-14 Added hh3cHPEOCCltLoopbackDetect by gaoguangping.
+-- V1.5 2013-08-20 Added hh3cHPEOCTemplate,hh3cHPEOCCnuAccess by xujun
+--      2013-09-16 Added hh3cHPEOCTemplateEnable by xujun 
 -- =================================================================
 HH3C-HPEOC-MIB DEFINITIONS ::= BEGIN
 
@@ -26,7 +30,7 @@ IMPORTS
         Integer32, Unsigned32, Counter64, OBJECT-TYPE, MODULE-IDENTITY,
         IpAddress
     FROM SNMPv2-SMI
-        DisplayString, TruthValue, MacAddress
+        DisplayString, TruthValue, MacAddress, RowStatus
     FROM SNMPv2-TC;
 
 
@@ -147,7 +151,8 @@ hh3cHPEOCCltSysManEntry OBJECT-TYPE
 Hh3cHPEOCCltSysManEntry ::= SEQUENCE
     {
         hh3cHPEOCCltDescr        DisplayString,
-        hh3cHPEOCCltFwVersion    DisplayString
+        hh3cHPEOCCltFwVersion    DisplayString,
+        hh3cHPEOCCltLinkState    INTEGER
     }
 
 hh3cHPEOCCltDescr OBJECT-TYPE
@@ -170,6 +175,27 @@ hh3cHPEOCCltFwVersion OBJECT-TYPE
         zero, it means the version is unknown.
         "
     ::= { hh3cHPEOCCltSysManEntry 2 }
+
+hh3cHPEOCCltLinkState OBJECT-TYPE
+    SYNTAX     INTEGER
+        {
+            physicaldown(1),
+            linkdown(2),
+            linkup(3),
+            loopback(4)
+        }
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "
+        The cable port's link state.  The physicaldown(1) state indicates
+        that the CLT is not powered on.  The linkdown(2) state indicates
+        that the CLT is powered on, but registers fail.  The linkup(3)
+        state indicates that the CLT is powered on, and registers
+        successful.  The loopback(4) state indecates that the CLT is
+        powered on and registers successful, but loopback has detected.
+        "
+    ::= { hh3cHPEOCCltSysManEntry 3 }
 
 --
 -- hh3cHPEOCCnuSysManTable
@@ -356,6 +382,38 @@ hh3cHPEOCServerPassword OBJECT-TYPE
         It contains 1 to 31 characters.
         "
     ::= { hh3cHPEOCAutoUpObjects 3 }
+
+hh3cHPEOCCltLoopbackDetect OBJECT-TYPE
+    SYNTAX      INTEGER
+        {
+            false(0),
+            true(1)
+        }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "
+        Loopback detect Status.
+        true(1) - The loopback detect is enabled.
+        false(0)- The loopback detect is disabled.
+        "
+    ::= { hh3cHPEOCSystem 12 }
+
+hh3cHPEOCTemplateEnable OBJECT-TYPE
+    SYNTAX      INTEGER
+        {
+            false(0),
+            true(1)
+        }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "
+        Use template for white-list cnu.
+        true(1) - Use template is enabled.
+        false(0)- Use template detect is disabled.
+        "
+    ::= { hh3cHPEOCSystem 13 }
 
 --
 -- hh3cHPEOCCableInfo
@@ -549,5 +607,514 @@ hh3cHPEOCBitPerSymbol OBJECT-TYPE
         picking-up will make up a cable bit map.
         "
     ::= { hh3cHPEOCBitPerSymbolEntry 2 }
+
+--
+-- hh3cHPEOCTemplate
+--
+
+hh3cHPEOCTemplate OBJECT IDENTIFIER ::= { hh3cHPEOC 3 }
+
+--
+-- hh3cHPEOCTemplateGlobalTable
+--
+
+hh3cHPEOCTemplateGlobalTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF hh3cHPEOCTemplateGlobalEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "
+        This table defines the global parameters of the
+        Template information.
+        "
+    ::= { hh3cHPEOCTemplate 1 }
+
+hh3cHPEOCTemplateGlobalEntry OBJECT-TYPE
+    SYNTAX      hh3cHPEOCTemplateGlobalEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "
+        The entry of the table hh3cHPEOCTemplateGlobalTable.
+        "
+    INDEX
+        {
+            hh3cHPEOCTemplateIndex
+        }
+    ::= { hh3cHPEOCTemplateGlobalTable 1 }
+
+hh3cHPEOCTemplateGlobalEntry ::= SEQUENCE
+    {
+        hh3cHPEOCTemplateIndex            Integer32,
+        hh3cHPEOCTemplateType             Integer32,
+        hh3cHPEOCTemplateName             DisplayString,
+        hh3cHPEOCTemplateDescr            DisplayString,
+        hh3cHPEOCTemplateCnuMaxDownBW     Integer32,
+        hh3cHPEOCTemplateCnuMaxUpBW       Integer32,
+        hh3cHPEOCTemplateCnuBcastControl  TruthValue,
+        hh3cHPEOCTemplateCnuMacLimit      Unsigned32,
+        hh3cHPEOCTemplateCb201VlanEn      TruthValue,
+        hh3cHPEOCTemplateRowStatus        RowStatus
+    }
+
+hh3cHPEOCTemplateIndex OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "
+        The index of cable Template.
+        "
+    ::= { hh3cHPEOCTemplateGlobalEntry 1 }
+
+hh3cHPEOCTemplateType OBJECT-TYPE
+    SYNTAX      Integer32
+        {
+            switch(1),
+            gateway(2)
+        }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "
+        The cable Template's type, can not change after create it.
+        "
+    ::= { hh3cHPEOCTemplateGlobalEntry 2 }
+
+hh3cHPEOCTemplateName OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "
+        The cable Template's name, it's recommended to set it
+        uniquely and understandably. Length: 1 to 15 characters.
+        "
+    ::= { hh3cHPEOCTemplateGlobalEntry 3 }
+
+hh3cHPEOCTemplateDescr OBJECT-TYPE
+    SYNTAX     DisplayString
+    MAX-ACCESS read-write
+    STATUS     current
+    DESCRIPTION
+        "
+        The cable Template's description. Length: 0 to 63 characters.
+        "
+    ::= { hh3cHPEOCTemplateGlobalEntry 4 }
+
+hh3cHPEOCTemplateCnuMaxDownBW OBJECT-TYPE
+    SYNTAX     Integer32
+    MAX-ACCESS read-write
+    STATUS     current
+    DESCRIPTION
+        "
+        Maximum downstream bandwidth allowed for the CNU,
+        measured in Kbit/s, ranges from 0 to 16384, and must be multiples of 64.
+        "
+    ::= { hh3cHPEOCTemplateGlobalEntry 5 }
+
+hh3cHPEOCTemplateCnuMaxUpBW OBJECT-TYPE
+    SYNTAX     Integer32
+    MAX-ACCESS read-write
+    STATUS     current
+    DESCRIPTION
+        "
+        Maximum upstream bandwidth allowed for the CNU,
+        measured in Kbit/s, ranges from 0 to 16384, and must be multiples of 64.
+        "
+    ::= { hh3cHPEOCTemplateGlobalEntry 6 }
+
+hh3cHPEOCTemplateCnuBcastControl OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "
+        Broadcast storm suppression status.
+        true(1)  - Broadcast storm suppression enable.
+        false(2) - Broadcast storm suppression disable.
+        "
+    ::= { hh3cHPEOCTemplateGlobalEntry 7 }
+
+hh3cHPEOCTemplateCnuMacLimit OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "
+        Configure the max number of MAC address entries which can access
+        through the CNU, it ranges from 1 to 8.
+        Otherwise,
+        If configure 0, the CNU won't limit the MAC address entry.
+        If configure 0xFF, it means no MAC address entry can access the CNU.
+        "
+    ::= { hh3cHPEOCTemplateGlobalEntry 8 }
+
+hh3cHPEOCTemplateCb201VlanEn OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "
+        Use for Cb201 cnu only.
+        true(1)  - Enable vlan insert function.
+        false(2) - Disable vlan insert function.
+        "
+    ::= { hh3cHPEOCTemplateGlobalEntry 9 }
+
+hh3cHPEOCTemplateRowStatus OBJECT-TYPE
+    SYNTAX     RowStatus
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+        "
+        Operation status.
+        "
+    ::= { hh3cHPEOCTemplateGlobalEntry 10 }
+
+--
+-- hh3cHPEOCTemplateSwitchTable
+--
+
+hh3cHPEOCTemplateSwitchTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF hh3cHPEOCTemplateSwitchEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "
+        This table defines the port parameters of the
+        switch type cnu. it's not affect on the type of gateway Template.
+        "
+    ::= { hh3cHPEOCTemplate 2 }
+
+hh3cHPEOCTemplateSwitchEntry OBJECT-TYPE
+    SYNTAX      hh3cHPEOCTemplateSwitchEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "
+        The entry of the table hh3cHPEOCTemplateSwitchTable.
+        "
+    INDEX
+        {
+            hh3cHPEOCTemplateIndex,
+            hh3cHPEOCTemplateUniIndex      
+        }
+    ::= { hh3cHPEOCTemplateSwitchTable 1 }
+
+hh3cHPEOCTemplateSwitchEntry ::= SEQUENCE
+    {
+        hh3cHPEOCTemplateUniIndex            Integer32,
+        hh3cHPEOCTemplateUniSpeed            INTEGER,
+        hh3cHPEOCTemplateUniDuplex           INTEGER,
+        hh3cHPEOCTemplateUniPriority         Integer32,
+        hh3cHPEOCTemplateUniFlowControl      TruthValue,
+        hh3cHPEOCTemplateUniUpLineRate       Unsigned32,
+        hh3cHPEOCTemplateUniDownLineRate     Unsigned32,
+        hh3cHPEOCTemplateUniAdminStatus      INTEGER,
+        hh3cHPEOCTemplateUniVLANType         INTEGER,
+        hh3cHPEOCTemplateUniPvid             Integer32,
+        hh3cHPEOCTemplateUniVlanTag          INTEGER
+    }
+
+hh3cHPEOCTemplateUniIndex OBJECT-TYPE
+    SYNTAX     Integer32
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "
+        The index value which uniquely identifies the FE
+        interface of the CNU.
+        "
+    ::= { hh3cHPEOCTemplateSwitchEntry 1 }
+
+hh3cHPEOCTemplateUniSpeed OBJECT-TYPE
+    SYNTAX     INTEGER
+        {
+            auto(1),
+            s10M(10),
+            s100M(100)
+        }
+    MAX-ACCESS read-write
+    STATUS     current
+    DESCRIPTION
+        "
+        User network interface speed.
+        "
+    ::= { hh3cHPEOCTemplateSwitchEntry 2 }
+
+hh3cHPEOCTemplateUniDuplex OBJECT-TYPE
+    SYNTAX     INTEGER
+        {
+            full(1),
+            half(2),
+            auto(3)
+        }
+    MAX-ACCESS read-write
+    STATUS     current
+    DESCRIPTION
+        "
+        User network interface mode.
+        "
+    ::= { hh3cHPEOCTemplateSwitchEntry 3 }
+
+hh3cHPEOCTemplateUniPriority OBJECT-TYPE
+    SYNTAX     Integer32 (0..7)
+    MAX-ACCESS read-write
+    STATUS     current
+    DESCRIPTION
+        "
+        The default ingress User Priority for this port.  This
+        only has effect on media, such as Ethernet, that do not
+        support native User Priority.
+        "
+    ::= { hh3cHPEOCTemplateSwitchEntry 4 }
+
+hh3cHPEOCTemplateUniFlowControl OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Flow control status.
+        true(1)  - Flow control status enable.
+        false(2) - Flow control status disable."
+    DEFVAL
+        {
+            false
+        }
+    ::= { hh3cHPEOCTemplateSwitchEntry 5 }
+
+hh3cHPEOCTemplateUniUpLineRate OBJECT-TYPE
+    SYNTAX     Unsigned32
+    MAX-ACCESS read-write
+    STATUS     current
+    DESCRIPTION
+        "
+        The max speed upload in units of 1,024 bits per second
+        on this interface.  The value should between 0 and 8Mbps.
+        If the value is 0, it means that the upload speed is only
+        restricted by the physical line.
+        "
+    ::= { hh3cHPEOCTemplateSwitchEntry 6 }
+
+hh3cHPEOCTemplateUniDownLineRate OBJECT-TYPE
+    SYNTAX     Unsigned32
+    MAX-ACCESS read-write
+    STATUS     current
+    DESCRIPTION
+        "
+        The max speed download in units of 1,024 bits per second
+        on this interface.  The value should between 0 and 8Mbps.
+        If the value is 0, it means that the download speed is only
+        restricted by the physical line.
+        "
+    ::= { hh3cHPEOCTemplateSwitchEntry 7 }
+
+hh3cHPEOCTemplateUniAdminStatus OBJECT-TYPE
+    SYNTAX      INTEGER
+        {
+            up(1),
+            down(2)
+        }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "
+        Control if open or close the UNI.  If choose up(1), means the UNI is
+        opened and packets can pass it.  If choose down(2), means the UNI is
+        closed and all packets will be discard.
+        "
+    ::= { hh3cHPEOCTemplateSwitchEntry 8 }
+
+hh3cHPEOCTemplateUniVLANType OBJECT-TYPE
+    SYNTAX     INTEGER
+        {
+            access(1),
+            Trunk(2),
+            hybrid(3)
+        }
+    MAX-ACCESS read-write
+    STATUS     current
+    DESCRIPTION
+        "port vlan types.
+        hybrid (3) port can carry multiple VLANs.
+        "
+    ::= { hh3cHPEOCTemplateSwitchEntry 9 }
+
+hh3cHPEOCTemplateUniPvid OBJECT-TYPE
+    SYNTAX     Integer32 (1..4094)
+    MAX-ACCESS read-write
+    STATUS     current
+    DESCRIPTION
+        "
+        The PVID, the VLAN ID assigned to untagged frames or
+        Priority-Tagged frames received on this port.
+        "
+    REFERENCE
+        "
+        IEEE 802.1Q/D11 Section 12.10.1.1
+        "
+    DEFVAL
+        {
+            1
+        }
+    ::= { hh3cHPEOCTemplateSwitchEntry 10 }
+
+hh3cHPEOCTemplateUniVlanTag OBJECT-TYPE
+    SYNTAX     INTEGER
+        {
+            tagged(1),
+            untagged(2)
+        }
+    MAX-ACCESS read-write
+    STATUS     current
+    DESCRIPTION
+        "
+        VLAN is set tagged or untagged.
+        "
+    ::= { hh3cHPEOCTemplateSwitchEntry 11 }
+
+--
+-- hh3cHPEOCCnuAccess
+--
+hh3cHPEOCCnuAccess OBJECT IDENTIFIER ::= { hh3cHPEOC 4 }
+
+--
+-- hh3cHPEOCCnuAccessTable
+--
+
+hh3cHPEOCCnuAccessTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF hh3cHPEOCCnuAccessEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "
+        This table defines the global parameters of the
+        cnu type permitting to access.
+        "
+    ::= { hh3cHPEOCCnuAccess 1 }
+
+hh3cHPEOCCnuAccessEntry OBJECT-TYPE
+    SYNTAX      hh3cHPEOCCnuAccessEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "
+        The entry of the table hh3cHPEOCCnuAccessTable.
+        "
+    INDEX
+        {
+            hh3cHPEOCCnuAccessIndex
+        }
+    ::= { hh3cHPEOCCnuAccessTable 1 }
+
+
+hh3cHPEOCCnuAccessEntry ::= SEQUENCE
+    {
+        hh3cHPEOCCnuAccessIndex        Integer32,
+        hh3cHPEOCCnuHFID               DisplayString,
+        hh3cHPEOCManuInfo              DisplayString,
+        hh3cHPEOCCnuType               Integer32,
+        hh3cHPEOCCnuSwitchType         Integer32,
+        hh3cHPEOCCnuUniNum             Integer32,
+        hh3cHPEOCCnuPhy2Uni            OCTET STRING,
+        hh3cHPEOCCnuAccessRowStatus    RowStatus
+    }
+
+hh3cHPEOCCnuAccessIndex OBJECT-TYPE
+    SYNTAX     Integer32
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+        "
+        The index value which uniquely identifies the 
+        manuinfo of the CNU.
+        "
+    ::= { hh3cHPEOCCnuAccessEntry 1 }  
+
+hh3cHPEOCCnuHFID OBJECT-TYPE
+    SYNTAX     DisplayString
+    MAX-ACCESS read-write
+    STATUS     current
+    DESCRIPTION
+        "
+        The Cnu's HFID. Every type Cnu has it's unique HFID.
+        Length: 1 to 64 characters.
+        "
+    ::= { hh3cHPEOCCnuAccessEntry 2 }
+
+hh3cHPEOCManuInfo OBJECT-TYPE
+    SYNTAX     DisplayString
+    MAX-ACCESS read-write
+    STATUS     current
+    DESCRIPTION
+        "
+        The Cnu's manufactory infofamiont. 
+        Length: 0 to 63 characters.
+        "
+    ::= { hh3cHPEOCCnuAccessEntry 3 }
+    
+hh3cHPEOCCnuType OBJECT-TYPE
+    SYNTAX      Integer32
+        {
+            switch(1),
+            gateway(2)
+        }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "
+        The Cnu's function type.
+        "
+    ::= { hh3cHPEOCCnuAccessEntry 4 }   
+   
+hh3cHPEOCCnuSwitchType OBJECT-TYPE
+    SYNTAX      Integer32
+        {
+            rtl8306e(1),
+            ar8236(2),
+            mv6061(3)
+            mv6031(4)
+        }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "
+        The Cnu's switch chip type. It's useless for gataway type cnu.
+        "
+    ::= { hh3cHPEOCCnuAccessEntry 5 }
+
+hh3cHPEOCCnuUniNum OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "
+        Uni number of the Cnu. It's useless for gataway type cnu.
+        "
+    ::= { hh3cHPEOCCnuAccessEntry 6 }
+
+hh3cHPEOCCnuPhy2Uni OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "
+        Reflection from phy port to uni port of the cnu.
+        It's useless for gataway type cnu.
+        For example, phy port 0,1,2,3 is reflect to uni port
+        1,2,3,4, then the value of this mib is {0,1,2,3}
+        "
+    ::= { hh3cHPEOCCnuAccessEntry 7 }
+
+hh3cHPEOCCnuAccessRowStatus OBJECT-TYPE
+    SYNTAX     RowStatus
+    MAX-ACCESS read-create
+    STATUS     current
+    DESCRIPTION
+        "
+        Operation status.
+        "
+    ::= { hh3cHPEOCCnuAccessEntry 8 }
 
 END

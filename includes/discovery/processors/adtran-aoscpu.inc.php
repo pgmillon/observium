@@ -7,11 +7,11 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-echo(" ADTRAN-AOSCPU ");
+echo("ADTRAN-AOSCPU ");
 
 $percent = snmp_get($device, "adGenAOS5MinCpuUtil.0", "-OQv", "ADTRAN-AOSCPU");
 

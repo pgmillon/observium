@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -149,13 +149,8 @@ foreach ($pkgs_db_id as $id => $pkg)
   log_event('Package removed: '.$pkg['name'].' '.$pkg['arch'].' '.$pkg['version']. ($pkg['build'] != '' ? "-".$pkg['build'] : ''), $device, 'package');
 }
 
-echo "\n";
+echo(PHP_EOL);
 
-unset($pkg);
-unset($pkgs_db_id);
-unset($pkg_c);
-unset($pkgs);
-unset($pkgs_db);
-unset($pkgs_db_db);
+unset($pkg, $pkgs_db_id, $pkg_c, $pkgs, $pkgs_db, $pkgs_db_db);
 
-?>
+// EOF

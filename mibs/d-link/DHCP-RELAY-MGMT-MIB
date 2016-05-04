@@ -1,8 +1,8 @@
 -- -----------------------------------------------------------------------------
 -- MIB NAME : DHCP-RELAY-MGMT-MIB
 -- FILE NAME: DHCPRelay.mib
--- DATE     : 2008/8/04
--- VERSION  : 1.01
+-- DATE     : 2013/10/11
+-- VERSION  : 1.09
 -- PURPOSE  : To construct the MIB structure of DHCP Relay function for
 --            proprietary enterprise
 -- -----------------------------------------------------------------------------
@@ -12,14 +12,60 @@
 -- Description:
 --  [New Object]
 --  [Modification]
--- Notes: (Requested by who and which project)
--- -----------------------------------------------------------------------------
+-- Notes: (Requested by who and which project)   
+--
+-- Version 1.09, 2012/11/23, Randy Xie
+-- [Modification]
+-- 1. Add new Circuit ID type in swDHCPRelayOption82CircuitIDType:
+--    vendor6(8).
+-- 2. Add support relay send ARP to server add C-tag
+--
+-- Version 1.08, 2012/10/24, Randy Xie
+-- [Modification]
+-- 1. Add new Circuit ID type in swDHCPRelayOption82CircuitIDType:
+--    vendor5(7).
+--
+-- Version 1.07, 2012/10/24, Randy Xie
+-- [Modification]
+-- Update MIB description for ¡°swDHCPRelayOption82CircuitID¡±
+--
+-- Version 1.06, 2012/09/14, Jerry Qin
+-- [New Object]
+-- Add swDHCPRelayOption82CircuitIDType, swDHCPRelayOption82CircuitID,
+-- 	swDHCPRelayOption82PerPortRemoteIdTable and 
+--  swDHCPRelayOption82PerPortCircuitIdTable to support Extension definition 
+--  on DHCP option 82.
+-- Notes: requested by Jerry Qin For DGS-3120R3.
+--
+-- Version 1.05, 2012/02/07, King Cao
+-- [New Object]
+-- Add swDHCPRelayPortStateCtrlTable to support per port configure DHCP relay state.
+-- Notes: requested by King Cao.
+--
+-- Version 1.04, 2011/03/01, Jane Lu
+-- [New Object]
+-- Add swDHCPLocalRelayOption82Table to support per port configure DHCP local 
+-- relay option 82 policy.
+-- Notes: requested by Jane Lu for DGS3200.
+--
+-- Version 1.03, 2010/05/28, Easion Tang
+-- [New Object]
+-- [1]Added swDHCPLocalRelayMgmt to support DHCP relay in local VLAN.
+-- [2]Added swDHCPRelayVlanCtrlTable to support per VLAN configure relay server.
+-- Notes: requested by Easion Tang for DES3528.
+--
+-- Version 1.02, 2009/1/8, Kelvin Tao
+-- [Modification]
+-- Modify the description of swDHCPRelayOption60String and swDHCPRelayOption61ClientID.
+-- For fixed bug(string as index, which length exceed the allowed length of
+-- an SNMP object identifier, it's impossible to represent in table).
+--
 -- Version 1.01, 2008/8/04, Marco Visaya
 -- Added objects for remote id
 -- added swDHCPRelayOption82RemoteIDType
 -- added swDHCPRelayOption82RemoteID
 -- Notes: requested by Marco Visaya for DES30XXP project.
--- -----------------------------------------------------------------------------
+-- 
 -- Version 1.00, 2008/1/31, Kelvin Tao
 -- This is the first formal version for universal MIB definition.
 -- -----------------------------------------------------------------------------
@@ -32,22 +78,24 @@ DHCP-RELAY-MGMT-MIB DEFINITIONS ::= BEGIN
                                         FROM SNMPv2-SMI
         MacAddress, RowStatus           FROM SNMPv2-TC
         DisplayString                   FROM RFC1213-MIB
-        dlink-common-mgmt		FROM DLINK-ID-REC-MIB;
+		VlanId        					FROM Q-BRIDGE-MIB
+		dlink-common-mgmt		FROM DLINK-ID-REC-MIB;
         
 		 
     	
     swDHCPRelayMIB MODULE-IDENTITY
-          LAST-UPDATED "200808040000Z"
+          LAST-UPDATED "201310110000Z"
           ORGANIZATION "D-Link Corp."
           CONTACT-INFO
                        "http://support.dlink.com"
           DESCRIPTION
-		    "The Structure of DHCP relay management for the proprietary enterprise."
+		    "The structure of DHCP relay management for the proprietary enterprise."
         ::= { dlink-common-mgmt 42 }
 
     swDHCPRelayCtrl                OBJECT IDENTIFIER ::= { swDHCPRelayMIB 1 }
     swDHCPRelayInfo                OBJECT IDENTIFIER ::= { swDHCPRelayMIB 2 }
     swDHCPRelayMgmt                OBJECT IDENTIFIER ::= { swDHCPRelayMIB 3 }
+    swDHCPLocalRelayMgmt           OBJECT IDENTIFIER ::= { swDHCPRelayMIB 4 }
 
     swDHCPRelayOption82            OBJECT IDENTIFIER ::= { swDHCPRelayMgmt 2 }
     swDHCPRelayOption60	           OBJECT IDENTIFIER ::= { swDHCPRelayMgmt 3 }
@@ -65,7 +113,7 @@ DHCP-RELAY-MGMT-MIB DEFINITIONS ::= BEGIN
         MAX-ACCESS  read-write
         STATUS  current
         DESCRIPTION
-            "This object indicates DHCP relay function is enabled or
+            "This object indicates whether the DHCP relay function is enabled or
              disabled.
             "
         ::= { swDHCPRelayCtrl 1 }
@@ -164,7 +212,7 @@ DHCP-RELAY-MGMT-MIB DEFINITIONS ::= BEGIN
         MAX-ACCESS  read-write
         STATUS  current
         DESCRIPTION
-            "This object indicates DHCP relay option 82 function is enabled or
+            "This object indicates whether the DHCP relay option 82 function is enabled or
             disabled."
         ::= { swDHCPRelayOption82 1 }
 
@@ -176,7 +224,7 @@ DHCP-RELAY-MGMT-MIB DEFINITIONS ::= BEGIN
         MAX-ACCESS  read-write
         STATUS  current
         DESCRIPTION
-            "This object indicates DHCP relay option 82 Check function is enabled or
+            "This object indicates whether the DHCP relay option 82 check function is enabled or
              disabled.
             "
         ::= { swDHCPRelayOption82 2 }
@@ -190,20 +238,26 @@ DHCP-RELAY-MGMT-MIB DEFINITIONS ::= BEGIN
         MAX-ACCESS  read-write
         STATUS  current
         DESCRIPTION
-            "This object indicates DHCP relay option 82 policy."
+            "This object indicates the DHCP relay option 82 policy."
         ::= { swDHCPRelayOption82 3 }
-        
+
 	swDHCPRelayOption82RemoteIDType OBJECT-TYPE
         SYNTAX  INTEGER {
                default(1),
-               user-defined(2)
+               user-defined(2),
+               vendor2(4),
+               vendor3(5)
               }
         MAX-ACCESS  read-write
         STATUS  current
         DESCRIPTION
-            "This object indicates the type of remote ID. If the type is default,
-            the remote ID will be the MAC address of the device, otherwise, the remote
-            ID can be defined by writing to the swDHCPRelayOption82RemoteID object."
+            "This object indicates the type of remote ID. 
+            If the type is default,the remote ID will be the System¡¯s MAC 
+            address. If the type is user-defined, the remote ID can be defined
+            by writing to the swDHCPRelayOption82RemoteID object. If the type
+            is vendor2, the remote ID will be the System Name. If the type is
+            vendor3, the remote ID will configured in
+            swDHCPRelayOption82PerPortRemoteIdTable"
         ::= { swDHCPRelayOption82 4 }
 
 	swDHCPRelayOption82RemoteID OBJECT-TYPE
@@ -211,303 +265,809 @@ DHCP-RELAY-MGMT-MIB DEFINITIONS ::= BEGIN
         MAX-ACCESS  read-write
         STATUS  current
         DESCRIPTION
-            "This object displays the current remote ID of the device. If swDHCPRelayOption82RemoteIDType
-            is set to default, the value will be the MAC address of the device, and this object cannot
-            be modified. If swDHCPRelayOption82RemoteIDType is set to user-defined, a new value can
-            be written to this object."
-        ::= { swDHCPRelayOption82 5 }        
+            "This object displays the current remote ID of the device.
+            If swDHCPRelayOption82RemoteIDType is set to default, the 
+            value will be the MAC address of the device, and this object 
+            cannot be modified. If swDHCPRelayOption82RemoteIDType is set 
+            to vendor2, the remote ID will be theSystem Name., and this 
+            object cannot be modified.If swDHCPRelayOption82RemoteIDType 
+            is set to user-defined, a new value can be written to this object."
+        ::= { swDHCPRelayOption82 5 }   
         
+	swDHCPRelayOption82CircuitIDType OBJECT-TYPE
+        SYNTAX  INTEGER {
+               default(1),
+               user-defined(2),
+               vendor1(3),
+               vendor2(4),
+               vendor3(5),
+               vendor4(6),
+               vendor5(7),
+               vendor6(8)
+              }
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+            "This object indicates the type of circuit ID.If the type is 
+            default,the circuit ID will be the VLAN ID, Module ID and Port 
+            Number. If the type is user-defined ,the circuit ID can be defined
+            by writing to the swDHCPRelayOption82CircuitId object.If the type 
+            is vendor1, the circuit ID will be the VLAN ID, Slot ID, Port 
+            Number and System¡¯s MAC address. If the type is vendor2, the 
+            circuit ID will be the Port Number.If the type is vendor3,the 
+            circuit ID will be configured in swDHCPRelayOption82PerPortCircuitIdTable
+            If the type is vendor4, the circuit ID will be the System Name,
+            Module ID, Port Number and Client VLAN ID.
+            If the type is vendor5, the circuit ID will be the System Name, 'eth',
+            Chassis ID, Slot ID, Port Number and Client VLAN ID.
+            If the type is vendor6, the circuit ID will be the Port Name, VLAN ID, 
+            System Name, Slot ID, Sub Slot ID, Port Number."
+        ::= { swDHCPRelayOption82 6 }
+
+	swDHCPRelayOption82CircuitID OBJECT-TYPE
+        SYNTAX  DisplayString
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+            "This object displays the current circuit ID of the device. 
+            If swDHCPRelayOption82CircuitIDType is set to user-defined, 
+            a new value can be written to this object.
+            If swDHCPRelayOption82CircuitIdType is set to other, the value will 
+            be display and cannot be modified."
+        ::= { swDHCPRelayOption82 7 }   
+        
+    swDHCPRelayOption82PerPortRemoteIdTable OBJECT-TYPE
+     	SYNTAX SEQUENCE OF SwDHCPRelayOption82PerPortRemoteIDEntry
+	    MAX-ACCESS not-accessible
+	    STATUS current
+	    DESCRIPTION
+	 		"This table is used to manage the DHCP relay Option82 Remote ID
+	 		for each client.And this configure will override the configure of
+	 		swDHCPRelayOption82RemoteId for this client."
+	    ::={ swDHCPRelayOption82 8}    
+	   
+    swDHCPRelayOption82PerPortRemoteIdEntry OBJECT-TYPE
+	    SYNTAX SwDHCPRelayOption82PerPortRemoteIDEntry
+	    MAX-ACCESS not-accessible
+	    STATUS current
+	    DESCRIPTION
+	    	"This object lists indicates the DHCP relay Option82 Remote ID 
+	    	for each client."
+		INDEX {swDHCPRelayOption82PerPortRemoteIdPortIndex}
+	    ::={ swDHCPRelayOption82PerPortRemoteIdTable 1 }
+  
+    SwDHCPRelayOption82PerPortRemoteIDEntry ::=
+     SEQUENCE{
+		swDHCPRelayOption82PerPortRemoteIdPortIndex
+     	    INTEGER,
+     	swDHCPRelayOption82PerPortRemoteIdType
+     	    INTEGER,
+     	swDHCPRelayOption82PerPortRemoteIdValue
+     	    	DisplayString
+     }
+     
+    swDHCPRelayOption82PerPortRemoteIdPortIndex OBJECT-TYPE
+      SYNTAX  INTEGER
+      MAX-ACCESS  not-accessible
+      STATUS  current
+      DESCRIPTION
+         "This object indicates the Client's port number."
+      ::= { swDHCPRelayOption82PerPortRemoteIdEntry 1 }
+      
+
+	swDHCPRelayOption82PerPortRemoteIdType OBJECT-TYPE
+        SYNTAX  INTEGER {
+               vendor3(5)
+              }
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+            "This object indicates the type of port's remote ID. 
+            If the type is vendor3, the remote ID can be defined 
+            by writing to the swDHCPRelayOption82PerPortRemoteIdValue
+            object. "
+        ::= { swDHCPRelayOption82PerPortRemoteIdEntry 2 }
+
+	swDHCPRelayOption82PerPortRemoteIdValue OBJECT-TYPE
+        SYNTAX  DisplayString
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+            "This object displays the current remote ID of the special port.
+            If swDHCPRelayOption82PerPortRemoteIdType is set to vendor3,a new
+            value can be written to this object."
+        ::= { swDHCPRelayOption82PerPortRemoteIdEntry 3 } 
+        
+	swDHCPRelayOption82PerPortCircuitIdTable OBJECT-TYPE
+     	SYNTAX SEQUENCE OF SwDHCPRelayOption82CircuitIDEntry
+	    MAX-ACCESS not-accessible
+	    STATUS current
+	    DESCRIPTION
+	 		"This table is used to manage the DHCP relay Option82 Circuit ID 
+	 		for each client.And this configure will override the configure of
+	 		swDHCPRelayOption82CircuitId for this client."
+	    ::={ swDHCPRelayOption82 9}    
+	   
+    swDHCPRelayOption82PerPortCircuitIdEntry OBJECT-TYPE
+	    SYNTAX SwDHCPRelayOption82CircuitIDEntry
+	    MAX-ACCESS not-accessible
+	    STATUS current
+	    DESCRIPTION
+	    	"This object lists indicates the DHCP relay Option82 Circuit ID for 
+	    	each client."
+		INDEX { swDHCPRelayOption82PerPortCircuitIdPortIndex}
+	    ::={ swDHCPRelayOption82PerPortCircuitIdTable 1 }
+  
+    SwDHCPRelayOption82CircuitIDEntry ::=
+     	SEQUENCE{
+		swDHCPRelayOption82PerPortCircuitIdPortIndex
+     	    	INTEGER,
+     	swDHCPRelayOption82PerPortCircuitIdType
+     	    	INTEGER,
+     	swDHCPRelayOption82PerPortCircuitIdValue
+     	    	DisplayString
+     }
+     
+    swDHCPRelayOption82PerPortCircuitIdPortIndex OBJECT-TYPE
+      	SYNTAX  INTEGER
+      	MAX-ACCESS  not-accessible
+      	STATUS  current
+      	DESCRIPTION
+          "This object indicates the module's port number.(1..Max port number in the module)"
+      	::= { swDHCPRelayOption82PerPortCircuitIdEntry 1 }
+
+	swDHCPRelayOption82PerPortCircuitIdType OBJECT-TYPE
+        SYNTAX  INTEGER {
+               vendor3(5)
+              }
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+            "This object indicates the type of client's circuit ID.If the type
+            is vendor3,the circuit ID can be defined by writing to the 
+            swDHCPRelayOption82PerPortCircuitIdValue object."
+        ::= { swDHCPRelayOption82PerPortCircuitIdEntry 2 }
+
+	swDHCPRelayOption82PerPortCircuitIdValue OBJECT-TYPE
+        SYNTAX  DisplayString
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+            "This object displays the current circuit ID of client. If 
+            swDHCPRelayOption82PerPortCircuitIdType is set to vendor3, 
+            a new value can be written to this object."
+        ::= { swDHCPRelayOption82PerPortCircuitIdEntry 3 }   
 -- -----------------------------------------------------------------------------
 --  swDHCPRelayOption60
 -- -----------------------------------------------------------------------------
 
---      swDHCPRelayOption60State OBJECT-TYPE
---         SYNTAX  INTEGER {
---                enabled(1),
---                disabled(2)
---                }
---         MAX-ACCESS  read-write
---         STATUS  current
---         DESCRIPTION
---             "This object indicates DHCP relay option 60 function is enabled or
---              disabled.
---             "
---         ::= { swDHCPRelayOption60 1 }
+     swDHCPRelayOption60State OBJECT-TYPE
+        SYNTAX  INTEGER {
+               enabled(1),
+               disabled(2)
+               }
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+            "This object indicates whether the DHCP relay option 60 function is enabled or
+             disabled.
+            "
+        ::= { swDHCPRelayOption60 1 }
 
---      swDHCPRelayOption60DefMode OBJECT-TYPE
---         SYNTAX  INTEGER {
---                relay(1),
---                drop(2)
---                }
---         MAX-ACCESS  read-write
---         STATUS  current
---         DESCRIPTION
---             "This object indicates default mode that has no option 60 matching rules.
+     swDHCPRelayOption60DefMode OBJECT-TYPE
+        SYNTAX  INTEGER {
+               relay(1),
+               drop(2)
+               }
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+            "This object indicates default mode that has no option 60 matching rules.
 
---              relay (1): means to relay the packet to the IP address which is specified
---             	by swDHCPRelayOption60DefRelayIp.
---              drop (2): means to drop the packet.
---             "
---         ::= { swDHCPRelayOption60 2 }
+             relay (1): means to relay the packet to the IP address which is specified
+            	by swDHCPRelayOption60DefRelayIp.
+             drop (2): means to drop the packet.
+            "
+        ::= { swDHCPRelayOption60 2 }
 
---      swDHCPRelayOption60DefTable OBJECT-TYPE
---         SYNTAX  SEQUENCE OF SwDHCPRelayOption60DefEntry
---         MAX-ACCESS  not-accessible
---         STATUS  current
---         DESCRIPTION
---             "This table indicates the default relay servers for the packet
---              that has no option 60 matching rules.
---             "
---         ::= { swDHCPRelayOption60 3 }
+     swDHCPRelayOption60DefTable OBJECT-TYPE
+        SYNTAX  SEQUENCE OF SwDHCPRelayOption60DefEntry
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+            "This table indicates the default relay servers for the packet
+             that has no option 60 matching rules.
+            "
+        ::= { swDHCPRelayOption60 3 }
 
---      swDHCPRelayOption60DefEntry OBJECT-TYPE
---         SYNTAX  SwDHCPRelayOption60DefEntry
---         MAX-ACCESS  not-accessible
---         STATUS  current
---         DESCRIPTION
---             "A list of information indicates the default relay servers for the packet
---              that has no option 60 matching rules.
---             "
---         INDEX  { swDHCPRelayOption60DefRelayIp }
---         ::= { swDHCPRelayOption60DefTable 1 }
+     swDHCPRelayOption60DefEntry OBJECT-TYPE
+        SYNTAX  SwDHCPRelayOption60DefEntry
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+            "A list of information indicates the default relay servers for the packet
+             that has no option 60 matching rules.
+            "
+        INDEX  { swDHCPRelayOption60DefRelayIp }
+        ::= { swDHCPRelayOption60DefTable 1 }
 
---      SwDHCPRelayOption60DefEntry ::=
---         SEQUENCE {
---             swDHCPRelayOption60DefRelayIp
---                 IpAddress,
---             swDHCPRelayOption60DefRowStatus
---                 RowStatus
---         }
+     SwDHCPRelayOption60DefEntry ::=
+        SEQUENCE {
+            swDHCPRelayOption60DefRelayIp
+                IpAddress,
+            swDHCPRelayOption60DefRowStatus
+                RowStatus
+        }
 
---      swDHCPRelayOption60DefRelayIp OBJECT-TYPE
---         SYNTAX  IpAddress
---         MAX-ACCESS  read-only
---         STATUS  current
---         DESCRIPTION
---             "This object indicates the IP address of default relay server."
---         ::= { swDHCPRelayOption60DefEntry 1 }
+     swDHCPRelayOption60DefRelayIp OBJECT-TYPE
+        SYNTAX  IpAddress
+        MAX-ACCESS  read-only
+        STATUS  current
+        DESCRIPTION
+            "This object indicates the IP address of the default relay server."
+        ::= { swDHCPRelayOption60DefEntry 1 }
 
---      swDHCPRelayOption60DefRowStatus OBJECT-TYPE
---         SYNTAX RowStatus
---         MAX-ACCESS  read-create
---         STATUS current
---         DESCRIPTION
---             "This object indicates the status of this entry."
---         ::= { swDHCPRelayOption60DefEntry 2 }
+     swDHCPRelayOption60DefRowStatus OBJECT-TYPE
+        SYNTAX RowStatus
+        MAX-ACCESS  read-create
+        STATUS current
+        DESCRIPTION
+            "This object indicates the status of this entry."
+        ::= { swDHCPRelayOption60DefEntry 2 }
 
---       swDHCPRelayOption60Table OBJECT-TYPE
---         SYNTAX  SEQUENCE OF SwDHCPRelayOption60Entry
---         MAX-ACCESS  not-accessible
---         STATUS  current
---         DESCRIPTION
---             "This table indicates the relay servers for the packet at option 60 rules."
---         ::= { swDHCPRelayOption60 4 }
+      swDHCPRelayOption60Table OBJECT-TYPE
+        SYNTAX  SEQUENCE OF SwDHCPRelayOption60Entry
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+            "This table indicates the relay servers for the packet for option 60 rules."
+        ::= { swDHCPRelayOption60 4 }
 
---      swDHCPRelayOption60Entry OBJECT-TYPE
---         SYNTAX  SwDHCPRelayOption60Entry
---         MAX-ACCESS  not-accessible
---         STATUS  current
---         DESCRIPTION
---             "A list of information indicates the relay servers for the packet
---              at option 60 rules."
---         INDEX  { swDHCPRelayOption60String,swDHCPRelayOption60RelayIp }
---         ::= { swDHCPRelayOption60Table 1 }
+     swDHCPRelayOption60Entry OBJECT-TYPE
+        SYNTAX  SwDHCPRelayOption60Entry
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+            "A list of information indicates the relay servers for the packet
+             for option 60 rules."
+        INDEX  { swDHCPRelayOption60String,swDHCPRelayOption60RelayIp }
+        ::= { swDHCPRelayOption60Table 1 }
 
---      SwDHCPRelayOption60Entry ::=
---         SEQUENCE {
---             swDHCPRelayOption60String
---                 DisplayString,
---             swDHCPRelayOption60RelayIp
---                 IpAddress,
---             swDHCPRelayOption60MatchType
---                 INTEGER,
---             swDHCPRelayOption60RowStatus
---                 RowStatus
---         }
+     SwDHCPRelayOption60Entry ::=
+        SEQUENCE {
+            swDHCPRelayOption60String
+                DisplayString,
+            swDHCPRelayOption60RelayIp
+                IpAddress,
+            swDHCPRelayOption60MatchType
+                INTEGER,
+            swDHCPRelayOption60RowStatus
+                RowStatus
+        }
 
---      swDHCPRelayOption60String OBJECT-TYPE
---         SYNTAX  DisplayString
---         MAX-ACCESS  read-only
---         STATUS  current
---         DESCRIPTION
---             "This object indicates string of this entry."
---         ::= { swDHCPRelayOption60Entry 1 }
+     swDHCPRelayOption60String OBJECT-TYPE
+        SYNTAX  DisplayString
+        MAX-ACCESS  read-only
+        STATUS  current
+        DESCRIPTION
+            "This object indicates the string of this entry.
 
---      swDHCPRelayOption60RelayIp OBJECT-TYPE
---         SYNTAX  IpAddress
---         MAX-ACCESS  read-only
---         STATUS  current
---         DESCRIPTION
---             "This object indicates the IP address of relay server."
---         ::= { swDHCPRelayOption60Entry 2 }
+             Note that it is theoretically possible for a valid string
+             to exceed the allowed length of an SNMP object identifier,
+             and thus be impossible to represent in tables in this MIB
+             that are indexed by string."
+        ::= { swDHCPRelayOption60Entry 1 }
 
---      swDHCPRelayOption60MatchType OBJECT-TYPE
---         SYNTAX  INTEGER {
---                exact(1),
---                partial(2)
---                }
---         MAX-ACCESS  read-create
---         STATUS  current
---         DESCRIPTION
---             "This object indicates match state of this entry.
---             
---              exact(1): means the option 60 string in the packet must full
---             	match with the specified string.
---              partial(2): means the option 60 string in the packet only need
---             	partial match with the specified string.
---             "
---         ::= { swDHCPRelayOption60Entry 3 }
+     swDHCPRelayOption60RelayIp OBJECT-TYPE
+        SYNTAX  IpAddress
+        MAX-ACCESS  read-only
+        STATUS  current
+        DESCRIPTION
+            "This object indicates the IP address of the relay server."
+        ::= { swDHCPRelayOption60Entry 2 }
 
---      swDHCPRelayOption60RowStatus OBJECT-TYPE
---         SYNTAX RowStatus
---         MAX-ACCESS  read-create
---         STATUS current
---         DESCRIPTION
---             "This object indicates the status of this entry."
---         ::= { swDHCPRelayOption60Entry 4 }
+     swDHCPRelayOption60MatchType OBJECT-TYPE
+        SYNTAX  INTEGER {
+               exact(1),
+               partial(2)
+               }
+        MAX-ACCESS  read-create
+        STATUS  current
+        DESCRIPTION
+            "This object indicates the match state of this entry.
+            
+             exact (1): Means the option 60 string in the packet must fully
+            	match the specified string.
+             partial (2): Means the option 60 string in the packet only needs to
+            	partially match the specified string.
+            "
+        ::= { swDHCPRelayOption60Entry 3 }
+
+     swDHCPRelayOption60RowStatus OBJECT-TYPE
+        SYNTAX RowStatus
+        MAX-ACCESS  read-create
+        STATUS current
+        DESCRIPTION
+            "This object indicates the status of this entry."
+        ::= { swDHCPRelayOption60Entry 4 }
 
 -- -----------------------------------------------------------------------------
 --  swDHCPRelayOption61
 -- -----------------------------------------------------------------------------
 
---      swDHCPRelayOption61State OBJECT-TYPE
---         SYNTAX  INTEGER {
---                enabled(1),
---                disabled(2)
---                }
---         MAX-ACCESS  read-write
---         STATUS  current
---         DESCRIPTION
---             "This object indicates DHCP relay option 61 function is enabled or
---              disabled.
---             "
---         ::= { swDHCPRelayOption61 1 }
+     swDHCPRelayOption61State OBJECT-TYPE
+        SYNTAX  INTEGER {
+               enabled(1),
+               disabled(2)
+               }
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+            "This object indicates whether the DHCP relay option 61 function is enabled or
+             disabled.
+            "
+        ::= { swDHCPRelayOption61 1 }
 
---      swDHCPRelayOption61DefMode OBJECT-TYPE
---         SYNTAX  INTEGER {
---                relay(1),
---                drop(2)
---                }
---         MAX-ACCESS  read-write
---         STATUS  current
---         DESCRIPTION
---             "This object indicates default mode that has no option 61 matching rules.
+     swDHCPRelayOption61DefMode OBJECT-TYPE
+        SYNTAX  INTEGER {
+               relay(1),
+               drop(2)
+               }
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+            "This object indicates the default mode has no option 61 matching rules.
 
---              relay (1): means to relay the packet to the IP address which is specified 
---             	by swDHCPRelayOption61DefRelayIp.
---              drop (2): means to drop the packet.
---             "
---         ::= { swDHCPRelayOption61 2 }
+             relay (1): Means to relay the packet to the IP address which is specified 
+            	by swDHCPRelayOption61DefRelayIp.
+             drop (2): Means to drop the packet.
+            "
+        ::= { swDHCPRelayOption61 2 }
 
---      swDHCPRelayOption61DefRelayIp OBJECT-TYPE
---         SYNTAX  IpAddress
---         MAX-ACCESS  read-write
---         STATUS  current
---         DESCRIPTION
---             "This object indicates the IP address of default relay server
---              that has no option 61 matching rules.
+     swDHCPRelayOption61DefRelayIp OBJECT-TYPE
+        SYNTAX  IpAddress
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+            "This object indicates the IP address of the default relay server
+             has no option 61 matching rules.
 
---              Pay attention to when swDHCPRelayOption61Mode is:
---              relay (1): this object must be set together.
---              drop (2): this object can not be set, and it always returns '0.0.0.0'.
---             "
---         ::= { swDHCPRelayOption61 3 }
+             Pay attention to when swDHCPRelayOption61Mode is:
+             relay (1): This object must be set together.
+             drop (2): This object can not be set, and it always returns to '0.0.0.0'.
+            "
+        ::= { swDHCPRelayOption61 3 }
 
---       swDHCPRelayOption61Table OBJECT-TYPE
---         SYNTAX  SEQUENCE OF SwDHCPRelayOption61Entry
---         MAX-ACCESS  not-accessible
---         STATUS  current
---         DESCRIPTION
---             "This table indicates the relay servers for the packet at option 61 rules."
---         ::= { swDHCPRelayOption61 4 }
+      swDHCPRelayOption61Table OBJECT-TYPE
+        SYNTAX  SEQUENCE OF SwDHCPRelayOption61Entry
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+            "This table indicates the relay servers for the packet for option 61 rules."
+        ::= { swDHCPRelayOption61 4 }
 
---      swDHCPRelayOption61Entry OBJECT-TYPE
---         SYNTAX  SwDHCPRelayOption61Entry
---         MAX-ACCESS  not-accessible
---         STATUS  current
---         DESCRIPTION
---             "A list of information indicates the relay servers for the packet
---              at option 61 rules.
---             "
---         INDEX  { swDHCPRelayOption61ClientType,swDHCPRelayOption61ClientID }
---         ::= { swDHCPRelayOption61Table 1 }
+     swDHCPRelayOption61Entry OBJECT-TYPE
+        SYNTAX  SwDHCPRelayOption61Entry
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+            "A list of information indicates the relay servers for the packet
+             for option 61 rules.
+            "
+        INDEX  { swDHCPRelayOption61ClientType,swDHCPRelayOption61ClientID }
+        ::= { swDHCPRelayOption61Table 1 }
 
---      SwDHCPRelayOption61Entry ::=
---         SEQUENCE {
---             swDHCPRelayOption61ClientType
---                 INTEGER,
---             swDHCPRelayOption61ClientID
---                 DisplayString,
---             swDHCPRelayOption61Mode
---                 INTEGER,
---             swDHCPRelayOption61RelayIp
---                 IpAddress,
---             swDHCPRelayOption61RowStatus
---                 RowStatus
---         }
+     SwDHCPRelayOption61Entry ::=
+        SEQUENCE {
+            swDHCPRelayOption61ClientType
+                INTEGER,
+            swDHCPRelayOption61ClientID
+                DisplayString,
+            swDHCPRelayOption61Mode
+                INTEGER,
+            swDHCPRelayOption61RelayIp
+                IpAddress,
+            swDHCPRelayOption61RowStatus
+                RowStatus
+        }
 
---      swDHCPRelayOption61ClientType OBJECT-TYPE
---         SYNTAX  INTEGER {
---                mac(1),
---                string(2)
---                }
---         MAX-ACCESS  read-only
---         STATUS  current
---         DESCRIPTION
---             "This object indicates client type of this entry.
---             
---              mac (1): means the client-ID which is the MAC address of client.
---              string (2): means the client-ID which is specified string by administrator.
---             "
---         ::= { swDHCPRelayOption61Entry 1 }
+     swDHCPRelayOption61ClientType OBJECT-TYPE
+        SYNTAX  INTEGER {
+               mac(1),
+               string(2)
+               }
+        MAX-ACCESS  read-only
+        STATUS  current
+        DESCRIPTION
+            "This object indicates the client type of this entry.
+            
+             mac (1): Means the client-ID which is the MAC address of a client.
+             string (2): Means the client-ID which is specified string by an administrator.
+            "
+        ::= { swDHCPRelayOption61Entry 1 }
 
---      swDHCPRelayOption61ClientID OBJECT-TYPE
---         SYNTAX  DisplayString
---         MAX-ACCESS  read-only
---         STATUS  current
---         DESCRIPTION
---             "This object indicates string of this entry.
---             
---              When swDHCPRelayOption61ClientType is mac(1), the format of this
---              object should be XX-XX-XX-XX-XX-XX (MAC address).
---             "
---         ::= { swDHCPRelayOption61Entry 2 }
---         
---      swDHCPRelayOption61Mode OBJECT-TYPE
---         SYNTAX  INTEGER {
---                relay(1),
---                drop(2)
---                }
---         MAX-ACCESS  read-create
---         STATUS  current
---         DESCRIPTION
---             "This object indicates mode of this entry.
---             
---              relay (1): means to relay the packet to the IP address which is specified 
---             	by swDHCPRelayOption61RelayIp.
---              drop (2): means to drop the packet.
---             "
---         ::= { swDHCPRelayOption61Entry 3 }
-
---      swDHCPRelayOption61RelayIp OBJECT-TYPE
---         SYNTAX  IpAddress
---         MAX-ACCESS  read-create
---         STATUS  current
---         DESCRIPTION
---             "This object indicates the IP address of relay server.
---             
---              Pay attention to when swDHCPRelayOption61Mode is:
---              relay (1): this object must be set together.
---              drop (2): this object can not be set, and it always returns '0.0.0.0'.
---             "
---         ::= { swDHCPRelayOption61Entry 4 }
-
---      swDHCPRelayOption61RowStatus OBJECT-TYPE
---         SYNTAX RowStatus
---         MAX-ACCESS  read-create
---         STATUS current
---         DESCRIPTION
---             "This object indicates the status of this entry."
---         ::= { swDHCPRelayOption61Entry 5 }
+     swDHCPRelayOption61ClientID OBJECT-TYPE
+        SYNTAX  DisplayString
+        MAX-ACCESS  read-only
+        STATUS  current
+        DESCRIPTION
+            "This object indicates the string of this entry.
+            
+             Note:
+             When the swDHCPRelayOption61ClientType is mac (1),
+             the format of this object should be XX.XX.XX.XX.XX.XX (MAC address).
+             
+             When the swDHCPRelayOption61ClientType is string (2),
+             it is theoretically possible for a valid string
+             to exceed the allowed length of an SNMP object identifier,
+             and thus be impossible to represent in tables in this MIB
+             that are indexed by the string."
+        ::= { swDHCPRelayOption61Entry 2 }
         
+     swDHCPRelayOption61Mode OBJECT-TYPE
+        SYNTAX  INTEGER {
+               relay(1),
+               drop(2)
+               }
+        MAX-ACCESS  read-create
+        STATUS  current
+        DESCRIPTION
+            "This object indicates mode of this entry.
+            
+             relay (1): Means to relay the packet to the IP address which is specified 
+            	by swDHCPRelayOption61RelayIp.
+             drop (2): Means to drop the packet.
+            "
+        ::= { swDHCPRelayOption61Entry 3 }
+
+     swDHCPRelayOption61RelayIp OBJECT-TYPE
+        SYNTAX  IpAddress
+        MAX-ACCESS  read-create
+        STATUS  current
+        DESCRIPTION
+            "This object indicates the IP address of the relay server.
+            
+             Pay attention to when swDHCPRelayOption61Mode is:
+             relay (1): This object must be set together.
+             drop (2): This object can not be set, and it always returns to '0.0.0.0'.
+            "
+        ::= { swDHCPRelayOption61Entry 4 }
+
+     swDHCPRelayOption61RowStatus OBJECT-TYPE
+        SYNTAX RowStatus
+        MAX-ACCESS  read-create
+        STATUS current
+        DESCRIPTION
+            "This object indicates the status of this entry."
+        ::= { swDHCPRelayOption61Entry 5 }
+
+-- -----------------------------------------------------------------------------
+-- swDHCPRelayVlanCtrlTable          
+-- -----------------------------------------------------------------------------
+    swDHCPRelayVlanCtrlTable OBJECT-TYPE
+        SYNTAX  SEQUENCE OF SwDHCPRelayVlanCtrlEntry
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+            "This table indicates the IP address as a destination to forward
+             (relay) DHCP packets to."
+        ::= { swDHCPRelayMgmt 5 }
+
+    swDHCPRelayVlanCtrlEntry OBJECT-TYPE
+        SYNTAX  SwDHCPRelayVlanCtrlEntry
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+            "A list of information indicates the IP address as a destination
+             to forward (relay) DHCP packets to."
+        INDEX  { swDHCPRelayVlanCtrlServer }
+        ::= { swDHCPRelayVlanCtrlTable 1 }
+
+    SwDHCPRelayVlanCtrlEntry ::=
+        SEQUENCE {
+            swDHCPRelayVlanCtrlServer
+                IpAddress,
+            swDHCPRelayVlanCtrlVlanRangeList1to64
+	    					OCTET STRING,
+	    			swDHCPRelayVlanCtrlVlanRangeList65to128
+	    					OCTET STRING,
+	    			swDHCPRelayVlanCtrlVlanRangeList129to192
+	    					OCTET STRING,
+	    			swDHCPRelayVlanCtrlVlanRangeList193to256
+	    					OCTET STRING,
+	    			swDHCPRelayVlanCtrlVlanRangeList257to320
+	    					OCTET STRING,
+	    			swDHCPRelayVlanCtrlVlanRangeList321to384
+	    					OCTET STRING,
+	    			swDHCPRelayVlanCtrlVlanRangeList385to448
+	    					OCTET STRING,
+	    			swDHCPRelayVlanCtrlVlanRangeList449to512
+	    					OCTET STRING,
+            swDHCPRelayVlanCtrlRowStatus
+                RowStatus
+        }
+
+    swDHCPRelayVlanCtrlServer OBJECT-TYPE
+        SYNTAX IpAddress
+        MAX-ACCESS  not-accessible
+        STATUS current
+        DESCRIPTION
+            "This object indicates the DHCP server IP address."
+        ::= { swDHCPRelayVlanCtrlEntry 1 }
+        
+    swDHCPRelayVlanCtrlVlanRangeList1to64 OBJECT-TYPE
+				SYNTAX     OCTET STRING (SIZE (64))
+				MAX-ACCESS  read-create
+				STATUS      current
+				DESCRIPTION
+				"This object indicates the VLAN range (1-512)
+			 	that added the specific server."
+        ::= { swDHCPRelayVlanCtrlEntry 2 }
+
+    swDHCPRelayVlanCtrlVlanRangeList65to128 OBJECT-TYPE
+				SYNTAX      OCTET STRING (SIZE (64))
+				MAX-ACCESS  read-create
+				STATUS      current
+				DESCRIPTION
+				"This object indicates the VLAN range (513-1024)
+			 	that added the specific server."
+        ::= { swDHCPRelayVlanCtrlEntry 3 }
+
+    swDHCPRelayVlanCtrlVlanRangeList129to192 OBJECT-TYPE
+				SYNTAX      OCTET STRING (SIZE (64))
+				MAX-ACCESS  read-create
+				STATUS      current
+				DESCRIPTION
+				"This object indicates the VLAN range (1025-1536)
+			 	that added the specific server."
+        ::= { swDHCPRelayVlanCtrlEntry 4 }
+
+    swDHCPRelayVlanCtrlVlanRangeList193to256 OBJECT-TYPE
+				SYNTAX      OCTET STRING (SIZE (64))
+				MAX-ACCESS  read-create
+				STATUS      current
+				DESCRIPTION
+				"This object indicates the VLAN range (1537-2048)
+			 	that added the specific server."
+        ::= { swDHCPRelayVlanCtrlEntry 5 }
+
+    swDHCPRelayVlanCtrlVlanRangeList257to320 OBJECT-TYPE
+				SYNTAX      OCTET STRING (SIZE (64))
+				MAX-ACCESS  read-create
+				STATUS      current
+				DESCRIPTION
+				"This object indicates the VLAN range (2049-2560)
+			 	that added the specific server."
+        ::= { swDHCPRelayVlanCtrlEntry 6 }
+
+    swDHCPRelayVlanCtrlVlanRangeList321to384 OBJECT-TYPE
+				SYNTAX      OCTET STRING (SIZE (64))
+				MAX-ACCESS  read-create
+				STATUS      current
+				DESCRIPTION
+				"This object indicates the VLAN range (2561-3072)
+			 	that added the specific server."
+        ::= { swDHCPRelayVlanCtrlEntry 7 }
+
+    swDHCPRelayVlanCtrlVlanRangeList385to448 OBJECT-TYPE
+				SYNTAX      OCTET STRING (SIZE (64))
+				MAX-ACCESS  read-create
+				STATUS      current
+				DESCRIPTION
+				"This object indicates the VLAN range (3073-3584)
+			 	that added the specific server."
+        ::= { swDHCPRelayVlanCtrlEntry 8 }
+
+    swDHCPRelayVlanCtrlVlanRangeList449to512 OBJECT-TYPE
+				SYNTAX      OCTET STRING (SIZE (64))
+				MAX-ACCESS  read-create
+				STATUS      current
+				DESCRIPTION
+				"This object indicates the VLAN range (3585-4096)
+			 	that added the specific server."
+        ::= { swDHCPRelayVlanCtrlEntry 9 }
+
+    swDHCPRelayVlanCtrlRowStatus OBJECT-TYPE
+        SYNTAX  RowStatus
+        MAX-ACCESS  read-create
+        STATUS  current
+        DESCRIPTION
+            "This object indicates the status of this entry."
+        ::= { swDHCPRelayVlanCtrlEntry 10 }        
+ 
+-- -----------------------------------------------------------------------------
+-- swDHCPRelayPortStateCtrlTable          
+-- ----------------------------------------------------------------------------- 
+    swDHCPRelayPortStateCtrlTable OBJECT-TYPE
+     	SYNTAX SEQUENCE OF SwDHCPRelayPortStateCtrlEntry
+	    MAX-ACCESS not-accessible
+	    STATUS current
+	    DESCRIPTION
+	 		"This table is used to manage the DHCP relay state
+	 		for each port."
+	    ::={ swDHCPRelayMgmt 6}    
+	   
+    swDHCPRelayPortStateCtrlEntry OBJECT-TYPE
+	    SYNTAX SwDHCPRelayPortStateCtrlEntry
+	    MAX-ACCESS not-accessible
+	    STATUS current
+	    DESCRIPTION
+	    	"This object lists the current ports in the switch and their
+	    	corresponding DHCP relay state."
+		INDEX { swDHCPRelayPortStateCtrlPortIndex }
+	    ::={ swDHCPRelayPortStateCtrlTable 1 }
+  
+    SwDHCPRelayPortStateCtrlEntry ::=
+     	SEQUENCE{
+		swDHCPRelayPortStateCtrlPortIndex
+     	    	INTEGER,
+     		swDHCPRelayPortStateCtrlState
+     	    	INTEGER		
+     }
+     
+    swDHCPRelayPortStateCtrlPortIndex OBJECT-TYPE
+      	SYNTAX  INTEGER
+      	MAX-ACCESS  not-accessible
+      	STATUS  current
+      	DESCRIPTION
+          "This object indicates the module's port number.(1..Max port number in the module)"
+      	::= { swDHCPRelayPortStateCtrlEntry 1 }
+
+  	swDHCPRelayPortStateCtrlState OBJECT-TYPE
+      	SYNTAX  INTEGER {
+               enabled(1),
+               disabled(2)
+               }
+      	MAX-ACCESS  read-write
+      	STATUS  current
+      	DESCRIPTION
+          "This object indicates the state of the DHCP relay of each port."
+      ::= { swDHCPRelayPortStateCtrlEntry 2 }	
+
+-- -----------------------------------------------------------------------------
+-- swDHCPRelaySendArpByCidTable          
+-- ----------------------------------------------------------------------------- 
+    swDHCPRelaySendArpByCidTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF SwDHCPRelaySendArpByCidEntry
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION
+            "This table is used to manage the DHCP relay send ARP to DHCP Server include the inner vid."
+        ::={ swDHCPRelayMgmt 7}    
+   
+    swDHCPRelaySendArpByCidEntry OBJECT-TYPE
+        SYNTAX SwDHCPRelaySendArpByCidEntry
+        MAX-ACCESS not-accessible
+        STATUS current
+        DESCRIPTION
+            "This object lists the current each DHCP Server configuration inner vid."
+        INDEX { swDHCPRelayCtrlServer }
+        ::={ swDHCPRelaySendArpByCidTable 1 }
+  
+    SwDHCPRelaySendArpByCidEntry ::=
+         SEQUENCE{
+            swDHCPRelaySendArpByCidInnerVid
+                INTEGER
+     }
+
+    swDHCPRelaySendArpByCidInnerVid OBJECT-TYPE
+        SYNTAX  INTEGER (0..4094)
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+          "This object indicates the inner vid or null vid.
+           0: not insert inner vid. 
+           1-4094: inner vid."
+      ::= { swDHCPRelaySendArpByCidEntry 1 }
+        
+-- -----------------------------------------------------------------------------
+-- swDHCPLocalRelayMgmt                OBJECT IDENTIFIER ::= { swDHCPRelayMIB 4 }
+-- -----------------------------------------------------------------------------
+	swDHCPLocalRelayGlobalState OBJECT-TYPE
+      SYNTAX  INTEGER {
+             enabled(1),
+             disabled(2)
+             }
+      MAX-ACCESS  read-write
+      STATUS  current
+      DESCRIPTION
+          "This object indicates the state of the DHCP local relay
+          function of the switch."
+      ::= { swDHCPLocalRelayMgmt 1 }
+
+	swDHCPLocalRelayVlanTable OBJECT-TYPE
+     	SYNTAX SEQUENCE OF SwDHCPLocalRelayVlanEntry
+	    MAX-ACCESS not-accessible
+	    STATUS current
+	    DESCRIPTION
+	 		"This table is used to manage the DHCP local relay status
+	 		for each VLAN."
+	    ::={ swDHCPLocalRelayMgmt 2}
+	
+  swDHCPLocalRelayVlanEntry OBJECT-TYPE
+	    SYNTAX SwDHCPLocalRelayVlanEntry
+	    MAX-ACCESS not-accessible
+	    STATUS current
+	    DESCRIPTION
+	    	"This object lists the current VLANs in the switch and their
+	    	corresponding DHCP local relay status."
+		INDEX { swDHCPLocalRelayVlanID }
+	    ::={ swDHCPLocalRelayVlanTable 1 }
+
+  SwDHCPLocalRelayVlanEntry ::=
+     SEQUENCE{
+	swDHCPLocalRelayVlanID
+     	    VlanId,
+     	swDHCPLocalRelayState
+     	    INTEGER		
+     }
+
+  swDHCPLocalRelayVlanID OBJECT-TYPE
+      SYNTAX  VlanId
+      MAX-ACCESS  not-accessible
+      STATUS  current
+      DESCRIPTION
+          "This object indicates the VLAN ID."
+      ::= { swDHCPLocalRelayVlanEntry 1 }
+
+  swDHCPLocalRelayState OBJECT-TYPE
+      SYNTAX  INTEGER {
+             enabled(1),
+             disabled(2)
+             }
+      MAX-ACCESS  read-write
+      STATUS  current
+      DESCRIPTION
+          "This object indicates the state of the DHCP relay function
+          of the specified VLAN."
+      ::= { swDHCPLocalRelayVlanEntry 2 }
+  
+  swDHCPLocalRelayOption82Table OBJECT-TYPE
+     	SYNTAX SEQUENCE OF SwDHCPLocalRelayOption82Entry
+	    MAX-ACCESS not-accessible
+	    STATUS current
+	    DESCRIPTION
+	 		"This table is used to manage the DHCP local relay option 82 policy
+	 		for each port."
+	    ::={ swDHCPLocalRelayMgmt 3}    
+	   
+  swDHCPLocalRelayOption82Entry OBJECT-TYPE
+	    SYNTAX SwDHCPLocalRelayOption82Entry
+	    MAX-ACCESS not-accessible
+	    STATUS current
+	    DESCRIPTION
+	    	"This object lists the current ports in the switch and their
+	    	corresponding DHCP local relay option 82 policy."
+		INDEX { swDHCPLocalRelayOption82PortIndex }
+	    ::={ swDHCPLocalRelayOption82Table 1 }
+  
+  SwDHCPLocalRelayOption82Entry ::=
+     SEQUENCE{
+	swDHCPLocalRelayOption82PortIndex
+     	    INTEGER,
+     	swDHCPLocalRelayOption82Policy
+     	    INTEGER		
+     }
+     
+  swDHCPLocalRelayOption82PortIndex OBJECT-TYPE
+      SYNTAX  INTEGER (0..65535)
+      MAX-ACCESS  not-accessible
+      STATUS  current
+      DESCRIPTION
+          "This object indicates the module's port number.(1..Max port number in the module)"
+      ::= { swDHCPLocalRelayOption82Entry 1 }
+
+  swDHCPLocalRelayOption82Policy OBJECT-TYPE
+      SYNTAX  INTEGER {
+               replace(1),
+               drop(2),
+               keep(3)
+               }
+      MAX-ACCESS  read-write
+      STATUS  current
+      DESCRIPTION
+          "This object indicates the policy of the DHCP local relay option 82
+          of each port."
+      ::= { swDHCPLocalRelayOption82Entry 2 }	
+  
 END

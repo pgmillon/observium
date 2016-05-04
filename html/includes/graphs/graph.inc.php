@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -126,6 +126,7 @@ else if (!$auth)
   {
     $graph_start = utime();
     $return = rrdtool_graph($graphfile, $rrd_options);
+    //print_vars($GLOBALS['exec_status']);
     $graph_end = utime(); $graph_run = $graph_end - $graph_start; $graph_time = substr($graph_run, 0, 5);
     $total_end = utime(); $total_run = $total_end - $total_start; $total_time = substr($total_run, 0, 5);
 
@@ -139,7 +140,7 @@ else if (!$auth)
     if ($rrd_options)
     {
       rrdtool_graph($graphfile, $rrd_options);
-      print_debug($rrd_cmd);
+      //print_debug($rrd_cmd);
       if (is_file($graphfile))
       {
         if ($vars['image_data_uri'] == TRUE)
@@ -150,6 +151,7 @@ else if (!$auth)
         {
           $fd = fopen($graphfile, 'rb');
           header('Content-type: image/png');
+          header('Content-Disposition: inline; filename="'.basename($graphfile).'"');
           header('Content-Length: ' . filesize($graphfile));
           fpassthru($fd);
           fclose($fd);

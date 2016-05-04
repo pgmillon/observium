@@ -7,12 +7,12 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 // ProxyAV devices hide their CPUs/Memory/Interfaces in here
-echo(" BLUECOAT-SG-USAGE-MIB ");
+echo("BLUECOAT-SG-USAGE-MIB ");
 
 $av_array = snmpwalk_cache_oid($device, "deviceUsage", array(), "BLUECOAT-SG-USAGE-MIB", mib_dirs('bluecoat'));
 if (OBS_DEBUG > 1) { print_vars($av_array); }

@@ -7,13 +7,13 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 //PEAKFLOW-SP-MIB::deviceCpuLoadAvg5min.0 = INTEGER: 11
 
-echo(" PEAKFLOW-SP-MIB ");
+echo("PEAKFLOW-SP-MIB ");
 
 $descr = "Processor";
 $oid   = ".1.3.6.1.4.1.9694.1.4.2.1.2.0";

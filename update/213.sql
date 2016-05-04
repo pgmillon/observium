@@ -1,0 +1,11 @@
+ALTER TABLE  `storage` ADD  `storage_warn_limit` INT NULL DEFAULT NULL ;
+ALTER TABLE  `storage` ADD  `storage_crit_limit` INT NULL DEFAULT NULL ;
+ALTER TABLE  `storage` ADD  `storage_ignore` INT NULL DEFAULT NULL ;
+ALTER TABLE  `processors` ADD  `processor_warn_limit` INT NULL DEFAULT NULL ;
+ALTER TABLE  `processors` ADD  `processor_warn_count` INT NULL DEFAULT NULL ;
+ALTER TABLE  `processors` ADD  `processor_crit_limit` INT NULL DEFAULT NULL ;
+ALTER TABLE  `processors` ADD  `processor_crit_count` INT NULL DEFAULT NULL ;
+ALTER TABLE  `processors` ADD  `processor_ignore` INT NULL DEFAULT NULL ;
+ALTER TABLE  `mempools` ADD  `mempool_warn_limit` INT NULL DEFAULT NULL ;
+ALTER TABLE  `mempools` ADD  `mempool_crit_limit` INT NULL DEFAULT NULL ;
+ALTER TABLE  `mempools` ADD  `mempool_ignore` INT NULL DEFAULT NULL ;

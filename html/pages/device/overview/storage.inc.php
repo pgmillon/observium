@@ -6,35 +6,35 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 $graph_type = "storage_usage";
 
-$sql  = "SELECT *, `storage`.`storage_id` as `storage_id`";
-$sql .= " FROM  `storage`";
-$sql .= " LEFT JOIN  `storage-state` ON  `storage`.storage_id =  `storage-state`.storage_id";
+$sql  = "SELECT * FROM `storage`";
+$sql .= " LEFT JOIN `storage-state` USING(`storage_id`)";
 $sql .= " WHERE `device_id` = ?";
 
 $drives = dbFetchRows($sql, array($device['device_id']));
 
 if (count($drives))
 {
+  $drives = array_sort_by($drives, 'storage_descr', SORT_ASC, SORT_STRING);
+
 ?>
 
-  <div class="widget widget-table">
-    <div class="widget-header">
+  <div class="box box-solid">
+    <div class="box-header ">
       <a href="<?php echo(generate_url(array('page' => 'device', 'device' => $device['device_id'], 'tab' => 'health', 'metric' => 'storage'))); ?>">
-        <i class="oicon-drive"></i><h3> Storage</h3>
+        <i class="oicon-drive"></i><h3 class="box-title">Storage</h3>
       </a>
     </div>
-    <div class="widget-content">
-
+    <div class="box-body no-padding">
 
 <?php
-  echo('<table class="table table-condensed-more table-striped table-bordered">');
+  echo('<table class="table table-condensed table-striped">');
 
   foreach ($drives as $drive)
   {
@@ -93,8 +93,9 @@ if (count($drives))
 
     $minigraph =  generate_graph_tag($graph_array);
 
-    echo('<tr class="device-overview">
-           <td style="max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><strong>'.overlib_link($link, $drive['storage_descr'], $overlib_content).'</strong></td>
+    echo('<tr class="'.$background['class'].'">
+           <td class="state-marker"></td>
+           <td class="entity" style="max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">'.generate_entity_link('storage', $drive).'</td>
            <td style="width: 90px">'.overlib_link($link, $minigraph, $overlib_content).'</td>
            <td style="width: 200px">'.overlib_link($link, print_percentage_bar (200, 20, $percent, $used."/".$total." (".$percent . "%)", "ffffff", $background['left'],
                                                    $free . " (" . (100 - $percent) . "%)", "ffffff", $background['right']), $overlib_content).'</td>

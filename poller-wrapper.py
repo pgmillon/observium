@@ -142,6 +142,14 @@ db_username  = config['db_user']
 db_password  = config['db_pass']
 db_server    = config['db_host']
 db_dbname    = config['db_name']
+try:
+    db_port  = int(config['db_port'])
+except KeyError:
+    db_port  = 3306
+try:
+    db_socket = config['db_socket']
+except KeyError:
+    db_socket = False
 
 scriptname   = os.path.basename(sys.argv[0])
 poller_path  = config['install_dir'] + '/poller.php'
@@ -190,10 +198,14 @@ per_device_duration = {}
 devices_list = []
 
 try:
-    db = MySQLdb.connect (host=db_server, user=db_username , passwd=db_password, db=db_dbname)
+    if bool(db_socket) == False:
+        db = MySQLdb.connect (host=db_server, user=db_username, passwd=db_password, db=db_dbname, port=db_port)
+    else:
+        db = MySQLdb.connect (host=db_server, user=db_username, passwd=db_password, db=db_dbname, port=db_port, unix_socket=db_socket)
     cursor = db.cursor()
 except:
     print("ERROR: Could not connect to MySQL database!")
+    logfile("ERROR: Could not connect to MySQL database!")
     sys.exit(2)
 
 
@@ -260,7 +272,7 @@ def poll_worker():
                 debug_file = temp_path + '/observium_poller_' + str(device_id) + '.debug'
                 command = "/usr/bin/env php %s -d -h %s >> %s 2>&1" % (poller_path, device_id, debug_file)
             else:
-                command = "/usr/bin/env php %s -h %s >> /dev/null 2>&1" % (poller_path, device_id)
+                command = "/usr/bin/env php %s -q -h %s >> /dev/null 2>&1" % (poller_path, device_id)
             subprocess.check_call(command, shell=True)
             if alerting == True:
                 print("INFO starting alerter.php for %s" % device_id)
@@ -268,7 +280,7 @@ def poll_worker():
                     debug_file = temp_path + '/observium_alerter_' + str(device_id) + '.debug'
                     command = "/usr/bin/env php %s -d -h %s >> %s 2>&1" % (alerter_path, device_id, debug_file)
                 else:
-                    command = "/usr/bin/env php %s -h %s >> /dev/null 2>&1" % (alerter_path, device_id)
+                    command = "/usr/bin/env php %s -q -h %s >> /dev/null 2>&1" % (alerter_path, device_id)
                 print("INFO finished alerter.php for %s" % device_id)
                 subprocess.check_call(command, shell=True)
             elapsed_time = int(time.time() - start_time)

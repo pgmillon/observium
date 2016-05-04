@@ -1,0 +1,684 @@
+-- ===============================================================
+-- Copyright (C) 2003 Paradyne Corporation.
+-- ===============================================================
+
+PDN-MPE-DSLAM-SYSTEM-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+   NOTIFICATION-TYPE,
+   OBJECT-TYPE,
+   MODULE-IDENTITY,
+   Integer32,
+   TimeTicks
+	FROM SNMPv2-SMI
+   OBJECT-GROUP, NOTIFICATION-GROUP,
+   MODULE-COMPLIANCE
+	FROM SNMPv2-CONF
+   TruthValue, TEXTUAL-CONVENTION
+	FROM SNMPv2-TC
+   SnmpAdminString
+        FROM SNMP-FRAMEWORK-MIB
+   ContactState
+	FROM PDN-TC
+   entPhysicalIndex,
+   entPhysicalEntry
+	FROM ENTITY-MIB
+   pdn-mpe
+	FROM PDN-HEADER-MIB
+   mpeSysObjectID
+        FROM PDN-MPE-MIB2-MIB
+
+;
+
+mpe-dslam	 MODULE-IDENTITY
+   LAST-UPDATED    "200405131400Z"  -- May 13, 2004
+   ORGANIZATION    "Paradyne Corporation
+		    MIB Working Group"
+
+   CONTACT-INFO    "Paradyne Corporation
+		    8545 126th Avenue North
+		    Largo, FL 33733
+		    www.paradyne.com
+
+		    General Comments to: mibwg_team@paradyne.com
+
+		    Editors
+                    Prakash Easwar
+                    Jesus Pinto
+		    Dragana Gough
+                    Clay Sikes"
+
+  DESCRIPTION
+   "The mpe dslam MIB. This MIB is written specifically to
+   extend entPhysicalTable." 
+
+   REVISION "200405131400Z"  -- May 13, 2004
+   DESCRIPTION "Jesus Pinto
+               Added two traps for fan failure:
+
+               mpeFanEntityModuleFailure,
+               mpeFanEntityModuleOperational"
+   
+   REVISION "200504081400Z"  -- April 08, 2004
+   DESCRIPTION "Jesus Pinto
+               Added four new traps for PowerSupply failure:
+
+               mpePowerSourceAFailure
+               mpePowerSourceBFailure
+               mpePowerSourceAOperational
+               mpePowerSourceBOperational"
+
+   REVISION "200306060000Z"  -- June 6, 2003
+   DESCRIPTION "Jesus Pinto and Clay Sikes
+               Removed the entPhysicalIndex as an object in the
+               mpeAlarmRelayInputStateChanged notification. This
+               object was redundant in that it's the instance
+               part of the mpeAlarmRelayState object."
+
+   REVISION "200304250000Z"  -- April 25, 2003
+   DESCRIPTION "Jesus Pinto and Clay Sikes
+               Change mpeAlarmRelayInputState to mpeAlarmRelayState
+               and changed it from a read-only object to a read-
+               write object. This should give ultimate flexibility."
+
+   REVISION "200304180000Z"  -- April 18, 2003
+   DESCRIPTION "Jesus Pinto and Clay Sikes
+               Needed objects to read Alarm Relay Input State. The
+               addition of mpeEntPhysicalExtAlarmRelayInputContactState
+               below was not a good idea as it implied a dense augments.
+               mpeEntPhysicalExtAlarmRelayInputContactState was deprecated.
+
+               Added a new table, mpeAlarmRelayTable to hold alarm
+               relay objects where the table implies a sparse augments.
+               Deprecated mpeAlarmRrelayEquipmentIndex, 
+               mpeAlarmRelayInputContactState, and the
+               mpeAlarmRelayInputcontactStateChanged trap they were
+               designed for to discourage use in new projects. Added a new 
+               trap, mpeAlarmRelayInputStateChanged, as a replacement that
+               uses objects defined in or related to the mpeAlarmRelayTable.
+
+               The mpeAlarmRelayTable allows Alarm Relay Input state to be
+               read and has a direct relationship with the objects defined
+               for the mpeAlarmRelayInputStateChanged trap. Since this table
+               is indexed the entPhysicalIndex, it is extremely flexible in 
+               that it can apply to a Single Management Entity / Single 
+               Logical Entity, a chassis, or what ever level of granularity 
+               is desired in the implementation."
+
+   REVISION "200303201500Z"  -- March 20, 2003
+   DESCRIPTION "Added new notifications to complement the
+		entConfigChange notification defined in RFC2737."
+
+   REVISION "200303070000Z"  -- March 7, 2003
+   DESCRIPTION "Added mpeEntPhysicalExtAlarmRelayInputContactState."
+
+   REVISION "200210250000Z"  -- October 25, 2002
+   DESCRIPTION "Added mpeEntPhysicalExtTable and cleaned up some
+                MIB compiler warnings."
+
+   REVISION "200208150000Z"
+   DESCRIPTION "Added mpeAlarmRelayEquipIndex, 
+                Added mpeAlarmRelayInputContactState,
+		Added mpeAlarmRelayInputContactStateChanged trap."
+
+   REVISION "200202210000Z"
+   DESCRIPTION "Added mpeDeviceFailureCleared Trap."
+
+   REVISION "200201280000Z"
+   DESCRIPTION "Added table to extend entityPhysicalTable by
+		one object that would specify state of the alarm." 
+
+   REVISION "200001220000Z"
+   DESCRIPTION "Initial Release" 
+
+   ::= { pdn-mpe 24 }
+
+mpeSysDevDslamMIBObjects OBJECT IDENTIFIER ::= { mpe-dslam 1 }
+mpeSysDevDslamMIBTraps   OBJECT IDENTIFIER ::= { mpe-dslam 2 }
+mpeEntExtAlarms          OBJECT IDENTIFIER ::= { mpeSysDevDslamMIBObjects 1}
+mpeAlarmRelay            OBJECT IDENTIFIER ::= { mpeSysDevDslamMIBObjects 2}
+mpeEntExtMibObjects      OBJECT IDENTIFIER ::= { mpeSysDevDslamMIBObjects 3}
+mpeSysDevDslamMIBNotifications   OBJECT IDENTIFIER ::= { mpeSysDevDslamMIBTraps 0 }
+
+
+
+-- =========================================================================
+-- Textual Conventions
+-- =========================================================================
+
+
+MpeEntExtAdminStatus ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION "Values to support the desired state of the entity.
+                These values were selected to correspond to the syntax of
+                the ifAdminStatus in the IF-MIB."
+    SYNTAX INTEGER {
+        up(1),       -- The Administrator considers the entity to be in
+                     -- the 'up' or 'operational' state.
+        down(2),     -- The Administrator considers the entity to be in 
+                     -- the 'down' or non-operational' state. Generally
+                     -- in this state, alarms or traps should not be reported.
+        testing(3)   -- The Administrator considers the entity to be in
+                     -- a state where the entity is under going some sort
+                     -- of tests.
+    }
+
+MpeEntExtOperStatus ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION "Values to support the current operational state of the 
+                entity. These values were selected to correspond to the
+                syntax of the ifOperStatus in the IF-MIB."
+    SYNTAX INTEGER {
+        up(1),            -- The entity is operational.
+        down(2),          -- The entity is non-operational.
+        testing(3),       -- The entity is in some test mode.
+        unknown(4),       -- The entity is in an 'unknown' state.
+        dormant(5),       -- The entity is in a 'dormant' state.
+        notPresent(6),    -- The entity was present, but is currently
+                          -- not present.
+        reserved1(7)      -- Not used, but reserved.
+    }
+
+
+-- =========================================================================
+-- MIB Objects
+-- =========================================================================
+
+--
+--ALARM objects
+--
+
+mpeEntExtAlarmTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF MpeEntExtAlarmEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table lists the alarm states of the objects
+	listed in the entity-MIB entPhysicalTable."
+    ::= { mpeEntExtAlarms 1 }
+
+mpeEntExtAlarmEntry OBJECT-TYPE
+    SYNTAX MpeEntExtAlarmEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "An mpeEntExtAlarmTable entry indicates the 
+        alarm state of the physical entity."
+    AUGMENTS { entPhysicalEntry }
+    ::= { mpeEntExtAlarmTable 1 }
+
+MpeEntExtAlarmEntry ::= SEQUENCE {
+    mpeEntExtAlarm TruthValue
+    }
+
+mpeEntExtAlarm OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "This variable indicates the alarm state of the
+	 physical entity."
+    ::= { mpeEntExtAlarmEntry 1 }
+
+-- 
+-- AlarmRelay objects. For the purpose of being used
+-- as VarBinds for the AlarmRelayInputContact trap.
+--
+mpeAlarmRelayEquipIndex OBJECT-TYPE
+    SYNTAX Integer32
+    MAX-ACCESS accessible-for-notify
+    STATUS deprecated
+    DESCRIPTION
+        "This variable is the index of the equipment whose
+	alarms are being relayed. It is a integer number
+	starting from 1 until the max number of physical
+	connectors the DSLAM device has to support relay.
+
+        NOTE: This object has been deprecated. Please consider using
+              the mpeAlarmRelayTable and mpeAlarmRelayInputStateChanged
+              objects."
+    ::= { mpeAlarmRelay 1 }
+
+mpeAlarmRelayInputContactState OBJECT-TYPE
+    SYNTAX ContactState
+    MAX-ACCESS accessible-for-notify
+    STATUS deprecated
+    DESCRIPTION
+        "This variable indicates the alarm state of the
+	 Input Contact (open/closed).
+
+        NOTE: This object has been deprecated. Please consider using
+              the mpeAlarmRelayTable and mpeAlarmRelayInputStateChanged
+              objects."
+    ::= { mpeAlarmRelay 2 }
+
+
+-- =========================================================================
+-- Alarm Relay Table
+-- =========================================================================
+
+mpeAlarmRelayTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF MpeAlarmRelayEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "This table holds objects that relate to Alarm Relay
+                input or output."
+    ::= { mpeAlarmRelay 3 }
+
+mpeAlarmRelayEntry OBJECT-TYPE
+    SYNTAX      MpeAlarmRelayEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "An entry in this table is a sparse augmentation of the
+                entPhysicalEntry. As such, it is indexed by the 
+                entPhysicalIndex and not an augmentation of the
+                entPhysicalTable."
+    INDEX       { entPhysicalIndex }
+    ::= { mpeAlarmRelayTable 1 }
+
+MpeAlarmRelayEntry ::=
+    SEQUENCE {
+        mpeAlarmRelayState   ContactState
+}
+
+mpeAlarmRelayState OBJECT-TYPE
+    SYNTAX      ContactState
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "This object is used to read or write the state an alarm 
+                relay input or output."
+    ::= { mpeAlarmRelayEntry 1 }
+
+
+
+-- =========================================================================
+-- Augmentation of entPhysicalTable
+-- =========================================================================
+
+mpeEntPhysicalExtTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF MpeEntPhysicalExtEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "This table contains entity information that is not defined 
+                in the standard ENTITY-MIB."
+    ::= { mpeEntExtMibObjects 1 }
+
+
+mpeEntPhysicalExtEntry OBJECT-TYPE
+    SYNTAX      MpeEntPhysicalExtEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "An entry extends the entPhysicalEntry defined in the 
+                ENTITY-MIB."
+    AUGMENTS    { entPhysicalEntry }
+    ::= { mpeEntPhysicalExtTable 1 }
+
+MpeEntPhysicalExtEntry ::=
+    SEQUENCE {
+        mpeEntPhysicalExtUpTime      TimeTicks,
+        mpeEntPhysicalExtLocation    SnmpAdminString,
+        mpeEntPhysicalExtAdminStatus MpeEntExtAdminStatus,
+        mpeEntPhysicalExtOperStatus  MpeEntExtOperStatus
+    }
+
+mpeEntPhysicalExtUpTime OBJECT-TYPE
+    SYNTAX      TimeTicks
+    MAX-ACCESS   read-only
+    STATUS      current
+    DESCRIPTION "The time (in hundredths of a second --just like the
+                sysUpTime) since the entity was last re-initialized."
+    ::= { mpeEntPhysicalExtEntry 1 }
+
+mpeEntPhysicalExtLocation OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "This object allows the manager to enter the location of 
+                the physical entity where applicable. For example, in a 
+                stack, chassis or units may be in different locations. In 
+                this case, it would be logical for the manager to set this 
+                object to the location of the associated chassis. 
+
+                Where the location doesn't make sense, it is recommended 
+                that the object return a zero-length string."
+    ::= { mpeEntPhysicalExtEntry 2 }
+
+mpeEntPhysicalExtAdminStatus OBJECT-TYPE
+    SYNTAX      MpeEntExtAdminStatus
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "The desired state of the entity."
+    ::= { mpeEntPhysicalExtEntry 3 }
+
+mpeEntPhysicalExtOperStatus OBJECT-TYPE
+    SYNTAX      MpeEntExtOperStatus
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The current operational state of the entity."
+    ::= { mpeEntPhysicalExtEntry 4 }
+
+
+
+-- =========================================================================
+--Traps
+-- =========================================================================
+
+mpeCcn NOTIFICATION-TYPE
+  OBJECTS { entPhysicalIndex }
+  STATUS current
+  DESCRIPTION
+    "This trap signifies a Configuration change  or 
+     software upgrade in the xDSL card. This trap 
+     is of 'warning' class"
+::= { mpeSysDevDslamMIBTraps 7 }
+
+mpeDeviceFailure NOTIFICATION-TYPE
+  OBJECTS { entPhysicalIndex }
+  STATUS current
+  DESCRIPTION
+    "This trap signifies that the sending protocol's
+     device has failed and the failure was not a result
+     of a device test. 
+     Note there are no variable bindings for this trap"
+::= { mpeSysDevDslamMIBTraps 15 }
+ 
+mpeDeviceFailureCleared NOTIFICATION-TYPE
+  OBJECTS { entPhysicalIndex }
+  STATUS current
+  DESCRIPTION
+    "This trap signifies that the sending protocol's
+     device has failed but now it is operational.
+     Failure was not a result
+     of a device test." 
+::= { mpeSysDevDslamMIBTraps 16 }
+ 
+mpeNonSupportedMCC NOTIFICATION-TYPE
+  OBJECTS { mpeSysObjectID }
+  STATUS current
+  DESCRIPTION
+    "AN has detected MCC firmware release too low to support
+     this device"
+::= { mpeSysDevDslamMIBTraps 20 }
+
+mpeNonSupportedChassis NOTIFICATION-TYPE
+  OBJECTS { mpeSysObjectID }
+  STATUS current
+  DESCRIPTION
+    "AN in slot xx has been installed in a chassis that cannot
+     support one or more of its features. "
+::= { mpeSysDevDslamMIBTraps 21 }
+
+
+mpeAlarmRelayInputContactStateChanged NOTIFICATION-TYPE
+  OBJECTS { mpeAlarmRelayEquipIndex, mpeAlarmRelayInputContactState }
+  STATUS deprecated
+  DESCRIPTION
+    "This trap signifies that the state of the InputContact Alarm
+     has changed since last time.
+     NOTE: This object has been deprecated. Please consider using
+           the mpeAlarmRelayInputStateChanged notification."
+::= { mpeSysDevDslamMIBTraps 22 }
+
+mpeEntPhysicalExtEntityCreated NOTIFICATION-TYPE
+  OBJECTS { entPhysicalIndex }
+  STATUS current
+  DESCRIPTION " This trap signifies that an instance of this entity has
+		been created in the entPhysicalTable.
+
+		This trap is generated in addition to the entConfigChange 
+		notification defined in RFC2737."
+
+::= { mpeSysDevDslamMIBTraps 23 }
+
+mpeEntPhysicalExtEntityDeleted NOTIFICATION-TYPE
+  OBJECTS { entPhysicalIndex }
+  STATUS current
+  DESCRIPTION " This trap signifies that an instance of this entity has
+		been deleted from the entPhysicalTable.
+
+		This trap is generated in addition to the entConfigChange
+		notification defined in RFC2737."	
+
+::= { mpeSysDevDslamMIBTraps 24 }
+
+mpeEntPhysicalExtEntityChanged NOTIFICATION-TYPE
+  OBJECTS { entPhysicalIndex }
+  STATUS current
+  DESCRIPTION " This trap signifies that an instance of this entity has
+		been modified in the entPhysicalTable as a result of a
+		change in any of the objects in that table.
+
+		This trap is generated in addition to the entConfigChange 
+		notification defined in RFC2737."
+
+::= { mpeSysDevDslamMIBTraps 25 }
+
+mpeAlarmRelayInputStateChanged NOTIFICATION-TYPE
+  OBJECTS { mpeAlarmRelayState }
+  STATUS current
+  DESCRIPTION
+    "This trap signifies that the state of the Alarm Relay Input
+     has changed."
+::= { mpeSysDevDslamMIBNotifications 26 }
+
+mpeFanEntityModuleFailure NOTIFICATION-TYPE
+  OBJECTS     { entPhysicalIndex }
+  STATUS      current
+  DESCRIPTION
+    "This trap indicates the failure of the fan
+     module on the device."
+
+::= { mpeSysDevDslamMIBNotifications 27 }
+
+mpeFanEntityModuleOperational NOTIFICATION-TYPE
+  OBJECTS     { entPhysicalIndex }
+  STATUS      current
+  DESCRIPTION
+    "This trap indicates the indicates the fan module on the
+    device is back to operational."
+
+::= { mpeSysDevDslamMIBNotifications 28 }
+
+mpePowerSourceAFailure NOTIFICATION-TYPE
+  OBJECTS     { entPhysicalIndex }
+  STATUS      current
+  DESCRIPTION
+    "This trap indicates that power source A
+     has failed."
+
+::= { mpeSysDevDslamMIBNotifications 29 }
+
+mpePowerSourceBFailure NOTIFICATION-TYPE
+  OBJECTS     { entPhysicalIndex }
+  STATUS      current
+  DESCRIPTION
+    "This trap indicates that power source B
+     has failed."
+
+::= { mpeSysDevDslamMIBNotifications 30 }
+
+mpePowerSourceAOperational NOTIFICATION-TYPE
+  OBJECTS     { entPhysicalIndex }
+  STATUS      current
+  DESCRIPTION
+    "This trap indicates that the power source A
+     is operational. This trap compliments
+     powerSourceAFailure trap."
+
+::= { mpeSysDevDslamMIBNotifications 31 }
+
+mpePowerSourceBOperational NOTIFICATION-TYPE
+  OBJECTS     { entPhysicalIndex }
+  STATUS      current
+  DESCRIPTION
+    "This trap indicates that the power source B
+     is operational. This trap compliments
+     powerSourceBFailure trap."
+
+::= { mpeSysDevDslamMIBNotifications 32 }
+
+
+
+-- =========================================================================
+--CONFORMANCE
+-- =========================================================================
+
+mpeSysDevDslamConformance  OBJECT IDENTIFIER ::= { mpe-dslam 3 }
+
+mpeSysDevDslamGroups OBJECT IDENTIFIER
+    ::= { mpeSysDevDslamConformance 1 }
+
+mpeSysDevDslamCompliances OBJECT IDENTIFIER
+    ::= { mpeSysDevDslamConformance 2 }
+
+mpeSysDevDslamDeprecatedGroup OBJECT IDENTIFIER
+    ::= { mpeSysDevDslamConformance 3 }
+
+-- =========================================================================
+-- COMPLIANCE statements
+-- =========================================================================
+
+mpeSysDevDslamAlarmCompliances MODULE-COMPLIANCE
+  STATUS current
+  DESCRIPTION
+    "The compliance statement for entities and their
+    alarms states."
+  MODULE -- this module
+  GROUP mpeSysDevDslamAlarmStateGroup
+	DESCRIPTION "The conditional objects in the group"
+        OBJECT mpeEntExtAlarm
+        DESCRIPTION
+           "Write access is not required."
+  
+  GROUP mpeEntityExtNotificationGroup
+	DESCRIPTION "Notification group"
+
+  GROUP mpeSysDevDslamAlarmRelayGroup
+	DESCRIPTION "Alarm Relay group"
+
+  GROUP mpeEntPhysicalExtGroup
+	DESCRIPTION "Entity Physical Ext group"
+
+  GROUP mpeEntPhysicalExtNotificationObjectGroup
+	DESCRIPTION "Notification objects group"
+    
+  GROUP mpeEntityExtPowerFailureNotificationGroup
+	DESCRIPTION "Power Supply notification objects group"
+
+  ::= { mpeSysDevDslamCompliances 1 }
+
+mpeSysDevDslamAlarmDeprecatedCompliances MODULE-COMPLIANCE
+  STATUS deprecated
+  DESCRIPTION
+    "The compliance statement for deprecated groups"
+  MODULE -- this module
+
+  GROUP mpeDslamDeprecatedObjectsGroup
+	DESCRIPTION "Entity Physical Ext group"
+
+  GROUP mpeDslamDeprecatedNotificationsGroup
+	DESCRIPTION "Notification objects group"
+    
+  ::= { mpeSysDevDslamCompliances 2 }
+
+
+mpeSysDevDslamAlarmStateGroup OBJECT-GROUP
+  OBJECTS {
+     mpeEntExtAlarm
+  }
+  STATUS current
+  DESCRIPTION
+    "The collection of objects which are used
+    to describe alarm states for equipments
+    physically connected to a DSLAM device."
+::= { mpeSysDevDslamGroups 1 }
+
+mpeEntityExtNotificationGroup NOTIFICATION-GROUP
+  NOTIFICATIONS {
+      mpeCcn,
+      mpeDeviceFailure,
+      mpeDeviceFailureCleared,
+      mpeNonSupportedMCC,
+      mpeNonSupportedChassis,
+      mpeEntPhysicalExtEntityCreated,
+      mpeEntPhysicalExtEntityDeleted,
+      mpeEntPhysicalExtEntityChanged,
+      mpeAlarmRelayInputStateChanged,
+      mpeFanEntityModuleFailure,
+      mpeFanEntityModuleOperational
+  }
+  STATUS current
+  DESCRIPTION
+    "The collection of objects which are used
+    to notify that trap conditions are met."
+::= { mpeSysDevDslamGroups 2 }
+
+mpeSysDevDslamAlarmRelayGroup OBJECT-GROUP
+  OBJECTS {
+     mpeAlarmRelayState
+  }
+  STATUS current
+  DESCRIPTION
+    "The collection of objects which are used
+    for Alarm Relay objects."
+::= { mpeSysDevDslamGroups 3 }
+
+mpeEntPhysicalExtGroup OBJECT-GROUP
+  OBJECTS {
+    mpeEntPhysicalExtUpTime,
+    mpeEntPhysicalExtLocation,
+    mpeEntPhysicalExtAdminStatus,
+    mpeEntPhysicalExtOperStatus
+  }
+  STATUS current
+  DESCRIPTION
+    "The collection of objects which are used
+    in extending the entPhysicalTable."
+::= { mpeSysDevDslamGroups 4 }
+
+mpeEntPhysicalExtNotificationObjectGroup OBJECT-GROUP
+    OBJECTS {
+        entPhysicalIndex
+    }
+    STATUS      current
+    DESCRIPTION 
+    " A collection of objects that are included in the OBJECTS
+    clause of notifications."
+::= { mpeSysDevDslamGroups 5 }
+
+mpeEntityExtPowerFailureNotificationGroup NOTIFICATION-GROUP
+  NOTIFICATIONS {
+      mpePowerSourceAFailure,
+      mpePowerSourceBFailure,
+      mpePowerSourceAOperational,
+      mpePowerSourceBOperational
+  }
+  STATUS current
+  DESCRIPTION
+    "The collection of objects which are used
+    to notify that trap conditions are met."
+::= { mpeSysDevDslamGroups 6 }
+
+------------------------
+-- Deprecated Objects --
+------------------------
+mpeDslamDeprecatedObjectsGroup OBJECT-GROUP
+  OBJECTS {
+    mpeAlarmRelayEquipIndex,
+    mpeAlarmRelayInputContactState
+  }
+  STATUS deprecated
+  DESCRIPTION
+    "The collection of objects that have been deprecated."
+::= { mpeSysDevDslamDeprecatedGroup 1 }
+
+mpeDslamDeprecatedNotificationsGroup NOTIFICATION-GROUP
+  NOTIFICATIONS {
+    mpeAlarmRelayInputContactStateChanged
+  }
+  STATUS deprecated
+  DESCRIPTION
+    "The collection of traps/notifications that have been deprecated."
+::= { mpeSysDevDslamDeprecatedGroup 2 }
+
+END

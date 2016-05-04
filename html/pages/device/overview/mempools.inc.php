@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -23,16 +23,16 @@ $mempools = dbFetchRows($sql, array($device['device_id']));
 if (count($mempools))
 { ?>
 
-    <div class="widget widget-table">
-      <div class="widget-header">
+    <div class="box box-solid">
+      <div class="box-header ">
         <a href="<?php echo(generate_url(array('page' => 'device', 'device' => $device['device_id'], 'tab' => 'health', 'metric' => 'mempool'))); ?>">
-          <i class="oicon-memory"></i><h3>Memory</h3>
+          <i class="oicon-memory"></i><h3 class="box-title">Memory</h3>
         </a>
       </div>
-      <div class="widget-content">
+      <div class="box-body no-padding">
 
 <?php
-  echo('<table class="table table-condensed-more table-striped table-bordered">');
+  echo('<table class="table table-condensed table-striped">');
 
   foreach ($mempools as $mempool)
   {
@@ -73,23 +73,13 @@ if (count($mempools))
 
     $minigraph =  generate_graph_tag($graph_array);
 
-    echo('<tr class="device-overview">
-           <td style="max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><strong>'.overlib_link($link, $text_descr, $overlib_content).'</strong></td>
+    echo('<tr class="'.$background['class'].'">
+           <td class="state-marker"></td>
+           <td class="entity" style="max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><strong>'.generate_entity_link('mempool', $mempool).'</strong></td>
            <td style="width: 90px">'.overlib_link($link, $minigraph, $overlib_content).'</td>
            <td style="width: 200px">'.overlib_link($link, print_percentage_bar (200, 20, $percent, $used."/".$total." (".$percent . "%)", "ffffff", $background['left'],
                                                    $free . " (" . (100 - $percent) . "%)", "ffffff", $background['right']), $overlib_content).'</td>
          </tr>');
-/**
-  <tr class="small">
-    <td colspan=3>
-      <span class="pull-right">
-         <?php echo("<strong>Used</strong> <strong style='color:#".$background['left'].";'>$used ($percent%)</strong> / <strong>Free</strong> <strong style='color:#".$background['right'].";'>$free (".(100 - $percent) . "%)</strong> / <strong>Total</strong> <strong>$total</strong>"); ?>
-      </span>
-    </td>
-  </tr>
-
-*/
-
   }
 
   echo("</table>");

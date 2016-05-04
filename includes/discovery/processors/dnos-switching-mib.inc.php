@@ -7,13 +7,13 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 // DNOS-SWITCHING-MIB::agentSwitchCpuProcessTotalUtilization.0 = STRING: "    5 Secs (  6.510%)   60 Secs (  7.724%)  300 Secs (  6.3812%)"
 
-echo(" DNOS-SWITCHING-MIB ");
+echo("DNOS-SWITCHING-MIB ");
 
 $oid   = 'agentSwitchCpuProcessTotalUtilization.0';
 $descr = 'Processor';

@@ -7,21 +7,21 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 echo(" ALVARION-DOT11-WLAN-MIB ");
 
-$oids = snmpwalk_cache_multi_oid($device, "brzaccVLNewAdbUnitName", array(), "ALVARION-DOT11-WLAN-MIB", mib_dirs('alvarion'), TRUE);
+$oids = snmpwalk_cache_multi_oid($device, "brzaccVLNewAdbUnitName", array(), "ALVARION-DOT11-WLAN-MIB", mib_dirs('alvarion'), OBS_SNMP_ALL_NUMERIC);
 /// NOTE. New table preffer, because old use weird indexes
 if ($oids)
 {
   //ALVARION-DOT11-WLAN-MIB::brzaccVLNewAdbUnitName.0.16.231.20.145.216 = "Kern Waste Tehachapi"
   //ALVARION-DOT11-WLAN-MIB::brzaccVLNewAdbSNR.0.16.231.20.145.216 = 25
   //ALVARION-DOT11-WLAN-MIB::brzaccVLNewAdbRSSI.0.16.231.20.145.216 = -76
-  $oids = snmpwalk_cache_multi_oid($device, "brzaccVLNewAdbSNR",        $oids, "ALVARION-DOT11-WLAN-MIB", mib_dirs('alvarion'), TRUE);
-  $oids = snmpwalk_cache_multi_oid($device, "brzaccVLNewAdbRSSI",       $oids, "ALVARION-DOT11-WLAN-MIB", mib_dirs('alvarion'), TRUE);
+  $oids = snmpwalk_cache_multi_oid($device, "brzaccVLNewAdbSNR",        $oids, "ALVARION-DOT11-WLAN-MIB", mib_dirs('alvarion'), OBS_SNMP_ALL_NUMERIC);
+  $oids = snmpwalk_cache_multi_oid($device, "brzaccVLNewAdbRSSI",       $oids, "ALVARION-DOT11-WLAN-MIB", mib_dirs('alvarion'), OBS_SNMP_ALL_NUMERIC);
 
   foreach ($oids as $index => $entry)
   {

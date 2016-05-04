@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -133,7 +133,7 @@ if (isset($port_stats[$port['ifIndex']]['adslLineCoding']))
 
   unset($rrdfile, $rrd_create, $rrdupdate, $data, $oid);
 
-  echo("ADSL (".$this_port['adslLineCoding']."/".formatRates($this_port['adslAtucChanCurrTxRate'])."/".formatRates($this_port['adslAturChanCurrTxRate']).")");
+  //echo("ADSL (".$this_port['adslLineCoding']."/".formatRates($this_port['adslAtucChanCurrTxRate'])."/".formatRates($this_port['adslAturChanCurrTxRate']).")");
 }
 
 // EOF

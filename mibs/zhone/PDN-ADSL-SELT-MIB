@@ -1,0 +1,581 @@
+-- ===============================================================
+-- Copyright (C) 2005 Paradyne Corporation.
+-- ===============================================================
+
+PDN-ADSL-SELT-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, Integer32, Unsigned32
+        FROM SNMPv2-SMI
+    OBJECT-GROUP, MODULE-COMPLIANCE
+        FROM SNMPv2-CONF
+    TEXTUAL-CONVENTION
+        FROM SNMPv2-TC
+    ifIndex
+        FROM IF-MIB
+    pdn-interfaces
+        FROM PDN-HEADER-MIB;
+        
+pdnAdslSeltMIB MODULE-IDENTITY
+    LAST-UPDATED "200403280000Z"  -- March 28, 2005
+    ORGANIZATION "Paradyne Networks
+                  MIB Working Group
+                  Other information about group editing the MIB"
+    CONTACT-INFO "Paradyne Networks, Inc.
+                  8545 126th Avenue North
+                  Largo, FL 33733
+                  www.paradyne.com
+        
+                  General Comments to: mibwg_team@paradyne.com
+
+                  Editors
+                      Jesus Pinto,
+                      Clay Sikes"
+
+    DESCRIPTION
+        "This MIB module defines a portion of the management information base
+         (MIB) for managing configuration and monitoring results of SELT
+         (Single Ended Line Test) tests over ADSL interfaces.
+
+         At the time this MIB was defined, the IETF ADSL MIB Working does 
+         not have any work on the 'standard' MIBs planned and/or has not produced 
+         a schedule to address G.SELT needs. As a result, these objects may 
+         be a `temporary' solution until MIBs/Objects are defined
+         meet the needs of ADSL SELT testing.
+
+         =====================================================================
+         ==                                                                 ==
+         ==            Copyright (C) 2005 Paradyne Corporation.             ==
+         ==                                                                 ==
+         ====================================================================="
+
+    REVISION "200503280000Z"  -- March 28, 2005
+    DESCRIPTION "Added clearResults(4) to pdnAdslSeltCmd to allow an entry in 
+                 the pdnAdslSeltLcTable or the pdnAdslSeltLnfTable to be removed.
+                 Added resultsCleared(5) to pdnAdslSeltStatus to indicate that
+                 clearResults(4) have been executed."
+
+    REVISION "200503100000Z"  -- March 10, 2005
+    DESCRIPTION "Added notStarted(4) to pdnAdslSeltStatus.  This solves the
+                 problem of what to return when the pdnAdslSeltTable is walked
+                 prior to a test being run on an interface."
+
+    REVISION "200412020000Z"  -- Dec 02, 2004
+    DESCRIPTION "Initial release."
+
+
+::=  { pdn-interfaces 31 }
+  
+--
+-- Define groups for Notifications, MIB Objects, Accessible for 
+-- Notifications (AFNs), and Conformance.
+-- These may just be place holders.
+--
+pdnAdslSeltNotifications OBJECT IDENTIFIER ::= { pdnAdslSeltMIB 0 }
+pdnAdslSeltObjects       OBJECT IDENTIFIER ::= { pdnAdslSeltMIB 1 }
+pdnAdslSeltAFNs          OBJECT IDENTIFIER ::= { pdnAdslSeltMIB 2 } 
+pdnAdslSeltConformance   OBJECT IDENTIFIER ::= { pdnAdslSeltMIB 3 }
+
+
+-- =============================================================================
+-- ==                  Textual Conventions                                    ==
+-- =============================================================================
+
+PdnSeltTypes  ::= TEXTUAL-CONVENTION
+	STATUS	 current
+	DESCRIPTION
+  	  "This textual convention defines the SELT test types
+           available for configuration."
+
+	SYNTAX	INTEGER {
+		  loopCharacterization  (1), -- Loop Characterization
+		  loopNoiseFloor        (2)  -- Loop noise floor
+		}
+
+-- =============================================================================
+-- ==                  MIB Objects                                            ==
+-- =============================================================================
+
+pdnAdslSeltWireSize OBJECT-TYPE
+    SYNTAX      INTEGER {	
+		 awg         (1), -- AWG
+		 metric      (2), -- Metric
+		 metricJapan (3)  -- Metric Japan
+		}
+	       
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "This object permits the selection of the metric unit
+                 to be used when reporting SELT test results.
+                 (i.e for AWG results are in feet and for 
+                 metric/metricJapan results are in meters).
+
+                 This configuration parameter applies to all the SELT
+                 tests run in the device.
+                "
+    ::= { pdnAdslSeltObjects 1 }
+
+
+-- =================================================
+-- == G.Selt (Single Ended Line Test) Configuration
+-- ==
+-- == This section defines the tables requires to
+-- == support the SELT feature in the system.
+-- ==
+-- == For now, we require Loop Characterization and
+-- == Loop Noise Floor Measurement Tests. Both tests
+-- == types can be started/stopped via a common table
+-- == described below 
+--
+-- ================================================
+pdnAdslSeltTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PdnAdslSeltEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "This table allows initiation/termination of 
+	         SELT Tests."
+    ::= { pdnAdslSeltObjects 2 }
+
+pdnAdslSeltEntry     OBJECT-TYPE
+    SYNTAX      PdnAdslSeltEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Each entry represents an instance of a SELT test
+                 currently running or ever run (since last system reset)
+                 on an ADSL interface.
+
+		 There should be entries in this table for every
+                 active running tests and test that are in the process
+                 of being stopped or have terminated already.
+
+                 There should be no entries for ADSL interfaces that
+                 have not run a test since last since reset; thus,
+                 the agent should return NO_SUCH_NAME for those cases.
+                "
+    INDEX       { ifIndex, pdnAdslSeltType }
+    ::= { pdnAdslSeltTable 1 }
+
+PdnAdslSeltEntry ::=
+    SEQUENCE {
+        pdnAdslSeltType                PdnSeltTypes,
+        pdnAdslSeltCmd                 INTEGER,
+        pdnAdslSeltStatus              INTEGER,
+        pdnAdslSeltDuration            Unsigned32,
+        pdnAdslSeltTimeLeft            Unsigned32
+    }
+
+pdnAdslSeltType OBJECT-TYPE
+    SYNTAX      PdnSeltTypes
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "This object is used to specify the SELT test type
+	         that will be initiated.
+
+		 If a SELT Test is already running on the ADSL interface,
+	         writing to this object is prohibited by the agent until
+                 the previous test is completed or terminated.
+		"
+    ::= { pdnAdslSeltEntry 1 }
+
+pdnAdslSeltCmd OBJECT-TYPE
+    SYNTAX      INTEGER {
+	            noOp         (1),  -- used when reading the object
+		    start        (2),  -- start test
+		    stop         (3),  -- stop an initiated test
+                    clearResults (4)   -- clears the results for the 
+                                       -- pdnAdslSeltType
+                }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "This object corresponds to the list of test operations
+                 that can be performed.
+
+		 The possible values are noOp(1), start(2), stop(3), or
+                 clearResults(4).
+		 
+	         Reading this object will always return the value 'noOp (1)'.
+
+		 If SELT test is already running on an ADSL interface, 
+		 the only possible test command is 'stop (1)'.
+
+                 The clearResults(4) command clears test results by removing
+                 and entry in the pdnAdslSeltLcTable or the 
+                 pdnAdslSeltLnfTable.  After the execution of this command, 
+                 the appropriate value for pdnAdslSeltStatus would be
+                 resultsCleared(5).
+		"
+    ::= { pdnAdslSeltEntry 2 }
+
+pdnAdslSeltStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+	           inProgress        (1),
+	           stoppedInProgress (2),
+	           complete          (3),
+                   notStarted        (4),
+                   resultsCleared    (5)
+                }
+	         
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "This object provides status about any SELT test
+	         running or ever run (since last reset) on an ADSL
+		 interface. This object can be read by NMS managers
+		 to determine the status of a test; that is:
+			
+		 inProgress (1)        - if the test is currently running.
+
+		 stoppedInProgress (2) - if a request to stop the test
+                                         is still in progress.
+
+		 complete (3)          - if the test has been run at least 
+                                         once since system reset and has 
+                                         completed.
+
+	         notStarted (4)        - if the test has not been run on 
+                                         this interface since last system 
+                                         reset. 
+
+                 resultsCleared (5)    - if the  entry in the test results table,
+                                         Lc or Lnf, was removed as the result
+                                         of the execution of the clearResults(4)
+                                         pdnAdslSeltCmd.
+		"
+    ::= { pdnAdslSeltEntry 3 }
+
+
+pdnAdslSeltDuration OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "seconds"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION  "This object provides the approximate time in Seconds that
+                  the SELT test measurement will take.
+
+		  This object should return 0 if no test is actively
+		  running on the ADSL interface specified.
+                 "
+    ::= { pdnAdslSeltEntry 4 }
+
+pdnAdslSeltTimeLeft OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION  "This object provides the approximate time left in Seconds
+                  for the test running on this ADSL interface.
+
+		  This object should return 0 if no test is actively 
+		  running on the ADSL interface specified.
+                 "
+    ::= { pdnAdslSeltEntry 5 }
+
+
+-- =================================================
+-- == G.Selt (Single Ended Line Test) Results
+-- ==
+-- == LOOP CHARACTERIZATION (Lc) Results Table
+-- == 
+-- == This table is used to post results from an 
+-- == initiated Loop Characterization test.
+--
+-- ================================================
+pdnAdslSeltLcTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PdnAdslSeltLcEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "This table post results for loop
+		 characterization tests completed.
+	        "
+    ::= { pdnAdslSeltObjects 3 }
+
+pdnAdslSeltLcEntry     OBJECT-TYPE
+    SYNTAX      PdnAdslSeltLcEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Each entry represents the results of a loop
+		characterization test performed over an ADSL interface.
+		"
+    INDEX       { ifIndex, pdnAdslSeltLcSegmentIndex }
+    ::= { pdnAdslSeltLcTable 1 }
+
+PdnAdslSeltLcEntry ::=
+    SEQUENCE {
+        pdnAdslSeltLcSegmentIndex	Integer32,
+        pdnAdslSeltLcSegmentLength	Integer32,
+        pdnAdslSeltLcSegmentGauge       INTEGER,
+        pdnAdslSeltLcSegmentType        INTEGER
+    }
+
+pdnAdslSeltLcSegmentIndex OBJECT-TYPE
+    SYNTAX      Integer32(0..9)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "This object indicates the index of the segment being reported.
+		 From no segments to a possible of 10 segments could be
+                 identified in the loop topology.
+		        "
+    ::= { pdnAdslSeltLcEntry 1 }
+
+pdnAdslSeltLcSegmentLength OBJECT-TYPE
+    SYNTAX      Integer32(0..65534)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "This object indicates an estimate of the segment Length
+                 being  reported
+	        "
+    ::= { pdnAdslSeltLcEntry 2 }
+
+pdnAdslSeltLcSegmentGauge OBJECT-TYPE
+    SYNTAX      INTEGER {
+			unknown  (1),
+
+                        --AWG--
+			awg26    (2),
+			awg24    (3),
+			awg22    (4),
+			awg19    (5),
+
+                        --Metric--
+			metric32 (10), -- (0.32mm)
+			metric40 (11), -- (0.40mm)
+			metric50 (12), -- (0.50mm)
+			metric63 (13), -- (0.63mm)
+			metric90 (14), -- (0.90mm)
+
+                        --Metric/Japan--
+			metricJapan32 (20), -- (0.32mm)
+			metricJapan40 (21), -- (0.40mm)
+			metricJapan50 (22), -- (0.50mm)
+			metricJapan65 (23), -- (0.65mm)
+			metricJapan90 (24)  -- (0.90mm)
+		}
+
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "This object indicates the estimated Gauge of the segment
+                 being reported.  The gauge reported back is based on the
+                 pdnAdslSeltWireSizeWireSize configuration parameter passed
+                 when the test is started.
+	        "
+    ::= { pdnAdslSeltLcEntry 3 }
+
+pdnAdslSeltLcSegmentType OBJECT-TYPE
+    SYNTAX      INTEGER {
+			notPresent (1),
+			inline     (2),
+			bridgeTap  (3)
+		}
+
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "This object indicates the segment type being reported.
+		"
+    ::= { pdnAdslSeltLcEntry 4 }
+
+-- =================================================
+-- == G.Selt (Single Ended Line Test) Results
+-- ==
+-- == LOOP NOISE FLOOR (Lnf) Results Table
+-- == 
+-- == This table is used to post results from an 
+-- == initiated Loop Noise Floor test.
+--
+-- ================================================
+pdnAdslSeltLnfTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PdnAdslSeltLnfEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "This table post results for loop
+		 noise floor tests completed.
+	        "
+    ::= { pdnAdslSeltObjects 4 }
+
+pdnAdslSeltLnfEntry     OBJECT-TYPE
+    SYNTAX      PdnAdslSeltLnfEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Each entry represents the results of a Loop
+		Noise Floor test performed over an ADSL interface.
+		"
+    INDEX       { ifIndex, pdnAdslSeltLnfSubCarrierIndex  }
+    ::= { pdnAdslSeltLnfTable 1 }
+
+PdnAdslSeltLnfEntry ::=
+    SEQUENCE {
+        pdnAdslSeltLnfSubCarrierIndex	    Integer32,
+        pdnAdslSeltLnfPeakPsd		    Integer32,
+        pdnAdslSeltLnfTotalPsd              Integer32,
+        pdnAdslSeltLnfSignalPsd             Integer32
+    }
+
+pdnAdslSeltLnfSubCarrierIndex OBJECT-TYPE
+    SYNTAX      Integer32(0..63)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Identifies a row in the table based on a subcarrier. 
+                 The subcarrier index ranges from 0 to NSCus-1
+                 (NSC is Number of Subcarriers) as specified in G.997.1 
+                 where NSCus is the higher subcarrier that can be transmitted
+                 in the upstream direction. Please refer to the corresponding
+                 ITU recommendation for specific values of NSCus.  
+                 The `ADSL Values for NSC' comment above lists those 
+                 recommendations."
+    ::= { pdnAdslSeltLnfEntry 1 }
+
+pdnAdslSeltLnfPeakPsd OBJECT-TYPE
+    SYNTAX      Integer32(0..65534)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "This object indicates the peak Psd of the tone indicated by
+                 the sub-carrier index.
+
+                 The value returned by the agent for this object is 
+                 expressed in units of 1/256 dBm.
+		"
+    ::= { pdnAdslSeltLnfEntry 2 }
+
+pdnAdslSeltLnfTotalPsd OBJECT-TYPE
+    SYNTAX      Integer32(0..65534)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "This object indicates the total Psd of the tone indicated by
+                 the sub-carrier index.
+
+                 The value returned by the agent for this object is 
+                 expressed in units of 1/256 dBm.
+		"
+    ::= { pdnAdslSeltLnfEntry 3 }
+
+pdnAdslSeltLnfSignalPsd OBJECT-TYPE
+    SYNTAX      Integer32(0..65534)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "This object indicates the signal Psd of the tone indicated by
+                 the sub-carrier index.
+
+                 The value returned by the agent for this object is 
+                 expressed in units of 1/256 dBm.
+		"
+    ::= { pdnAdslSeltLnfEntry 4 }
+
+-- =============================================================================
+-- ==                  Accessible for Notifications (AFNs)                    ==
+-- =============================================================================
+-- None defined
+
+
+
+-- =============================================================================
+-- ==                  Traps/Notifications                                    ==
+-- =============================================================================
+-- None defined
+
+
+
+-- =============================================================================
+-- ==                  Conformance Information                                ==
+-- =============================================================================
+
+pdnAdslSeltCompliances  OBJECT IDENTIFIER ::= { pdnAdslSeltConformance 1 }
+pdnAdslSeltGroups       OBJECT IDENTIFIER ::= { pdnAdslSeltConformance 2 }
+
+
+-- ===========================
+-- == Compliance Statements ==
+-- ===========================
+
+
+pdnAdslSeltMIBCompliance MODULE-COMPLIANCE
+    STATUS      current
+    DESCRIPTION "The compliance statement for the entities which
+                 implement the pdnAdslSeltMIB."
+    MODULE      -- this module
+    -- No mandatory groups are specified
+
+    GROUP       pdnAdslSeltGroup
+    DESCRIPTION "The group associates the objects related to the
+                 configuration of SELT tests in General."
+
+    GROUP       pdnAdslSeltLcGroup
+    DESCRIPTION "The group associates the objects related to the
+                 results of a Loop characterization SELT test."
+
+    GROUP       pdnAdslSeltLnfGroup
+    DESCRIPTION "The group associates the objects related to the
+                 results  of a Loop Noise Floor SELT test."
+
+
+    -- All objects, if implemented, are expected to be implemented to the
+    -- maximal level as specified in their OBJECT-TYPE macro.
+    --
+
+    ::= { pdnAdslSeltCompliances 1 }
+
+
+-- ==========================
+-- == Units of Conformance ==
+-- ==========================
+
+pdnAdslSeltObjGroups   OBJECT IDENTIFIER ::= { pdnAdslSeltGroups 1 }
+pdnAdslSeltAfnGroups   OBJECT IDENTIFIER ::= { pdnAdslSeltGroups 2 }
+pdnAdslSeltNtfyGroups  OBJECT IDENTIFIER ::= { pdnAdslSeltGroups 3 }
+
+-- ===================
+-- == Object Groups ==
+-- ===================
+
+pdnAdslSeltGroup OBJECT-GROUP
+    OBJECTS {
+        pdnAdslSeltCmd,
+        pdnAdslSeltStatus,
+        pdnAdslSeltWireSize,
+        pdnAdslSeltDuration,
+        pdnAdslSeltTimeLeft
+    }
+    STATUS      current
+    DESCRIPTION "General configuration of SELT tests."
+
+    ::= { pdnAdslSeltObjGroups 1 }
+ 
+pdnAdslSeltLcGroup OBJECT-GROUP
+    OBJECTS {
+        pdnAdslSeltLcSegmentLength,
+        pdnAdslSeltLcSegmentGauge,
+        pdnAdslSeltLcSegmentType
+    }
+    STATUS      current
+    DESCRIPTION "Objects related to results posted for Loop 
+		Characterization Test."
+
+    ::= { pdnAdslSeltObjGroups 2 }
+
+pdnAdslSeltLnfGroup OBJECT-GROUP
+    OBJECTS {
+        pdnAdslSeltLnfPeakPsd,
+        pdnAdslSeltLnfTotalPsd,
+        pdnAdslSeltLnfSignalPsd
+    }
+    STATUS      current
+    DESCRIPTION "Objects related to results posted for Loop 
+		Signal Floor Test."
+
+    ::= { pdnAdslSeltObjGroups 3 }
+
+-- ==================================
+-- == Accessible for Notify Groups ==
+-- ==================================
+-- None.
+
+
+
+-- =========================
+-- == Notification Groups ==
+-- =========================
+-- None.
+
+
+
+-- =========
+-- == END ==
+-- =========
+END

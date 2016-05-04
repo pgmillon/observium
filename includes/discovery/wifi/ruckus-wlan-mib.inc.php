@@ -6,7 +6,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -44,7 +44,6 @@ foreach ($wlan_table as $wlan_ifIndex => $wlan)
   $wlan['wlan_prot_mode']     = $wlan['ruckusWLANProtectionMode'];          // Enabled when 11g and 11b clients exist on the same network. none(1), ctsOnly(2), ctsRts(3)
   $wlan['wlan_wds_enable']    = $wlan['ruckusWLANWDSEnable'];               // Specifies if the WDS is enabled or disabled on this interface. True/False
   $wlan['wlan_rts_thresh']    = $wlan['ruckusWLANRTSThreshold'];            // The number of octets in an MPDU, below which an RTS/CTS handshake will not be performed.
-
 
   if (OBS_DEBUG && count($wlan)) { print_vars($wlan); }
 

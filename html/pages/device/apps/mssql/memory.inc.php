@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage applications
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -49,10 +49,10 @@ if (!empty($app_data['memory']))
   echo(overlib_link($link, $graph, $overlib_content, NULL));
 
 ?>
-      <div class="well info_box">
+      <div class="box box-solid info_box">
         <div class="title"><i class="oicon-memory"></i> Memory</div>
         <div class="content">
-          <table width="100%" class="table table-striped table-condensed-more table-bordered">
+          <table width="100%" class="table table-striped table-condensed-more ">
             <tr>
               <td colspan="7">
                 <?php echo(percentage_bar($percentage_bar)); ?>

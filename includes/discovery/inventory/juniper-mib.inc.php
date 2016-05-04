@@ -7,11 +7,11 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-echo(" JUNIPER-MIB ");
+echo("JUNIPER-MIB ");
 
 $jnxBoxDescr = snmp_get($device, 'jnxBoxDescr.0', '-OQv', 'JUNIPER-MIB', mib_dirs('juniper'));
 
@@ -35,8 +35,8 @@ if ($jnxBoxDescr)
   discover_inventory($valid['inventory'], $device, $system_index, $inventory[$system_index], 'juniper-mib');
 
   // Now fetch data for the rest of the hardware in the chassis
-  $data = snmpwalk_cache_oid($device, 'jnxContentsTable', array(), 'JUNIPER-MIB', mib_dirs('junos'));
-  $data = snmpwalk_cache_oid($device, 'jnxFruTable', $data, 'JUNIPER-MIB', mib_dirs('junos'));
+  $data = snmpwalk_cache_oid($device, 'jnxContentsTable', array(), 'JUNIPER-MIB');
+  $data = snmpwalk_cache_oid($device, 'jnxFruTable',        $data, 'JUNIPER-MIB');
 
   $global_relPos = 0;
 

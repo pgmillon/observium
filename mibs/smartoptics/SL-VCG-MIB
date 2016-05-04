@@ -1,0 +1,596 @@
+-- *****************************************************************
+-- smartoptics SiteLight VCG MIB
+--
+-- Jan 2004, Omri Viner
+--
+-- Copyright (c) 1999-2004 by smartoptics Ltd.
+-- All rights reserved.
+-- *****************************************************************
+
+SL-VCG-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE,
+    Unsigned32, Counter64, Gauge32, Integer32, mib-2
+      FROM SNMPv2-SMI
+    TEXTUAL-CONVENTION, TruthValue, TimeStamp, RowStatus
+      FROM SNMPv2-TC
+	InterfaceIndex		               	FROM IF-MIB
+    SnmpAdminString
+      FROM SNMP-FRAMEWORK-MIB                   -- rfc2571
+    MODULE-COMPLIANCE, OBJECT-GROUP
+      FROM SNMPv2-CONF
+    slService				      		FROM SL-NE-MIB;
+
+vcgMIB MODULE-IDENTITY
+	LAST-UPDATED "0402030000Z"
+	ORGANIZATION "Smartoptics AS"
+	CONTACT-INFO
+        E-mail: d.lutz@smartoptics.com"
+    DESCRIPTION "The MIB module for the Vcat Group (VCG) Interface."
+    ::= { slService 10 }
+
+vcgMIBObjects OBJECT IDENTIFIER ::= { vcgMIB 1 }
+ 
+-- Groups under vcgMIBObjects
+
+vcgConfig       OBJECT IDENTIFIER ::= { vcgMIBObjects 1 }
+vcgPm           OBJECT IDENTIFIER ::= { vcgMIBObjects 2 }
+vcgTraps        OBJECT IDENTIFIER ::= { vcgMIBObjects 3 }
+
+-- Textual Conventions
+
+VcgLinkType ::= TEXTUAL-CONVENTION
+    STATUS         current
+    DESCRIPTION    "Represents the type of a VCAT group."
+    SYNTAX         INTEGER { 
+    	framed(1),      -- GFP-F
+    	transparent(2),	-- GFP-T 
+    	pos(3) }
+
+
+-- The Configuration group
+
+-- This group represents the configuration information associated with
+-- the VCG interface.
+
+--
+--  The VCG-STS Stack
+--
+
+vcgStackStatusTable  OBJECT-TYPE
+        SYNTAX        SEQUENCE OF VcgStackStatusEntry
+        MAX-ACCESS    not-accessible
+        STATUS        current
+        DESCRIPTION
+               "The table containing status information on the relationships
+               between the VCG and STS sub-layers of network interfaces."
+        ::= { vcgConfig 1 }
+
+
+vcgStackStatusEntry  OBJECT-TYPE
+        SYNTAX        VcgStackStatusEntry
+        MAX-ACCESS    not-accessible
+        STATUS        current
+        DESCRIPTION
+               "Information on a particular relationship between two
+               sub-layers, specifying that one sub-layer runs on
+               'top' of the other sub-layer.  
+               Each sub-layer corresponds to a conceptual row in the ifTable.
+               The rows in the table are created by the NMS.
+               To apply the multiple changes done to the table, the NMS
+               should set the corresponding object vcgLinkConfigStackChangesApply.
+               Befor adding an entry to this table the corresponding VCG-if should
+               already be exist in the vcgLinkConfigTable.
+               When an entry is deleted from vcgLinkConfigTable, the corresponding
+               entries with the same VCG-if should be deleted from the vcgStackStatusTable."
+        INDEX { vcgStackLinkIndex, 
+        		vcgStackStsIndex }
+        ::= { vcgStackStatusTable 1 }
+
+
+VcgStackStatusEntry ::=
+       SEQUENCE {
+           vcgStackLinkIndex  		InterfaceIndex,
+           vcgStackStsIndex   		InterfaceIndex,
+           vcgStackPathWidth   		INTEGER,
+           vcgStackSts1Mapping 		INTEGER,
+           vcgStackTxSequenceNumber	INTEGER,
+           vcgStackLcasStatusOper	INTEGER,
+           vcgStackLcasStatusAdmin	INTEGER,
+           vcgStackLcasSourceState	INTEGER,
+           vcgStackLcasSinkState	INTEGER,
+           vcgStackStatusRow        RowStatus
+        }
+
+vcgStackLinkIndex  OBJECT-TYPE
+        SYNTAX        InterfaceIndex
+        MAX-ACCESS    read-only
+        STATUS        current
+        DESCRIPTION
+               "The value of the VCG link ifIndex corresponding to the 
+               higher-layer of the relationship.
+               The structure of the VCG link ifIndex is:
+               Slot=0,
+               Port=trunk port number
+               Type=219
+               Path=GID."
+        ::= { vcgStackStatusEntry 1 }
+
+vcgStackStsIndex  OBJECT-TYPE
+        SYNTAX        InterfaceIndex
+        MAX-ACCESS    read-only
+        STATUS        current
+        DESCRIPTION
+               "The value of the STS ifIndex corresponding to the 
+               lower-layer of the relationship.
+               The structure of the STS ifIndex is:
+               Slot=0
+               Port=trunk port
+               Type=50
+               Path=1st sts number in the sonet path."
+        ::= { vcgStackStatusEntry 2 }
+
+vcgStackPathWidth  OBJECT-TYPE
+       SYNTAX         INTEGER { 
+       			-- high order path
+				vtWidth45STS1(1),   -- sonet STS-1 or sdh VC-3
+				vtWidth155STS3(3),  -- sonet STS-3c or sdh VC-4
+				-- low order path
+				vtWidth15VC11(11),  -- sonet VC-11 DS1 (T1)
+				vtWidth2VC12(12)    -- sdh   VC-12 E1
+	   }
+       MAX-ACCESS     read-create
+       STATUS         current
+       DESCRIPTION
+               "The width of the path"
+       ::= { vcgStackStatusEntry 3 }
+
+vcgStackSts1Mapping  OBJECT-TYPE
+       SYNTAX         INTEGER  {
+       		tu3(1),
+       		au3(2),
+       		na(3)
+       }
+       MAX-ACCESS     read-create
+       STATUS         current
+       DESCRIPTION
+               "In the case of sdh sts1 path there are two possibilities for mapping:
+               1. c3->vc3->tu3->tug3-x3->vc4->au4->aug1 ::tu3(1)
+               2. c3->vc3->au3-x3->aug1                 ::au3(2)
+               3. Otherwise                             ::na(3)"
+       ::= { vcgStackStatusEntry 4 }
+
+vcgStackTxSequenceNumber  OBJECT-TYPE
+       SYNTAX         INTEGER 
+       MAX-ACCESS     read-create
+       STATUS         current
+       DESCRIPTION
+               "The tx sequence number of this path."
+       ::= { vcgStackStatusEntry 5 }
+
+vcgStackLcasStatusOper  OBJECT-TYPE
+       SYNTAX         INTEGER {
+       		up(1),
+       		down(2)
+       }
+       MAX-ACCESS     read-create
+       STATUS         current
+       DESCRIPTION
+               "The oper status of the relationship between two sub-layers.
+               This value is determined by the Admin status and the
+               Source State and the Sink State of the vcat member."
+       ::= { vcgStackStatusEntry 6 }
+
+vcgStackLcasStatusAdmin  OBJECT-TYPE
+       SYNTAX         INTEGER {
+       		active(1),
+       		nonActive(2)
+       }
+       MAX-ACCESS     read-create
+       STATUS         current
+       DESCRIPTION
+               "The admin status of the vcat member.
+               This is relevant only for PL-20. For PL-100 all members are active."
+       ::= { vcgStackStatusEntry 7 }
+
+vcgStackLcasSourceState  OBJECT-TYPE
+       SYNTAX         INTEGER {
+       		norm(1),
+       		dnu(2),
+       		add(3),
+       		idle(4)
+       }
+       MAX-ACCESS     read-create
+       STATUS         current
+       DESCRIPTION
+               "The Lcas Source State of the Vcat member."
+       ::= { vcgStackStatusEntry 8 }
+
+vcgStackLcasSinkState  OBJECT-TYPE
+       SYNTAX         INTEGER {
+       		ok(1),
+       		fail(2),
+       		idle(3)
+       }
+       MAX-ACCESS     read-create
+       STATUS         current
+       DESCRIPTION
+               "The Lcas Sink State of the Vcat member."
+       ::= { vcgStackStatusEntry 9 }
+
+vcgStackStatusRow  OBJECT-TYPE
+       SYNTAX         RowStatus
+       MAX-ACCESS     read-create
+       STATUS         current
+       DESCRIPTION
+               "The row status of the relationship between two sub-layers."
+       ::= { vcgStackStatusEntry 10 }
+
+
+--
+-- the VCG Configuration Table.
+-- This table contains, one entry for each VCG interface,
+-- with the configuration parameters of the VCG link.
+--
+
+vcgLinkConfigTable OBJECT-TYPE
+     SYNTAX      SEQUENCE OF VcgLinkConfigEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+        "A table that contains, one entry for each Vcg interface in the,
+         configuration and service parameters of the Vcg Channel."
+	::= { vcgConfig 2 }
+
+vcgLinkConfigEntry OBJECT-TYPE
+     SYNTAX      VcgLinkConfigEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+        "An entry containing the result configuration and service parameters
+         of a Vcg Channel.
+         A new entry is created each when an entry is added to the vcgChannelConfigTable
+         with a new VCG-if index.
+         An entry is automaticaly deleted from the table when the last entry of the VCG-if
+         is deleted from the table vcgChannelConfigTable."
+     INDEX { vcgLinkConfigIndex }
+	::= { vcgLinkConfigTable 1 }
+
+
+VcgLinkConfigEntry ::=
+     SEQUENCE {
+         vcgLinkConfigIndex
+             InterfaceIndex,
+         vcgLinkConfigType
+             VcgLinkType,
+         vcgLinkConfigLcasSupport
+             TruthValue,
+         vcgLinkConfigExtensionSupport
+             TruthValue,
+         vcgLinkConfigResetPmCounters
+             INTEGER,
+		  vcgLinkConfigValidIntervals
+		  	 INTEGER,
+		  vcgLinkConfigLcasHoldOfTime
+		  	 INTEGER,
+		  vcgLinkConfigLcasWaitToRestoreTime
+		  	 INTEGER,
+		  vcgLinkConfigStackApplyChanges
+		  	 INTEGER
+     }
+
+vcgLinkConfigIndex OBJECT-TYPE
+      SYNTAX      InterfaceIndex
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "The ifIndex of the VCG link. 
+         This index is composed of:
+           Slot=0, 
+           Port=trunk port number, 
+           Type=219, 
+           Path=group id."
+	::= { vcgLinkConfigEntry 1 }
+
+vcgLinkConfigType OBJECT-TYPE
+      SYNTAX      VcgLinkType
+      MAX-ACCESS  read-create
+      STATUS      current
+      DESCRIPTION
+         "The type of the vcat group as configured by the NMS."
+	::= { vcgLinkConfigEntry 2 }
+
+vcgLinkConfigLcasSupport OBJECT-TYPE
+      SYNTAX      TruthValue
+      MAX-ACCESS  read-create
+      STATUS      current
+      DESCRIPTION
+         "Should this channel support the LCAS protocol. Configured by the NMS."
+	::= { vcgLinkConfigEntry 3 }
+
+vcgLinkConfigExtensionSupport OBJECT-TYPE
+      SYNTAX      TruthValue
+      MAX-ACCESS  read-create
+      STATUS      current
+      DESCRIPTION
+         "Should this channel support the GFP extension. Configured by the NMS.
+         This field should be true if there aremore than one channel on the same VCG."
+	::= { vcgLinkConfigEntry 4 }
+
+vcgLinkConfigResetPmCounters OBJECT-TYPE
+      SYNTAX      INTEGER
+      MAX-ACCESS  read-create
+      STATUS      current
+      DESCRIPTION
+        "Setting this variable to 1 will cause the current interval VCG PM 
+        counters of the Channel to be initialized to zero (0)."
+	::= { vcgLinkConfigEntry 5 }
+
+vcgLinkConfigValidIntervals OBJECT-TYPE
+	SYNTAX  	INTEGER (0..96)
+	MAX-ACCESS 	read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of previous near end intervals for
+		which data was collected."
+	::= { vcgLinkConfigEntry 6 }
+
+vcgLinkConfigLcasHoldOfTime OBJECT-TYPE
+	SYNTAX  	INTEGER 
+	MAX-ACCESS 	read-create
+	STATUS  	current
+	DESCRIPTION
+		"The number of milli-seconds to wait before the Lcas make a transition from 
+		Good state to Bad state."
+	::= { vcgLinkConfigEntry 7 }
+
+vcgLinkConfigLcasWaitToRestoreTime OBJECT-TYPE
+	SYNTAX  	INTEGER 
+	MAX-ACCESS 	read-create
+	STATUS  	current
+	DESCRIPTION
+		"The number of milli-seconds to wait before the Lcas make a transition from 
+		Bad state to Good state."
+	::= { vcgLinkConfigEntry 8 }
+
+vcgLinkConfigStackApplyChanges OBJECT-TYPE
+	SYNTAX  	INTEGER 
+	MAX-ACCESS 	read-create
+	STATUS  	current
+	DESCRIPTION
+		"Writing to this object applies the changes done to the vcgStackStatusTable."
+	::= { vcgLinkConfigEntry 9 }
+
+
+--
+-- PM Definitions:
+-- Consists of the the following objects:
+-- 1. vcgChannelCurrentTable - the current PM counters
+-- 2. vcgChannelIntervalTable - keeps the history of the 1-96 intervals
+--    of 15 minutes PM counters.
+-- 3. vcgChannelTotalTable - the total PM counters of the previous 24 hours
+--
+
+
+--
+-- The PM Current Table
+--
+
+vcgLinkCurrentTable OBJECT-TYPE
+	SYNTAX  SEQUENCE OF VcgLinkCurrentEntry
+	MAX-ACCESS  		not-accessible
+	STATUS  			current
+	DESCRIPTION
+		"The VCG current table contains various statistics
+		being collected for the current 15 minute
+		interval."
+	::= { vcgPm 1 }
+
+vcgLinkCurrentEntry OBJECT-TYPE
+	SYNTAX  		VcgLinkCurrentEntry
+	MAX-ACCESS  	not-accessible
+	STATUS  		current
+	DESCRIPTION
+		"An entry in the VCG Current table."
+	INDEX   { vcgLinkCurrentIndex }
+	::= { vcgLinkCurrentTable 1 }
+
+VcgLinkCurrentEntry ::=
+	SEQUENCE {
+		vcgLinkCurrentIndex					InterfaceIndex,
+		vcgLinkCurrentRxVcatSyncLossSeconds	Counter64,
+		vcgLinkCurrentRxLcasCrcErrors		Counter64
+	}
+
+vcgLinkCurrentIndex OBJECT-TYPE
+	SYNTAX  	InterfaceIndex
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The index value which uniquely identifies  the
+		VCG interface to which this entry is applicable."
+	::= { vcgLinkCurrentEntry 1 }
+
+vcgLinkCurrentRxVcatSyncLossSeconds   OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of seconds a VCAT sync loss was detected
+		during this interval."
+	::= { vcgLinkCurrentEntry 2 }
+
+vcgLinkCurrentRxLcasCrcErrors   OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of Received Lcas messages with CRC error."
+	::= { vcgLinkCurrentEntry 3 }
+
+
+--
+-- The PM Interval Table
+--
+
+vcgLinkIntervalTable OBJECT-TYPE
+	SYNTAX  SEQUENCE OF VcgLinkIntervalEntry
+	MAX-ACCESS  		not-accessible
+	STATUS  			current
+	DESCRIPTION
+		"The VCG current table contains various statistics
+		being collected for the current 15 minute
+		interval."
+	::= { vcgPm 2 }
+
+vcgLinkIntervalEntry OBJECT-TYPE
+	SYNTAX  		VcgLinkIntervalEntry
+	MAX-ACCESS  	not-accessible
+	STATUS  		current
+	DESCRIPTION
+		"An entry in the VCG Interval table."
+	INDEX   { vcgLinkIntervalIndex, vcgLinkIntervalNumber }
+	::= { vcgLinkIntervalTable 1 }
+
+VcgLinkIntervalEntry ::=
+	SEQUENCE {
+		vcgLinkIntervalIndex					InterfaceIndex,
+		vcgLinkIntervalNumber              		INTEGER,
+		vcgLinkIntervalRxVcatSyncLossSeconds 	Counter64,
+		vcgLinkIntervalRxLcasCrcErrors			Counter64
+	}
+
+vcgLinkIntervalIndex OBJECT-TYPE
+	SYNTAX  	InterfaceIndex
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The index value which uniquely identifies  the
+		VCG interface to which this entry is applicable."
+	::= { vcgLinkIntervalEntry 1 }
+
+vcgLinkIntervalNumber OBJECT-TYPE
+	SYNTAX  	INTEGER (1..96)
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"A number between 1 and 96, where 1 is the most
+		recently completed 15 minute interval and 96 is
+		the 15 minutes interval completed 23 hours and 45
+		minutes prior to interval 1."
+	::= { vcgLinkIntervalEntry 2 }
+
+vcgLinkIntervalRxVcatSyncLossSeconds   OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of seconds a VCAT sync loss was detected
+		during this interval."
+	::= { vcgLinkIntervalEntry 3 }
+
+vcgLinkIntervalRxLcasCrcErrors   OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of Lcas messages with CRC error
+		occurences during the interval."
+	::= { vcgLinkIntervalEntry 4 }
+
+
+--
+-- The PM Day Table
+--
+
+vcgLinkDayTable OBJECT-TYPE
+	SYNTAX  SEQUENCE OF VcgLinkDayEntry
+	MAX-ACCESS  		not-accessible
+	STATUS  			current
+	DESCRIPTION
+		"The Link day table contains various statistics
+		being collected for the pervious 24 hours.
+		interval."
+	::= { vcgPm 3 }
+
+vcgLinkDayEntry OBJECT-TYPE
+	SYNTAX  		VcgLinkDayEntry
+	MAX-ACCESS  	not-accessible
+	STATUS  		current
+	DESCRIPTION
+		"An entry in the Link Day table."
+	INDEX   { vcgLinkDayIndex, vcgLinkDayNumber }
+	::= { vcgLinkDayTable 1 }
+
+VcgLinkDayEntry ::=
+	SEQUENCE {
+		vcgLinkDayIndex					InterfaceIndex,
+		vcgLinkDayNumber				INTEGER,
+		vcgLinkDayRxVcatSyncLossSeconds	Counter64,
+		vcgLinkDayRxLcasCrcErrors		Counter64
+	}
+
+vcgLinkDayIndex OBJECT-TYPE
+	SYNTAX  	InterfaceIndex
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The index value which uniquely identifies  the
+		Link interface to which this entry is applicable."
+	::= { vcgLinkDayEntry 1 }
+
+vcgLinkDayNumber OBJECT-TYPE
+    SYNTAX      INTEGER (1..33)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A number which identifies the 1-day interval for which the set
+        of section related statistics is available.  The number is
+        between 1 and n, where n is the number of 1-day intervals
+        supported by the agent.  The interval identified by 1 is the
+        current 1-day interval, 2 is the previous (most recently
+        completed) 1-day interval and n is the least recently completed
+        1-day interval."
+    ::= { vcgLinkDayEntry 2 }
+
+vcgLinkDayRxVcatSyncLossSeconds   OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of seconds a VCAT sync loss was detected
+		during this interval."
+	::= { vcgLinkDayEntry 3 }
+
+vcgLinkDayRxLcasCrcErrors   OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of Lcas messages with CRC error
+		occurences during the interval."
+	::= { vcgLinkDayEntry 4 }
+
+
+--
+-- VCG Traps Group
+--
+
+vcgStackValueChange NOTIFICATION-TYPE
+	OBJECTS { vcgStackLinkIndex, vcgStackStsIndex, vcgStackLcasStatusOper }
+	STATUS  current
+	DESCRIPTION
+		"A vcgStackValueChange trap is sent when the value of the 
+		vcgStackLcasStatusOper of an instance vcgStackStatusTable is changed."
+	::= { vcgTraps 1 }
+
+vcgStackConfigurationChange NOTIFICATION-TYPE
+	STATUS  current
+	DESCRIPTION
+		"A vcgStackConfigurationChange trap is sent when an
+		entries in the vcgStackStatusTable are added or removed."
+	::= { vcgTraps 2 }
+
+
+END

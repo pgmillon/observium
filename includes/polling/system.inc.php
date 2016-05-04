@@ -7,8 +7,8 @@
  *
  * @package    observium
  * @subpackage poller
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -20,11 +20,11 @@ $poll_device = $snmpdata[0];
 
 $poll_device['sysDescr']     = snmp_get($device, "sysDescr.0", "-Oqv", "SNMPv2-MIB", mib_dirs());
 $poll_device['sysObjectID']  = snmp_get($device, "sysObjectID.0", "-Oqvn", "SNMPv2-MIB", mib_dirs());
-if (strpos($poll_device['sysObjectID'], 'Wrong Type') !== FALSE)
+if (strlen($poll_device['sysObjectID']) && $poll_device['sysObjectID'][0] != '.')
 {
   // Wrong Type (should be OBJECT IDENTIFIER): "1.3.6.1.4.1.25651.1.2"
-  list(, $poll_device['sysObjectID']) = explode(':', $poll_device['sysObjectID']);
-  $poll_device['sysObjectID'] = '.'.trim($poll_device['sysObjectID'], ' ."');
+  //list(, $poll_device['sysObjectID']) = explode(':', $poll_device['sysObjectID']);
+  $poll_device['sysObjectID'] = '.' . $poll_device['sysObjectID'];
 }
 $poll_device['snmpEngineID'] = snmp_cache_snmpEngineID($device);
 $poll_device['sysName'] = strtolower($poll_device['sysName']);
@@ -65,8 +65,13 @@ if (is_numeric($agent_data['uptime']) && $agent_data['uptime'] > 0)
     $uptimes['use']   = 'sysUpTime';
 
     // Last check snmpEngineTime
-    // SNMP-FRAMEWORK-MIB::snmpEngineTime.0 = INTEGER: 72393514 seconds
-    $snmpEngineTime = snmp_get($device, "snmpEngineTime.0", "-OUqv", "SNMP-FRAMEWORK-MIB", mib_dirs());
+    if ($device['snmp_version'] != 'v1') // snmpEngineTime allowed only in v2c/v3
+    {
+      // SNMP-FRAMEWORK-MIB::snmpEngineTime.0 = INTEGER: 72393514 seconds
+      $snmpEngineTime = snmp_get($device, "snmpEngineTime.0", "-OUqv", "SNMP-FRAMEWORK-MIB", mib_dirs());
+    } else {
+      $snmpEngineTime = 0;
+    }
     if (is_numeric($snmpEngineTime) && $snmpEngineTime > 0)
     {
       if ($device['os'] == 'aos' && strlen($snmpEngineTime) > 8)
@@ -153,9 +158,9 @@ if (is_numeric($uptime) && $uptime > 0) // it really is very impossible case for
           // Usually int(2147483647) in 32 bit systems and int(9223372036854775807) in 64 bit systems
           $uptimes['max'] = PHP_INT_MAX;
       }
-      if ($uptimes['previous'] > ($uptimes['max'] - 300) && $uptimes['previous'] < ($uptimes['max'] + 300))
+      if ($uptimes['previous'] > ($uptimes['max'] - 330) && $uptimes['previous'] < ($uptimes['max'] + 330))
       {
-        // Exclude (+|- 5min) from maximal
+        // Exclude (+|- 5min 30 sec) from maximal
         $rebooted = 0;
       }
     }
@@ -174,17 +179,19 @@ if (is_numeric($uptime) && $uptime > 0) // it really is very impossible case for
 
   $graphs['uptime'] = TRUE;
 
-  print_message("Uptime: ".$uptimes['formatted']);
+  print_cli_data("Uptime", $uptimes['formatted']);
 
   $update_array['uptime'] = $uptime;
-  $cache['devices']['uptime'][$device['device_id']]['uptime'] = $uptime;
-  $cache['devices']['uptime'][$device['device_id']]['polled'] = $polled;
+  $cache['devices']['uptime'][$device['device_id']]['uptime']    = $uptime;
+  $cache['devices']['uptime'][$device['device_id']]['sysUpTime'] = $uptimes['sysUpTime']; // Required for ports (ifLastChange)
+  $cache['devices']['uptime'][$device['device_id']]['polled']    = $polled;
 } else {
   print_warning("Device not have any uptime counter or uptime equals to zero.");
 }
 if (OBS_DEBUG) { print_vars($uptimes); }
 
 // Rewrite sysLocation if there is a mapping array or DB override
+$poll_device['sysLocation'] = snmp_fix_string($poll_device['sysLocation']);
 $poll_device['sysLocation'] = rewrite_location($poll_device['sysLocation']);
 
 $poll_device['sysContact']  = str_replace(array('\"', '"') ,"", $poll_device['sysContact']);
@@ -195,7 +202,7 @@ if ($poll_device['sysContact'] == "not set")
 }
 
 // Check if snmpEngineID changed
-if ($poll_device['snmpEngineID'] && $poll_device['snmpEngineID'] != $device['snmpEngineID'])
+if (strlen($poll_device['snmpEngineID'] . $device['snmpEngineID']) && $poll_device['snmpEngineID'] != $device['snmpEngineID'])
 {
   $update_array['snmpEngineID'] = $poll_device['snmpEngineID'];
   if ($device['snmpEngineID'])
@@ -212,12 +219,20 @@ if ($poll_device['snmpEngineID'] && $poll_device['snmpEngineID'] != $device['snm
 $oids = array('sysObjectID', 'sysContact', 'sysName', 'sysDescr');
 foreach ($oids as $oid)
 {
+  $poll_device[$oid] = snmp_fix_string($poll_device[$oid]);
+  //print_vars($poll_device[$oid]);
   if ($poll_device[$oid] != $device[$oid])
   {
     $update_array[$oid] = ($poll_device[$oid] ? $poll_device[$oid] : array('NULL'));
     log_event("$oid -> '".$poll_device[$oid]."'", $device, 'device', $device['device_id']);
   }
 }
+
+  print_cli_data("sysObjectID",  $poll_device['sysObjectID'], 2);
+  print_cli_data("snmpEngineID", $poll_device['snmpEngineID'], 2);
+  print_cli_data("sysDescr",     $poll_device['sysDescr'], 2);
+  print_cli_data("sysName",      $poll_device['sysName'], 2);
+  print_cli_data("Location",     $poll_device['sysLocation'], 2);
 
 $geo_detect = FALSE;
 if ($device['location'] != $poll_device['sysLocation'])
@@ -255,53 +270,64 @@ if ($config['geocoding']['enable'])
   }
   $geo_db['hostname'] = $device['hostname']; // Hostname required for detect by DNS
 
+  $geo_updated = $config['time']['now'] - strtotime($geo_db['location_updated']);
+  $geo_frequency = 86400;
   if (!(is_numeric($geo_db['location_lat']) && is_numeric($geo_db['location_lon'])))
   {
     // Redetect geolocation if coordinates still empty, no more frequently than once a day
-    $geo_updated = $config['time']['now'] - strtotime($geo_db['location_updated']);
-    $geo_detect = $geo_detect || ($geo_updated > 86400);
+    $geo_detect = $geo_detect || ($geo_updated > $geo_frequency);
   }
 
-  $geo_detect = $geo_detect || ($poll_device['sysLocation'] && $device['location'] != $poll_device['sysLocation']);
-  $geo_detect = $geo_detect || ($geo_db['location_geoapi'] != strtolower($config['geocoding']['api']));
-  $geo_detect = $geo_detect || ($geo_db['location_manual'] && (!$geo_db['location_country'] || $geo_db['location_country'] == 'Unknown'));
+  $geo_detect = $geo_detect || ($poll_device['sysLocation'] && $device['location'] != $poll_device['sysLocation']); // sysLocation cnanged
+  $geo_detect = $geo_detect || ($geo_db['location_geoapi'] != strtolower($config['geocoding']['api']));             // Geo API changed
+  $geo_detect = $geo_detect || ($geo_db['location_manual'] && (!$geo_db['location_country'] || $geo_db['location_country'] == 'Unknown')); // Manual coordinates passed
+  $dns_only   = !$geo_detect && ($config['geocoding']['dns'] && ($geo_updated > $geo_frequency));
+  $geo_detect = $geo_detect || $dns_only;                                                                           // if DNS LOC enabled, check every 1 day
 
   if ($geo_detect)
   {
-    $update_geo = get_geolocation($poll_device['sysLocation'], $geo_db);
-    if (OBS_DEBUG && count($update_geo)) { print_vars($update_geo); }
-    if (is_numeric($update_geo['location_lat']) && is_numeric($update_geo['location_lon']) && $update_geo['location_country'] != 'Unknown')
+    $update_geo = get_geolocation($poll_device['sysLocation'], $geo_db, $dns_only);
+    if ($update_geo)
     {
-      $geo_msg  = 'Geolocation ('.strtoupper($update_geo['location_geoapi']).') -> ';
-      $geo_msg .= '['.sprintf('%f', $update_geo['location_lat']) .', ' .sprintf('%f', $update_geo['location_lon']) .'] ';
-      $geo_msg .= country_from_code($update_geo['location_country']).' (Country), '.$update_geo['location_state'].' (State), ';
-      $geo_msg .= $update_geo['location_county'] .' (County), ' .$update_geo['location_city'] .' (City)';
-    } else {
-      $geo_msg  = FALSE;
-    }
-    if ($db_version < 169)
-    {
-      // FIXME. remove this part in r7000
-      $update_array = array_merge($update_array, $update_geo);
-      log_event("Geolocation -> $geo_msg", $device, 'device', $device['device_id']);
-    } else {
-      if (is_numeric($geo_db['location_id']))
+      if (OBS_DEBUG && count($update_geo)) { print_vars($update_geo); }
+      if (is_numeric($update_geo['location_lat']) && is_numeric($update_geo['location_lon']) && $update_geo['location_country'] != 'Unknown')
       {
-        foreach($update_geo as $k => $value)
-        {
-          if ($geo_db[$k] == $value) { unset($update_geo[$k]); }
-        }
-        if ($update_geo)
-        {
-          dbUpdate($update_geo, 'devices_locations', '`location_id` = ?', array($geo_db['location_id']));
-          if ($geo_msg) { log_event($geo_msg, $device, 'device', $device['device_id']); }
-        } // else not changed
+        $geo_msg  = 'Geolocation ('.strtoupper($update_geo['location_geoapi']).') -> ';
+        $geo_msg .= '['.sprintf('%f', $update_geo['location_lat']) .', ' .sprintf('%f', $update_geo['location_lon']) .'] ';
+        $geo_msg .= country_from_code($update_geo['location_country']).' (Country), '.$update_geo['location_state'].' (State), ';
+        $geo_msg .= $update_geo['location_county'] .' (County), ' .$update_geo['location_city'] .' (City)';
       } else {
-        $update_geo['device_id'] = $device['device_id'];
-        dbInsert($update_geo, 'devices_locations');
-        if ($geo_msg) { log_event($geo_msg, $device, 'device', $device['device_id']); }
+        $geo_msg  = FALSE;
+      }
+      if ($db_version < 169)
+      {
+        // FIXME. remove this part in r7000
+        $update_array = array_merge($update_array, $update_geo);
+        log_event("Geolocation -> $geo_msg", $device, 'device', $device['device_id']);
+      } else {
+        if (is_numeric($geo_db['location_id']))
+        {
+          foreach ($update_geo as $k => $value)
+          {
+            if ($geo_db[$k] == $value) { unset($update_geo[$k]); }
+          }
+          if ($update_geo)
+          {
+            dbUpdate($update_geo, 'devices_locations', '`location_id` = ?', array($geo_db['location_id']));
+            if ($geo_msg) { log_event($geo_msg, $device, 'device', $device['device_id']); }
+          } // else not changed
+        } else {
+          $update_geo['device_id'] = $device['device_id'];
+          dbInsert($update_geo, 'devices_locations');
+          if ($geo_msg) { log_event($geo_msg, $device, 'device', $device['device_id']); }
+        }
       }
     }
+    else if (is_numeric($geo_db['location_id']))
+    {
+      $update_geo = array('location_updated' => format_unixtime($config['time']['now'], 'Y-m-d G:i:s')); // Increase updated time
+      dbUpdate($update_geo, 'devices_locations', '`location_id` = ?', array($geo_db['location_id']));
+    } # end if $update_geo
   }
 }
 

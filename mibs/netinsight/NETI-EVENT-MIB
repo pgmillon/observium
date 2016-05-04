@@ -1,0 +1,917 @@
+NETI-EVENT-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE,
+    Unsigned32
+        FROM SNMPv2-SMI
+    DisplayString, DateAndTime, TEXTUAL-CONVENTION,
+    RowPointer, TruthValue
+        FROM SNMPv2-TC
+    SnmpAdminString
+        FROM SNMP-FRAMEWORK-MIB
+    OBJECT-GROUP, NOTIFICATION-GROUP
+        FROM SNMPv2-CONF
+    netiGeneric
+        FROM NETI-COMMON-MIB;
+
+netiEventMIB MODULE-IDENTITY
+    LAST-UPDATED    
+         "201105031000Z"
+    ORGANIZATION    
+        "Net Insight AB"
+    CONTACT-INFO
+        "Net Insight AB
+         Box 42093
+         SE-126 14 Stockholm
+         Sweden
+         Tel +46-8-685 0400
+         info@netinsight.se"
+    DESCRIPTION
+        "Mib containing event and alarm information. The mib
+         implements two tables and some notifications. One table
+         is holding events and one is holding alarms. 
+
+         The event table contains the events that are sent as SNMP 
+         notifications. These events indicate change of alarms, or
+         change in other tables defined in other mibs, that uses 
+         the mechanism in this mib to notify a table change. If a 
+         notification receiver misses notifications, it can 
+         retrieve the lost notifications from this table.
+
+         The alarm table holds all active alarms, and possibly
+         also a number of the last cleared alarms.
+
+         The active alarm table holds only the active alarms."
+
+    REVISION
+         "201105031000Z"
+    DESCRIPTION
+         "Added eventTrapPurpose."
+
+    REVISION
+         "200907091600Z"
+    DESCRIPTION
+         "- Added eventActiveAlarmTable.
+          - In AlarmCause, dTEDCEInterfaceError relabled to 
+            dTEDCEInterfaceError to conform to SMIv2."
+
+    REVISION
+         "200703060000Z"
+    DESCRIPTION
+         "Added the following entries in the AlarmCause:
+          replaceableUnitMissing(68), replaceableUnitProblem(69)."
+
+    REVISION
+         "200409100000Z"
+    DESCRIPTION
+         "Added the following entries in the AlarmCause:
+          alarmIndicationSignal(66), remoteDefectIndication(67)."
+
+    REVISION
+         "200311250000Z"
+    DESCRIPTION
+         "Added the group eventAlarmCountersGroup with counters for
+          the number of active alarms per serverity.
+          Added eventConformanceGroups to comply with RFC2580."
+    ::= { netiGeneric  1 }
+
+-- -------------------------------------------------------------
+-- Objects in the NETI-EVENT-MIB
+-- -------------------------------------------------------------
+
+eventObjects           OBJECT IDENTIFIER ::= { netiEventMIB 1 }
+eventNotifications     OBJECT IDENTIFIER ::= { netiEventMIB 2 }
+eventConformanceGroups OBJECT IDENTIFIER ::= { netiEventMIB 3 }
+
+-- -------------------------------------------------------------
+-- Textual Conventions
+-- -------------------------------------------------------------
+
+EventType ::= TEXTUAL-CONVENTION
+    STATUS  current
+    DESCRIPTION
+        "The type of event. 'created', 'modified'and 'deleted'
+         indicates status of a conceptual row in a table. If the 
+         event represents an alarm, the type is 'none'." 
+    SYNTAX  INTEGER {
+                none(0),
+                created(1),
+                modified(2),
+                deleted(3) }
+
+AlarmType ::= TEXTUAL-CONVENTION
+    STATUS  current
+    DESCRIPTION
+        "The alarm type as specified in
+         CCITT Rec. X.733(1992 E)|ISO/EIC 10164-4:1992 (E).
+         Alarm type 'unknown' may be set if the alarm type
+         can not be determined, or when an event is not caused
+         by an alarm."
+    SYNTAX  INTEGER {
+                unknown(0),
+                communication(1),
+                qualityOfService(2),
+                processingError(3),
+                equipment(4),
+                environmental(5) }
+
+AlarmSeverity ::= TEXTUAL-CONVENTION
+    STATUS  current
+    DESCRIPTION
+        "The alarm severity as specified in
+         CCITT Rec. X.733(1992 E)|ISO/EIC 10164-4:1992 (E).
+         Alarm severity 'unknown' may be set if the alarm type
+         can not be determined, or when the event is not caused
+         by an alarm."
+    SYNTAX  INTEGER {
+                unknown(0),
+                indeterminate(1),
+                critical(2),
+                major(3),
+                minor(4),
+                warning(5),
+                cleared(6) }
+
+AlarmCause ::= TEXTUAL-CONVENTION
+    STATUS  current
+    DESCRIPTION
+        "The alarm cause 1-57 as specified in
+         CCITT Rec. X.733(1992 E)|ISO/EIC 10164-4:1992 (E).
+         Alarm casue 'unknown' may be set if the cause
+         can not be determined, or if the event was not casued
+         by an alarm. (0 and 58- are proprietary)."
+    SYNTAX  INTEGER {
+                unknown(0),
+                adapterError(1),
+                applicationSubsystemFailure(2),
+                bandwidthReduced(3),
+                callEstablishmentError(4),
+                communicationsProtocolError(5),
+                communicationsSubsystemFailure(6),
+                configurationOrCustomizationError(7),
+                congestion(8),
+                corruptData(9),
+                cpuCyclesLimitExceeded(10),
+                datasetOrModemError(11),
+                degradedSignal(12),
+                dTEDCEInterfaceError(13),
+                enclosureDoorOpen(14),
+                equipmentMalfunction(15),
+                excessiveVibration(16),
+                fileError(17),
+                fireDetected(18),
+                floodDetected(19),
+                framingError(20),
+                heatingOrVentilationOrCoolingSystemProblem(21),
+                humidityUnacceptable(22),
+                inputOutputDeviceError(23),
+                inputDeviceError(24),
+                lANError(25),
+                leakDetected(26),
+                localNodeTransmissionError(27),
+                lossOfFrame(28),
+                lossOfSignal(29),
+                materialSupplyExhausted(30),
+                multiplexerProblem(31),
+                outOfMemory(32),
+                outputDeviceError(33),
+                performanceDegraded(34),
+                powerProblem(35),
+                pressureUnacceptable(36),
+                processorProblem(37),
+                pumpFailure(38),
+                queueSizeExceeded(39),
+                receiveFailure(40),
+                receiverFailure(41),
+                remoteNodeTransmissionError(42),
+                resourceAtOrNearingCapacity(43),
+                responseTimeExcessive(44),
+                retransmissionRateExcessive(45),
+                softwareError(46),
+                softwareProgramAbnormallyTerminated(47),
+                softwareProgramError(48),
+                storageCapacityProblem(49),
+                temperatureUnacceptable(50),
+                thresholdCrossed(51),
+                timingProblem(52),
+                toxicLeakDetected(53),
+                transmitFailure(54),
+                transmitterFailure(55),
+                underlyingResourceUnavailable(56),
+                versionMismatch(57),
+
+                phyLossOfSignal(58),           -- use lossOfSignal instead
+                phyLossOfFrame(59),            -- use lossOfFrame instead
+                phyAlarmIndicationSignal(60),  -- use alarmIndicationSignal
+                phyRemoteDefectIndication(61), -- use remoteDefectIndication instead
+                phySignalFailure(62),          -- currently not not used
+                phySignalDegraded(63),         -- use degradedSignal instead
+                testmodeEntered(64),
+                serviceUnavailable(65),
+                alarmIndicationSignal(66),
+                remoteDefectIndication(67),
+                
+                replaceableUnitMissing(68),    -- 62 in rfc3877
+                replaceableUnitProblem(69)     -- from rfc3877 
+                }
+
+
+-- -------------------------------------------------------------
+-- The Event objects
+-- -------------------------------------------------------------
+
+-- Some scalars to examine status of the the event log.
+
+eventSequenceCounter OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "The index of the latest sent event defined as 
+         notifications in this mib. By examine his object,
+         the notification receiver can determine wheter it has
+         missed any notifications. The counter resets to zero 
+         at cold start, indicating that no events has been 
+         sent, and that the event table is empty. The counter
+         will wrap and restart at value '1' when it passes its 
+         maximum value"
+    ::= { eventObjects 1 }
+
+eventLogLastChangedTime OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The time when an event was last changed, and a 
+         notification was sent."
+    ::= { eventObjects 2 }
+
+
+-- The event table group contains a set of objects for
+-- getting the event list in the node. The event table 
+-- contains all notifications that has been sent from the
+-- node using this mechanism. Events could either be
+-- alarms or notifications on changes in configuration
+-- tables.
+
+eventTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF EventEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Table containing the most recent events. The maximum 
+         size of the table depends on the implementation"
+    ::= { eventObjects 3 }
+
+eventEntry OBJECT-TYPE
+    SYNTAX      EventEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "One entry in the table holds one event. Events are
+         either created by the agent when a conceptual row 
+         has been changed in a table defined in another mib,
+         or when an alarm status is changed in the alarm table 
+         defined in this mib."
+    INDEX { eventIndex }
+    ::= { eventTable 1 }
+
+EventEntry ::= 
+    SEQUENCE {
+        eventIndex              Unsigned32,
+        eventObject             RowPointer,
+        eventObjectName         DisplayString,
+        eventAlarmType          AlarmType,
+        eventType               EventType,
+        eventCause              AlarmCause,
+        eventSeverity           AlarmSeverity,
+        eventText               DisplayString,
+        eventCreatedTime        DateAndTime }
+
+eventIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Arbitrary index for an entry in the event table.
+         The eventIndex follows the eventSequenceCounter
+         as such that the eventSequenceCounter refers to
+         the last event in the table"
+    ::= { eventEntry 1 }
+
+eventObject OBJECT-TYPE
+    SYNTAX      RowPointer
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A pointer to the conceptual row of the object that caused 
+         this event.
+         The value is the name of the instance of the first 
+         accessible columnar object in the conceptual row.
+
+         For example, dtmIfIndex.3 would point to the 3rd row in the
+         dtmIfTable.
+ 
+         If the object is unavailable, the value is { 0 0 }."
+    ::= { eventEntry 2 }
+
+eventObjectName OBJECT-TYPE
+    SYNTAX      DisplayString 
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A text describing the object that caused the event
+         in a for humans more readable form.
+         If not set then this object contains a zero-length string."
+    ::= { eventEntry 3 }
+
+eventAlarmType OBJECT-TYPE
+    SYNTAX      AlarmType
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This is the event type as specified in AlarmType."
+    ::= { eventEntry 4 }
+
+eventType OBJECT-TYPE
+    SYNTAX      EventType
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This is the event type as specified in EventType."
+    ::= { eventEntry 5 }
+
+eventCause OBJECT-TYPE
+    SYNTAX      AlarmCause
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The alarm cause as specified in AlarmCause."
+    ::= { eventEntry 6 }
+
+eventSeverity OBJECT-TYPE
+    SYNTAX      AlarmSeverity
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The alarm severity as specified in AlarmSeverity."
+    ::= { eventEntry 7 }
+
+eventText OBJECT-TYPE
+    SYNTAX      DisplayString 
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A text describing the event in a for humans more 
+         readable form."
+    ::= { eventEntry 8 }
+
+eventCreatedTime OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The time when the event was created."
+    ::= { eventEntry 9 }
+
+
+-- The Alarm table contains all active and some cleared alarms 
+-- in the node.
+
+eventAlarmTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF EventAlarmEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Table containing alarms and their status. The maximum
+         size of the table depends on the implementaion."
+    ::= { eventObjects 4 }
+
+eventAlarmEntry OBJECT-TYPE
+    SYNTAX      EventAlarmEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "One entry in the table holds one alarm. The table contains
+         all active alarms, and depending on the implementation, it 
+         may contian none, some or all cleared alarms."
+    INDEX { eventAlarmIndex }
+    ::= { eventAlarmTable 1 }
+
+EventAlarmEntry ::= 
+    SEQUENCE {
+        eventAlarmIndex             Unsigned32,
+        eventAlarmObject            RowPointer,
+        eventAlarmObjectName        DisplayString,
+        eventAlarmAlarmType         AlarmType,
+        eventAlarmCause             AlarmCause,
+        eventAlarmSeverity          AlarmSeverity,
+        eventAlarmText              DisplayString,
+        eventAlarmLastChangedTime   DateAndTime,
+        eventAlarmAcknowledged      TruthValue,
+        eventAlarmCreatedTime       DateAndTime }
+
+eventAlarmIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Arbitrary index for an entry in the alarm table."
+    ::= { eventAlarmEntry 1 }
+
+eventAlarmObject OBJECT-TYPE
+    SYNTAX      RowPointer
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A pointer to the conceptual row of the object that caused 
+         this alarm.
+         The value is the name of the instance of the first 
+         accessible columnar object in the conceptual row.
+
+         For example, dtmIfIndex.3 would point to the 3rd row in the
+         dtmIfTable.
+ 
+         If the object is unavailable, the value is { 0 0 }."
+     ::= { eventAlarmEntry 2 }
+
+eventAlarmObjectName OBJECT-TYPE
+    SYNTAX      DisplayString 
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A text describing the object in a more readable form.
+         If not set then this object contains a zero-length string."
+    ::= { eventAlarmEntry 3 }
+
+eventAlarmAlarmType OBJECT-TYPE
+    SYNTAX      AlarmType
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The alarm type as specified in AlarmType."
+    ::= { eventAlarmEntry 4 }
+
+eventAlarmCause OBJECT-TYPE
+    SYNTAX      AlarmCause
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The alarm cause as specified in AlarmCause."
+    ::= { eventAlarmEntry 5 }
+
+eventAlarmSeverity OBJECT-TYPE
+    SYNTAX      AlarmSeverity
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The alarm severity as specified in AlarmSeverity."
+    ::= { eventAlarmEntry 6 }
+
+eventAlarmText OBJECT-TYPE
+    SYNTAX      DisplayString 
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A text describing the alarm in a more readable form."
+    ::= { eventAlarmEntry 7 }
+
+eventAlarmLastChangedTime OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The time when the alarm was changed, i.e. when the alarm was 
+         created, or 'eventAlarmSeverity' or 'eventAlarmAcknowledged'
+         was changed."
+    ::= { eventAlarmEntry 8 }
+
+eventAlarmAcknowledged OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The acknowledgement status of the alarm. This is set to
+         'true' to indicate that the alarm is is acknowledged, and
+         set to 'false' to clear the acknowledge."
+    ::= { eventAlarmEntry 9 }
+
+eventAlarmCreatedTime OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The time when the alarm was created."
+    ::= { eventAlarmEntry 10 }
+
+
+-- The Alarm table contains all active alarms in the node.
+
+eventActiveAlarmTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF EventActiveAlarmEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Table containing alarms and their status. The maximum
+         size of the table depends on the implementaion."
+    ::= { eventObjects 6 }
+
+eventActiveAlarmEntry OBJECT-TYPE
+    SYNTAX      EventActiveAlarmEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "One entry in the table holds one alarm. The table contains
+         only active alarms."
+    INDEX { eventActiveAlarmIndex }
+    ::= { eventActiveAlarmTable 1 }
+
+EventActiveAlarmEntry ::= 
+    SEQUENCE {
+        eventActiveAlarmIndex             Unsigned32,
+        eventActiveAlarmObject            RowPointer,
+        eventActiveAlarmObjectName        DisplayString,
+        eventActiveAlarmAlarmType         AlarmType,
+        eventActiveAlarmCause             AlarmCause,
+        eventActiveAlarmSeverity          AlarmSeverity,
+        eventActiveAlarmText              DisplayString,
+        eventActiveAlarmLastChangedTime   DateAndTime,
+        eventActiveAlarmAcknowledged      TruthValue,
+        eventActiveAlarmCreatedTime       DateAndTime }
+
+eventActiveAlarmIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Arbitrary index for an entry in the alarm table."
+    ::= { eventActiveAlarmEntry 1 }
+
+eventActiveAlarmObject OBJECT-TYPE
+    SYNTAX      RowPointer
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A pointer to the conceptual row of the object that caused 
+         this alarm.
+         The value is the name of the instance of the first 
+         accessible columnar object in the conceptual row.
+
+         For example, dtmIfIndex.3 would point to the 3rd row in the
+         dtmIfTable.
+ 
+         If the object is unavailable, the value is { 0 0 }."
+     ::= { eventActiveAlarmEntry 2 }
+
+eventActiveAlarmObjectName OBJECT-TYPE
+    SYNTAX      DisplayString 
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A text describing the object in a more readable form.
+         If not set then this object contains a zero-length string."
+    ::= { eventActiveAlarmEntry 3 }
+
+eventActiveAlarmAlarmType OBJECT-TYPE
+    SYNTAX      AlarmType
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The alarm type as specified in AlarmType."
+    ::= { eventActiveAlarmEntry 4 }
+
+eventActiveAlarmCause OBJECT-TYPE
+    SYNTAX      AlarmCause
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The alarm cause as specified in AlarmCause."
+    ::= { eventActiveAlarmEntry 5 }
+
+eventActiveAlarmSeverity OBJECT-TYPE
+    SYNTAX      AlarmSeverity
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The alarm severity as specified in AlarmSeverity."
+    ::= { eventActiveAlarmEntry 6 }
+
+eventActiveAlarmText OBJECT-TYPE
+    SYNTAX      DisplayString 
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A text describing the alarm in a more readable form."
+    ::= { eventActiveAlarmEntry 7 }
+
+eventActiveAlarmLastChangedTime OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The time when the alarm was changed, i.e. when the alarm was 
+         created, or 'eventActiveAlarmSeverity' or 'eventActiveAlarmAcknowledged'
+         was changed."
+    ::= { eventActiveAlarmEntry 8 }
+
+eventActiveAlarmAcknowledged OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The acknowledgement status of the alarm. This is set to
+         'true' to indicate that the alarm is is acknowledged, and
+         set to 'false' to clear the acknowledge."
+    ::= { eventActiveAlarmEntry 9 }
+
+eventActiveAlarmCreatedTime OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The time when the alarm was created."
+    ::= { eventActiveAlarmEntry 10 }
+
+
+-- -------------------------------------------------------------
+-- Group with alarm counters
+-- -------------------------------------------------------------
+-- The group contains counters per alarm severity. The counters
+-- holds the number of active alarms per severiy.
+
+eventAlarmCountersGroup OBJECT IDENTIFIER ::= { eventObjects 5 }
+
+eventCriticalCounter OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "The number of active alarms with the serverity 'critical'."
+    ::= { eventAlarmCountersGroup 1 }
+
+eventMajorCounter OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "The number of active alarms with the serverity 'major'."
+    ::= { eventAlarmCountersGroup 2 }
+
+eventMinorCounter OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "The number of active alarms with the serverity 'minor'."
+    ::= { eventAlarmCountersGroup 3 }
+
+eventWarningCounter OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "The number of active alarms with the serverity 'warning'."
+    ::= { eventAlarmCountersGroup 4 }
+
+eventIndeterminateCounter OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "The number of active alarms with the serverity 'indeterminate'."
+    ::= { eventAlarmCountersGroup 5 }
+
+
+
+-- -------------------------------------------------------------
+-- Alarm related notifications
+-- -------------------------------------------------------------
+
+eventNotificationObjectsGroup OBJECT IDENTIFIER ::= { eventObjects 7 }
+
+eventTrapPurpose OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "Indicates the purpose of a managed object to where a trap
+         belongs.  This OID may be appended to traps in the
+         eventNotifications group at the discretion of the SNMP
+         agent."
+    ::= { eventNotificationObjectsGroup 1 }
+
+
+-- Notifications are sent when the state of an alarm is 
+-- changed. Each severity has its own trap since many
+-- SNMP managers organize severity of events based on the 
+-- trap identity.
+-- The management application should use alarmObjectName
+-- and alarmCause (or alarmObject if given) it it wishes
+-- to keep track of a certain fault state.
+-- The standard traps (cold start etc.) should be used
+-- to trigger re-reading the alarm list if the node crashes
+-- or the alarm list is reset for some reason.
+
+
+
+eventAlarmCritical NOTIFICATION-TYPE
+    OBJECTS {   
+        eventIndex,
+        eventObject,
+        eventObjectName,
+        eventAlarmType,
+        eventCause,
+        eventSeverity,
+        eventText,
+        eventCreatedTime,
+        eventSequenceCounter }
+    STATUS  current
+    DESCRIPTION
+        "Notification for an alarm with severity 'critical'."
+    ::= { eventNotifications 1 }
+
+eventAlarmMajor NOTIFICATION-TYPE
+    OBJECTS {   
+        eventIndex,
+        eventObject,
+        eventObjectName,
+        eventAlarmType,
+        eventCause,
+        eventSeverity,
+        eventText,
+        eventCreatedTime,
+        eventSequenceCounter }
+    STATUS  current
+    DESCRIPTION
+        "Notification for an alarm with severity 'major'."
+    ::= { eventNotifications 2 }
+
+eventAlarmMinor NOTIFICATION-TYPE
+    OBJECTS {   
+        eventIndex,
+        eventObject,
+        eventObjectName,
+        eventAlarmType,
+        eventCause,
+        eventSeverity,
+        eventText,
+        eventCreatedTime,
+        eventSequenceCounter }
+    STATUS  current
+    DESCRIPTION
+        "Notification for an alarm with severity 'minor'."
+    ::= { eventNotifications 3 }
+
+eventAlarmWarning NOTIFICATION-TYPE
+    OBJECTS {   
+        eventIndex,
+        eventObject,
+        eventObjectName,
+        eventAlarmType,
+        eventCause,
+        eventSeverity,
+        eventText,
+        eventCreatedTime,
+        eventSequenceCounter }
+    STATUS  current
+    DESCRIPTION
+        "Notification for an alarm with severity 'warning'."
+    ::= { eventNotifications 4 }
+
+eventAlarmIndeterminate NOTIFICATION-TYPE
+    OBJECTS {   
+        eventIndex,
+        eventObject,
+        eventObjectName,
+        eventAlarmType,
+        eventCause,
+        eventSeverity,
+        eventText,
+        eventCreatedTime,
+        eventSequenceCounter }
+        STATUS  current
+    DESCRIPTION
+        "Notification for an alarm with severity 'indeterminate'."
+    ::= { eventNotifications 5 }
+
+eventAlarmUnknown NOTIFICATION-TYPE
+    OBJECTS {   
+        eventIndex,
+        eventObject,
+        eventObjectName,
+        eventAlarmType,
+        eventCause,
+        eventSeverity,
+        eventText,
+        eventCreatedTime,
+        eventSequenceCounter }
+    STATUS  current
+    DESCRIPTION
+        "Notification for an alarm with unknown severity."
+    ::= { eventNotifications 6 }
+
+eventAlarmClear NOTIFICATION-TYPE
+    OBJECTS {   
+        eventIndex,
+        eventObject,
+        eventObjectName,
+        eventAlarmType,
+        eventCause,
+        eventSeverity,
+        eventText,
+        eventCreatedTime,
+        eventSequenceCounter }
+    STATUS  current
+    DESCRIPTION
+        "Notification for a cleared alarm."
+    ::= { eventNotifications 7 }
+
+
+-- Notifications are sent when a configuration change has occured
+-- in the node. The type of configuration can be 'create', 'modify'
+-- or 'delete', i.e. a conceptual row is created, modified or
+-- deleted in the a table referred to by 'eventObject'.
+
+netiGenericEvent NOTIFICATION-TYPE
+    OBJECTS {   
+        eventObject,
+        eventObjectName,
+        eventType,
+        eventText,
+        eventCreatedTime,
+        eventSequenceCounter }
+    STATUS  current
+    DESCRIPTION
+        "Notification for a generic event."
+    ::= { eventNotifications 8 }
+
+
+-- -------------------------------------------------------------
+-- Conformance Groups
+-- -------------------------------------------------------------
+
+eventConformanceGroup OBJECT-GROUP
+    OBJECTS {
+        eventSequenceCounter,
+        eventLogLastChangedTime,
+
+        eventIndex,
+        eventObject,
+        eventObjectName,
+        eventAlarmType,
+        eventType,
+        eventCause,
+        eventSeverity,
+        eventText,
+        eventCreatedTime,
+
+        eventAlarmIndex,
+        eventAlarmObject,
+        eventAlarmObjectName,
+        eventAlarmAlarmType,
+        eventAlarmCause,
+        eventAlarmSeverity,
+        eventAlarmText,
+        eventAlarmLastChangedTime,
+        eventAlarmAcknowledged,
+        eventAlarmCreatedTime,
+ 
+        eventActiveAlarmIndex,
+        eventActiveAlarmObject,
+        eventActiveAlarmObjectName,
+        eventActiveAlarmAlarmType,
+        eventActiveAlarmCause,
+        eventActiveAlarmSeverity,
+        eventActiveAlarmText,
+        eventActiveAlarmLastChangedTime,
+        eventActiveAlarmAcknowledged,
+        eventActiveAlarmCreatedTime,
+ 
+        eventCriticalCounter,
+        eventMajorCounter,
+        eventMinorCounter,
+        eventWarningCounter,
+        eventIndeterminateCounter
+    }
+    STATUS  current
+    DESCRIPTION
+        "A collection of objects providing event and alarm functionality."
+    ::= { eventConformanceGroups 1 }
+
+eventNotificationsGroup NOTIFICATION-GROUP
+    NOTIFICATIONS {
+        eventAlarmCritical,
+        eventAlarmMajor,
+        eventAlarmMinor,
+        eventAlarmWarning,
+        eventAlarmIndeterminate,
+        eventAlarmUnknown,
+        eventAlarmClear,
+        netiGenericEvent
+    }
+    STATUS  current
+    DESCRIPTION
+        "A collection of notifications for alarms and events."
+    ::= { eventConformanceGroups 2 }
+
+END

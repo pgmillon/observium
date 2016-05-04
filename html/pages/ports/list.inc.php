@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -32,7 +32,7 @@ $where = ' WHERE `ports`.`port_id` IN (' . implode(',', $port_ids) . ') ';
 $select = "`ports`.*, `ports-state`.*, `ports`.`port_id` AS `port_id`";
 #$select = "*,`ports`.`port_id` as `port_id`";
 
-include("includes/port-sort-select.inc.php");
+include($config['html_dir']."/includes/port-sort-select.inc.php");
 
 $sql  = "SELECT ".$select;
 $sql .= " FROM `ports`";
@@ -45,11 +45,12 @@ unset($ports);
 $ports = dbFetchRows($sql);
 
 // Re-sort because the DB doesn't do that.
-include("includes/port-sort.inc.php");
+include($config['html_dir']."/includes/port-sort.inc.php");
 
 // End populating ports array
 
-echo('<table class="table table-striped table-bordered table-hover table-condensed">');
+echo '<div class="box box-solid">';
+echo('<table class="table table-striped  table-hover table-condensed">');
 echo('  <thead>');
 
 echo('<tr class="entity">');
@@ -85,57 +86,14 @@ $ports_disabled = 0; $ports_down = 0; $ports_up = 0; $ports_total = 0;
 foreach ($ports as $port)
 {
 
-    $device = device_by_id_cache($port['device_id']);
-    #&$GLOBALS['cache']['devices']['id'][$port['device_id']];
+  $ports_total++;
+  print_port_row($port, $vars);
 
-    $ports_total++;
-
-    humanize_port($port);
-
-    $error_img = '';
-    if ($port['in_errors'] > 0 || $port['out_errors'] > 0)
-    {
-      $error_img = generate_port_link($port, "<img src='images/16/chart_curve_error.png' alt='Interface Errors' border=0>", 'errors');
-    }
-    if (in_array($port['port_id'], $cache['ports']['cbqos']))
-    {
-      $error_img .= '<a href="' . generate_port_url($port, array('view' => 'cbqos')) . '"><span class="label label-info">CBQoS</span></a>';
-    }
-    if (in_array($port['port_id'], $cache['ports']['pseudowires']))
-    {
-      $error_img .= '<a href="' . generate_device_url($port, array('tab' => 'pseudowires')) . '"><span class="label label-info">Pseudowire</span></a>';
-    }
-
-    $port['bps_in'] = formatRates($port['ifInOctets_rate'] * 8);
-    $port['bps_out'] = formatRates($port['ifOutOctets_rate'] * 8);
-
-    $port['pps_in'] = format_si($port['ifInUcastPkts_rate'])."pps";
-    $port['pps_out'] = format_si($port['ifOutUcastPkts_rate'])."pps";
-
-    echo("<tr class='ports ".$port['row_class']."'>
-          <td class='state-marker'></td>
-          <td></td>
-          <td><span class=entity>".generate_device_link($device, short_hostname($device['hostname'], "20"))."</span><br />
-              <span class=em>".escape_html(truncate($port['location'],32,""))."</span></td>
-
-          <td><span class=entity>" . generate_port_link($port, rewrite_ifname($port['label']))." ".$error_img."</span><br />
-              <span class=em>".escape_html(truncate($port['ifAlias'], 50, ''))."</span></td>".
-
-    '<td> <i class="icon-circle-arrow-down" style="'.$port['bps_in_style'].'"></i>  <span class="small" style="'.$port['bps_in_style'].'">' . formatRates($port['in_rate']) . '</span><br />'.
-       '<i class="icon-circle-arrow-up" style="'.$port['bps_out_style'].'"></i> <span class="small" style="'.$port['bps_out_style'].'">' . formatRates($port['out_rate']) . '</span><br /></td>'.
-
-    '<td> <i class="icon-circle-arrow-down" style="'.$port['bps_in_style'].'"></i>  <span class="small" style="'.$port['bps_in_style'].'">' . $port['ifInOctets_perc'] . '%</span><br />'.
-       '<i class="icon-circle-arrow-up" style="'.$port['bps_out_style'].'"></i> <span class="small" style="'.$port['bps_out_style'].'">' . $port['ifOutOctets_perc'] . '%</span><br /></td>'.
-
-       '<td><i class="icon-circle-arrow-down" style="'.$port['pps_in_style'].'"></i>  <span class="small" style="'.$port['pps_in_style'].'">' . format_bi($port['ifInUcastPkts_rate']) . 'pps</span><br />'.
-       '<i class="icon-circle-arrow-up" style="'.$port['pps_out_style'].'"></i> <span class="small" style="'.$port['pps_out_style'].'">' . format_bi($port['ifOutUcastPkts_rate']) . 'pps</span></td>'.
-
-          "<td>".$port['human_speed']."<br />".$port['ifMtu']."</td>
-          <td >".$port['human_type']."<br />".$port['human_mac']."</td>
-        </tr>\n");
 }
 
 echo('</table>');
+
+echo '</div>';
 
 echo pagination($vars, $ports_count);
 

@@ -7,11 +7,11 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-echo(" MIKROTIK-MIB ");
+echo("MIKROTIK-MIB ");
 
 $mtxrSerialNumber = snmp_get($device, 'mtxrSerialNumber.0', '-Oqvn', 'MIKROTIK-MIB', mib_dirs('mikrotik'));
 

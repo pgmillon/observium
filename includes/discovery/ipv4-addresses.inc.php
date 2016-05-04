@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -55,6 +55,12 @@ foreach ($oid_data as $ip_address => $entry)
   {
     unset($ip_address_fix[0]);
     $ip_address = implode('.', $ip_address_fix);
+  }
+  $ip_mask_fix = explode('.', $entry['ipAdEntNetMask']);
+  if ($ip_mask_fix[0] < 255 && $ip_mask_fix[1] <= '255' && $ip_mask_fix[2] <= '255' && $ip_mask_fix[3] == '255')
+  {
+    // On some D-Link used wrong masks: 252.255.255.255, 0.255.255.255
+    $entry['ipAdEntNetMask'] = $ip_mask_fix[3] . '.' . $ip_mask_fix[2] . '.' . $ip_mask_fix[1] . '.' . $ip_mask_fix[0];
   }
   if (is_ipv4_valid($ip_address, $entry['ipAdEntNetMask']) !== FALSE)
   {
@@ -119,6 +125,11 @@ if (count($ip_data))
     {
       $update_array = array();
       $ipv4_prefix = ($entry['ipAddressPrefix'] ? $entry['ipAddressPrefix'] : $entry['ipAdEntNetMask']);
+      if (empty($ipv4_prefix))
+      {
+        // Fix for some retard devices, which not return IP masks
+        $ipv4_prefix = '255.255.255.255';
+      }
       $addr = Net_IPv4::parseAddress($ipv4_address.'/'.$ipv4_prefix);
       $ipv4_prefixlen = $addr->bitmask;
       $ipv4_network = $addr->network . '/' . $ipv4_prefixlen;

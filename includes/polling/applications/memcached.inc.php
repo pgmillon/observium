@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -15,6 +15,7 @@ if (!empty($agent_data['app']['memcached']))
 {
   foreach ($agent_data['app']['memcached'] as $memcached_host => $memcached_data)
   {
+    $app_id = discover_app($device, 'memcached', $memcached_host);
 
     // Only run if we have a valid host with a : separating host:port
     if (strpos($memcached_host, ":"))
@@ -75,10 +76,7 @@ if (!empty($agent_data['app']['memcached']))
         $values = array_combine($keys, $lines);
       }
 
-      $app_id = dbFetchCell("SELECT app_id FROM `applications` WHERE `device_id` = ? AND `app_instance` = ?", array($device['device_id'], $memcached_host));
-
       $rrd_filename = "app-memcached-".$memcached_host.".rrd";
-      $old_filename = "app-memcached-".$app_id.".rrd";
 
       rrdtool_create($device, $rrd_filename, " \
         DS:uptime:GAUGE:600:0:125000000000 \

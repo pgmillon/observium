@@ -1,0 +1,1060 @@
+--/* 
+-- *
+
+-- *
+-- */
+
+-- ################################################################################
+
+EXTREME-VM-MIB DEFINITIONS ::= BEGIN
+
+        IMPORTS
+                MODULE-IDENTITY         FROM SNMPv2-SMI
+		OBJECT-TYPE             FROM SNMPv2-SMI
+		DisplayString           FROM SNMPv2-TC
+                TimeStamp               FROM SNMPv2-TC
+                MacAddress              FROM SNMPv2-TC
+                TEXTUAL-CONVENTION      FROM SNMPv2-TC
+                RowStatus               FROM SNMPv2-TC
+                TruthValue              FROM SNMPv2-TC
+                NOTIFICATION-TYPE       FROM SNMPv2-SMI
+                Integer32               FROM SNMPv2-SMI
+                Gauge32                 FROM SNMPv2-SMI
+                extremeAgent            FROM EXTREME-BASE-MIB
+                InetAddressType, InetAddress FROM INET-ADDRESS-MIB;
+
+        extremeVM MODULE-IDENTITY
+                LAST-UPDATED "201202270000Z"
+                ORGANIZATION "Extreme Networks, Inc."
+                CONTACT-INFO "www.extremenetworks.com"
+                DESCRIPTION 
+                             "Extreme Network Virtual Machine Management MIB"
+
+                REVISION     "201104180000Z"
+                DESCRIPTION 
+                             "Additions to allow for VPP containers.
+                             Add extremeVMDetailTable
+                             Add extremeVMPortConfigTable
+                             deprecate extremeVMVPP2PolicyTable
+                             deprecate extremeVMMappingIngressVPPName
+                             deprecate extremeVMMappingEgressVPPName
+                             deprecate extremeVMDetectedIngrssVPPName
+                             deprecate extremeVMDetectedEgressVPPName
+                             Add varbinds to extremeVMDetectResult notification
+                             extremeVMDetectedOperStatus
+                             extremeVMDetectedIngErrPolicies
+                             extremeVMDetectedEgrErrPolicies,
+                             extremeVMDetectedVPPResult,
+                             extremeVMDetectedVPPName
+                             Add varbind to extremeVMMapped
+                             extremeVMMappingVPPName
+                             Add varbind to extremeVMUnMapped
+                             extremeVMMappingVPPName
+                             removed DEFVAL from extremeVMFTPPathName
+                             Added new enumeration for extremeVMMappingStatus"
+                REVISION     "201002030000Z"
+                DESCRIPTION 
+                             "Initial Revision"
+
+        ::= { extremeAgent 39 }
+
+
+        extremeVMGeneral                 OBJECT IDENTIFIER ::= { extremeVM 1 }
+        extremeVMVPP                     OBJECT IDENTIFIER ::= { extremeVM 2 }
+        extremeVMDetected                OBJECT IDENTIFIER ::= { extremeVM 3 }
+        extremeVMNotificationObjects     OBJECT IDENTIFIER ::= { extremeVM 4 }
+        extremeVMNotifications           OBJECT IDENTIFIER ::= { extremeVM 5 }
+
+
+        VMVPPSynchType ::=   TEXTUAL-CONVENTION
+                STATUS          current
+                DESCRIPTION
+                        "The type of policy synchronization. 
+                         global -- all network policies are synchronized
+                         specific -- a single network policy is synchronized"
+                SYNTAX          INTEGER {
+                                  global(1),
+                                  specific(2)
+                                }
+
+        CounterDirection ::=   TEXTUAL-CONVENTION
+                STATUS          current
+                DESCRIPTION
+                        "This direction in which the dynamic ACL counter neesd to be installed.
+                        ingress-only - counter for only ingress direction
+                        egress-only  - counter for only egress direction
+                        both - counter for both ingress/egress direction
+                        none - counter not needed for either direction."
+                SYNTAX	        INTEGER {
+                                  none(0),
+                                  ingress-only(1),
+                                  egress-only(2),
+                                  both(3)
+                                }
+
+        extremeVMFTPServerTable	OBJECT-TYPE
+                SYNTAX          SEQUENCE OF ExtremeVMFTPServerEntry
+                MAX-ACCESS      not-accessible
+                STATUS          current
+                DESCRIPTION
+                        "The FTP servers defined for this switch"
+                ::= { extremeVMGeneral 1 }
+
+        extremeVMFTPServerEntry OBJECT-TYPE
+                SYNTAX          ExtremeVMFTPServerEntry
+                MAX-ACCESS      not-accessible
+                STATUS          current
+                DESCRIPTION
+                        "The FTP server entry for this switch"
+                INDEX { extremeVMFTPServerType }
+                ::= { extremeVMFTPServerTable 1 }
+
+        ExtremeVMFTPServerEntry ::= SEQUENCE {
+		        extremeVMFTPServerType          INTEGER,
+		        extremeVMFTPAddrType            INTEGER,
+		        extremeVMFTPServer              InetAddress,
+                extremeVMFTPSynchInterval       INTEGER,
+                extremeVMFTPRowStatus           RowStatus,
+                extremeVMFTPPathName            DisplayString,
+                extremeVMFTPUsername            DisplayString,
+                extremeVMFTPPassword            DisplayString
+	    }
+
+        extremeVMFTPServerType  OBJECT-TYPE
+                SYNTAX          INTEGER {
+                                   primary(1),
+                                   backup(2)
+                                }     
+                MAX-ACCESS      accessible-for-notify
+                STATUS	        current
+                DESCRIPTION
+                        "The type of the FTP server.  The backup server is contacted if the primary fails to respond."
+                ::= { extremeVMFTPServerEntry 1 }
+
+        extremeVMFTPAddrType    OBJECT-TYPE
+                SYNTAX          InetAddressType     
+                MAX-ACCESS 	read-write
+                STATUS	        current
+                DESCRIPTION
+                        "The IP type of IP address."
+                ::= { extremeVMFTPServerEntry 2 }
+
+        extremeVMFTPServer      OBJECT-TYPE
+                SYNTAX          InetAddress     
+                MAX-ACCESS 	read-create
+                STATUS	        current
+                DESCRIPTION
+                        "The IP Address of the FTP server used for transferring various management files."
+                ::= { extremeVMFTPServerEntry 3 }
+
+       extremeVMFTPSynchInterval  OBJECT-TYPE
+                SYNTAX          INTEGER (0..3600)
+                UNITS           "seconds"
+                MAX-ACCESS 	read-create
+                STATUS	        current
+                DESCRIPTION
+                        "The time in minutes between automatic synchronization attempts.  
+                         A value of 0 indicates that automatic synchronizations are not performed.  
+                         Note that each switch will not perform a synchronization at exactly 
+                         the time configured, but will vary the synchronization interval between 3/4 and 5/4 of the 
+                         configured interval.  
+                         This will avoid the situation where all switches in a network attempt a 
+                         synchronizationat exactly the same moment.
+
+                         Other than value of 0 value of 40-3600 can be
+                         configured as interval.
+
+                         Automatic synchronization is disabled by default, and requests to enable 
+                         them are rejected until the FTP
+                         server information (IP or IPv6 Address, Username, and Password) is configured."
+                ::= { extremeVMFTPServerEntry 4 }                                     
+
+       extremeVMFTPRowStatus  OBJECT-TYPE
+                SYNTAX          RowStatus
+                MAX-ACCESS 	read-create
+                STATUS	        current
+                DESCRIPTION
+                        "There can only be two entries in this table, on each for primary and secondary FTP servers" 
+                ::= { extremeVMFTPServerEntry 5 }                                     
+
+       extremeVMFTPPathName    OBJECT-TYPE
+                SYNTAX         DisplayString (SIZE(1..32))
+                MAX-ACCESS 	read-write
+                STATUS	        current
+                DESCRIPTION
+                        "The FTP server directory name for the policies to be synchronized.  
+                         A value of '/pub' will be used by default for anonymous users and 
+                         value of '/' will be used for other users"
+                ::= { extremeVMFTPServerEntry 6 }
+
+        extremeVMFTPUsername     OBJECT-TYPE
+                SYNTAX          DisplayString (SIZE(0..32))     
+                MAX-ACCESS      read-write
+                STATUS          current
+                DESCRIPTION
+                        "A valid username on the FTP server."
+                ::= { extremeVMFTPServerEntry 7 }
+
+        extremeVMFTPPassword     OBJECT-TYPE
+                SYNTAX          DisplayString (SIZE(0..32))      
+                MAX-ACCESS      read-write
+                STATUS          current
+                DESCRIPTION
+                        "The Password associated with the FTP user.  
+                         This object will return a zero length string when queried"
+                ::= { extremeVMFTPServerEntry 8 }
+ 
+
+       extremeVMFTPPolicyDir    OBJECT-TYPE
+                SYNTAX          DisplayString (SIZE(1..32))     
+                MAX-ACCESS 	read-write
+                STATUS	        deprecated
+                DESCRIPTION
+                        "The server directory name for the policies to be synchronized.  
+                         A value of '/' will be used by default"
+                ::= { extremeVMGeneral 2 }
+
+        extremeVMLastSynch      OBJECT-TYPE
+                SYNTAX          TimeStamp      
+                MAX-ACCESS 	read-only
+                STATUS	        current
+                DESCRIPTION
+                        "The timestamp of the most recent synchronization attempt"
+                ::= { extremeVMGeneral 3 }
+
+        extremeVMLastSynchStatus OBJECT-TYPE
+                SYNTAX          INTEGER {
+                                  success(1),           
+                                  accessDenied(2),
+                                  serverTimeout(3),
+				                  serverNotConfigured(4)
+                                }                                         
+                MAX-ACCESS 	read-only
+                STATUS	        current
+                DESCRIPTION
+                        "The result of the most recent synchronization attempt.
+                         success(1) - indicates that the synchronization completed successfully
+                         accessDenied(2) - The username and password were not accepted by the server
+                         serverTimeout(3) - Could not establish a file transfer session with the configured server
+			             serverNotConfigured(4) - The server configuration is not complete"
+                ::= { extremeVMGeneral 4 }
+
+        extremeVMSynchAdminState   OBJECT-TYPE
+                SYNTAX          INTEGER {
+                                  idle(1),
+                                  synchronizeNow(2)
+                                }                                         
+                MAX-ACCESS 	read-write
+                STATUS	        current
+                DESCRIPTION
+                        "Triggers a synchronization cycle on demand.   A synchronization will automatically 
+                         download new or updated policies as well as delete policies to match those on the server.
+
+                         idle(1) is returned whenever this object is read.
+                         synchronizeNow(2) triggers an immediate synchronization, and will be reflected in
+                         extremeVMSynchOperState.
+
+                         Attempts to set this variable to synchronizeNow(2) will be rejected if a synchronization is 
+                         currently in progress."
+                ::= { extremeVMGeneral 5 }
+
+        extremeVMSynchOperState     OBJECT-TYPE
+                SYNTAX          INTEGER {
+                                   idle(1),
+                                   synchronizing(2)
+                                }                                         
+                MAX-ACCESS 	read-only
+                STATUS	        current
+                DESCRIPTION
+                        "Indicates if a synchronization is in progress, either on-demand or automatic"
+                ::= { extremeVMGeneral 6 }
+
+        extremeVMTrackingEnabled     OBJECT-TYPE
+                SYNTAX          TruthValue
+                MAX-ACCESS  read-write
+                STATUS          current
+                DESCRIPTION
+                        "The VM tracking feature is disabled by default, and can be enabled using this object."
+                ::= { extremeVMGeneral 7 }
+
+        extremeVMPortConfigTable     OBJECT-TYPE
+                SYNTAX          SEQUENCE OF ExtremeVMPortConfigEntry
+                MAX-ACCESS      not-accessible
+                STATUS          current
+                DESCRIPTION
+                        "Configures the VM features on each port."
+                ::= { extremeVMGeneral 8 }
+
+        extremeVMPortConfigEntry     OBJECT-TYPE
+            SYNTAX  ExtremeVMPortConfigEntry
+            MAX-ACCESS  not-accessible
+            STATUS  current
+            DESCRIPTION
+                "An entry in the table for VM features on each port."
+            INDEX { extremeVMPortConfigIfIndex }
+            ::= { extremeVMPortConfigTable 1 }
+
+            ExtremeVMPortConfigEntry ::= SEQUENCE {
+                extremeVMPortConfigIfIndex             Integer32,
+                extremeVMPortConfigVMTrackingEnabled   TruthValue,
+                extremeVMPortConfigVMTrackingDynVlanEnabled   TruthValue
+            }
+
+        extremeVMPortConfigIfIndex  OBJECT-TYPE
+                SYNTAX          Integer32
+                MAX-ACCESS      accessible-for-notify
+                STATUS          current
+                DESCRIPTION
+                        "The value of ifIndex of a physical port capable of supporting the VM Tracking features"
+                ::= { extremeVMPortConfigEntry 1 }
+
+        extremeVMPortConfigVMTrackingEnabled  OBJECT-TYPE
+                SYNTAX          TruthValue
+                MAX-ACCESS      read-write
+                STATUS          current
+                DESCRIPTION
+                        "Enables the VM Tracking feature on a port.  The VM Tracking feature is disabled by default"
+                ::= { extremeVMPortConfigEntry 2 }
+
+        extremeVMPortConfigVMTrackingDynVlanEnabled  OBJECT-TYPE
+                SYNTAX          TruthValue
+                MAX-ACCESS      read-write
+                STATUS          current
+                DESCRIPTION
+                        "Enables the VM Tracking Dynamic VLAN feature on a port.  This feature is disabled by default. 
+                        VM Tracking feature must be enabled before enabling this feature."
+                ::= { extremeVMPortConfigEntry 3 }
+
+	extremeVMVPPTable    OBJECT-TYPE
+		SYNTAX	SEQUENCE OF ExtremeVMVPPEntry
+		MAX-ACCESS  not-accessible
+		STATUS current
+		DESCRIPTION
+			"This table contains Port Policies contained within this switch.
+                         Port Policies come in two variants: network and local.
+                         Network policies are downloaded from the FTP server; local policies reside only within a single switch."
+		::= { extremeVMVPP 1 }
+
+	extremeVMVPPEntry	OBJECT-TYPE
+		SYNTAX	ExtremeVMVPPEntry
+		MAX-ACCESS	not-accessible
+		STATUS	current
+		DESCRIPTION
+			"An entry in the table of VM policy information of this device.  This table is populated with two sets of
+                         policies, those downloaded from the policy server and those defined locally on this switch."
+		INDEX { extremeVMVPPType, extremeVMVPPName }
+		::= { extremeVMVPPTable 1 }
+
+	ExtremeVMVPPEntry ::= SEQUENCE {
+                extremeVMVPPType             INTEGER,
+                extremeVMVPPName             DisplayString,
+                extremeVMVPPControl          INTEGER,
+                extremeVMVPPRowStatus        RowStatus,
+                extremeVMVPPCounter          CounterDirection,
+                extremeVMVPPVLANTag          INTEGER,
+                extremeVMVPPVLANVRName       DisplayString
+        }
+
+        extremeVMVPPType  OBJECT-TYPE
+                SYNTAX	        INTEGER {
+                                  network(1),
+                                  local(2)
+                                }
+                MAX-ACCESS      accessible-for-notify
+                STATUS	        current
+                DESCRIPTION
+                        "The type of the port profile.  Network port profiles are obtained from a central policy store.  
+                         Local policies are specific to this particular switch."
+                ::= { extremeVMVPPEntry 1 }
+
+        extremeVMVPPName OBJECT-TYPE
+                SYNTAX          DisplayString (SIZE(1..32))
+                MAX-ACCESS	accessible-for-notify
+                STATUS	        current
+                DESCRIPTION
+                        "The name of the Port VPP.  VPP names must be alpha-numeric and must start with an alpha character."
+                ::= { extremeVMVPPEntry 2 }
+
+        extremeVMVPPControl  OBJECT-TYPE
+		SYNTAX	        INTEGER {
+                                  synchronizeNow(1),
+                                  noOperation(2)
+                                }
+                MAX-ACCESS 	read-write
+                STATUS	        current
+                DESCRIPTION
+                        "Performs the requested operation on this policy.
+                         synchronizeNow(1) will download a copy of the policy from the FTP server.  (Network policies only)
+                         This object will return noOperation(2) if read."
+                ::= { extremeVMVPPEntry 3 }
+
+        extremeVMVPPRowStatus  OBJECT-TYPE
+		SYNTAX	        RowStatus
+                MAX-ACCESS 	read-create
+                STATUS	        current
+                DESCRIPTION
+                        "Only local VPPs can be created or deleted."
+                ::= { extremeVMVPPEntry 4 }
+
+        extremeVMVPPCounter OBJECT-TYPE
+                SYNTAX          CounterDirection
+                MAX-ACCESS 	read-create
+                STATUS	        current
+                DESCRIPTION
+                        "This object specifies whether the VM gets attached to
+                        this VPP needs to install dynamic counters to count
+                        packets source MAC address matches VM MAC for ingress, 
+                        packets destination MAC address matches VM MAC for
+                        egress, packet source/destination MAC address matches
+                        VM MAC for both. If none option is chosen the dynamic
+                        counters will be uninstalled if it has been already
+                        installed, if not nothing happens."
+                ::= { extremeVMVPPEntry 5 }
+
+        extremeVMVPPVLANTag OBJECT-TYPE
+                SYNTAX          INTEGER (0..4094)
+                MAX-ACCESS	read-create
+                STATUS	        current
+                DESCRIPTION
+                        "VLAN Tag for Dynamic VLAN creation. For unset the
+                        value of 0 can be configured during that
+                        extremeVMVPPVLANVRName also be set to null string. 
+                        If this parameter is not configured then 0 will be displayed . 
+                        While setting this object if extremeVMVPPVLANVRName is not 
+                        set then that will be assumed to have default value of VR-Default."
+                ::= { extremeVMVPPEntry 6 }
+
+        extremeVMVPPVLANVRName OBJECT-TYPE
+                SYNTAX          DisplayString (SIZE(0..32))
+                MAX-ACCESS 	read-create
+                STATUS	        current
+                DESCRIPTION
+                        "The Virtual router name for Dynamic VLAN creation.
+                        VR-Mgmt cannot be specified and specified VR Name
+                        should be existing. By default VR-Default will be
+                        used.  This object display non-null string only when
+                        extremeVMVPPVLANTag has non zero value. If this object
+                        is going to be configured after extremeVMVPPVLANTag
+                        has been configured for non zero value then this SET
+                        might be rejected if any of detected VM clients uses
+                        this VPP and these VPPs VR Name alone changes. Even
+                        though this object is specifically set to null string
+                        still this object display VR-Default if
+                        extremeVMVPPVLANTag has non zero value"
+                ::= { extremeVMVPPEntry 7 }
+
+
+	extremeVMMappingTable	OBJECT-TYPE
+		SYNTAX	SEQUENCE OF ExtremeVMMappingEntry
+		MAX-ACCESS  not-accessible
+		STATUS current
+		DESCRIPTION
+			"This table contains the mapping of port policies to virtual machine MAC addresses."
+		::= { extremeVMVPP 2 }
+
+	extremeVMMappingEntry	OBJECT-TYPE
+		SYNTAX	        ExtremeVMMappingEntry
+		MAX-ACCESS	not-accessible
+		STATUS	        current
+		DESCRIPTION
+			"An entry in the table of VM information of this device."
+		INDEX { extremeVMMappingType, extremeVMMappingMAC }
+		::= { extremeVMMappingTable 1 }
+
+	ExtremeVMMappingEntry ::= SEQUENCE {
+                extremeVMMappingType             INTEGER,
+                extremeVMMappingMAC              MacAddress,
+                extremeVMMappingIngressVPPName   DisplayString,
+                extremeVMMappingEgressVPPName    DisplayString,
+                extremeVMMappingStatus           INTEGER,
+                extremeVMMappingRowStatus        RowStatus,
+                extremeVMMappingVPPName          DisplayString,
+                extremeVMMappingVLANTag          INTEGER,
+                extremeVMMappingVLANVRName       DisplayString
+        }
+
+        extremeVMMappingType    OBJECT-TYPE
+                SYNTAX          INTEGER {
+                                  network(1),
+                                  local(2)
+                                }
+                MAX-ACCESS	accessible-for-notify
+                STATUS          current
+                DESCRIPTION
+                        "The type of mapping for this entry.  A local mapping exists only on this specific switch.  
+                        A network mapping is one obtained via a download of a mapping file."
+                ::= { extremeVMMappingEntry 1 }
+
+        extremeVMMappingMAC OBJECT-TYPE
+                SYNTAX          MacAddress
+                MAX-ACCESS	accessible-for-notify
+                STATUS	        current
+                DESCRIPTION
+                        "The MAC address associated with the Virtual Machine.  Note that a VM may have multiple MAC addresses."
+                ::= { extremeVMMappingEntry 2 }
+
+        extremeVMMappingIngressVPPName  OBJECT-TYPE
+                SYNTAX	        DisplayString
+                MAX-ACCESS 	read-create
+                STATUS	        deprecated
+                DESCRIPTION
+                        "The ingress policy associated with the VM/MAC address.  Note that this may refer to a policy without
+                         a corresponding entry in the extremeVMVPPTable if a network policy mapping refers to a non-existent policy.
+                         This would indicate an error in the policy mapping file that is consulted if network authentication fails.
+
+                         When creating an entry in this table, this name must refer to an existing, valid, local policy.  The creation of
+                         a mapping to a network policy is not permitted.  Those mappings must be created at the central policy server."
+                ::= { extremeVMMappingEntry 3 }
+
+        extremeVMMappingEgressVPPName  OBJECT-TYPE
+                SYNTAX	        DisplayString
+                MAX-ACCESS 	read-create
+                STATUS	        deprecated
+                DESCRIPTION
+                        "The egress policy associated with the VM/MAC address.  Note that this may refer to a policy without
+                         a corresponding entry in the extremeVMVPPTable if a network policy mapping refers to a non-existent policy.
+                         This would indicate an error in the policy mapping file that is consulted if network authentication fails.
+
+                         When creating an entry in this table, this name must refer to an existing, valid, local policy.  The creation of
+                         a mapping to a network policy is not permitted.  Those mappings must be created at the central policy server."
+                ::= { extremeVMMappingEntry 4 }
+
+        extremeVMMappingStatus  OBJECT-TYPE
+		SYNTAX	        INTEGER {
+                                  vppValid(1),
+                                  vppMissing(2),
+                                  vppInvalid(3),
+                                  vppNotMapped(4)
+                                }
+                MAX-ACCESS 	read-only
+                STATUS	        current
+                DESCRIPTION
+                        "Indicates the virtual port profile mapping status.
+                        vppValid(1) -> When VPP mapped to this VM MAC does not have any policies 
+                                       associated with it (or) all the policies associated with 
+                                       this VPP can be applied (policy validation is success). 
+                                       Policy validation will happen only when
+                                       this VM MAC is detected.
+                        vppMissing(2)-> This value is applicable only for network VM if the 
+                                        specified VPP Name was missing.
+                        vppInvalid(3)-> When any one of polices mapped to VPP cannot be applied 
+                                       (policy validation failed) because the policy file contains 
+                                       one or more errors that prevent it from being applied
+                        vppNotMaped(4)-> If the VM does not have any VPP Mapped."
+                ::= { extremeVMMappingEntry 5 }
+
+        extremeVMMappingRowStatus  OBJECT-TYPE
+		SYNTAX	        RowStatus
+                MAX-ACCESS 	read-create
+                STATUS	        current
+                DESCRIPTION
+                        "Only local virtual port profiles can be created or deleted."
+                ::= { extremeVMMappingEntry 6 }
+
+       extremeVMMappingVPPName  OBJECT-TYPE
+                SYNTAX	        DisplayString (SIZE(0..32))
+                MAX-ACCESS 	read-create
+                STATUS	        current
+                DESCRIPTION
+                        "The virtual port profile associated with the VM/MAC address.  
+                        When creating an entry in this table, this name must refer to 
+                        an existing, valid, local profile.  
+                        The creation of a mapping to a network profile is not permitted.  
+                        Those mappings must be created at the central policy server."
+                ::= { extremeVMMappingEntry 7 }
+
+        extremeVMMappingVLANTag OBJECT-TYPE
+                SYNTAX          INTEGER (0..4094)
+                MAX-ACCESS	read-create
+                STATUS	        current
+                DESCRIPTION
+                        "VLAN Tag for Dynamic VLAN creation. For unset the
+                        value of 0 can be configured during that
+                        extremeVMMappingVLANVRName also be set to null string. 
+                        If this parameter is not configured then 0 will be displayed . 
+                        While setting this object if extremeVMMappingVLANVRName is not 
+                        set then that will be assumed to have default value of VR-Default."
+                ::= { extremeVMMappingEntry 8 }
+
+        extremeVMMappingVLANVRName OBJECT-TYPE
+                SYNTAX          DisplayString (SIZE(0..32))
+                MAX-ACCESS 	read-create
+                STATUS	        current
+                DESCRIPTION
+                        "The Virtual router name for Dynamic VLAN creation.
+                        VR-Mgmt cannot be specified and specified VR Name
+                        should be existing. By default VR-Default will be
+                        used.  This object display non-null string only when
+                        extremeVMMappingVLANTag has non zero value. If this object
+                        is going to be configured after extremeVMMappingVLANTag
+                        has been configured for non zero value then this SET
+                        might be rejected if any of detected VM clients uses
+                        this mapping and these mapping VR Name alone changes.
+                        Even though this object is specifically set to null string
+                        still this object display VR-Default if
+                        extremeVMVPPVLANTag has non zero value"
+                ::= { extremeVMMappingEntry 9 }
+
+
+	extremeVMVPP2PolicyTable	OBJECT-TYPE
+		SYNTAX	SEQUENCE OF ExtremeVMVPP2PolicyEntry
+		MAX-ACCESS  not-accessible
+        STATUS	        deprecated
+		DESCRIPTION
+			"This table contains the mapping of a VPP to individual Policies."
+		::= { extremeVMVPP 3 }
+
+	extremeVMVPP2PolicyEntry	OBJECT-TYPE
+		SYNTAX	        ExtremeVMVPP2PolicyEntry
+		MAX-ACCESS	not-accessible
+		STATUS	        current
+		DESCRIPTION
+			"An individual mapping of VPP to Policy."
+		INDEX { extremeVMVPP2PolicyVPPName, extremeVMVPP2PolicyPolicyName, extremeVMVPP2PolicyType}
+		::= { extremeVMVPP2PolicyTable 1 }
+
+	ExtremeVMVPP2PolicyEntry ::= SEQUENCE {
+                extremeVMVPP2PolicyVPPName          DisplayString,
+                extremeVMVPP2PolicyPolicyName       DisplayString,
+                extremeVMVPP2PolicyType             INTEGER,
+                extremeVMVPP2PolicyOrder            Integer32,
+                extremeVMVPP2PolicyRowStatus        RowStatus
+        }
+
+        extremeVMVPP2PolicyVPPName OBJECT-TYPE
+                SYNTAX          DisplayString (SIZE(1..32))
+                MAX-ACCESS	not-accessible
+                STATUS	        current
+                DESCRIPTION
+                        "The name of the VPP"
+                ::= { extremeVMVPP2PolicyEntry 1 }
+
+        extremeVMVPP2PolicyPolicyName OBJECT-TYPE
+                SYNTAX          DisplayString (SIZE(1..32))
+                MAX-ACCESS	not-accessible
+                STATUS	        current
+                DESCRIPTION
+                        "The name of the local policy"
+                ::= { extremeVMVPP2PolicyEntry 2 }
+
+        extremeVMVPP2PolicyType OBJECT-TYPE
+                SYNTAX          INTEGER {
+                                  policyFile(1),
+                                  dynamicACL(2)
+                                }
+                MAX-ACCESS	not-accessible
+                STATUS	        current
+                DESCRIPTION
+                        "The type of policy"
+                ::= { extremeVMVPP2PolicyEntry 3 }
+
+        extremeVMVPP2PolicyOrder OBJECT-TYPE
+                SYNTAX          Integer32
+                MAX-ACCESS	read-create
+                STATUS	        current
+                DESCRIPTION
+                        "The order in which this policy will be executed"
+                ::= { extremeVMVPP2PolicyEntry 4 }
+
+        extremeVMVPP2PolicyRowStatus OBJECT-TYPE
+                SYNTAX          RowStatus
+                MAX-ACCESS	read-create
+                STATUS	        current
+                DESCRIPTION
+                        "The row status for this mapping."
+                ::= { extremeVMVPP2PolicyEntry 5 }
+
+        extremeVMDetectedNumber  OBJECT-TYPE
+		SYNTAX	        Gauge32
+                MAX-ACCESS 	read-only
+                STATUS	        current
+                DESCRIPTION
+                        "The number of virtual machines detected on this switch."
+                ::= { extremeVMDetected 1 }
+  
+	extremeVMDetectedTable	OBJECT-TYPE
+		SYNTAX	SEQUENCE OF ExtremeVMDetectedEntry
+		MAX-ACCESS  not-accessible
+		STATUS current
+		DESCRIPTION
+			"This table contains the currently detected VMs on this switch."
+		::= { extremeVMDetected 2 }
+
+	extremeVMDetectedEntry	OBJECT-TYPE
+		SYNTAX	        ExtremeVMDetectedEntry
+		MAX-ACCESS	not-accessible
+		STATUS	        current
+		DESCRIPTION
+			"An entry in the table of VM information of this device."
+		INDEX { extremeVMDetectedMAC }
+		::= { extremeVMDetectedTable 1 }
+
+	ExtremeVMDetectedEntry ::= SEQUENCE {
+                extremeVMDetectedMAC              MacAddress,
+                extremeVMDetectedVMName           DisplayString,
+                extremeVMDetectedIngressVPPName   DisplayString,
+                extremeVMDetectedEgressVPPName    DisplayString,
+                extremeVMDetectedIfIndex          Integer32,
+		        extremeVMDetectedAdminStatus	  INTEGER,
+                extremeVMDetectedOperStatus       INTEGER,
+                extremeVMDetectedResultIngress    INTEGER,
+                extremeVMDetectedResultEgress     INTEGER,
+                extremeVMDetectedIngErrPolicies   OCTET STRING,
+                extremeVMDetectedEgrErrPolicies   OCTET STRING,
+                extremeVMDetectedVPPName          DisplayString,
+                extremeVMDetectedVPPResult        INTEGER,
+                extremeVMDetectedCounterInstallResult CounterDirection,
+                extremeVMDetectedVMVLANTag        INTEGER,
+                extremeVMDetectedVMVLANVRName     DisplayString
+        }
+
+
+        extremeVMDetectedMAC OBJECT-TYPE
+                SYNTAX          MacAddress
+                MAX-ACCESS	accessible-for-notify
+                STATUS	        current
+                DESCRIPTION
+                        "The MAC address associated with the Virtual Machine.  Note that a VM may have multiple MAC addresses."
+                ::= { extremeVMDetectedEntry 1 }
+
+        extremeVMDetectedVMName OBJECT-TYPE
+                SYNTAX          DisplayString (SIZE(0..32))
+                MAX-ACCESS	read-only
+                STATUS	        current
+                DESCRIPTION
+                        "The name of the Virtual Machine.  Note that a VM authenticated locally may not have a name."
+                ::= { extremeVMDetectedEntry 2 }
+
+         extremeVMDetectedIngressVPPName OBJECT-TYPE
+                SYNTAX          DisplayString
+                MAX-ACCESS	read-only
+                STATUS	        deprecated
+                DESCRIPTION
+                        "The name of the policy applied (or attempted to apply) to this virtual machine."
+                ::= { extremeVMDetectedEntry 3 }
+
+        extremeVMDetectedEgressVPPName OBJECT-TYPE
+                SYNTAX          DisplayString
+                MAX-ACCESS	read-only
+                STATUS	        deprecated
+                DESCRIPTION
+                        "The name of the policy applied (or attempted to apply) to this virtual machine."
+                ::= { extremeVMDetectedEntry 4 }
+
+        extremeVMDetectedIfIndex OBJECT-TYPE
+                SYNTAX          Integer32 
+                MAX-ACCESS	read-only
+                STATUS	        current
+                DESCRIPTION
+                        "The value of ifIndex on which this virtual machine was detected."
+                ::= { extremeVMDetectedEntry 5 }
+
+        extremeVMDetectedAdminStatus OBJECT-TYPE
+                SYNTAX          INTEGER {
+				                  authenticating(1),
+                                  idle(2)
+				}
+                MAX-ACCESS	read-write
+                STATUS	        current
+                DESCRIPTION
+                        "The administrative status of the Virtual Machine authentication.  Setting this variable to
+			authenticating(1) will force the re-authentication of the VM.  This variable always returns idle(2)
+			when read."
+                ::= { extremeVMDetectedEntry 6 }
+ 
+       extremeVMDetectedOperStatus OBJECT-TYPE
+                SYNTAX          INTEGER {
+                                   authenticating(1),
+                                   authenticatedNetwork(2),
+                                   authenticatedLocally(3),
+                                   authenticationDenied(4),
+                                   notAuthenticated(5)
+                                }
+                MAX-ACCESS      read-only
+                STATUS	        current
+                DESCRIPTION
+                        "The authentication status of the VM
+                        authenticating(1) an authentication is currently in progress
+                        authenticatedNetwork(2) the VM has been authenticated by a network source
+                        authenticatedLocally(3) the VM bas been authenticated by the local database
+                        denied(4) the VM was either explicitly denied entry
+                        notAuthenticated(5) the authentication process timed out or was never attempted."
+                ::= { extremeVMDetectedEntry 7 }
+
+        extremeVMDetectedResultIngress   OBJECT-TYPE
+                SYNTAX          INTEGER {
+                                  policyApplied(1),
+				                  policyNotApplied(2),
+				                  policyInvalid(3),
+				                  policyNotFound(4),
+				                  policyNotMapped(5)
+                                }
+                MAX-ACCESS      read-only
+                STATUS          current
+                DESCRIPTION
+                        "Indicates the result of a VM entry into the network.
+                         Only below two values will be returned at any point of time.
+                         policyApplied(1) - all the ingress policies in the VPP was successfully applied to the port.
+                         policyNotApplied(2) - If any one of the ingress policies in the VPP was not applied to the port. 
+                         If this value is returned then refer to extremeVMDetectedIngErrPolicies object for 
+                         list of failed ingress policies."
+                ::= { extremeVMDetectedEntry 8 }
+
+        extremeVMDetectedResultEgress   OBJECT-TYPE
+                SYNTAX          INTEGER {
+                                  policyApplied(1),
+				                  policyNotApplied(2),
+				                  policyInvalid(3),
+				                  policyNotFound(4),
+				                  policyNotMapped(5)
+                                }
+                MAX-ACCESS      read-only
+                STATUS          current
+                DESCRIPTION
+                        "Indicates the result of a VM entry into the network.
+                         Only below two values will be returned at any point of time.
+                         policyApplied(1) - all the egress policies in the VPP was successfully applied to the port.
+                         policyNotApplied(2) - If any one of the egress policies in the VPP was not applied to the port. 
+                         If this value is returned then refer to extremeVMDetectedEgrErrPolicies object for 
+                         list of failed egress policies."
+                ::= { extremeVMDetectedEntry 9 }
+
+        extremeVMDetectedIngErrPolicies OBJECT-TYPE
+                SYNTAX          OCTET STRING (SIZE(0..1024))
+                MAX-ACCESS	read-only
+                STATUS	        current
+                DESCRIPTION
+                        "Displays the list of failed ingress policies"
+                ::= { extremeVMDetectedEntry 10 }
+
+        extremeVMDetectedEgrErrPolicies OBJECT-TYPE
+                SYNTAX          OCTET STRING (SIZE(0..1024))
+                MAX-ACCESS	read-only
+                STATUS	        current
+                DESCRIPTION
+                        "Displays the list of failed egress policies"
+                ::= { extremeVMDetectedEntry 11 }
+
+        extremeVMDetectedVPPName OBJECT-TYPE
+                SYNTAX          DisplayString (SIZE(0..32))
+                MAX-ACCESS	read-only
+                STATUS	        current
+                DESCRIPTION
+                        "The name of the VPP applied (or attempted to apply) to this virtual machine."
+                ::= { extremeVMDetectedEntry 12 }
+
+       extremeVMDetectedVPPResult   OBJECT-TYPE
+                SYNTAX          INTEGER {
+                                  vppMapped(1),
+				                  vppNotMapped(2),
+                                  vppInvalid(3),
+                                  vppMissing(4)
+                                }
+                MAX-ACCESS      read-only
+                STATUS          current
+                DESCRIPTION
+                        "Indicates the result of VPP associated with VM MAC.
+                         vppMapped(1) indicates that the named VPP was mapped.
+                         vppNotMapped(2) indicates that the no VPP was mapped.
+                         vppInvalid(3) indicates that the VPP mapped was invalid.
+                         vppMissing(4) indicates that the VPP mapped was missing."
+                ::= { extremeVMDetectedEntry 13 }
+
+        extremeVMDetectedCounterInstallResult   OBJECT-TYPE
+                SYNTAX          CounterDirection
+                MAX-ACCESS      read-only
+                STATUS          current
+                DESCRIPTION
+                        "Indicates the result of whether dynamic counter
+                        installed for this VM.
+                         ingress-only(1) - Dynamic counters are installed to count packet source MAC address matches VM MAC.
+                         egress-only(2)  - Dynamic counters are installed to count packet destination MAC address matches VM MAC.
+                         both(3) - Dynamic counters are installed to count packet source/destination MAC address matches VM MAC.
+                         none(0) - Dynamic counters are not installed."
+                ::= { extremeVMDetectedEntry 14 }
+
+        extremeVMDetectedVMVLANTag OBJECT-TYPE
+                SYNTAX          INTEGER (0..4094)
+                MAX-ACCESS	read-only
+                STATUS	        current
+                DESCRIPTION
+                        "VLAN Tag used for Dynamic VLAN creation for detected VM MAC. If this parameter is not configured then 0 will be displayed"
+                ::= { extremeVMDetectedEntry 15 }
+
+        extremeVMDetectedVMVLANVRName OBJECT-TYPE
+                SYNTAX          DisplayString (SIZE(0..32))
+                MAX-ACCESS 	read-only
+                STATUS	        current
+                DESCRIPTION
+                        "The Virtual router name of the Dynamic VLAN created for detected VM MAC."
+                ::= { extremeVMDetectedEntry 16 }
+
+	extremeVMVPPDetailTable	OBJECT-TYPE
+		SYNTAX	SEQUENCE OF ExtremeVMVPPDetailEntry
+		MAX-ACCESS  not-accessible
+		STATUS current
+		DESCRIPTION
+			"This table contains the mapping of a VPP to individual Policies."
+        ::= { extremeVMVPP 4 }
+		
+	extremeVMVPPDetailEntry	OBJECT-TYPE
+		SYNTAX	        ExtremeVMVPPDetailEntry
+		MAX-ACCESS	not-accessible
+		STATUS	        current
+		DESCRIPTION
+			"A set of mappings from a VPP to one or more policies."
+		INDEX { extremeVMVPPDetailVPPName, extremeVMVPPDetailDirection, extremeVMVPPDetailType, extremeVMVPPDetailOrder, extremeVMVPPDetailPolicyName} 
+		::= { extremeVMVPPDetailTable 1 }
+
+	ExtremeVMVPPDetailEntry ::= SEQUENCE {
+                extremeVMVPPDetailVPPName          DisplayString,
+                extremeVMVPPDetailDirection        INTEGER,
+                extremeVMVPPDetailType             INTEGER,
+                extremeVMVPPDetailOrder            Integer32,
+                extremeVMVPPDetailPolicyName       DisplayString,
+                extremeVMVPPDetailRowStatus        RowStatus
+        }
+
+        extremeVMVPPDetailVPPName OBJECT-TYPE
+                SYNTAX          DisplayString
+                MAX-ACCESS	not-accessible
+                STATUS	        current
+                DESCRIPTION
+                        "The name of the VPP"
+                ::= { extremeVMVPPDetailEntry 1 }
+
+        extremeVMVPPDetailDirection OBJECT-TYPE
+                SYNTAX          INTEGER {
+                                  ingress(1),
+                                  egress(2)
+                                }
+                MAX-ACCESS	not-accessible
+                STATUS	        current
+                DESCRIPTION
+                        "The direction in which the policy will be applied"
+                ::= { extremeVMVPPDetailEntry 2 }
+
+        extremeVMVPPDetailType OBJECT-TYPE
+                SYNTAX          INTEGER {
+                                  policyFile(1),
+                                  dynamicACL(2)
+                                }
+                MAX-ACCESS	not-accessible
+                STATUS	        current
+                DESCRIPTION
+                        "The type of policy"
+                ::= { extremeVMVPPDetailEntry 3 }
+
+        extremeVMVPPDetailOrder OBJECT-TYPE
+                SYNTAX          Integer32
+                MAX-ACCESS	not-accessible
+                STATUS	        current
+                DESCRIPTION
+                        "The order in which this policy will be executed"
+                ::= { extremeVMVPPDetailEntry 4 }
+
+        extremeVMVPPDetailPolicyName OBJECT-TYPE
+                SYNTAX          DisplayString
+                MAX-ACCESS	not-accessible
+                STATUS	        current
+                DESCRIPTION
+                        "The name of the local policy"
+                ::= { extremeVMVPPDetailEntry 5 }
+
+        extremeVMVPPDetailRowStatus OBJECT-TYPE
+                SYNTAX          RowStatus
+                MAX-ACCESS	read-create
+                STATUS	        current
+                DESCRIPTION
+                        "The row status for this mapping."
+                ::= { extremeVMVPPDetailEntry 6 }
+
+        extremeVMNotificationPrefix      OBJECT IDENTIFIER ::= { extremeVMNotifications 0 }
+
+        extremeVMVPPSynchType   OBJECT-TYPE
+                SYNTAX          VMVPPSynchType
+                MAX-ACCESS      accessible-for-notify
+                STATUS          current
+                DESCRIPTION
+                        "Indicates the type of policy"
+                ::= { extremeVMNotificationObjects 1 }
+
+        extremeVMVPPSyncFailed NOTIFICATION-TYPE
+                OBJECTS {    
+                  extremeVMFTPServer,
+                  extremeVMFTPAddrType,
+                  extremeVMFTPServerType, 
+                  extremeVMLastSynchStatus,
+                  extremeVMVPPName,
+                  extremeVMVPPSynchType
+                }
+            STATUS current
+                DESCRIPTION
+                "A synchronization attempt failed."
+                ::= { extremeVMNotificationPrefix 1 }
+
+        extremeVMVPPInvalid NOTIFICATION-TYPE
+                OBJECTS {    
+                  extremeVMVPPType,
+                  extremeVMVPPName
+                }
+            STATUS current
+                DESCRIPTION
+                "A virutal port profile definition is invalid, indicating it cannot be applied to a port."
+                ::= { extremeVMNotificationPrefix 2 }
+
+        extremeVMMapped NOTIFICATION-TYPE
+                OBJECTS {    
+                  extremeVMMappingMAC,
+                  extremeVMMappingIngressVPPName,
+                  extremeVMMappingEgressVPPName,
+		          extremeVMMappingVPPName
+                }
+                STATUS            current
+                DESCRIPTION
+                        "This notification is generated whenever a MAC is manually mapped to a local policy."
+                ::= { extremeVMNotificationPrefix 3 }
+
+        extremeVMUnMapped NOTIFICATION-TYPE
+                OBJECTS {    
+                  extremeVMMappingMAC,
+                  extremeVMMappingIngressVPPName,
+                  extremeVMMappingEgressVPPName,
+		          extremeVMMappingVPPName
+                }
+                STATUS            current
+                DESCRIPTION
+                        "This notification is generated whenever a MAC is manually unmapped to a local policy."
+                ::= { extremeVMNotificationPrefix 4 }
+
+        extremeVMDetectResult NOTIFICATION-TYPE
+                OBJECTS {    
+		          extremeVMDetectedMAC,
+                  extremeVMDetectedIfIndex,
+                  extremeVMDetectedIngressVPPName,
+                  extremeVMDetectedEgressVPPName,
+                  extremeVMDetectedResultIngress,
+                  extremeVMDetectedResultEgress,
+                  extremeVMDetectedOperStatus,
+                  extremeVMDetectedIngErrPolicies,
+                  extremeVMDetectedEgrErrPolicies,
+		          extremeVMDetectedVPPResult,
+		          extremeVMDetectedVPPName,
+                  extremeVMDetectedCounterInstallResult
+                }
+                STATUS            current
+                DESCRIPTION
+                        "This notification is generated after a VM is detected on a port and reflects the result of that operation."
+                ::= { extremeVMNotificationPrefix 5 }
+
+        extremeVMUnDetectResult NOTIFICATION-TYPE
+                OBJECTS {    
+		          extremeVMDetectedMAC,
+                  extremeVMDetectedIfIndex
+                }
+                STATUS            current
+                DESCRIPTION
+                        "This notification is generated after a VM is undetected (removed) from a port."
+                ::= { extremeVMNotificationPrefix 6 }
+
+END

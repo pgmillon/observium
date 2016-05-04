@@ -1,0 +1,1139 @@
+-- *****************************************************************
+-- Smartoptics SiteLight Escon Module MIB
+--
+-- Aug 2002, Omri Viner
+--
+-- Copyright (c) 1999-2002 by Smartoptics Ltd.
+-- All rights reserved.
+-- *****************************************************************
+
+SL-ESCON-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE,
+    Unsigned32, Counter64, Gauge32, Integer32, mib-2
+      FROM SNMPv2-SMI
+    TEXTUAL-CONVENTION, TruthValue, TimeStamp, DisplayString
+      FROM SNMPv2-TC
+	InterfaceIndex		               	FROM IF-MIB
+    SnmpAdminString
+      FROM SNMP-FRAMEWORK-MIB           
+    MODULE-COMPLIANCE, OBJECT-GROUP
+      FROM SNMPv2-CONF
+    slService				      		FROM SL-NE-MIB;
+
+esconMIB MODULE-IDENTITY
+	LAST-UPDATED "0208190000Z"
+	ORGANIZATION "Smartoptics Networks Ltd."
+	CONTACT-INFO
+        E-mail: d.lutz@Smartoptics.com"
+    DESCRIPTION "The MIB module for Escon Interface."
+    ::= { slService 5 }
+
+  esconMIBObjects 	OBJECT IDENTIFIER ::= { esconMIB 1 }
+ 
+  -- Groups under esconMIBObjects
+
+  esconConfig       OBJECT IDENTIFIER ::= { esconMIBObjects 1 }
+  esconPm           OBJECT IDENTIFIER ::= { esconMIBObjects 2 }
+  esconTraps        OBJECT IDENTIFIER ::= { esconMIBObjects 3 }
+
+  -- Textual Conventions
+
+  EsconAddressId ::= TEXTUAL-CONVENTION
+    STATUS         current
+    DESCRIPTION    "Represents Escon Address ID. Should be displayed as HH HH"
+    SYNTAX         INTEGER (0..65535)
+
+
+  EsconNodeDescription ::= TEXTUAL-CONVENTION
+    STATUS         current
+    DESCRIPTION    "Represents Escon Node Description."
+    SYNTAX         DisplayString (SIZE (1..32))
+
+  -- The Configuration group
+  
+  -- This esconPortTable contains, one entry for each Escon Port,
+  -- configuration parameters of the ports.
+
+ esconPortConfigTable OBJECT-TYPE
+     SYNTAX      SEQUENCE OF EsconPortConfigEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+        "A table that contains, one entry for each port."
+ ::= { esconConfig 1 }
+
+ esconPortConfigEntry OBJECT-TYPE
+     SYNTAX      EsconPortConfigEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+        "An entry containing the result configuration and service parameters
+         of a port."
+     INDEX { esconPortConfigIndex }
+ ::= { esconPortConfigTable 1 }
+
+
+ EsconPortConfigEntry ::=
+     SEQUENCE {
+         esconPortConfigIndex
+             InterfaceIndex,
+         esconPortConfigSrcAddress
+             EsconAddressId,
+         esconPortConfigSrcDescription
+             EsconNodeDescription,
+		 esconPortConfigTranceiverMedia    -- deprecated
+		 	 INTEGER,
+		 esconPortConfigResetPmCounters
+		 	 INTEGER,
+		 esconPortConfigTranceiverType     -- deprecated
+		 	 INTEGER,
+          esconPortConfigStatus
+          	  INTEGER,
+		  esconPortConfigValidIntervals
+		  	  INTEGER,
+		  esconPortConfigLoginState
+		  	  BITS,
+		 esconPortResetPmCounters
+		 	 INTEGER
+     }
+
+  esconPortConfigIndex OBJECT-TYPE
+      SYNTAX      InterfaceIndex
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "The ifIndex of the port."
+  ::= { esconPortConfigEntry 1 }
+
+  esconPortConfigSrcAddress OBJECT-TYPE
+      SYNTAX      EsconAddressId
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "The source address of the physical path of this port.
+         This value is valid only when state is validLogin(2)."
+  ::= { esconPortConfigEntry 2 }
+
+  esconPortConfigSrcDescription OBJECT-TYPE
+      SYNTAX      EsconNodeDescription
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "The description of the attached node.
+         This value is valid only when state is validLogin(2)."
+  ::= { esconPortConfigEntry 3 }
+
+  esconPortConfigTranceiverMedia OBJECT-TYPE
+      SYNTAX      INTEGER {
+      	none(1),
+      	sm(2),   -- single-mode
+      	mm(3)    -- multi-mode
+      }
+      MAX-ACCESS  read-only
+      STATUS      current        -- deprecated
+      DESCRIPTION
+         "The tranceiver media."
+  ::= { esconPortConfigEntry 4 }
+
+  esconPortConfigResetPmCounters OBJECT-TYPE
+      SYNTAX      INTEGER
+      MAX-ACCESS  read-write
+      STATUS      current
+      DESCRIPTION
+        "Setting this variable to 1 will cause the current interval PM 
+        counters of the port to be initialized to zero (0)."
+	::= { esconPortConfigEntry 5 }
+
+  esconPortConfigTranceiverType OBJECT-TYPE
+      SYNTAX      INTEGER {
+      	none(1),
+      	shortWave(2),  -- 850nm
+      	longWave(3)    -- 1310nm
+      }
+      MAX-ACCESS  read-only
+      STATUS      current           -- deprecated
+      DESCRIPTION
+         "The tranceiver type."
+  ::= { esconPortConfigEntry 6 }
+  
+  
+esconPortConfigStatus OBJECT-TYPE
+	SYNTAX  INTEGER (1..16)
+	MAX-ACCESS  read-only
+	STATUS  current
+	DESCRIPTION
+		"This variable indicates the Line Status of the
+		ESCON interface.  
+
+		The esconPortStatus is a bit map represented as a
+		sum, therefore, it can represent multiple failures (alarms) 
+		simultaneously.
+
+		esconPortNoAlarm must be set if and only if no other
+		flag is set.
+
+	    The various bit positions are:
+	      1     esconPortNoAlarm           No alarm present
+	      2     esconPortTransmitFault     Transceiver transmit fault
+	      4     esconPortLossOfSignal      Transceiver signal detect failed
+	      8		esconPortNoLink			   No link established yet."
+     ::= { esconPortConfigEntry 7 }
+
+esconPortConfigValidIntervals OBJECT-TYPE
+	SYNTAX  	INTEGER (0..96)
+	MAX-ACCESS 	read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of previous near end intervals for
+		which data was collected.  The value will be
+		96 unless the interface was brought online within
+		the last 24 hours, in which case the value will be
+		the number of complete 15 minute near end
+		intervals since the interface has been online.  In
+		the case where the agent is a proxy, it is
+		possible that some intervals are unavailable.  In
+		this case, this interval is the maximum interval
+		number for which data is available."
+	::= { esconPortConfigEntry 8 }
+
+esconPortConfigLoginState OBJECT-TYPE
+	SYNTAX  	BITS {
+		signalSense(0),
+		syncPort(1),
+		validLogin(2)
+	}
+	MAX-ACCESS 	read-only
+	STATUS  	current
+	DESCRIPTION
+		"The high bit signalSense(0) means that a physical
+		connection has been established with the attached port.
+		The high bit syncPort(1) means that the there there
+		is a sequence synchronization with the attached port.
+		The high bit validLogin(2) indicates that the physical
+		path has been established."
+	::= { esconPortConfigEntry 9 }
+
+esconPortResetPmCounters OBJECT-TYPE
+      SYNTAX      INTEGER
+      MAX-ACCESS  read-write
+      STATUS      current
+      DESCRIPTION
+        "Setting this variable to 1 will cause the current interval Escon PM 
+        counters of the port to be initialized to zero (0)."
+	::= { esconPortConfigEntry 10 }
+
+
+-- PM Group
+--
+-- Consists of the the following objects:
+-- 1. esconPortCurrentTable - the current PM counters
+-- 2. esconPortIntervalTable - keeps the history of the 1-32/96 intervals
+--    of 15 minutes PM counters.
+-- 3. esconPortTotalTable - the total PM counters of the previous 24 hours
+-- 4. esconPortThresholdTable - the threshold for the current PM counters.
+--    When crossing a threshold the TCA alarm is generated.
+--
+
+
+-- The PM Current Table
+
+esconPortCurrentTable OBJECT-TYPE
+	SYNTAX  SEQUENCE OF EsconPortCurrentEntry
+	MAX-ACCESS  		not-accessible
+	STATUS  			current
+	DESCRIPTION
+		"The ESCON current table contains various statistics
+		being collected for the current 15 minute interval."
+	::= { esconPm 1 }
+
+esconPortCurrentEntry OBJECT-TYPE
+	SYNTAX  		EsconPortCurrentEntry
+	MAX-ACCESS  	not-accessible
+	STATUS  		current
+	DESCRIPTION
+		"An entry in the Escon Current table."
+	INDEX   { esconPortCurrentIndex }
+	::= { esconPortCurrentTable 1 }
+
+EsconPortCurrentEntry ::=
+	SEQUENCE {
+		esconPortCurrentIndex				InterfaceIndex,
+		-- ingress
+		esconPortCurrentRxOctets            Counter64,
+		esconPortCurrentRxPkts              Counter64,
+		esconPortCurrentRxSigLosses			Counter64,
+		esconPortCurrentRxSyncLosses 		Counter64,
+		esconPortCurrentRxLinkFailures		Counter64,
+		esconPortCurrentRxInvalidCrcs		Counter64,
+		esconPortCurrentRxDelimiterErrors	Counter64,
+		esconPortCurrentRxSizeFrames		Counter64,
+		esconPortCurrentRxDisparityErrors	Counter64,
+		esconPortCurrentRxInvalidTxWords	Counter64,
+		-- egress
+		esconPortCurrentTxOctets            Counter64,
+		esconPortCurrentTxPkts              Counter64,
+		esconPortCurrentTxHeaderError		Counter64,
+		esconPortCurrentTxJitterUnderflow	Counter64
+	}
+
+esconPortCurrentIndex					OBJECT-TYPE
+	SYNTAX  	InterfaceIndex
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The index value which uniquely identifies the
+		ESCON interface to which this entry is applicable."
+	::= { esconPortCurrentEntry 1 }
+
+esconPortCurrentRxOctets				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The total number of octets of data 
+		received during the current interval."
+	::= { esconPortCurrentEntry 2 }
+
+esconPortCurrentRxPkts					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of packets (including bad packets) 
+		received during the current interval."
+	::= { esconPortCurrentEntry 3 }
+
+esconPortCurrentRxSigLosses				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of loss of signal detected during 
+		this current interval."
+	::= { esconPortCurrentEntry 4 }
+
+esconPortCurrentRxSyncLosses			OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of loss of synchronization detected during 
+		this current interval."
+	::= { esconPortCurrentEntry 5 }
+
+esconPortCurrentRxLinkFailures			OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of link failures detected during 
+		this current interval."
+	::= { esconPortCurrentEntry 6 }
+
+esconPortCurrentRxInvalidCrcs			OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of invalid CRC detected during 
+		this current interval."
+	::= { esconPortCurrentEntry 7 }
+
+esconPortCurrentRxDelimiterErrors		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of Delimiter Errors detected during 
+		this current interval."
+	::= { esconPortCurrentEntry 8 }
+
+esconPortCurrentRxDisparityErrors		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of Disparity Errors detected during 
+		this current interval."
+	::= { esconPortCurrentEntry 9 }
+
+esconPortCurrentRxSizeFrames			OBJECT-TYPE
+      SYNTAX      Counter64
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "The number of too short or too long frames detected during 
+		this current interval."
+  ::= { esconPortCurrentEntry 10 }
+
+esconPortCurrentRxInvalidTxWords		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of invalid transmission word detected during 
+		this current interval."
+	::= { esconPortCurrentEntry 11 }
+
+esconPortCurrentTxOctets				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of octets of data 
+		transmited during the current interval."
+	::= { esconPortCurrentEntry 12 }
+
+esconPortCurrentTxPkts					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of packets (including bad packets) 
+		transmitted during the current interval."
+	::= { esconPortCurrentEntry 13 }
+
+esconPortCurrentTxHeaderError			OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of PL-ESC header error 
+		transmitted during the current interval."
+	::= { esconPortCurrentEntry 14 }
+
+esconPortCurrentTxJitterUnderflow		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of Jitter buffer underflow 
+		occurences during the current interval."
+	::= { esconPortCurrentEntry 15 }
+
+
+ -- The PM Interval Table
+
+esconPortIntervalTable OBJECT-TYPE
+	SYNTAX  SEQUENCE OF EsconPortIntervalEntry
+	MAX-ACCESS  		not-accessible
+	STATUS  			current
+	DESCRIPTION
+		"The ESCON In table contains various statistics
+		being collected for the 15 minute intervals."
+	::= { esconPm 2 }
+
+esconPortIntervalEntry OBJECT-TYPE
+	SYNTAX  		EsconPortIntervalEntry
+	MAX-ACCESS  	not-accessible
+	STATUS  		current
+	DESCRIPTION
+		"An entry in the ESCON Interval table."
+	INDEX   { esconPortIntervalIndex, esconPortIntervalNumber }
+	::= { esconPortIntervalTable 1 }
+
+EsconPortIntervalEntry ::=
+	SEQUENCE {
+		esconPortIntervalIndex				InterfaceIndex,
+		esconPortIntervalNumber				INTEGER,
+		-- ingress
+		esconPortIntervalRxOctets           Counter64,
+		esconPortIntervalRxPkts             Counter64,
+		esconPortIntervalRxSigLosses		Counter64,
+		esconPortIntervalRxSyncLosses 		Counter64,
+		esconPortIntervalRxLinkFailures		Counter64,
+		esconPortIntervalRxInvalidCrcs		Counter64,
+		esconPortIntervalRxDelimiterErrors	Counter64,
+		esconPortIntervalRxSizeFrames		Counter64,
+		esconPortIntervalRxDisparityErrors	Counter64,
+		esconPortIntervalRxInvalidTxWords	Counter64,
+		-- egress
+		esconPortIntervalTxOctets           Counter64,
+		esconPortIntervalTxPkts             Counter64,
+		esconPortIntervalTxHeaderError		Counter64,
+		esconPortIntervalTxJitterUnderflow	Counter64,
+		-- general
+        esconPortIntervalValidData  		TruthValue,
+        esconPortIntervalTcaFlag    		TruthValue
+	}
+
+
+esconPortIntervalIndex					OBJECT-TYPE
+	SYNTAX  	InterfaceIndex
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The index value which uniquely identifies the
+		Escon interface to which this entry is applicable."
+	::= { esconPortIntervalEntry 1 }
+
+esconPortIntervalNumber OBJECT-TYPE
+	SYNTAX  	INTEGER (1..96)
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"A number between 1 and 96, where 1 is the most
+		recently completed 15 minute interval and 96 is
+		the 15 minutes interval completed 23 hours and 45
+		minutes prior to interval 1."
+	::= { esconPortIntervalEntry 2 }
+
+esconPortIntervalRxOctets				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of octets of data 
+		received during the sampling interval."
+	::= { esconPortIntervalEntry 3 }
+
+esconPortIntervalRxPkts					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of packets (including bad packets) 
+		received during the sampling interval."
+	::= { esconPortIntervalEntry 4 }
+
+esconPortIntervalRxSigLosses				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of loss of signal detected during 
+		this sampling interval."
+	::= { esconPortIntervalEntry 5 }
+
+esconPortIntervalRxSyncLosses			OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of loss of synchronization detected during 
+		this sampling interval."
+	::= { esconPortIntervalEntry 6 }
+
+esconPortIntervalRxLinkFailures			OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of link failures detected during 
+		this sampling interval."
+	::= { esconPortIntervalEntry 7 }
+
+esconPortIntervalRxInvalidCrcs			OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of invalid CRC detected during 
+		this sampling interval."
+	::= { esconPortIntervalEntry 8 }
+
+esconPortIntervalRxDelimiterErrors		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of Delimiter Errors detected during 
+		this sampling interval."
+	::= { esconPortIntervalEntry 9 }
+
+esconPortIntervalRxDisparityErrors		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of Disparity Errors detected during 
+		this sampling interval."
+	::= { esconPortIntervalEntry 10 }
+
+esconPortIntervalRxSizeFrames			OBJECT-TYPE
+      SYNTAX      Counter64
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "The number of too short or too long frames detected during 
+		this sampling interval."
+  ::= { esconPortIntervalEntry 11 }
+
+esconPortIntervalRxInvalidTxWords		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The current number of invalid transmission word detected during 
+		this sampling interval."
+	::= { esconPortIntervalEntry 12 }
+
+esconPortIntervalTxOctets				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of octets of data 
+		transmited during the sampling interval."
+	::= { esconPortIntervalEntry 13 }
+
+esconPortIntervalTxPkts					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of packets (including bad packets) 
+		transmitted during the sampling interval."
+	::= { esconPortIntervalEntry 14 }
+
+esconPortIntervalTxHeaderError			OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of PL-ESC header error 
+		transmitted during the sampling interval."
+	::= { esconPortIntervalEntry 15 }
+
+esconPortIntervalTxJitterUnderflow		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of Jitter buffer underflow 
+		occurences during the sampling interval."
+	::= { esconPortIntervalEntry 16 }
+
+esconPortIntervalValidData OBJECT-TYPE
+	SYNTAX  	TruthValue
+	MAX-ACCESS 	read-only
+	STATUS  	current
+	DESCRIPTION
+       "This variable indicates if the data for this
+        interval is valid."
+	::= { esconPortIntervalEntry 17 }
+
+esconPortIntervalTcaFlag OBJECT-TYPE
+	SYNTAX  	TruthValue
+	MAX-ACCESS 	read-only
+	STATUS  	current
+	DESCRIPTION
+       "TRUE if one of the counters crossed the threshold during the interval."
+	::= { esconPortIntervalEntry 18 }
+
+
+-- The PM Total Table
+
+esconPortTotalTable OBJECT-TYPE
+	SYNTAX  SEQUENCE OF EsconPortTotalEntry
+	MAX-ACCESS  		not-accessible
+	STATUS  			current
+	DESCRIPTION
+		"The Escon current table contains various statistics
+		being collected for the pervious 24 hours.
+		interval."
+	::= { esconPm 3 }
+
+esconPortTotalEntry OBJECT-TYPE
+	SYNTAX  		EsconPortTotalEntry
+	MAX-ACCESS  	not-accessible
+	STATUS  		current
+	DESCRIPTION
+		"An entry in the Escon Total table."
+	INDEX   { esconPortTotalIndex, esconPortTotalDayNumber }
+	::= { esconPortTotalTable 1 }
+
+EsconPortTotalEntry ::=
+	SEQUENCE {
+		esconPortTotalIndex					InterfaceIndex,
+		esconPortTotalDayNumber				INTEGER,
+		-- ingress
+		esconPortTotalRxOctets           	Counter64,
+		esconPortTotalRxPkts             	Counter64,
+		esconPortTotalRxSigLosses			Counter64,
+		esconPortTotalRxSyncLosses 			Counter64,
+		esconPortTotalRxLinkFailures		Counter64,
+		esconPortTotalRxInvalidCrcs			Counter64,
+		esconPortTotalRxDelimiterErrors		Counter64,
+		esconPortTotalRxSizeFrames			Counter64,
+		esconPortTotalRxDisparityErrors		Counter64,
+		esconPortTotalRxInvalidTxWords		Counter64,
+		-- egress
+		esconPortTotalTxOctets           	Counter64,
+		esconPortTotalTxPkts             	Counter64,
+		esconPortTotalTxHeaderError			Counter64,
+		esconPortTotalTxJitterUnderflow		Counter64,
+		-- general
+        esconPortTotalValidData  			TruthValue,
+        esconPortTotalTcaFlag    			TruthValue
+	}
+
+esconPortTotalIndex OBJECT-TYPE
+	SYNTAX  	InterfaceIndex
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The index value which uniquely identifies  the
+		Escon interface to which this entry is applicable."
+	::= { esconPortTotalEntry 1 }
+
+esconPortTotalDayNumber OBJECT-TYPE
+    SYNTAX      INTEGER (1..33)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A number which identifies the 1-day interval for which the set
+        of section related statistics is available.  The number is
+        between 1 and n, where n is the number of 1-day intervals
+        supported by the agent.  The interval identified by 1 is the
+        current 1-day interval, 2 is the previous (most recently
+        completed) 1-day interval and n is the least recently completed
+        1-day interval."
+    ::= { esconPortTotalEntry 2 }
+
+esconPortTotalRxOctets				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The total number of octets of data 
+		received during the sampling interval."
+	::= { esconPortTotalEntry 3 }
+
+esconPortTotalRxPkts					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The total number of packets (including bad packets) 
+		received during the sampling interval."
+	::= { esconPortTotalEntry 4 }
+
+esconPortTotalRxSigLosses				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The total number of loss of signal detected during 
+		this sampling interval."
+	::= { esconPortTotalEntry 5 }
+
+esconPortTotalRxSyncLosses			OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The total number of loss of synchronization detected during 
+		this sampling interval."
+	::= { esconPortTotalEntry 6 }
+
+esconPortTotalRxLinkFailures			OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The total number of link failures detected during 
+		this sampling interval."
+	::= { esconPortTotalEntry 7 }
+
+esconPortTotalRxInvalidCrcs			OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The total number of invalid CRC detected during 
+		this sampling interval."
+	::= { esconPortTotalEntry 8 }
+
+esconPortTotalRxDelimiterErrors		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The total number of Delimiter Errors detected during 
+		this sampling interval."
+	::= { esconPortTotalEntry 9 }
+
+esconPortTotalRxDisparityErrors		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The total number of Disparity Errors detected during 
+		this sampling interval."
+	::= { esconPortTotalEntry 10 }
+
+esconPortTotalRxSizeFrames			OBJECT-TYPE
+      SYNTAX      Counter64
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+         "The total number of too short or too long frames detected during 
+		this sampling interval."
+  ::= { esconPortTotalEntry 11 }
+
+esconPortTotalRxInvalidTxWords		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The total number of invalid transmission word detected during 
+		this sampling interval."
+	::= { esconPortTotalEntry 12 }
+
+esconPortTotalTxOctets				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The total number of octets of data 
+		transmited during the sampling interval."
+	::= { esconPortTotalEntry 13 }
+
+esconPortTotalTxPkts					OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The number of packets (including bad packets) 
+		transmitted during the sampling interval."
+	::= { esconPortTotalEntry 14 }
+
+esconPortTotalTxHeaderError			OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The total number of PL-ESC header error 
+		transmitted during the sampling interval."
+	::= { esconPortTotalEntry 15 }
+
+esconPortTotalTxJitterUnderflow		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The total number of Jitter buffer underflow 
+		occurences during the sampling interval."
+	::= { esconPortTotalEntry 16 }
+
+esconPortTotalValidData OBJECT-TYPE
+	SYNTAX  	TruthValue
+	MAX-ACCESS 	read-only
+	STATUS  	current
+	DESCRIPTION
+       "This variable indicates if the data for this
+        interval is valid."
+	::= { esconPortTotalEntry 17 }
+
+esconPortTotalTcaFlag OBJECT-TYPE
+	SYNTAX  	TruthValue
+	MAX-ACCESS 	read-only
+	STATUS  	current
+	DESCRIPTION
+       "TRUE if one of the counters crossed the threshold during the interval."
+	::= { esconPortTotalEntry 18 }
+
+
+--
+-- The PM Interval Threshold Table 
+--
+
+esconPortIntervalThresholdTable OBJECT-TYPE
+	SYNTAX  SEQUENCE OF EsconPortIntervalThresholdEntry
+	MAX-ACCESS  		not-accessible
+	STATUS  			current
+	DESCRIPTION
+		"The Escon Threshold Table contains Interval thresholds
+		for the PM counters collected by each Escon Interface 
+		(identified by esconPortIntervalThresholdIndex)."
+	::= { esconPm 4 }
+
+esconPortIntervalThresholdEntry OBJECT-TYPE
+	SYNTAX  		EsconPortIntervalThresholdEntry
+	MAX-ACCESS  	not-accessible
+	STATUS  		current
+	DESCRIPTION
+		"An entry in the Escon Interval Threshold table."
+	INDEX   { esconPortIntervalThresholdIndex }
+	::= { esconPortIntervalThresholdTable 1 }
+
+EsconPortIntervalThresholdEntry ::=
+	SEQUENCE {
+		esconPortIntervalThresholdIndex					InterfaceIndex,
+		-- ingress
+		esconPortIntervalThresholdRxSigLosses			Counter64,
+		esconPortIntervalThresholdRxSyncLosses 			Counter64,
+		esconPortIntervalThresholdRxLinkFailures		Counter64,
+		esconPortIntervalThresholdRxInvalidCrcs			Counter64,
+		esconPortIntervalThresholdRxDelimiterErrors		Counter64,
+		esconPortIntervalThresholdRxSizeFrames			Counter64,
+		esconPortIntervalThresholdRxDisparityErrors		Counter64,
+		esconPortIntervalThresholdRxInvalidTxWords		Counter64,
+		-- egress
+		esconPortIntervalThresholdTxHeaderError			Counter64,
+		esconPortIntervalThresholdTxJitterUnderflow		Counter64
+	}
+
+esconPortIntervalThresholdIndex OBJECT-TYPE
+	SYNTAX  	InterfaceIndex
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The index value which uniquely identifies  the
+		Escon interface to which this entry is applicable."
+	::= { esconPortIntervalThresholdEntry 1 }
+
+esconPortIntervalThresholdRxSigLosses				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-write
+	STATUS  	current
+	DESCRIPTION
+		"The threshold for the number of signal loss detection."
+	::= { esconPortIntervalThresholdEntry 2 }
+
+esconPortIntervalThresholdRxSyncLosses			OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-write
+	STATUS  	current
+	DESCRIPTION
+		"The threshold for the number of synchronization loss detection."
+	::= { esconPortIntervalThresholdEntry 3 }
+
+esconPortIntervalThresholdRxLinkFailures			OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-write
+	STATUS  	current
+	DESCRIPTION
+		"The threshold for the number of link failures detection."
+	::= { esconPortIntervalThresholdEntry 4 }
+
+esconPortIntervalThresholdRxInvalidCrcs			OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-write
+	STATUS  	current
+	DESCRIPTION
+		"The threshold for the number of invalid CRC detection."
+	::= { esconPortIntervalThresholdEntry 5 }
+
+esconPortIntervalThresholdRxDelimiterErrors		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-write
+	STATUS  	current
+	DESCRIPTION
+		"The threshold for the number of Delimiter Errors detection."
+	::= { esconPortIntervalThresholdEntry 6 }
+
+esconPortIntervalThresholdRxDisparityErrors		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-write
+	STATUS  	current
+	DESCRIPTION
+		"The threshold for the number of Disparity Errors detection."
+	::= { esconPortIntervalThresholdEntry 7 }
+
+esconPortIntervalThresholdRxSizeFrames			OBJECT-TYPE
+	SYNTAX      Counter64
+	MAX-ACCESS  read-write
+	STATUS      current
+	DESCRIPTION
+		"The threshold for the number of too short or too long frames errors detection."
+    ::= { esconPortIntervalThresholdEntry 8 }
+
+esconPortIntervalThresholdRxInvalidTxWords		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-write
+	STATUS  	current
+	DESCRIPTION
+		"The threshold for the number of invalid transmission word detection."
+	::= { esconPortIntervalThresholdEntry 9 }
+
+esconPortIntervalThresholdTxHeaderError			OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-write
+	STATUS  	current
+	DESCRIPTION
+		"The threshold for the number PL-ESC header transmitted detection."
+	::= { esconPortIntervalThresholdEntry 10 }
+
+esconPortIntervalThresholdTxJitterUnderflow		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-write
+	STATUS  	current
+	DESCRIPTION
+		"The threshold for the number of Jitter buffer underflow detection."
+	::= { esconPortIntervalThresholdEntry 11 }
+
+
+--
+-- The PM Day Threshold Table 
+--
+
+esconPortDayThresholdTable OBJECT-TYPE
+	SYNTAX  SEQUENCE OF EsconPortDayThresholdEntry
+	MAX-ACCESS  		not-accessible
+	STATUS  			current
+	DESCRIPTION
+		"The Escon Threshold Table contains Day thresholds
+		for the PM counters collected by each Escon Interface 
+		(identified by esconPortDayThresholdIndex)."
+	::= { esconPm 5 }
+
+esconPortDayThresholdEntry OBJECT-TYPE
+	SYNTAX  		EsconPortDayThresholdEntry
+	MAX-ACCESS  	not-accessible
+	STATUS  		current
+	DESCRIPTION
+		"An entry in the Escon Day Threshold table."
+	INDEX   { esconPortDayThresholdIndex }
+	::= { esconPortDayThresholdTable 1 }
+
+EsconPortDayThresholdEntry ::=
+	SEQUENCE {
+		esconPortDayThresholdIndex					InterfaceIndex,
+		-- ingress
+		esconPortDayThresholdRxSigLosses			Counter64,
+		esconPortDayThresholdRxSyncLosses 			Counter64,
+		esconPortDayThresholdRxLinkFailures			Counter64,
+		esconPortDayThresholdRxInvalidCrcs			Counter64,
+		esconPortDayThresholdRxDelimiterErrors		Counter64,
+		esconPortDayThresholdRxSizeFrames			Counter64,
+		esconPortDayThresholdRxDisparityErrors		Counter64,
+		esconPortDayThresholdRxInvalidTxWords		Counter64,
+		-- egress
+		esconPortDayThresholdTxHeaderError			Counter64,
+		esconPortDayThresholdTxJitterUnderflow		Counter64
+	}
+
+esconPortDayThresholdIndex OBJECT-TYPE
+	SYNTAX  	InterfaceIndex
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"The index value which uniquely identifies  the
+		Escon interface to which this entry is applicable."
+	::= { esconPortDayThresholdEntry 1 }
+
+esconPortDayThresholdRxSigLosses				OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-write
+	STATUS  	current
+	DESCRIPTION
+		"The threshold for the number of signal loss detection."
+	::= { esconPortDayThresholdEntry 2 }
+
+esconPortDayThresholdRxSyncLosses			OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-write
+	STATUS  	current
+	DESCRIPTION
+		"The threshold for the number of synchronization loss detection."
+	::= { esconPortDayThresholdEntry 3 }
+
+esconPortDayThresholdRxLinkFailures			OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-write
+	STATUS  	current
+	DESCRIPTION
+		"The threshold for the number of link failures detection."
+	::= { esconPortDayThresholdEntry 4 }
+
+esconPortDayThresholdRxInvalidCrcs			OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-write
+	STATUS  	current
+	DESCRIPTION
+		"The threshold for the number of invalid CRC detection."
+	::= { esconPortDayThresholdEntry 5 }
+
+esconPortDayThresholdRxDelimiterErrors		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-write
+	STATUS  	current
+	DESCRIPTION
+		"The threshold for the number of Delimiter Errors detection."
+	::= { esconPortDayThresholdEntry 6 }
+
+esconPortDayThresholdRxDisparityErrors		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-write
+	STATUS  	current
+	DESCRIPTION
+		"The threshold for the number of Disparity Errors detection."
+	::= { esconPortDayThresholdEntry 7 }
+
+esconPortDayThresholdRxSizeFrames			OBJECT-TYPE
+	SYNTAX      Counter64
+	MAX-ACCESS  read-write
+	STATUS      current
+	DESCRIPTION
+		"The threshold for the number of too short or too long frames errors detection."
+    ::= { esconPortDayThresholdEntry 8 }
+
+esconPortDayThresholdRxInvalidTxWords		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-write
+	STATUS  	current
+	DESCRIPTION
+		"The threshold for the number of invalid transmission word detection."
+	::= { esconPortDayThresholdEntry 9 }
+
+esconPortDayThresholdTxHeaderError			OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-write
+	STATUS  	current
+	DESCRIPTION
+		"The threshold for the number PL-ESC header transmitted detection."
+	::= { esconPortDayThresholdEntry 10 }
+
+esconPortDayThresholdTxJitterUnderflow		OBJECT-TYPE
+	SYNTAX  	Counter64
+	MAX-ACCESS  read-write
+	STATUS  	current
+	DESCRIPTION
+		"The threshold for the number of Jitter buffer underflow detection."
+	::= { esconPortDayThresholdEntry 11 }
+
+
+
+-- Escon Traps
+
+esconCounterId OBJECT-TYPE
+    SYNTAX      OBJECT IDENTIFIER
+    MAX-ACCESS  read-only -- accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The OBJECT IDENTIFIER of the instance of the Escon counter
+        that has crossed its threshold."
+    ::= { esconTraps 1 }
+
+esconCounterValue OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only -- accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The current value of the Escon counter that has crossed its
+        threshold."
+    ::= { esconTraps 2 }
+
+esconPortThresholdCrossing NOTIFICATION-TYPE
+	OBJECTS { esconCounterId, esconCounterValue }
+	STATUS  current
+	DESCRIPTION
+		"A esconPortThresholdCrossing trap is sent when the
+		a PM counter exceeded the specified threshold."
+	::= { esconTraps 3 }
+
+
+esconPortStatusChange NOTIFICATION-TYPE
+	OBJECTS { esconPortConfigIndex, esconPortConfigStatus }
+	STATUS  current
+	DESCRIPTION
+		"A esconPortStatusChange trap is sent when the
+		value of an instance esconPortConfigStatus changes. It
+		can be utilized by an NMS to trigger polls."
+	::= { esconTraps 4 }
+
+END

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -23,9 +23,9 @@ if (is_numeric($vars['id']))
     $rrd_filename = get_rrd_path($device, "wifi-radio-" . $radio['radio_ap'] . "-" . $radio['radio_number'] . ".rrd");
 
     $title  = generate_device_link($device);
-    $title .= " :: WiFi - Radio :: " . htmlentities($radio['radio_number']);
+    $title .= " :: WiFi - Radio :: " . escape_html($radio['radio_number']);
     $auth = TRUE;
   }
 }
 
-?>
+// EOF

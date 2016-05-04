@@ -6,30 +6,40 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 $graph_type = "processor_usage";
 
-$sql  = "SELECT *, `processors`.`processor_id` as `processor_id`";
-$sql .= " FROM  `processors`";
-$sql .= " LEFT JOIN `processors-state` ON `processors`.`processor_id` = `processors-state`.`processor_id`";
-$sql .= " WHERE `processors`.`processor_type` != 'hr-average' AND `device_id` = ?";
+$sql  = "SELECT * FROM `processors`";
+$sql .= " LEFT JOIN `processors-state` USING(`processor_id`)";
+$sql .= " WHERE `processor_type` != 'hr-average' AND `device_id` = ?";
 
-$processors = dbFetchRows($sql, array($device['device_id']));
+$processors_db = dbFetchRows($sql, array($device['device_id']));
 
-if (count($processors))
+if (count($processors_db))
 {
+  $processors = array();
+  // Combinate multiple same processors
+  foreach ($processors_db as $proc)
+  {
+    $text_descr = rewrite_entity_name($proc['processor_descr']);
+    $processors[$text_descr]['device_id'] = $device['device_id'];
+    $processors[$text_descr]['processor_id'] = $proc['processor_id'];
+    $processors[$text_descr]['id'][]   = $proc['processor_id'];
+    $processors[$text_descr]['usage'] += $proc['processor_usage'];
+    $processors[$text_descr]['count']++;
+  }
 ?>
-        <div class="widget widget-table">
-          <div class="widget-header">
+        <div class="box box-solid">
+          <div class="box-header ">
             <a href="<?php echo(generate_url(array('page' => 'device', 'device' => $device['device_id'], 'tab' => 'health', 'metric' => 'processor'))); ?>">
-              <i class="oicon-processor"></i><h3>Processors</h3>
+              <i class="oicon-processor"></i><h3 class="box-title">Processors</h3>
             </a>
           </div>
-          <div class="widget-content">
+          <div class="box-body no-padding">
 
 <?php
     $graph_array = array();
@@ -59,67 +69,49 @@ if (count($processors))
 
     $minigraph = generate_graph_tag($graph_array);
 
-  echo('<table class="table table-condensed-more table-striped table-bordered">');
+  echo('<table class="table table-condensed table-striped">');
 
-  echo('<tr><td colspan=2>');
+  echo('<tr><td colspan=3>');
   echo(overlib_link($graph_link, $graph, $overlib_content, NULL));
   echo('</td></tr>');
 
-  $numprocs = 0;
-  $total_percent = 0;
-
-  foreach ($processors as $proc)
+  foreach ($processors as $text_descr => $proc)
   {
-    $text_descr = rewrite_entity_name($proc['processor_descr']);
-
     # disable short hrDeviceDescr. need to make this prettier.
     #$text_descr = rewrite_hrDevice($proc['processor_descr']);
-    $percent = $proc['processor_usage'];
-    $total_percent += $percent;
-    ++$numprocs;
+    $percent = round($proc['usage'] / $proc['count']);
+    $background = get_percentage_colours($percent);
+    $graph_colour = str_replace("#", "", $row_colour);
 
-#    $graph_array           = array();
-#    $graph_array['height'] = "100";
-#    $graph_array['width']  = "210";
-#    $graph_array['to']     = $config['time']['now'];
-#    $graph_array['id']     = $proc['processor_id'];
-#    $graph_array['type']   = $graph_type;
-#    $graph_array['from']   = $config['time']['day'];
-#    $graph_array['legend'] = "no";
+    $graph_array           = array();
+    $graph_array['height'] = "100";
+    $graph_array['width']  = "210";
+    $graph_array['to']     = $config['time']['now'];
+    $graph_array['device'] = $device['device_id'];
+    $graph_array['id']     = $proc['id'];
+    $graph_array['type']   = $graph_type;
+    $graph_array['from']   = $config['time']['day'];
+    $graph_array['legend'] = "no";
 
-#    $link_array = $graph_array;
-#    $link_array['page'] = "graphs";
-#    unset($link_array['height'], $link_array['width'], $link_array['legend']);
-#    $link = generate_url($link_array);
+    $link_array = $graph_array;
+    $link_array['page'] = "graphs";
+    unset($link_array['height'], $link_array['width'], $link_array['legend']);
+    $link = generate_url($link_array);
 
-#    $overlib_content = generate_overlib_content($graph_array, $device['hostname'] . " - " . $text_descr);
+    $overlib_content = generate_overlib_content($graph_array, $device['hostname'] . " - " . $text_descr);
 
-#    $graph_array['width'] = 80; $graph_array['height'] = 20; $graph_array['bg'] = 'ffffff00'; # the 00 at the end makes the area transparent.
-#    $graph_array['style'][] = 'margin-top: -6px';
+    $graph_array['width'] = 80; $graph_array['height'] = 20; $graph_array['bg'] = 'ffffff00'; # the 00 at the end makes the area transparent.
+//    $graph_array['style'][] = 'margin-top: -6px';
 
-#    $minigraph =  generate_graph_tag($graph_array);
-
-#    echo('<tr>
-#           <td><span class="entity">'.overlib_link($link, $text_descr, $overlib_content).'</span></td>
-#           <td width=90>'.overlib_link($link, $minigraph, $overlib_content).'</td>
-#           <td width=200>'.overlib_link($link, print_percentage_bar (200, 20, $percent, NULL, "ffffff", $background['left'], $percent . "%", "ffffff", $background['right']), $overlib_content).'
-#           </a></td>
-#         </tr>');
-  }
-
-  $average_percent = round($total_percent / $numprocs);
-  $background = get_percentage_colours($average_percent);
-
-    // echo('<table class="table table-striped table-bordered">');
-    echo('<tr>
-           <td><span class="entity">'.overlib_link($link, $text_descr, $overlib_content).'</span><span class="label pull-right" style="margin-top: 2px; font-size: 11px;"><i class="icon-remove"></i> '.$numprocs.'</span></td>
-           <td style="width: 200px">'.overlib_link($link, print_percentage_bar(200, 20, $average_percent, NULL, "ffffff", $background['left'], $average_percent . "%", "ffffff", $background['right']), $overlib_content).'</td>
+    $count_button = ($proc['count'] > 1 ? '<span class="label pull-right" style="margin-top: 2px; font-size: 11px;"><i class="icon-remove"></i> '.$proc['count'].'</span>' : '');
+    echo('<tr class="'.$background['class'].'">
+           <td class="state-marker"></td>
+           <td><span class="entity">'.generate_entity_link('processor', $proc, $text_descr).'</span>'.$count_button.'</td>
+           <td style="width: 200px">'.overlib_link($link, print_percentage_bar(200, 20, $percent, NULL, "ffffff", $background['left'], $percent . "%", "ffffff", $background['right']), $overlib_content).'</td>
          </tr>');
-
+  }
   echo("</table>");
   echo("</div></div>");
 }
-
-
 
 // EOF

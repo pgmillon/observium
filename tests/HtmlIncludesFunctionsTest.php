@@ -1,9 +1,10 @@
 <?php
 
-include(dirname(__FILE__) . '/../includes/defaults.inc.php');
-include(dirname(__FILE__) . '/../config.php');
-include(dirname(__FILE__) . '/../includes/definitions.inc.php');
-include(dirname(__FILE__) . '/../includes/functions.inc.php');
+include(dirname(__FILE__) . '/../includes/sql-config.inc.php'); // Here required DB connect
+//include(dirname(__FILE__) . '/../includes/defaults.inc.php');
+//include(dirname(__FILE__) . '/../config.php');
+//include(dirname(__FILE__) . '/../includes/definitions.inc.php');
+//include(dirname(__FILE__) . '/../includes/functions.inc.php');
 include(dirname(__FILE__) . '/../html/includes/functions.inc.php');
 
 class HtmlIncludesFunctionsTest extends PHPUnit_Framework_TestCase
@@ -25,7 +26,7 @@ class HtmlIncludesFunctionsTest extends PHPUnit_Framework_TestCase
       array('netscaler_svc', 'Netscaler Service'),
       array('mempool', 'Memory'),
       array('ipsec_tunnels', 'IPSec Tunnels'),
-      array('vrf', 'VRFs'),
+      array('vrf', 'VRF'),
       array('isis', 'IS-IS'),
       array('cef', 'CEF'),
       array('eigrp', 'EIGRP'),
@@ -63,6 +64,7 @@ class HtmlIncludesFunctionsTest extends PHPUnit_Framework_TestCase
 
   /**
   * @dataProvider providerSafeBase64
+  * @group encrypt
   */
   public function testSafeBase64Encode($string, $result)
   {
@@ -72,6 +74,7 @@ class HtmlIncludesFunctionsTest extends PHPUnit_Framework_TestCase
   /**
   * @depends testSafeBase64Encode
   * @dataProvider providerSafeBase64
+  * @group encrypt
   */
   public function testSafeBase64Decode($result, $string)
   {
@@ -81,6 +84,7 @@ class HtmlIncludesFunctionsTest extends PHPUnit_Framework_TestCase
   /**
   * @depends testSafeBase64Encode
   * @dataProvider providerSafeBase64Random
+  * @group encrypt
   */
   public function testSafeBase64Random($string)
   {
@@ -131,6 +135,7 @@ class HtmlIncludesFunctionsTest extends PHPUnit_Framework_TestCase
   /**
   * @depends testSafeBase64Random
   * @dataProvider providerEncrypt
+  * @group encrypt
   */
   public function testEncrypt($string, $key, $result)
   {
@@ -140,6 +145,7 @@ class HtmlIncludesFunctionsTest extends PHPUnit_Framework_TestCase
   /**
   * @depends testEncrypt
   * @dataProvider providerEncrypt
+  * @group encrypt
   */
   public function testDecrypt($result, $key, $string)
   {
@@ -149,6 +155,7 @@ class HtmlIncludesFunctionsTest extends PHPUnit_Framework_TestCase
   /**
   * @depends testEncrypt
   * @dataProvider providerEncryptRandom
+  * @group encrypt
   */
   public function testEncryptRandom($string, $key)
   {
@@ -213,23 +220,26 @@ class HtmlIncludesFunctionsTest extends PHPUnit_Framework_TestCase
       array(0,                            'test', FALSE, " AND `test` = '0'"),
       array('1,sf,98u8',                '`test`', FALSE, " AND `test` = '1,sf,98u8'"),
       array(array('1,sf,98u8'),         'I.test', FALSE, " AND `I`.`test` = '1,sf,98u8'"),
-      array(array('1,sf,98u8', ''), '`I`.`test`', FALSE, " AND `I`.`test` IN ('1,sf,98u8','')"),
-      array(OBS_VAR_UNSET,              '`test`', FALSE, " AND `test` = ''"),
+      array(array('1,sf','98u8', ''), '`I`.`test`', FALSE, " AND (`I`.`test` IN ('1,sf','98u8','') OR `I`.`test` IS NULL)"),
+      array(OBS_VAR_UNSET,              '`test`', FALSE, " AND (`test` = '' OR `test` IS NULL)"),
       array('"*%F@W)b\'_u<[`R1/#F"',      'test', FALSE, " AND `test` = '\\\"*%F@W)b\'_u<[`R1/#F\\\"'"),
       // Negative
       array(array('1,sf,98u8'),         'I.test', 'NOT', " AND `I`.`test` != '1,sf,98u8'"),
       array(array('1,sf,98u8'),         'I.test',  '!=', " AND `I`.`test` != '1,sf,98u8'"),
-      array(array('1,sf,98u8', ''), '`I`.`test`',  '!=', " AND `I`.`test` NOT IN ('1,sf,98u8','')"),
+      array(array('1,sf,98u8', ''), '`I`.`test`',  '!=', " AND (`I`.`test` NOT IN ('1,sf,98u8','') AND `I`.`test` IS NOT NULL)"),
       // LIKE conditions
       array(0,                            'test',  '%LIKE', " AND (`test` LIKE '%0')"),
       array('1,sf,98u8',                '`test`',  'LIKE%', " AND (`test` LIKE '1,sf,98u8%')"),
       array(array('1,sf,98u8'),         'I.test', '%LIKE%', " AND (`I`.`test` LIKE '%1,sf,98u8%')"),
-      array(array('1,sf,98u8', ''), '`I`.`test`',   'LIKE', " AND (`I`.`test` LIKE '1,sf,98u8' OR `I`.`test` LIKE '')"),
+      array(array('1,sf,98u8', ''), '`I`.`test`',   'LIKE', " AND (`I`.`test` LIKE '1,sf,98u8' OR ISNULL(`I`.`test`, '') LIKE '')"),
       array(OBS_VAR_UNSET,              '`test`',   'LIKE', " AND (`test` LIKE '".OBS_VAR_UNSET."')"),
       array('"*%F@W)b\'_u<[`R1/#F"',      'test',   'LIKE', " AND (`test` LIKE '\\\"%\%F@W)b\'\_u<[`R1/#F\\\"')"),
       // Negative LIKE
       array('1,sf,98u8',                '`test`', 'NOT LIKE%', " AND (`test` NOT LIKE '1,sf,98u8%')"),
-      array(array('1,sf,98u8', ''), '`I`.`test`',  'NOT LIKE', " AND (`I`.`test` NOT LIKE '1,sf,98u8' AND `I`.`test` NOT LIKE '')"),
+      array(array('1,sf,98u8', ''), '`I`.`test`',  'NOT LIKE', " AND (`I`.`test` NOT LIKE '1,sf,98u8' AND ISNULL(`I`.`test`, '') NOT LIKE '')"),
+      // Duplicates
+      array(array('1','sf','1','1','98u8',''), '`I`.`test`', FALSE, " AND (`I`.`test` IN ('1','sf','98u8','') OR `I`.`test` IS NULL)"),
+      array(array('1','sf','98u8','1','sf',''), 'I.test', '%LIKE%', " AND (`I`.`test` LIKE '%1%' OR `I`.`test` LIKE '%sf%' OR `I`.`test` LIKE '%98u8%' OR ISNULL(`I`.`test`, '') LIKE '')"),
       // Wrong conditions
       array('"*%F@W)b\'_u<[`R1/#F"',      'test',    'wtf', " AND `test` = '\\\"*%F@W)b\'_u<[`R1/#F\\\"'"),
       array('ssdf',                     '`test`',     TRUE, " AND (`test` LIKE 'ssdf')"),
@@ -255,6 +265,8 @@ class HtmlIncludesFunctionsTest extends PHPUnit_Framework_TestCase
       array(array('os' => 'ios'), TRUE, 'cisco'),
       // by $device['os'] and vendor definition
       array(array('os' => 'cyclades'), TRUE, 'emerson'),
+      // by $device['os'] and vendor definition (with non alpha chars)
+      //array(array('os' => 'ccplus'), TRUE, 'c_c_power'),
       // by $device['os'] and distro name in array
       array(array('os' => 'linux', 'distro' => 'RedHat'), TRUE, 'redhat'),
       // by $device['os'] and icon in array

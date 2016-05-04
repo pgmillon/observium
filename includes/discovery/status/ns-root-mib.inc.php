@@ -7,12 +7,11 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 echo(" NS-ROOT-MIB ");
-
 
 // Collect HAMode & HAState
 
@@ -24,7 +23,7 @@ if ($sysHighAvailabilityMode !== '' && $haCurState !== '')
   $descr = 'High Availability Status';
   // $oid   = '.1.3.6.1.4.1.5951.4.1.1.6.0'; $oid   = '1.3.6.1.4.1.5951.4.1.1.23.24.0';
   // $value = $sysHighAvailabilityMode; $value = $haCurState;
-  discover_status($device, 'netscaler-ha-0', '0', 'netscaler-ha', $descr, NULL, array('entPhysicalClass' => 'other'));
+  discover_status($device, 'ns-root-mib-ha-0', '0', 'ns-root-mib-ha', $descr, NULL, array('entPhysicalClass' => 'other'));
 }
 
 unset($sysHighAvailabilityMode);

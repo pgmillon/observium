@@ -7,14 +7,14 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 // FIXME. Migrate later to discover_pseudowire() & check_valid_pseudowire()
-if ($config['enable_pseudowires'])
-{
-  echo(" Pseudowires : ");
+if (!$config['enable_pseudowires']) { return; }
+
+  print_cli_data_field("Discovering MIBs", 3);
 
   $valid['pseudowires'] = array();
 
@@ -51,6 +51,5 @@ if ($config['enable_pseudowires'])
 
   // Clean
   unset($pw, $pws_cache, $mib);
-} # enable_pseudowires
 
 // EOF

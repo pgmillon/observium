@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -60,6 +60,10 @@ foreach ($device_app_types as $type_key => $type_data)
       }
       $navbar['options'][$app['app_type']]['text'] = $name;
       $navbar['options'][$app['app_type']]['url'] = $url;
+
+      $image = $config['html_dir'].'/images/icons/'.$app['app_type'].'.png';
+      $icon = (is_file($image) ? $app['app_type'] : 'apps');
+      $navbar['options'][$app['app_type']]['image'] = 'images/icons/'.$icon.'.png';
     }
 
     // If there is more than one instance of the current app type we need to determine how to render the navbar
@@ -130,7 +134,9 @@ if (is_file($app_filename))
   // If a matching app_section array exists within app_graphs, print the graphs.
   if (isset($app_graphs[$vars['app_section']]) && is_array($app_graphs[$vars['app_section']]))
   {
-    echo '<table class="table table-striped table-hover table-bordered table-condensed">';
+    echo generate_box_open();
+
+    echo '<table class="table table-striped table-hover  table-condensed">';
 
     foreach ($app_graphs[$vars['app_section']] as $key => $text)
     {
@@ -139,14 +145,15 @@ if (is_file($app_filename))
       $graph_array['id']     = $app['app_id'];
       $graph_array['type']   = "application_".$key;
       echo '<tr><td>';
-      echo '<h4>',$text,'</h4>';
+      echo '<h3>',$text,'</h4>';
 
       print_graph_row($graph_array);
 
       echo '</td></tr>';
     }
-
     echo '</table>';
+
+    generate_box_close();
   }
 }
 

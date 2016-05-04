@@ -1,0 +1,798 @@
+-- =================================================================
+-- Copyright (c) 2010-2014 Hewlett-Packard Development Company, L.P.
+--
+-- Description: FC PSM(Fabric Port Security Management) MIB
+-- Reference:
+-- Version: V1.0
+-- History:
+-- V1.0 Initial version 2013-10-17
+--=================================================================
+HPN-ICF-FC-PSM-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    Unsigned32, Counter32,
+    MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE
+            FROM SNMPv2-SMI
+    TEXTUAL-CONVENTION, RowStatus, TruthValue, TimeStamp
+            FROM    SNMPv2-TC
+    InterfaceIndexOrZero, InterfaceIndex, ifDescr
+            FROM    IF-MIB
+    hpnicfSan
+            FROM    HPN-ICF-VSAN-MIB
+    HpnicfFcNameIdOrZero
+            FROM    HPN-ICF-FC-TC-MIB
+    ;
+
+-- ==================================================================
+--
+-- ======================= Definition Begin =========================
+--
+-- ==================================================================
+
+hpnicfFcPsm MODULE-IDENTITY
+    LAST-UPDATED "201310170000Z"
+    ORGANIZATION
+        ""
+    CONTACT-INFO
+        ""
+    DESCRIPTION
+        "This MIB contains the objects for FC port security."
+    REVISION "201310170000Z"      -- October 17, 2013 at 09:30 GMT
+    DESCRIPTION
+        "HPN-ICF-FC-PSM-MIB module is for managing the implementation of
+         FC port security."
+    ::= { hpnicfSan 8 }
+
+
+-- =================================================================
+-- Subtrees in the FC PSM MIB
+-- =================================================================
+
+hpnicfFcPsmNotifications  OBJECT IDENTIFIER ::= { hpnicfFcPsm 0 }
+hpnicfFcPsmObjects        OBJECT IDENTIFIER ::= { hpnicfFcPsm 1 }
+
+hpnicfFcPsmScalarObjects  OBJECT IDENTIFIER ::= { hpnicfFcPsmObjects 1 }
+hpnicfFcPsmConfiguration  OBJECT IDENTIFIER ::= { hpnicfFcPsmObjects 2 }
+hpnicfFcPsmStats          OBJECT IDENTIFIER ::= { hpnicfFcPsmObjects 3 }
+
+
+-- =================================================================
+-- Type definitions
+-- =================================================================
+
+HpnicfFcPsmPortBindDevType ::= TEXTUAL-CONVENTION
+    STATUS current
+    DESCRIPTION
+        "The types of the instance of hpnicfFcPsmLoginDev, including
+         nWWN(Node World Wide Name), pWWN(Port World Wide Name),
+         sWWN(Switch World Wide Name), and wildCard."
+    SYNTAX INTEGER
+        {
+            nWWN(1),
+            pWWN(2),
+            sWWN(3),
+            wildCard(4)
+        }
+
+
+HpnicfFcPsmClearEntryType ::= TEXTUAL-CONVENTION
+    STATUS current
+    DESCRIPTION
+        "This object when set to clearStatic, results in port bind static
+         entries being cleared on this VSAN(Virtual Storage Area Networks).
+         This object when set to clearAutoLearn, results in port bind
+         auto-learnt entries being cleared on this VSAN.  This object when
+         set to clearAll, results in all of the port bind entries being
+         cleared on this VSAN.  No action is taken if this object is set
+         to noop.
+         The value of this object when read is always noop."
+    SYNTAX INTEGER
+        {
+            clearStatic(1),
+            clearAutoLearn(2),
+            clearAll(3),
+            noop(4)
+        }
+
+
+--
+-- The hpnicfFcPsmScalarObjects subtree
+--
+
+-- =================================================================
+-- The FC Port Security Management Notification control object
+-- =================================================================
+
+hpnicfFcPsmNotifyEnable OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "Whether to generate the notification or not depends on the object."
+    DEFVAL      { false }
+    ::= { hpnicfFcPsmScalarObjects 1 }
+
+
+--
+-- The hpnicfFcPsmConfiguration subtree
+--
+-- Implementation of the hpnicfFcPsmConfiguration subtree is for
+-- the operation of FC port security.
+--
+
+-- =================================================================
+-- The FC Port Security Management Enable Table
+-- =================================================================
+
+hpnicfFcPsmEnableTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfFcPsmEnableEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Enable or disable the port security feature on a specified VSAN."
+    ::= { hpnicfFcPsmConfiguration 1 }
+
+hpnicfFcPsmEnableEntry OBJECT-TYPE
+    SYNTAX HpnicfFcPsmEnableEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Detailed information about the port security."
+    INDEX  {
+             hpnicfFcPsmEnableVsanIndex
+           }
+    ::= { hpnicfFcPsmEnableTable 1 }
+
+HpnicfFcPsmEnableEntry ::=
+    SEQUENCE {
+        hpnicfFcPsmEnableVsanIndex     Unsigned32,
+        hpnicfFcPsmEnable              INTEGER,
+        hpnicfFcPsmEnableState         TruthValue
+             }
+
+hpnicfFcPsmEnableVsanIndex OBJECT-TYPE
+    SYNTAX Unsigned32 (1..4095)
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "The ID of VSAN on this entry."
+    ::= { hpnicfFcPsmEnableEntry 1 }
+
+
+hpnicfFcPsmEnable OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+            enable(1),
+            enableWithAutoLearn(2),
+            disable(3),
+            noop(4)
+        }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "When set to enable, the port security is on, the value of
+         hpnicfFcPsmEnableState will be true.
+         When set to enableWithAutoLearn, the port security is on
+         with auto-learning, the value of hpnicfFcPsmEnableState will
+         be true.
+         When set to disable, the port security is off, the value of
+         hpnicfFcPsmEnableState will be false.
+         The noop means no action.
+         The value of this object when read is always noop."
+    DEFVAL      { noop }
+    ::= { hpnicfFcPsmEnableEntry 2 }
+
+
+hpnicfFcPsmEnableState OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The state of the port security.  When the value is true, it
+         means the port security is on, while the false means the port
+         security is off."
+    DEFVAL      { false }
+    ::= { hpnicfFcPsmEnableEntry 3 }
+
+
+
+-- =================================================================
+-- The FC Port Security Management Config Table
+-- =================================================================
+
+hpnicfFcPsmConfigTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfFcPsmConfigEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "A table that contains the configured entries."
+    ::= { hpnicfFcPsmConfiguration 2 }
+
+
+hpnicfFcPsmConfigEntry OBJECT-TYPE
+    SYNTAX HpnicfFcPsmConfigEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Detailed information about each configuration."
+    INDEX  {
+             hpnicfFcPsmEnableVsanIndex,
+             hpnicfFcPsmIndex
+           }
+    ::= { hpnicfFcPsmConfigTable 1 }
+
+
+HpnicfFcPsmConfigEntry ::=
+    SEQUENCE {
+        hpnicfFcPsmIndex
+            Unsigned32,
+        hpnicfFcPsmLoginDevType
+            HpnicfFcPsmPortBindDevType,
+        hpnicfFcPsmLoginDev
+            HpnicfFcNameIdOrZero,
+        hpnicfFcPsmLoginPoint
+            InterfaceIndexOrZero,
+        hpnicfFcPsmRowStatus
+            RowStatus
+             }
+
+
+hpnicfFcPsmIndex OBJECT-TYPE
+    SYNTAX Unsigned32 (1..32768)
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "The index of this entry."
+    ::= { hpnicfFcPsmConfigEntry 1 }
+
+
+hpnicfFcPsmLoginDevType OBJECT-TYPE
+    SYNTAX HpnicfFcPsmPortBindDevType
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "This represents the type of the instance of hpnicfFcPsmLoginDev,
+         which includes nWWN, pWWN, sWWN, and wildCard."
+    ::= { hpnicfFcPsmConfigEntry 2 }
+
+
+hpnicfFcPsmLoginDev OBJECT-TYPE
+    SYNTAX HpnicfFcNameIdOrZero
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The logging-in device name, which is decided by the
+         hpnicfFcPsmLoginDevType object.  It represents node
+         WWN when the value of hpnicfFcPsmLoginDevType is nWWN.
+         It represents port WWN when the value of hpnicfFcPsmLoginDevType
+         is pWWN.  It represents switch WWN when the value of
+         hpnicfFcPsmLoginDevType is sWWN.  It represents any device
+         when the value of hpnicfFcPsmLoginDevType is wildCard, and
+         the value of the instance of this object should be
+         zero-length string.
+         The value of this object should not be invalid when
+         hpnicfFcPsmRowStatus is set to createAndGo or active."
+    ::= { hpnicfFcPsmConfigEntry 3 }
+
+hpnicfFcPsmLoginPoint OBJECT-TYPE
+    SYNTAX InterfaceIndexOrZero
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The address of the port on the local switch through which
+         the instance of hpnicfFcPsmLoginDev can log in.  It represents
+         ifindex when the value is not zero.  It represents any port
+         when the value is zero."
+    ::= { hpnicfFcPsmConfigEntry 4 }
+
+
+hpnicfFcPsmRowStatus OBJECT-TYPE
+    SYNTAX RowStatus
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "Entry status.  When creating a new instance of this table,
+         the following objects should be set simultaneously:
+         hpnicfFcPsmLoginDevType, h3cFcPsmLoginDev, hpnicfFcPsmLoginPoint,
+         hpnicfFcPsmRowStatus.  If hpnicfFcPsmLoginDevType is set to wildCard,
+         the value of the instance of hpnicfFcPsmLoginDev should be
+         zero-length string.  The value of hpnicfFcPsmLoginDevType and
+         hpnicfFcPsmLoginPoint cannot be set to wildCard and zero at
+         the same time."
+    ::= { hpnicfFcPsmConfigEntry 5 }
+
+
+
+-- =================================================================
+-- The FC Port Security Management Enforced Table
+-- =================================================================
+hpnicfFcPsmEnfTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfFcPsmEnfEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "The FC port security enforced table.  It contains not only the
+         configured policies, but also the learning ones learnt by the
+         switch itself."
+    ::= { hpnicfFcPsmConfiguration 3 }
+
+
+
+hpnicfFcPsmEnfEntry OBJECT-TYPE
+    SYNTAX HpnicfFcPsmEnfEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Detailed information about the FC port security enforced policy."
+    INDEX  {
+             hpnicfFcPsmEnableVsanIndex,
+             hpnicfFcPsmEnfIndex
+           }
+    ::= { hpnicfFcPsmEnfTable 1 }
+
+
+HpnicfFcPsmEnfEntry ::=
+    SEQUENCE {
+        hpnicfFcPsmEnfIndex
+            Unsigned32,
+        hpnicfFcPsmEnfLoginDevType
+            HpnicfFcPsmPortBindDevType,
+        hpnicfFcPsmEnfLoginDev
+            HpnicfFcNameIdOrZero,
+        hpnicfFcPsmEnfLoginPoint
+            InterfaceIndexOrZero,
+        hpnicfFcPsmEnfEntryType
+            INTEGER
+             }
+
+
+hpnicfFcPsmEnfIndex OBJECT-TYPE
+    SYNTAX Unsigned32 (1..32768)
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "The index of this entry."
+    ::= { hpnicfFcPsmEnfEntry 1 }
+
+
+hpnicfFcPsmEnfLoginDevType OBJECT-TYPE
+    SYNTAX HpnicfFcPsmPortBindDevType
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "This represents the type of the instance of hpnicfFcPsmEnfLoginDev,
+         which includes nWWN, pWWN, sWWN, and wildCard."
+    ::= { hpnicfFcPsmEnfEntry 2 }
+
+
+hpnicfFcPsmEnfLoginDev OBJECT-TYPE
+    SYNTAX HpnicfFcNameIdOrZero
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The logging-in device name, which is decided by the
+         hpnicfFcPsmEnfLoginDevType object.  It represents node WWN
+         when the value of hpnicfFcPsmEnfLoginDevType is nWWN.  It
+         represents port WWN when the value of hpnicfFcPsmEnfLoginDevType
+         is pWWN.  It represents switch WWN when the value of
+         hpnicfFcPsmEnfLoginDevType is sWWN.  It represents any device when
+         the value of hpnicfFcPsmEnfLoginDevType is wildCard, and the value
+         of the instance of this object should be zero-length string."
+    ::= { hpnicfFcPsmEnfEntry 3 }
+
+
+hpnicfFcPsmEnfLoginPoint OBJECT-TYPE
+    SYNTAX InterfaceIndexOrZero
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+         "The address of the port on the local switch through which
+          the instance of hpnicfFcPsmEnfLoginDev can log in.  It represents
+          ifindex when the value is not zero.  It represents any port
+          when the value is zero."
+    ::= { hpnicfFcPsmEnfEntry 4 }
+
+
+hpnicfFcPsmEnfEntryType OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+            learning(1),
+            learnt(2),
+            static(3)
+        }
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "When the value is learning, it represents the entry is learnt
+         by the switch itself temporarily and will be deleted when the
+         device log out.  When the value is learnt, it represents the
+         entry is learnt by the switch permanently.  When the value is
+         static, it represents the entry is configured."
+    ::= { hpnicfFcPsmEnfEntry 5 }
+
+
+-- =================================================================
+-- The FC Port Security Management Copy To Config Table
+-- =================================================================
+
+hpnicfFcPsmCopyToConfigTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfFcPsmCopyToConfigEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Specifies whether to copy the entries from enforced table
+         to the ones on configured table."
+    ::= { hpnicfFcPsmConfiguration 4 }
+
+
+hpnicfFcPsmCopyToConfigEntry OBJECT-TYPE
+    SYNTAX HpnicfFcPsmCopyToConfigEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Detailed information about the operation."
+    INDEX  {
+             hpnicfFcPsmEnableVsanIndex
+           }
+    ::= { hpnicfFcPsmCopyToConfigTable 1 }
+
+
+HpnicfFcPsmCopyToConfigEntry ::=
+    SEQUENCE {
+        hpnicfFcPsmCopyToConfig
+            INTEGER
+             }
+
+
+hpnicfFcPsmCopyToConfig OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+            copy(1),
+            noop(2)
+        }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "When the object is set to copy, the learned entries will be
+         copied on to the configured table on this VSAN, while the noop
+         means no operation.
+         The value of this object when read is always noop."
+    DEFVAL      { noop }
+    ::= { hpnicfFcPsmCopyToConfigEntry 1 }
+
+
+-- =================================================================
+-- The FC Port Security Management Auto Learn Table
+-- =================================================================
+
+hpnicfFcPsmAutoLearnTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfFcPsmAutoLearnEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table shows whether the auto-learning is enabled or
+         not on specific VSANs."
+    ::= { hpnicfFcPsmConfiguration 5 }
+
+
+hpnicfFcPsmAutoLearnEntry OBJECT-TYPE
+    SYNTAX HpnicfFcPsmAutoLearnEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Detailed information about the auto-learning."
+    INDEX { hpnicfFcPsmEnableVsanIndex }
+    ::= { hpnicfFcPsmAutoLearnTable 1 }
+
+
+HpnicfFcPsmAutoLearnEntry ::=
+    SEQUENCE {
+        hpnicfFcPsmAutoLearnEnable
+            TruthValue
+             }
+
+
+
+hpnicfFcPsmAutoLearnEnable OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "This object is set to true to enable, or false to disable
+         auto-learning on the local switch.  When set to true, the
+         switch can learn the devices that have already logged in
+         as learning entries on the enforced table, while the false
+         can stop the learning operation with the learning entries
+         transformed to learnt ones."
+    DEFVAL      { false }
+    ::= { hpnicfFcPsmAutoLearnEntry 1 }
+
+
+
+-- =================================================================
+-- The FC Port Security Management Clear Table
+-- =================================================================
+
+hpnicfFcPsmClearTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfFcPsmClearEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table is used for cleaning specific entries in enforced table."
+    ::= { hpnicfFcPsmConfiguration 6 }
+
+
+hpnicfFcPsmClearEntry OBJECT-TYPE
+    SYNTAX HpnicfFcPsmClearEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Detailed information about the cleaning options."
+    INDEX { hpnicfFcPsmEnableVsanIndex }
+    ::= { hpnicfFcPsmClearTable 1 }
+
+
+HpnicfFcPsmClearEntry ::=
+    SEQUENCE {
+        hpnicfFcPsmClearType
+            HpnicfFcPsmClearEntryType,
+        hpnicfFcPsmClearIntf
+            InterfaceIndexOrZero
+             }
+
+
+hpnicfFcPsmClearType OBJECT-TYPE
+    SYNTAX HpnicfFcPsmClearEntryType
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "This object when set to clearStatic, results in port bind
+         static entries being cleared on this VSAN.  This object when
+         set to clearAutoLearn, results in auto-learnt entries being
+         cleared on this VSAN.  This object when set to clearAll,
+         results in all of the port bind entries being cleared on
+         this VSAN.  No action is taken if this object is set to noop.
+         The value of this object when read is always noop."
+    DEFVAL      { noop }
+    ::= { hpnicfFcPsmClearEntry 1 }
+
+
+hpnicfFcPsmClearIntf OBJECT-TYPE
+    SYNTAX InterfaceIndexOrZero
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The object specifies the interface on which the entries will be
+         cleared.  If the object is zero or not set, it means the specified
+         entries on all interfaces will be cleared."
+    ::= { hpnicfFcPsmClearEntry 2 }
+
+
+--
+-- The hpnicfFcPsmStats subtree
+--
+-- Implementation of the hpnicfFcPsmStats subtree is for
+-- the show of statistics about FC port security.
+--
+
+-- =================================================================
+-- The FC Port Security Management Stats Table
+-- =================================================================
+
+hpnicfFcPsmStatsTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfFcPsmStatsEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table contains statistics of devices, which had been
+         allowed or denied to log into the switch."
+    ::= { hpnicfFcPsmStats 1 }
+
+
+hpnicfFcPsmStatsEntry OBJECT-TYPE
+    SYNTAX HpnicfFcPsmStatsEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Detailed information about the statistics."
+    INDEX { hpnicfFcPsmEnableVsanIndex }
+    ::= { hpnicfFcPsmStatsTable 1 }
+
+
+HpnicfFcPsmStatsEntry ::=
+    SEQUENCE {
+        hpnicfFcPsmAllowedLogins
+            Counter32,
+        hpnicfFcPsmDeniedLogins
+            Counter32,
+        hpnicfFcPsmStatsClear
+            INTEGER
+             }
+
+
+
+hpnicfFcPsmAllowedLogins OBJECT-TYPE
+    SYNTAX Counter32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of requests that have been allowed on the
+         specified VSAN."
+    ::= { hpnicfFcPsmStatsEntry 1 }
+
+
+hpnicfFcPsmDeniedLogins OBJECT-TYPE
+    SYNTAX Counter32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of requests that have been denied on the
+         specified VSAN."
+    ::= { hpnicfFcPsmStatsEntry 2 }
+
+
+hpnicfFcPsmStatsClear OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+            clear(1),
+            noop(2)
+        }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The statistics on this VSAN will be cleared if this object
+         is set to clear.  No action is taken if this object is
+         set to noop.
+         The value of this object when read is always noop."
+    DEFVAL      { noop }
+    ::= { hpnicfFcPsmStatsEntry 3 }
+
+
+-- =================================================================
+-- The FC Port Security Management Violation Table
+-- =================================================================
+
+hpnicfFcPsmViolationTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfFcPsmViolationEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table maintains the information about the violations happened,
+         containing at most 1024 items.
+         When the number exceeds 1024, the earliest item will be over-written."
+    ::= { hpnicfFcPsmStats 2 }
+
+
+hpnicfFcPsmViolationEntry OBJECT-TYPE
+    SYNTAX HpnicfFcPsmViolationEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Detailed information about the violation."
+    INDEX  {
+             hpnicfFcPsmEnableVsanIndex,
+             hpnicfFcPsmViolationIndex
+           }
+    ::= { hpnicfFcPsmViolationTable 1 }
+
+
+HpnicfFcPsmViolationEntry ::=
+    SEQUENCE {
+        hpnicfFcPsmViolationIndex
+            Unsigned32,
+        hpnicfFcPsmLoginPWWN
+            HpnicfFcNameIdOrZero,
+        hpnicfFcPsmLoginNWWN
+            HpnicfFcNameIdOrZero,
+        hpnicfFcPsmLoginSWWN
+            HpnicfFcNameIdOrZero,
+        hpnicfFcPsmLoginIntf
+            InterfaceIndex,
+        hpnicfFcPsmLoginTime
+            TimeStamp,
+        hpnicfFcPsmLoginCount
+            Counter32
+             }
+
+
+hpnicfFcPsmViolationIndex OBJECT-TYPE
+    SYNTAX Unsigned32 (1..1024)
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "The index of this entry.  The entry is uniquely distinguished by WWN,
+         WWN type and ifindex where the login was denied."
+    ::= { hpnicfFcPsmViolationEntry 1 }
+
+
+hpnicfFcPsmLoginPWWN OBJECT-TYPE
+    SYNTAX HpnicfFcNameIdOrZero
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The pWWN of the device whose FLOGI(Fabric Login) request had
+        been denied.  If the device is an n-node, the value of the instance
+        of hpnicfFcPsmLoginSWWN should be zero-length string."
+    ::= { hpnicfFcPsmViolationEntry 2 }
+
+
+hpnicfFcPsmLoginNWWN OBJECT-TYPE
+    SYNTAX HpnicfFcNameIdOrZero
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The nWWN of the device whose FLOGI request had been denied.
+         If the device is an n-node, the value of the instance of
+         hpnicfFcPsmLoginSWWN should be zero-length string."
+    ::= { hpnicfFcPsmViolationEntry 3 }
+
+
+hpnicfFcPsmLoginSWWN OBJECT-TYPE
+    SYNTAX HpnicfFcNameIdOrZero
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The sWWN of the device whose FLOGI request had been denied.
+         If the device is a switch, the values of the instance of
+         hpnicfFcPsmLoginPWWN and hpnicfFcPsmLoginNWWN should be zero-length
+         string."
+    ::= { hpnicfFcPsmViolationEntry 4 }
+
+hpnicfFcPsmLoginIntf OBJECT-TYPE
+    SYNTAX InterfaceIndex
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The ifindex of the port where the login was denied."
+    ::= { hpnicfFcPsmViolationEntry 5 }
+
+
+hpnicfFcPsmLoginTime OBJECT-TYPE
+    SYNTAX TimeStamp
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Specifies the value of SysUpTime when the last denied login
+         happened."
+    ::= { hpnicfFcPsmViolationEntry 6 }
+
+
+hpnicfFcPsmLoginCount OBJECT-TYPE
+    SYNTAX Counter32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The number of times for a certain nWWN/pWWN or sWWN had
+         been denied to log into an interface of the local device."
+    ::= { hpnicfFcPsmViolationEntry 7 }
+
+-- =================================================================
+-- Notifications
+-- =================================================================
+
+hpnicfFcPsmFPortDenyNotify NOTIFICATION-TYPE
+    OBJECTS  {
+               ifDescr,
+               hpnicfFcPsmLoginPWWN,
+               hpnicfFcPsmLoginIntf,
+               hpnicfFcPsmLoginTime
+             }
+    STATUS current
+    DESCRIPTION
+        "Notifies that a FLOGI is denied on an F port of the local device."
+    ::= { hpnicfFcPsmNotifications 1 }
+
+
+hpnicfFcPsmEPortDenyNotify NOTIFICATION-TYPE
+    OBJECTS  {
+               ifDescr,
+               hpnicfFcPsmLoginSWWN,
+               hpnicfFcPsmLoginIntf,
+               hpnicfFcPsmLoginTime
+             }
+    STATUS current
+    DESCRIPTION
+        "Notifies that a switch is denied on an E port of the local device."
+    ::= { hpnicfFcPsmNotifications 2 }
+
+END

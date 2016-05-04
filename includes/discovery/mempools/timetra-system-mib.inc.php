@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -27,7 +27,7 @@
   FIXME: sgiKbMemoryUsed, sgiKbMemoryAvailable, sgiKbMemoryPoolAllocated (use HC bit)
 */
 
-echo(" TIMETRA-SYSTEM-MIB ");
+echo("TIMETRA-SYSTEM-MIB ");
 
 $mempool_array = snmpwalk_cache_multi_oid($device, "sgiMemoryAvailable",      NULL, "TIMETRA-SYSTEM-MIB");
 $mempool_array = snmpwalk_cache_multi_oid($device, "sgiMemoryUsed", $mempool_array, "TIMETRA-SYSTEM-MIB");

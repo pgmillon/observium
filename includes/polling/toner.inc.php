@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -55,7 +55,7 @@ if ($config['enable_printers'])
     dbUpdate(array('toner_current' => $tonerperc, 'toner_capacity' => $toner['toner_capacity']), 'toner', '`toner_id` = ?', array($toner['toner_id']));
 
     check_entity('toner', $toner, array('toner_current' => $tonerperc));
-    
+
     $graphs['toner'] = TRUE;
   }
 

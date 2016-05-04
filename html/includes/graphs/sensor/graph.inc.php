@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -20,9 +20,10 @@ switch ($sensor['sensor_class'])
     include("percent.inc.php");
     break;
   default:
-    if (is_file($sensor['sensor_class'].".inc.php"))
+    $include = $config['html_dir'] . "/includes/graphs/$type/".$sensor['sensor_class'].".inc.php";
+    if (is_file($include))
     {
-      include($sensor['sensor_class'].".inc.php");
+      include($include);
     } else {
       graph_error($type.'_'.$subtype); // Graph Template Missing;
     }

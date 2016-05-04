@@ -7,15 +7,15 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-echo(" HUAWEI-ENTITY-EXTENT-MIB ");
+echo("HUAWEI-ENTITY-EXTENT-MIB ");
 
 $processors_array = snmpwalk_cache_multi_oid($device, "hwEntityCpuUsage", $processors_array, "HUAWEI-ENTITY-EXTENT-MIB", mib_dirs('huawei'));
 $processors_array = snmpwalk_cache_multi_oid($device, "hwEntityMemSize",  $processors_array, "HUAWEI-ENTITY-EXTENT-MIB", mib_dirs('huawei'));
-$processors_array = snmpwalk_cache_multi_oid($device, "hwEntityBomEnDesc",$processors_array, "HUAWEI-ENTITY-EXTENT-MIB", mib_dirs('huawei'));
+$processors_array = snmpwalk_cache_multi_oid($device, "entPhysicalName",$processors_array, "ENTITY-MIB", mib_dirs('huawei'));
 if (OBS_DEBUG > 1) { print_vars($processors_array); }
 
 if (is_array($processors_array))
@@ -24,9 +24,9 @@ if (is_array($processors_array))
   {
     if ($entry['hwEntityMemSize'] != 0)
     {
-      print_debug($index . " " . $entry['hwEntityBomEnDesc'] . " -> " . $entry['hwEntityCpuUsage'] . " -> " . $entry['hwEntityMemSize']);
+      print_debug($index . " " . $entry['entPhysicalName'] . " -> " . $entry['hwEntityCpuUsage'] . " -> " . $entry['hwEntityMemSize']);
       $usage_oid = ".1.3.6.1.4.1.2011.5.25.31.1.1.1.1.5." . $index;
-      $descr = rewrite_entity_name($entry['hwEntityBomEnDesc']);
+      $descr = rewrite_entity_name($entry['entPhysicalName']);
       $usage = $entry['hwEntityCpuUsage'];
       if (!strstr($descr, "No") && !strstr($usage, "No") && $descr != "" )
       {

@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -42,10 +42,11 @@ switch ($vars['search'])
   case 'arp':
   case 'fdb':
   case 'dot1x':
-    include('pages/search/'.$vars['search'].'.inc.php');
+    include($config['html_dir'].'/pages/search/'.$vars['search'].'.inc.php');
     break;
   default:
-    echo("<h2>Error. Please report this to observium developers.</h2>");
+      print_error("<h4>Error</h4>
+               This should not happen. Please ensure you are on the latest release and then report this to the Observium developers if it continues.");
     break;
 }
 

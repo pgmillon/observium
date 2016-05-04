@@ -7,13 +7,13 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 // Authorises bill viewing and sets $ports as reference to mysql query containing ports for this bill
 
-include("../includes/billing.inc.php");
+//include("../includes/billing.inc.php");
 
 if (is_numeric($_GET['id']) && ($auth || bill_permitted($_GET['id'])))
 {

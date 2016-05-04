@@ -1,0 +1,3306 @@
+NETI-VAS-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, enterprises, Counter32, Counter64,
+    Unsigned32, Integer32
+        FROM SNMPv2-SMI
+    TEXTUAL-CONVENTION, TimeStamp, TruthValue, RowStatus, RowPointer,
+    DateAndTime
+        FROM SNMPv2-TC
+    SnmpAdminString
+        FROM SNMP-FRAMEWORK-MIB
+    InetAddressType, InetAddress, InetPortNumber
+        FROM INET-ADDRESS-MIB;
+
+netiVasMIB MODULE-IDENTITY
+    LAST-UPDATED
+        "201504200700Z"
+    ORGANIZATION
+        "Net Insight AB"
+    CONTACT-INFO
+        "Net Insight AB
+         Box 42093
+         SE-126 14 Stockholm
+         Sweden
+         Tel +46-8-685 0400
+         info@netinsight.se"
+    DESCRIPTION
+        "This document is work in progress, and it is likely to
+         change.
+
+         Reference: NID4613.
+
+         MIB for Video Appliance Services. The MIB describes objects
+         for setting up and monitoring of reliable video transports
+         over an IP network.  It also contains configuration objects
+         for encoders and decoders.
+
+         The MIB contains conceptual tables that describes the
+         different objects:
+
+         The table vasIfTable contains physical video ports, such as
+         ASI or SDI ports.
+
+         The table vasEncPipeTable contains video encoder pipelines.
+         A video encoder pipeline can encode the video (e.g. from SDI
+         to MPEG-4) to a stream, and process the audio, video and
+         meta-data.
+
+         The table vasDecPipeTable contains video decoder pipelines.
+         A video decoder pipeline can decode a stream (from
+         e.g. MPEG-4 to SDI) and process the audio, video and data in
+         the stream.
+
+         The table vasUdpSnkTable contains objects that receives an
+         UDP video stream on an IP interface and provides it as an
+         input to another source object.
+
+         The table vasUdpSrcTable contains objects that takes a video
+         stream from a sink object and transmits it as a UDP stream
+         from an IP interface. This object is the complement to an
+         object in the vasUdpSnkTable.
+
+         The table vasPulSrcTable contains the source objects of a
+         pull transport, i.e. a transport of a stream that is
+         initiated at the sink side, where the stream is pulled from
+         the source (sender) to the sink (receiver) at the sink.
+
+         The table vasMpuSrcTable contains the source objects of pull
+         transports, where multiple transports to different
+         destinations may be setup from the same source.
+
+         The table vasPulSnkTable contains the sink part of a pull
+         transport, i.e. a transport of a stream that is initiated at
+         the sink side, where the stream is pulled from the source
+         (sender) to the sink (receiver) at the sink.
+
+         The table vasPusSrcTable contains the source part of a push
+         transport, i.e. a transport that is initiated from the source
+         side, and is pushed from the source (sender) to the sink
+         (receiver) at the source.
+
+         The table vasPusSnkTable contains the sink part of a push
+         transport, i.e. a transport that is initiated from the source
+         side, and is pushed from the source (sender) to the sink
+         (receiver) at the source.
+
+         The MIB also contains tables for statistics."
+
+    REVISION
+        "201504200700Z"
+    DESCRIPTION
+        "This revision is not compatible with the previous revision.
+         - Revised the use of IP addresses and their types.
+         - Updated descriptions.
+
+         Based on NID4613 A26."
+    REVISION
+        "201504010000Z"
+    DESCRIPTION
+        "First public version, based on NID4613 A26."
+        
+    ::= { netiGeneric 5 }
+
+netinsight  OBJECT IDENTIFIER ::= { enterprises 2928 }
+netiGeneric OBJECT IDENTIFIER ::= { netinsight 2 }
+
+
+--
+-- Textual Conventions
+--
+
+VasConnectionStatus ::= TEXTUAL-CONVENTION
+   STATUS  current
+   DESCRIPTION
+       "The connection state of the video transport.
+
+       offline(0). The transport is disabled.
+
+       connecting(1). The transport is in the process of being
+       established.
+
+       reconnecting(2). The transport has been established, but has
+       then failed. Attempting to re-establish the connection.
+
+       connected(3). The transport is connected and operational.
+
+       unknown(9). The state is unknown."
+   SYNTAX  INTEGER {
+               offline(0),
+               connecting(1),
+               reconnecting(2),
+               connected(3),
+               unknown(9) }
+
+VasCipher ::= TEXTUAL-CONVENTION
+   STATUS  current
+   DESCRIPTION
+      "The cipher:
+
+       none(0). Encryption is not used.
+
+       aes128(1). AES-128, encrypted using Advanced Encryption
+       Standard with 128-bit key length.
+
+       aes192(1). AES-192, encrypted using Advanced Encryption
+       Standard with 192-bit key length.
+
+       aes256(1). AES-256, encrypted using Advanced Encryption
+       Standard with 256-bit key length."
+   SYNTAX  INTEGER {
+               none(0),
+               aes128(1),
+               aes192(2),
+               aes256(3) }
+    
+VasResetStatistics ::= TEXTUAL-CONVENTION
+   STATUS  current
+   DESCRIPTION
+      "reset(0). Reset all statistics."
+   SYNTAX  INTEGER {
+               reset(0)}
+
+
+VasVideoFormat ::= TEXTUAL-CONVENTION
+   STATUS  current
+   DESCRIPTION
+       "Video format."
+   SYNTAX  INTEGER {
+               unknown(0),
+               fmt525i59(1),
+               fmt625i50(2),
+               fmt720p23(3),
+               fmt720p24(4),
+               fmt720p25(5),
+               fmt720p29(6),
+               fmt720p30(7),
+               fmt720p50(8),
+               fmt720p59(9),
+               fmt720p60(10),
+               fmt1080p23(11),
+               fmt1080p24(12),
+               fmt1080p25(13),
+               fmt1080p29(14),
+               fmt1080p30(15),
+               fmt1080p50(16),
+               fmt1080p59(17),
+               fmt1080p60(18),
+               fmt1080i50(19),
+               fmt1080i59(20),
+               fmt1080i60(21) }
+
+--
+-- Groups
+--
+
+vasInterfaceGroup  OBJECT IDENTIFIER ::= { netiVasMIB 1 }
+vasEncoderPipeGroup  OBJECT IDENTIFIER ::= { netiVasMIB 2 }
+vasDecoderPipeGroup  OBJECT IDENTIFIER ::= { netiVasMIB 3 }
+vasTransportsGroup  OBJECT IDENTIFIER ::= { netiVasMIB 4 }
+vasStatisticsGroup OBJECT IDENTIFIER ::= { netiVasMIB 5 }
+
+--
+-- Interface Group
+--
+
+-- Start of Interface table
+
+vasIfTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF VasIfEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Table conceptual table contains video interfaces; physical
+         video ports, such as ASI and SDI ports."
+    ::= { vasInterfaceGroup 1 }
+
+vasIfEntry OBJECT-TYPE
+    SYNTAX      VasIfEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An entry in the conceptual table represents one video
+         interface."
+    INDEX { vasIfIndex }
+    ::= { vasIfTable 1 }
+
+VasIfEntry ::= SEQUENCE {
+    vasIfIndex Unsigned32,
+    vasIfName SnmpAdminString,
+    vasIfPurpose SnmpAdminString,
+    vasIfAdminStatus INTEGER,
+    vasIfOperStatus INTEGER,
+    vasIfFailure SnmpAdminString,
+    vasIfLastChanged TimeStamp,
+    vasIfResetStatistics VasResetStatistics,
+    vasIfInputFrom RowPointer,
+    vasIfPortMode INTEGER,
+    vasIfActiveFormat VasVideoFormat
+}
+    
+vasIfIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An index that uniquely identifies the interface in the table.
+         The index is maintained across reboots of the node.  The
+         index is generally a small number."
+    ::= { vasIfEntry 1 }
+
+vasIfName OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A textual name of the interface.  The name is unique within
+         the node.  The first part of the name is a string
+         representing the type of interface, the second part of the
+         name contains the device number followed by the port number
+         within the device, separated by a semi-colon."
+    ::= { vasIfEntry 2 }
+
+vasIfPurpose OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "A text that can describe the purpose of the interface.  This
+         is for administrative use."
+    DEFVAL { ''H }
+    ::= { vasIfEntry 3 }
+
+vasIfAdminStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    up(1),
+                    down(2) }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The administrative state of the interface.  The value
+         controls the desired state of the interface.
+
+         up(1). The interface shall be enabled.
+
+         down(2). The interface shall be disabled."
+    DEFVAL { down }
+    ::= { vasIfEntry 4 }
+
+vasIfOperStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    up(1),
+                    down(2) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The operational state of the interface.  The value normally
+         follow the state of the administrative state.
+
+         up(1). The interface is up and operational.
+
+         down(2). The interface is not operational, either because
+         its administrative state is down, or because of an error.  If
+         it is down because of an error, an alarm should be raised
+         and the vasIfFailure should describe the fault."
+    ::= { vasIfEntry 5 }
+
+vasIfFailure OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A text describing the configuration or error status of the
+         interface.  The text is the empty string if the configuration
+         is correct and no error is present, otherwise it contains a
+         message describing the error."
+    ::= { vasIfEntry 6 }
+
+vasIfLastChanged OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of sysUpTime when status or configuration of the
+         objects was last changed."
+    ::= { vasIfEntry 7 }
+
+vasIfResetStatistics OBJECT-TYPE
+    SYNTAX      VasResetStatistics
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Resets all statistics counters for the interface.  (Not yet
+         implemented)."
+    ::= { vasIfEntry 8 }
+
+vasIfInputFrom OBJECT-TYPE
+    SYNTAX      RowPointer
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If the interface is an output interface, as set on
+         vasIfPortMode, then this is a reference to the object that
+         shall deliver the video stream to the interface.  Which type
+         of object that is a valid input depends on the type of
+         interface.  
+
+         If the interface is an input interface, as set on
+         the vasIfPortMode, then the value is always `.0.0'."
+    ::= { vasIfEntry 9 }
+
+vasIfPortMode OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    asiInput(1),
+                    asiOutput(2),
+                    sdiInput(3),
+                    sdiOutput(4) }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Specifies how the interface shall operate.  When the port is
+         set as an input, then a video stream received on the physical
+         port is distributed to the objects having this port as their
+         input. When the port is set as an output, then a video stream
+         received from the object referenced in vasIfInputFrom is
+         transmitted on the physical port.
+
+         asiInput(1). The port shall operate as an ASI input.
+
+         asiOutput(2). The port shall operate as an ASI output.
+
+         sdiInput(3). The port shall operate as an SDI input.
+
+         sdiOutput(4). The port shall operate as an SDI output."
+    ::= { vasIfEntry 10 }
+
+vasIfActiveFormat OBJECT-TYPE
+    SYNTAX      VasVideoFormat
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The video source format."
+    ::= { vasIfEntry 11 }
+
+-- End of Interface table
+
+
+--
+-- Encoder Group
+--
+
+-- Start of Encoder pipe table
+
+vasEncPipeTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF VasEncPipeEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The conceptual table contains objects that represent video
+         encoder pipelines.  A video encoder pipeline can encode the
+         video (e.g. from SDI to MPEG-4) to a stream, and process the
+         audio, video and meta-data."
+    ::= { vasEncoderPipeGroup 1 }
+
+vasEncPipeEntry OBJECT-TYPE
+    SYNTAX      VasEncPipeEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An entry in the conceptual table represents one encoder
+         pipeline."
+        INDEX { vasEncPipeIndex }
+    ::= { vasEncPipeTable 1 }
+
+VasEncPipeEntry ::= SEQUENCE {
+    vasEncPipeIndex Unsigned32,
+    vasEncPipeRowStatus RowStatus,
+    vasEncPipeName SnmpAdminString,
+    vasEncPipePurpose SnmpAdminString,
+    vasEncPipeAdminStatus INTEGER,
+    vasEncPipeOperStatus INTEGER,
+    vasEncPipeFailure SnmpAdminString,
+    vasEncPipeLastChanged TimeStamp,
+    vasEncPipeResetStatistics VasResetStatistics,
+    
+    vasEncPipeStatsTr101 Unsigned32,
+    vasEncPipeEnableTr101 TruthValue,
+    vasEncPipeInputFrom RowPointer,
+    vasEncPipeCipher VasCipher,
+    vasEncPipeEncryptKey SnmpAdminString,
+    vasEncPipeProcessedFrames Counter32,
+    vasEncPipeCurrentTsBitrate Unsigned32,
+    vasEncPipeVideoBitrate Unsigned32
+}
+
+vasEncPipeIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An index that uniquely identifies the encoder pipeline in the
+         table."
+    ::= { vasEncPipeEntry 1 }
+
+vasEncPipeRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "See SNMPv2-TC.  Use vasEncPipeAdminStatus to activate and
+         de-activate an encoder pipeline.  The following values are
+         supported:
+
+         active(1). The object always reads active.
+
+         createAndGo(4). A new conceptual row is created representing
+         a new encoder pipeline.  To activate the encoder pipeline,
+         set the administrative state to up(1) after all columnar
+         objects have been set.
+
+         destroy(6). The encoder pipeline is deleted.  It can be
+         deleted regardless of its operational state."
+    ::= { vasEncPipeEntry 2 }
+
+vasEncPipeName OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A textual name of the encoder pipeline.  The name is
+         automatically assigned by the system.  The last part of the
+         name is the index in this table."
+    ::= { vasEncPipeEntry 3 }
+
+vasEncPipePurpose OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "A text that can describe the purpose of the encoder pipeline.
+         This is for administrative use."
+    DEFVAL { ''H }
+    ::= { vasEncPipeEntry 4 }
+
+vasEncPipeAdminStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    up(1),
+                    down(2) }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The administrative state of the encoder pipeline.
+
+         up(1). The encoder pipeline shall be enabled and allocates
+         the necessary resources.
+
+         down(2). The encoder pipeline shall be disabled and will not
+         allocate any resources."
+    DEFVAL { down }
+    ::= { vasEncPipeEntry 5 }
+
+vasEncPipeOperStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    up(1),
+                    down(2) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The operational state of the encoder pipe.  The value
+         normally follow the state of the administrative state.
+
+         up(1). The encoder pipe is up and operational.
+
+         down(2). The encoder pipe is not operational, either because
+         its administrative state is down, or because of an error.  If
+         it is down because of an error, an alarm should be raised
+         and the vasEncPipeFailure should describe the fault."
+    ::= { vasEncPipeEntry 6 }
+
+vasEncPipeFailure OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A text describing the configuration or error status of the
+         encoder pipeline.  The text is the empty string if the
+         configuration is correct and no error is present, otherwise
+         it contains a message describing the error."
+    ::= { vasEncPipeEntry 7 }
+
+vasEncPipeLastChanged OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of sysUpTime when status or configuration of the
+         objects was last changed."
+    ::= { vasEncPipeEntry 8 }
+
+vasEncPipeResetStatistics OBJECT-TYPE
+    SYNTAX      VasResetStatistics
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Resets all statistics counters for the encoder pipe.  (Not
+         yet implemented)."
+    ::= { vasEncPipeEntry 9 }
+
+vasEncPipeStatsTr101 OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Index for an entry in ETSI TR 101 290 statistics table for
+         this object.  (The table is not yet defined)."
+    ::= { vasEncPipeEntry 10 }
+
+vasEncPipeEnableTr101 OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Enables or disables the ETSI TR 101 290 statistics collection."
+    DEFVAL { false }
+    ::= { vasEncPipeEntry 11 }
+
+vasEncPipeInputFrom OBJECT-TYPE
+    SYNTAX      RowPointer
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "A reference to the object that shall supply the video stream
+         to the encoder pipe.  This could be a physical input port in
+         the vasIfTable, or a stream from e.g. a decoder pipe in the
+         vasDecPipeTable.  The value `.0.0' is used when no input is
+         specified."
+    ::= { vasEncPipeEntry 12 }
+
+vasEncPipeCipher OBJECT-TYPE
+    SYNTAX      VasCipher
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "A cipher to be used when encrypting the transport stream
+         generated by the encoder pipeline."
+    DEFVAL { none }
+    ::= { vasEncPipeEntry 13 }
+
+vasEncPipeEncryptKey OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The key to be used when encrypting the transport stream
+         generated by the encoder pipeline.  The key shall be provided
+         as a text with hexadecimal digits presented as lower case
+         characters."
+    DEFVAL { ''H }
+    ::= { vasEncPipeEntry 14 }
+
+vasEncPipeProcessedFrames OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Running counter of number of encoded frames."
+    ::= { vasEncPipeEntry 15 }
+
+vasEncPipeCurrentTsBitrate OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Current transport stream bitrate in kbps."
+    ::= { vasEncPipeEntry 16 }
+
+vasEncPipeVideoBitrate OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Target video bitrate after encoding in kbps."
+    ::= { vasEncPipeEntry 17 }
+
+-- End of Encoder pipe table
+
+
+--
+-- Decoder Group
+--
+
+-- Start of Decoder pipe table
+
+vasDecPipeTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF VasDecPipeEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The conceptual table contains objects that represent video
+         decoder pipelines.  A video decoder pipeline can decode a
+         stream (from e.g. MPEG-4 to SDI) and process the audio, video
+         and data in the stream."
+    ::= { vasDecoderPipeGroup 1 }
+
+vasDecPipeEntry OBJECT-TYPE
+    SYNTAX      VasDecPipeEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An entry in the conceptual table represents one decoder
+         pipeline."
+    INDEX { vasDecPipeIndex }
+    ::= { vasDecPipeTable 1 }
+
+VasDecPipeEntry ::= SEQUENCE {
+    vasDecPipeIndex Unsigned32,
+    vasDecPipeRowStatus RowStatus,
+    vasDecPipeName SnmpAdminString,
+    vasDecPipePurpose SnmpAdminString,
+    vasDecPipeAdminStatus INTEGER,
+    vasDecPipeOperStatus INTEGER,
+    vasDecPipeFailure SnmpAdminString,
+    vasDecPipeLastChanged TimeStamp,
+    vasDecPipeResetStatistics VasResetStatistics,
+    
+    vasDecPipeInputFrom RowPointer,
+    vasDecPipeCipher VasCipher,
+    vasDecPipeDecryptKey SnmpAdminString,
+    vasDecPipeProcessedFrames Counter32,
+    vasDecPipeCurrentTsBitrate Unsigned32,
+    vasDecPipeVideoBitrate Unsigned32
+}
+
+vasDecPipeIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An index that uniquely identifies the decoder pipeline in the
+         table."
+    ::= { vasDecPipeEntry 1 }
+
+vasDecPipeRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "See SNMPv2-TC.  Use vasDecPipeAdminStatus to activate and
+         de-activate a decoder pipeline.  The following values are
+         supported:
+
+         active(1). The object always reads active.
+
+         createAndGo(4). A new conceptual row is created representing
+         a new decoder pipeline.  To activate the decoder pipeline,
+         set the administrative state to up(1) after all columnar
+         objects have been set.
+
+         destroy(6). The decoder pipeline is deleted.  It can be
+         deleted regardless of its operational state."
+    ::= { vasDecPipeEntry 2 }
+
+vasDecPipeName OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A textual name of the decoder pipeline.  The name is
+         automatically assigned by the system.  The last part of the
+         name is the index in this table."
+    ::= { vasDecPipeEntry 3 }
+
+vasDecPipePurpose OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "A text that can describe the purpose of the decoder pipeline.
+         This is for administrative use."
+    DEFVAL { ''H }
+    ::= { vasDecPipeEntry 4 }
+
+vasDecPipeAdminStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    up(1),
+                    down(2) }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The administrative state of the decoder pipeline.
+
+         up(1). The decoder pipeline shall be enabled and will
+         allocate the necessary resources.
+
+         down(2). The decoder pipeline shall be disabled and will not
+         allocate any resources."
+    DEFVAL { down }
+    ::= { vasDecPipeEntry 5 }
+
+vasDecPipeOperStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    up(1),
+                    down(2) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The operational state of the decoder pipe.  The value
+         normally follow the state of the administrative state.
+
+         up(1). The decoder pipe is up and operational.
+
+         down(2). The decoder pipe is not operational, either because
+         its administrative state is down, or because of an error.  If
+         it is down because of an error, an alarm should be raised
+         and the vasDecPipeFailure should describe the fault."
+    ::= { vasDecPipeEntry 6 }
+
+vasDecPipeFailure OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A text describing the configuration or error status of the
+         decoder pipeline.  The text is the empty string if the
+         configuration is correct and no error is present, otherwise
+         it contains a message describing the error."
+    ::= { vasDecPipeEntry 7 }
+
+vasDecPipeLastChanged OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of sysUpTime when status or configuration of the
+         objects was last changed."
+    ::= { vasDecPipeEntry 8 }
+
+vasDecPipeResetStatistics OBJECT-TYPE
+    SYNTAX      VasResetStatistics
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Resets all statistics counters for the decoder pipe.  (Not
+         yet implemented)."
+    ::= { vasDecPipeEntry 9 }
+
+vasDecPipeInputFrom OBJECT-TYPE
+    SYNTAX      RowPointer
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "A reference to the object that shall supply the encoded video
+         stream to the decoder pipe.  This could be e.g. a pull or
+         push transport sink in the vasPulSnkTable or vasPusSnkTable,
+         or an encoder pipe in the vasEncPipeTable.  The value `.0.0'
+         is used when no input is specified."
+    ::= { vasDecPipeEntry 10 }
+
+vasDecPipeCipher OBJECT-TYPE
+    SYNTAX      VasCipher
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "A cipher to be used when decrypting the transport stream."
+    DEFVAL { none }
+    ::= { vasDecPipeEntry 11 }
+
+vasDecPipeDecryptKey OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The key to be used when decrypting the transport stream.  The
+         key shall be provided as a text with hexadecimal digits
+         presented as lower case characters."
+    DEFVAL { ''H }
+    ::= { vasDecPipeEntry 12 }
+
+vasDecPipeProcessedFrames OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Running counter of number of decoded frames."
+    ::= { vasDecPipeEntry 13 }
+
+vasDecPipeCurrentTsBitrate OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Current transport stream bitrate in kbps."
+    ::= { vasDecPipeEntry 14 }
+
+vasDecPipeVideoBitrate OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Video bitrate after decoding in kbps."
+    ::= { vasDecPipeEntry 15 }
+
+-- End of Decoder pipe table
+
+
+--
+-- Transport Group
+--
+
+vasStreamPort OBJECT-TYPE
+    SYNTAX      InetPortNumber
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The UDP port number that is used when listening at stream
+         connections requests."
+    DEFVAL { 2088 }
+    ::= { vasTransportsGroup 1 }
+
+-- Start of UDP source table
+
+vasUdpSrcTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF VasUdpSrcEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The conceptual table contains objects that takes a video
+         stream from a sink object and transmits it as a UDP stream
+         from an IP interface. This object is the complement to an
+         object in the vasUdpSnkTable."
+    ::= { vasTransportsGroup 2 }
+
+vasUdpSrcEntry OBJECT-TYPE
+    SYNTAX      VasUdpSrcEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An entry in the conceptual table represents one UDP source."
+    INDEX { vasUdpSrcIndex }
+    ::= { vasUdpSrcTable 1 }
+
+VasUdpSrcEntry ::= SEQUENCE {
+    vasUdpSrcIndex Unsigned32,
+    vasUdpSrcRowStatus RowStatus,
+    vasUdpSrcName SnmpAdminString,
+    vasUdpSrcPurpose SnmpAdminString,
+    vasUdpSrcAdminStatus INTEGER,
+    vasUdpSrcOperStatus INTEGER,
+    vasUdpSrcFailure SnmpAdminString,
+    vasUdpSrcLastChanged TimeStamp,
+    vasUdpSrcConnectionStatus VasConnectionStatus,
+    vasUdpSrcResetStatistics VasResetStatistics,
+    
+    vasUdpSrcStatsUdp Unsigned32,
+    vasUdpSrcInputFrom RowPointer,
+    vasUdpSrcRemoteHostType InetAddressType,
+    vasUdpSrcRemoteHostAddress InetAddress,
+    vasUdpSrcRemotePort InetPortNumber,
+    vasUdpSrcLocalIfType InetAddressType,
+    vasUdpSrcLocalIfAddress InetAddress,
+    vasUdpSrcLocalPort InetPortNumber,
+    vasUdpSrcCipher VasCipher,
+    vasUdpSrcDecryptKey SnmpAdminString,
+    vasUdpSrcTtl Unsigned32,
+    vasUdpSrcDontFragment TruthValue
+}
+
+vasUdpSrcIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An index that uniquely identifies the UDP source in the
+         table."
+    ::= { vasUdpSrcEntry 1 }
+
+vasUdpSrcRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "See SNMPv2-TC.  Use vasUdpSrcAdminStatus to activate and
+         de-activate a UDP source.  The following values are
+         supported:
+
+         active(1). The object always reads active.
+
+         createAndGo(4). A new conceptual row is created representing
+         a new UDP source.  To activate the UDP source, set the
+         administrative state to up(1) after all columnar objects have
+         been set.
+
+         destroy(6). The UDP source is deleted.  It can be deleted
+         regardless of its operational state."
+    ::= { vasUdpSrcEntry 2 }
+
+vasUdpSrcName OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A textual name of the UDP source.  The name is automatically
+         assigned by the system.  The last part of the name is the
+         index in this table."
+    ::= { vasUdpSrcEntry 3 }
+
+vasUdpSrcPurpose OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "A text that can describe the purpose of the UDP source.  This
+         is for administrative use."
+    DEFVAL { ''H }
+    ::= { vasUdpSrcEntry 4 }
+
+vasUdpSrcAdminStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    up(1),
+                    down(2) }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The administrative state of the UDP source.
+
+         up(1). The UDP source shall be enabled and allocates the
+         necessary resources.
+
+         down(2). The UDP source shall be disabled and will not allocate
+         any resources."
+    DEFVAL { down }
+    ::= { vasUdpSrcEntry 5 }
+
+vasUdpSrcOperStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    up(1),
+                    down(2) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The operational state of the UDP source.  The value normally
+         follow the state of the administrative state.
+
+         up(1). The UDP source is up and operational.
+
+         down(2). The UDP source is not operational, either because its
+         administrative state is down, or because of an error.  If it
+         is down because of an error, an alarm should be raised
+         and the vasUdpSrcFailure should describe the fault."
+    ::= { vasUdpSrcEntry 6 }
+
+vasUdpSrcFailure OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A string describing the configuration or error status of the
+         object.  The string is the empty string if the configuration
+         is correct and no error is present, otherwise it contains a
+         message describing the error."
+    ::= { vasUdpSrcEntry 7 }
+
+vasUdpSrcLastChanged OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of sysUpTime when status or configuration of the
+         objects was last changed."
+    ::= { vasUdpSrcEntry 8 }
+
+vasUdpSrcConnectionStatus OBJECT-TYPE
+    SYNTAX      VasConnectionStatus
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The status of the stream transport connection."
+    ::= { vasUdpSrcEntry 9 }
+
+vasUdpSrcResetStatistics OBJECT-TYPE
+    SYNTAX      VasResetStatistics
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Resets all statistics counters for the object.  (Not yet
+         implemented)."
+    ::= { vasUdpSrcEntry 10 }
+
+vasUdpSrcStatsUdp OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Index for an entry in statistics table vasUdpStatisticsTable
+         for this object."
+    ::= { vasUdpSrcEntry 11 }
+
+vasUdpSrcInputFrom OBJECT-TYPE
+    SYNTAX      RowPointer
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "A reference to the object that shall supply the video stream
+         to the UDP source.  This could be e.g. a pull or push sink in
+         the vasPulSnkTable or vasPusSnkTable, or a UDP sink in the
+         vasUdpSnkTable.  The value `.0.0' is used when no input is
+         specified."
+    ::= { vasUdpSrcEntry 12 }
+
+vasUdpSrcRemoteHostType OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Describes how vasUdpSrcRemoteHostAddress shall be
+         interpreted.  Supported values are `unknown', `ipv4' and
+         `dns'."
+    DEFVAL { unknown }
+    ::= { vasUdpSrcEntry 13 }
+
+vasUdpSrcRemoteHostAddress OBJECT-TYPE
+    SYNTAX      InetAddress
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The IP address or DNS hostname of the remote source that
+         shall provide the UDP stream."
+    DEFVAL { ''H }
+    ::= { vasUdpSrcEntry 14 }
+
+vasUdpSrcRemotePort OBJECT-TYPE
+    SYNTAX      InetPortNumber
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The port number at the remote source that shall provide the
+         UDP stream."
+    DEFVAL { 0 }
+    ::= { vasUdpSrcEntry 15 }
+
+vasUdpSrcLocalIfType OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Describes how the vasUdpSrcLocalIfAddress shall be
+         interpreted.  Supported value is `ipv4'."
+    DEFVAL { ipv4 }
+    ::= { vasUdpSrcEntry 16 }
+
+vasUdpSrcLocalIfAddress OBJECT-TYPE
+    SYNTAX      InetAddress
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The IP address of a local interface (NIC) that shall be used
+         as input for the video stream.  If any interface can be used,
+         set the IPv4 address 0.0.0.0."
+    DEFVAL { '00000000'H }
+    ::= { vasUdpSrcEntry 17 }
+
+vasUdpSrcLocalPort OBJECT-TYPE
+    SYNTAX      InetPortNumber
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The local UPD port number. Use 0 for any port."
+    DEFVAL { 0 }
+    ::= { vasUdpSrcEntry 18 }
+
+vasUdpSrcCipher OBJECT-TYPE
+    SYNTAX      VasCipher
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The cipher to use for encrypting the UDP video stream."
+    DEFVAL { none }
+    ::= { vasUdpSrcEntry 19 }
+
+vasUdpSrcDecryptKey OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The key to be used when encrypting the UDP video stream.  The
+         key shall be provided as a text with hexadecimal digits
+         presented as lower case characters."
+    DEFVAL { ''H }
+    ::= { vasUdpSrcEntry 20 }
+
+vasUdpSrcTtl OBJECT-TYPE
+    SYNTAX      Unsigned32 (1..255)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "TTL, the Time to Live (hop limit) for the UDP/IP datagram."
+    DEFVAL { 64 }
+    ::= { vasUdpSrcEntry 21 }
+
+vasUdpSrcDontFragment OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The Don't Fragment (DF) flag on the IP packet.  When set,
+         then if fragmentation would be required to route a packet,
+         the packet is dropped instead."
+    DEFVAL { true }
+    ::= { vasUdpSrcEntry 22 }
+
+-- End of UDP source table
+
+
+-- Start of UDP sink table
+
+vasUdpSnkTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF VasUdpSnkEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The conceptual table contains objects that receives a UDP
+         video stream on an IP interface and provides it as an input
+         to another source object."
+    ::= { vasTransportsGroup 3 }
+
+vasUdpSnkEntry OBJECT-TYPE
+    SYNTAX      VasUdpSnkEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An entry in the conceptual table represents one UDP sink."
+    INDEX { vasUdpSnkIndex }
+    ::= { vasUdpSnkTable 1 }
+
+VasUdpSnkEntry ::= SEQUENCE {
+    vasUdpSnkIndex Unsigned32,
+    vasUdpSnkRowStatus RowStatus,
+    vasUdpSnkName SnmpAdminString,
+    vasUdpSnkPurpose SnmpAdminString,
+    vasUdpSnkAdminStatus INTEGER,
+    vasUdpSnkOperStatus INTEGER,
+    vasUdpSnkFailure SnmpAdminString,
+    vasUdpSnkLastChanged TimeStamp,
+    vasUdpSnkConnectionStatus VasConnectionStatus,
+    vasUdpSnkResetStatistics VasResetStatistics,
+    
+    vasUdpSnkStatsUdp Unsigned32,
+    vasUdpSnkStatsTr101 Unsigned32,
+    vasUdpSnkEnableTr101 TruthValue,
+    vasUdpSnkRemoteInetType InetAddressType,
+    vasUdpSnkRemoteInetAddress InetAddress,
+    vasUdpSnkLocalIfType InetAddressType,
+    vasUdpSnkLocalIfAddress InetAddress,
+    vasUdpSnkLocalPort InetPortNumber,
+    vasUdpSnkCipher VasCipher,
+    vasUdpSnkEncryptKey SnmpAdminString,
+    vasUdpSnkMcastIpType InetAddressType,
+    vasUdpSnkMcastIp InetAddress,
+    vasUdpSnkSsmSourceIp InetAddress,
+    vasUdpSnkCompress TruthValue
+}
+
+vasUdpSnkIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An index that uniquely identifies the UDP sink in the
+         table."
+    ::= { vasUdpSnkEntry 1 }
+
+vasUdpSnkRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "See SNMPv2-TC.  Use vasUdpSnkAdminStatus to activate and
+         de-activate a UDP source.  The following values are
+         supported:
+
+         active(1). The object always reads active.
+
+         createAndGo(4). A new conceptual row is created representing
+         a new UDP sink.  To activate the UDP sink, set the
+         administrative state to up(1) after all columnar objects have
+         been set.
+
+         destroy(6). The UDP sink is deleted.  It can be deleted
+         regardless of its operational state."
+    ::= { vasUdpSnkEntry 2 }
+
+vasUdpSnkName OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A textual name of the UDP sink.  The name is automatically
+         assigned by the system.  The last part of the name is the
+         index in this table."
+    ::= { vasUdpSnkEntry 3 }
+
+vasUdpSnkPurpose OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "A text that can describe the purpose of the UDP sink.  This
+         is for administrative use."
+    DEFVAL { ''H }
+    ::= { vasUdpSnkEntry 4 }
+
+vasUdpSnkAdminStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    up(1),
+                    down(2) }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The administrative state of the UDP sink.
+
+         up(1). The UDP sink shall be enabled and allocates the
+         necessary resources.
+
+         down(2). The UDP sink shall be disabled and will not allocate
+         any resources."
+    DEFVAL { down }
+    ::= { vasUdpSnkEntry 5 }
+
+vasUdpSnkOperStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    up(1),
+                    down(2) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The operational state of the UDP sink.  The value normally
+         follow the state of the administrative state.
+
+         up(1). The UDP sink is up and operational.
+
+         down(2). The UDP sink is not operational, either because its
+         administrative state is down, or because of an error.  If it
+         is down because of an error, an alarm should be raised
+         and the vasUdpSnkFailure should describe the fault."
+    ::= { vasUdpSnkEntry 6 }
+
+vasUdpSnkFailure OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A string describing the configuration or error status of the
+         object.  The string is the empty string if the configuration
+         is correct and no error is present, otherwise it contains a
+         message describing the error."
+    ::= { vasUdpSnkEntry 7 }
+
+vasUdpSnkLastChanged OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of sysUpTime when status or configuration of the
+         objects was last changed."
+    ::= { vasUdpSnkEntry 8 }
+
+vasUdpSnkConnectionStatus OBJECT-TYPE
+    SYNTAX      VasConnectionStatus
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The status of the stream transport connection."
+    ::= { vasUdpSnkEntry 9 }
+
+vasUdpSnkResetStatistics OBJECT-TYPE
+    SYNTAX      VasResetStatistics
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Resets all statistics counters for the object.  (Not yet
+         implemented)."
+    DEFVAL { 0 }
+    ::= { vasUdpSnkEntry 10 }
+
+vasUdpSnkStatsUdp OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Index for an entry in statistics table vasUdpStatisticsTable
+         for this object."
+    ::= { vasUdpSnkEntry 11 }
+
+vasUdpSnkStatsTr101 OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Index for an entry in ETSI TR 101 290 statistics table for 
+         this object.  (The table is not yet defined)."
+    ::= { vasUdpSnkEntry 12 }
+
+vasUdpSnkEnableTr101 OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Enables or disables ETSI TR 101 290 statistics collection."
+   DEFVAL { false }
+    ::= { vasUdpSnkEntry 13 }
+
+vasUdpSnkRemoteInetType OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Describes the format of vasUdpSnkRemoteInetAddress."
+    ::= { vasUdpSnkEntry 14 }
+
+vasUdpSnkRemoteInetAddress OBJECT-TYPE
+    SYNTAX      InetAddress
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The IP address of the remote host from where the UDP stream
+         is being received.  The value is empty and 
+         vasUdpSnkRemoteInetType is `unknown' when a stream is not 
+         received."
+    ::= { vasUdpSnkEntry 15 }
+
+vasUdpSnkLocalIfType OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Describes how the vasUdpSnkLocalIfAddress shall be
+         interpreted.  Supported value is `ipv4'."
+    DEFVAL { ipv4 }
+    ::= { vasUdpSnkEntry 16 }
+
+vasUdpSnkLocalIfAddress OBJECT-TYPE
+    SYNTAX      InetAddress
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The IP address of a local interface (NIC) that shall be used
+         as input for the video stream.  If any interface can be used,
+         set the IPv4 address 0.0.0.0."
+    DEFVAL { '00000000'H }
+    ::= { vasUdpSnkEntry 17 }
+
+vasUdpSnkLocalPort OBJECT-TYPE
+    SYNTAX      InetPortNumber
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The local UDP port that shall be used for input."
+    DEFVAL { 0 }
+    ::= { vasUdpSnkEntry 18 }
+
+vasUdpSnkCipher OBJECT-TYPE
+    SYNTAX      VasCipher
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The cipher that shall be used for decrypting the received UDP
+         video stream."
+    DEFVAL { none }
+    ::= { vasUdpSnkEntry 19 }
+
+vasUdpSnkEncryptKey OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The key to be used when decrypting the UDP video stream.  The
+         key shall be provided as a text with hexadecimal digits
+         presented as lower case characters."
+    DEFVAL { ''H }
+    ::= { vasUdpSnkEntry 20 }
+
+vasUdpSnkMcastIpType OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The format of vasUdpSnkMcastIp and vasUdpSnkSsmSourceIp.  
+         Supported values are `unknown' and `ipv4'."
+    DEFVAL { ipv4 }
+    ::= { vasUdpSnkEntry 21 }
+
+vasUdpSnkMcastIp OBJECT-TYPE
+    SYNTAX      InetAddress
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The multicast IP address if joining a multicast UDP stream.
+         Set empty and vasUdpSnkMcastIpType to `unknown' if not
+         multicast."
+    DEFVAL { ''H }
+    ::= { vasUdpSnkEntry 22 }
+
+vasUdpSnkSsmSourceIp OBJECT-TYPE
+    SYNTAX      InetAddress
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The source address if source-specific multicast (SSM) shall
+         be used.  Set to empty and vasUdpSnkMcastIpType to `unknown'
+         if multicast shall not be used, or all-zero (0.0.0.0) if
+         multicast but where SSM shall not be used."
+    DEFVAL { ''H }
+    ::= { vasUdpSnkEntry 23 }
+
+vasUdpSnkCompress OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Removes null-packets in an MPEG transport stream."
+    DEFVAL { false }
+    ::= { vasUdpSnkEntry 24 }
+
+-- End of UDP sink table
+
+-- Start of Pull source table.
+
+vasPulSrcTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF VasPulSrcEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The conceptual table contains objects that represent the
+         source (sender) in a pull transport, i.e. a transport of a
+         stream that is initiated from the sink side, where the stream
+         is pulled from the source to the sink at the sink."
+    ::= { vasTransportsGroup 4 }
+
+vasPulSrcEntry OBJECT-TYPE
+    SYNTAX      VasPulSrcEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An entry in the conceptual table represents one pull source
+         object."
+    INDEX { vasPulSrcIndex }
+    ::= { vasPulSrcTable 1 }
+
+VasPulSrcEntry ::= SEQUENCE {
+    vasPulSrcIndex Unsigned32,
+    vasPulSrcRowStatus RowStatus,
+    vasPulSrcName SnmpAdminString,
+    vasPulSrcPurpose SnmpAdminString,
+    vasPulSrcAdminStatus INTEGER,
+    vasPulSrcOperStatus INTEGER,
+    vasPulSrcFailure SnmpAdminString,
+    vasPulSrcLastChanged TimeStamp,
+    vasPulSrcConnectionStatus VasConnectionStatus,
+    vasPulSrcResetStatistics VasResetStatistics,
+    
+    vasPulSrcStatsTrsp Unsigned32,
+    vasPulSrcRemoteInetType InetAddressType,
+    vasPulSrcRemoteInetAddress InetAddress,
+    vasPulSrcStreamId SnmpAdminString,
+    vasPulSrcInputFrom RowPointer,
+    vasPulSrcRemoteId SnmpAdminString,
+    vasPulSrcPassword SnmpAdminString
+}
+
+vasPulSrcIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An index that uniquely identifies the pull source in the
+         table."
+    ::= { vasPulSrcEntry 1 }
+
+vasPulSrcRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "See SNMPv2-TC.  Use vasPulSrcAdminStatus to activate and
+         de-activate a Pull source.  The following values are
+         supported:
+
+         active(1). The object always reads active.
+
+         createAndGo(4). A new conceptual row is created representing
+         a new Pull source.  To activate the Pull source,
+         set the administrative state to up(1) after all columnar
+         objects have been set.
+
+         destroy(6). The Pull source is deleted.  It can be
+         deleted regardless of its operational state."
+    ::= { vasPulSrcEntry 2 }
+
+vasPulSrcName OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A textual name of the Pull source.  The name is automatically
+         assigned by the system.  The last part of the name is the
+         index in this table." 
+    ::= { vasPulSrcEntry 3 }
+
+vasPulSrcPurpose OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "A text that can describe the purpose of the Pull source.
+         This is for administrative use."
+    DEFVAL { ''H }
+    ::= { vasPulSrcEntry 4 }
+
+vasPulSrcAdminStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    up(1),
+                    down(2) }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The administrative state of the Pull source.  The value
+         controls the desired state of the Pull source.
+
+         up(1). The Pull source shall be enabled.
+
+         down(2). The Pull source shall be disabled."
+    DEFVAL { down }
+    ::= { vasPulSrcEntry 5 }
+
+vasPulSrcOperStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    up(1),
+                    down(2),
+                    dormant(3),
+                    partial(4) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The operational state of the Pull source.  The value normally
+         follow the state of the administrative state.
+
+         up(1). The Pull source is up and operational.
+
+         down(2). The Pull source is not operational, either because
+         its administrative state is down, or because of an error.  If
+         it is down because of an error, an alarm should be raised
+         and the vasPulSrcFailure should describe the fault."
+    ::= { vasPulSrcEntry 6 }
+
+vasPulSrcFailure OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A string describing the configuration or error status of the
+         object.  The string is the empty string if the configuration
+         is correct and no error is present, otherwise it contains a
+         message describing the error."
+    ::= { vasPulSrcEntry 7 }
+
+vasPulSrcLastChanged OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of sysUpTime when status or configuration of the
+         objects was last changed."
+    ::= { vasPulSrcEntry 8 }
+
+vasPulSrcConnectionStatus OBJECT-TYPE
+    SYNTAX      VasConnectionStatus
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The status of the stream transport connection."
+    ::= { vasPulSrcEntry 9 }
+
+vasPulSrcResetStatistics OBJECT-TYPE
+    SYNTAX      VasResetStatistics
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Resets all statistics counters for the object.  (Not yet
+         implemented)."
+    ::= { vasPulSrcEntry 10 }
+
+vasPulSrcStatsTrsp OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Index for an entry in statistics vasTrspStatisticsTable table
+         for this object."
+    ::= { vasPulSrcEntry 11 }
+
+vasPulSrcRemoteInetType OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Format of vasPulSrcRemoteInetAddress."
+    ::= { vasPulSrcEntry 12 }
+
+vasPulSrcRemoteInetAddress OBJECT-TYPE
+    SYNTAX      InetAddress
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The IP address of the remote host to where the transport
+         stream is being sent.  The value is empty and 
+         vasPulSrcRemoteInetType is `unknown' when a stream
+         is not sent."
+    ::= { vasPulSrcEntry 13 }
+
+vasPulSrcStreamId OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Assigns the stream ID to a transport stream.  The stream ID
+         is a string that identifies the transport stream in all nodes
+         where the stream exists.  This must be unique within a node
+         for any given transport stream."
+    ::= { vasPulSrcEntry 14 }
+
+vasPulSrcInputFrom OBJECT-TYPE
+    SYNTAX      RowPointer
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "A reference to the object that shall supply the video stream
+         to the pull source.  This could be e.g. an encoder pipeline
+         in the vasEncPipeTable or a UDP sink in the vasUdpSnkTable.
+         The value `.0.0' is used when no input is specified."
+    ::= { vasPulSrcEntry 15 }
+
+vasPulSrcRemoteId OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The remote ID is the assigned to the remote host where the
+         transport stream is received.  This is used for compatibility
+         with nodes that does not implement this MIB.  A node that
+         implements this MIB is assigned the default value
+         `nimbrava'."
+    ::= { vasPulSrcEntry 16 }
+
+vasPulSrcPassword OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "A password used for the transport stream.  The
+         vasPulSnkPassword on the sink at the remote host must match."
+    DEFVAL { ''H }
+    ::= { vasPulSrcEntry 17 }
+
+-- End of Pull source table
+
+-- Start of Multiple Pull source table.
+
+vasMpuSrcTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF VasMpuSrcEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The conceptual table contains objects that represent the
+         source (sender) of pull transports, where multiple transports
+         to different destinations may be setup from the same source."
+    ::= { vasTransportsGroup 5 }
+
+vasMpuSrcEntry OBJECT-TYPE
+    SYNTAX      VasMpuSrcEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An entry in the conceptual table represents one multiple pull
+         source object."
+    INDEX { vasMpuSrcIndex }
+    ::= { vasMpuSrcTable 1 }
+
+VasMpuSrcEntry ::= SEQUENCE {
+    vasMpuSrcIndex Unsigned32,
+    vasMpuSrcRowStatus RowStatus,
+    vasMpuSrcName SnmpAdminString,
+    vasMpuSrcPurpose SnmpAdminString,
+    vasMpuSrcAdminStatus INTEGER,
+    vasMpuSrcOperStatus INTEGER,
+    vasMpuSrcFailure SnmpAdminString,
+    vasMpuSrcLastChanged TimeStamp,
+
+    vasMpuSrcStreamId SnmpAdminString,
+    vasMpuSrcInputFrom RowPointer
+}
+
+vasMpuSrcIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An index that uniquely identifies the multiple pull source in
+         the table."
+    ::= { vasMpuSrcEntry 1 }
+
+vasMpuSrcRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "See SNMPv2-TC.  Use vasMpuSrcAdminStatus to activate and
+         de-activate an Multiple pull source.  The following values
+         are supported:
+
+         active(1). The object always reads active.
+
+         createAndGo(4). A new conceptual row is created representing
+         a new Multiple pull source.  To activate the encoder
+         pipeline, set the administrative state to up(1) after all
+         columnar objects have been set.
+
+         destroy(6). The Multiple pull source is deleted.  It can be
+         deleted regardless of its operational state."
+    ::= { vasMpuSrcEntry 2 }
+
+vasMpuSrcName OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A textual name of the Multiple pull source.  The name is
+         automatically assigned by the system.  The last part of the
+         name is the index in this table."
+    ::= { vasMpuSrcEntry 3 }
+
+vasMpuSrcPurpose OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "A text that can describe the purpose of the Multiple pull
+         source.  This is for administrative use."
+    DEFVAL { ''H }
+    ::= { vasMpuSrcEntry 4 }
+
+vasMpuSrcAdminStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    up(1),
+                    down(2) }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The administrative state of the Multiple pull source.  The
+         value controls the desired state of the Multiple pull source.
+
+         up(1). The Multiple pull source shall be enabled.
+
+         down(2). The Multiple pull source shall be disabled."
+    DEFVAL { down }
+    ::= { vasMpuSrcEntry 5 }
+
+vasMpuSrcOperStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    up(1),
+                    down(2),
+                    dormant(3),
+                    partial(4) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The operational state of the Multiple Pull source.  The value
+         normally follow the state of the administrative state.
+
+         up(1). The Multiple pull source is up and operational.
+
+         down(2). The Multiple pull source is not operational, either
+         because its administrative state is down, or because of an
+         error.  If it is down because of an error, an alarm
+         should be raised and the vasMpuSrcFailure should describe the
+         fault."
+    ::= { vasMpuSrcEntry 6 }
+
+vasMpuSrcFailure OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A string describing the configuration or error status of the
+         object.  The string is the empty string if the configuration
+         is correct and no error is present, otherwise it contains a
+         message describing the error."
+    ::= { vasMpuSrcEntry 7 }
+
+vasMpuSrcLastChanged OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of sysUpTime when status or configuration of the
+         objects was last changed."
+    ::= { vasMpuSrcEntry 8 }
+
+vasMpuSrcStreamId OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Assigns the stream ID to a transport stream.  The stream ID
+         is a string that identifies the transport stream in all nodes
+         where the stream exists.  This must be unique within a node
+         for any given transport stream."
+    ::= { vasMpuSrcEntry 12 }
+
+vasMpuSrcInputFrom OBJECT-TYPE
+    SYNTAX      RowPointer
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "A reference to the object that shall supply the video stream
+         to the multiple pull source.  This could be e.g. an encoder
+         pipeline on the vasEncPipeTable or a UDP sink in the
+         vasUdpSnkTable.  The value `.0.0' is used when no input is
+         specified."
+    ::= { vasMpuSrcEntry 13 }
+
+-- End of Multipe Pull source table
+
+
+-- Start of Pull sink table
+
+vasPulSnkTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF VasPulSnkEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The conceptual table contains objects that represent the sink
+         (receiver) of a pull transport, i.e. a transport of a stream
+         that is initiated at the sink side, where the stream is
+         pulled from the source to the sink at the sink."
+    ::= { vasTransportsGroup 6 }
+
+vasPulSnkEntry OBJECT-TYPE
+    SYNTAX      VasPulSnkEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An entry in the conceptual table represents one pull sink
+         object."
+    INDEX { vasPulSnkIndex }
+    ::= { vasPulSnkTable 1 }
+
+VasPulSnkEntry ::= SEQUENCE {
+    vasPulSnkIndex Unsigned32,
+    vasPulSnkRowStatus RowStatus,
+    vasPulSnkName SnmpAdminString,
+    vasPulSnkPurpose SnmpAdminString,
+    vasPulSnkAdminStatus INTEGER,
+    vasPulSnkOperStatus INTEGER,
+    vasPulSnkFailure SnmpAdminString,
+    vasPulSnkLastChanged TimeStamp,   
+    vasPulSnkConnectionStatus VasConnectionStatus,
+    
+    vasPulSnkResetStatistics VasResetStatistics,
+    vasPulSnkStatsTrsp Unsigned32,
+    vasPulSnkStatsTr101 Unsigned32,
+    vasPulSnkEnableTr101 TruthValue,
+    vasPulSnkRemoteInetType InetAddressType,
+    vasPulSnkRemoteInetAddress InetAddress,
+    vasPulSnkStreamId SnmpAdminString,
+    vasPulSnkPassword SnmpAdminString,
+    vasPulSnkRemoteHostType InetAddressType,
+    vasPulSnkRemoteHostAddress InetAddress,
+    vasPulSnkRemoteHostType2 InetAddressType,
+    vasPulSnkRemoteHostAddress2 InetAddress,
+    vasPulSnkRemotePort InetPortNumber,
+    vasPulSnkRetransmitBuffer Unsigned32,
+    vasPulSnkFecMaxOverhead Unsigned32,
+    vasPulSnkFecOptimize TruthValue,
+    vasPulSnkFecLatency Unsigned32 }
+
+vasPulSnkIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An index that uniquely identifies the pull sink in the
+         table."
+    ::= { vasPulSnkEntry 1 }
+
+vasPulSnkRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "See SNMPv2-TC.  Use vasPulSnkAdminStatus to activate and
+         de-activate a Pull sink.  The following values are supported:
+
+         active(1). The object always reads active.
+
+         createAndGo(4). A new conceptual row is created representing
+         a new Pull sink.  To activate the Pull sink, set the
+         administrative state to up(1) after all columnar objects have
+         been set.
+
+         destroy(6). The Pull sink is deleted.  It can be deleted
+         regardless of its operational state."
+    ::= { vasPulSnkEntry 2 }
+
+vasPulSnkName OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A textual name of the Pull sink.  The name is automatically
+         assigned by the system.  The last part of the name is the
+         index in this table."
+    ::= { vasPulSnkEntry 3 }
+
+vasPulSnkPurpose OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "A text that can describe the purpose of the Pull sink.  This
+         is for administrative use."
+    DEFVAL { ''H }
+    ::= { vasPulSnkEntry 4 }
+
+vasPulSnkAdminStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    up(1),
+                    down(2) }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The administrative state of the Pull sink.  The value
+         controls the desired state of the Pull sink.
+
+         up(1). The Pull sink shall be enabled.
+
+         down(2). The Pull sink shall be disabled."
+    DEFVAL { down }
+    ::= { vasPulSnkEntry 5 }
+
+vasPulSnkOperStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    up(1),
+                    down(2) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The operational state of the Pull sink.  The value normally
+         follow the state of the administrative state.
+
+         up(1). The Pull sink is up and operational.
+
+         down(2). The Pull sink is not operational, either because its
+         administrative state is down, or because of an error.  If it
+         is down because of an error, an alarm should be raised
+         and the vasPulSnkFailure should describe the fault."
+    ::= { vasPulSnkEntry 6 }
+
+vasPulSnkFailure OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A string describing the configuration or error status of the
+         object.  The string is the empty string if the configuration
+         is correct and no error is present, otherwise it contains a
+         message describing the error."
+    ::= { vasPulSnkEntry 7 }
+
+vasPulSnkLastChanged OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of sysUpTime when status or configuration of the
+         objects was last changed."
+    ::= { vasPulSnkEntry 8 }
+
+vasPulSnkConnectionStatus OBJECT-TYPE
+    SYNTAX      VasConnectionStatus
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The status of the stream transport connection."
+    ::= { vasPulSnkEntry 9 }
+
+vasPulSnkResetStatistics OBJECT-TYPE
+    SYNTAX      VasResetStatistics
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Resets all statistics counters for the object.  (Not yet
+         implemented)."
+    ::= { vasPulSnkEntry 10 }
+
+vasPulSnkStatsTrsp OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Index for an entry in statistics vasTrspStatisticsTable table
+         for this object."
+    ::= { vasPulSnkEntry 11 }
+
+vasPulSnkStatsTr101 OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Index for an entry in ETSI TR 101 290 statistics table for 
+         this object.  (The table is not yet defined)."
+    ::= { vasPulSnkEntry 12 }
+
+vasPulSnkEnableTr101 OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Enables or disables ETSI TR 101 290 statistics collection."
+    DEFVAL { false }
+    ::= { vasPulSnkEntry 13 }
+
+vasPulSnkRemoteInetType OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Format of vasPulSrcRemoteInetAddress."
+    ::= { vasPulSnkEntry 14 }
+
+vasPulSnkRemoteInetAddress OBJECT-TYPE
+    SYNTAX      InetAddress
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The IP address of the remote host from where the transport
+         stream is received.  The value is empty and 
+         vasPulSnkRemoteInetType is `unknown' when a stream
+         is not received."
+    ::= { vasPulSnkEntry 15 }
+
+vasPulSnkStreamId OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Specifies the stream ID of the stream on the remote host that
+         shall be received.  The stream ID is a string that identifies
+         the transport stream in all nodes where the stream exists.
+         This must be unique within a node for any given transport
+         stream."
+    ::= { vasPulSnkEntry 16 }
+
+vasPulSnkPassword OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The password to use for the received transport stream.  The
+         password must match the vasPulSrcPassword set on the source
+         at the remote host."
+    DEFVAL { ''H }
+    ::= { vasPulSnkEntry 17 }
+
+vasPulSnkRemoteHostType OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Format of vasPulSnkRemoteHostAddress. Supported values are
+         `unknown', `ipv4', and `dns'."
+    DEFVAL { unknown }
+    ::= { vasPulSnkEntry 18 }
+
+vasPulSnkRemoteHostAddress OBJECT-TYPE
+    SYNTAX      InetAddress
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The IP address or DNS hostname of the remote host from where
+         the transport stream shall be pulled.  This address is the
+         first host that will be attempted when a transport stream is
+         to be established."
+    DEFVAL { ''H }
+    ::= { vasPulSnkEntry 19 }
+
+vasPulSnkRemoteHostType2 OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Format of vasPulSnkRemoteHostAddress2. Supported values are
+         `unknown', `ipv4', and `dns'."
+    DEFVAL { unknown }
+    ::= { vasPulSnkEntry 20 }
+
+vasPulSnkRemoteHostAddress2 OBJECT-TYPE
+    SYNTAX      InetAddress
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The second IP address or DNS hostname of the remote host from
+         where the transport stream shall be pulled.  When using two
+         addresses, then the transport is setup with two alternative
+         sources.  This is a second host that will be attempted if
+         connection to the first host fails when a transport stream is
+         to be established.  If a second host shall not be used, then
+         the value shall be empty and the vasPulSnkRemoteHostType
+         shall be `unknown'."
+    DEFVAL { ''H }
+    ::= { vasPulSnkEntry 21 }
+
+vasPulSnkRemotePort OBJECT-TYPE
+    SYNTAX      InetPortNumber
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The UDP port on the remote host that the remote host is
+         listening for connection attempts.  See vaStreamPort."
+    DEFVAL { 2088 }
+    ::= { vasPulSnkEntry 22 }
+
+vasPulSnkRetransmitBuffer OBJECT-TYPE
+    SYNTAX      Unsigned32 (0..30000)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The size of the retransmission buffer in milliseconds (ms).
+         The retransmission buffer setting adds bandwidth on the
+         sender side to compensate for packet loss.  The setting will
+         affect the allowed maximum bitrate."
+    DEFVAL { 500 }
+    ::= { vasPulSnkEntry 23 }
+
+vasPulSnkFecMaxOverhead OBJECT-TYPE
+    SYNTAX      Unsigned32 (0..100)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The Forward Error Correction (FEC) overhead in percent (%) of
+         the original stream bit rate.  FEC increases the streams
+         tolerance of burst errors and corrects for single errors, as
+         long as they are not clustered, but at the cost of increased
+         latency and is therefore not always desirable."
+    DEFVAL { 0 }
+    ::= { vasPulSnkEntry 24 }
+
+vasPulSnkFecOptimize OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Whether to automatically optimize Forward Error Correction
+         (FEC).  Optimization will favor the video stream and visually
+         important frames, I and IDR-frames, over others, such as
+         audio. Thereby lowering latency."
+    DEFVAL { false }
+    ::= { vasPulSnkEntry 25 }
+
+vasPulSnkFecLatency OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Forward Error Correction (FEC) block size in milliseconds
+         (ms)."
+    DEFVAL { 100 }
+    ::= { vasPulSnkEntry 26 }
+
+-- End of Pull sink table 
+
+
+-- Start of Push source table
+
+vasPusSrcTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF VasPusSrcEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The conceptual table contains objects that represent the
+         source (sender) of a push transport, i.e. a transport that is
+         initiated from the source side, and is pushed from the source
+         to the sink at the source."
+    ::= { vasTransportsGroup 7 }
+
+vasPusSrcEntry OBJECT-TYPE
+    SYNTAX      VasPusSrcEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An entry in the conceptual table represents one push source
+         object."
+    INDEX { vasPusSrcIndex }
+    ::= { vasPusSrcTable 1 }
+
+VasPusSrcEntry ::= SEQUENCE {
+    vasPusSrcIndex Unsigned32,
+    vasPusSrcRowStatus RowStatus,
+    vasPusSrcName SnmpAdminString,
+    vasPusSrcPurpose SnmpAdminString,
+    vasPusSrcAdminStatus INTEGER,
+    vasPusSrcOperStatus INTEGER,
+    vasPusSrcFailure SnmpAdminString,
+    vasPusSrcLastChanged TimeStamp,
+    vasPusSrcConnectionStatus VasConnectionStatus,
+    vasPusSrcResetStatistics VasResetStatistics,
+    
+    vasPusSrcStatsTrsp Unsigned32,
+    vasPusSrcRemoteInetType InetAddressType,
+    vasPusSrcRemoteInetAddress InetAddress,
+    vasPusSrcStreamId SnmpAdminString,
+    vasPusSrcInputFrom RowPointer,
+    vasPusSrcPassword SnmpAdminString,
+    vasPusSrcRemoteHostType InetAddressType,
+    vasPusSrcRemoteHostAddress InetAddress,
+    vasPusSrcRemoteHostType2 InetAddressType,
+    vasPusSrcRemoteHostAddress2 InetAddress,
+    vasPusSrcRemotePort InetPortNumber,
+    vasPusSrcLocalIfType InetAddressType,
+    vasPusSrcLocalIfAddress InetAddress,
+    vasPusSrcRetransmitBuffer Unsigned32,
+    vasPusSrcFecMaxOverhead Unsigned32,
+    vasPusSrcFecOptimize TruthValue,
+    vasPusSrcFecLatency Unsigned32
+}
+
+vasPusSrcIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An index that uniquely identifies the push source in the
+         table."
+    ::= { vasPusSrcEntry 1 }
+
+vasPusSrcRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "See SNMPv2-TC.  Use vasPusSrcAdminStatus to activate and
+         de-activate an Push source.  The following values are
+         supported:
+
+         active(1). The object always reads active.
+
+         createAndGo(4). A new conceptual row is created representing
+         a new Push source.  To activate the Push source, set the
+         administrative state to up(1) after all columnar objects have
+         been set.
+
+         destroy(6). The Push source is deleted.  It can be deleted
+         regardless of its operational state."
+    ::= { vasPusSrcEntry 2 }
+
+vasPusSrcName OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-only
+    STATUS      current
+     DESCRIPTION
+        "A textual name of the Push source.  The name is automatically
+         assigned by the system.  The last part of the name is the
+         index in this table."
+    ::= { vasPusSrcEntry 3 }
+
+vasPusSrcPurpose OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "A text that can describe the purpose of the Push source.
+         This is for administrative use."
+    DEFVAL { ''H }
+    ::= { vasPusSrcEntry 4 }
+
+vasPusSrcAdminStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    up(1),
+                    down(2) }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The administrative state of the Push source.  The value
+         controls the desired state of the Push source.
+
+         up(1). The Push source shall be enabled.
+
+         down(2). The Push source shall be disabled."
+    DEFVAL { down }
+    ::= { vasPusSrcEntry 5 }
+
+vasPusSrcOperStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    up(1),
+                    down(2) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The operational state of the Push source.  The value normally
+         follow the state of the administrative state.
+
+         up(1). The Push source is up and operational.
+
+         down(2). The Push source is not operational, either because
+         its administrative state is down, or because of an error.  If
+         it is down because of an error, an alarm should be raised
+         and the vasPusSrcFailure should describe the fault."
+    ::= { vasPusSrcEntry 6 }
+
+vasPusSrcFailure OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A string describing the configuration or error status of the
+         object.  The string is the empty string if the configuration
+         is correct and no error is present, otherwise it contains a
+         message describing the error."
+    ::= { vasPusSrcEntry 7 }
+
+vasPusSrcLastChanged OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of sysUpTime when status or configuration of the
+         objects was last changed."
+    ::= { vasPusSrcEntry 8 }
+
+vasPusSrcConnectionStatus OBJECT-TYPE
+    SYNTAX      VasConnectionStatus
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The status of the stream transport connection."
+    ::= { vasPusSrcEntry 9 }
+
+vasPusSrcResetStatistics OBJECT-TYPE
+    SYNTAX      VasResetStatistics
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Resets all statistics counters for the object.  (Not yet
+         implemented)."
+    ::= { vasPusSrcEntry 10 }
+
+vasPusSrcStatsTrsp OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Index for an entry in statistics vasTrspStatisticsTable table
+         for this object."
+    ::= { vasPusSrcEntry 11 }
+
+vasPusSrcRemoteInetType OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Format of vasPusSrcRemoteInetAddress."
+    ::= { vasPusSrcEntry 12 }
+
+vasPusSrcRemoteInetAddress OBJECT-TYPE
+    SYNTAX      InetAddress
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The IP address of the remote host to where the transport
+         stream is being sent.  The value is empty and 
+         vasPusSrcRemoteInetType is `unknown' when a stream
+         is not sent."
+    ::= { vasPusSrcEntry 13 }
+
+vasPusSrcStreamId OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Assigns the stream ID to a transport stream.  The stream ID
+         is a string that identifies the transport stream in all nodes
+         where the stream exists.  This must be unique within a node
+         for any given transport stream."
+    ::= { vasPusSrcEntry 14 }
+
+vasPusSrcInputFrom OBJECT-TYPE
+    SYNTAX      RowPointer
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "A reference to the object that shall supply the encoded video
+         stream to the push source.  This could be e.g. encoder
+         pipeline in the vasEncPipeTable or a UDP sink in the
+         vasUdpSnkTable.  The value `.0.0' is used when no input is
+         specified."
+    ::= { vasPusSrcEntry 15 }
+
+vasPusSrcPassword OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "A password used for the transport stream.  The
+         vasPusSnkPassword on the sink at the remote host must match."
+    DEFVAL { ''H }
+    ::= { vasPusSrcEntry 16 }
+
+vasPusSrcRemoteHostType OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Format of vasPusSrcRemoteHostAddress.  Supported values are
+         `unknown', `ipv4' and `dns'."
+    DEFVAL { unknown }
+    ::= { vasPusSrcEntry 17 }
+
+vasPusSrcRemoteHostAddress OBJECT-TYPE
+    SYNTAX      InetAddress
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The IP address or DNS hostname of the remote host to where
+         the transport stream shall be pushed.  This address is the
+         first host that will be attempted when a transport stream is
+         to be established."
+    DEFVAL { ''H }
+    ::= { vasPusSrcEntry 18 }
+
+vasPusSrcRemoteHostType2 OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Format of vasPusSrcRemoteHostAddress2.  Supported values are
+         `unknown', `ipv4' and `dns'."
+    DEFVAL { unknown }
+    ::= { vasPusSrcEntry 19 }
+
+vasPusSrcRemoteHostAddress2 OBJECT-TYPE
+    SYNTAX      InetAddress
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The second IP address or DNS hostname of the remote host to
+         where the transport stream shall be pushed.  This is a second
+         host that will be attempted if connection to the first host
+         fails when a transport stream is to be established.  When
+         using two addresses, the transport is setup to two
+         alternative destinations.  If a second host shall not be
+         used, then the the value shall be empty and the
+         vasPusSrcRemoteType2 shall be `unknown'."
+    DEFVAL { ''H }
+    ::= { vasPusSrcEntry 20 }
+
+vasPusSrcRemotePort OBJECT-TYPE
+    SYNTAX      InetPortNumber
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The UDP port number on the remote host that the remote host
+         is listening for connection attempts.  See vaStreamPort."
+    DEFVAL { 2088 }
+    ::= { vasPusSrcEntry 21 }
+
+vasPusSrcLocalIfType OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Describes how the vasPusSrcLocalIfAddress shall be
+         interpreted.  Supported value is `ipv4'."
+    DEFVAL { ipv4 }
+    ::= { vasPusSrcEntry 22 }
+
+vasPusSrcLocalIfAddress OBJECT-TYPE
+    SYNTAX      InetAddress
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The IP address of a local interface (NIC) that shall be used
+         as output for the video stream.  If any interface can be
+         used, set the IPv4 address 0.0.0.0."
+    DEFVAL { '00000000'H }
+    ::= { vasPusSrcEntry 23 }
+
+vasPusSrcRetransmitBuffer OBJECT-TYPE
+    SYNTAX      Unsigned32 (0..30000)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The size of the retransmission buffer in milliseconds (ms).
+         The retransmission buffer setting adds bandwidth on the
+         sender side to compensate for packet loss.  The setting will
+         affect the allowed maximum bitrate."
+    DEFVAL { 500 }
+    ::= { vasPusSrcEntry 24 }
+
+vasPusSrcFecMaxOverhead OBJECT-TYPE
+    SYNTAX      Unsigned32 (0..100)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The Forward Error Correction (FEC) overhead in percent (%) of
+         the original stream bit rate.  FEC increases the streams
+         tolerance of burst errors and corrects for single errors, as
+         long as they are not clustered, but at the cost of increased
+         latency and is therefore not always desirable."
+    DEFVAL { 0 }
+    ::= { vasPusSrcEntry 25 }
+
+vasPusSrcFecOptimize OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Whether to automatically optimize Forward Error Correction
+         (FEC).  Optimization will favor the video stream and visually
+         important frames, I and IDR-frames, over others, such as
+         audio. Thereby lowering latency."
+    DEFVAL { false }
+    ::= { vasPusSrcEntry 26 }
+
+vasPusSrcFecLatency OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Forward Error Correction (FEC) block size in milliseconds
+         (ms)."
+    DEFVAL { 100 }
+    ::= { vasPusSrcEntry 27 }
+
+-- End of Push source table
+
+-- Start of Push sink table
+
+vasPusSnkTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF VasPusSnkEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The conceptual table contains objects that represent the sink
+         (receiver) of a push transport, i.e. a transport that is
+         initiated from the source side, and is pushed from the source
+         to the sink at the source."
+    ::= { vasTransportsGroup 8 }
+
+vasPusSnkEntry OBJECT-TYPE
+    SYNTAX      VasPusSnkEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An entry in the conceptual table represents one push sink
+         object."
+    INDEX { vasPusSnkIndex }
+    ::= { vasPusSnkTable 1 }
+
+VasPusSnkEntry ::= SEQUENCE {
+    vasPusSnkIndex Unsigned32,
+    vasPusSnkRowStatus RowStatus,
+    vasPusSnkName SnmpAdminString,
+    vasPusSnkPurpose SnmpAdminString,
+    vasPusSnkAdminStatus INTEGER,
+    vasPusSnkOperStatus INTEGER,
+    vasPusSnkFailure SnmpAdminString,
+    vasPusSnkLastChanged TimeStamp,
+    vasPusSnkConnectionStatus VasConnectionStatus,
+    
+    vasPusSnkResetStatistics VasResetStatistics,
+    vasPusSnkStatsTrsp Unsigned32,
+    vasPusSnkStatsTr101 Unsigned32,
+    vasPusSnkEnableTr101 TruthValue,
+    vasPusSnkRemoteInetType InetAddressType,
+    vasPusSnkRemoteInetAddress InetAddress,
+    vasPusSnkStreamId SnmpAdminString,
+    vasPusSnkPassword SnmpAdminString
+}
+
+vasPusSnkIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An index that uniquely identifies the push sink in the
+         table."
+    ::= { vasPusSnkEntry 1 }
+
+vasPusSnkRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "See SNMPv2-TC.  Use vasPusSnkAdminStatus to activate and
+         de-activate an Push sink.  The following values are
+         supported:
+
+         active(1). The object always reads active.
+
+         createAndGo(4). A new conceptual row is created representing
+         a new Push sink.  To activate the Push sink, set the
+         administrative state to up(1) after all columnar objects have
+         been set.
+
+         destroy(6). The Push sink is deleted.  It can be deleted
+         regardless of its operational state."
+    ::= { vasPusSnkEntry 2 }
+
+vasPusSnkName OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A textual name of the Push sink.  The name is automatically
+         assigned by the system.  The last part of the name is the
+         index in this table."
+    ::= { vasPusSnkEntry 3 }
+
+vasPusSnkPurpose OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "A text that can describe the purpose of the Push sink.  This
+         is for administrative use."
+    DEFVAL { ''H }
+    ::= { vasPusSnkEntry 4 }
+
+vasPusSnkAdminStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    up(1),
+                    down(2) }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The administrative state of the Push sink.  The value
+         controls the desired state of the Push sink.
+
+         up(1). The Push sink shall be enabled.
+
+         down(2). The Push sink shall be disabled."
+    DEFVAL { down }
+    ::= { vasPusSnkEntry 5 }
+
+vasPusSnkOperStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    up(1),
+                    down(2) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The operational state of the Push sink.  The value normally
+         follow the state of the administrative state.
+
+         up(1). The Push sink is up and operational.
+
+         down(2). The Push sink is not operational, either because its
+         administrative state is down, or because of an error.  If it
+         is down because of an error, an alarm should be raised
+         and the vasPusSnkFailure should describe the fault."
+    ::= { vasPusSnkEntry 6 }
+
+vasPusSnkFailure OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A string describing the configuration or error status of the
+         object.  The string is the empty string if the configuration
+         is correct and no error is present, otherwise it contains a
+         message describing the error."
+    ::= { vasPusSnkEntry 7 }
+
+vasPusSnkLastChanged OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of sysUpTime when status or configuration of the
+         objects was last changed."
+    ::= { vasPusSnkEntry 8 }
+
+vasPusSnkConnectionStatus OBJECT-TYPE
+    SYNTAX      VasConnectionStatus
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The status of the stream transport connection."
+    ::= { vasPusSnkEntry 9 }
+
+vasPusSnkResetStatistics OBJECT-TYPE
+    SYNTAX      VasResetStatistics
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Resets all statistics counters for the object.  (Not yet
+         implemented)."
+    ::= { vasPusSnkEntry 10 }
+
+vasPusSnkStatsTrsp OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Index for an entry in statistics vasTrspStatisticsTable table
+         for this object."
+    ::= { vasPusSnkEntry 11 }
+
+vasPusSnkStatsTr101 OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Index for an entry in ETSI TR 101 290 statistics table for 
+         this object.  (The table is not yet defined)."
+    ::= { vasPusSnkEntry 12 }
+
+vasPusSnkEnableTr101 OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Enables or disables ETSI TR 101 290 statistics collection."
+    DEFVAL { false }
+    ::= { vasPusSnkEntry 13 }
+
+vasPusSnkRemoteInetType OBJECT-TYPE
+    SYNTAX      InetAddressType
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Format of vasPusSnkRemoteInetAddress."
+    ::= { vasPusSnkEntry 14 }
+
+vasPusSnkRemoteInetAddress OBJECT-TYPE
+    SYNTAX      InetAddress
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The IP address of the remote host from where the transport
+         stream is received.  The value is empty and the
+         vasPusSnkRemoteInetType is `unknown' when a stream is not
+         received."
+    ::= { vasPusSnkEntry 15 }
+
+vasPusSnkStreamId OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Specifies the stream ID of the stream on the remote host that
+         shall be received.  The stream ID is a string that identifies
+         the transport stream in all nodes where the stream exists.
+         This must be unique within a node for any given transport
+         stream."
+    ::= { vasPusSnkEntry 16 }
+
+vasPusSnkPassword OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The password to use for the received transport stream.  The
+         password must match the vasPusSrcPassword set on the source
+         at the remote host."
+    DEFVAL { ''H }
+    ::= { vasPusSnkEntry 17 }
+
+-- End of Push sink table
+
+
+-- Start of UDP statistics
+
+vasUdpStatisticsTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF VasUdpStatisticsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The conceptual table contains perforamance data and counters
+         for UDP video streams."
+    ::= { vasStatisticsGroup 1 }
+
+vasUdpStatisticsEntry OBJECT-TYPE
+    SYNTAX      VasUdpStatisticsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An entry in the conceptual table represents statistical data
+         for one UDP object."
+    INDEX { vasUdpStsIndex }
+    ::= { vasUdpStatisticsTable 1 }
+
+VasUdpStatisticsEntry ::= SEQUENCE {
+    vasUdpStsIndex Unsigned32,
+    vasUdpStsOwner RowPointer,
+    vasUdpStsBitrate Unsigned32
+}
+
+vasUdpStsIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Index in the table."
+    ::= { vasUdpStatisticsEntry 1 }
+
+vasUdpStsOwner OBJECT-TYPE
+    SYNTAX      RowPointer
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Reference to the object that allocated and uses this conceptual 
+         row."
+    ::= { vasUdpStatisticsEntry 2 }
+
+vasUdpStsBitrate OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Bitrate in bps."
+    ::= { vasUdpStatisticsEntry 3 }
+
+-- End of UDP statistics
+
+-- Start of transport stream statistics table
+
+vasTrspStatisticsTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF VasTrspStatisticsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The conceptual table contains perforamance data and counters
+         for transport streams."
+    ::= { vasStatisticsGroup 2 }
+
+vasTrspStatisticsEntry OBJECT-TYPE
+    SYNTAX      VasTrspStatisticsEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An entry in the conceptual table represents statistical data
+         for one transport stream."
+    INDEX { vasTrspIndex }
+    ::= { vasTrspStatisticsTable 1 }
+
+VasTrspStatisticsEntry ::= SEQUENCE {
+    vasTrspIndex Unsigned32,
+
+    vasTrspOwner RowPointer,
+    vasTrspLastConnectionChange DateAndTime,
+    vasTrspConnects Unsigned32,
+    vasTrspDisconnects Unsigned32,
+    
+    vasTrspNetRecvBitrate Unsigned32,
+    vasTrspNetRecvBurstLoss Counter32,
+    vasTrspNetRecvOctets Counter64,
+    vasTrspNetRecvLatency Unsigned32,
+    vasTrspNetRecvDropped Counter64,
+    vasTrspNetRecvJitter Unsigned32,
+    vasTrspNetRecvJitterRatio Integer32,
+    vasTrspNetRecvOutOfOrder Counter64,
+    vasTrspNetRecvOverflows Counter64,
+    vasTrspNetRecvPackets Counter64,
+    vasTrspNetRecvPacketRate Unsigned32,
+    vasTrspNetRecvPacketLoss Unsigned32,
+    
+    vasTrspArqRecvAlmostDropped Counter64,
+    vasTrspArqRecvBitrate Unsigned32,
+    vasTrspArqRecvDropped Counter64,
+    vasTrspArqRecvDuplicates Counter64,
+    vasTrspArqRecvOverflows Counter64,
+    vasTrspArqRecvPackets Counter64,
+    vasTrspArqRecvRecovered Counter64,
+    vasTrspArqRecvRequests Counter64,
+
+    vasTrspNetSendBitrate Unsigned32,
+    vasTrspNetSendOctets Counter64,
+    vasTrspNetSendLimit Unsigned32,
+    vasTrspNetSendPackets Counter64,
+    vasTrspNetSendRtt Unsigned32,
+    vasTrspNetSendErrors Counter64,
+    
+    vasTrspArqSendBitrate Unsigned32,
+    vasTrspArqSendIgnored Counter64,
+    vasTrspArqSendMissed Counter64,
+    vasTrspArqSendPacketRate Unsigned32,
+    vasTrspArqSendPackets Counter64,
+
+    vasTrspFecRecvBitrate Unsigned32,
+    vasTrspFecRecvPacketRate Unsigned32,
+    vasTrspFecRecvPackets Counter64,
+    vasTrspFecRecvRecovered Counter64,
+    
+    vasTrspFecSendBitrate Unsigned32,
+    vasTrspFecSendPacketRate Unsigned32,
+    vasTrspFecSendPackets Counter64
+}
+
+vasTrspIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Index in table."
+    ::= { vasTrspStatisticsEntry 1 }
+
+vasTrspOwner OBJECT-TYPE
+    SYNTAX      RowPointer
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Reference to the object that allocated and uses this
+         conceptual row."
+     ::= { vasTrspStatisticsEntry 2 }
+
+vasTrspLastConnectionChange OBJECT-TYPE
+     SYNTAX      DateAndTime
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "Last connection status change time."
+     ::= { vasTrspStatisticsEntry 3 }
+
+vasTrspConnects OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of times that the connection state has changed to
+         `connected'."
+     ::= { vasTrspStatisticsEntry 4 }
+
+vasTrspDisconnects OBJECT-TYPE
+     SYNTAX      Unsigned32
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "Number of times that the connection state has changed to
+          `disconnected'."
+     ::= { vasTrspStatisticsEntry 5 }
+
+vasTrspNetRecvBitrate OBJECT-TYPE
+     SYNTAX      Unsigned32
+     MAX-ACCESS  read-only
+    STATUS      current
+     DESCRIPTION
+         "Receive bitrate in kbps."
+     ::= { vasTrspStatisticsEntry 6 }
+
+vasTrspNetRecvBurstLoss OBJECT-TYPE
+     SYNTAX      Counter32
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "Maximum number of packets that have been lost in a single
+          burst error."
+     ::= { vasTrspStatisticsEntry 7 }
+
+vasTrspNetRecvOctets OBJECT-TYPE
+     SYNTAX      Counter64
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "The number of received octets."
+     ::= { vasTrspStatisticsEntry 8 }
+
+vasTrspNetRecvLatency OBJECT-TYPE
+     SYNTAX      Unsigned32
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "Latency used for error correction, in milliseconds (ms)."
+     ::= { vasTrspStatisticsEntry 9 }
+
+vasTrspNetRecvDropped OBJECT-TYPE
+     SYNTAX      Counter64
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "Number of packets dropped by the network."
+     ::= { vasTrspStatisticsEntry 10 }
+
+vasTrspNetRecvJitter OBJECT-TYPE
+     SYNTAX      Unsigned32
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "Input jitter in milliseconds (ms)."
+     ::= { vasTrspStatisticsEntry 11 }
+
+vasTrspNetRecvJitterRatio OBJECT-TYPE
+     SYNTAX      Integer32
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "Jitter ratio, for rate controlled streams."
+     ::= { vasTrspStatisticsEntry 12 }
+
+vasTrspNetRecvOutOfOrder OBJECT-TYPE
+     SYNTAX      Counter64
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "Number of packets received out of order."
+     ::= { vasTrspStatisticsEntry 13 }
+
+vasTrspNetRecvOverflows OBJECT-TYPE
+     SYNTAX      Counter64
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "Number of input jitter buffer overflows."
+     ::= { vasTrspStatisticsEntry 14 }
+
+vasTrspNetRecvPackets OBJECT-TYPE
+     SYNTAX      Counter64
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "Total number of received packets."
+     ::= { vasTrspStatisticsEntry 15 }
+
+vasTrspNetRecvPacketRate OBJECT-TYPE
+     SYNTAX      Unsigned32
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "Received packets per second."
+     ::= { vasTrspStatisticsEntry 16 }
+
+vasTrspNetRecvPacketLoss OBJECT-TYPE
+     SYNTAX      Unsigned32(0..100000)
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "Packet loss in millipercent (1/100,000)"
+     ::= { vasTrspStatisticsEntry 17 }
+
+vasTrspArqRecvAlmostDropped OBJECT-TYPE
+     SYNTAX      Counter64
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "Number of packets that required more than half latency to
+          recover."
+     ::= { vasTrspStatisticsEntry 18 }
+
+vasTrspArqRecvBitrate OBJECT-TYPE
+     SYNTAX      Unsigned32
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "Bitrate of received retransmissions in kbps."
+     ::= { vasTrspStatisticsEntry 19 }
+
+vasTrspArqRecvDropped OBJECT-TYPE
+     SYNTAX      Counter64
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "Number of packets not recovered by either retransmissions or
+          Forward Error Correction (FEC)."
+     ::= { vasTrspStatisticsEntry 20 }
+
+vasTrspArqRecvDuplicates OBJECT-TYPE
+     SYNTAX      Counter64
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "Number of duplicated retransmission packets."
+     ::= { vasTrspStatisticsEntry 21 }
+
+vasTrspArqRecvOverflows OBJECT-TYPE
+     SYNTAX      Counter64
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "Number of packets dropped because of retransmission buffer
+          overflow."
+     ::= { vasTrspStatisticsEntry 22 }
+
+vasTrspArqRecvPackets OBJECT-TYPE
+     SYNTAX      Counter64
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "Number of packets received by retransmission."
+     ::= { vasTrspStatisticsEntry 23 }
+
+vasTrspArqRecvRecovered OBJECT-TYPE
+     SYNTAX      Counter64
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "Number of packets recovered by retransmission."
+     ::= { vasTrspStatisticsEntry 24 }
+
+vasTrspArqRecvRequests OBJECT-TYPE
+     SYNTAX      Counter64
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "Number of sent retransmission requests."
+     ::= { vasTrspStatisticsEntry 25 }
+
+vasTrspNetSendBitrate OBJECT-TYPE
+     SYNTAX      Unsigned32
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "The send bitrate in kbps."
+     ::= { vasTrspStatisticsEntry 26 }
+
+vasTrspNetSendOctets OBJECT-TYPE
+     SYNTAX      Counter64
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "The number of sent octets."
+     ::= { vasTrspStatisticsEntry 27 }
+
+vasTrspNetSendLimit OBJECT-TYPE
+     SYNTAX      Unsigned32
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "The current sending limit in packets per second."
+     ::= { vasTrspStatisticsEntry 28 }
+
+vasTrspNetSendPackets OBJECT-TYPE
+     SYNTAX      Counter64
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "Total number of sent packets."
+     ::= { vasTrspStatisticsEntry 29 }
+
+vasTrspNetSendRtt OBJECT-TYPE
+     SYNTAX      Unsigned32
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "The return-trip time, RTT, in milliseconds (ms)."
+     ::= { vasTrspStatisticsEntry 30 }
+
+vasTrspNetSendErrors OBJECT-TYPE
+     SYNTAX      Counter64
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "The number of packets failed to be sent."
+     ::= { vasTrspStatisticsEntry 31 }
+
+vasTrspArqSendBitrate OBJECT-TYPE
+     SYNTAX      Unsigned32
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "Bitrate of send retransmissions in kbps."
+     ::= { vasTrspStatisticsEntry 32 }
+
+vasTrspArqSendIgnored OBJECT-TYPE
+     SYNTAX      Counter64
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "Number of ignored too frequent retransmission requests."
+     ::= { vasTrspStatisticsEntry 33 }
+
+vasTrspArqSendMissed OBJECT-TYPE
+     SYNTAX      Counter64
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "Number of ignored too late retransmission requests."
+     ::= { vasTrspStatisticsEntry 34 }
+
+vasTrspArqSendPacketRate OBJECT-TYPE
+     SYNTAX      Unsigned32
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "Retransmitted send packets per second."
+     ::= { vasTrspStatisticsEntry 35 }
+
+vasTrspArqSendPackets OBJECT-TYPE
+     SYNTAX      Counter64
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "Number of packets sent by retransmission."
+     ::= { vasTrspStatisticsEntry 36 }
+
+vasTrspFecRecvBitrate OBJECT-TYPE
+     SYNTAX      Unsigned32
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "The Forward Error Correction (FEC) receive overhead bitrate
+          in kbps."
+     ::= { vasTrspStatisticsEntry 37 }
+
+vasTrspFecRecvPacketRate OBJECT-TYPE
+     SYNTAX      Unsigned32
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "The Forward Error Correction (FEC) receive packet rate in
+          packets per second."
+     ::= { vasTrspStatisticsEntry 38 }
+
+vasTrspFecRecvPackets OBJECT-TYPE
+     SYNTAX      Counter64
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "The number of received Forward Error Correction (FEC)
+          packets"
+     ::= { vasTrspStatisticsEntry 39 }
+
+vasTrspFecRecvRecovered OBJECT-TYPE
+     SYNTAX      Counter64
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "The number of packets recovered by Forward Error Correction
+          (FEC)."
+     ::= { vasTrspStatisticsEntry 40 }
+
+vasTrspFecSendBitrate OBJECT-TYPE
+     SYNTAX      Unsigned32
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "The Forward Error Correction (FEC) send bitrate in kbps."
+     ::= { vasTrspStatisticsEntry 41 }
+
+vasTrspFecSendPacketRate OBJECT-TYPE
+     SYNTAX      Unsigned32
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "The Forward Error Correction (FEC) receive packet rate in
+          packets per second."
+     ::= { vasTrspStatisticsEntry 42 }
+
+vasTrspFecSendPackets OBJECT-TYPE
+     SYNTAX      Counter64
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "The number of sent Forward Error Correction (FEC) packets."
+     ::= { vasTrspStatisticsEntry 43 }
+ 
+-- End of transport stream statistics table
+
+END

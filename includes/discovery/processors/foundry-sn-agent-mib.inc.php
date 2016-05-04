@@ -7,11 +7,11 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-echo(" FOUNDRY-SN-AGENT-MIB ");
+echo("FOUNDRY-SN-AGENT-MIB ");
 
 $processors_array = snmpwalk_cache_triple_oid($device, "snAgentCpuUtilEntry", $processors_array, "FOUNDRY-SN-AGENT-MIB", mib_dirs('foundry'));
 if (OBS_DEBUG > 1) { print_vars($processors_array); }

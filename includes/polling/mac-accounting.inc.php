@@ -7,60 +7,67 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-echo("Mac Accounting: ");
-
 // FIXME -- we're walking, so we can discover here too.
+
+/// FIXME FIXME REWRITE ME please ;)
+
+print_cli_data_field("MIBs", 2);
 
 #dbQuery("TRUNCATE TABLE `mac_accounting`");
 #dbQuery("TRUNCATE TABLE `mac_accounting-state`");
 
 // Cache DB entries
-$sql  = "SELECT *, `mac_accounting`.`ma_id` as `ma_id`";
-$sql .= " FROM  `mac_accounting`";
-$sql .= " LEFT JOIN  `mac_accounting-state` ON  `mac_accounting`.ma_id =  `mac_accounting-state`.ma_id";
+$sql  = "SELECT * FROM `mac_accounting`";
+$sql .= " LEFT JOIN `mac_accounting-state` USING(`ma_id`)";
 $sql .= " WHERE `device_id` = ?";
-$arg  = array($device['device_id']);
 
-foreach (dbFetchRows($sql, $arg) as $acc)
+$acc_id_db = array();
+foreach (dbFetchRows($sql, array($device['device_id'])) as $acc)
 {
   $port = get_port_by_id($acc['port_id']);
-  $acc['ifIndex'] = $port['ifIndex'];
-  unset($port);
-  $ma_db_array[$acc['ifIndex'].'-'.$acc['vlan_id'].'-'.$acc['mac']] = $acc;
+  if (is_array($port))
+  {
+    $acc['ifIndex'] = $port['ifIndex'];
+    unset($port);
+    $ma_db_array[$acc['ifIndex'].'-'.$acc['vlan_id'].'-'.$acc['mac']] = $acc;
+  }
+  $acc_id_db[$acc['ma_id']] = $acc['ma_id'];
 }
 
-if (count($ma_db_array))
+if (OBS_DEBUG > 1 && count($ma_db_array))
 {
-  if (OBS_DEBUG) { print_vars($ma_db_array); }
-  echo(count($ma_db_array)." entries. ");
+  print_vars($ma_db_array);
 }
 
 if (is_device_mib($device, 'JUNIPER-MAC-MIB'))
 {
   $datas = snmp_walk($device, "jnxMacStatsEntry", "-OUqsX", "JUNIPER-MAC-MIB", mib_dirs("juniper"));
-
-  foreach (explode("\n", $datas) as $data)
+  if ($GLOBALS['snmp_status'])
   {
-    list($oid,$ifIndex,$vlan,$mac,$value) = parse_oid2($data);
-    list($a_a, $a_b, $a_c, $a_d, $a_e, $a_f) = explode(":", $mac);
-    $ah_a = zeropad($a_a); $ah_b = zeropad($a_b); $ah_c = zeropad($a_c); $ah_d = zeropad($a_d); $ah_e = zeropad($a_e); $ah_f = zeropad($a_f);
-    $mac = "$ah_a$ah_b$ah_c$ah_d$ah_e$ah_f";
+    foreach (explode("\n", $datas) as $data)
+    {
+      list($oid,$ifIndex,$vlan,$mac,$value) = parse_oid2($data);
+      list($a_a, $a_b, $a_c, $a_d, $a_e, $a_f) = explode(":", $mac);
+      $ah_a = zeropad($a_a); $ah_b = zeropad($a_b); $ah_c = zeropad($a_c); $ah_d = zeropad($a_d); $ah_e = zeropad($a_e); $ah_f = zeropad($a_f);
+      $mac = "$ah_a$ah_b$ah_c$ah_d$ah_e$ah_f";
+      if ($mac == '000000000000') { continue; } // Skip entries with "zero" mac
 
-    $oid = str_replace(array("cipMacSwitchedBytes", "cipMacSwitchedPkts"), array("bytes", "pkts"), $oid);
+      $oid = str_replace(array("cipMacSwitchedBytes", "cipMacSwitchedPkts"), array("bytes", "pkts"), $oid);
 
-    if ($oid == "jnxMacHCOutFrames") { $oid = "pkts"; $dir = "output"; }
-    if ($oid == "jnxMacHCInFrames")  { $oid = "pkts"; $dir = "input"; }
-    if ($oid == "jnxMacHCOutOctets") { $oid = "bytes"; $dir = "output"; }
-    if ($oid == "jnxMacHCInOctets")  { $oid = "bytes"; $dir = "input"; }
+      if ($oid == "jnxMacHCOutFrames") { $oid = "pkts"; $dir = "output"; }
+      if ($oid == "jnxMacHCInFrames")  { $oid = "pkts"; $dir = "input"; }
+      if ($oid == "jnxMacHCOutOctets") { $oid = "bytes"; $dir = "output"; }
+      if ($oid == "jnxMacHCInOctets")  { $oid = "bytes"; $dir = "input"; }
 
-    $ma_array[$ifIndex.'-'.$vlan.'-'.$mac]['ifIndex'] = $ifIndex;
-    $ma_array[$ifIndex.'-'.$vlan.'-'.$mac]['vlan'] = $vlan;
-    $ma_array[$ifIndex.'-'.$vlan.'-'.$mac]['mac'] = $mac;
-    $ma_array[$ifIndex.'-'.$vlan.'-'.$mac][$oid][$dir] = $value;
+      $ma_array[$ifIndex.'-'.$vlan.'-'.$mac]['ifIndex'] = $ifIndex;
+      $ma_array[$ifIndex.'-'.$vlan.'-'.$mac]['vlan'] = $vlan;
+      $ma_array[$ifIndex.'-'.$vlan.'-'.$mac]['mac'] = $mac;
+      $ma_array[$ifIndex.'-'.$vlan.'-'.$mac][$oid][$dir] = $value;
+    }
   }
 }
 
@@ -90,11 +97,13 @@ if (is_device_mib($device, 'CISCO-IP-STAT-MIB'))
       $datas .= "\n".snmp_walk($device, "cipMacSwitchedPkts", "-OUqsX", "CISCO-IP-STAT-MIB", mib_dirs('cisco'));
     }
 
-    foreach (explode("\n", $datas) as $data) {
+    foreach (explode("\n", $datas) as $data)
+    {
       list($oid,$ifIndex,$dir,$mac,$value) = parse_oid2($data);
       list($a_a, $a_b, $a_c, $a_d, $a_e, $a_f) = explode(":", $mac);
       $ah_a = zeropad($a_a); $ah_b = zeropad($a_b); $ah_c = zeropad($a_c); $ah_d = zeropad($a_d); $ah_e = zeropad($a_e); $ah_f = zeropad($a_f);
       $mac = "$ah_a$ah_b$ah_c$ah_d$ah_e$ah_f";
+      if ($mac == '000000000000') { continue; } // Skip entries with "zero" mac
 
       // Cisco isn't per-VLAN.
       $vlan = "0";
@@ -105,7 +114,6 @@ if (is_device_mib($device, 'CISCO-IP-STAT-MIB'))
       $ma_array[$ifIndex.'-'.$vlan.'-'.$mac]['mac'] = $mac;
       $ma_array[$ifIndex.'-'.$vlan.'-'.$mac][$oid][$dir] = $value;
     }
-    if (OBS_DEBUG) { print_vars($ma_array); }
   }
 }
 
@@ -126,27 +134,37 @@ if (is_device_mib($device, 'CISCO-IP-STAT-MIB'))
 #  return $new_array;
 #}
 
-if(count($ma_array))
+$acc_id = array(); // Count exist ma_ids
+if (count($ma_array))
 {
+  if (OBS_DEBUG > 1) { print_vars($ma_array); }
   $polled = time();
   $mac_entries = 0;
-  echo("Entries: ".$ma_db[$id].PHP_EOL);
+  echo("Entries: ".count($ma_array).PHP_EOL);
 
   foreach ($ma_array as $id => $ma)
   {
-
-    $port = get_port_by_ifIndex($device['device_id'], $ma['ifIndex']);
+    $port = get_port_by_index_cache($device['device_id'], $ma['ifIndex']);
 
     echo(' '.$id.' ');
 
     if (!is_array($ma_db_array[$id]))
     {
-      dbInsert(array('port_id' => $port['port_id'], 'device_id' => $device['device_id'], 'vlan_id' => $ma['vlan'], 'mac' => $ma['mac'] ), 'mac_accounting');
-      $ma_id = dbFetchCell("SELECT * FROM mac_accounting WHERE port_id = ? AND device_id = ? AND vlan_id = ? AND mac = ?", array($port['port_id'], $device['device_id'], $ma['vlan'], $ma['mac']));
-      dbInsert(array('ma_id' => $ma_id), 'mac_accounting-state');
-      echo("+");
+      $ma_id = dbInsert(array('port_id' => $port['port_id'], 'device_id' => $device['device_id'], 'vlan_id' => $ma['vlan'], 'mac' => $ma['mac'] ), 'mac_accounting');
+      if ($ma_id)
+      {
+        //$ma_id = dbFetchCell("SELECT * FROM mac_accounting WHERE port_id = ? AND device_id = ? AND vlan_id = ? AND mac = ?", array($port['port_id'], $device['device_id'], $ma['vlan'], $ma['mac']));
+        dbInsert(array('ma_id' => $ma_id), 'mac_accounting-state');
+        echo("+");
+        $acc_id[$ma_id] = $ma_id;
+      } else {
+        echo("-");
+        continue; // wrong adding to DB, not exist id - delete
+      }
     } else {
+      echo(".");
       $ma_db = $ma_db_array[$id];
+      $acc_id[$ma_db['ma_id']] = $ma_db['ma_id'];
     }
 
     $polled_period = $polled - $acc['poll_time'];
@@ -198,9 +216,9 @@ if(count($ma_array))
 
       if (is_array($ma['update']))
       { // Do Updates
-        if (empty($ma['poll_time']))
+        if (empty($ma_db['poll_time']))
         {
-          $insert = dbInsert(array('ma_id' => $ma['ma_id']), 'mac_accounting-state');
+          $insert = dbInsert(array('ma_id' => $ma_db['ma_id']), 'mac_accounting-state');
         }
         dbUpdate($ma['update'], 'mac_accounting-state', '`ma_id` = ?', array($ma_db['ma_id']));
       } // End Updates
@@ -211,9 +229,18 @@ if(count($ma_array))
 
   if ($mac_entries) { echo(" $mac_entries MAC accounting entries\n"); }
 
-  echo("\n");
+  echo(PHP_EOL);
 }
 
-echo("\n");
+// CLEAN not exist entries
+foreach ($acc_id_db as $ma_id => $entry)
+{
+  if (!isset($acc_id[$ma_id]))
+  {
+    dbDelete('mac_accounting', '`ma_id` = ?', array($ma_id));
+    dbDelete('mac_accounting-state', '`ma_id` = ?', array($ma_id));
+  }
+}
+echo(PHP_EOL);
 
 // EOF

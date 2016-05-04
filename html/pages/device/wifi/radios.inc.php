@@ -7,11 +7,11 @@
  *
  * @package        observium
  * @subpackage     webui
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-echo('<table class="table table-hover table-bordered table-condensed table-rounded table-striped"
+echo('<table class="table table-hover  table-condensed  table-striped"
              style="vertical-align: middle; margin-top: 5px; margin-bottom: 10px;">');
 
 echo('<thead><tr>
@@ -88,39 +88,35 @@ foreach ($radios as $radio)
 
   $graph_array['type']        = "wifiradio_bits";
   $graph_array['id']          = $radio['wifi_radio_id'];
-  echo('<h4>Traffic</h4>');
+  echo('<h3>Traffic</h4>');
 
   print_graph_row($graph_array);
 
   $graph_array['type']        = "wifiradio_frames";
   $graph_array['id']          = $radio['wifi_radio_id'];
-  echo('<h4>Frames</h4>');
+  echo('<h3>Frames</h4>');
 
   print_graph_row($graph_array);
 
   $graph_array['type']        = "wifiradio_rxerrors";
   $graph_array['id']          = $radio['wifi_radio_id'];
-  echo('<h4>Receive Errors</h4>');
+  echo('<h3>Receive Errors</h4>');
 
   print_graph_row($graph_array);
 
   $graph_array['type']        = "wifiradio_clients";
   $graph_array['id']          = $radio['wifi_radio_id'];
-  echo('<h4>Clients</h4>');
+  echo('<h3>Clients</h4>');
 
   print_graph_row($graph_array);
 
   echo '</td>';
   echo '</tr>';
 
-
-
 }
 
 echo("</table>");
 
-
 $pagetitle[] = "Radios";
 
 // EOF
-

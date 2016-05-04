@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -22,9 +22,9 @@ if (is_numeric($vars['id']))
     $rrd_filename = get_rrd_path($device, "ipsectunnel-".$tunnel['peer_addr'].".rrd");
 
     $title  = generate_device_link($device);
-    $title .= " :: IPSEC Tunnel :: " . htmlentities($tunnel['peer_addr']);
+    $title .= " :: IPSEC Tunnel :: " . escape_html($tunnel['peer_addr']);
     $auth = TRUE;
   }
 }
 
-?>
+// EOF

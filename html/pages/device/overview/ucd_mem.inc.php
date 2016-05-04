@@ -6,19 +6,19 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 ?>
-    <div class="widget widget-table">
-      <div class="widget-header">
+    <div class="box box-solid">
+      <div class="box-header ">
         <a href="<?php echo(generate_url(array('page' => 'device', 'device' => $device['device_id'], 'tab' => 'health', 'metric' => 'mempool'))); ?>">
-          <i class="oicon-memory"></i><h3>Memory</h3>
+           <i class="oicon-memory"></i><h3 class="box-title">Memory</h3>
         </a>
       </div>
-      <div class="widget-content">
+      <div class="box-body no-padding">
 
 <?php
 $mem_used_total = $device_state['ucd_mem']['mem_total'] - $device_state['ucd_mem']['mem_avail'];
@@ -32,7 +32,7 @@ $avai_perc = round(($device_state['ucd_mem']['mem_avail'] / $device_state['ucd_m
 
 $graph_array = array();
 $graph_array['height'] = "100";
-$graph_array['width']  = "512";
+$graph_array['width']  = "509";
 $graph_array['to']     = $config['time']['now'];
 $graph_array['device'] = $device['device_id'];
 $graph_array['type']   = 'device_ucd_memory';
@@ -59,12 +59,17 @@ $percentage_bar['text_c']  = "#E25A00";
 $percentage_bar['bars'][0] = array('percent' => $used_perc, 'colour' => '#FFAA66', 'text' => $used_perc_total.'%');
 $percentage_bar['bars'][1] = array('percent' => $buff_perc, 'colour' => '#cc0000', 'text' => '');
 $percentage_bar['bars'][2] = array('percent' => $cach_perc, 'colour' => '#f0e0a0', 'text' => '');
+
+$swap_used = $device_state['ucd_mem']['swap_total'] - $device_state['ucd_mem']['swap_avail'];
+$swap_perc = round(($swap_used / $device_state['ucd_mem']['swap_total']) * 100);
+$swap_free_perc = 100 - $swap_perc;
+
 ?>
 
-<table width="100%" class="table table-striped table-condensed-more table-bordered">
+<table class="table table-striped">
 
   <tr>
-    <td colspan=2><?php echo(overlib_link($link, $graph, $overlib_content, NULL)); ?></td>
+    <td colspan="2"><?php echo(overlib_link($link, $graph, $overlib_content, NULL)); ?></td>
   </tr>
 
   <tr>
@@ -73,23 +78,27 @@ $percentage_bar['bars'][2] = array('percent' => $cach_perc, 'colour' => '#f0e0a0
   </tr>
 
   <tr class="small">
-    <td colspan=2>
+    <td colspan="2">
       <div class="row" style="margin-left: 5px;">
-         <div class="col-md-4"><i style="font-size: 7px; line-height: 7px; background-color: #FFAA66; border: 1px #aaa solid;">&nbsp;&nbsp;&nbsp;</i>
+         <div class="col-sm-4"><i style="font-size: 7px; line-height: 7px; background-color: #FFAA66; border: 1px #aaa solid;">&nbsp;&nbsp;&nbsp;</i>
           <strong>Used:</strong>    <?php echo(formatStorage($mem_used * 1024).' ('.$used_perc.'%)'); ?></div>
-         <div class="col-md-4"><i style="font-size: 7px; line-height: 7px; background-color: #cc0000; border: 1px #aaa solid;">&nbsp;&nbsp;&nbsp;</i>
+         <div class="col-sm-4"><i style="font-size: 7px; line-height: 7px; background-color: #cc0000; border: 1px #aaa solid;">&nbsp;&nbsp;&nbsp;</i>
           <strong>Buffers:</strong> <?php echo(formatStorage($device_state['ucd_mem']['mem_buffer'] * 1024).' ('.$buff_perc.'%)'); ?></div>
-         <div class="col-md-4"><i style="font-size: 7px; line-height: 7px; background-color: #f0e0a0; border: 1px #aaa solid;">&nbsp;&nbsp;&nbsp;</i>
+         <div class="col-sm-4"><i style="font-size: 7px; line-height: 7px; background-color: #f0e0a0; border: 1px #aaa solid;">&nbsp;&nbsp;&nbsp;</i>
           <strong>Cached:</strong>  <?php echo(formatStorage($device_state['ucd_mem']['mem_cached'] * 1024).' ('.$cach_perc.'%)'); ?></div>
-         <div class="col-md-4"><i style="font-size: 7px; line-height: 7px; background-color: #ddd;    border: 1px #aaa solid;">&nbsp;&nbsp;&nbsp;</i>
+         <div class="col-sm-4"><i style="font-size: 7px; line-height: 7px; background-color: #ddd;    border: 1px #aaa solid;">&nbsp;&nbsp;&nbsp;</i>
           <strong>Free:</strong>    <?php echo(formatStorage($device_state['ucd_mem']['mem_avail'] * 1024).' ('.$avai_perc.'%)'); ?></div>
-         <div class="col-md-4"><i style="font-size: 7px; line-height: 7px; background-color: #ddd;    border: 1px #fff solid;">&nbsp;&nbsp;&nbsp;</i>
+         <div class="col-sm-4"><i style="font-size: 7px; line-height: 7px; background-color: #ddd;    border: 1px #fff solid;">&nbsp;&nbsp;&nbsp;</i>
           <strong>Total:</strong>   <?php echo(formatStorage($device_state['ucd_mem']['mem_total'] * 1024)); ?></div>
+         <div class="col-sm-4"><i style="font-size: 7px; line-height: 7px; background-color: #356AA0; border: 1px #aaa solid;">&nbsp;&nbsp;&nbsp;</i>
+          <strong>Swap:</strong>  <?php echo(formatStorage($swap_used * 1024).' ('.$swap_perc.'%)'); ?></div>
       </div>
     </td>
   </tr>
 
 <?php
+
+/**
 
 $swap_used = $device_state['ucd_mem']['swap_total'] - $device_state['ucd_mem']['swap_avail'];
 $swap_perc = round(($swap_used / $device_state['ucd_mem']['swap_total']) * 100);
@@ -111,18 +120,27 @@ $percentage_bar['bars'][0] = array('percent' => $swap_perc, 'colour' => '#356AA0
   </tr>
 
   <tr class="small">
-    <td colspan=2>
+    <td colspan="2">
       <div class="row" style="margin-left: 5px;">
-         <div class="col-md-4"><i style="font-size: 7px; line-height: 7px; background-color: #356AA0; border: 1px #aaa solid;">&nbsp;&nbsp;&nbsp;</i>
+         <div class="col-sm-4"><i style="font-size: 7px; line-height: 7px; background-color: #356AA0; border: 1px #aaa solid;">&nbsp;&nbsp;&nbsp;</i>
           <strong>Used:</strong>  <?php echo(formatStorage($swap_used * 1024).' ('.$swap_perc.'%)'); ?></div>
-         <div class="col-md-4"><i style="font-size: 7px; line-height: 7px; background-color: #ddd;    border: 1px #aaa solid;">&nbsp;&nbsp;&nbsp;</i>
+         <div class="col-sm-4"><i style="font-size: 7px; line-height: 7px; background-color: #ddd;    border: 1px #aaa solid;">&nbsp;&nbsp;&nbsp;</i>
           <strong>Free:</strong>  <?php echo(formatStorage($device_state['ucd_mem']['swap_avail'] * 1024).' ('.$swap_free_perc.'%)'); ?></div>
-         <div class="col-md-4"><i style="font-size: 7px; line-height: 7px; background-color: #ddd;    border: 1px #fff solid;">&nbsp;&nbsp;&nbsp;</i>
+         <div class="col-sm-4"><i style="font-size: 7px; line-height: 7px; background-color: #ddd;    border: 1px #fff solid;">&nbsp;&nbsp;&nbsp;</i>
           <strong>Total:</strong> <?php echo(formatStorage($device_state['ucd_mem']['swap_total'] * 1024)); ?></div>
       </div>
     </td>
   </tr>
+
+*/
+
+?>
+
 </table>
 
     </div>
   </div>
+
+<?php
+
+// EOF

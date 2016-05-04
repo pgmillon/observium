@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -48,7 +48,6 @@ if ($config['enable_vrfs'])
       $descrs_oid = ".1.3.6.1.2.1.10.166.11.1.2.2.1.3";
       $ports_oid = ".1.3.6.1.2.1.10.166.11.1.2.1.1.2";
     }
-
 
     print_debug("\n[DEBUG]\nUsing $vpnmib\n[/DEBUG]" .
                 "\n[DEBUG OIDS]\n$rds\n[/DEBUG]");

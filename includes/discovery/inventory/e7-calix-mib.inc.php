@@ -7,11 +7,11 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-echo(" E7-Calix-MIB ");
+echo("E7-Calix-MIB ");
 
 // This device not have self Indexes.
 // Use workaround ($base_vendor_index * 100000) + ($e7CardBank * 1000) + $e7CardIndex

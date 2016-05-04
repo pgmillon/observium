@@ -7,11 +7,10 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-$row = 1;
 
 foreach ($devices as $device)
 {
@@ -29,13 +28,13 @@ foreach ($devices as $device)
       {
         if ($_SESSION['big_graphs'])
         {
-          $width_div = 585;
-          $width = 507;
+          $width_div = 586;
+          $width = 508;
           $height = 149;
           $height_div = 220;
         } else {
-          $width_div=349;
-          $width=275;
+          $width_div=350;
+          $width=276;
           $height = 109;
           $height_div = 180;
         }
@@ -47,15 +46,15 @@ foreach ($devices as $device)
           $height = 159;
           $height_div = 218;
         } else {
-          $width_div=303;
-          $width=226;
-          $height = 102;
+          $width_div=294;
+          $width=219;
+          $height = 100;
           $height_div = 158;
         }
       }
 
       $graph_array['height'] = 100;
-      $graph_array['width']  = 210;
+      $graph_array['width']  = 212;
       if (is_numeric($vars['to']))   { $graph_array['to']   = $vars['to'];   } else { $graph_array['to']     = $config['time']['now']; }
       if (is_numeric($vars['from'])) { $graph_array['from'] = $vars['from']; } else { $graph_array['from']   = $config['time']['day']; }
 
@@ -68,14 +67,19 @@ foreach ($devices as $device)
       unset($link_array['height'], $link_array['width'], $link_array['legend']);
       $link = generate_url($link_array);
       $overlib_content = generate_overlib_content($graph_array, $device['hostname']);
-      $graph_array['title']  = "yes";
+      //$graph_array['title']  = "yes";
       $graph_array['width'] = $width;
       $graph_array['height'] = $height;
       $graph =  generate_graph_tag($graph_array);
 
-      echo("<div style='display: block; padding: 1px; margin: 2px; min-width: ".$width_div."px; max-width:".$width_div."px; min-height:".$height_div."px; max-height:".$height_div."; text-align: center; float: left; background-color: #f5f5f5;'>");
+      echo generate_box_open(array('title' => $device['hostname'],
+                                   'url' => generate_device_url($device),
+                                   'header-border' => TRUE,
+                                   'box-style' => 'float: left; margin-right: 10px; margin-bottom: 10px;  width:'.$width_div.'px; min-width: '.$width_div.'px; max-width:'.$width_div.'px; min-height:'.$height_div.'px; max-height:'.$height_div.';'));
+
       echo(overlib_link($link, $graph, $overlib_content));
-      echo("</div>");
+
+      echo generate_box_close();
     }
   }
 }

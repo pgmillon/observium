@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -30,15 +30,15 @@ foreach (dbFetchRows("SELECT * FROM `applications` WHERE `app_type` = ? ".$GLOBA
 }
 $app_devices = array_sort_by($app_devices, 'hostname', SORT_ASC, SORT_STRING);
 
-echo('<table class="table table-hover table-condensed table-striped table-bordered">');
+echo generate_box_open();
+
+echo '<table class="table table-hover table-condensed table-striped ">';
 
 foreach ($app_devices as $app_device)
 {
-  echo('<tr>');
-  echo('<td>');
-  if (isset($app_device['app_instance'])) { $app_device['instance_text'] = ' ('.$app_device['app_instance'].')'; }
-  echo('<h4>'.generate_device_link($app_device, $app_device['hostname'], array('tab'=>'apps','app'=>$vars['app'])).$app_device['instance_text'].'</h4>');
-#  echo(''.$app_device['app_status'].'</div>');
+  print_device_row($app_device);
+
+  echo '<tr><td colspan="6">';
 
   foreach ($config['app'][$vars['app']]['top'] as $graph_type)
   {
@@ -51,15 +51,17 @@ foreach ($app_devices as $app_device)
     //$link = generate_url(array('page' => 'graphs', 'id' => $graph_array['id'], 'type' => $graph_array['type'], 'from' => $graph_array['from'], 'to' => $graph_array['to']));
     //echo(overlib_link($link, generate_graph_tag($graph_array), generate_graph_tag($graph_array_zoom),  NULL));
 
+    echo '<h4>' . nicecase($graph_type) . '</h4>';
+
     print_graph_row($graph_array);
-
-
   }
 
-  echo('</td>');
-  echo('</tr>');
+  echo '</td>';
+  echo '</tr>';
 }
 
-echo('</table>');
+echo '</table>';
+
+echo generate_box_close();
 
 // EOF

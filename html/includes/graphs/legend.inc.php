@@ -1,5 +1,16 @@
 <?php
 
+/**
+ * Observium
+ *
+ *   This file is part of Observium.
+ *
+ * @package    observium
+ * @subpackage graphs
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
+ *
+ */
+
 // Here we scale the number of numerical columns shown to make sure we keep the text.
 if ($width > 600) {
   $data_show = array('lst', 'avg', 'min', 'max', 'tot');

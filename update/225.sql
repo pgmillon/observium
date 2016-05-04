@@ -1,0 +1,2 @@
+ALTER TABLE `ports` CHANGE `ifLastChange` `ifLastChange` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE `vlans_fdb` CHANGE `port_id` `port_id` INT(11) NULL;

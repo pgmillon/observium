@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -25,7 +25,7 @@ $i = 0;
 while (1)
 {
   $rrd_filename = get_rrd_path($device, "app-unbound-".$app['app_id']."-thread$thread.rrd");
-  if (file_exists($rrd_filename))
+  if (is_file($rrd_filename))
   {
     $rrd_list[$i]['filename'] = $rrd_filename;
     $rrd_list[$i]['descr']    = "Queries handled by thread$thread";

@@ -7,31 +7,35 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 $mib = "CISCO-IETF-PW-MIB";
 
-echo(" $mib ");
+echo("$mib ");
 
 $pws = snmpwalk_cache_oid($device, "cpwVcID", array(), $mib, mib_dirs('cisco'));
-if ($GLOBALS['snmp_status'] !== FALSE)
+if ($GLOBALS['snmp_status'] === FALSE)
 {
-  $pws = snmpwalk_cache_oid($device, "cpwVcName",           $pws, $mib, mib_dirs('cisco'));
-  $pws = snmpwalk_cache_oid($device, "cpwVcType",           $pws, $mib, mib_dirs('cisco'));
-  $pws = snmpwalk_cache_oid($device, "cpwVcDescr",          $pws, $mib, mib_dirs('cisco'));
-  $pws = snmpwalk_cache_oid($device, "cpwVcPsnType",        $pws, $mib, mib_dirs('cisco'));
-  $pws = snmpwalk_cache_oid($device, "cpwVcPeerAddrType",   $pws, $mib, mib_dirs('cisco'));
-  $pws = snmpwalk_cache_oid($device, "cpwVcPeerAddr",       $pws, $mib, mib_dirs('cisco'));
-  $pws = snmpwalk_cache_oid($device, "cpwVcLocalIfMtu",     $pws, $mib, mib_dirs('cisco'));
-  $pws = snmpwalk_cache_oid($device, "cpwVcRemoteIfMtu",    $pws, $mib, mib_dirs('cisco'));
-  $pws = snmpwalk_cache_oid($device, "cpwVcRemoteIfString", $pws, $mib, mib_dirs('cisco'));
+  return;
+}
 
-  // For MPLS pseudowires
-  $pws = snmpwalk_cache_oid($device, "cpwVcMplsLocalLdpID", $pws, "CISCO-IETF-PW-MPLS-MIB", mib_dirs('cisco'));
-  $pws = snmpwalk_cache_oid($device, "cpwVcMplsPeerLdpID",  $pws, "CISCO-IETF-PW-MPLS-MIB", mib_dirs('cisco'));
-  //echo("PWS_WALK: ".count($pws)."\n"); var_dump($pws);
+$pws = snmpwalk_cache_oid($device, "cpwVcRowStatus",      $pws, $mib, mib_dirs('cisco'));
+$pws = snmpwalk_cache_oid($device, "cpwVcName",           $pws, $mib, mib_dirs('cisco'));
+$pws = snmpwalk_cache_oid($device, "cpwVcType",           $pws, $mib, mib_dirs('cisco'));
+$pws = snmpwalk_cache_oid($device, "cpwVcDescr",          $pws, $mib, mib_dirs('cisco'));
+$pws = snmpwalk_cache_oid($device, "cpwVcPsnType",        $pws, $mib, mib_dirs('cisco'));
+$pws = snmpwalk_cache_oid($device, "cpwVcPeerAddrType",   $pws, $mib, mib_dirs('cisco'));
+$pws = snmpwalk_cache_oid($device, "cpwVcPeerAddr",       $pws, $mib, mib_dirs('cisco'));
+$pws = snmpwalk_cache_oid($device, "cpwVcOutboundVcLabel", $pws, $mib, mib_dirs('cisco'));
+$pws = snmpwalk_cache_oid($device, "cpwVcInboundVcLabel", $pws, $mib, mib_dirs('cisco'));
+$pws = snmpwalk_cache_oid($device, "cpwVcRemoteIfString", $pws, $mib, mib_dirs('cisco'));
+
+// For MPLS pseudowires
+$pws = snmpwalk_cache_oid($device, "cpwVcMplsLocalLdpID", $pws, "CISCO-IETF-PW-MPLS-MIB", mib_dirs('cisco'));
+$pws = snmpwalk_cache_oid($device, "cpwVcMplsPeerLdpID",  $pws, "CISCO-IETF-PW-MPLS-MIB", mib_dirs('cisco'));
+//echo("PWS_WALK: ".count($pws)."\n"); var_dump($pws);
 
   foreach ($pws as $pw_id => $pw)
   {
@@ -52,12 +56,14 @@ if ($GLOBALS['snmp_status'] !== FALSE)
       }
 
       // FIXME. Retarded way
-      $cpw_remote_device = dbFetchCell('SELECT `device_id` FROM `'.$peer_addr_type.'_addresses` AS A, `ports` AS I WHERE A.`'.$peer_addr_type.'_address` = ? AND A.`port_id` = I.`port_id` LIMIT 1;', array($peer_addr));
+      $remote_device = dbFetchCell('SELECT `device_id` FROM `'.$peer_addr_type.'_addresses`
+                                     LEFT JOIN `ports` USING(`port_id`)
+                                     WHERE `'.$peer_addr_type.'_address` = ? LIMIT 1;', array($peer_addr));
     } else {
       $peer_addr = ''; // Unset peer address
       print_debug("Not found correct peer address. See snmpwalk for 'cpwVcPeerAddr' and 'cpwVcMplsPeerLdpID'.");
     }
-    if (empty($cpw_remote_device)) { $cpw_remote_device = array('NULL'); }
+    if (empty($remote_device)) { $remote_device = array('NULL'); }
 
     $if_id = dbFetchCell('SELECT `port_id` FROM `ports` WHERE `ifDescr` = ? AND `device_id` = ? LIMIT 1;', array($pw['cpwVcName'], $device['device_id']));
     if (!is_numeric($if_id) && strpos($pw['cpwVcName'], '_'))
@@ -83,21 +89,24 @@ if ($GLOBALS['snmp_status'] !== FALSE)
 
     // Note, Cisco experimental 'cpwVc' oid prefix converted to 'pw' prefix as in rfc PW-STD-MIB
     $pws_new = array(
-      'device_id'       => $device['device_id'],
-      'mib'             => $mib,
-      'port_id'         => $if_id,
-      'peer_device_id'  => $cpw_remote_device,
-      'peer_addr'       => $peer_addr,
-      'peer_rdns'       => $peer_rdns,
+      'device_id'        => $device['device_id'],
+      'mib'              => $mib,
+      'port_id'          => $if_id,
+      'peer_device_id'   => $remote_device,
+      'peer_addr'        => $peer_addr,
+      'peer_rdns'        => $peer_rdns,
       'pwIndex'          => $pw_id,
       'pwType'           => $pw['cpwVcType'],
       'pwID'             => $pw['cpwVcID'],
-      'pwMplsPeerLdpID'  => $pw['cpwVcMplsPeerLdpID'],
+      'pwOutboundLabel'  => $pw['cpwVcOutboundVcLabel'],
+      'pwInboundLabel'   => $pw['cpwVcInboundVcLabel'],
+      //'pwMplsPeerLdpID'  => $pw['cpwVcMplsPeerLdpID'],
       'pwPsnType'        => $pw['cpwVcPsnType'],
-      'pwLocalIfMtu'     => $pw['cpwVcLocalIfMtu'],
-      'pwRemoteIfMtu'    => $pw['cpwVcRemoteIfMtu'],
+      //'pwLocalIfMtu'     => $pw['cpwVcLocalIfMtu'],
+      //'pwRemoteIfMtu'    => $pw['cpwVcRemoteIfMtu'],
       'pwDescr'          => $pw['cpwVcDescr'],
-      'pwRemoteIfString' => $pw['cpwVcRemoteIfString']
+      'pwRemoteIfString' => $pw['cpwVcRemoteIfString'],
+      'pwRowStatus'      => $pw['cpwVcRowStatus'],
     );
     if (!empty($pws_cache['pws_db'][$mib][$pw_id]))
     {
@@ -107,6 +116,7 @@ if ($GLOBALS['snmp_status'] !== FALSE)
       {
         $pws_old['peer_device_id'] = array('NULL');
       }
+
       $update_array = array();
       //var_dump(array_keys($pws_new));
       foreach (array_keys($pws_new) as $column)
@@ -130,9 +140,8 @@ if ($GLOBALS['snmp_status'] !== FALSE)
 
     $valid['pseudowires'][$mib][$pseudowire_id] = $pseudowire_id;
   }
-}
 
 // Clean
-unset($pws, $pw, $update_array);
+unset($pws, $pw, $update_array, $remote_device);
 
 // EOF

@@ -7,11 +7,11 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-echo(" SW-MIB ");
+echo("SW-MIB ");
 
 $descr = "CPU";
 $usage = snmp_get($device, "swCpuUsage.0", "-Ovq", 'SW-MIB', mib_dirs('brocade'));

@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -77,7 +77,7 @@ else
 
   if ($vars['subview'] == "graphs") { $table_class = "table-striped-two"; } else { $table_class = "table-striped"; }
 
-  echo('<table class="table table-hover table-condensed table-rounded table-bordered '.$table_class.'">');
+  echo('<table class="table table-hover table-condensed   '.$table_class.'">');
   echo('  <thead>');
 
   echo('<tr>');

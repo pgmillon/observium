@@ -7,17 +7,24 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 $mib = 'F10-CHASSIS-MIB';
 
-$cache_mempool = snmpwalk_cache_multi_oid($device, 'chRpmMemUsageUtil',     $cache_mempool, $mib, mib_dirs('force10'));
-$cache_mempool = snmpwalk_cache_multi_oid($device, 'chSysProcessorMemSize', $cache_mempool, $mib, mib_dirs('force10'));
+if (!is_array($cache_storage[$mib]))
+{
+  $cache_storage[$mib] = snmpwalk_cache_multi_oid($device, 'chRpmMemUsageUtil', NULL, $mib, mib_dirs('force10'));
+  $cache_storage[$mib] = snmpwalk_cache_multi_oid($device, 'chSysProcessorMemSize', $cache_storage[$mib], $mib, mib_dirs('force10'));
+} else {
+  print_debug("Cached!");
+}
 
 $index            = $mempool['mempool_index'];
-$mempool['total'] = $cache_mempool[$index]['chSysProcessorMemSize'];
-$mempool['perc']  = $cache_mempool[$index]['chRpmMemUsageUtil'];
+$cache_mempool    = $cache_storage[$mib][$index];
+
+$mempool['total'] = $cache_mempool['chSysProcessorMemSize'];
+$mempool['perc']  = $cache_mempool['chRpmMemUsageUtil'];
 
 // EOF

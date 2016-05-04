@@ -7,8 +7,8 @@
  *
  * @package    observium
  * @subpackage housekeeping
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -23,7 +23,7 @@ if ($cutoff)
   {
     if ($prompt)
     {
-      $answer = print_prompt("$count ports marked as 'DELETED' older than " . format_unixtime($cutoff) . " will be deleted");
+      $answer = print_prompt("$count ports marked as deleted before " . format_unixtime($cutoff) . " will be deleted");
     }
     if ($answer)
     {
@@ -37,7 +37,7 @@ if ($cutoff)
   }
   else if ($prompt)
   {
-    print_message("No deleted ports found older than " . format_unixtime($cutoff));
+    print_message("No ports found marked as deleted before " . format_unixtime($cutoff));
   }
 } else {
   print_message("Deleted ports housekeeping disabled in configuration.");

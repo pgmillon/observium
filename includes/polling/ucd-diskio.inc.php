@@ -7,11 +7,13 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 // FIXME - store state data in database
+
+$table_rows = array();
 
 $diskio_data = dbFetchRows("SELECT * FROM `ucd_diskio` WHERE `device_id`  = ?",array($device['device_id']));
 
@@ -20,7 +22,7 @@ if (count($diskio_data))
   $diskio_cache = array();
   $diskio_cache = snmpwalk_cache_oid($device, "diskIOEntry", $diskio_cache, "UCD-DISKIO-MIB");
 
-  echo("Checking UCD DiskIO MIB: ");
+  //echo("Checking UCD DiskIO MIB: ");
 
   foreach ($diskio_data as $diskio)
   {
@@ -28,7 +30,7 @@ if (count($diskio_data))
 
     $entry = $diskio_cache[$index];
 
-    echo($diskio['diskio_descr'] . " ");
+    //echo($diskio['diskio_descr'] . " ");
 
     if (OBS_DEBUG > 1) { print_vars($entry); }
 
@@ -41,10 +43,24 @@ if (count($diskio_data))
       DS:writes:DERIVE:600:0:125000000000 ");
 
     rrdtool_update($device, $rrd, array($entry['diskIONReadX'], $entry['diskIONWrittenX'], $entry['diskIOReads'], $entry['diskIOWrites']));
+
+    $table_row = array();
+    $table_row[] = $diskio['diskio_descr'];
+    $table_row[] = $diskio['diskio_index'];
+    $table_row[] = $entry['diskIONReadX'];
+    $table_row[] = $entry['diskIONWrittenX'];
+    $table_row[] = $entry['diskIOReads'];
+    $table_row[] = $entry['diskIOWrites'];
+    $table_rows[] = $table_row;
+    unset($table_row);
+
   }
 
-  echo(PHP_EOL);
+  //echo(PHP_EOL);
 }
+
+$headers = array('%WLabel%n', '%WIndex%n', '%WRead%n', '%WWritten%n', '%WReads%n', '%WWrites%n');
+print_cli_table($table_rows, $headers);
 
 unset($diskio_data, $diskio_cache);
 

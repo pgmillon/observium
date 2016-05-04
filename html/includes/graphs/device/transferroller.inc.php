@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -17,7 +17,7 @@ $rrd_options .= " -l 0 -E ";
 
 $roller_rrd = get_rrd_path($device, "transferroller.rrd");
 
-if (file_exists($roller_rrd))
+if (is_file($roller_rrd))
 {
   $rrd_options .= " COMMENT:'                           Cur   Min  Max\\n'";
 

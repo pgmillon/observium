@@ -1,33 +1,25 @@
 <?php
-/*
 
-    Observium configuration to JSON converter
-    Written by Job Snijders <job.snijders@atrato.com)
+/**
+ * Observium
+ *
+ *   This file is part of Observium.
+ *
+ * @package    observium
+ * @subpackage poller
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
+ *
+ */
 
-*/
+ // Prints the entire $config array as a JSON block. Probably needs to be cut-down.
 
-$defaults_config_file = 'includes/defaults.inc.php';
-$config_file = 'config.php';
-
-// move to observium install dir
 chdir(dirname($argv[0]));
 
-function is_cli()
-{
-  if (php_sapi_name() == 'cli' && empty($_SERVER['REMOTE_ADDR']))
-  {
-    return TRUE;
-  } else {
-    return FALSE;
-  }
-}
-
-// check if we are running throw the CLI, otherwise abort
+require_once("includes/sql-config.inc.php");
 
 if (is_cli())
 {
-  require_once($defaults_config_file);
-  require_once($config_file);
   print(json_encode($config));
 }
 

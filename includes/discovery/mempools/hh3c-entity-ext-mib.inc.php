@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -17,22 +17,24 @@
 // HH3C-ENTITY-EXT-MIB::hh3cEntityExtMemUsage.48 = INTEGER: 58
 
 $mib = 'HH3C-ENTITY-EXT-MIB';
-echo(" $mib ");
+echo("$mib ");
 
-$oids = array('hh3cEntityExtMemUsage', 'entPhysicalName');
+$oids = array('hh3cEntityExtMemUsage', 'hh3cEntityExtMemSize');
 $mempool_array = array();
 foreach ($oids as $oid)
 {
-  $mempool_array = snmpwalk_cache_multi_oid($device, $oid, $mempool_array, 'ENTITY-MIB:HH3C-ENTITY-EXT-MIB', mib_dirs('hh3c'));
+  $mempool_array = snmpwalk_cache_multi_oid($device, $oid, $mempool_array, $mib);
+  if (!$GLOBALS['snmp_status']) { break; }
 }
 
 if (is_array($mempool_array))
 {
   $chassis_count = 0;
-  $mempool_array = snmpwalk_cache_oid($device, "hh3cEntityExtMemSize", $mempool_array, $mib, mib_dirs('hh3c'));
+  $mempool_array = snmpwalk_cache_oid($device, 'entPhysicalName', $mempool_array, 'ENTITY-MIB');
 
   foreach ($mempool_array as $index => $entry)
   {
+    $entry['hh3cEntityExtMemSize'] = snmp_dewrap32bit($entry['hh3cEntityExtMemSize']);
     if (is_numeric($entry['hh3cEntityExtMemUsage']) && $entry['hh3cEntityExtMemSize'] > 0)
     {
       $descr   = $entry['entPhysicalName'];

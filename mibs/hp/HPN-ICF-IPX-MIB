@@ -1,0 +1,1407 @@
+-- ============================================================================
+-- Copyright (c) 2010-2013 Hewlett-Packard Development Company, L.P.
+--
+-- Description: Internetwork Packet Exchange MIB
+-- Reference:
+-- Version: V1.0
+-- History:
+-- V1.0     created by wanglu.
+-- ============================================================================
+HPN-ICF-IPX-MIB DEFINITIONS ::= BEGIN
+
+-- ==================================================================
+--
+-- Variables and types be imported
+--
+-- ==================================================================
+
+IMPORTS
+    Integer32,MODULE-IDENTITY,OBJECT-TYPE,
+    TimeTicks,Counter32
+        FROM SNMPv2-SMI
+    TEXTUAL-CONVENTION, RowStatus
+        FROM SNMPv2-TC
+    hpnicfCommon
+        FROM  HPN-ICF-OID-MIB;
+
+-- ==================================================================
+--
+-- module identity part
+--
+-- ==================================================================
+
+hpnicfIpx MODULE-IDENTITY
+    LAST-UPDATED
+        "200412241036Z"
+    ORGANIZATION
+        ""
+    CONTACT-INFO
+        ""
+    DESCRIPTION
+        "This MIB defines management information used on products
+        which support ipx protocol. It includes 4 parts:
+            1.ipx interface configuration group - This group
+        contains configurable management information and statistic
+        information on each interface.
+            2.rip group - Rip means route information protocol. This
+        group contains configurable management information and
+        route status and route statistic information.
+            3.sap group - Sap means service access group. This group
+        contains all service information.
+            4.ipx statistics group - This group includes ipx statistic
+        information on all interfaces."
+   ::= { hpnicfCommon 34 }
+
+-- =============================================================
+-- Textual Conventions
+-- =============================================================
+
+EnabledStatus ::= TEXTUAL-CONVENTION
+    STATUS    current
+    DESCRIPTION
+        "A simple status value for the object."
+    SYNTAX    INTEGER { enabled(1), disabled(2) }
+
+-- ==================================================================
+--
+-- =====================object definition begin======================
+--
+-- ==================================================================
+
+hpnicfIpxConfig    OBJECT IDENTIFIER ::= { hpnicfIpx 1 }
+hpnicfIpxRip       OBJECT IDENTIFIER ::= { hpnicfIpx 2 }
+hpnicfIpxSap       OBJECT IDENTIFIER ::= { hpnicfIpx 3 }
+hpnicfIpxStat      OBJECT IDENTIFIER ::= { hpnicfIpx 4 }
+
+-- hpnicfIpxIfConfig contains configurable management information
+-- on each interface.
+
+hpnicfIpxStatus OBJECT-TYPE
+    SYNTAX      EnabledStatus
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This object is used to enable or disable ipx globally."
+    DEFVAL      { disabled }
+    ::= { hpnicfIpxConfig 1 }
+
+hpnicfIpxIfConfigTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HpnicfIpxIfConfigEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Table of configurable management information on each
+        interface."
+    ::= { hpnicfIpxConfig 2 }
+
+hpnicfIpxIfConfigEntry OBJECT-TYPE
+    SYNTAX      HpnicfIpxIfConfigEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An entry in the table, containing management information
+        about a single interface."
+    INDEX       { hpnicfIpxIfIndex }
+    ::= { hpnicfIpxIfConfigTable 1 }
+
+HpnicfIpxIfConfigEntry ::=
+    SEQUENCE {
+        hpnicfIpxIfIndex                 Integer32,
+        hpnicfIpxIfNetId                 OCTET STRING,
+        hpnicfIpxIfNodeId                OCTET STRING,
+        hpnicfIpxIfSplitHorizon          EnabledStatus,
+        hpnicfIPxIfTick                  Integer32,
+        hpnicfIpxIfUpdateChangeOnly      EnabledStatus,
+        hpnicfIpxIfRipMtu                Integer32,
+        hpnicfIpxIfEncapsuleType         INTEGER,
+        hpnicfIpxIfNetbiosPropagation    EnabledStatus,
+        hpnicfIpxIfSapStatus             EnabledStatus,
+        hpnicfIpxIfSapMtu                Integer32,
+        hpnicfIpxIfGnsReply              EnabledStatus,
+        hpnicfIpxIfRowStatus             RowStatus
+        }
+
+-- node definition
+hpnicfIpxIfIndex OBJECT-TYPE
+    SYNTAX      Integer32 (1..2147483647)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "This variable uniquely identifies the interface
+        to which the configurations are applied."
+    REFERENCE  "ifIndex"
+    ::= { hpnicfIpxIfConfigEntry 1 }
+
+hpnicfIpxIfNetId OBJECT-TYPE
+    SYNTAX       OCTET STRING (SIZE(4))
+    MAX-ACCESS   read-create
+    STATUS       current
+    DESCRIPTION
+        "The network number of the IPX address of this
+        interface."
+    ::= { hpnicfIpxIfConfigEntry 2 }
+
+hpnicfIpxIfNodeId OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(6))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The node number of the IPX address of this interface."
+    ::= { hpnicfIpxIfConfigEntry 3 }
+
+hpnicfIpxIfSplitHorizon OBJECT-TYPE
+    SYNTAX      EnabledStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "This node is used to set the split horizon status.
+        Its default value is 'enabled'. In this case, the interface
+        which receives a message can't send this message from the
+        same interface. This function can avoid route loop. But it
+        is unused for point to point link. If it is set to
+        'disabled', split horizon is disable."
+    DEFVAL      { enabled }
+    ::= { hpnicfIpxIfConfigEntry 4 }
+
+hpnicfIPxIfTick OBJECT-TYPE
+    SYNTAX      Integer32(1..30000)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "This object is used to set this interface's delay time.
+        It is counted by ticks which is 1/18 second. By default,
+        the ethernet interface's delay time is 1 tick,
+        asynchronous serial interface's delay time is 30 ticks,
+        WAN interface's delay time is 6 ticks."
+    ::= { hpnicfIpxIfConfigEntry 5 }
+
+hpnicfIpxIfUpdateChangeOnly OBJECT-TYPE
+    SYNTAX      EnabledStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "When this variable is set to 'enabled', updating change is
+        on. And sap and rip will send updating packets periodically
+        to avoid broadcast storm. Whereas updating change is
+        off."
+    DEFVAL      { disabled }
+    ::= { hpnicfIpxIfConfigEntry 6 }
+
+hpnicfIpxIfRipMtu OBJECT-TYPE
+    SYNTAX      Integer32(432..1500)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "This variable is used to define the max length of RIP
+        updating packets."
+    DEFVAL      { 432 }
+    ::= { hpnicfIpxIfConfigEntry 7 }
+
+hpnicfIpxIfEncapsuleType OBJECT-TYPE
+    SYNTAX INTEGER {
+                dot2(1),
+                dot3(2),
+                ethernet-2(3),
+                snap(4),
+                unkown(5)
+                }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "This node is used to define the encapsulating form of
+        IPX packets. 'dot2' indicates the form is 802.2, while 'dot3'
+        means 802.3. And 'snap' indicates the form is ethernet-snap.
+        It takes effect only on ethernet interface, and the default
+        value is 'dot3', while 'unkown' for other types of port."
+    DEFVAL      { dot3 }
+    ::= { hpnicfIpxIfConfigEntry 8 }
+
+hpnicfIpxIfNetbiosPropagation OBJECT-TYPE
+    SYNTAX      EnabledStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "This node is used to configure whether the current interface
+        can forward broadcasting packets which IPX type is 20 used 
+        for NetBIOS."
+    DEFVAL     { disabled }
+    ::= { hpnicfIpxIfConfigEntry 9 }
+
+hpnicfIpxIfSapStatus OBJECT-TYPE
+    SYNTAX      EnabledStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The status of sap on the current interface. It is enabled
+        when ipx is enabled on this interface."
+    DEFVAL      { enabled }
+    ::= { hpnicfIpxIfConfigEntry 10 }
+
+hpnicfIpxIfSapMtu OBJECT-TYPE
+    SYNTAX      Integer32(480..1500)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "This variable is used to define the max length of SAP
+        refreshing packets."
+    DEFVAL     { 480 }
+    ::= { hpnicfIpxIfConfigEntry 11 }
+
+hpnicfIpxIfGnsReply OBJECT-TYPE
+    SYNTAX      EnabledStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "This object is used to enable or disable the current
+        interface to response the IPX GNS request."
+    DEFVAL     { enabled }
+    ::= { hpnicfIpxIfConfigEntry 12 }
+
+hpnicfIpxIfRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The status of this row. To create a row, user can 
+        select 'createAndGo'. If the row is created successfully, 
+        this object will became 'active'. To delete one row, 
+        user can select 'destory' and the row will be deleted."
+    ::= { hpnicfIpxIfConfigEntry 13 }
+
+-- rip group
+-- basic configurable management information
+
+hpnicfIpxRouteMultiplier OBJECT-TYPE
+    SYNTAX      Integer32(1..1000)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This node is used to calculate Rip aging time of route
+        information.
+        The absolute aging time =
+        (hpnicfIpxRouteMultiplier * hpnicfIpxRouteUpdateTimer)."
+    DEFVAL     { 3 }
+    ::= { hpnicfIpxRip 1 }
+
+hpnicfIpxRouteUpdateTimer OBJECT-TYPE
+    SYNTAX      Integer32(10..60000)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This node is used to set rip updating time which is based
+        on seconds"
+    DEFVAL     { 60 }
+    ::= { hpnicfIpxRip 2 }
+
+hpnicfIpxRouteImpRouteStatic OBJECT-TYPE
+    SYNTAX     EnabledStatus
+    MAX-ACCESS read-write
+    STATUS     current
+    DESCRIPTION
+        "This object determines whether static route can be imported."
+    DEFVAL     { disabled }
+    ::= { hpnicfIpxRip 3 }
+
+hpnicfIpxRouteLoadBalancePaths OBJECT-TYPE
+    SYNTAX      Integer32(1..64)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This object defines the max equivalent paths to the same
+        destination. If the newly defined value is smaller than the
+        current value, the routes out of the new value will be set
+        inactive."
+    DEFVAL     { 1 }
+    ::= { hpnicfIpxRip 4 }
+
+hpnicfIpxRouteMaxResPaths OBJECT-TYPE
+    SYNTAX      Integer32(1..255)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This object defines the max dynamic routes to the same
+        destination. If the newly defined value is smaller than the
+        current value, the routes will not be deleted until they age
+        out or are deleted manually."
+    DEFVAL     { 4 }
+    ::= { hpnicfIpxRip 5 }
+
+-- hpnicfIpxRouteTable contains all ipx route information of
+-- this system. There are all kinds of information in this table
+-- including direct, rip, inactive, active, etc.
+
+hpnicfIpxRouteTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HpnicfIpxRouteEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "This table contains all dynamic and direct ipx route information
+        of this system. The information of this table is read only."
+    ::= { hpnicfIpxRip 6 }
+
+hpnicfIpxRouteEntry OBJECT-TYPE
+    SYNTAX      HpnicfIpxRouteEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each entry includes a dynamic or direct route."
+    INDEX      { hpnicfIpxRouteIndex }
+    ::= { hpnicfIpxRouteTable 1 }
+
+HpnicfIpxRouteEntry ::=
+    SEQUENCE {
+        hpnicfIpxRouteIndex
+            Integer32,
+        hpnicfIpxRouteDestNetId
+            OCTET STRING,
+        hpnicfIpxRouteNextHop
+            OCTET STRING,
+        hpnicfIpxRoutePro
+            INTEGER,
+        hpnicfIpxRoutePre
+            Integer32,
+        hpnicfIpxRouteTicks
+            Integer32,
+        hpnicfIpxRouteHops
+            Integer32,
+        hpnicfIpxRouteTime
+            Integer32,
+        hpnicfIpxRouteOutInterface
+            OCTET STRING
+        }
+
+hpnicfIpxRouteIndex OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "This object uniquely identifies a route."
+    ::= { hpnicfIpxRouteEntry 1 }
+
+hpnicfIpxRouteDestNetId OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(4))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The destination network number of this route information,
+        and its value ranges from 1 to 0xfffffffe."
+    ::= { hpnicfIpxRouteEntry 2 }
+
+hpnicfIpxRouteNextHop OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(10))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The next hop of this route."
+    ::= { hpnicfIpxRouteEntry 3 }
+
+hpnicfIpxRoutePro OBJECT-TYPE
+    SYNTAX      INTEGER{
+                    direct(1),
+                    rip(2)
+                    }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The protocol type of this route information."
+    ::= { hpnicfIpxRouteEntry 4 }
+
+hpnicfIpxRoutePre OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The preference of this route information. The direct route's
+        preference is 0, and it can't be modified. Dynamic route's
+        default preference is 100."
+    ::= { hpnicfIpxRouteEntry 5 }
+
+hpnicfIpxRouteTicks OBJECT-TYPE
+    SYNTAX      Integer32(1..65534)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The time, in ticks, that the packet takes to reach the destination."
+    ::= { hpnicfIpxRouteEntry 6 }
+
+hpnicfIpxRouteHops OBJECT-TYPE
+    SYNTAX      Integer32(0..15)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The object indicates the number of hops that the packet must be 
+        passed through to reach the destination."
+    ::= { hpnicfIpxRouteEntry 7 }
+
+hpnicfIpxRouteTime OBJECT-TYPE
+    SYNTAX      Integer32(0..60000000)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The aging time of this route information. The aging time of
+        static and interface route information is 0."
+    ::= { hpnicfIpxRouteEntry 8 }
+
+hpnicfIpxRouteOutInterface OBJECT-TYPE
+    SYNTAX      OCTET STRING(SIZE(1..30))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The out interface of this route information."
+    ::= { hpnicfIpxRouteEntry 9 }
+
+-- hpnicfIpxStaticRouteTable contains all static route
+-- information
+
+hpnicfIpxStaticRouteTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HpnicfIpxStaticRouteEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "This table contains all static ipx route information of
+        this system."
+    ::= { hpnicfIpxRip 7 }
+
+hpnicfIpxStaticRouteEntry OBJECT-TYPE
+    SYNTAX      HpnicfIpxStaticRouteEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each entry includes one static route information."
+    INDEX      { hpnicfIpxStaticRouteDestNetId,
+                 hpnicfIpxStaticRouteNextHop }
+    ::= { hpnicfIpxStaticRouteTable 1 }
+
+HpnicfIpxStaticRouteEntry ::=
+    SEQUENCE {
+        hpnicfIpxStaticRouteDestNetId
+            OCTET STRING,
+        hpnicfIpxStaticRouteNextHop
+            OCTET STRING,
+        hpnicfIpxStaticRoutePre
+            Integer32,
+        hpnicfIpxStaticRouteOutIf
+            OCTET STRING,
+        hpnicfIpxStaticRouteTicks
+            Integer32,
+        hpnicfIpxStaticRouteHops
+            Integer32,
+        hpnicfIpxStaticRouteStatus
+            INTEGER,
+        hpnicfIpxStaticRouteRowStatus
+            RowStatus
+        }
+
+hpnicfIpxStaticRouteDestNetId OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(4))
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The index of Static Route Table. This object and
+        hpnicfIpxStaticRouteNextHop uniquely identify a static route.
+        The destination network number of this static route
+        information,and its value ranges from 1 to 0xfffffffe.
+        Note that the broadcast network number is 0xffffffff
+        and is not allowed in IPX. The network number of
+        0xfffffffe would be considered to be the network
+        number of default route."
+    ::= { hpnicfIpxStaticRouteEntry 1 }
+
+hpnicfIpxStaticRouteNextHop OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(10))
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The sub-index of Static Route Table. The next hop of
+        this static route information."
+    ::= { hpnicfIpxStaticRouteEntry 2 }
+
+hpnicfIpxStaticRoutePre OBJECT-TYPE
+    SYNTAX      Integer32(1..255)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The preference of this route information. Static route's
+        preference is 60, and it can be configured."
+    DEFVAL      { 60 }
+    ::= { hpnicfIpxStaticRouteEntry 3 }
+
+hpnicfIpxStaticRouteOutIf OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(1..30))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The out interface of this route. This interface can be serial
+         or pos interface. "
+    ::= { hpnicfIpxStaticRouteEntry 4 }
+
+hpnicfIpxStaticRouteTicks OBJECT-TYPE
+    SYNTAX      Integer32(1..65534)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The time, in ticks that the packet takes to reach the destination 
+        with the static route."
+    ::= { hpnicfIpxStaticRouteEntry 5 }
+
+hpnicfIpxStaticRouteHops OBJECT-TYPE
+    SYNTAX      Integer32(1..15)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "This object indicates how many hops are needed to arrive
+        at the destination network."
+    DEFVAL      { 1 }
+    ::= { hpnicfIpxStaticRouteEntry 6 }
+
+hpnicfIpxStaticRouteStatus OBJECT-TYPE
+    SYNTAX      INTEGER{
+                    active(1),
+                    inactive(2)
+                    }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The status of this static route."
+    ::= { hpnicfIpxStaticRouteEntry 7 }
+
+hpnicfIpxStaticRouteRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The status of this row. To create a row, user can 
+        select 'createAndGo'. If the row is created successfully, 
+        this object will became 'active'. To delete one row, 
+        user can select 'destory' and the row will be deleted."
+    ::= { hpnicfIpxStaticRouteEntry 8 }
+
+-- hpnicfIpxRouteStatTable includes statistic route information
+
+hpnicfIpxRouteStatTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HpnicfIpxRouteStatEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A table includes all statistic route information."
+    ::= { hpnicfIpxRip 8 }
+
+hpnicfIpxRouteStatEntry OBJECT-TYPE
+    SYNTAX      HpnicfIpxRouteStatEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An entry records a statistic information of route."
+    INDEX      { hpnicfIpxRouteStatPro }
+    ::= { hpnicfIpxRouteStatTable 1 }
+
+HpnicfIpxRouteStatEntry ::=
+    SEQUENCE {
+        hpnicfIpxRouteStatPro
+            INTEGER,
+        hpnicfIpxRouteStatRoutes
+            Counter32,
+        hpnicfIpxRouteStatActives
+            Counter32,
+        hpnicfIpxRouteStatAddeds
+            Counter32,
+        hpnicfIpxRouteStatDeleteds
+            Counter32,
+        hpnicfIpxRouteStatFreeds
+            Counter32
+        }
+
+
+hpnicfIpxRouteStatPro OBJECT-TYPE
+    SYNTAX     INTEGER{
+                   direct(1),
+                   static(2),
+                   rip(3),
+                   default(4),
+                   total(5)
+                   }
+    MAX-ACCESS not-accessible
+    STATUS     current
+    DESCRIPTION
+        "The protocol type of the route information. The value of
+        'total' is the total amount of all kinds of IPX routes."
+    ::= { hpnicfIpxRouteStatEntry 1 }
+
+hpnicfIpxRouteStatRoutes OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The route amount of the corresponding protocol type."
+    ::= { hpnicfIpxRouteStatEntry 2 }
+
+hpnicfIpxRouteStatActives OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The active route amount of the corresponding protocol type."
+    ::= { hpnicfIpxRouteStatEntry 3 }
+
+hpnicfIpxRouteStatAddeds OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The added route amount of the corresponding protocol type."
+    ::= { hpnicfIpxRouteStatEntry 4 }
+
+hpnicfIpxRouteStatDeleteds OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The deleted but not freed route amount of the corresponding
+        protocol type."
+    ::= { hpnicfIpxRouteStatEntry 5 }
+
+hpnicfIpxRouteStatFreeds OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The freed route amount of the corresponding protocol type."
+    ::= { hpnicfIpxRouteStatEntry 6 }
+
+
+
+-- sap group
+
+-- basic configurable management information
+
+hpnicfIpxSapMultiplier OBJECT-TYPE
+    SYNTAX      Integer32(1..1000)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This node is used to calculate aging time of service
+        information.
+        The absolute aging time =
+        (hpnicfIpxSapMultiplier * hpnicfIpxSapUpdateTimer)."
+    DEFVAL     { 3 }
+    ::= { hpnicfIpxSap 1 }
+
+hpnicfIpxSapUpdateTimer OBJECT-TYPE
+    SYNTAX      Integer32(10..60000)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This node is used to set service packet updating time which
+        is based on seconds."
+    DEFVAL      { 60 }
+    ::= { hpnicfIpxSap 2 }
+
+hpnicfIpxSapGnsLoadBalance OBJECT-TYPE
+    SYNTAX      EnabledStatus
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This object is used to set whether the system will reply to the
+        GNS request with the Round-Robin way. By default, the system will
+        response to the GNS request with the servers known to the device
+        in turn, preventing from the nearest server's over loading. With
+        value of disabled, in this way, the system will response to the
+        request with the nearest server(who has smallest hop in system's 
+        service information table)."
+    DEFVAL     { enabled }
+    ::= { hpnicfIpxSap 3 }
+
+hpnicfIpxSapMaxResServers OBJECT-TYPE
+    SYNTAX      Integer32(1..2048)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This object is used to configure maximum number of servers of a type.
+        If the newly defined value is smaller than the previous value, the
+        information out of the value will not be deleted. If the queue reaches 
+        to the maximum number, no new information can be added."
+    DEFVAL      { 2048 }
+    ::= { hpnicfIpxSap 4 }
+
+-- hpnicfIpxServiceTable contains the service information
+
+hpnicfIpxServiceTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HpnicfIpxServiceEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "This table inlcudes all dynamic service information.
+        The dynamic service information can be read only."
+    ::= { hpnicfIpxSap 5 }
+
+hpnicfIpxServiceEntry OBJECT-TYPE
+    SYNTAX      HpnicfIpxServiceEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "One entry records one service"
+    INDEX       { hpnicfIpxServiceIndex }
+    ::= { hpnicfIpxServiceTable 1 }
+
+HpnicfIpxServiceEntry ::=
+    SEQUENCE{
+        hpnicfIpxServiceIndex
+            Integer32,
+        hpnicfIpxServiceName
+            OCTET STRING,
+        hpnicfIpxServiceType
+            OCTET STRING,
+        hpnicfIpxServiceNetId
+            OCTET STRING,
+        hpnicfIpxServiceNodeId
+            OCTET STRING,
+        hpnicfIpxServiceSocketNo
+            OCTET STRING,
+        hpnicfIpxServicePreference
+            Integer32,
+        hpnicfIpxServiceHops
+            Integer32,
+        hpnicfIpxServiceRecvIf
+            OCTET STRING
+}
+
+--  node definition
+
+hpnicfIpxServiceIndex OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "This object uniquely identifies a service information."
+    ::= { hpnicfIpxServiceEntry 1 }
+
+hpnicfIpxServiceName OBJECT-TYPE
+    SYNTAX      OCTET STRING(SIZE(1..47))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The name of the service."
+    ::= { hpnicfIpxServiceEntry 2 }
+
+hpnicfIpxServiceType OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(2))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The service type."
+    ::= { hpnicfIpxServiceEntry 3 }
+
+hpnicfIpxServiceNetId OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(4))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The IPX network number portion of the IPX address of the service."
+    ::= { hpnicfIpxServiceEntry 4 }
+
+hpnicfIpxServiceNodeId OBJECT-TYPE
+    SYNTAX     OCTET STRING (SIZE(6))
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The IPX node number portion of the IPX address of the service."
+    ::= { hpnicfIpxServiceEntry 5 }
+
+hpnicfIpxServiceSocketNo OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(2))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The socket portion of the IPX address of the service"
+    ::= { hpnicfIpxServiceEntry 6 }
+
+hpnicfIpxServicePreference OBJECT-TYPE
+    SYNTAX     Integer32
+    MAX-ACCESS read-only
+    STATUS     current
+    DESCRIPTION
+        "The service preference of the service"
+    ::= { hpnicfIpxServiceEntry 7 }
+
+hpnicfIpxServiceHops OBJECT-TYPE
+    SYNTAX      Integer32(0..15)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The hops from the device to the server."
+    ::= { hpnicfIpxServiceEntry 8 }
+
+hpnicfIpxServiceRecvIf OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(1..30))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Interface from which the service is receieved"
+    ::= { hpnicfIpxServiceEntry 9 }
+
+--  hpnicfIpxStaticServiceTable This table contains all static service information
+
+hpnicfIpxStaticServiceTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HpnicfIpxStaticServiceEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "This table inlcudes all static service information.
+        This table supports to creation and deletione of a static service,
+        but not supports to modification"
+    ::= { hpnicfIpxSap 6 }
+
+hpnicfIpxStaticServiceEntry OBJECT-TYPE
+    SYNTAX      HpnicfIpxStaticServiceEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An entry records one service"
+    INDEX      { hpnicfIpxStaticServiceType,
+                 hpnicfIpxStaticServiceName,
+                 hpnicfIpxStaticServiceNetId }
+    ::= { hpnicfIpxStaticServiceTable 1 }
+
+HpnicfIpxStaticServiceEntry ::=
+    SEQUENCE{
+        hpnicfIpxStaticServiceType
+            OCTET STRING,
+        hpnicfIpxStaticServiceName
+            OCTET STRING,
+        hpnicfIpxStaticServiceNetId
+            OCTET STRING,
+        hpnicfIpxStaticServiceNodeId
+            OCTET STRING,
+        hpnicfIpxStatciServiceSocketNo
+            OCTET STRING,
+        hpnicfIpxStaticServicePreference
+            Integer32,
+        hpnicfIpxStaticServiceHops
+            Integer32,
+        hpnicfIpxStaticServiceStatus
+            INTEGER,
+        hpnicfIpxStaticServiceRowStatus
+            RowStatus
+}
+
+--  node definition
+
+hpnicfIpxStaticServiceType OBJECT-TYPE
+    SYNTAX       OCTET STRING (SIZE(2))
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "The index of static service table."
+    ::= { hpnicfIpxStaticServiceEntry 1 }
+
+hpnicfIpxStaticServiceName OBJECT-TYPE
+    SYNTAX      OCTET STRING(SIZE(1..47))
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "The sub-index of static service table. The name of
+                the service."
+    ::= { hpnicfIpxStaticServiceEntry 2 }
+
+hpnicfIpxStaticServiceNetId OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(4))
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "The sub-index of static service table. The IPX network
+                number portion of the IPX address of the service."
+    ::= { hpnicfIpxStaticServiceEntry 3 }
+
+hpnicfIpxStaticServiceNodeId OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(6))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION "The IPX node number portion of the IPX address of the
+                service."
+    ::= { hpnicfIpxStaticServiceEntry 4 }
+
+hpnicfIpxStatciServiceSocketNo OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(2))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION "The socket portion of the IPX address of the service."
+    ::= { hpnicfIpxStaticServiceEntry 5 }
+
+hpnicfIpxStaticServicePreference OBJECT-TYPE
+    SYNTAX      Integer32(1..255)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION "The service preference of the server."
+    DEFVAL      { 60 }
+    ::= { hpnicfIpxStaticServiceEntry 6 }
+
+hpnicfIpxStaticServiceHops OBJECT-TYPE
+    SYNTAX      Integer32(1..15)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION "The hops from the device to the server."
+    ::= { hpnicfIpxStaticServiceEntry 7 }
+
+hpnicfIpxStaticServiceStatus OBJECT-TYPE
+    SYNTAX      INTEGER{
+                    active(1),
+                    inactive(2)
+                    }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The status of the service that you created. The value of
+        this object is determined by system."
+    ::= { hpnicfIpxStaticServiceEntry 8 }
+
+hpnicfIpxStaticServiceRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The status of this row. To create a row, user can 
+        select 'createAndGo'. If the row is created successfully, 
+        this object will became 'active'. To delete one row, 
+        user can select 'destory' and the row will be deleted."
+    ::= { hpnicfIpxStaticServiceEntry 9 }
+
+
+--  ipx statistics group
+--  statistic information about packets Input/Output
+
+hpnicfIpxStatGlobal       OBJECT IDENTIFIER ::= { hpnicfIpxStat 1 }
+hpnicfIpxStatInterface    OBJECT IDENTIFIER ::= { hpnicfIpxStat 2 }
+
+--  received
+
+hpnicfIpxStatTotalReceives OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of packets received."
+    ::= { hpnicfIpxStatGlobal 1 }
+
+hpnicfIpxStatPitchs OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The number of received packets filled by device when forwarding 
+                or delivering up to upper protocol."
+    ::= { hpnicfIpxStatGlobal 2 }
+
+hpnicfIpxStatLenErrors OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The number of received packets discarded due to length error."
+    ::= { hpnicfIpxStatGlobal 3 }
+
+hpnicfIpxStatFormatErrors OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The number of received packets discarded due to format error."
+    ::= { hpnicfIpxStatGlobal 4 }
+
+hpnicfIpxStatBadHops OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The number of received packets which's value of field Hops
+                is greater than 16."
+    ::= { hpnicfIpxStatGlobal 5 }
+
+hpnicfIpxStatHopsDiscards OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The number of received packets of which hops portion
+                is equal to 16."
+    ::= { hpnicfIpxStatGlobal 6 }
+
+hpnicfIpxStatOtherErrors OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The number of received packets discarded due to other error."
+    ::= { hpnicfIpxStatGlobal 7 }
+
+hpnicfIpxStatLocalDests OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The number of received packets which destination is the
+                local device. Note that this would include the IPX NetBIOS
+                propagation packets and those broadcast packets just to
+                the network on which local device resides."
+    ::= { hpnicfIpxStatGlobal 8 }
+
+hpnicfIpxStatCantDeals OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The number of received packets with which can't be dealt.
+                One possible reason for discarding such a packet would be
+                receiving a packet of an unknown or unsupported protocol."
+    ::= { hpnicfIpxStatGlobal 9 }
+
+--  Sent
+
+hpnicfIpxStatForwards OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The number of received packets to be forwarded in the case that
+                the entity was not their final destination."
+    ::= { hpnicfIpxStatGlobal 10 }
+
+hpnicfIpxStatGenerates OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The number of sent packets that the device generated itself."
+    ::= { hpnicfIpxStatGlobal 11 }
+
+hpnicfIpxStatNoRoutes OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The number of packets discarded due to no route to the
+                destination was found in routing table."
+    ::= { hpnicfIpxStatGlobal 12 }
+
+hpnicfIpxStatOutDiscards OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The number of packets to be discarded when sending out.
+                Note that this counter would not include the packet(s)
+                discarded due to no route."
+    ::= { hpnicfIpxStatGlobal 13 }
+
+--  Rip
+
+hpnicfIpxStatRipSends OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of RIP packets sent."
+    ::= { hpnicfIpxStatGlobal 14 }
+
+hpnicfIpxStatRipReceives OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of RIP packets received."
+    ::= { hpnicfIpxStatGlobal 15 }
+
+hpnicfIpxStaRipRspSends OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of RIP response packets sent. "
+    ::= { hpnicfIpxStatGlobal 16 }
+
+hpnicfIpxStaRipRspReceives OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of RIP response packets received."
+    ::= { hpnicfIpxStatGlobal 17 }
+
+hpnicfIpxStatRipReqReceives OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of RIP request packets received."
+    ::= { hpnicfIpxStatGlobal 18 }
+
+hpnicfIpxStatRipReqDeals OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of RIP request packets dealt with."
+    ::= { hpnicfIpxStatGlobal 19 }
+
+hpnicfIpxStatRipReqSends OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of RIP request packets sent."
+    ::= { hpnicfIpxStatGlobal 20}
+
+hpnicfIpxStatRipPeriUpdates OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of periodic update RIP packets sent."
+    ::= { hpnicfIpxStatGlobal 21 }
+
+--  Sap
+
+hpnicfIpxStatSapGenReqReceives OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of SAP general request packets received."
+    ::= { hpnicfIpxStatGlobal 22 }
+
+hpnicfIpxStatSapSpecReqReceives OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of SAP specific request packets received."
+    ::= { hpnicfIpxStatGlobal 23 }
+
+hpnicfIpxStatSapGnsReqReceives OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of SAP GNS request packets received."
+    ::= { hpnicfIpxStatGlobal 24 }
+
+hpnicfIpxStatSapGenRspSends OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of SAP general response packets sent."
+    ::= { hpnicfIpxStatGlobal 25 }
+
+hpnicfIpxStatSapSpecRspSends OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of SAP specific response packets sent."
+    ::= { hpnicfIpxStatGlobal 26 }
+
+hpnicfIpxStatSapGnsRspSends OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of SAP GNS response packets sent."
+    ::= { hpnicfIpxStatGlobal 27 }
+
+hpnicfIpxStatSapPeriUpdates OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of SAP periodic update packets sent."
+    ::= { hpnicfIpxStatGlobal 28 }
+
+hpnicfIpxStatSapInPktErrors OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of SAP error packets received."
+    ::= { hpnicfIpxStatGlobal 29 }
+
+--  hpnicfIpxIfStatTable includes all statistic information
+--  on each interface.
+
+hpnicfIpxIfStatTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HpnicfIpxIfStatEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "The table of the statistic information on each interface."
+    ::= { hpnicfIpxStatInterface 1 }
+
+hpnicfIpxIfStatEntry OBJECT-TYPE
+    SYNTAX      HpnicfIpxIfStatEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "The entry of the statistic table."
+    INDEX       { hpnicfIpxIfStatIndex }
+    ::= { hpnicfIpxIfStatTable 1 }
+
+HpnicfIpxIfStatEntry ::=
+    SEQUENCE{
+        hpnicfIpxIfStatIndex
+            Integer32,
+        hpnicfIpxIfStatNetId
+            OCTET STRING,
+        hpnicfIpxIfStatNodeId
+            OCTET STRING,
+        --ipx
+        hpnicfIpxIfStatIpxReceives
+            Counter32,
+        hpnicfIpxIfStatIpxSends
+            Counter32,
+        hpnicfIpxIfStatIpxRecvBytes
+            Counter32,
+        hpnicfIpxIfStatIpxSendBytes
+            Counter32,
+        -- Rip
+        hpnicfIpxIfStatRipReceives
+            Counter32,
+        hpnicfIpxIfStatRipSends
+            Counter32,
+        hpnicfIpxIfStatRipDiscards
+            Counter32,
+        hpnicfIpxIfStatRipSpecReqReceives
+            Counter32,
+        hpnicfIpxIfStatRipSpecRspSends
+            Counter32,
+        hpnicfIpxIfStatRipGenReqReceives
+            Counter32,
+        hpnicfIpxIfStatRipGenRspSends
+            Counter32,
+        -- Sap
+        hpnicfIpxIfStatSapReceives
+            Counter32,
+        hpnicfIpxIfStatSapSends
+            Counter32,
+        hpnicfIpxIfStatSapDiscards
+            Counter32,
+        hpnicfIpxIfStatSapGnsReqReceives
+            Counter32,
+        hpnicfIpxIfStatSapGnsRspSends
+            Counter32
+}
+
+hpnicfIpxIfStatIndex OBJECT-TYPE
+    SYNTAX      Integer32 (1..2147483647)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "The index of the table's entry. According to the 
+                interface's index."
+    REFERENCE   "ifIndex"
+    ::= { hpnicfIpxIfStatEntry 1 }
+
+hpnicfIpxIfStatNetId OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(4))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The network number of the IPX address of this interface."
+    ::= { hpnicfIpxIfStatEntry 2 }
+
+hpnicfIpxIfStatNodeId OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(6))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The node number of the IPX address of this interface."
+    ::= { hpnicfIpxIfStatEntry 3 }
+
+--  IPX
+
+hpnicfIpxIfStatIpxReceives OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of packets received on the interface."
+    ::= { hpnicfIpxIfStatEntry 4 }
+
+hpnicfIpxIfStatIpxSends OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of packets sent on the interface."
+    ::= { hpnicfIpxIfStatEntry 5 }
+
+hpnicfIpxIfStatIpxRecvBytes OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of bytes received on the interface."
+    ::= { hpnicfIpxIfStatEntry 6 }
+
+hpnicfIpxIfStatIpxSendBytes OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of bytes sent on the interface."
+    ::= { hpnicfIpxIfStatEntry 7 }
+
+--  Rip
+
+hpnicfIpxIfStatRipReceives OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of RIP packets received on the interface."
+    ::= { hpnicfIpxIfStatEntry 8 }
+
+hpnicfIpxIfStatRipSends OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of RIP packets sent on the interface."
+    ::= { hpnicfIpxIfStatEntry 9 }
+
+hpnicfIpxIfStatRipDiscards OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of RIP packets discarded on the interface."
+    ::= { hpnicfIpxIfStatEntry 10 }
+
+hpnicfIpxIfStatRipSpecReqReceives OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of RIP specific request packets received
+                on the interface."
+    ::= { hpnicfIpxIfStatEntry 11 }
+
+hpnicfIpxIfStatRipSpecRspSends OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of RIP specific response packets sent
+                on the interface."
+    ::= { hpnicfIpxIfStatEntry 12 }
+
+hpnicfIpxIfStatRipGenReqReceives OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of RIP general request packets received
+                 on the interface."
+    ::= { hpnicfIpxIfStatEntry 13 }
+
+hpnicfIpxIfStatRipGenRspSends OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of RIP general response packets sent
+                on the interface."
+    ::= { hpnicfIpxIfStatEntry 14 }
+
+--  Sap
+
+hpnicfIpxIfStatSapReceives OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of SAP packets received on the interface."
+    ::= { hpnicfIpxIfStatEntry 15 }
+
+hpnicfIpxIfStatSapSends OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of SAP packets sent on the interface."
+    ::= { hpnicfIpxIfStatEntry 16 }
+
+hpnicfIpxIfStatSapDiscards OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of SAP packets discarded on the interface."
+    ::= { hpnicfIpxIfStatEntry 17 }
+
+hpnicfIpxIfStatSapGnsReqReceives OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of SAP GNS response packets received
+                 on the interface."
+    ::= { hpnicfIpxIfStatEntry 18 }
+
+hpnicfIpxIfStatSapGnsRspSends OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The total number of SAP GNS response packets sent on
+                the interface."
+    ::= { hpnicfIpxIfStatEntry 19 }
+
+
+END

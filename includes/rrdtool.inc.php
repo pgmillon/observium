@@ -7,28 +7,68 @@
  *
  * @package    observium
  * @subpackage rrdtool
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-include_once($config['install_dir'] . "/includes/common.inc.php"); // for get_rrd_path()
+/**
+ * Get full path for rrd file.
+ *
+ * @param array $device Device arrary
+ * @param string $filename Base filename for rrd file
+ * @return string Full rrd file path
+ */
+// TESTME needs unit testing
+function get_rrd_path($device, $filename)
+{
+  $filename = safename($filename);
+  $ext = pathinfo($filename, PATHINFO_EXTENSION);
+  if ($ext != 'rrd') { $filename .= '.rrd'; } // Add rrd extension if not already set
+
+  return trim($GLOBALS['config']['rrd_dir']) . "/" . $device['hostname'] . "/" . safename($filename);
+}
+
+/**
+ * Rename rrd file for device is some schema changes.
+ *
+ * @param array $device
+ * @param string $old_rrd Base filename for old rrd file
+ * @param string $new_rrd Base filename for new rrd file
+ * @return bool TRUE if renamed
+ */
+function rename_rrd($device, $old_rrd, $new_rrd)
+{
+  $old_rrd = get_rrd_path($device, $old_rrd);
+  $new_rrd = get_rrd_path($device, $new_rrd);
+  if (is_file($old_rrd))
+  {
+    $renamed = rename($old_rrd, $new_rrd);
+    print_warning('Moved RRD');
+    if (OBS_DEBUG > 1)
+    {
+      print_message("OLD RRD: $old_rrd\nNEW RRD: $new_rrd");
+    }
+  } else {
+    $renamed = FALSE;
+  }
+  return $renamed;
+}
 
 /**
  * Opens up a pipe to RRDTool using handles provided
  *
  * @return boolean
- * @global config
- * @global debug
+ * @global array $config
  * @param &rrd_process
  * @param &rrd_pipes
  */
 // TESTME needs unit testing
 function rrdtool_pipe_open(&$rrd_process, &$rrd_pipes)
 {
-  global $config, $debug;
+  global $config;
 
-  $command = $config['rrdtool'] . " -";
+  $command = $config['rrdtool'] . " -"; // Waits for input via standard input (STDIN)
 
   $descriptorspec = array(
      0 => array("pipe", "r"),  // stdin
@@ -50,7 +90,22 @@ function rrdtool_pipe_open(&$rrd_process, &$rrd_pipes)
     // 0 => writeable handle connected to child stdin
     // 1 => readable handle connected to child stdout
     // 2 => readable handle connected to child stderr
+    if (OBS_DEBUG > 1)
+    {
+      print_message('RRD PIPE OPEN[%gTRUE%n]', 'console');
+    }
+
     return TRUE;
+  } else {
+    if (isset($config['rrd']['debug']) && $config['rrd']['debug'])
+    {
+      logfile('rrd.log', "RRD pipe process not opened '$command'.");
+    }
+    if (OBS_DEBUG > 1)
+    {
+      print_message('RRD PIPE OPEN[%rFALSE%n]', 'console');
+    }
+    return FALSE;
   }
 }
 
@@ -62,27 +117,40 @@ function rrdtool_pipe_open(&$rrd_process, &$rrd_pipes)
  * @param array rrd_pipes
  */
 // TESTME needs unit testing
-function rrdtool_pipe_close(&$rrd_process, &$rrd_pipes)
+function rrdtool_pipe_close($rrd_process, &$rrd_pipes)
 {
-  global $debug;
-
-  if ($debug)
+  if (OBS_DEBUG > 1)
   {
-    echo stream_get_contents($rrd_pipes[1]);
-    echo stream_get_contents($rrd_pipes[2]);
+    $rrd_status['stdout'] = stream_get_contents($rrd_pipes[1]);
+    $rrd_status['stderr'] = stream_get_contents($rrd_pipes[2]);
   }
 
-  fclose($rrd_pipes[0]);
+  if (is_resource($rrd_pipes[0]))
+  {
+    fclose($rrd_pipes[0]);
+  }
   fclose($rrd_pipes[1]);
   fclose($rrd_pipes[2]);
 
   // It is important that you close any pipes before calling
   // proc_close in order to avoid a deadlock
 
-  $return_value = proc_close($rrd_process);
+  $rrd_status['exitcode'] = proc_close($rrd_process);
+  if (OBS_DEBUG > 1)
+  {
+    print_message('RRD PIPE CLOSE['.($rrd_status['exitcode'] !== 0 ? '%rFALSE' : '%gTRUE').'%n]', 'console');
+    if ($rrd_status['stdout'])
+    {
+      print_message("RRD PIPE STDOUT[\n".$rrd_status['stdout']."\n]", 'console', FALSE);
+    }
+    if ($rrd_status['exitcode'] && $rrd_status['stderr'])
+    {
+      // Show stderr if exitcode not 0
+      print_message("RRD PIPE STDERR[\n".$rrd_status['stderr']."\n]", 'console', FALSE);
+    }
+  }
 
-  return $return_value;
-
+  return $rrd_status['exitcode'];
 }
 
 /**
@@ -96,10 +164,20 @@ function rrdtool_pipe_close(&$rrd_process, &$rrd_pipes)
 // TESTME needs unit testing
 function rrdtool_graph($graph_file, $options)
 {
-  global $config, $debug;
+  // Note, always use pipes, because standart comman line have limits!
+  if ($GLOBALS['config']['rrdcached'])
+  {
+    $cmd = "graph --daemon " . $GLOBALS['config']['rrdcached'] . " $graph_file $options";
+  } else {
+    $cmd = "graph $graph_file $options";
+  }
+  $GLOBALS['rrd_status']  = FALSE;
+  $GLOBALS['exec_status'] = array('command'  => $GLOBALS['config']['rrdtool'] . ' ' . $cmd,
+                                  'stdout'   => '',
+                                  'exitcode' => -1);
 
+  $start = microtime(TRUE);
   rrdtool_pipe_open($rrd_process, $rrd_pipes);
-
   if (is_resource($rrd_process))
   {
     // $pipes now looks like this:
@@ -107,39 +185,59 @@ function rrdtool_graph($graph_file, $options)
     // 1 => readable handle connected to child stdout
     // Any error output will be appended to /tmp/error-output.txt
 
-    if ($config['rrdcached'])
-    {
-      fwrite($rrd_pipes[0], "graph --daemon " . $config['rrdcached'] . " $graph_file $options");
-    } else {
-      fwrite($rrd_pipes[0], "graph $graph_file $options");
-    }
-
+    fwrite($rrd_pipes[0], $cmd);
     fclose($rrd_pipes[0]);
 
     $iter = 0;
-    while (strlen($line) < 1 && $iter < 1000) {
+    while (strlen($line) < 1 && $iter < 1000)
+    {
       // wait for 10 milliseconds to loosen loop
       usleep(10000);
-      $line = fgets($rrd_pipes[1],1024);
-      $data .= $line;
+      $line = fgets($rrd_pipes[1], 1024);
+      $stdout .= $line;
       $iter++;
     }
+    $stdout = preg_replace('/(?:\n|\r\n|\r)$/D', '', $stdout); // remove last (only) eol
     unset($iter);
 
-    $return_value = rrdtool_pipe_close($rrd_process, $rrd_pipes);
+    $runtime  = microtime(TRUE) - $start;
 
-    if ($debug)
+    // Check rrdtool's output for the command.
+    if (preg_match('/\d+x\d+/', $stdout))
     {
-        echo("<p>");
-        if ($debug) { echo("graph $graph_file $options"); }
-        echo("</p><p>");
-        echo "command returned $return_value ($data)\n";
-        echo("</p>");
+      $GLOBALS['rrd_status'] = TRUE;
+    } else {
+      $stderr = trim(stream_get_contents($rrd_pipes[2]));
+      if (isset($config['rrd']['debug']) && $config['rrd']['debug'])
+      {
+        logfile('rrd.log', "RRD $stderr, CMD: " . $GLOBALS['exec_status']['command']);
+      }
     }
-    return $data;
+    $exitcode = rrdtool_pipe_close($rrd_process, $rrd_pipes);
+
+    $GLOBALS['exec_status']['exitcode'] = $exitcode;
+    $GLOBALS['exec_status']['stdout']   = $stdout;
+    $GLOBALS['exec_status']['stderr']   = $stderr;
   } else {
-    return 0;
+    $runtime = microtime(TRUE) - $start;
+    $stdout  = NULL;
   }
+  $GLOBALS['exec_status']['runtime']  = $runtime;
+
+  if (OBS_DEBUG)
+  {
+    print_message(PHP_EOL . 'RRD CMD[%y' . $cmd . '%n]', 'console', FALSE);
+    $debug_msg  = 'RRD RUNTIME['.($runtime > 0.1 ? '%r' : '%g').round($runtime, 4).'s%n]' . PHP_EOL;
+    $debug_msg .= 'RRD STDOUT['.($GLOBALS['rrd_status'] ? '%g': '%r').$stdout.'%n]' . PHP_EOL;
+    if ($stderr)
+    {
+      $debug_msg .= 'RRD STDERR[%r'.$stderr.'%n]' . PHP_EOL;
+    }
+    $debug_msg .= 'RRD_STATUS['.($GLOBALS['rrd_status'] ? '%gTRUE': '%rFALSE').'%n]';
+
+    print_message($debug_msg . PHP_EOL, 'console');
+  }
+  return $stdout;
 }
 
 /**
@@ -155,7 +253,7 @@ function rrdtool_graph($graph_file, $options)
 // TESTME needs unit testing
 function rrdtool($command, $filename, $options)
 {
-  global $config, $debug, $rrd_pipes;
+  global $config, $rrd_pipes;
 
   $cmd = "$command $filename $options";
   if ($command != "create" && $config['rrdcached'])
@@ -163,30 +261,55 @@ function rrdtool($command, $filename, $options)
     $cmd .= " --daemon " . $config['rrdcached'];
   }
 
+  $GLOBALS['rrd_status'] = FALSE;
+  $GLOBALS['exec_status'] = array('command' => $config['rrdtool'] . ' ' . $cmd,
+                                  'exitcode' => 1);
+
   if ($config['norrd'])
   {
     print_message("[%rRRD Disabled - $cmd%n]", 'color');
+    return NULL;
   } else {
+    $start = microtime(TRUE);
     fwrite($rrd_pipes[0], $cmd."\n");
     usleep(1000);
   }
 
-  $std_out = trim(stream_get_contents($rrd_pipes[1]));
-  $std_err = trim(stream_get_contents($rrd_pipes[2]));
+  $stdout = trim(stream_get_contents($rrd_pipes[1]));
+  $stderr = trim(stream_get_contents($rrd_pipes[2]));
+  $runtime = microtime(TRUE) - $start;
 
   // Check rrdtool's output for the command.
-  if ( strstr($std_out, "ERROR") )
+  if (strpos($stdout, 'ERROR') !== FALSE)
   {
-#    log_event($std_out , '', 'rrdtool');
+    if (isset($config['rrd']['debug']) && $config['rrd']['debug'])
+    {
+      logfile('rrd.log', "RRD $stdout, CMD: $cmd");
+    }
+  } else {
+    $GLOBALS['rrd_status'] = TRUE;
+    $GLOBALS['exec_status']['exitcode'] = 0;
   }
+  $GLOBALS['exec_status']['stdout']  = $stdout;
+  $GLOBALS['exec_status']['stdin']   = $stdin;
+  $GLOBALS['exec_status']['runtime'] = $runtime;
 
-  if ($debug)
+  $GLOBALS['rrdtool'][$command]['time'] += $runtime;
+  $GLOBALS['rrdtool'][$command]['count']++;
+
+  if (OBS_DEBUG)
   {
-    print_message('RRD[cmd[%g'.$cmd.'%n] ', 'color');
-    print_message('stdout[%g'.$std_out.'%n] ', 'color');
-    print_message('stderr[%g'.$std_err.'%n]]', 'color');
-  }
+    print_message(PHP_EOL . 'RRD CMD[%y' . $cmd . '%n]', 'console', FALSE);
+    $debug_msg  = 'RRD RUNTIME['.($runtime > 1 ? '%r' : '%g').round($runtime, 4).'s%n]' . PHP_EOL;
+    $debug_msg .= 'RRD STDOUT['.($GLOBALS['rrd_status'] ? '%g': '%r').$stdout.'%n]' . PHP_EOL;
+    if ($stderr)
+    {
+      $debug_msg .= 'RRD STDERR[%r'.$stderr.'%n]' . PHP_EOL;
+    }
+    $debug_msg .= 'RRD_STATUS['.($GLOBALS['rrd_status'] ? '%gTRUE': '%rFALSE').'%n]';
 
+    print_message($debug_msg . PHP_EOL, 'console');
+  }
 }
 
 /**
@@ -203,37 +326,40 @@ function rrdtool_create($device, $filename, $ds, $options = '')
 {
   global $config;
 
-  if ($config['norrd'])
+  if ($filename[0] == '/')
   {
-    print_message("[%gRRD Disabled%n] ");
-  } else {
-    if ($filename[0] == '/')
-    {
-      print_debug("You should pass the filename only (not the full path) to this function! Passed filename: ".$filename);
-      $filename = basename($filename);
-    }
-
-    $fsfilename = get_rrd_path($device, $filename);
-
-    if (is_file($fsfilename))
-    {
-      print_debug("RRD $fsfilename already exists - no need to create.");
-      return FALSE; // Bail out if the file exists already
-    }
-
-    if (!$options)
-    {
-      $options = $config['rrd']['rra'];
-    }
-
-    $step = "--step ".$config['rrd']['step'];
-
-    $command = $config['rrdtool'] . " create $fsfilename $ds $step $options";
+    print_debug("You should pass the filename only (not the full path) to this function! Passed filename: ".$filename);
+    $filename = basename($filename);
   }
 
-  print_debug("RRD[%g".$command."%n] ", 'color');
+  $fsfilename = get_rrd_path($device, $filename);
 
-  return shell_exec($command);
+  if (is_file($fsfilename))
+  {
+    if (OBS_DEBUG > 1)
+    {
+      print_message("RRD $fsfilename already exists - no need to create.");
+    }
+    return FALSE; // Bail out if the file exists already
+  }
+
+  if (!$options)
+  {
+    $options = preg_replace('/\s+/', ' ', $config['rrd']['rra']);
+  }
+
+  $step = "--step ".$config['rrd']['step'];
+
+  if ($config['norrd'])
+  {
+    print_message("[%rRRD Disabled - create $fsfilename%n]", 'color');
+    return NULL;
+  } else {
+    $command = $config['rrdtool'] . " create $fsfilename $ds $step $options";
+    // FIXME not possible to run this through rrdtool() ?
+  }
+
+  return external_exec($command);
 }
 
 /**
@@ -259,7 +385,11 @@ function rrdtool_update($device, $filename, $options)
     $options = implode(':', $values);
   }
 
-  if ($filename[0] == '/') { $filename = basename($filename); print_debug("You should pass the filename only (not the full path) to this function!"); }
+  if ($filename[0] == '/')
+  {
+    $filename = basename($filename);
+    print_debug("You should pass the filename only (not the full path) to this function!");
+  }
 
   $fsfilename = get_rrd_path($device, $filename);
 
@@ -289,10 +419,33 @@ function rrdtool_lastupdate($filename, $options)
 
 // TESTME needs unit testing
 /**
+ * Renames a DS inside an RRD file
+ *
+ * @param array Device
+ * @param string Filename
+ * @param string Current DS name
+ * @param string New DS name
+ */
+function rrdtool_rename_ds($device, $filename, $oldname, $newname)
+{
+  global $config;
+
+  if ($config['norrd'])
+  {
+    print_message("[%gRRD Disabled%n] ");
+  } else {
+    $fsfilename = get_rrd_path($device, $filename);
+
+    rrdtool("tune", $fsfilename, "--data-source-rename $oldname:$newname");
+  }
+}
+
+// TESTME needs unit testing
+/**
  * Adds one or more RRAs to an RRD file; space-separated if you want to add more than one.
  *
- * @param array  device
- * @param string filename
+ * @param array  Device
+ * @param string Filename
  * @param array  RRA(s) to be added to the RRD file
  */
 function rrdtool_add_rra($device, $filename, $options)
@@ -304,8 +457,8 @@ function rrdtool_add_rra($device, $filename, $options)
     print_message("[%gRRD Disabled%n] ");
   } else {
     $fsfilename = get_rrd_path($device, $filename);
-      
-    shell_exec($config['install_dir'] . "/scripts/rrdtoolx.py addrra $fsfilename $fsfilename.new $options");
+
+    external_exec($config['install_dir'] . "/scripts/rrdtoolx.py addrra $fsfilename $fsfilename.new $options");
     rename("$fsfilename.new", $fsfilename);
   }
 }
@@ -365,7 +518,7 @@ function rrdtool_file_info($file)
 {
   $info = array('filename'=>$file);
 
-  $rrd = array_filter(explode(PHP_EOL, shell_exec($GLOBALS['config']['rrdtool'] . " info " . $file)), 'strlen');
+  $rrd = array_filter(explode(PHP_EOL, external_exec($GLOBALS['config']['rrdtool'] . " info " . $file)), 'strlen');
   if ($rrd)
   {
     foreach ($rrd as $s)
@@ -398,7 +551,8 @@ function rrdtool_file_info($file)
           }
           $info['DS']["$ds"]["$ds_key"] = rrd_strip_quotes($value);
         }
-      } else if (strncmp($key, 'rra[', 4) == 0)
+      }
+      else if (strncmp($key, 'rra[', 4) == 0)
       {
         /* RRD definition */
         $p = strpos($key, ']');

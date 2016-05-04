@@ -1,0 +1,209 @@
+GERP-MIB DEFINITIONS ::= BEGIN
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE,
+    Counter32, Unsigned32, TimeTicks
+        FROM SNMPv2-SMI
+    TimeInterval, RowStatus, TruthValue, DisplayString,
+    TEXTUAL-CONVENTION, MacAddress
+        FROM SNMPv2-TC
+    gbnL2
+        FROM GREENTECH-MASTER-MIB
+    MODULE-COMPLIANCE, OBJECT-GROUP
+        FROM SNMPv2-CONF;
+
+
+    gerpMib MODULE-IDENTITY
+        LAST-UPDATED "200804010000Z"
+        ORGANIZATION "Greentech MIB Working Group"
+        CONTACT-INFO
+                     "Email: adama@observium.org"
+        DESCRIPTION
+                     " The gerp MIB is targeted at easing gerp configuration via snmp tools."
+        REVISION     "0804010000Z"
+        DESCRIPTION
+                     "Draft 1"
+        ::= {gbnL2 7 }
+
+    gerpMIBObjects    OBJECT IDENTIFIER ::= { gerpMib 1 }
+    gerp              OBJECT IDENTIFIER ::= { gerpMIBObjects 1 }
+
+    gerpOnoff OBJECT-TYPE
+              SYNTAX  INTEGER {
+                  enable(1),
+                  disable(2)
+              }
+              MAX-ACCESS  read-write
+              STATUS      current
+              DESCRIPTION
+                          "Enable/disable gerp function for this bridge."
+              ::= { gerp 1 }
+
+    gerpHealthTime OBJECT-TYPE
+              SYNTAX      Integer32(1..10)
+              MAX-ACCESS  read-write
+              STATUS      current
+              DESCRIPTION
+                          "The hello timer is used by master or edge node for ring health detection.
+                          The correct operational formula: FailedTimer >= 3 * HelloTimer "
+              ::= { gerp 2 }
+
+    gerpHealthTimeout OBJECT-TYPE
+              SYNTAX      Integer32(3..30)
+              MAX-ACCESS  read-write
+              STATUS      current
+              DESCRIPTION
+                          "The timeout value used by master during ring health detection.
+                          The correct operational formula: FailedTimer >= 3 * HelloTimer"
+              ::= { gerp 3 }
+
+    gerpMajorFaultTime OBJECT-TYPE
+              SYNTAX      Integer32(2..29)
+              MAX-ACCESS  read-only
+              STATUS      current
+              DESCRIPTION
+                          "The timeout value used by assitant edge during ring health detection."
+              ::= { gerp 4 }
+
+    gerpPrefwdTimeout OBJECT-TYPE
+              SYNTAX      Integer32(3..30)
+              MAX-ACCESS  read-only
+              STATUS      current
+              DESCRIPTION
+                          "The block timeout value used by node when portup event occurs."
+              ::= { gerp 5 }
+
+    gerpDomainTable OBJECT-TYPE
+              SYNTAX      SEQUENCE OF GerpDomainEntry
+              MAX-ACCESS  not-accessible
+              STATUS      current
+              DESCRIPTION
+                          "A table that contains domain-specific information."
+              ::= { gerp 6 }
+
+    gerpDomainEntry  OBJECT-TYPE
+              SYNTAX      GerpDomainEntry
+              MAX-ACCESS  not-accessible
+              STATUS      current
+              DESCRIPTION
+                          "A list of information maintained by every domain."
+              INDEX       { gerpDomainId }
+              ::= { gerpDomainTable 1 }
+
+           GerpDomainEntry ::=
+              SEQUENCE {
+                  gerpDomainId
+                      Integer32,
+                  gerpMVlanId
+                      Integer32
+              }
+
+          gerpDomainId OBJECT-TYPE
+              SYNTAX      Integer32(0..15)
+              MAX-ACCESS  not-accessible
+              STATUS      current
+              DESCRIPTION
+                          "The domain ID is used when network is managed in unit of domain, one
+                          domain should be a set of contiguous bridges."
+              ::= { gerpDomainEntry 1 }
+
+          gerpMVlanId OBJECT-TYPE
+              SYNTAX      Integer32 (1..4093)
+              MAX-ACCESS  read-write
+              STATUS      current
+              DESCRIPTION
+                          "The manage VLAN ID of the domain."
+              ::= { gerpDomainEntry 2 }
+
+    gerpRingTable OBJECT-TYPE
+              SYNTAX      SEQUENCE OF GerpRingEntry
+              MAX-ACCESS  not-accessible
+              STATUS      current
+              DESCRIPTION
+                          "A table that contains domain-and-ring-specific information."
+              ::= { gerp 7 }
+
+    gerpRingEntry  OBJECT-TYPE
+              SYNTAX      GerpRingEntry
+              MAX-ACCESS  not-accessible
+              STATUS      current
+              DESCRIPTION
+                          "A list of information maintained by every ring."
+              INDEX       { gerpDomainId, gerpRingId }
+              ::= { gerpRingTable 1 }
+
+          GerpRingEntry ::=
+              SEQUENCE {
+                  gerpRingId
+                      Integer32,
+                  gerpRingLevel
+                      Integer32,
+                  gerpBrdgRole
+                      INTEGER,
+                  gerpPriComPortId
+                      Integer32,
+                  gerpSecEdgePortId
+                      Integer32,
+                  gerpRowStatus
+                      RowStatus
+              }
+
+          gerpRingId OBJECT-TYPE
+              SYNTAX      Integer32 (0..15)
+              MAX-ACCESS  not-accessible
+              STATUS      current
+              DESCRIPTION
+                          "The identifier of ethernet ring which reside in a domain."
+              ::= { gerpRingEntry 1 }
+
+          gerpRingLevel OBJECT-TYPE
+              SYNTAX      Integer32 (0..1)
+              MAX-ACCESS  read-write
+              STATUS      current
+              DESCRIPTION
+                          "The ring level,0 means master ring, while 1 means sub ring."
+              ::= { gerpRingEntry 2 }
+
+          gerpBrdgRole OBJECT-TYPE
+              SYNTAX      INTEGER {
+                  master(1),
+                  trans(2),
+                  edge(3),
+                  assEdge(4)
+              }
+              MAX-ACCESS  read-write
+              STATUS      current
+              DESCRIPTION
+                          "The bridge role in ethernet ring."
+              ::= { gerpRingEntry 3 }
+
+          gerpPriComPortId OBJECT-TYPE
+              SYNTAX      Integer32 (1..255)
+              MAX-ACCESS  read-write
+              STATUS      current
+              DESCRIPTION
+                         "The primary port id when bridge is master or transmit,the common port id otherwise."
+              ::= { gerpRingEntry 4 }
+
+          gerpSecEdgePortId OBJECT-TYPE
+              SYNTAX      Integer32(1..255)
+              MAX-ACCESS  read-write
+              STATUS      current
+              DESCRIPTION
+                         "The secondary port id when bridge is master or transmit,the edge port id otherwise."
+              ::= { gerpRingEntry 5 }
+
+          gerpRowStatus OBJECT-TYPE
+              SYNTAX      RowStatus {
+                  active(1),
+                  notInService(2),
+                  notReady(3),
+                  createAndGo(4),
+                  createAndWait(5),
+                  destroy(6)
+              }
+              MAX-ACCESS  read-write
+              STATUS      current
+              DESCRIPTION
+                         "This object indicates the status of this ring."
+              ::= { gerpRingEntry 6 }
+  END

@@ -1,5 +1,16 @@
 <?php
 
+/**
+ * Observium
+ *
+ *   This file is part of Observium.
+ *
+ * @package    observium
+ * @subpackage poller
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
+ *
+ */
+
 // BLUECOAT-AV-MIB  blueCoatAvMibObjects
 //
 // BLUECOAT-AV-MIB::avFilesScanned.0 = Wrong Type (should be Counter32): Counter64: 612755298

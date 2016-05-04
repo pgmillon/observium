@@ -7,18 +7,16 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-echo("Memory : ");
+print_cli_data_field("Discovering MIBs", 3);
 
 // Include all discovery modules
 
 $include_dir = "includes/discovery/mempools";
 include("includes/include-dir-mib.inc.php");
-
-if (OBS_DEBUG && count($valid['mempool'])) { print_vars($valid['mempool']); }
 
 // Remove memory pools which weren't redetected here
 foreach (dbFetchRows('SELECT * FROM `mempools` WHERE `device_id` = ?', array($device['device_id'])) as $test_mempool)
@@ -30,12 +28,16 @@ foreach (dbFetchRows('SELECT * FROM `mempools` WHERE `device_id` = ?', array($de
 
   if (!$valid['mempool'][$mempool_mib][$mempool_index])
   {
-    echo('-');
+    $GLOBALS['module_stats'][$module]['deleted']++; //echo('-');
     dbDelete('mempools', '`mempool_id` = ?', array($test_mempool['mempool_id']));
     log_event("Memory pool removed: mib $mempool_mib, index $mempool_index, descr $mempool_descr", $device, 'mempool', $test_mempool['mempool_id']);
   }
 }
 
-echo(PHP_EOL);
+$GLOBALS['module_stats'][$module]['status'] = count($valid['mempool']);
+if (OBS_DEBUG && $GLOBALS['module_stats'][$module]['status'])
+{
+  print_vars($valid['mempool']);
+}
 
 // EOF

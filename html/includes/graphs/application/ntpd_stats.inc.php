@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -24,17 +24,23 @@ $array          = array(
                         'noise' => array('descr' => 'Noise'),
                         'stability' => array('descr' => 'Stability')
                        );
-$i              = 0;
 
-if (is_file($ntpdclient_rrd)) {
+if (is_file($ntpdclient_rrd))
+{
   $rrd_filename = $ntpdclient_rrd;
 }
-if (is_file($ntpdserver_rrd)) {
+
+if (is_file($ntpdserver_rrd))
+{
   $rrd_filename = $ntpdserver_rrd;
 }
 
-if (is_file($rrd_filename)) {
-  foreach ($array as $ds => $data) {
+if (is_file($rrd_filename))
+{
+  $i = 0;
+
+  foreach ($array as $ds => $data)
+  {
     $rrd_list[$i]['filename']  = $rrd_filename;
     $rrd_list[$i]['descr']     = $data['descr'];
     $rrd_list[$i]['ds']        = $ds;

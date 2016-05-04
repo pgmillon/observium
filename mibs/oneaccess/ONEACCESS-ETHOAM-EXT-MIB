@@ -1,0 +1,981 @@
+ONEACCESS-ETHOAM-EXT-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY,
+    OBJECT-TYPE,
+    Integer32,
+    Counter32,
+    Gauge32,
+    Unsigned32               FROM SNMPv2-SMI    -- [RFC2578]
+    RowStatus,
+    TruthValue, MacAddress,
+    TEXTUAL-CONVENTION
+                             FROM SNMPv2-TC     -- [RFC2579]
+    MODULE-COMPLIANCE,
+    OBJECT-GROUP
+                             FROM SNMPv2-CONF   -- [RFC2580]
+    InterfaceIndex
+                             FROM IF-MIB        -- [RFC2863]
+    VlanIdOrNone             FROM Q-BRIDGE-MIB
+    Dot1agCfmCcmInterval     FROM IEEE8021-CFM-MIB
+--cfm types
+    Dot1agCfmMhfCreation,
+    Dot1agCfmIdPermission,
+    Dot1agCfmMDLevel,
+    Dot1agCfmMpDirection,
+    Dot1agCfmMepIdOrZero,
+    Dot1agCfmMDLevelOrNone,
+    Dot1agCfmConfigErrors,
+    dot1agCfmMepIdentifier,
+-- cfm indexes
+    dot1agCfmMdIndex,
+    dot1agCfmMaIndex,
+--cfm groups
+    dot1agCfmStack,
+    dot1agCfmDefaultMd,
+    dot1agCfmVlan,
+    dot1agCfmConfigErrorList,
+    dot1agCfmMa,
+    dot1agCfmMepEntry,
+-- cfm row items
+    dot1agCfmMepLbrBadMsdu,
+    dot1agCfmMdRowStatus,
+    dot1agCfmMaNetRowStatus,
+    dot1agCfmMaMepListRowStatus,
+    dot1agCfmMepRowStatus
+            FROM IEEE8021-CFM-MIB
+
+    oacExpIMEthernet, oacMIBModules
+                FROM ONEACCESS-GLOBAL-REG
+   ;
+
+
+oacEthOamExtMib MODULE-IDENTITY
+	LAST-UPDATED    "201107290000Z"
+        ORGANIZATION    " OneAccess "
+    CONTACT-INFO
+            "Pascal KESTELOOT
+            Postal: ONE ACCESS
+                    381 Avenue du Général de Gaulle
+                    92140 Clamart, France
+                    FRANCE
+
+            Tel: (+33) 01 41 87 70 00
+            Fax: (+33) 01 41 87 74 00
+
+            E-mail: pascal.kesteloot@oneaccess-net.com"
+
+    DESCRIPTION
+		  "fixed compilation issues"
+    REVISION	  "201107290000Z"
+    
+    DESCRIPTION
+                    "Contact updated"
+    REVISION        "201106150000Z"
+
+    DESCRIPTION
+        "A MIB module for extending the IEEE8021-CFM-MIB
+        and IEEE8021-CFM-V2-MIB to add objects which provide
+        additional information about Connectivity Fault
+        management(CFM) not available in IEEE8021-CFM-MIB and
+        IEEE8021-CFM-V2-MIB and addition of ITU-T Y.1731 functionality
+
+        This module also introduces the Service Layer OAM objects
+        described in the ITU-T Y.1731 standard.
+        Main additions :
+
+        - a table for defining Maintenance Intermediate Points (MIP)
+        - Y.1731 frame loss and frame delay functionality
+        - Y.1731 AIS/RDI functionality"
+
+--  Revision history
+
+
+    REVISION      "201101050001Z"
+    DESCRIPTION   "Cleaned up version, adapted to latest needs"
+
+    REVISION      "201008120001Z"
+    DESCRIPTION   "Initial version of this MIB module."
+
+    ::= { oacMIBModules 689 }
+
+-- ******************************************************************
+-- Textual conventions
+-- ******************************************************************
+
+EthOamExtMipMode ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+       "The CFM standard to which the MIP adheres."
+    REFERENCE
+       " "
+    SYNTAX      INTEGER {
+                  modey1731     (1),
+                  mode8021ag    (2)
+                }
+
+EthOamExtMepMode ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+       "The CFM standard to which the MEP adheres."
+    REFERENCE
+       " "
+    SYNTAX      INTEGER {
+                  modey1731     (1),
+                  mode8021ag    (2),
+                  modehybrid    (3)
+                }
+
+EthOamEfdState ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "Possible EFD states that an interface can reside in. The value can be
+        one of the following:
+
+            efdDisabled (1)     The EFD feature is disabled;
+            efdIdle (2)         The EFD feature is enabled, and there is no
+                                error condition on the interface;
+            efdTriggered (3)    The EFD feature is enabled, and there is an
+                                error condition on the interface;
+        "
+    REFERENCE
+       " "
+    SYNTAX      INTEGER {
+                  efdDisabled     (1),
+                  efdIdle         (2),
+                  efdTriggered    (3)
+                }
+
+-- *******************************************************************
+-- Groups in the MIB Module
+-- ******************************************************************
+
+oacEthOamExtMIBObjects  OBJECT IDENTIFIER   ::= { oacExpIMEthernet 2 }
+
+oacEthOamExtIfObjects  OBJECT IDENTIFIER    ::= { oacEthOamExtMIBObjects 1 }
+
+oacEthOamExtGlobal  OBJECT IDENTIFIER       ::= { oacEthOamExtIfObjects 3 }
+
+oacEthOamExtEnable OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object enables or disables the CFM feature
+        of the local device. When the object is 'true',
+        CFM feature is enabled. When the object is 'false',
+        CFM feature is disabled."
+    ::= { oacEthOamExtGlobal 1 }
+
+-- *******************************************************************
+-- oacEthOamExtMipTable
+-- ******************************************************************
+
+oacEthOamExtMipTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF OacEthOamExtMipEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+     DESCRIPTION
+        "This table contains a list of Maintenance domain
+        Intermediate Points.
+
+        This table manages MIPs which are created by rules
+        specified on the Maintenance Association (MA) and
+        Maintenance Domain (MD) on the local device. MIPs can
+        also be created by rules specified on Default MD Level,
+        which is covered by dot1agCfmDefaultMdTable in
+        IEEE8021-CFM-MIB."
+    ::= { oacEthOamExtIfObjects 1 }
+
+oacEthOamExtMipEntry OBJECT-TYPE
+    SYNTAX          OacEthOamExtMipEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "An entry containing configuration of a particular MIP.
+        Each row in the table represents a different MIP.        "
+    INDEX           {
+                        oacEthOamMipIfIndex,
+                        oacEthOamMipMegLevel,
+                        oacEthOamMipVlanIndex
+                    }
+    ::= { oacEthOamExtMipTable 1 }
+
+OacEthOamExtMipEntry ::= SEQUENCE {
+        oacEthOamMipIfIndex      InterfaceIndex,
+        oacEthOamMipMegLevel     Unsigned32,
+        oacEthOamMipVlanIndex    VlanIdOrNone,
+        oacEthOamMipMode         EthOamExtMipMode,
+        oacEthOamMipRowStatus    RowStatus
+}
+
+oacEthOamMipIfIndex OBJECT-TYPE
+    SYNTAX      InterfaceIndex
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+       "This object is the interface index of the interface either a
+        bridge port, or an aggregated IEEE 802.1 link within a bridge
+        port, to which the MIP is attached.
+        Upon a restart of the system, the system SHALL, if necessary,
+        change the value of this variable so that it indexes the
+        entry in the interface table with the same value of ifAlias
+        that it indexed before the system restart. If no such
+        entry exists, then the system SHALL set this variable to 0.
+        "
+    ::= { oacEthOamExtMipEntry 1 }
+
+oacEthOamMipMegLevel OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+       "The MEG level of the MIP."
+    ::= { oacEthOamExtMipEntry 2 }
+
+oacEthOamMipVlanIndex OBJECT-TYPE
+    SYNTAX      VlanIdOrNone
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+       "The VID associated with the MIP."
+    ::= { oacEthOamExtMipEntry 3 }
+
+oacEthOamMipMode OBJECT-TYPE
+    SYNTAX      EthOamExtMipMode
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+       "The MIP mode. The possible values are:
+
+        - modey1731 (1)     The MIP functions according to the Y.1731 standard
+        - mode802dot1ag (2) The MIP functions according to the IEEE 802.1ag
+                            standard
+
+        The default value is 'modey1731'.
+        "
+    DEFVAL { modey1731 }
+    ::= { oacEthOamExtMipEntry 4 }
+
+oacEthOamMipRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+       "The status of the row.
+
+        The writable columns in a row can not be changed if the row
+        is active. All columns MUST have a valid value before a row
+        can be activated.
+       "
+    ::= { oacEthOamExtMipEntry 5 }
+
+-- *******************************************************************
+-- oacEthOamExtMepTable
+-- ******************************************************************
+
+oacEthOamExtMepTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF OacEthOamExtMepEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+     DESCRIPTION
+        "The Extended MEP table stores all the managed objects for
+        setting the CFM standard of the MEP (Y1731, dot1ag, or hybrid), for
+        sending LMM/DMM, for enabling transmission of RDI and AIS, for
+        enabling EFD functionality, and for controlling Multicast Loopbacks.
+        It is an extension of the standard MEP table.
+        (AUGMENT - it uses the same indexes as the standard MEP table
+        dot1agCfmMepTable)
+
+        *LMM Managed objects
+
+        LMM Managed objects in the extended MEP table enable the management
+        entity to initiate transmission of Frame Loss messages.  It will signal
+        the MEP that it should start to transmit Frame Loss messages (LMM)
+        and retrieve the information received from the Frame Loss
+        Responses (LMR).
+
+        Steps to use entries in this table:
+
+        1) Wait for oacEthOamMepLossStatus value to be
+           false.  To do this do this sequence:
+           a. an SNMP GET for both SnmpSetSerialNo and
+              oacEthOamMepLossStatus objects (in same SNMP
+              PDU).
+           b. Check if value for oacEthOamMepLossStatus is false.
+              - if not, wait x seconds, go to step a above.
+              - if yes, save the value of SnmpSetSerialNo and go
+                to step 2) below
+        2) Change oacEthOamMepLossStatus value from false to
+           true to ensure no other management entity will use
+           the service. In order to not disturb a possible other NMS
+           do this by sending an SNMP SET for both SnmpSetSerialNo
+           and oacEthOamMepLossStatus objects (in same SNMP
+           PDU,  and make sure SNmpSetSerialNo is the first varBind).
+           For the SnmpSetSerialNo varBind, use the value that you
+           obtained in step 1)a. This ensures that two cooperating
+           NMSes will not step on each others toes.
+        3) Setup the different data to be sent (destination, priority,
+           interval,...), except do not set oacEthOamMepLossMessagesStart.
+        4) Set oacEthOamMepLossMessagesStart to true to initiate
+           transmission of Frame Loss messages.
+        5) Check the value of oacEthOamMepLossResultOK to
+           find out if the operation was successfully initiated or
+           not.
+        6) The results of the running test can be retrieved from
+           oacEthOamMepLossNbrOfTxFrames, oacEthOamMepLossNbrOfRxFrames,
+           oacEthOamMepLossReplyLoss, oacEthOamMepLossNearEndDrops and
+           oacEthOamMepLossFarEndDrops.
+        7) If you so desire, you can periodically stop and/or restart
+           transmission of LMM messages by modifying the
+           oacEthOamMepLossMessagesStart accordingly.
+        8) Change the oacEthOamMepLossStatus value back to
+           false to allow other management entities to use the
+           table. Setting oacEthOamMepLossStatus to false obviously implies
+           that LMMs will no longer be transmitted, and that as such the value
+           of oacEthOamMepLossMessagesStart will be ignored.
+
+        *DMM Managed objects
+
+        The DMM Managed objects in the extended MEP table are used in a manner
+        similar to that described for LMM transmission, above. Upon
+        successfully initiating the transmission, the objects
+        oacEthOamMepDelayNbrOfTxFrames, oacEthOamMepDelayNbrOfRxFrames,
+        oacEthOamMepDelayLoss, oacEthOamMepDelayMin, oacEthOamMepDelayMax,
+        oacEthOamMepDelayAvrg, oacEthOamMepDelayJitterNegMax,
+        oacEthOamMepDelayJitterAvrgMax, oacEthOamMepDelayJitterPosMax
+        contain the result of the test.
+
+        *AIS managed objects
+
+        The AIS managed objects in the extended MEP table are used in a manner
+        similar to that described for LMM transmission. In short, first all
+        managed objects except oacEthOamMepAisTxEnable must be set, then
+        oacEthOamMepAisTxEnable must be set to true to enable transmission of
+        AIS. Set it to false to disable transmission again.
+
+        *Multicast Loopbacks
+
+        The Multicast Loopback managed objects are used as follows. If wanted,
+        the SNMP manager first sets the oacEthOamMepMcastLbmDataTlv payload,
+        or makes sure that the string is empty if no DataTLV is wanted.
+        Next, the SNMP manager must wait for the oacEthOamMepMcastLbmStatus
+        flag to be false.
+        Then, the oacEthOamMepMcastLbmStatus flag must be set to true to
+        initiate transmission of the Multicast LBM. Then the SNMP manager must
+        wait until the MEP Multicast Loopback Initiator State Machine has set
+        this flag back to false, which indicates that the time to wait for
+        loopback replies has expired. Finally, the oacEthOamLbrNotRespTable and
+        oacEthOamExtLbrTable tables can be consulted to evaluate the results.
+
+        *EFD Managed Objects
+
+        CFM could be considered as a line protocol for controlling Ethernet
+        interfaces. In case of  Loss of Continuity or AIS or RDI reception,
+        the interface can be disabled. This feature is called Ethernet Fault
+        Detection and Propagation, or EFD. It is only available for inward
+        facing MEPs. When the interface, to which the inward facing MEP
+        belongs, is disabled, the MEP stays up and CFM frames are still
+        flowing. When the defect disappears, EFD will bring the MEP's interface
+        up again.
+
+        EFD can be enabled with the oacEthOamMepEfdEnable managed object. If
+        more than one inward facing MEP is configured for a specific interface,
+        then EFD can only be enabled on one of these MEPs.
+
+        Once enabled, the EFD state of the interface can be retrieved from the
+        oacEthOamMepEfdState managed object. In case EFD is triggered, object
+        dot1agCfmMepDefects from the IEEE8021-CFM-MIB MIB can be used to
+        further investigate the cause(s) of the EFD trigger.
+        "
+    ::= { oacEthOamExtIfObjects 2 }
+
+oacEthOamExtMepEntry OBJECT-TYPE
+    SYNTAX          OacEthOamExtMepEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "The MEP table entry"
+    AUGMENTS {dot1agCfmMepEntry }
+    ::= { oacEthOamExtMepTable 1 }
+
+OacEthOamExtMepEntry ::= SEQUENCE {
+        oacEthOamMepMode                    EthOamExtMepMode,
+        oacEthOamMepLossDestMacAddress      MacAddress,
+        oacEthOamMepLossDestMepId           Dot1agCfmMepIdOrZero,
+        oacEthOamMepLossDestIsMepId         TruthValue,
+        oacEthOamMepLossVlanPriority        Unsigned32,
+        oacEthOamMepLossInterval            Dot1agCfmCcmInterval,
+        oacEthOamMepLossStatus              TruthValue,
+        oacEthOamMepLossMessagesStart       TruthValue,
+        oacEthOamMepLossResultOK            TruthValue,
+        oacEthOamMepLossNbrOfTxFrames       Counter32,
+        oacEthOamMepLossNbrOfRxFrames       Counter32,
+        oacEthOamMepLossReplyLoss           Counter32,
+        oacEthOamMepLossNearEndDrops        Counter32,
+        oacEthOamMepLossFarEndDrops         Counter32,
+        oacEthOamMepDelayDestMacAddress     MacAddress,
+        oacEthOamMepDelayDestMepId          Dot1agCfmMepIdOrZero,
+        oacEthOamMepDelayDestIsMepId        TruthValue,
+        oacEthOamMepDelayVlanPriority       Unsigned32,
+        oacEthOamMepDelayInterval           Dot1agCfmCcmInterval,
+        oacEthOamMepDelayStatus             TruthValue,
+        oacEthOamMepDelayTimeOut            Unsigned32,
+        oacEthOamMepDelayMessagesStart      TruthValue,
+        oacEthOamMepDelayResultOK           TruthValue,
+        oacEthOamMepDelayNbrOfTxFrames      Counter32,
+        oacEthOamMepDelayNbrOfRxFrames      Counter32,
+        oacEthOamMepDelayLoss               Counter32,
+        oacEthOamMepDelayMin                Unsigned32,
+        oacEthOamMepDelayMax                Unsigned32,
+        oacEthOamMepDelayAvrg               Unsigned32,
+        oacEthOamMepDelayJitterNegMax       Unsigned32,
+        oacEthOamMepDelayJitterAvrgMax      Unsigned32,
+        oacEthOamMepDelayJitterPosMax       Unsigned32,
+        oacEthOamMepRdiTxEnable             TruthValue,
+        oacEthOamMepMcastLbmStatus          TruthValue,
+        oacEthOamMepMcastLbmResult          TruthValue,
+        oacEthOamMepMcastLbmSeqNumber       Unsigned32,
+        oacEthOamMepMcastLbmDataTlv         OCTET STRING,
+        oacEthOamMepAisInterval             Unsigned32,
+        oacEthOamMepAisVlanPriority         Unsigned32,
+        oacEthOamMepAisTxEnable             TruthValue,
+        oacEthOamMepAisClientMegLevel       Unsigned32,
+        oacEthOamMepEfdEnable               TruthValue,
+        oacEthOamMepEfdState                EthOamEfdState
+}
+
+oacEthOamMepMode OBJECT-TYPE
+    SYNTAX      EthOamExtMepMode
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+       "The standard the MEP is following. The possible values are:
+
+        - modey1731 (1)       The MEP functions according to the Y.1731
+                              standard
+        - mode802dot1ag (2)   The MEP functions according to the IEEE 802.1ag
+                              standard
+        - modehybrid (3)      MEP functions according to the IEEE 802.1ag
+                              standard, but also supports the delay and loss
+                              functionality of the Y.1731 standard
+
+        The default mode is 'modehybrid'.
+        "
+    DEFVAL { modehybrid }
+    ::= { oacEthOamExtMepEntry 1 }
+
+oacEthOamMepLossDestMacAddress OBJECT-TYPE
+    SYNTAX      MacAddress
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+       "The Target MAC Address Field to be transmitted: A unicast destination
+        MAC address. This address will be used if the value of the column
+        oacCfmMepLossDestIsMepId is 'false'."
+    ::= { oacEthOamExtMepEntry 10 }
+
+oacEthOamMepLossDestMepId OBJECT-TYPE
+    SYNTAX      Dot1agCfmMepIdOrZero
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+       "The Maintenance association End Point Identifier of another MEP in the
+        same Maintenance Association to which the LMM is to be sent. This
+        address will be used if the value of the column oacCfmMepLossDestIsMepId
+        is 'true'."
+    ::= { oacEthOamExtMepEntry 11 }
+
+oacEthOamMepLossDestIsMepId OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+       "True indicates that MEPID of the target MEP is used for FrameLoss
+        transmission.
+        False indicates that unicast destination MAC address of the target MEP
+        is used for FrameLoss transmission."
+    ::= { oacEthOamExtMepEntry 12 }
+
+oacEthOamMepLossVlanPriority OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+       "Priority. 3 bit value to be used in the VLAN tag, if present in the
+        transmitted frame."
+    ::= { oacEthOamExtMepEntry 13 }
+
+oacEthOamMepLossInterval OBJECT-TYPE
+    SYNTAX      Dot1agCfmCcmInterval
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+       "Interval between LMM transmissions."
+    DEFVAL { interval1s }
+    ::= { oacEthOamExtMepEntry 14 }
+
+oacEthOamMepLossStatus OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "A Boolean flag set to true by the MEP Loopback Initiator State
+       Machine or an MIB manager to indicate that LMM messages are going to be
+       transmitted or are already being transmitted.
+       Reset to false by the MEP Loopback Initiator State Machine or the same
+       MIB manager."
+    DEFVAL { false }
+    ::= { oacEthOamExtMepEntry 15 }
+
+oacEthOamMepLossMessagesStart OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "A Boolean flag set to true by an MIB manager to start LMM
+       transmission, or set to false by an MIB manager to stop LMM
+       transmission."
+    ::= { oacEthOamExtMepEntry 16 }
+
+oacEthOamMepLossResultOK OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+       "Indicates the result of the operation:
+        - true       The FrameDelay Message(s) will be sent.
+        - false      The FrameDelay Message(s) will not be sent."
+    ::= { oacEthOamExtMepEntry 17 }
+
+oacEthOamMepLossNbrOfTxFrames OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+       "The number of sent LMM frames."
+    ::= { oacEthOamExtMepEntry 18 }
+
+oacEthOamMepLossNbrOfRxFrames OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+       "The number of received LMR frames."
+    ::= { oacEthOamExtMepEntry 19 }
+
+oacEthOamMepLossReplyLoss OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+       "Difference between the number of sent LMMs and the number of received
+        LMRs."
+    ::= { oacEthOamExtMepEntry 20 }
+
+oacEthOamMepLossNearEndDrops OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+       "Number of in-profile data frames dropped on the interface on which the
+        local MEP is defined, sent by the remote MEP, excluding OAM frames at
+        the MEP's MEG level."
+    ::= { oacEthOamExtMepEntry 21 }
+
+oacEthOamMepLossFarEndDrops OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+       "Number of in-profile data frames dropped on the interface on which the
+        remote MEP is defined, sent by the local MEP, excluding OAM frames at
+        the MEP's MEG level."
+    ::= { oacEthOamExtMepEntry 22 }
+
+oacEthOamMepDelayDestMacAddress OBJECT-TYPE
+    SYNTAX      MacAddress
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+       "The Target MAC Address Field to be transmitted: A unicast destination
+        MAC address. This address will be used if the value of the column
+        oacCfmMepDelayDestIsMepId is 'false'."
+    ::= { oacEthOamExtMepEntry 30 }
+
+oacEthOamMepDelayDestMepId OBJECT-TYPE
+    SYNTAX      Dot1agCfmMepIdOrZero
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+       "The Maintenance association End Point Identifier of another MEP in the
+        same Maintenance Association to which the DMM is to be sent. This
+        address will be used if the value of the column
+        oacCfmMepLossDestIsMepId is 'true'."
+    ::= { oacEthOamExtMepEntry 31 }
+
+oacEthOamMepDelayDestIsMepId OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+       "True indicates that MEPID of the target MEP is used for FrameDelay
+        transmission.
+        False indicates that unicast destination MAC address of the target MEP
+        is used for FrameDelay transmission."
+    ::= { oacEthOamExtMepEntry 32 }
+
+oacEthOamMepDelayVlanPriority OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+       "Priority. 3 bit value to be used in the VLAN tag, if present in the
+        transmitted frame."
+    ::= { oacEthOamExtMepEntry 33 }
+
+oacEthOamMepDelayInterval OBJECT-TYPE
+    SYNTAX      Dot1agCfmCcmInterval
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+       "Interval between DMM transmissions."
+    DEFVAL { interval1s }
+    ::= { oacEthOamExtMepEntry 34 }
+
+oacEthOamMepDelayStatus OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "A Boolean flag set to true by the MEP Loopback Initiator State
+       Machine or an MIB manager to indicate that DMM messages are going to be
+       transmitted or are already being transmitted.
+       Reset to false by the MEP Loopback Initiator State Machine or the same
+       MIB manager."
+    DEFVAL { false }
+    ::= { oacEthOamExtMepEntry 35 }
+
+oacEthOamMepDelayTimeOut OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+       "Time to wait for a FrameDelay response, before considering it lost,
+        expressed in multiples of 100msec."
+    ::= { oacEthOamExtMepEntry 36 }
+
+oacEthOamMepDelayMessagesStart OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+      "A Boolean flag set to true by an MIB manager to start DMM
+       transmission, or set to false by an MIB manager to stop DMM
+       transmission."
+    ::= { oacEthOamExtMepEntry 37 }
+
+oacEthOamMepDelayResultOK OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+       "Indicates the result of the operation:
+        - true       The FrameLoss Message(s) will be sent.
+        - false      The FrameLoss Message(s) will not be sent."
+    ::= { oacEthOamExtMepEntry 38 }
+
+oacEthOamMepDelayNbrOfTxFrames OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+       "The number of sent DMM frames."
+    ::= { oacEthOamExtMepEntry 39 }
+
+oacEthOamMepDelayNbrOfRxFrames OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+       "The number of received DMR frames."
+    ::= { oacEthOamExtMepEntry 40 }
+
+oacEthOamMepDelayLoss OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+       "Difference between the number of sent DMMs and the number of received
+        DMRs within the delay window (size = 10)."
+    ::= { oacEthOamExtMepEntry 41 }
+
+oacEthOamMepDelayMin OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+       "The minimum delay that was measured in the Delay test, expressed in
+        milliseconds."
+    ::= { oacEthOamExtMepEntry 42 }
+
+oacEthOamMepDelayMax OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+       "The maximum delay that was measured in the Delay test, expressed in
+        milliseconds."
+    ::= { oacEthOamExtMepEntry 43 }
+
+oacEthOamMepDelayAvrg OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+       "The average delay that was measured in the Delay test, expressed in
+        milliseconds."
+    ::= { oacEthOamExtMepEntry 44 }
+
+oacEthOamMepDelayJitterNegMax OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+       "The maximum negative jitter deviation that was measured in the Delay
+        test, expressed in milliseconds."
+    ::= { oacEthOamExtMepEntry 45 }
+
+oacEthOamMepDelayJitterAvrgMax OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+       "The maximum average jitter that was measured in the Delay test,
+        expressed in milliseconds."
+    ::= { oacEthOamExtMepEntry 46 }
+
+oacEthOamMepDelayJitterPosMax OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+       "The maximum positive jitter deviation that was measured in the Delay
+        test, expressed in milliseconds."
+    ::= { oacEthOamExtMepEntry 47 }
+
+oacEthOamMepRdiTxEnable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+       "Enable the transmission of RDI frames. Since RDI is a bit in the CCM
+        frames, this setting is only taken into account if the transmission
+        of CC messages is enabled."
+    ::= { oacEthOamExtMepEntry 60 }
+
+oacEthOamMepMcastLbmStatus OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "A Boolean flag set to true by the MEP Multicast Loopback Initiator State
+         Machine or an MIB manager to start transmission of a single multicast
+         Loopback message.
+         Reset to false by the MEP Multicast Loopback Initiator State Machine 
+         once the timeframe to wait for replies has expired."
+    ::= { oacEthOamExtMepEntry 70 }
+
+oacEthOamMepMcastLbmResult OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+       "Indicates the result of the operation:
+        - true       The multicast Loopback Message(s) will be (or has been)
+                     sent
+        - false      The multicast Loopback Message(s) will not be sent."
+    ::= { oacEthOamExtMepEntry 71 }
+
+oacEthOamMepMcastLbmSeqNumber  OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+       "The multicast Loopback Transaction Identifier of the next multicast
+        LBM (to be) sent.
+        This sequence number can be zero because it wraps around.
+        The value returned is undefined if oacEthOamMepMcastLbmResult is false."
+    ::= { oacEthOamExtMepEntry 72 }
+
+oacEthOamMepMcastLbmDataTlv OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+       "An arbitrary amount of data to be included in the Data TLV of the
+        Multicast Loopback message. When set to a zero length string, the  
+        dataTlv part of the message is omitted."
+    ::= { oacEthOamExtMepEntry 73 }
+
+oacEthOamMepAisInterval OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+       "Interval between AIS transmissions."
+    ::= { oacEthOamExtMepEntry 80 }
+
+oacEthOamMepAisVlanPriority OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+       "Priority. 3 bit value to be used in the VLAN tag, if present in the
+        transmitted AIS frame."
+    ::= { oacEthOamExtMepEntry 81 }
+
+oacEthOamMepAisTxEnable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+       "Enable the transmission of AIS frames."
+    ::= { oacEthOamExtMepEntry 82 }
+
+oacEthOamMepAisClientMegLevel OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+       "Maintenance level on which the AIS frames will be sent."
+    ::= { oacEthOamExtMepEntry 83 }
+
+oacEthOamMepEfdEnable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+       "Enables Ethernet Fault Detection & propagation."
+    ::= { oacEthOamExtMepEntry 90 }
+
+oacEthOamMepEfdState OBJECT-TYPE
+    SYNTAX      EthOamEfdState
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+       "The EFD state of the interface that this MEP belongs to."
+    ::= { oacEthOamExtMepEntry 91 }
+
+-- *******************************************************************
+-- oacEthOamExtLbrTable
+-- ******************************************************************
+
+oacEthOamExtLbrTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF OacEthOamExtLbrEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+     DESCRIPTION
+        "The multicast Loopback reply table, a list of all received replies."
+    ::= { oacEthOamExtIfObjects 4 }
+
+oacEthOamExtLbrEntry OBJECT-TYPE
+    SYNTAX          OacEthOamExtLbrEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "An entry containing configuration of a particular LBR.
+        Each row in the table represents a different LBR"
+    INDEX           {
+                        dot1agCfmMdIndex,
+                        dot1agCfmMaIndex,
+                        dot1agCfmMepIdentifier,
+                        oacEthOamLbrReceiveOrder
+                    }
+
+    ::= { oacEthOamExtLbrTable 1 }
+
+OacEthOamExtLbrEntry ::= SEQUENCE {
+        oacEthOamLbrReceiveOrder        Unsigned32,
+        oacEthOamLbrPeerMacAddress      MacAddress,
+        oacEthOamLbrMepId               Dot1agCfmMepIdOrZero
+        }
+
+oacEthOamLbrReceiveOrder OBJECT-TYPE
+    SYNTAX      Unsigned32(1..4294967295)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+       "An index to distinguish among multiple LBRs with the same LBR
+        Transaction Identifier field value. oacEthOamLbrReceiveOrder
+        are assigned sequentially from 1, in the order that the
+        Loopback Initiator received the LBRs."
+    ::= { oacEthOamExtLbrEntry 1 }
+
+oacEthOamLbrPeerMacAddress OBJECT-TYPE
+    SYNTAX      MacAddress
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+       "The unicast MAC address of the MEP that replied."
+    ::= { oacEthOamExtLbrEntry 2 }
+
+oacEthOamLbrMepId OBJECT-TYPE
+    SYNTAX      Dot1agCfmMepIdOrZero
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+       "If the MEP ID can be resolved, the MEPID, else 0."
+    ::= { oacEthOamExtLbrEntry 3 }
+
+-- *******************************************************************
+-- oacEthOamLbrNotRespTable
+-- ******************************************************************
+
+oacEthOamLbrNotRespTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF OacEthOamLbrNotRespEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+     DESCRIPTION
+        "Table containing a list of all known peer MEPs which have not
+        responded to the multicast Loopback Message."
+    ::= { oacEthOamExtIfObjects 5 }
+
+oacEthOamLbrNotRespEntry OBJECT-TYPE
+    SYNTAX          OacEthOamLbrNotRespEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "An entry containing configuration of a particular MEP.
+        Each row in the table represents a different MEP`"
+    INDEX           {
+                        dot1agCfmMdIndex,
+                        dot1agCfmMaIndex,
+                        dot1agCfmMepIdentifier,
+                        oacEthOamLbrNotRespMepId
+                    }
+
+    ::= { oacEthOamLbrNotRespTable 1 }
+
+OacEthOamLbrNotRespEntry ::= SEQUENCE {
+        oacEthOamLbrNotRespMepId            Dot1agCfmMepIdOrZero,
+        oacEthOamLbrNotRespPeerMacAddress   MacAddress
+        }
+
+oacEthOamLbrNotRespMepId OBJECT-TYPE
+    SYNTAX      Dot1agCfmMepIdOrZero
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+       "The MEP ID of the known peer MEP that did not reply."
+    ::= { oacEthOamLbrNotRespEntry 1 }
+
+oacEthOamLbrNotRespPeerMacAddress OBJECT-TYPE
+    SYNTAX      MacAddress
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+       "The unicast MAC address of the known peer MEP that has not replied."
+    ::= { oacEthOamLbrNotRespEntry 2 }
+
+END

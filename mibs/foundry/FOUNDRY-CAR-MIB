@@ -4,7 +4,7 @@ IMPORTS
 
 	MODULE-IDENTITY, OBJECT-TYPE,Gauge32, Counter64,Integer32
 		FROM SNMPv2-SMI
-	TEXTUAL-CONVENTION
+	MacAddress, TEXTUAL-CONVENTION
 		FROM SNMPv2-TC
 	snSwitch
 		FROM FOUNDRY-SN-SWITCH-GROUP-MIB
@@ -82,6 +82,20 @@ snPortCARs	OBJECT IDENTIFIER ::= { snCAR 1 }
 		xmit(5)
 	}
 
+	BUMPacketType::= TEXTUAL-CONVENTION
+	STATUS      current
+	DESCRIPTION
+		"
+		"
+	SYNTAX  INTEGER {
+		unknownunicast(1),
+		multicast(2),
+		unknownunicastmulticast(3),
+		broadcast(4),
+		broadcastunknownunicast(5),
+		broadcastmulticast(6),
+		broadcastunknownunicastmulticast(7)
+	}
 
 snPortCARTable OBJECT-TYPE
 	SYNTAX  SEQUENCE OF SnPortCAREntry
@@ -321,7 +335,7 @@ agRateLimitCounterEntry OBJECT-TYPE
 	MAX-ACCESS		not-accessible
 	STATUS		current
 	DESCRIPTION
-	"A collection of rate-limit counter objects on a
+	"A collection of rate-limit counter objects on a 
 	interface, direction and configuration row index within that interface."
 	INDEX { ifIndex, snPortCARRowIndex }
 	::= { agRateLimitCounterTable 1 }
@@ -370,7 +384,246 @@ agRateLimitCounterTotalOctets OBJECT-TYPE
 	"The total octet count for this rate limit entry."
 	::= { agRateLimitCounterEntry 4 }
 
+-- RL Counter index Table
+
+agRateLimitCounterIndexTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF AgRateLimitCounterIndexEntry
+	MAX-ACCESS		not-accessible
+	STATUS		current
+	DESCRIPTION
+	"A table to map each rowindexes of rate limit counter entries to their 
+	corresponding ACL ID (or) VLAN ID (or) VLAN Group ID."
+	::= { snPortCARs 3 }
+
+agRateLimitCounterIndexEntry OBJECT-TYPE
+	SYNTAX		AgRateLimitCounterIndexEntry
+	MAX-ACCESS		not-accessible
+	STATUS		current
+	DESCRIPTION
+	"A collection of rate-limit counter objects on a
+	interface, direction and configuration row index within that interface."
+	INDEX { ifIndex, snPortCARRowIndex }
+	::= { agRateLimitCounterIndexTable 1 }
+
+AgRateLimitCounterIndexEntry ::=
+	SEQUENCE {
+		agRateLimitCounterIndexRowIndex
+			INTEGER,
+		agRateLimitCounterIndexDirection
+			PacketSource,
+		agRateLimitCounterIndexACLID
+			Integer32,
+		agRateLimitCounterIndexVLANID
+			Integer32,
+		agRateLimitCounterIndexVLANGroupID
+			Integer32,
+		agRateLimitCounterIndexMACAddress
+			MacAddress
+	}
+
+agRateLimitCounterIndexRowIndex OBJECT-TYPE
+	SYNTAX  INTEGER (1..2147483647)
+		MAX-ACCESS  read-only
+		STATUS  current
+		DESCRIPTION
+				"The table index for rate limit objects.
+		It increases as the rate limit entries are added.
+		Skips the number when a row is deleted."
+
+		::= { agRateLimitCounterIndexEntry 1 }
+
+agRateLimitCounterIndexDirection  OBJECT-TYPE
+	SYNTAX  PacketSource
+		MAX-ACCESS  read-only
+		STATUS  current
+		DESCRIPTION
+			"The input or output transmission direction for the
+				Rate Limit object.
+				input (0), --for inbound traffic
+				output(1) --for outbound traffic "
+		::= { agRateLimitCounterIndexEntry 2 }
+
+agRateLimitCounterIndexACLID OBJECT-TYPE
+	SYNTAX	Integer32
+	MAX-ACCESS	read-only
+	STATUS	current
+	DESCRIPTION
+	"The corresponding ACL ID to match with the row index of the ratelimit 
+	counter table."
+	::= { agRateLimitCounterIndexEntry 3 }
+
+agRateLimitCounterIndexVLANID OBJECT-TYPE
+	SYNTAX	Integer32
+	MAX-ACCESS	read-only
+	STATUS	current
+	DESCRIPTION
+	"The corresponding VLAN ID to match with the row index of the ratelimit 
+	counter table."
+	::= { agRateLimitCounterIndexEntry 4 }
+
+agRateLimitCounterIndexVLANGroupID OBJECT-TYPE
+	SYNTAX	Integer32
+	MAX-ACCESS	read-only
+	STATUS	current
+	DESCRIPTION
+	"The corresponding VLAN Group ID to match with the row index of the 
+	ratelimit counter table."
+	::= { agRateLimitCounterIndexEntry 5 }
+
+agRateLimitCounterIndexMACAddress OBJECT-TYPE
+	SYNTAX	MacAddress
+	MAX-ACCESS	read-only
+	STATUS	current
+	DESCRIPTION
+	"The corresponding MAC Address for Source MAC based rate limit to match 
+	with the row index of the ratelimit counter table."	
+	DEFVAL  { '000000000000'H }
+	::= { agRateLimitCounterIndexEntry 6 }
+
+-- BUM RL Counter Table
+agRateLimitBUMCounterTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF AgRateLimitBUMCounterEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+            "This table displays 
+  The number of bytes dropped due to BUM rate-limit on the port, based on configured packet type and VLANID
+  Committed Burst Size(CBS) in bits
+  Committed Information Rate(CIR) in bits
+  AlertLowLevelThreshold in bits
+  AlertHighLevelThreshold in bits
+  ShutdownTimeout in minutes"
+    ::= { snPortCARs 4}
+agRateLimitBUMCounterEntry OBJECT-TYPE
+    SYNTAX      AgRateLimitBUMCounterEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+            "An entry containing the number of bytes dropped due to BUM rate-limit, followed by CBS ,CIR, AlertLowLevelThreshold, AlertHighLevelThreshold in terms of bits, and ShutdownTimeout in minutes"
+    INDEX   {  agRateLimitBUMCounterIfindex,
+	        agRateLimitBUMCounterVLANID,
+                   agRateLimitBUMCounterPacketType }
+    ::= { agRateLimitBUMCounterTable 1 }
+AgRateLimitBUMCounterEntry ::=
+SEQUENCE {
+	agRateLimitBUMCounterIfindex			InterfaceIndex,
+	agRateLimitBUMCounterVLANID			Integer32,
+	agRateLimitBUMCounterPacketType			BUMPacketType,
+	agRateLimitBUMCounterDroppedOctets		Counter64,
+	agRateLimitBUMCounterCBS			Counter64,
+	agRateLimitBUMCounterCIR			Counter64,
+	agRateLimitBUMCounterAlertLowLevelThreshold	Counter64,
+	agRateLimitBUMCounterAlertHighLevelThreshold	Counter64,
+	agRateLimitBUMCounterShutdownTimeout		Integer32
+}
+agRateLimitBUMCounterIfindex OBJECT-TYPE
+    SYNTAX  InterfaceIndex
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+            "Ifindex, a count which uniquely identifies the ports
+	     in the chassis. Ranges from 1 to 2048"
+    ::= { agRateLimitBUMCounterEntry 1 }
+agRateLimitBUMCounterVLANID OBJECT-TYPE
+    SYNTAX  Integer32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+            " VLANID, a ID which is used to represent the 
+              corresponding VLAN in the chassis. Ranges 
+              from 1 to 4096"
+    ::= { agRateLimitBUMCounterEntry 2 }
+agRateLimitBUMCounterPacketType OBJECT-TYPE
+    SYNTAX  BUMPacketType
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+            " PacketType, used to represent the type of the packet i.e. B(1) or U(2) or BU(3) or M(4) or BM(5) or UM(6) or BUM(7) U?Unknown-Unicast, B?Broadcast and M?Multicast"
+    ::= { agRateLimitBUMCounterEntry 3 }
+agRateLimitBUMCounterDroppedOctets OBJECT-TYPE
+    SYNTAX  Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+            " A count used to represent the number of bytes dropped due to BUM rate-limit in bytes."
+    ::= { agRateLimitBUMCounterEntry 4 }
+agRateLimitBUMCounterCBS OBJECT-TYPE
+    SYNTAX  Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+            " A count used to represent the Committed Burst Size in bits."
+    ::= { agRateLimitBUMCounterEntry 5 }
+agRateLimitBUMCounterCIR OBJECT-TYPE
+    SYNTAX  Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+            " A count used to represent the Committed Information Rate in bits."
+    ::= { agRateLimitBUMCounterEntry 6 }
+agRateLimitBUMCounterAlertLowLevelThreshold OBJECT-TYPE
+    SYNTAX  Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+            " A count used to represent the configured lower threshold level in bits, to generate the Alert."
+    ::= { agRateLimitBUMCounterEntry 7 }
+agRateLimitBUMCounterAlertHighLevelThreshold OBJECT-TYPE
+    SYNTAX  Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+            " A count used to represent the configured Higher threshold level in bits, to generate the Alert."
+    ::= { agRateLimitBUMCounterEntry 8 }
+agRateLimitBUMCounterShutdownTimeout OBJECT-TYPE
+    SYNTAX  Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+            " A count used to represent the Timeout value in terms of minutes,
+              which is the time interval after which the shutdown port will 
+              be enabled."
+    ::= { agRateLimitBUMCounterEntry 9 }
+-- end of RL Counter Table
+snBUMRLNotifications OBJECT IDENTIFIER ::= { snPortCARs 5 }
+snTrapBUMratelimitAlertLowThreshold NOTIFICATION-TYPE
+       OBJECTS {
+	agRateLimitBUMCounterCIR,
+	agRateLimitBUMCounterAlertLowLevelThreshold
+	}
+       STATUS  current
+       DESCRIPTION
+               "A snTrapBUMratelimitAlertLowThreshold trap signifies that the
+                ingress packets interms of bits have reached the configured 
+                low level threshold."
+	::= { snBUMRLNotifications 1 }
+snTrapBUMratelimitAlertHighThreshold NOTIFICATION-TYPE
+       OBJECTS {
+         agRateLimitBUMCounterCIR,
+         agRateLimitBUMCounterAlertHighLevelThreshold
+       }
+       STATUS  current
+       DESCRIPTION
+               "A snTrapBUMratelimitAlertHighThreshold trap signifies that the 
+                ingress packets interms of bits, have reached the configured 
+                high level threshold."
+	::= { snBUMRLNotifications 2 }
+snTrapBUMratelimitShutdownLinkDown NOTIFICATION-TYPE
+       OBJECTS {
+         agRateLimitBUMCounterCIR
+       }
+       STATUS  current
+       DESCRIPTION
+               "A snTrapBUMratelimitShutdownLinkDown trap signifies that the
+                port is shutdown after reaching the configured CIR in bps."
+	::= { snBUMRLNotifications 3 }
+snTrapBUMratelimitShutdownLinkUp NOTIFICATION-TYPE
+       OBJECTS {
+          agRateLimitBUMCounterCIR
+       }
+       STATUS  current
+       DESCRIPTION
+               "A snTrapBUMratelimitAlertHighThreshold trap signifies that the 
+                port is UP after the specified shutdown timeout in minutes."
+	::= { snBUMRLNotifications 4 }
 END
--- *****************************************************************
--- Foundry Commited Access Rate MIB file.
--- *****************************************************************

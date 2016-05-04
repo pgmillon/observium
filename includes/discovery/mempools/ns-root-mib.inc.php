@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -15,7 +15,7 @@
 #NS-ROOT-MIB::memSizeMB.0 = INTEGER: 815
 
 $mib = 'NS-ROOT-MIB';
-echo(" $mib ");
+echo("$mib ");
 
 $total   = snmp_get($device, "memSizeMB.0",   "-OvQ", $mib, mib_dirs('citrix'));
 $percent = snmp_get($device, "resMemUsage.0", "-OvQ", $mib, mib_dirs('citrix'));
@@ -23,7 +23,7 @@ $percent = snmp_get($device, "resMemUsage.0", "-OvQ", $mib, mib_dirs('citrix'));
 if (is_numeric($total) && is_numeric($percent))
 {
   $precision = 1024 * 1024;
-  $total    *= $precision;
+  //$total    *= $precision;
   $used      = $total * $percent / 100;
   discover_mempool($valid['mempool'], $device, 0, $mib, "Memory", $precision, $total, $used);
 }

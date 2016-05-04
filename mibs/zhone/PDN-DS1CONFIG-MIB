@@ -1,0 +1,345 @@
+PDN-DS1CONFIG-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+	DisplayString
+		FROM RFC1213-MIB
+	Gauge
+		FROM RFC1155-SMI
+	OBJECT-TYPE
+		FROM RFC-1212
+     	pdn-interfaces
+		FROM PDN-HEADER-MIB;
+
+-- ===============================================================
+-- 
+-- The Paradyne DS1 Interface Configuration Table.
+-- Last Updated: 07/09/02 by C. Sikes (csikes@paradyne.com)
+--               Added support for (2^7-1) framed test pattern and
+--               (2^11-1) framed test pattern.
+--
+-- Release: 0.0.3 (6/27/96) DRAFT
+-- 
+ent-ds1		OBJECT IDENTIFIER ::= { pdn-interfaces 5 }
+
+--  The following definitions are used to allow an SNMP
+--  management system to control certain test functions
+--  of a Paradyne device.
+
+devDS1Test   OBJECT IDENTIFIER ::= { ent-ds1 1 }
+
+-- The Paradyne DS1 Interface Test Table.
+
+-- This table is used to define objects which allow a network
+-- manager to instruct the agent to test a DS1 interface for various
+-- faults.
+
+-- More than one test can be active on a particular interface.
+-- The valid combinations of tests allowed per interface are
+-- described in the Operator's Guide of the product.
+
+devDS1TestTable OBJECT-TYPE
+    SYNTAX  SEQUENCE OF DevDS1TestEntry
+    ACCESS  not-accessible
+    STATUS  mandatory
+    DESCRIPTION
+           "The Paradyne DS1 Interface Test Table."
+    ::= { devDS1Test 1 }
+
+devDS1TestEntry OBJECT-TYPE
+    SYNTAX  DevDS1TestEntry
+    ACCESS  not-accessible
+    STATUS  mandatory
+    DESCRIPTION
+           "An entry in the Paradyne DS1 Interface Test Table."
+    INDEX   { devDS1TestIfIndex, devDS1TestType }
+    ::= { devDS1TestTable 1 }
+
+-- Layout of one entry in devDS1TestTable.
+
+DevDS1TestEntry ::=
+    SEQUENCE {
+        devDS1TestIfIndex			INTEGER,
+        devDS1TestType				INTEGER,
+        devDS1TestControl			INTEGER,
+        devDS1TestArgument			DisplayString
+    }
+
+devDS1TestIfIndex OBJECT-TYPE
+    SYNTAX  INTEGER
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+           "The index value which uniquely identifies the
+            interface for which this entry contains information
+            on interface tests.  The interface identified by a
+            particular value of this index is the same interface
+            as identified by the same value of ifIndex from the
+            Interfaces table of MIB II (RFC 1213)."
+    ::= { devDS1TestEntry 1 }
+
+devDS1TestType OBJECT-TYPE
+    SYNTAX  INTEGER {
+-- Remote Loopback Tests
+                llbup(1),	     -- line loopback up code sent to
+                                     -- the remote DSU/CSU for 10 secs
+                llbdn(2),	     -- line loopback down code sent to
+                                     -- the remote DSU/CSU for 10 secs
+-- Local Loopback Tests
+                llb(3),		     -- line loopback
+                plb(4),		     -- payload loopback
+                rlb(5),		     -- repeater loopback
+-- Test Patterns
+                sendQRSS(6),	     -- sends QRSS test pattern
+		sendZeros(7),	     -- sends an all zeros test pattern
+		sendOnes(8),	     -- sends an all ones test pattern
+                send1in8(9),	     -- sends a 1-in-8 test pattern
+		send3in24(10),	     -- sends a 3-in-24 test pattern
+		send63(11),	     -- sends a 63 test pattern
+                send511(12),	     -- sends a 511 test pattern
+		send2047(13),	     -- sends a 2047 test pattern
+		send2E15(14),	     -- sends a 2E15-1 test pattern
+		send2E20(15),	     -- sends a 2E20-1 test pattern
+		sendUserDefined(16), -- sends a user defined test pattern
+				     -- (requires use of devDS1TestArgument)
+                monQRSS(17),	     -- monitors a QRSS pattern
+		monZeros(18),	     -- monitors an all zeros test pattern
+		monOnes(19),	     -- monitors an all ones test pattern
+                mon1in8(20),	     -- monitors a 1-in-8 test pattern
+		mon3in24(21),	     -- monitors a 3-in-24 test pattern
+		mon63(22),	     -- monitors a 63 test pattern
+                mon11(23),	     -- monitors a 511 pattern
+		mon2047(24),	     -- monitors a 2047 test pattern
+		mon2E15(25),	     -- monitors a 2E15-1 test pattern
+		mon2E20(26),	     -- monitors a 2E20-1 test pattern
+		monUserDefined(27),  -- monitors a user defined test pattern
+				     -- (requires use of devDS1TestArgument)
+
+                send2E7(28),         -- sends      a 2E7-1  test pattern
+                mon2E7(29),          -- monitors   a 2E7-1  test pattern
+                send2E11(30),        -- sends      a 2E11-1 test pattern
+                mon2E11(31)          -- monitors   a 2E11-1 test pattern
+            }
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+           "The index value which uniquely identifies the test for
+            which this entry contains information."
+    ::= { devDS1TestEntry 2 }
+
+devDS1TestControl OBJECT-TYPE
+    SYNTAX  INTEGER {
+                idle(1),	-- stop the currently running test or no
+				-- test currently active
+                running(2)	-- start the test or the test is
+				-- currently active
+            }
+    ACCESS  read-write
+    STATUS  mandatory
+    DESCRIPTION
+           "A control variable used to start and stop operator-
+            initiated interface tests.  Writing idle(1) to the
+            test table entry terminates the specified test
+            for the interface associated with the entry.  Writing
+            running(2) activates the specified test for the interface,
+            if allowed (i.e., the test must be allowed for the 
+            interface and in combination with any other tests currently
+            executing for the interface).  The rules for executing
+            tests for the product are specified in the product's
+            Operator's Guide.
+            This variable is read to determine the current status of
+            the test for the interface.  A value of running(2) indicates
+            the test is currently in progress on the interface.  A value
+            of idle(1) indicates that the test is currently not active
+            on the interface."
+    ::= { devDS1TestEntry 3 }
+
+devDS1TestArgument OBJECT-TYPE
+    SYNTAX  DisplayString (SIZE (0..255))
+    ACCESS  read-write
+    STATUS  mandatory
+    DESCRIPTION
+       "Any argument required by the test being executed."
+    ::= { devDS1TestEntry 4 }
+
+
+-- The Paradyne Device Monitor Test Pattern Result Table.
+
+-- This table is used to define objects which reflect the result
+-- of a monitor test pattern request.
+
+devDS1MonResultTable OBJECT-TYPE
+    SYNTAX  SEQUENCE OF DevDS1MonResultEntry
+    ACCESS  not-accessible
+    STATUS  mandatory
+    DESCRIPTION
+           "The Paradyne Device Monitor Test Pattern Result Table."
+    ::= { devDS1Test 2 }
+
+devDS1MonResultEntry OBJECT-TYPE
+    SYNTAX  DevDS1MonResultEntry
+    ACCESS  not-accessible
+    STATUS  mandatory
+    DESCRIPTION
+           "An entry in the Paradyne Device Monitor Test
+            Pattern Result Table."
+    INDEX   { devDS1MonResultIfIndex, devDS1MonResultTestType }
+    ::= { devDS1MonResultTable 1 }
+
+-- Layout of one entry in devDS1MonResultTable.
+
+DevDS1MonResultEntry ::=
+    SEQUENCE {
+        devDS1MonResultIfIndex		INTEGER,
+        devDS1MonResultTestType		INTEGER,
+        devDS1MonResultCode		INTEGER,
+        devDS1MonResultErrorCount	Gauge
+    }
+
+devDS1MonResultIfIndex OBJECT-TYPE
+    SYNTAX  INTEGER
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+           "The index value which uniquely identifies the
+            interface for which this entry contains information
+            on the result of the monitor test pattern request.
+            The interface identified by a particular value of this
+            index is the same interface as identified by the same
+            value of ifIndex from the Interfaces table of MIB II
+            (RFC 1213)."
+    ::= { devDS1MonResultEntry 1 }
+
+devDS1MonResultTestType OBJECT-TYPE
+    SYNTAX  INTEGER {
+                monQRSS(17),	     -- monitor QRSS pattern
+		monZeros(18),	     -- monitor all zeros test pattern
+		monOnes(19),	     -- monitor all ones test pattern
+                mon1in8(20),	     -- monitor 1-in-8 test pattern
+		mon3in24(21),	     -- monitor 3-in-24 test pattern
+		mon63(22),	     -- monitor 63 test pattern
+                mon11(23),	     -- monitor 511 pattern
+		mon2047(24),	     -- monitor 2047 test pattern
+		mon2E15(25),	     -- monitor 2E15-1 test pattern
+		mon2E20(26),	     -- monitor 2E20-1 test pattern
+		monUserDefined(27),  -- monitor user defined test pattern
+                mon2E7(29),          -- monitor 2E7-1  test pattern
+                mon2E11(31)          -- monitor 2E11-1 test pattern
+            }
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+           "The index value which uniquely identifies the test for
+            which this entry contains information."
+    ::= { devDS1MonResultEntry 2 }
+
+devDS1MonResultCode OBJECT-TYPE
+    SYNTAX  INTEGER {
+                none(1),                 -- no further information is available
+                inSyncNoBitErrors(2),    -- the monitor pattern test has
+                                         -- synchronized on the pattern and has
+                                         -- not detected any bit errors
+                inSyncWithBitErrors(3),  -- the monitor pattern test has
+                                         -- synchronized on the pattern and has
+                                         -- detected bit errors
+                notInSync(4)             -- a monitor pattern test has not
+                                         -- synchronized on the requested pattern
+            }
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+           "This object contains a code for more specific information
+            on the test pattern monitoring result.  A value of none(1)
+            indicates that no further information is available.
+            inSyncNoBitErrors(2) notes that the monitor pattern test
+            has synchronized on the pattern and has not detected any
+            bit errors.  inSyncWithBitErrors indicates that the monitor
+            pattern test has synchronized on the pattern and has detected
+            bit errors.  A monitor pattern test that has not synchronized
+            on the request pattern returns a value of notInSync(4)."
+    ::= { devDS1MonResultEntry 3 }
+
+devDS1MonResultErrorCount OBJECT-TYPE
+    SYNTAX  Gauge
+    ACCESS  read-write
+    STATUS  mandatory
+    DESCRIPTION
+           "The number of bit errors detected in the received
+            monitoring test pattern.  The error count is updated
+            once every second.  The error count does not increment
+            during periods when the pattern is not synchronized, or
+            once synchronization is lost.  The maximum value of this
+            object is 99,999.
+	    
+	    Writing any value to this object will reset it to zero."
+    ::= { devDS1MonResultEntry 4 }
+
+-- The Paradyne Device Send Test Pattern Control Table.
+
+-- This table is used to define objects related to a send test
+-- pattern request.
+
+devDS1SendControlTable OBJECT-TYPE
+    SYNTAX  SEQUENCE OF DevDS1SendControlEntry
+    ACCESS  not-accessible
+    STATUS  mandatory
+    DESCRIPTION
+           "The Paradyne Device Send Test Pattern Control Table."
+    ::= { devDS1Test 3 }
+
+devDS1SendControlEntry OBJECT-TYPE
+    SYNTAX  DevDS1SendControlEntry
+    ACCESS  not-accessible
+    STATUS  mandatory
+    DESCRIPTION
+           "An entry in the Paradyne Device Send Test
+            Pattern Control Table."
+    INDEX   { devDS1SendControlIfIndex }
+    ::= { devDS1SendControlTable 1 }
+
+-- Layout of one entry in devDS1SendControlTable.
+
+DevDS1SendControlEntry ::=
+    SEQUENCE {
+        devDS1SendControlIfIndex		INTEGER,
+        devDS1SendControlInjectErr		INTEGER,
+        devDS1SendControlErrorCount		Gauge
+    }
+
+devDS1SendControlIfIndex OBJECT-TYPE
+    SYNTAX  INTEGER
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+       "The index value which uniquely identifies the
+	interface for which this entry contains information
+	on the result of the monitor test pattern request.
+	The interface identified by a particular value of this
+	index is the same interface as identified by the same
+	value of ifIndex from the Interfaces table of MIB II
+            (RFC 1213)."
+    ::= { devDS1SendControlEntry 1 }
+
+devDS1SendControlInjectErr OBJECT-TYPE
+    SYNTAX  INTEGER {
+                noOp(1),
+                inject(2)
+            }
+    ACCESS  read-write
+    STATUS  mandatory
+    DESCRIPTION
+       "Setting this object to inject(2) will inject one error
+	in the data pattern being sent.  If no pattern is being
+	sent, the agent will return BAD VALUE.  Reading this
+	value will always return noOp(1)."
+    ::= { devDS1SendControlEntry 2 }
+
+devDS1SendControlErrorCount OBJECT-TYPE
+    SYNTAX  Gauge
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+       "The number of bit errors injected into the test pattern
+	being sent.  The maximum value of this object is 99,999."
+    ::= { devDS1SendControlEntry 3 }
+
+END

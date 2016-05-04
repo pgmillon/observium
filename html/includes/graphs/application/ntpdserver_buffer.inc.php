@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -24,10 +24,10 @@ $array        = array(
                       'buffer_free' => array('descr' => 'Free')
                      );
 
-$i            = 0;
-
 if (is_file($rrd_filename))
 {
+  $i = 0;
+
   foreach ($array as $ds => $data)
   {
     $rrd_list[$i]['filename'] = $rrd_filename;

@@ -6,33 +6,41 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
+
+$ports['total']    = dbFetchCell("SELECT COUNT(*) FROM `ports` WHERE device_id = ?", array($device['device_id']));
+$ports['up']       = dbFetchCell("SELECT COUNT(*) FROM `ports` WHERE device_id = ? AND `ifAdminStatus` = 'up' AND (`ifOperStatus` = 'up' OR `ifOperStatus` = 'monitoring')", array($device['device_id']));
+$ports['down']     = dbFetchCell("SELECT COUNT(*) FROM `ports` WHERE device_id = ? AND `ifAdminStatus` = 'up' AND (`ifOperStatus` = 'lowerLayerDown' OR `ifOperStatus` = 'down')", array($device['device_id']));
+$ports['disabled'] = dbFetchCell("SELECT COUNT(*) FROM `ports` WHERE device_id = ? AND `ifAdminStatus` = 'down'", array($device['device_id']));
+
+if ($ports['down']) { $ports_colour = $warn_colour_a; } else { $ports_colour = $list_colour_a; }
 
 if ($ports['total'])
 {
 ?>
 
-<div class="widget widget-table">
-  <div class="widget-header">
+<div class="box box-solid">
+  <div class="box-header ">
     <a href="<?php echo(generate_url(array('page' => 'device', 'device' => $device['device_id'], 'tab' => 'ports'))); ?>">
-      <i class="oicon-network-ethernet"></i><h3>Ports</h3>
+      <i class="oicon-network-ethernet"></i><h3 class="box-title">Ports</h3>
     </a>
   </div>
-  <div class="widget-content">
-
+  <div class="body-box no-padding">
 
 <?php
   $graph_array['height'] = "100";
   $graph_array['width']  = "512";
   $graph_array['to']     = $config['time']['now'];
-  $graph_array['device']          = $device['device_id'];
+  $graph_array['device'] = $device['device_id'];
   $graph_array['type']   = "device_bits";
   $graph_array['from']   = $config['time']['day'];
   $graph_array['legend'] = "no";
+  $graph_array['style'] = array('width: 100%', 'max-width: 593px'); // Override default width
   $graph = generate_graph_tag($graph_array);
+  unset($graph_array['style']);
 
   $link_array = $graph_array;
   $link_array['page'] = "graphs";
@@ -42,18 +50,17 @@ if ($ports['total'])
   $graph_array['width']  = "210";
   $overlib_content = generate_overlib_content($graph_array, $device['hostname'] . " - Device Traffic");
 
-
-  echo('<table class="table table-condensed table-striped table-bordered">
+  echo('<table class="table table-condensed table-striped ">
   <tr><td colspan=4>');
 
   echo(overlib_link($link, $graph, $overlib_content, NULL));
 
   echo('</td></tr>
     <tr style="background-color: ' . $ports_colour . '; align: center;">
-      <td style="width: 25%; text-align: center;"><img src="images/16/connect.png" alt="" /> ' . $ports['total'] . '</td>
-      <td style="width: 25%; text-align: center;" class="green"><img src="images/16/if-connect.png" alt="" /> ' . $ports['up'] . '</td>
-      <td style="width: 25%; text-align: center;" class="red"><img src="images/16/if-disconnect.png" alt="" /> ' . $ports['down'] . '</td>
-      <td style="width: 25%; text-align: center;" class="grey"><img src="images/16/if-disable.png" alt="" /> ' . $ports['disabled'] . '</td>
+      <td style="width: 25%; text-align: center;"><i class="oicon-node-select-all" title="Total Ports"></i> ' . $ports['total'] . '</td>
+      <td style="width: 25%; text-align: center;" class="green"><i class="oicon-network-status" title="Up Ports"></i> ' . $ports['up'] . '</td>
+      <td style="width: 25%; text-align: center;" class="red"><i class="oicon-network-status-busy" title="Down Ports"></i> ' . $ports['down'] . '</td>
+      <td style="width: 25%; text-align: center;" class="grey"><i class="oicon-network-status-offline" title="Disabled Ports"></i> ' . $ports['disabled'] . '</td>
     </tr>');
 
   echo('<tr><td colspan=4 style="padding-left: 10px; font-size: 11px; font-weight: bold;">');
@@ -80,7 +87,7 @@ if ($ports['total'])
     'Other',
   );
   $port_links = array();
-  foreach (dbFetchRows("SELECT * FROM `ports` WHERE device_id = ? AND `deleted` != ?;", array($device['device_id'], '1')) as $data)
+  foreach (dbFetchRows("SELECT * FROM `ports` WHERE `device_id` = ? AND `deleted` != ?;", array($device['device_id'], '1')) as $data)
   {
     humanize_port($data);
     if (!in_array($data['human_type'], $port_types))
@@ -90,15 +97,15 @@ if ($ports['total'])
 
     // Index example for TenGigabitEthernet3/10.324:
     //  $ports_links['Ethernet'][] = array('label_base' => 'TenGigabitEthernet', 'label_num0' => '3', 'label_num1' => '10', 'label_num2' => '324')
-    $label_num  = preg_replace('![^\d\.\/]!', '', substr($data['label'], strlen($data['label_base']))); // Remove base part and all not-numeric chars
+    $label_num  = preg_replace('![^\d\.\/]!', '', substr($data['port_label'], strlen($data['port_label_base']))); // Remove base part and all not-numeric chars
     preg_match('!^(\d+)(?:\/(\d+)(?:\.(\d+))*)*!', $label_num, $label_nums); // Split by slash and point (1/1.324)
     $ports_links[$data['human_type']][$data['ifIndex']] = array(
-      'label'      => $data['label'],
-      'label_base' => $data['label_base'],
+      'label'      => $data['port_label'],
+      'label_base' => $data['port_label_base'],
       'label_num0' => $label_nums[0],
       'label_num1' => $label_nums[1],
       'label_num2' => $label_nums[2],
-      'link'       => generate_port_link($data, short_ifname(strtolower($data['label'])))
+      'link'       => generate_port_link($data, $data['port_label_short'])
     );
   }
   // First sort iteration (by port type)
@@ -119,11 +126,13 @@ if ($ports['total'])
       if (is_file('ports/'.$device['os'].'_'.$hw.'.inc.php'))
       {
         print_debug('Include ports template for device: ports/'.$device['os'].'_'.$hw.'.inc.php');
+
         include('ports/'.$device['os'].'_'.$hw.'.inc.php');
       }
       else if (is_file('ports/'.$device['os'].'_generic.inc.php'))
       {
         print_debug('Include ports template for device: ports/'.$device['os'].'_generic.inc.php');
+
         include('ports/'.$device['os'].'_generic.inc.php');
       }
     }

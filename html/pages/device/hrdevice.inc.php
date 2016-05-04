@@ -6,13 +6,14 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 ?>
 
-<table class="table table-condensed table-bordered table-striped">
+<div class="box box-solid">
+<table class="table table-condensed  table-striped">
   <thead>
     <tr>
       <th>#</th>
@@ -36,10 +37,8 @@ foreach (dbFetchRows("SELECT * FROM `hrDevice` WHERE `device_id` = ? ORDER BY `h
   {
     $proc_id = dbFetchCell('SELECT processor_id FROM processors WHERE device_id = ? AND hrDeviceIndex = ?', array($device['device_id'], $hrdevice['hrDeviceIndex']));
     $proc_url   = "device/device=".$device['device_id']."/tab=health/metric=processor/";
-    $proc_popup  = "onmouseover=\"return overlib('<div class=entity-title>".$device['hostname']." - ".$hrdevice['hrDeviceDescr'];
-    $proc_popup .= "</div><img src=\'graph.php?id=" . $proc_id . "&amp;type=processor_usage&amp;from=".$config['time']['month']."&amp;to=".$config['time']['now']."&amp;width=400&amp;height=125\'>";
-    $proc_popup .= "', RIGHT".$config['overlib_defaults'].");\" onmouseout=\"return nd();\"";
-    echo("      <td><a href='$proc_url' $proc_popup>".$hrdevice['hrDeviceDescr']."</a></td>\n");
+
+    echo("      <td>" . generate_entity_link('processor', $proc_id) . "</td>\n");
 
     $graph_array['height'] = "20";
     $graph_array['width']  = "100";
@@ -47,7 +46,9 @@ foreach (dbFetchRows("SELECT * FROM `hrDevice` WHERE `device_id` = ? ORDER BY `h
     $graph_array['id']     = $proc_id;
     $graph_array['type']   = 'processor_usage';
     $graph_array['from']     = $config['time']['day'];
-    $graph_array_zoom   = $graph_array; $graph_array_zoom['height'] = "150"; $graph_array_zoom['width'] = "400";
+    $graph_array_zoom   = $graph_array;
+    $graph_array_zoom['height'] = "150";
+    $graph_array_zoom['width'] = "400";
 
     $mini_graph = overlib_link($proc_url, generate_graph_tag($graph_array), generate_graph_tag($graph_array_zoom),  NULL);
 
@@ -67,7 +68,9 @@ foreach (dbFetchRows("SELECT * FROM `hrDevice` WHERE `device_id` = ? ORDER BY `h
       $graph_array['id']     = $interface['port_id'];
       $graph_array['type']   = 'port_bits';
       $graph_array['from']   = $config['time']['day'];
-      $graph_array_zoom      = $graph_array; $graph_array_zoom['height'] = "150"; $graph_array_zoom['width'] = "400";
+      $graph_array_zoom      = $graph_array;
+      $graph_array_zoom['height'] = "150";
+      $graph_array_zoom['width'] = "400";
 
       // FIXME click on graph should also link to port, but can't use generate_port_link here...
       $mini_graph = overlib_link(generate_port_url($interface), generate_graph_tag($graph_array), generate_graph_tag($graph_array_zoom),  NULL);
@@ -89,7 +92,7 @@ foreach (dbFetchRows("SELECT * FROM `hrDevice` WHERE `device_id` = ? ORDER BY `h
 
 echo("  </tbody>\n");
 echo("</table>\n");
-
+echo '</div>';
 $page_title[] = "Inventory";
 
 // EOF

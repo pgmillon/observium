@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -19,7 +19,7 @@ echo(" TRAPEZE-NETWORKS-AP-CONFIG-MIB ");
 
 // Getting APs
 
-$accesspoints_snmp = snmpwalk_cache_multi_oid($device, "trpzApConfApConfigTable", $accesspoints_snmp, "TRAPEZE-NETWORKS-AP-CONFIG-MIB", mib_dirs('trapeze'),TRUE);
+$accesspoints_snmp = snmpwalk_cache_multi_oid($device, "trpzApConfApConfigTable", $accesspoints_snmp, "TRAPEZE-NETWORKS-AP-CONFIG-MIB", mib_dirs('trapeze'), OBS_SNMP_ALL_NUMERIC);
 if (OBS_DEBUG > 1) { print_vars($accesspoints_snmp); }
 
 $accesspoints_db = dbFetchRows("SELECT `name`, `model`, `location`, `fingerprint`, `serial`, `device_id`, `ap_number` FROM `wifi_accesspoints` WHERE `device_id` = ?", array($device['device_id']));
@@ -98,11 +98,13 @@ foreach ($radios_snmp as $ap_number => $ap_radios)
     }
 
     $radio['radio_number'] = $radio_number;
-    $radio['accesspoint_id'] = $accesspoint_id;
-
+    $radio['radio_ap'] = $accesspoint_id;
+    $radio['radio_mib'] = 'TRAPEZE-NETWORKS-AP-CONFIG-MIB';
+    $radio['radio_protection'] = 'unknown';
+    $radio['radio_bsstype'] = 'unknown';
     if (OBS_DEBUG) { print_vars($radio); }
 
-    discover_wifi_radio($radios_db, $device['device_id'], $radio);
+    discover_wifi_radio($device['device_id'], $radio);
     // $params   = array('radio_ap', 'radio_number', 'radio_type', 'radio_status', 'radio_clients', 'radio_txpower', 'radio_channel', 'radio_mac', 'radio_protection', 'radio_bsstype', 'radio_mib');
 
   }

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -24,14 +24,14 @@ $array        = array();
 
 $dns_rcode = array('FORMERR', 'NOERROR', 'NOTAUTH' ,'NOTIMPL', 'NOTZONE', 'NXDOMAIN', 'NXRRSET', 'REFUSED', 'SERVFAIL', 'YXDOMAIN', 'YXRRSET', 'nodata');
 
-$colours = $config['graph_colours']['mixed']; # needs moar colours!
+$colours = $config['graph_colours']['mixed']; // needs moar colours!
 
 foreach ($dns_rcode as $rcode)
 {
   $array["rcode$rcode"] = array('descr' => strtoupper($rcode), 'colour' => $colours[(count($array) % count($colours))]);
 }
 
-# FIXME maybe these need their own DNSSEC graph? In munin, they are on this graph.
+// FIXME maybe these need their own DNSSEC graph? In munin, they are on this graph.
 foreach (array('numAnswerSecure' => 'Secure answers', 'numAnswerBogus' => 'Bogus answers', 'numRRSetBogus' => "RRsets marked bogus") as $key => $descr)
 {
   $array[$key] = array('descr' => $descr, 'colour' => $colours[(count($array) % count($colours))]);

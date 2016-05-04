@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -28,10 +28,10 @@ if (!isset($cache_discovery['timetra-chassis-mib']))
 //TIMETRA-CHASSIS-MIB::tmnxHwTempSensor.1.134217729 = INTEGER: true(1)
 //TIMETRA-CHASSIS-MIB::tmnxHwTemperature.1.50331649 = INTEGER: 37 degrees celsius
 //TIMETRA-CHASSIS-MIB::tmnxHwTemperature.1.134217729 = INTEGER: 37 degrees celsius
-foreach($cache_discovery['timetra-chassis-mib'] as $chassis => $entries)
+foreach ($cache_discovery['timetra-chassis-mib'] as $chassis => $entries)
 {
   $chassis_name = ($chassis_count > 1 ? ", Chassis $chassis" : "");
-  foreach($entries as $index => $entry)
+  foreach ($entries as $index => $entry)
   {
     if ($entry['tmnxHwTempSensor'] == 'true' && $entry['tmnxHwTemperature'] != '-1')
     {
@@ -98,9 +98,9 @@ if (OBS_DEBUG > 1 && count($cache_discovery['timetra-chassis-state'])) { print_v
 foreach ($cache_discovery['timetra-chassis-state'] as $chassis => $entries)
 {
   $chassis_name = ($chassis_count > 1 ? ", Chassis $chassis" : "");
-  foreach($entries as $tray => $entry)
+  foreach ($entries as $tray => $entry)
   {
-    foreach($entry as $oid_name => $value)
+    foreach ($entry as $oid_name => $value)
     {
       if (isset($timetra_entity[$oid_name]) && $value != 'deviceNotEquipped')
       {

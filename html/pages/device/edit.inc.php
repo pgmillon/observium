@@ -6,19 +6,24 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
+
+if ($_SESSION['userlevel'] < 7)
+{
+  print_error_permission();
+  return;
+}
+
+// User level 7-9 only can see config
+$readonly = $_SESSION['userlevel'] < 10;
 
 $link_array = array('page'    => 'device',
                     'device'  => $device['device_id'],
                     'tab'     => 'edit');
 
-if ($_SESSION['userlevel'] < '7')
-{
-  print_error("Insufficient Privileges");
-} else {
   $panes['device']   = 'Device Settings';
   $panes['snmp']     = 'SNMP';
   if ($config['geocoding']['enable'])
@@ -90,9 +95,13 @@ if ($_SESSION['userlevel'] < '7')
   if (is_file($filename))
   {
     $vars = get_vars('POST'); // Note, on edit pages use only method POST!
+
     include($filename);
+  } else {
+    print_error('<h3>Page does not exist</h4>
+The requested page does not exist. Please correct the URL and try again.');
   }
-}
+
 unset($filename, $navbar, $panes, $link_array);
 
 $page_title[] = "Settings";

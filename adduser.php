@@ -8,22 +8,18 @@
  *
  * @package    observium
  * @subpackage cli
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 chdir(dirname($argv[0]));
 $scriptname = basename($argv[0]);
 
-include_once("includes/defaults.inc.php");
-include_once("config.php");
-
 $options = getopt("d");
 if (isset($options['d'])) { array_shift($argv); } // for compatability
 
-include_once("includes/definitions.inc.php");
-include("includes/functions.inc.php");
+include("includes/sql-config.inc.php");
 
 print_message("%g".OBSERVIUM_PRODUCT." ".OBSERVIUM_VERSION."\n%WAdd User%n\n", 'color');
 
@@ -57,16 +53,22 @@ if (auth_usermanagement())
       print_warning("User ".$argv[1]." already exists!");
     }
   } else {
-    print_message("%n
+    $msg = "%n
 USAGE:
 $scriptname <username> <password> <level 1-10> [email]
 
 EXAMPLE:
 %WADMIN%n:   $scriptname <username> <password> 10 [email]
-%WRW user%n: $scriptname <username> <password> 7  [email]
-%WRO user%n: $scriptname <username> <password> 1  [email]
 
-%rInvalid arguments!%n", 'color', FALSE);
+USER LEVELS:" . PHP_EOL;
+
+    foreach($GLOBALS['config']['user_level'] as $level => $entry)
+    {
+      $msg .= '  '.$level.' - %W'.$entry['name'].'%n ('.$entry['subtext'].')'. PHP_EOL;
+    }
+    $msg .= PHP_EOL . "%rInvalid arguments!%n";
+
+    print_message($msg, 'color', FALSE);
   }
 } else {
   print_error("Auth module does not allow adding users!");

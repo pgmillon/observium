@@ -104,6 +104,7 @@ class IncludesFunctionsTest extends PHPUnit_Framework_TestCase
 
   /**
   * @dataProvider providerFloatCompare
+  * @group numbers
   */
   public function testFloatCompare($a, $b, $epsilon, $result)
   {
@@ -113,11 +114,92 @@ class IncludesFunctionsTest extends PHPUnit_Framework_TestCase
   public function providerFloatCompare()
   {
     return array(
-      array('330', '-2', NULL, 1),
-      array('1',    '2', 0.1,  -1),
+      // numeric tests
+      array('330', '-2', NULL,  1), // $a > $b
+      array('1',    '2', 0.1,  -1), // $a < $b
+      array(-1,      -2, 0.1,   1), // $a > $b
+      array(-1.1,  -1.4, 0.5,   0), // $a == $b
+      array(-1.1,  -1.4, -0.5,  0), // $a == $b
+      array((double)0, (double)70, 0.1, -1), // $a < $b and $a == 0
+      array((double)70, (double)0, 0.1,  1), // $a > $b and $b == 0
+      array((int)0.001, (double)0, NULL, 0), // $a == $b
+      array(0.001,    0.000999999,  0.00001,  0), // $a == $b
+      array(-0.001,  -0.000999999,  0.00001,  0), // $a == $b
+      array(-0.001,  -0.000899999,  0.00001, -1), // $a < $b
+      //array('-0.00000001', 0.00000002, NULL,  0), // $a == $b, FIXME, FALSE
+      //array(0.00000002, '-0.00000001', NULL,  0), // $a == $b, FIXME, FALSE
+      array(0.2, '-0.000000000001', NULL,  1), // $a == $b
+      array(0.99999999, 1.00000002, NULL,  0), // $a == $b
+      array(0.001,   -0.000999999,  NULL,  1), // $a > $b
+      array(-0.000999999,   0.001,  NULL, -1), // $a < $b
+      array(3672,   3888,           0.05,  0), // big numbers, greater epsilon
+      array(3888,   3672,           0.05,  0), // big numbers, greater epsilon
+      array(4000,   4810,            0.1,  0), // big numbers, greater epsilon
+      array(4000,   4000.01,        NULL,  0), // big numbers
+
+      /* Regular large numbers */
+      array(1000000,      1000001,  NULL,  0),
+      array(1000001,      1000000,  NULL,  0),
+      array(10000,          10001,  NULL, -1),
+      array(10001,          10000,  NULL,  1),
+      /* Negative large numbers */
+      array(-1000000,    -1000001,  NULL,  0),
+      array(-1000001,    -1000000,  NULL,  0),
+      array(-10000,        -10001,  NULL,  1),
+      array(-10001,        -10000,  NULL, -1),
+      /* Numbers around 1 */
+      array(1.0000001,  1.0000002,  NULL,  0),
+      array(1.0000002,  1.0000001,  NULL,  0),
+      array(1.0002,        1.0001,  NULL,  1),
+      array(1.0001,        1.0002,  NULL, -1),
+      /* Numbers around -1 */
+      array(-1.0000001,-1.0000002,  NULL,  0),
+      array(-1.0000002,-1.0000001,  NULL,  0),
+      array(-1.0002,      -1.0001,  NULL, -1),
+      array(-1.0001,      -1.0002,  NULL,  1),
+      /* Numbers between 1 and 0 */
+      array(0.000000001000001,   0.000000001000002,  NULL,  0),
+      array(0.000000001000002,   0.000000001000001,  NULL,  0),
+      array(0.000000000001002,   0.000000000001001,  NULL,  1),
+      array(0.000000000001001,   0.000000000001002,  NULL, -1),
+      /* Numbers between -1 and 0 */
+      array(-0.000000001000001, -0.000000001000002,  NULL,  0),
+      array(-0.000000001000002, -0.000000001000001,  NULL,  0),
+      array(-0.000000000001002, -0.000000000001001,  NULL, -1),
+      array(-0.000000000001001, -0.000000000001002,  NULL,  1),
+      /* Comparisons involving zero */
+      array(0.0,              0.0,  NULL,  0),
+      array(0.0,             -0.0,  NULL,  0),
+      array(-0.0,            -0.0,  NULL,  0),
+      array(0.00000001,       0.0,  NULL,  1),
+      array(0.0,       0.00000001,  NULL, -1),
+      array(-0.00000001,      0.0,  NULL, -1),
+      array(0.0,      -0.00000001,  NULL,  1),
+
+      array(0.0,     1.0E-10,        0.1,  0),
+      array(1.0E-10,     0.0,        0.1,  0),
+      array(1.0E-10,     0.0, 0.00000001,  1),
+      array(0.0,     1.0E-10, 0.00000001, -1),
+
+      array(0.0,    -1.0E-10,        0.1,  0),
+      array(-1.0E-10,    0.0,        0.1,  0),
+      array(-1.0E-10,    0.0, 0.00000001, -1),
+      array(0.0,    -1.0E-10, 0.00000001,  1),
+      /* Comparisons of numbers on opposite sides of 0 */
+      array(1.000000001, -1.0,  NULL,  1),
+      array(-1.0,   1.0000001,  NULL, -1),
+      array(-1.000000001, 1.0,  NULL, -1),
+      array(1.0, -1.000000001,  NULL,  1),
+      /* Comparisons involving extreme values (overflow potential) */
+      array(PHP_INT_MAX,  PHP_INT_MAX,  NULL,  0),
+      array(PHP_INT_MAX, -PHP_INT_MAX,  NULL,  1),
+      array(-PHP_INT_MAX, PHP_INT_MAX,  NULL, -1),
+      array(PHP_INT_MAX,  PHP_INT_MAX / 2, NULL,  1),
+      array(PHP_INT_MAX, -PHP_INT_MAX / 2, NULL,  1),
+      array(-PHP_INT_MAX, PHP_INT_MAX / 2, NULL, -1),
+
+      // other tests
       array('test',       'milli', 1.194,  1),
-      array(0.001,    0.000999999,  NULL,  0),
-      array('0.000001',  0.000002,  NULL, -1),
       array(array('NULL'),    '0',  0.01,  1),
       array(array('NULL'), array('NULL'), NULL, 0),
     );
@@ -188,7 +270,7 @@ class IncludesFunctionsTest extends PHPUnit_Framework_TestCase
 
   /**
   * @dataProvider providerHex2IP
-  * @group hexip
+  * @group ip
   */
   public function testHex2IP($string, $result)
   {
@@ -223,7 +305,7 @@ class IncludesFunctionsTest extends PHPUnit_Framework_TestCase
 
   /**
   * @dataProvider providerIp2Hex
-  * @group hexip
+  * @group ip
   */
   public function testIp2Hex($string, $separator, $result)
   {
@@ -385,6 +467,7 @@ class IncludesFunctionsTest extends PHPUnit_Framework_TestCase
 
   /**
   * @dataProvider providerMatchNetwork
+  * @group ip
   */
   public function testMatchNetwork($result, $ip, $nets, $first = FALSE)
   {
@@ -442,7 +525,9 @@ class IncludesFunctionsTest extends PHPUnit_Framework_TestCase
   */
   public function testIsPingable($result, $hostname, $try_a = TRUE)
   {
-    $ping = isPingable($hostname, $try_a);
+    $flags = OBS_DNS_ALL;
+    if (!$try_a) { $flags = $flags ^ OBS_DNS_A; }
+    $ping = isPingable($hostname, $flags);
     $ping = is_numeric($ping) && $ping > 0; // Function return random float number
     $this->assertSame($result, $ping);
   }

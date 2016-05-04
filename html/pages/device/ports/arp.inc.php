@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -19,13 +19,6 @@
 
 unset($search, $devices);
 
-//Search by field
-$search[] = array('type'    => 'select',
-                  'name'    => 'Search By',
-                  'id'      => 'searchby',
-                  'width'   => '120px',
-                  'value'   => $vars['searchby'],
-                  'values'  => array('mac' => 'MAC Address', 'ip' => 'IP Address'));
 //IP version field
 $search[] = array('type'    => 'select',
                   'name'    => 'IP',
@@ -33,12 +26,22 @@ $search[] = array('type'    => 'select',
                   'width'   => '120px',
                   'value'   => $vars['ip_version'],
                   'values'  => array('' => 'IPv4 & IPv6', '4' => 'IPv4 only', '6' => 'IPv6 only'));
+//Search by field
+$search[] = array('type'    => 'select',
+                  'title'   => 'Search By',
+                  'id'      => 'searchby',
+                  'width'   => '120px',
+                  'onchange' => "$('#address').prop('placeholder', $('#searchby option:selected').text())",
+                  'value'   => $vars['searchby'],
+                  'values'  => array('mac' => 'MAC Address', 'ip' => 'IP Address'));
 //Address field
 $search[] = array('type'    => 'text',
-                  'name'    => 'Address',
+                  'name'    => ($vars['searchby'] == 'ip' ? 'IP Address' : 'MAC Address'),
                   'id'      => 'address',
+                  'placeholder' => TRUE,
+                  'submit_by_key' => TRUE,
+                  'width'   => '200px',
                   'value'   => $vars['address']);
-
 print_search($search, 'ARP/NDP Search');
 
 // Pagination

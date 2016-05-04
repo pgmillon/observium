@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage authentication
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -18,6 +18,9 @@ function authenticate($username, $password)
 
   if (function_exists($config['auth_mechanism'] . '_authenticate'))
   {
+    // Can't consider remote_user setting here, as for example the LDAP plugin still needs to check
+    // group membership before logging in. So remote_user currently needs to be considered in 
+    // mech_authenticate() by the module itself until we split this up, maybe...
     return call_user_func($config['auth_mechanism'] . '_authenticate', $username, $password);
   } else {
     return call_user_func('mysql_authenticate', $username, $password);
@@ -29,7 +32,11 @@ function auth_can_logout()
 {
   global $config;
 
-  if (function_exists($config['auth_mechanism'] . '_auth_can_logout'))
+  // If logged in through Apache REMOTE_USER, logout is not possible
+  if ($config['auth']['remote_user'])
+  {
+    return FALSE;
+  } else if (function_exists($config['auth_mechanism'] . '_auth_can_logout'))
   {
     return call_user_func($config['auth_mechanism'] . '_auth_can_logout');
   } else {
@@ -125,6 +132,19 @@ function auth_user_id($username)
     return call_user_func($config['auth_mechanism'] . '_auth_user_id', $username);
   } else {
     return call_user_func('mysql_auth_user_id', $username);
+  }
+}
+
+// DOCME needs phpdoc block
+function auth_username_by_id($user_id)
+{
+  global $config;
+
+  if (function_exists($config['auth_mechanism'] . '_auth_username_by_id'))
+  {
+    return call_user_func($config['auth_mechanism'] . '_auth_username_by_id', $user_id);
+  } else {
+    return call_user_func('mysql_auth_username_by_id', $user_id);
   }
 }
 

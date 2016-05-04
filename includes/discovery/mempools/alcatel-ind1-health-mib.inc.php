@@ -7,14 +7,14 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 // NOTE. Because Alcatel changed their MIBs content (same oid names have different indexes), here used only numeric OIDs.
 
 $mib = 'ALCATEL-IND1-HEALTH-MIB';
-echo(" $mib ");
+echo("$mib ");
 
 $total   = snmp_get($device, ".1.3.6.1.4.1.6486.800.1.1.1.2.1.1.3.4.0", "-OvQ", "ALCATEL-IND1-SYSTEM-MIB", mib_dirs('aos')); // systemHardwareMemorySize
 $percent = snmp_get($device, ".1.3.6.1.4.1.6486.800.1.2.1.16.1.1.1.10.0", "-OvQ", $mib, mib_dirs('aos'));                    // healthModuleMemory1MinAvg

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -140,9 +140,11 @@ foreach (explode("\n", $oid_data) as $data)
 
       if ($clean_mac != $old_mac && $clean_mac != '00:00:00:00:00:00' && $old_mac != '00:00:00:00:00:00')
       {
-        print_debug("Changed MAC address for $ip from $old_mac to $clean_mac");
+        print_debug("Changed MAC address for $ip from ".format_mac($old_mac)." to ".format_mac($clean_mac));
         log_event("MAC changed: $ip : " . format_mac($old_mac) . " -> " . format_mac($clean_mac), $device, "port", $port_id);
         dbUpdate(array('mac_address' => $clean_mac) , 'ip_mac', 'port_id = ? AND ip_address = ?', array($port_id, $ip));
+        echo("U");
+      } else {
         echo(".");
       }
     } else {
@@ -152,7 +154,7 @@ foreach (explode("\n", $oid_data) as $data)
                       'ip_address' => $ip,
                       'ip_version' => $ip_version);
       dbInsert($params, 'ip_mac');
-      print_debug("Add MAC $clean_mac");
+      print_debug("Added MAC address ".format_mac($clean_mac)." for $ip");
       //log_event("MAC added: $ip : " . format_mac($clean_mac), $device, "port", $port_id);
       echo("+");
     }
@@ -160,6 +162,7 @@ foreach (explode("\n", $oid_data) as $data)
 }
 
 // Remove expired ARP/NDP entries
+$remove_mac_ids = array();
 foreach ($cache_arp as $entry)
 {
   $entry_mac_id = $entry['mac_id'];
@@ -170,15 +173,19 @@ foreach ($cache_arp as $entry)
   $entry_port_id = $interface[$entry_if];
   if (!isset($mac_table[$entry_if][$entry_version][$entry_ip]))
   {
-    dbDelete('ip_mac', 'mac_id = ?', array($entry_mac_id));
-    print_debug("Removing MAC address $entry_mac for $entry_ip");
+    $remove_mac_ids[] = $entry_mac_id;
+    //dbDelete('ip_mac', 'mac_id = ?', array($entry_mac_id));
+    print_debug("Removed MAC address ".format_mac($entry_mac)." for $entry_ip");
     //log_event("MAC removed: $entry_ip : " . format_mac($entry_mac), $device, "port", $entry['port_id']);
     echo("-");
   }
 }
-
+if (count($remove_mac_ids))
+{
+  dbDelete('ip_mac', '1' . generate_query_values($remove_mac_ids, 'mac_id'));
+}
 echo(PHP_EOL);
 
-unset($interface);
+unset($interface, $remove_mac_ids);
 
 // EOF

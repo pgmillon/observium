@@ -6,14 +6,14 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 if (!isset($vars['view']) ) { $vars['view'] = "graphs"; }
 
-if ($permit_ports)
+if ($permit_tabs['ports'])
 {
   $sql  = "SELECT *, `ports`.`port_id` AS `port_id`";
   $sql .= " FROM  `ports`";
@@ -37,11 +37,11 @@ if ($permit_ports)
   $i = 1;
   $show_all = 1;
 
-  echo('<table class="table table-hover table-striped table-bordered table-condensed table-rounded">');
-
-  include("includes/print-interface.inc.php");
-
-  echo("</table>");
+  echo generate_box_open();
+  echo '<table class="table table-hover table-striped table-condensed">';
+  print_port_row($port, array_merge($vars, array('view' => 'details')));
+  echo '</table>';
+  echo generate_box_close();
 
   // Start Navbar
 
@@ -50,24 +50,21 @@ if ($permit_ports)
                       'tab'     => 'port',
                       'port'    => $port['port_id']);
 
-  $navbar['options']['graphs']['text']   = 'Graphs';
+  $navbar['options']['graphs']['text']    = 'Graphs';
 
-  if (OBSERVIUM_EDITION != 'community')
-  {
-    $navbar['options']['alerts']['text']   = 'Alerts';
-    $navbar['options']['alertlog']['text']   = 'Alert Log';
-  }
+  $navbar['options']['alerts']['text']    = 'Alerts';
+  $navbar['options']['alertlog']['text']  = 'Alert Log';
 
   if (dbFetchCell("SELECT COUNT(*) FROM `sensors` WHERE `measured_class` = 'port' AND `measured_entity` = ? and `device_id` = ?", array($port['port_id'], $device['device_id'])))
   {
     $navbar['options']['sensors']['text'] = 'Sensors';
   }
 
-  $navbar['options']['realtime']['text'] = 'Real time';   // FIXME CONDITIONAL
+  $navbar['options']['realtime']['text']  = 'Real time';   // FIXME CONDITIONAL
 
   if (dbFetchCell('SELECT COUNT(*) FROM `ip_mac` WHERE `port_id` = ?', array($port['port_id'])))
   {
-    $navbar['options']['arp']['text']    = 'ARP/NDP Table';
+    $navbar['options']['arp']['text']     = 'ARP/NDP Table';
   }
 
   if (dbFetchCell("SELECT COUNT(*) FROM `vlans_fdb` WHERE `port_id` = ?", array($port['port_id'])))

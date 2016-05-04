@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -35,10 +35,10 @@ switch ($vars['sort'])
     $select .= ',`ifUcastPkts_rate`';
     break;
   case 'packets_in':
-    $select .= ',`ifInUcastOctets_rate`';
+    $select .= ',`ifInUcastPkts_rate`';
     break;
   case 'packets_out':
-    $select .= ',`ifOutUcastOctets_rate`';
+    $select .= ',`ifOutUcastPkts_rate`';
     break;
   case 'errors':
     $select .= ',`ifErrors_rate`';
@@ -65,4 +65,4 @@ switch ($vars['sort'])
     $select .= ',`ifIndex`';
 }
 
-?>
+// EOF

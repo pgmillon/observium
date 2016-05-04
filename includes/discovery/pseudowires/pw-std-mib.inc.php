@@ -7,31 +7,35 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 $mib = "PW-STD-MIB";
 
-echo(" $mib ");
+echo("$mib ");
 
 $pws = snmpwalk_cache_oid($device, "pwID", array(), $mib, mib_dirs());
-if ($GLOBALS['snmp_status'] !== FALSE)
+if ($GLOBALS['snmp_status'] === FALSE)
 {
-  $pws = snmpwalk_cache_oid($device, "pwName",           $pws, $mib, mib_dirs());
-  $pws = snmpwalk_cache_oid($device, "pwType",           $pws, $mib, mib_dirs());
-  $pws = snmpwalk_cache_oid($device, "pwDescr",          $pws, $mib, mib_dirs());
-  $pws = snmpwalk_cache_oid($device, "pwPsnType",        $pws, $mib, mib_dirs());
-  $pws = snmpwalk_cache_oid($device, "pwPeerAddrType",   $pws, $mib, mib_dirs());
-  $pws = snmpwalk_cache_oid($device, "pwPeerAddr",       $pws, $mib, mib_dirs());
-  $pws = snmpwalk_cache_oid($device, "pwLocalIfMtu",     $pws, $mib, mib_dirs());
-  $pws = snmpwalk_cache_oid($device, "pwRemoteIfMtu",    $pws, $mib, mib_dirs());
-  $pws = snmpwalk_cache_oid($device, "pwRemoteIfString", $pws, $mib, mib_dirs());
+  return;
+}
 
-  // For MPLS pseudowires
-  $pws = snmpwalk_cache_oid($device, "pwMplsLocalLdpID", $pws, "PW-MPLS-STD-MIB", mib_dirs());
-  $pws = snmpwalk_cache_oid($device, "pwMplsPeerLdpID",  $pws, "PW-MPLS-STD-MIB", mib_dirs());
-  //echo("PWS_WALK: ".count($pws)."\n"); var_dump($pws);
+$pws = snmpwalk_cache_oid($device, "pwRowStatus",      $pws, $mib, mib_dirs());
+$pws = snmpwalk_cache_oid($device, "pwName",           $pws, $mib, mib_dirs());
+$pws = snmpwalk_cache_oid($device, "pwType",           $pws, $mib, mib_dirs());
+$pws = snmpwalk_cache_oid($device, "pwDescr",          $pws, $mib, mib_dirs());
+$pws = snmpwalk_cache_oid($device, "pwPsnType",        $pws, $mib, mib_dirs());
+$pws = snmpwalk_cache_oid($device, "pwPeerAddrType",   $pws, $mib, mib_dirs());
+$pws = snmpwalk_cache_oid($device, "pwPeerAddr",       $pws, $mib, mib_dirs());
+$pws = snmpwalk_cache_oid($device, "pwOutboundLabel",  $pws, $mib, mib_dirs());
+$pws = snmpwalk_cache_oid($device, "pwInboundLabel",   $pws, $mib, mib_dirs());
+$pws = snmpwalk_cache_oid($device, "pwRemoteIfString", $pws, $mib, mib_dirs());
+
+// For MPLS pseudowires
+$pws = snmpwalk_cache_oid($device, "pwMplsLocalLdpID", $pws, "PW-MPLS-STD-MIB", mib_dirs());
+$pws = snmpwalk_cache_oid($device, "pwMplsPeerLdpID",  $pws, "PW-MPLS-STD-MIB", mib_dirs());
+//echo("PWS_WALK: ".count($pws)."\n"); var_dump($pws);
 
   foreach ($pws as $pw_id => $pw)
   {
@@ -52,12 +56,12 @@ if ($GLOBALS['snmp_status'] !== FALSE)
       }
 
       // FIXME. Retarded way
-      $cpw_remote_device = dbFetchCell('SELECT `device_id` FROM `'.$peer_addr_type.'_addresses` AS A, `ports` AS I WHERE A.`'.$peer_addr_type.'_address` = ? AND A.`port_id` = I.`port_id` LIMIT 1;', array($peer_addr));
+      $remote_device = dbFetchCell('SELECT `device_id` FROM `'.$peer_addr_type.'_addresses` AS A, `ports` AS I WHERE A.`'.$peer_addr_type.'_address` = ? AND A.`port_id` = I.`port_id` LIMIT 1;', array($peer_addr));
     } else {
       $peer_addr = ''; // Unset peer address
       print_debug("Not found correct peer address. See snmpwalk for 'pwPeerAddr' and 'pwMplsPeerLdpID'.");
     }
-    if (empty($cpw_remote_device)) { $cpw_remote_device = array('NULL'); }
+    if (empty($remote_device)) { $remote_device = array('NULL'); }
 
     $if_id = dbFetchCell('SELECT `port_id` FROM `ports` WHERE `ifDescr` = ? AND `device_id` = ? LIMIT 1;', array($pw['pwName'], $device['device_id']));
     if (!is_numeric($if_id) && strpos($pw['pwName'], '_'))
@@ -82,22 +86,26 @@ if ($GLOBALS['snmp_status'] !== FALSE)
     }
 
     $pws_new = array(
-      'device_id'      => $device['device_id'],
-      'mib'            => $mib,
-      'port_id'        => $if_id,
-      'peer_device_id' => $cpw_remote_device,
-      'peer_addr'      => $peer_addr,
-      'peer_rdns'      => $peer_rdns,
+      'device_id'        => $device['device_id'],
+      'mib'              => $mib,
+      'port_id'          => $if_id,
+      'peer_device_id'   => $remote_device,
+      'peer_addr'        => $peer_addr,
+      'peer_rdns'        => $peer_rdns,
       'pwIndex'          => $pw_id,
       'pwType'           => $pw['pwType'],
       'pwID'             => $pw['pwID'],
-      'pwMplsPeerLdpID'  => $pw['pwMplsPeerLdpID'],
+      'pwOutboundLabel'  => $pw['pwOutboundLabel'],
+      'pwInboundLabel'   => $pw['pwInboundLabel'],
+      //'pwMplsPeerLdpID'  => $pw['pwMplsPeerLdpID'],
       'pwPsnType'        => $pw['pwPsnType'],
-      'pwLocalIfMtu'     => $pw['pwLocalIfMtu'],
-      'pwRemoteIfMtu'    => $pw['pwRemoteIfMtu'],
+      //'pwLocalIfMtu'     => $pw['pwLocalIfMtu'],
+      //'pwRemoteIfMtu'    => $pw['pwRemoteIfMtu'],
       'pwDescr'          => $pw['pwDescr'],
-      'pwRemoteIfString' => $pw['pwRemoteIfString']
+      'pwRemoteIfString' => $pw['pwRemoteIfString'],
+      'pwRowStatus'      => $pw['pwRowStatus'],
     );
+
     if (!empty($pws_cache['pws_db'][$mib][$pw_id]))
     {
       $pws_old = $pws_cache['pws_db'][$mib][$pw_id];
@@ -106,6 +114,7 @@ if ($GLOBALS['snmp_status'] !== FALSE)
       {
         $pws_old['peer_device_id'] = array('NULL');
       }
+
       $update_array = array();
       //var_dump(array_keys($pws_new));
       foreach (array_keys($pws_new) as $column)
@@ -122,6 +131,7 @@ if ($GLOBALS['snmp_status'] !== FALSE)
       } else {
         $GLOBALS['module_stats'][$module]['unchanged']++; //echo(".");
       }
+
     } else {
       $pseudowire_id = dbInsert($pws_new, 'pseudowires');
       $GLOBALS['module_stats'][$module]['added']++; //echo("+");
@@ -129,9 +139,8 @@ if ($GLOBALS['snmp_status'] !== FALSE)
 
     $valid['pseudowires'][$mib][$pseudowire_id] = $pseudowire_id;
   }
-}
 
 // Clean
-unset($pws, $pw, $update_array);
+unset($pws, $pw, $update_array, $remote_device);
 
 // EOF

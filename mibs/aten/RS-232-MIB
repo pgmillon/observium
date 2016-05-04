@@ -1,0 +1,470 @@
+-- This file defines the mib struct of RS232 Port in SN0116a(sn3101). Noted by YangLv, Aten, 20050413
+-- We delete some mibs which are not useful in SN0116a. The deleted mainly are related with SYNC table
+-- We attach this mib node on enterprises.aten.sn0116a subtree
+-- Because in sn0116a, we don't allow 'set' function in snmp package, YangLv changes all read-write
+-- attribute to read-only
+
+   RS-232-MIB DEFINITIONS ::= BEGIN
+
+   IMPORTS
+       MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE,
+       Counter32, Integer32
+           FROM SNMPv2-SMI
+       InterfaceIndex
+           FROM IF-MIB
+       MODULE-COMPLIANCE, OBJECT-GROUP
+           FROM SNMPv2-CONF
+       rs232
+       	   FROM ATEN-SN0116A-SMI
+       sn3101
+       	   FROM ATEN-PRODUCTS-MIB;
+
+   rs232 MODULE-IDENTITY
+       LAST-UPDATED "9405261700Z"
+       ORGANIZATION "IETF Character MIB Working Group"
+       CONTACT-INFO
+               "        Bob Stewart
+                Postal: Xyplex, Inc.
+
+                        295 Foster Street
+                        Littleton, MA 01460
+
+                   Tel: 508-952-4816
+                   Fax: 508-952-4887
+                E-mail: rlstewart@eng.xyplex.com"
+       DESCRIPTION
+               "The MIB module for RS-232-like hardware devices."
+       ::= { sn3101 1 } ---YangLv changes 'transmission' to 'sn3101'
+
+   -- Generic RS-232-like information
+
+   rs232Number OBJECT-TYPE
+       SYNTAX Integer32
+       MAX-ACCESS read-only
+       STATUS current
+       DESCRIPTION
+           "The number of ports (regardless of their current
+           state) in the RS-232-like general port table."
+       ::= { rs232 1 }
+
+   -- RS-232-like General Port Table
+
+   rs232PortTable OBJECT-TYPE
+       SYNTAX SEQUENCE OF Rs232PortEntry
+       MAX-ACCESS not-accessible
+       STATUS current
+       DESCRIPTION
+           "A list of port entries.  The number of entries is
+           given by the value of rs232Number."
+       ::= { rs232 2 }
+
+   rs232PortEntry OBJECT-TYPE
+       SYNTAX Rs232PortEntry
+       MAX-ACCESS not-accessible
+       STATUS current
+       DESCRIPTION
+           "Status and parameter values for a port."
+       INDEX { rs232PortIndex }
+       ::= { rs232PortTable 1 }
+
+   Rs232PortEntry ::=
+       SEQUENCE {
+           rs232PortIndex
+               InterfaceIndex,
+           rs232PortType
+               INTEGER,
+           rs232PortInSigNumber
+               Integer32,
+           rs232PortOutSigNumber
+               Integer32,
+           rs232PortInSpeed
+               Integer32,
+           rs232PortOutSpeed
+               Integer32,
+           rs232PortInFlowType
+               INTEGER,
+           rs232PortOutFlowType
+               INTEGER
+       }
+
+   rs232PortIndex OBJECT-TYPE
+       SYNTAX InterfaceIndex
+       MAX-ACCESS read-only
+       STATUS current
+       DESCRIPTION
+           "The value of ifIndex for the port.  By convention
+           and if possible, hardware port numbers map directly
+           to external connectors.  The value for each port must
+           remain constant at least from one re-initialization
+           of the network management agent to the next."
+       ::= { rs232PortEntry 1 }
+
+-- sn0116a uses rs232, we should define  rs232PortType = 2
+
+   rs232PortType OBJECT-TYPE
+       SYNTAX INTEGER { other(1), rs232(2), rs422(3),
+                        rs423(4), v35(5), x21(6) }
+       MAX-ACCESS read-only
+       STATUS current
+       DESCRIPTION
+           "The port's hardware type."
+       ::= { rs232PortEntry 2 }
+
+-- sn0116a uses 3 kinds of input signal, they are: cts(2), dsr(3), dcd(6), 
+-- so rs232PortInSigNumber=3, unchangedly
+
+   rs232PortInSigNumber OBJECT-TYPE
+       SYNTAX Integer32
+       MAX-ACCESS read-only
+       STATUS current
+       DESCRIPTION
+           "The number of input signals for the port in the
+           input signal table (rs232PortInSigTable).  The table
+           contains entries only for those signals the software
+           can detect and that are useful to observe."
+       ::= { rs232PortEntry 3 }
+
+-- sn0116a uses 2 kinds of input signal, they are: rts(1), dtr(4)
+-- so rs232PortOutSigNumber=2, unchangedly
+
+   rs232PortOutSigNumber OBJECT-TYPE
+       SYNTAX Integer32
+       MAX-ACCESS read-only
+       STATUS current
+       DESCRIPTION
+           "The number of output signals for the port in the
+           output signal table (rs232PortOutSigTable).  The
+           table contains entries only for those signals the
+           software can assert and that are useful to observe."
+       ::= { rs232PortEntry 4 }
+
+-- baud rate for COM in sn0116a, the input and output rate are same here.
+-- baud rate could be got from COMPara declared in Auart.h and value returned
+-- from function SYSCFG_GetDevPortCfg(...) in SysConf.c
+
+   rs232PortInSpeed OBJECT-TYPE
+       SYNTAX Integer32
+       MAX-ACCESS read-only
+       STATUS current
+       DESCRIPTION
+           "The port's input speed in bits per second.  Note that
+           non-standard values, such as 9612, are probably not allowed
+           on most implementations."
+       ::= { rs232PortEntry 5 }
+
+   rs232PortOutSpeed OBJECT-TYPE
+       SYNTAX Integer32
+       MAX-ACCESS read-only
+       STATUS current
+       DESCRIPTION
+           "The port's output speed in bits per second.  Note that
+           non-standard values, such as 9612, are probably not allowed
+           on most implementations."
+       ::= { rs232PortEntry 6 }
+
+-- this varible could be got from struct ATENUART which is located in file Auart.h
+-- generally, we use none or ctsRts.
+
+   rs232PortInFlowType OBJECT-TYPE
+       SYNTAX INTEGER { none(1), ctsRts(2), dsrDtr(3) }
+       MAX-ACCESS read-only
+       STATUS current
+       DESCRIPTION
+           "The port's type of input flow control.  'none'
+           indicates no flow control at this level.
+           'ctsRts' and 'dsrDtr' indicate use of the indicated
+           hardware signals."
+       ::= { rs232PortEntry 7 }
+
+   rs232PortOutFlowType OBJECT-TYPE
+       SYNTAX INTEGER { none(1), ctsRts(2), dsrDtr(3) }
+       MAX-ACCESS read-only
+       STATUS current
+       DESCRIPTION
+           "The port's type of output flow control.  'none'
+
+           indicates no flow control at this level.
+           'ctsRts' and 'dsrDtr' indicate use of the indicated
+           hardware signals."
+       ::= { rs232PortEntry 8 }
+
+   -- RS-232-like Asynchronous Port Table
+
+   rs232AsyncPortTable OBJECT-TYPE
+       SYNTAX SEQUENCE OF Rs232AsyncPortEntry
+       MAX-ACCESS not-accessible
+       STATUS current
+       DESCRIPTION
+           "A list of asynchronous port entries.  Entries need
+           not exist for synchronous ports."
+       ::= { rs232 3 }
+
+   rs232AsyncPortEntry OBJECT-TYPE
+       SYNTAX Rs232AsyncPortEntry
+       MAX-ACCESS not-accessible
+       STATUS current
+       DESCRIPTION
+           "Status and parameter values for an asynchronous
+           port."
+       INDEX { rs232AsyncPortIndex }
+       ::= { rs232AsyncPortTable 1 }
+
+   Rs232AsyncPortEntry ::=
+       SEQUENCE {
+           rs232AsyncPortIndex
+               InterfaceIndex,
+           rs232AsyncPortBits
+               INTEGER,
+           rs232AsyncPortStopBits
+               INTEGER,
+           rs232AsyncPortParity
+               INTEGER,
+           rs232AsyncPortAutobaud
+               INTEGER,
+           rs232AsyncPortParityErrs
+               Counter32,
+           rs232AsyncPortFramingErrs
+               Counter32,
+           rs232AsyncPortOverrunErrs
+               Counter32
+
+       }
+-- Port index in sn0116a, should be ranged from 1 to 16
+
+   rs232AsyncPortIndex OBJECT-TYPE
+       SYNTAX InterfaceIndex
+       MAX-ACCESS read-only
+       STATUS current
+       DESCRIPTION
+           "A unique value for each port.  Its value is the
+           same as rs232PortIndex for the port."
+       ::= { rs232AsyncPortEntry 1 }
+
+-- The follow 3 varibles Could be got from  SYSCFG_GetDevPortCfg(...) in SysConf.c, 
+-- in struct COMPara
+
+   rs232AsyncPortBits OBJECT-TYPE
+       SYNTAX INTEGER (5..8)
+       MAX-ACCESS read-only
+       STATUS current
+       DESCRIPTION
+           "The port's number of bits in a character."
+       ::= { rs232AsyncPortEntry 2 }
+
+   rs232AsyncPortStopBits OBJECT-TYPE
+       SYNTAX INTEGER { one(1), two(2),
+                        oneAndHalf(3), dynamic(4) }
+       MAX-ACCESS read-only
+       STATUS current
+       DESCRIPTION
+           "The port's number of stop bits."
+       ::= { rs232AsyncPortEntry 3 }
+
+   rs232AsyncPortParity OBJECT-TYPE
+       SYNTAX INTEGER { none(1), odd(2), even(3),
+                        mark(4), space(5) }
+       MAX-ACCESS read-only
+       STATUS current
+       DESCRIPTION
+           "The port's sense of a character parity bit."
+       ::= { rs232AsyncPortEntry 4 }
+
+-- In sn0116a, unchangedly, this shoule be disabled(2)
+
+   rs232AsyncPortAutobaud OBJECT-TYPE
+       SYNTAX INTEGER { enabled(1), disabled(2) }
+       MAX-ACCESS read-only
+       STATUS current
+       DESCRIPTION
+           "A control for the port's ability to automatically
+           sense input speed.
+
+           When rs232PortAutoBaud is 'enabled', a port may
+           autobaud to values different from the set values for
+           speed, parity, and character size.  As a result a
+           network management system may temporarily observe
+           values different from what was previously set."
+
+       ::= { rs232AsyncPortEntry 5 }
+
+-- These 3 objects should be deleted because in sn0116a, we have NO varibles to record it.
+  
+-- rs232AsyncPortParityErrs OBJECT-TYPE 
+-- rs232AsyncPortFramingErrs OBJECT-TYPE
+-- rs232AsyncPortOverrunErrs OBJECT-TYPE
+-- RS-232-like Synchronous Port Table
+
+-- Input Signal Table
+
+   rs232InSigTable OBJECT-TYPE
+       SYNTAX SEQUENCE OF Rs232InSigEntry
+       MAX-ACCESS not-accessible
+       STATUS current
+       DESCRIPTION
+           "A list of port input control signal entries
+           implemented and visible to the software on the port,
+           and useful to monitor."
+
+       ::= { rs232 5 }
+
+   rs232InSigEntry OBJECT-TYPE
+       SYNTAX Rs232InSigEntry
+       MAX-ACCESS not-accessible
+       STATUS current
+       DESCRIPTION
+           "Input control signal status for a hardware port."
+       INDEX { rs232InSigPortIndex, rs232InSigName }
+       ::= { rs232InSigTable 1 }
+
+   Rs232InSigEntry ::=
+       SEQUENCE {
+           rs232InSigPortIndex
+               InterfaceIndex,
+           rs232InSigName
+               INTEGER,
+           rs232InSigState
+               INTEGER,
+           rs232InSigChanges
+               Counter32
+       }
+
+-- port index ranged from 1 to 16
+
+   rs232InSigPortIndex OBJECT-TYPE
+       SYNTAX InterfaceIndex
+       MAX-ACCESS read-only
+       STATUS current
+       DESCRIPTION
+           "The value of rs232PortIndex for the port to which
+           this entry belongs."
+       ::= { rs232InSigEntry 1 }
+
+-- port signal name, we just define 3 in them:  cts(2), dsr(3), dcd(6)
+
+   rs232InSigName OBJECT-TYPE
+       SYNTAX INTEGER { rts(1), cts(2), dsr(3), dtr(4), ri(5),
+                        dcd(6), sq(7), srs(8), srts(9),
+                        scts(10), sdcd(11) }
+       MAX-ACCESS read-only
+       STATUS current
+       DESCRIPTION
+           "Identification of a hardware signal, as follows:
+
+               rts    Request to Send
+               cts    Clear to Send
+               dsr    Data Set Ready
+               dtr    Data Terminal Ready
+               ri     Ring Indicator
+               dcd    Received Line Signal Detector
+               sq     Signal Quality Detector
+
+               srs    Data Signaling Rate Selector
+               srts   Secondary Request to Send
+               scts   Secondary Clear to Send
+               sdcd   Secondary Received Line Signal Detector
+           "
+       REFERENCE
+           "EIA Standard RS-232-C, August 1969."
+       ::= { rs232InSigEntry 2 }
+
+-- port state, we could get the value of this object from function below:
+-- GetPortDSR()
+-- GetPortCTS()
+-- GetPortDCD()
+
+-- GetPortRTS() 
+-- should be defined later in UARTDrv.c
+-- GetPortDTR() 
+-- should be defined later in UARTDrv.c
+
+   rs232InSigState OBJECT-TYPE
+       SYNTAX INTEGER { none(1), on(2), off(3) }
+       MAX-ACCESS read-only
+       STATUS current
+       DESCRIPTION
+           "The current signal state."
+       ::= { rs232InSigEntry 3 }
+
+-- we don't have value of object: rs232InSigChanges , delete it
+-- rs232InSigChanges OBJECT-TYPE
+
+   rs232OutSigTable OBJECT-TYPE
+       SYNTAX SEQUENCE OF Rs232OutSigEntry
+       MAX-ACCESS not-accessible
+       STATUS current
+       DESCRIPTION
+           "A list of port output control signal entries
+           implemented and visible to the software on the port,
+           and useful to monitor."
+       ::= { rs232 6 }
+
+   rs232OutSigEntry OBJECT-TYPE
+       SYNTAX Rs232OutSigEntry
+       MAX-ACCESS not-accessible
+       STATUS current
+       DESCRIPTION
+           "Output control signal status for a hardware port."
+       INDEX { rs232OutSigPortIndex, rs232OutSigName }
+       ::= { rs232OutSigTable 1 }
+
+   Rs232OutSigEntry ::=
+       SEQUENCE {
+           rs232OutSigPortIndex
+               InterfaceIndex,
+           rs232OutSigName
+               INTEGER,
+           rs232OutSigState
+               INTEGER,
+           rs232OutSigChanges
+               Counter32
+       }
+
+   rs232OutSigPortIndex OBJECT-TYPE
+       SYNTAX InterfaceIndex
+       MAX-ACCESS read-only
+       STATUS current
+       DESCRIPTION
+           "The value of rs232PortIndex for the port to which
+           this entry belongs."
+       ::= { rs232OutSigEntry 1 }
+
+-- port signal name, we just define 2 in them:  rts(1), dtr(4)
+
+   rs232OutSigName OBJECT-TYPE
+       SYNTAX INTEGER { rts(1), cts(2), dsr(3), dtr(4), ri(5),
+                        dcd(6), sq(7), srs(8), srts(9),
+                        scts(10), sdcd(11) }
+       MAX-ACCESS read-only
+       STATUS current
+       DESCRIPTION
+           "Identification of a hardware signal, as follows:
+
+               rts    Request to Send
+               cts    Clear to Send
+               dsr    Data Set Ready
+               dtr    Data Terminal Ready
+               ri     Ring Indicator
+               dcd    Received Line Signal Detector
+               sq     Signal Quality Detector
+               srs    Data Signaling Rate Selector
+               srts   Secondary Request to Send
+               scts   Secondary Clear to Send
+               sdcd   Secondary Received Line Signal Detector
+           "
+       REFERENCE
+           "EIA Standard RS-232-C, August 1969."
+       ::= { rs232OutSigEntry 2 }
+
+   rs232OutSigState OBJECT-TYPE
+       SYNTAX INTEGER { none(1), on(2), off(3) }
+
+       MAX-ACCESS read-only
+       STATUS current
+       DESCRIPTION
+           "The current signal state."
+       ::= { rs232OutSigEntry 3 }
+
+-- we don't have value of object: rs232OutSigChanges , delete it
+-- rs232OutSigChanges OBJECT-TYPE
+
+END

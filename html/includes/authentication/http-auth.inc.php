@@ -7,16 +7,9 @@
  *
  * @package    observium
  * @subpackage authentication
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
-
-// Needed this include, because http-auth uses (yet) mysql auth.
-// probably will change in the future to the standard http-auth
-if (!function_exists('mysql_authenticate'))
-{
-  include($config['html_dir'].'/includes/authentication/mysql.inc.php');
-}
 
 if (!$_SESSION['authenticated'] && !is_cli())
 {
@@ -39,15 +32,17 @@ if (!$_SESSION['authenticated'] && !is_cli())
   }
 }
 
-// DOCME needs phpdoc block
-// This function forces a login prompt
+/**
+ * This function forces a login prompt via basic HTTP authentication by making the browser believe
+ * the authentication has failed. Required to log out a basic HTTP auth session.
+ */
 function http_auth_require_login()
 {
   $realm = $GLOBALS['config']['login_message'];
   header('WWW-Authenticate: Basic realm="' . $realm . '"');
   header('HTTP/1.1 401 Unauthorized');
 
-  include($GLOBALS['config']['html_dir'].'/includes/error-no-perm.inc.php');
+  print_error_permission();
 
   session_logout();
   die();

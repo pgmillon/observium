@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage web
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -42,16 +42,14 @@ function print_dot1xtable($vars)
         case 'address':
           if (isset($vars['searchby']) && $vars['searchby'] == 'ip')
           {
-            $where .= ' AND `ipv4_addr` LIKE ?';
             $value = trim($value);
-            $param[] = '%'.$value.'%';
+            $where .= generate_query_values($value, 'ipv4_addr', '%LIKE%');
           } else if (isset($vars['searchby']) && $vars['searchby'] == 'mac') {
-            $where .= ' AND `M`.`mac_addr` LIKE ?';
-            $param[] = '%'.str_replace(array(':', ' ', '-', '.', '0x'),'', $value).'%';
+            $value = str_replace(array(':', ' ', '-', '.', '0x'), '', $value);
+            $where .= generate_query_values($value, 'M.mac_addr', '%LIKE%');
           } else {
-            $where .= ' AND `username` LIKE ?';
             $value = trim($value);
-            $param[] = '%'.$value.'%';
+            $where .= generate_query_values($value, 'username', '%LIKE%');
           }
           break;
       }
@@ -85,7 +83,7 @@ function print_dot1xtable($vars)
   if (!isset($vars['device']) || empty($vars['device']) || $vars['page'] == 'search') { $list['device'] = TRUE; }
   if (!isset($vars['port']) || empty($vars['port']) || $vars['page'] == 'search') { $list['port'] = TRUE; }
 
-  $string = '<table class="table table-bordered table-striped table-hover table-condensed">' . PHP_EOL;
+  $string = '<table class="table  table-striped table-hover table-condensed">' . PHP_EOL;
   if (!$short)
   {
     $string .= '  <thead>' . PHP_EOL;
@@ -108,7 +106,7 @@ function print_dot1xtable($vars)
     $interface = $aps_sorted_db[$ap_id]['name'];
     $string .= '  <tr>' . PHP_EOL;
     $string .= '    <td style="width: 140px;">' . generate_popup_link('mac', format_mac($entry['session_mac'])) . '</td>' . PHP_EOL;
-    $string .= '    <td style="width: 140px;">' . $entry['ipv4_addr'] . '</td>' . PHP_EOL;
+    $string .= '    <td style="width: 140px;">' . generate_popup_link('ip', $entry['ipv4_addr']) . '</td>' . PHP_EOL;
     $string .= '    <td style="white-space: nowrap;">' . $entry['username'] . '</td>' . PHP_EOL;
     $string .= '    <td style="width: 140px;">' . $entry['ssid'] . '</td>' . PHP_EOL;
     $string .= '    <td style="white-space: nowrap;">' . $entry['timestamp'] . '</td>' . PHP_EOL;

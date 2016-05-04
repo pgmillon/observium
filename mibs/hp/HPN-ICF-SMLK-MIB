@@ -1,0 +1,378 @@
+-- =================================================================
+-- Copyright (c) 2010-2014 Hewlett-Packard Development Company, L.P.
+--
+-- Description: Smart Link MIB
+-- Reference:
+-- Version: V1.0
+-- History:
+--   2014-07-23 created by Lei Gongwu
+--     Initial version V1.0
+-- =================================================================
+-- =================================================================
+--
+-- Import and definition
+--
+-- =================================================================
+HPN-ICF-SMLK-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    hpnicfCommon
+        FROM HPN-ICF-OID-MIB
+    RowStatus, DateAndTime, MacAddress
+        FROM SNMPv2-TC
+    Integer32, Counter64, OBJECT-TYPE, MODULE-IDENTITY, NOTIFICATION-TYPE
+        FROM SNMPv2-SMI
+    InterfaceIndex
+        FROM IF-MIB;
+
+hpnicfSmlk MODULE-IDENTITY
+    LAST-UPDATED
+        "201407231503Z"
+    ORGANIZATION
+        ""
+    CONTACT-INFO
+        ""
+    DESCRIPTION
+        "This MIB defines objects for managing Smart Link.
+        Smart Link is a feature developed to address the slow convergence
+        issue with STP.
+        It provides link redundancy and fast convergence in
+        a dual uplink network, allowing the backup link to take over quickly
+        when the primary link fails."
+    REVISION
+        "201407231503Z"
+    DESCRIPTION
+        "Initial revision of the Smart Link MIB module."
+    ::= { hpnicfCommon  147 }
+
+hpnicfSmlkObject OBJECT IDENTIFIER ::= { hpnicfSmlk 1 }
+
+hpnicfSmlkGroupTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HpnicfSmlkGroupEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A list of entries of a smart link group."
+    ::= { hpnicfSmlkObject 1 }
+
+hpnicfSmlkGroupEntry OBJECT-TYPE
+    SYNTAX      HpnicfSmlkGroupEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A list of parameters that describe a smart link group."
+    INDEX
+    {
+        hpnicfSmlkGroupID
+    }
+  ::= { hpnicfSmlkGroupTable 1 }
+
+HpnicfSmlkGroupEntry ::=
+    SEQUENCE
+    {
+        hpnicfSmlkGroupID           Integer32,
+        hpnicfSmlkDeviceID          MacAddress,
+        hpnicfSmlkPreemptionMode    INTEGER,
+        hpnicfSmlkSpeedThreshold    Integer32,
+        hpnicfSmlkPreemptionDelay   Integer32,
+        hpnicfSmlkControlVlanID     Integer32,
+        hpnicfSmlkInstanceListLow   OCTET STRING,
+        hpnicfSmlkInstanceListHigh  OCTET STRING,
+        hpnicfSmlkGroupRowStatus    RowStatus
+    }
+
+hpnicfSmlkGroupID OBJECT-TYPE
+    SYNTAX Integer32 (1..256)
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "An index that uniquely identifies an entry in the smart link
+        group table."
+    ::={ hpnicfSmlkGroupEntry 1 }
+
+hpnicfSmlkDeviceID OBJECT-TYPE
+    SYNTAX      MacAddress
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Device ID of a smart link group.
+        The device ID is the bridge MAC of the device."
+    ::={ hpnicfSmlkGroupEntry 2 }
+
+hpnicfSmlkPreemptionMode OBJECT-TYPE
+    SYNTAX      INTEGER
+                {
+                    none(1),
+                    role(2),
+                    speed(3)
+                }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Preemption mode of a smart link group."
+    DEFVAL      { 1 }
+    ::={ hpnicfSmlkGroupEntry 3 }
+
+hpnicfSmlkSpeedThreshold OBJECT-TYPE
+    SYNTAX      Integer32 (0..10000)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Speed threshold for a smart link group in speed mode.
+        This object is valid only when the value of hpnicfSmlkPreemptionMode
+        is 'speed'."
+    DEFVAL      { 0 }
+    ::={ hpnicfSmlkGroupEntry 4 }
+
+hpnicfSmlkPreemptionDelay OBJECT-TYPE
+    SYNTAX      Integer32 (0..300)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Preemption delay for a smart link group, in the range of 0 to 300
+        seconds."
+    DEFVAL      { 1 }
+    ::={ hpnicfSmlkGroupEntry 5 }
+
+hpnicfSmlkControlVlanID OBJECT-TYPE
+    SYNTAX      Integer32 (1..4094|65535)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Index of the control VLAN specified for a smart link group.
+        The value 65535 indicates that the control VLAN has not been
+        configured."
+    DEFVAL      { 1 }
+    ::={ hpnicfSmlkGroupEntry 6 }
+
+hpnicfSmlkInstanceListLow OBJECT-TYPE
+    SYNTAX      OCTET STRING(SIZE(256))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Each octet contained in this value specifies an eight-instance
+        group, with the first octet specifying instances 0 through 7,
+        the second octet specifying instances 8 through 15, and so on.
+        Within each octet, the most significant bit represents the
+        highest numbered instance, and the least significant bit represents
+        the lowest numbered instance.  Each instance to which the
+        protected VLANs of a smart link group are mapped corresponds to a
+        bit within the value of this object.  A bit with a value of '1'
+        indicates that the VLANs mapped to the instance are protected
+        VLANs of the smart link group.  The VLANs mapped to
+        the instance are not protected VLANs if the corresponding bit has a
+        value of '0'.  The value of this object must be set with
+        hpnicfSmlkInstanceListHigh at the same time when a SET
+        operation is performed."
+    DEFVAL      { "" }
+    ::= { hpnicfSmlkGroupEntry 7 }
+
+hpnicfSmlkInstanceListHigh OBJECT-TYPE
+    SYNTAX      OCTET STRING(SIZE(256))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Each octet contained in this value specifies an eight-instance
+        group, with the first octet specifying instances 2048 through
+        2055, the second octet specifying instances 2056 through 2063,
+        and so on.  Within each octet, the most significant bit represents
+        the highest numbered instance, and the least significant bit
+        represents the lowest numbered instance.  The most significant bit
+        of the last octet is invalid.  Each instance to which the
+        protected VLANs of a smart link group are mapped corresponds to a
+        bit within the value of this object.  A bit with a value of '1'
+        indicates that the VLANs mapped to the instance are protected VLANs
+        of the smart link group.  The VLANs mapped to the
+        instance are not protected VLANs if the corresponding bit has a
+        value of '0'.  The value of this object must be set with
+        hpnicfSmlkInstanceListLow at the same time when a SET operation
+        is performed."
+    DEFVAL      { "" }
+    ::= { hpnicfSmlkGroupEntry 8 }
+
+hpnicfSmlkGroupRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "This object is responsible for managing creation,
+        deletion, and modification of rows.  The rows support active
+        status, CreatAndGo, and destroy operations."
+    ::={ hpnicfSmlkGroupEntry 9 }
+
+hpnicfSmlkPortTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HpnicfSmlkPortEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A list of port entries of a smart link group."
+    ::= { hpnicfSmlkObject 2 }
+
+hpnicfSmlkPortEntry OBJECT-TYPE
+    SYNTAX      HpnicfSmlkPortEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A list of parameters that describe a port to be added to a smart
+        link group."
+    INDEX
+    {
+        hpnicfSmlkGroupID,
+        hpnicfSmlkPortIfIndex
+    }
+    ::= { hpnicfSmlkPortTable 1 }
+
+HpnicfSmlkPortEntry ::=
+    SEQUENCE
+    {
+        hpnicfSmlkPortIfIndex      InterfaceIndex,
+        hpnicfSmlkPortRole         INTEGER,
+        hpnicfSmlkPortStatus       INTEGER,
+        hpnicfSmlkFlushCount       Counter64,
+        hpnicfSmlkLastFlushTime    DateAndTime,
+        hpnicfSmlkPortRowStatus    RowStatus
+    }
+
+hpnicfSmlkPortIfIndex OBJECT-TYPE
+    SYNTAX      InterfaceIndex
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "IfIndex of a port in a smart link group."
+    ::={ hpnicfSmlkPortEntry 1 }
+
+hpnicfSmlkPortRole OBJECT-TYPE
+    SYNTAX      INTEGER
+                {
+                    primary(1),
+                    secondary(2)
+                }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Role of a port in a smart link group."
+    ::={ hpnicfSmlkPortEntry 2 }
+
+hpnicfSmlkPortStatus OBJECT-TYPE
+    SYNTAX      INTEGER
+                {
+                    down(1),
+                    active(2),
+                    standby(3)
+                }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Status of a port in a smart link group."
+    ::={ hpnicfSmlkPortEntry 3 }
+
+hpnicfSmlkFlushCount OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Number of transmitted flush messages."
+    ::={ hpnicfSmlkPortEntry 4 }
+
+hpnicfSmlkLastFlushTime OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Time when the last flush message was transmitted."
+    ::= { hpnicfSmlkPortEntry 5 }
+
+hpnicfSmlkPortRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "This object is responsible for managing creation,
+        deletion, and modification of rows.  The rows support active
+        status, CreatAndGo, and destroy operations."
+    ::={ hpnicfSmlkPortEntry 6 }
+
+hpnicfSmlkFlushEnableTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HpnicfSmlkFlushEnableEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A list of ports on which flush message receiving is enabled."
+    ::= { hpnicfSmlkObject 3 }
+
+hpnicfSmlkFlushEnableEntry OBJECT-TYPE
+    SYNTAX      HpnicfSmlkFlushEnableEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A list of parameters that describe a port on which flush message
+        receiving is enabled."
+    INDEX
+    {
+          hpnicfSmlkIfIndex
+    }
+    ::= { hpnicfSmlkFlushEnableTable 1 }
+
+HpnicfSmlkFlushEnableEntry ::=
+    SEQUENCE
+    {
+        hpnicfSmlkIfIndex               InterfaceIndex,
+        hpnicfSmlkControlVlanListLow    OCTET STRING,
+        hpnicfSmlkControlVlanListHigh   OCTET STRING
+    }
+
+hpnicfSmlkIfIndex OBJECT-TYPE
+    SYNTAX      InterfaceIndex
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "IfIndex of a port on which flush message receiving is enabled."
+    ::={ hpnicfSmlkFlushEnableEntry 1 }
+
+hpnicfSmlkControlVlanListLow OBJECT-TYPE
+    SYNTAX      OCTET STRING(SIZE(256))
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Specifies the control VLANs used for receiving flush messages.
+        The VLAN ID range, described by bitmap, is from 1 to
+        2048.  The length of bitmap is 256 in bytes.  Each octet
+        within this value specifies a set of eight VLANs, with
+        the first octet specifying VLANs 1 through 8, the second
+        octet specifying VLANs 9 through 16, and so on.  Within each
+        octet, the most significant bit represents the highest
+        numbered VLAN, and the least significant bit represents
+        the lowest numbered VLAN."
+    ::= { hpnicfSmlkFlushEnableEntry 2 }
+
+hpnicfSmlkControlVlanListHigh OBJECT-TYPE
+    SYNTAX      OCTET STRING(SIZE(256))
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Specifies the control VLANs used for receiving flush messages.
+        The VLAN ID range, described by bitmap, is from 2049 to
+        4094.  The length of bitmap is 256 in bytes.  Each octet
+        within this value specifies a set of eight VLANs, with
+        the first octet specifying VLANs 2049 through 2056, the
+        second octet specifying VLANs 2057 through 2064, and so on.
+        Within each octet, the most significant bit represents
+        the highest numbered VLAN, and the least significant bit
+        represents the lowest numbered VLAN."
+    ::= { hpnicfSmlkFlushEnableEntry 3 }
+
+hpnicfSmlkTrap            OBJECT IDENTIFIER ::= { hpnicfSmlk 2 }
+hpnicfSmlkTrapPrefix      OBJECT IDENTIFIER ::= { hpnicfSmlkTrap 0 }
+hpnicfSmlkGroupLinkActive NOTIFICATION-TYPE
+    OBJECTS
+        {
+            hpnicfSmlkGroupID,
+            hpnicfSmlkPortIfIndex
+        }
+    STATUS      current
+    DESCRIPTION
+        "A trap message is generated when the status of a port
+        in a smart link group changes to active."
+    ::= { hpnicfSmlkTrapPrefix 1 }
+
+END

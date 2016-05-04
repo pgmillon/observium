@@ -1,0 +1,1552 @@
+-- =====================================================================
+-- Copyright (c) 2010-2014 Hewlett-Packard Development Company, L.P.
+--
+-- Description:
+--    This MIB module is intended for management of Fibre Channel Zoning
+--    Servers, including both Basic Zoning Management and Enhanced Zoning
+--    Management.
+-- Reference:
+-- Version: V1.0
+-- History:
+--   V1.0 Initial version created by qiaoxinghua 2013-12-25
+-- =====================================================================
+HPN-ICF-FC-ZONE-SERVER-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    HpnicfFcNameId
+        FROM HPN-ICF-FC-TC-MIB
+    hpnicfSan, hpnicfVsanIndex
+        FROM HPN-ICF-VSAN-MIB
+    ifIndex, ifDescr
+        FROM IF-MIB
+    Unsigned32, Counter64, OBJECT-TYPE, MODULE-IDENTITY,
+    NOTIFICATION-TYPE
+        FROM SNMPv2-SMI
+    RowStatus, TruthValue, TEXTUAL-CONVENTION
+        FROM SNMPv2-TC
+    t11ZsActiveZoneIndex, t11ZsActiveZoneMemberIndex
+        FROM T11-FC-ZONE-SERVER-MIB;
+
+hpnicfFcZoneServer MODULE-IDENTITY
+    LAST-UPDATED "201312251507Z"        -- December 25, 2013 at 15:07 GMT
+    ORGANIZATION
+        ""
+    CONTACT-INFO
+        ""
+    DESCRIPTION
+        "This MIB module is intended for management of FC(Fibre Channel)
+         Zoning entities, including Basic Zoning Management and Enhanced
+         Zoning Management."
+    REVISION "201312251507Z"
+    DESCRIPTION
+        "Initial version of this MIB module."
+    ::= { hpnicfSan 9 }
+
+--
+-- Textual conventions
+--
+HpnicfFcZsGenName ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT "255a"
+    STATUS       current
+    DESCRIPTION
+        "Represents the general names for a Zone Set, Zone or Zone
+         alias object.
+
+         Each octet in this string is an ASCII code for an English
+         letter, digit, or special character such as the dollar sign ($),
+         minus sign (-), caret (^), or underscores (_).
+
+         This string must contain at least one character and must start
+         with an English letter."
+    SYNTAX OCTET STRING (SIZE (1..255))
+
+HpnicfFcZsGenNameOrZero ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT "255a"
+    STATUS       current
+    DESCRIPTION
+        "Represents the general names for a Zone Set, Zone or Zone
+         alias object.
+
+         Each octet in this string is an ASCII code for an English
+         letter, digit, or special character such as the dollar sign ($),
+         minus sign (-), caret (^), or underscores (_).
+
+         This string must start with an English letter."
+    SYNTAX OCTET STRING (SIZE (0..255))
+
+HpnicfFcZsZoneMemberType ::= TEXTUAL-CONVENTION
+    STATUS current
+    DESCRIPTION
+        "Represents the addressing mechanism by
+         which a member is identified:
+
+        'fcid'            - FC ID of N_Port.
+        'fwwn'            - WWN(World Wide Name) of F_Port.
+        'pwwn'            - WWN(World Wide Name) of N_Port.
+        'aliasName'       - Zone alias name.
+        "
+    SYNTAX INTEGER
+    {
+    fcid(1),
+    fwwn(2),
+    pwwn(3),
+    aliasName(4)
+    }
+
+--
+-- Node definitions
+--
+hpnicfFcZoneMibObjects OBJECT IDENTIFIER ::= { hpnicfFcZoneServer 1 }
+
+hpnicfFcZsConfiguration OBJECT IDENTIFIER ::= { hpnicfFcZoneMibObjects 1 }
+
+-- Zone Server Table
+hpnicfFcZsServerTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfFcZsServerEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "A table that contains information about the Zone Servers
+         in each VSAN and provides the capability to perform
+         operations on their Zone Server databases."
+    ::= { hpnicfFcZsConfiguration 1 }
+
+hpnicfFcZsServerEntry OBJECT-TYPE
+    SYNTAX HpnicfFcZsServerEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Each entry contains information specific to a Zone
+         Server for a particular VSAN."
+    INDEX { hpnicfVsanIndex }
+    ::= { hpnicfFcZsServerTable 1 }
+
+
+HpnicfFcZsServerEntry ::=
+    SEQUENCE {
+        hpnicfFcZsZoneModeCfg
+            INTEGER,
+        hpnicfFcZsHardZoneEnable
+            TruthValue,
+        hpnicfFcZsDistributeRule
+            INTEGER,
+        hpnicfFcZsDefaultZoneSetting
+            INTEGER,
+        hpnicfFcZsMergeControlSetting
+            INTEGER,
+        hpnicfFcZsServerLastResult
+            INTEGER
+     }
+
+hpnicfFcZsZoneModeCfg OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        basic(1),
+        enhanced(2)
+        }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "The operational mode of the Zone Server.
+
+         Setting this object to 'enhanced' is a request to
+         set the operational mode of the Zone Server to
+         Enhanced mode.  This is possible only if all
+         switches in the Fibre Channel Fabric are capable
+         of working in Enhanced mode.
+
+         Setting this object to 'basic' is a request to set
+         the operational mode of the Zone Server to Basic
+         mode."
+    ::= { hpnicfFcZsServerEntry 1 }
+
+hpnicfFcZsHardZoneEnable OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "This object indicates whether this switch, no matter
+         in Basic or Enhanced mode, enforces Hard Zoning in
+         this VSAN."
+    ::= { hpnicfFcZsServerEntry 2 }
+
+hpnicfFcZsDistributeRule OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        none(1),
+        activeOnly(2),
+        full(3)
+        }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "This object specifies whether a complete distribution
+         (or merge) will be applied when an activation(or merge)
+         happened in Basic mode.
+
+         If this object is set to 'full', both the Active
+         Zone Set and Zone Set Database will be distributed
+         (or merged) when an activation operation(or merge) is
+         performed.
+
+         If this object is set to 'activeOnly', only the
+         Active Zone Set will be distributed(or merged) when
+         an activation operation(or merge) is performed.
+
+         The value 'none' is meaningless and can be used only
+         in Enhanced mode."
+    ::= { hpnicfFcZsServerEntry 3 }
+
+hpnicfFcZsDefaultZoneSetting OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        deny(1),
+        permit(2)
+        }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "This object controls the Zoning flag that governs the
+         behavior of the Default Zone in this VSAN.
+
+         If this object is set to 'permit', the members of the
+         Default Zone in this VSAN can communicate with each
+         other.
+
+         If this object is set to 'deny', the members of the
+         Default Zone in this VSAN cannot communicate with each
+         other."
+    ::= { hpnicfFcZsServerEntry 4 }
+
+hpnicfFcZsMergeControlSetting OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        none(1),
+        allow(2),
+        restrict(3)
+        }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "This object controls the Enhanced Zoning flag that
+         indicates the Merge Control Setting for this VSAN.
+         It is meaningful only in Enhanced mode:
+
+         'none'     - This value is meaningless and only can be
+                      used in Basic mode.
+         'allow'    - A switch may join the Fabric only if
+                      its Zoning Database is able to merge
+                      with the Fabric's Zoning Database.
+         'restrict' - A switch may join the Fabric only if
+                      its Zoning Database is equal to the
+                      Fabric's Zoning Database."
+    ::= { hpnicfFcZsServerEntry 5 }
+
+hpnicfFcZsServerLastResult OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        none(1),
+        success(2),
+        busy(3),
+        noSupportInFabric(4),
+        noSupportInBasic(5),
+        noSupportInEnhanced(6),
+        activeZoneSetTooBig(7),
+        otherFault(8)
+        }
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Current operational status of the latest configuration
+         in this VSAN:
+
+         'none'                - No corresponding operation has been performed
+                                 yet.
+         'success'             - The configuration was performed successfully.
+         'busy'                - The configuration was performed unsuccessfully,
+                                 because the system is busy with another zoning
+                                 operation.
+         'noSupportInFabric'   - The configuration was performed unsuccessfully,
+                                 because one or more switches in this Fabric
+                                 don't support Enhanced zoning.
+         'noSupportInBasic'    - The configuration was performed unsuccessfully,
+                                 because it is not supported in Basic mode.
+         'noSupportInEnhanced' - The configuration was performed unsuccessfully,
+                                 because it is not supported in Enhanced mode.
+         'activeZoneSetTooBig' - The configuration was performed unsuccessfully,
+                                 because the Active Zone Set is too large to be
+                                 supported.
+         'otherFault'          - The configuration was performed unsuccessfully
+                                 for other reasons."
+    ::= { hpnicfFcZsServerEntry 6 }
+
+-- Zoneset Table
+hpnicfFcZsZonesetTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfFcZsZonesetEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "A table that contains information about each Zone
+         Set in the Zone Set Database of the Zone Servers
+         in a specified VSAN."
+    ::= { hpnicfFcZsConfiguration 2 }
+
+hpnicfFcZsZonesetEntry OBJECT-TYPE
+    SYNTAX HpnicfFcZsZonesetEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Each entry contains the information of a Zone Set configured
+         in a specified VSAN."
+    INDEX { hpnicfVsanIndex, hpnicfFcZsZonesetIndex }
+    ::= { hpnicfFcZsZonesetTable 1 }
+
+
+HpnicfFcZsZonesetEntry ::=
+    SEQUENCE {
+        hpnicfFcZsZonesetIndex
+            Unsigned32,
+        hpnicfFcZsZonesetName
+            HpnicfFcZsGenName,
+        hpnicfFcZsZonesetRowStatus
+            RowStatus
+     }
+
+hpnicfFcZsZonesetIndex OBJECT-TYPE
+    SYNTAX Unsigned32(1..4294967295)
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "The index of a Zone Set, which uniquely identifies a Zone Set in
+         the Zone Set Database on local switch."
+    ::= { hpnicfFcZsZonesetEntry 1 }
+
+hpnicfFcZsZonesetName OBJECT-TYPE
+    SYNTAX HpnicfFcZsGenName
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The name of this Zone Set, which should be unique
+         within a VSAN.
+         The Zone Set can be renamed by setting this object
+         to a new value."
+    ::= { hpnicfFcZsZonesetEntry 2 }
+
+hpnicfFcZsZonesetRowStatus OBJECT-TYPE
+    SYNTAX RowStatus
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The status of this conceptual row."
+    ::= { hpnicfFcZsZonesetEntry 3 }
+
+-- Zone Table
+hpnicfFcZsZoneTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfFcZsZoneEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table contains information about all the Zones
+        in the Zone Set Database of the Zone Servers in each VSAN."
+    ::= { hpnicfFcZsConfiguration 3 }
+
+hpnicfFcZsZoneEntry OBJECT-TYPE
+    SYNTAX HpnicfFcZsZoneEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Each entry contains information about a Zone
+         in the Zone Set Database in a specified VSAN."
+    INDEX { hpnicfVsanIndex, hpnicfFcZsZoneIndex }
+    ::= { hpnicfFcZsZoneTable 1 }
+
+
+HpnicfFcZsZoneEntry ::=
+    SEQUENCE {
+        hpnicfFcZsZoneIndex
+            Unsigned32,
+        hpnicfFcZsZoneName
+            HpnicfFcZsGenName,
+        hpnicfFcZsZonePairwiseEnable
+            TruthValue,
+        hpnicfFcZsZoneRowStatus
+            RowStatus
+     }
+
+hpnicfFcZsZoneIndex OBJECT-TYPE
+    SYNTAX Unsigned32(1..4294967295)
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "An index value that uniquely identifies this
+         Zone in the Zone Set Database on local switch."
+    ::= { hpnicfFcZsZoneEntry 1 }
+
+hpnicfFcZsZoneName OBJECT-TYPE
+    SYNTAX HpnicfFcZsGenName
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The name of this Zone, which should be unique
+         within a VSAN.
+
+         The Zone can be renamed by setting this object
+         to a new value."
+    ::= { hpnicfFcZsZoneEntry 2 }
+
+hpnicfFcZsZonePairwiseEnable OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "This object specifies whether Pairwise Zoning is enabled in this
+         Zone.
+
+         When Pairwise Zoning is enabled in a Zone, the behaviors of members
+         in this Zone will be controlled through their roles.  The members
+         with the same role ('initiator' or 'target') can't communicate with
+         each other, but those with different roles or with the same role
+         'both' can communicate with each other.
+
+         When Pairwise Zoning is disabled in a Zone, the behaviors of members
+         in this Zone will not be affected by their roles."
+    DEFVAL { false }
+    ::= { hpnicfFcZsZoneEntry 3 }
+
+hpnicfFcZsZoneRowStatus OBJECT-TYPE
+    SYNTAX RowStatus
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The status of this conceptual row."
+    ::= { hpnicfFcZsZoneEntry 4 }
+
+-- Set Zone Table
+hpnicfFcZsSetZoneTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfFcZsSetZoneEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table specifies which Zone belongs to which Zone
+         Set in the Zone Set Database of the Zone Servers."
+    ::= { hpnicfFcZsConfiguration 4 }
+
+hpnicfFcZsSetZoneEntry OBJECT-TYPE
+    SYNTAX HpnicfFcZsSetZoneEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Each entry specifies that a particular Zone is one of the Zones
+         that form a particular Zone Set in the Zone Set database of a
+         specified VSAN.
+
+         When a row in this table exists, it references one row in
+         the hpnicfFcZsZonesetTable and one row in the hpnicfFcZsZoneTable.
+         The agent must ensure that both such rows when referenced by an
+         active row in this table, do exist and have a status of
+         'active'."
+    INDEX { hpnicfVsanIndex,
+            hpnicfFcZsZonesetIndex,
+            hpnicfFcZsZoneIndex }
+    ::= { hpnicfFcZsSetZoneTable 1 }
+
+
+HpnicfFcZsSetZoneEntry ::=
+    SEQUENCE {
+        hpnicfFcZsSetZoneRowStatus
+            RowStatus
+     }
+
+hpnicfFcZsSetZoneRowStatus OBJECT-TYPE
+    SYNTAX RowStatus
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The status of this conceptual row."
+    ::= { hpnicfFcZsSetZoneEntry 1 }
+
+-- Zone alias Table
+hpnicfFcZsZoneAliasTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfFcZsZoneAliasEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table contains information about the Zone aliases
+         in the Zone Set Database of the Zone Server in each
+         VSAN."
+    ::= { hpnicfFcZsConfiguration 5 }
+
+hpnicfFcZsZoneAliasEntry OBJECT-TYPE
+    SYNTAX HpnicfFcZsZoneAliasEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Each entry contains information about a Zone alias in
+         the Zone Set Database of a particular VSAN."
+    INDEX { hpnicfVsanIndex, hpnicfFcZsZoneAliasIndex }
+    ::= { hpnicfFcZsZoneAliasTable 1 }
+
+
+HpnicfFcZsZoneAliasEntry ::=
+    SEQUENCE {
+        hpnicfFcZsZoneAliasIndex
+            Unsigned32,
+        hpnicfFcZsZoneAliasName
+            HpnicfFcZsGenName,
+        hpnicfFcZsZoneAliasRowStatus
+            RowStatus
+     }
+
+hpnicfFcZsZoneAliasIndex OBJECT-TYPE
+    SYNTAX Unsigned32(1..4294967295)
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "An index value that uniquely identifies this Zone
+         alias within the Zone Set Database."
+    ::= { hpnicfFcZsZoneAliasEntry 1 }
+
+hpnicfFcZsZoneAliasName OBJECT-TYPE
+    SYNTAX HpnicfFcZsGenName
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The name of this Zone alias, which should be unique
+         within a VSAN.
+
+         The Zone alias can be renamed by setting this object
+         to a new value."
+    ::= { hpnicfFcZsZoneAliasEntry 2 }
+
+hpnicfFcZsZoneAliasRowStatus OBJECT-TYPE
+    SYNTAX RowStatus
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The status of this conceptual row."
+    ::= { hpnicfFcZsZoneAliasEntry 3 }
+
+-- Zone Member Table
+hpnicfFcZsZoneMemberTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfFcZsZoneMemberEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table contains all members of a Zone/Zone alias
+         and information about those members in the Zone Set
+         Database of the Zone Server in each VSAN."
+    ::= { hpnicfFcZsConfiguration 6 }
+
+hpnicfFcZsZoneMemberEntry OBJECT-TYPE
+    SYNTAX HpnicfFcZsZoneMemberEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Each entry represents the relationship between a
+         member and (one of) its 'parent(s)', i.e., a Zone
+         or Zone alias the member belongs, within
+         a particular VSAN."
+    INDEX { hpnicfVsanIndex,
+            hpnicfFcZsZoneMemberParentType,
+            hpnicfFcZsZoneMemberParentIndex,
+            hpnicfFcZsZoneMemberIndex }
+    ::= { hpnicfFcZsZoneMemberTable 1 }
+
+
+HpnicfFcZsZoneMemberEntry ::=
+    SEQUENCE {
+        hpnicfFcZsZoneMemberParentType
+            INTEGER,
+        hpnicfFcZsZoneMemberParentIndex
+            Unsigned32,
+        hpnicfFcZsZoneMemberIndex
+            Unsigned32,
+        hpnicfFcZsZoneMemberFormat
+            HpnicfFcZsZoneMemberType,
+        hpnicfFcZsZoneMemberIdentifier
+            OCTET STRING,
+        hpnicfFcZsZoneMemberPairwiseRole
+            INTEGER,
+        hpnicfFcZsZoneMemberRowStatus
+            RowStatus
+     }
+
+hpnicfFcZsZoneMemberParentType OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        zone(1),
+        alias(2)
+        }
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This object determines whether this member belongs
+         to a Zone or Zone alias."
+    ::= { hpnicfFcZsZoneMemberEntry 1 }
+
+hpnicfFcZsZoneMemberParentIndex OBJECT-TYPE
+    SYNTAX Unsigned32(1..4294967295)
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This object contains the index value of the Zone or
+         Zone alias to which this member belongs.
+
+         If the value of the corresponding instance of
+         hpnicfFcZsZoneMemberParentType is 'zone', this object
+         will contain the value of the hpnicfFcZsZoneIndex object of
+         the Zone to which this member belongs.
+
+         If the value of the corresponding instance of
+         hpnicfFcZsZoneMemberParentType is 'alias', this object
+         will contain the value of the hpnicfFcZsAliasIndex object
+         of the Zone alias to which this member belongs."
+    ::= { hpnicfFcZsZoneMemberEntry 2 }
+
+hpnicfFcZsZoneMemberIndex OBJECT-TYPE
+    SYNTAX Unsigned32(1..4294967295)
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "An index value that uniquely identifies this Zone
+         member among all Zone members in the Zone or Zone
+         alias they belongs to."
+    ::= { hpnicfFcZsZoneMemberEntry 3 }
+
+hpnicfFcZsZoneMemberFormat OBJECT-TYPE
+    SYNTAX HpnicfFcZsZoneMemberType
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "This object identifies the format of the
+         Zone/Zone alias member's identifier that is contained
+         in hpnicfFcZsZoneMemberIdentifier.
+
+         This object cannot be modified while the value of the
+         hpnicfFcZsZoneMemberRowStatus object is 'active'."
+    ::= { hpnicfFcZsZoneMemberEntry 4 }
+
+hpnicfFcZsZoneMemberIdentifier OBJECT-TYPE
+    SYNTAX OCTET STRING (SIZE (1..255))
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "This object contains the Member Identifier of the
+         Zone or Zone alias.  The interpretation of this object
+         depends on the value of the corresponding instance
+         of hpnicfFcZsZoneMemberFormat:
+
+         - if hpnicfFcZsZoneMemberFormat is 'fcid', this object
+           contains the 3-octet N_Port FC ID.
+
+         - if hpnicfFcZsZoneMemberFormat is 'fwwn', this object
+           contains an 8-octet F_Port WWN.
+
+         - if hpnicfFcZsZoneMemberFormat is 'pwwn', this object
+           contains an 8-octet N_Port WWN.
+
+         - if hpnicfFcZsZoneMemberFormat is 'aliasName', this
+           object contains the value of hpnicfFcZsZoneAliasName
+           for some Zone alias in the same Zone Set Database.
+
+         This object cannot be modified while the value of the
+         hpnicfFcZsZoneMemberRowStatus object is 'active'."
+    ::= { hpnicfFcZsZoneMemberEntry 5 }
+
+hpnicfFcZsZoneMemberPairwiseRole OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        none(1),
+        both(2),
+        initiator(3),
+        target(4)
+        }
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "This object identifies the Pairwise role of the Zone/Zone alias
+         member.
+
+         If hpnicfFcZsZoneMemberFormat is 'aliasName', the value of this
+         object can only be 'none'.
+         If hpnicfFcZsZoneMemberFormat is not 'aliasName', the value of
+         this object can't be 'none', and the default value is 'both'
+         (including both 'initiator' and 'target' role).
+
+         This object can be modified while the value of the
+         hpnicfFcZsZoneMemberRowStatus object is 'active'.
+
+         The Pairwise role of a port member takes effect only when the
+         hpnicfFcZsZonePairwiseEnable of the Zone to which the port member
+         belongs is set to 'true'."
+    ::= { hpnicfFcZsZoneMemberEntry 6 }
+
+hpnicfFcZsZoneMemberRowStatus OBJECT-TYPE
+    SYNTAX RowStatus
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "The status of this conceptual row."
+    ::= { hpnicfFcZsZoneMemberEntry 7 }
+
+hpnicfFcZsOperation OBJECT IDENTIFIER ::= { hpnicfFcZoneMibObjects 2 }
+
+hpnicfFcZsActivateTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfFcZsActivateEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table provides a mechanism to allow a Zone Set
+         to be activated."
+    ::= { hpnicfFcZsOperation 1 }
+
+hpnicfFcZsActivateEntry OBJECT-TYPE
+    SYNTAX HpnicfFcZsActivateEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "An entry contains information of the activation about
+         a Zone Set."
+    INDEX { hpnicfVsanIndex }
+    ::= { hpnicfFcZsActivateTable 1 }
+
+
+HpnicfFcZsActivateEntry ::=
+    SEQUENCE {
+        hpnicfFcZsActivate
+            HpnicfFcZsGenNameOrZero,
+        hpnicfFcZsDeactivate
+            INTEGER,
+        hpnicfFcZsActivateResult
+            INTEGER,
+        hpnicfFcZsActivateFailReason
+            INTEGER
+     }
+
+hpnicfFcZsActivate OBJECT-TYPE
+    SYNTAX HpnicfFcZsGenNameOrZero
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "Name of the Zone Set that needs to be activated.  The value of this
+         object when read is always zero-length."
+    ::= { hpnicfFcZsActivateEntry 1 }
+
+hpnicfFcZsDeactivate OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        noOper(1),
+        deactivate(2)
+        }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "A request to deactivate the currently active Zone Set.  The value of
+         this object when read is always 'noOper'.
+
+        'noOper'      - Specifies no operation.
+        'deactivate'  - Specifies the deactivate operation."
+    ::= { hpnicfFcZsActivateEntry 2 }
+
+hpnicfFcZsActivateResult OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        none(1),
+        inProgress(2),
+        activateSuccess(3),
+        activateFailure(4),
+        deactivateSuccess(5),
+        deactivateFailure(6)
+        }
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "As a result of the most recent activation/deactivation.
+
+        'none'               - No activation/deactivation invoked since the
+                               last restart of the management system.
+        'inProcess'          - Activation/deactivation is still in progress.
+        'activateSuccess'    - Activation completed successfully.
+        'activateFailure'    - Activation failed due to some reason.
+        'deactivateSuccess'  - Deactivation completed successfully.
+        'deactivateFailure'  - Deactivation failed due to some reason."
+    ::= { hpnicfFcZsActivateEntry 3 }
+
+hpnicfFcZsActivateFailReason OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        none(1),
+        busy(2),
+        activeZoneSetTooBig(3),
+        noZoneSet(4),
+        noMember(5)
+        }
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The reason for the most recent failure of a Zone Set activation or
+         deactivation.
+
+         'none'                 - No activation/deactivation invoked or the
+                                  result of activation/deactivation is success.
+         'busy'                 - The management system is busy in some other
+                                  process.
+         'activeZoneSetTooBig'  - The Active Zone Set size in packet reached
+                                  the maximum limit in Basic mode.
+         'noZoneSet'            - No specified Zone Set found.
+         'noMember'             - No port member found in the specified
+                                  Zone Set."
+    ::= { hpnicfFcZsActivateEntry 4 }
+
+hpnicfFcZsDistributeTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfFcZsDistributeEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table provides an operational object to trigger a distribution
+         for each existing VSAN."
+    ::= { hpnicfFcZsOperation 2 }
+
+hpnicfFcZsDistributeEntry OBJECT-TYPE
+    SYNTAX HpnicfFcZsDistributeEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This entry provides an operational object to trigger a distribution
+         for a specified VSAN."
+    INDEX { hpnicfVsanIndex }
+    ::= { hpnicfFcZsDistributeTable 1 }
+
+
+HpnicfFcZsDistributeEntry ::=
+    SEQUENCE {
+        hpnicfFcZsDistribute
+            INTEGER,
+        hpnicfFcZsDistributeLastResult
+            INTEGER,
+        hpnicfFcZsDistributeReasonCode
+            Unsigned32,
+        hpnicfFcZsDistributeExplainCode
+            Unsigned32
+     }
+
+hpnicfFcZsDistribute OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        noOper(1),
+        distribute(2)
+        }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "Specifies the operation of triggering a distribution in this VSAN.
+
+         'noOper'      - Specifies no operation.
+         'distribute'  - Specifies the distribute operation."
+    ::= { hpnicfFcZsDistributeEntry 1 }
+
+hpnicfFcZsDistributeLastResult OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        none(1),
+        success(2),
+        inProgress(3),
+        rejectFailure(4),
+        otherFault(5)
+        }
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Specifies the result of triggering a distribution for VSAN.
+
+        'none'          - No distribution invoked via the corresponding
+                          instance of distribution.
+        'success'       - Distribution completed successfully.
+        'inProgress'    - Distribution is still in progress.
+        'rejectFailure' - Distribution failed due to an SW_RJT.
+        'otherFault'    - Distribution/commit failed for some other reason."
+    ::= { hpnicfFcZsDistributeEntry 2 }
+
+hpnicfFcZsDistributeReasonCode OBJECT-TYPE
+    SYNTAX Unsigned32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The reason code in the SW_RJT packet received in the most recent
+         distribution.
+
+         This object is meaningful only when the value of
+         hpnicfFcZsDistributeLastResult is 'rejectFailure'."
+    ::= { hpnicfFcZsDistributeEntry 3 }
+
+hpnicfFcZsDistributeExplainCode OBJECT-TYPE
+    SYNTAX Unsigned32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "This object contains the corresponding reason code explanation for
+         hpnicfFcZsDistributeReasonCode, and is meaningful only when the value
+         of hpnicfFcZsDistributeLastResult is 'rejectFailure'."
+    ::= { hpnicfFcZsDistributeEntry 4 }
+
+hpnicfFcZsClearDatabaseTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfFcZsClearDatabaseEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table provides an operational object to clear
+         the local Zone Set Database for each existing VSAN."
+    ::= { hpnicfFcZsOperation 3 }
+
+hpnicfFcZsClearDatabaseEntry OBJECT-TYPE
+    SYNTAX HpnicfFcZsClearDatabaseEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "An entry provides an operational object to clear
+         the local Zone Set Database for a specified VSAN."
+    INDEX { hpnicfVsanIndex }
+    ::= { hpnicfFcZsClearDatabaseTable 1 }
+
+
+HpnicfFcZsClearDatabaseEntry ::=
+    SEQUENCE {
+        hpnicfFcZsClearDatabase
+            INTEGER
+     }
+
+hpnicfFcZsClearDatabase OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        noOper(1),
+        clearDb(2)
+        }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "Specify the operation of clearing local Zone Set Database in this VSAN.
+
+         'noOper'    - Specifies no operation.
+         'clearDb'   - Specifies clear operation."
+    ::= { hpnicfFcZsClearDatabaseEntry 1 }
+
+hpnicfFcZsClearPktStatsTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfFcZsClearPktStatsEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table provides an operational object to clear
+         the statistics on packets for each existing VSAN."
+    ::= { hpnicfFcZsOperation 4 }
+
+hpnicfFcZsClearPktStatsEntry OBJECT-TYPE
+    SYNTAX HpnicfFcZsClearPktStatsEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "An entry provides an operational object to clear
+         the statistics on packets for a specified VSAN."
+    INDEX { hpnicfVsanIndex }
+    ::= { hpnicfFcZsClearPktStatsTable 1 }
+
+
+HpnicfFcZsClearPktStatsEntry ::=
+    SEQUENCE {
+        hpnicfFcZsClearPktStats
+            INTEGER
+     }
+
+hpnicfFcZsClearPktStats OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        noOper(1),
+        clearStats(2)
+        }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "Specify the operation of clearing the statistics on
+        packets in this VSAN.
+
+         'noOper'       - Specifies no operation.
+         'clearStats'   - Specifies the clear operation."
+    ::= { hpnicfFcZsClearPktStatsEntry 1 }
+
+hpnicfFcZsClearAllPktStats OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        noOper(1),
+        clearStats(2)
+        }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "An operational object to clear the statistics on
+        packets for all existing VSANs.
+
+         'noOper'         - Specifies no operation.
+         'clearStats'     - Specifies the clear operation."
+    ::= { hpnicfFcZsOperation 5 }
+
+
+hpnicfFcZsInformation OBJECT IDENTIFIER ::= { hpnicfFcZoneMibObjects 3 }
+
+hpnicfFcZsActiveZoneTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfFcZsActiveZoneEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table contains information about Active Zone
+         in each existing VSAN."
+    ::= { hpnicfFcZsInformation 1 }
+
+hpnicfFcZsActiveZoneEntry OBJECT-TYPE
+    SYNTAX HpnicfFcZsActiveZoneEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "An entry contains information about Active Zone
+         in a specified VSAN."
+    INDEX {  hpnicfVsanIndex,
+             t11ZsActiveZoneIndex}
+    ::= { hpnicfFcZsActiveZoneTable 1 }
+
+
+HpnicfFcZsActiveZoneEntry ::=
+    SEQUENCE {
+        hpnicfFcZsActiveZonePairwiseEnable
+            TruthValue
+     }
+
+hpnicfFcZsActiveZonePairwiseEnable OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Indicates whether Pairwise Zoning of an Active Zone is enabled."
+    ::= { hpnicfFcZsActiveZoneEntry 1 }
+
+
+hpnicfFcZsActiveMemberTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfFcZsActiveMemberEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table contains information about Active Zone members
+         in each existing VSAN."
+    ::= { hpnicfFcZsInformation 2 }
+
+hpnicfFcZsActiveMemberEntry OBJECT-TYPE
+    SYNTAX HpnicfFcZsActiveMemberEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "An entry contains information about Active Zone members
+         in a specified VSAN."
+    INDEX {  hpnicfVsanIndex,
+             t11ZsActiveZoneIndex,
+             t11ZsActiveZoneMemberIndex  }
+    ::= { hpnicfFcZsActiveMemberTable 1 }
+
+
+HpnicfFcZsActiveMemberEntry ::=
+    SEQUENCE {
+        hpnicfFcZsActiveMemberPairwiseRole
+            INTEGER
+     }
+
+hpnicfFcZsActiveMemberPairwiseRole OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        both(1),
+        initiator(2),
+        target(3)
+        }
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Indicates which role the Active Zone member is playing."
+    ::= { hpnicfFcZsActiveMemberEntry 1 }
+
+
+hpnicfFcZsServerStatusTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfFcZsServerStatusEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table contains the configuration and running state of
+         each existing VSAN."
+    ::= { hpnicfFcZsInformation 3 }
+
+hpnicfFcZsServerStatusEntry OBJECT-TYPE
+    SYNTAX HpnicfFcZsServerStatusEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "An entry contains the configuration and running state of
+         a specified VSAN."
+    INDEX { hpnicfVsanIndex }
+    ::= { hpnicfFcZsServerStatusTable 1 }
+
+
+HpnicfFcZsServerStatusEntry ::=
+    SEQUENCE {
+        hpnicfFcZsServerStatus
+            INTEGER,
+        hpnicfFcZsHardZoneStatus
+            INTEGER,
+        hpnicfFcZsAliasCount
+            Unsigned32,
+        hpnicfFcZsZoneCount
+            Unsigned32,
+        hpnicfFcZsZonesetCount
+            Unsigned32
+     }
+
+hpnicfFcZsServerStatus OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        free(1),
+        distribute(2),
+        merge(3)
+        }
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The current status of Zone Server.
+
+        'free'        - The Zone Server is now free.
+        'distribute'  - The Zone Server is now busy distributing.
+        'merge'       - The Zone Server is now busy merging."
+    ::= { hpnicfFcZsServerStatusEntry 1 }
+
+hpnicfFcZsHardZoneStatus OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        enable(1),
+        adminDisable(2),
+        noResourceDisable(3)
+        }
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "The current status of Hard Zone Server.
+
+        'enable'            - Hard Zone Server is enabled.
+        'adminDisable'      - Hard Zone Server is disabled administratively.
+        'noResourceDisable' - Hard Zone Server is disabled due to lack of
+                              hardware resource."
+    ::= { hpnicfFcZsServerStatusEntry 2 }
+
+hpnicfFcZsAliasCount OBJECT-TYPE
+    SYNTAX Unsigned32(0..4294967295)
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Number of Zone aliases that exist in the specified VSAN."
+    ::= { hpnicfFcZsServerStatusEntry 3 }
+
+hpnicfFcZsZoneCount OBJECT-TYPE
+    SYNTAX Unsigned32(0..4294967295)
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Number of Zones that exist in the specified VSAN."
+    ::= { hpnicfFcZsServerStatusEntry 4 }
+
+hpnicfFcZsZonesetCount OBJECT-TYPE
+    SYNTAX Unsigned32(0..4294967295)
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Number of Zone Sets that exist in the specified VSAN."
+    ::= { hpnicfFcZsServerStatusEntry 5 }
+
+hpnicfFcZsPktStatsTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfFcZsPktStatsEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Packet statistic table of Zone Servers."
+    ::= { hpnicfFcZsInformation 4 }
+
+hpnicfFcZsPktStatsEntry OBJECT-TYPE
+    SYNTAX HpnicfFcZsPktStatsEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "An entry contains the statistics on packets of
+        Zone Servers."
+    INDEX { hpnicfVsanIndex }
+    ::= { hpnicfFcZsPktStatsTable 1 }
+
+
+HpnicfFcZsPktStatsEntry ::=
+    SEQUENCE {
+        hpnicfFcZsPktInMergeReqCount
+            Counter64,
+        hpnicfFcZsPktOutMergeReqCount
+            Counter64,
+        hpnicfFcZsPktInMergeAccCount
+            Counter64,
+        hpnicfFcZsPktOutMergeAccCount
+            Counter64,
+        hpnicfFcZsPktInMergeRjtCount
+            Counter64,
+        hpnicfFcZsPktOutMergeRjtCount
+            Counter64,
+        hpnicfFcZsPktInChangeReqCount
+            Counter64,
+        hpnicfFcZsPktOutChangeReqCount
+            Counter64,
+        hpnicfFcZsPktInChangeAccCount
+            Counter64,
+        hpnicfFcZsPktOutChangeAccCount
+            Counter64,
+        hpnicfFcZsPktInChangeRjtCount
+            Counter64,
+        hpnicfFcZsPktOutChangeRjtCount
+            Counter64
+     }
+
+hpnicfFcZsPktInMergeReqCount OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Number of Merge Request Frames received by local Zone
+         Server from other Zone Servers."
+    ::= { hpnicfFcZsPktStatsEntry 1 }
+
+hpnicfFcZsPktOutMergeReqCount OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Number of Merge Request Frames sent by local Zone Server
+         to other Zone Servers."
+    ::= { hpnicfFcZsPktStatsEntry 2 }
+
+hpnicfFcZsPktInMergeAccCount OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Number of Merge Accept Frames received by local Zone
+         Server from other Zone Servers."
+    ::= { hpnicfFcZsPktStatsEntry 3 }
+
+hpnicfFcZsPktOutMergeAccCount OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Number of Merge Accept Frames sent by local Zone Server
+         to other Zone Servers."
+    ::= { hpnicfFcZsPktStatsEntry 4 }
+
+hpnicfFcZsPktInMergeRjtCount OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Number of Merge Reject Frames received by local Zone
+         Server from other Zone Servers."
+    ::= { hpnicfFcZsPktStatsEntry 5 }
+
+hpnicfFcZsPktOutMergeRjtCount OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Number of Merge Reject Frames sent by local Zone Server
+         to other Zone Servers."
+    ::= { hpnicfFcZsPktStatsEntry 6 }
+
+hpnicfFcZsPktInChangeReqCount OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Number of change requests received by local Zone
+         Server from other Zone Servers."
+    ::= { hpnicfFcZsPktStatsEntry 7 }
+
+hpnicfFcZsPktOutChangeReqCount OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Number of change requests sent by local Zone Server
+         to other Zone Servers."
+    ::= { hpnicfFcZsPktStatsEntry 8 }
+
+hpnicfFcZsPktInChangeAccCount OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Number of Accept messages received from other Zone Servers
+         in response to change request sent by local Zone Server."
+    ::= { hpnicfFcZsPktStatsEntry 9 }
+
+hpnicfFcZsPktOutChangeAccCount OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Number of Accept messages sent to other Zone Servers
+         in response to change request received by local Zone Server."
+    ::= { hpnicfFcZsPktStatsEntry 10 }
+
+hpnicfFcZsPktInChangeRjtCount OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Number of Reject messages received from other Zone Servers
+         in response to change request sent by local Zone Server."
+    ::= { hpnicfFcZsPktStatsEntry 11 }
+
+hpnicfFcZsPktOutChangeRjtCount OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Number of Reject messages sent to other Zone Servers
+         in response to change request received by local Zone Server."
+    ::= { hpnicfFcZsPktStatsEntry 12 }
+
+
+hpnicfFcZsNextFreeIndexInfo OBJECT IDENTIFIER ::= { hpnicfFcZsInformation 5 }
+
+hpnicfFcZsZonesetNextFreeIndex OBJECT-TYPE
+    SYNTAX Unsigned32(1..4294967295)
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Specifies the latest available index of hpnicfFcZsZonesetIndex that
+         can be used to identify a new Zone Set."
+    ::= { hpnicfFcZsNextFreeIndexInfo 1 }
+
+hpnicfFcZsZoneNextFreeIndex OBJECT-TYPE
+    SYNTAX Unsigned32(1..4294967295)
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Specifies the latest available index of hpnicfFcZsZoneIndex that
+         can be used to identify a new Zone."
+    ::= { hpnicfFcZsNextFreeIndexInfo 2 }
+
+hpnicfFcZsZoneAliasNextFreeIndex OBJECT-TYPE
+    SYNTAX Unsigned32(1..4294967295)
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Specifies the latest available index of hpnicfFcZsZoneAliasIndex that
+         can be used to identify a new Zone alias."
+    ::= { hpnicfFcZsNextFreeIndexInfo 3 }
+
+hpnicfFcZsZoneMemberNextFreeIndexTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF HpnicfFcZsZoneMemberNextFreeIndexEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "This table contains the information of the latest available index that
+         can be used to identify a new member in each Zone or Zone alias."
+    ::= { hpnicfFcZsNextFreeIndexInfo 4 }
+
+hpnicfFcZsZoneMemberNextFreeIndexEntry OBJECT-TYPE
+    SYNTAX HpnicfFcZsZoneMemberNextFreeIndexEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "An entry contains the information of the latest available index that
+         can be used to identify a new member in a Zone or Zone alias."
+    INDEX { hpnicfFcZsZoneMemberParentType,
+            hpnicfFcZsZoneMemberParentIndex }
+    ::= { hpnicfFcZsZoneMemberNextFreeIndexTable 1 }
+
+HpnicfFcZsZoneMemberNextFreeIndexEntry ::=
+    SEQUENCE {
+              hpnicfFcZsZoneMemberNextFreeIndex
+              Unsigned32
+             }
+
+hpnicfFcZsZoneMemberNextFreeIndex OBJECT-TYPE
+    SYNTAX Unsigned32(1..4294967295)
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Specifies the latest available index of hpnicfFcZsZoneMemberIndex that
+         can be used to identify a new member in a Zone or Zone alias."
+    ::= { hpnicfFcZsZoneMemberNextFreeIndexEntry 1 }
+
+
+hpnicfFcZsNotification OBJECT IDENTIFIER ::= { hpnicfFcZoneMibObjects 4 }
+
+hpnicfFcZsNotificationPrefix OBJECT IDENTIFIER ::= { hpnicfFcZsNotification 0 }
+
+hpnicfFcZsDefaultZoneChangedNotify NOTIFICATION-TYPE
+    OBJECTS { hpnicfVsanIndex,
+              hpnicfFcZsLocalSwitchWWN,
+              hpnicfFcZsDefaultZoneSetting }
+    STATUS current
+    DESCRIPTION
+        "A hpnicfFcZsDefaultZoneChangedNotify notification is sent when
+         the Default Zone setting of a specified VSAN is changed."
+    ::= { hpnicfFcZsNotificationPrefix 1 }
+
+hpnicfFcZsHardZoneChangedNotify NOTIFICATION-TYPE
+    OBJECTS { hpnicfVsanIndex,
+              hpnicfFcZsLocalSwitchWWN,
+              hpnicfFcZsHardZoneStatus }
+    STATUS current
+    DESCRIPTION
+        "A hpnicfFcZsHardZoneChangedNotify notification is sent when
+         the hard Zone configuration of a specified VSAN is changed."
+    ::= { hpnicfFcZsNotificationPrefix 2 }
+
+hpnicfFcZsMergeFailedNotify NOTIFICATION-TYPE
+    OBJECTS { ifIndex,
+              ifDescr,
+              hpnicfVsanIndex,
+              hpnicfFcZsLocalSwitchWWN,
+              hpnicfFcZsPeerSwitchWWN,
+              hpnicfFcZsMergeFailCause
+            }
+    STATUS current
+    DESCRIPTION
+        "A hpnicfFcZsMergeFailedNotify notification is sent when a Zone merge
+         failure occurs."
+    ::= { hpnicfFcZsNotificationPrefix 3 }
+
+hpnicfFcZsMergeSucceededNotify NOTIFICATION-TYPE
+    OBJECTS { ifIndex,
+              ifDescr,
+              hpnicfVsanIndex,
+              hpnicfFcZsLocalSwitchWWN,
+              hpnicfFcZsPeerSwitchWWN
+            }
+    STATUS current
+    DESCRIPTION
+        "A hpnicfFcZsMergeSucceededNotify notification is sent when a successful
+         Zone merge occurs."
+    ::= { hpnicfFcZsNotificationPrefix 4 }
+
+hpnicfFcZsActivationCompletedNotify NOTIFICATION-TYPE
+    OBJECTS { hpnicfVsanIndex,
+              hpnicfFcZsLocalSwitchWWN,
+              hpnicfFcZsActivateResult
+            }
+    STATUS current
+    DESCRIPTION
+        "A hpnicfFcZsActivationCompletedNotify notification is sent whenever a
+         activation/deactivation is completed."
+    ::= { hpnicfFcZsNotificationPrefix 5 }
+
+hpnicfFcZsNotificationSwitch OBJECT IDENTIFIER ::= { hpnicfFcZsNotification 1 }
+
+hpnicfFcZsDefaultZoneChangedEnable OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "Indicates whether the module will generate
+         traps for Default Zone setting change events."
+    ::= { hpnicfFcZsNotificationSwitch 1 }
+
+hpnicfFcZsHardZoneChangedEnable OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "Indicates whether the module will generate
+         traps for hard Zone change events."
+    ::= { hpnicfFcZsNotificationSwitch 2 }
+
+hpnicfFcZsMergeFailedEnable OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "Indicates whether the module will generate
+         traps for Zone merge failure events."
+    ::= { hpnicfFcZsNotificationSwitch 3 }
+
+hpnicfFcZsMergeSucceededEnable OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "Indicates whether the module will generate
+         traps for Zone merge success events."
+    ::= { hpnicfFcZsNotificationSwitch 4 }
+
+hpnicfFcZsActivationCompletedEnable OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "Indicates whether the module will generate
+         traps for activation/deactivation-completed events."
+    ::= { hpnicfFcZsNotificationSwitch 5 }
+
+hpnicfFcZsObjsForNotification OBJECT IDENTIFIER ::= { hpnicfFcZsNotification 2 }
+
+hpnicfFcZsLocalSwitchWWN OBJECT-TYPE
+    SYNTAX HpnicfFcNameId
+    MAX-ACCESS accessible-for-notify
+    STATUS current
+    DESCRIPTION
+        "This object indicates the WWN of the local switch."
+    ::= { hpnicfFcZsObjsForNotification 1 }
+
+hpnicfFcZsPeerSwitchWWN OBJECT-TYPE
+    SYNTAX HpnicfFcNameId
+    MAX-ACCESS accessible-for-notify
+    STATUS current
+    DESCRIPTION
+        "This object indicates the WWN of the peer switch."
+    ::= { hpnicfFcZsObjsForNotification 2 }
+
+hpnicfFcZsMergeFailCause OBJECT-TYPE
+    SYNTAX INTEGER
+        {
+        zoneModeInconsistent(1),
+        zonePolicyNotEqual(2),
+        hardZoneInconsistent(3),
+        dataNotEqualInRestrict(4),
+        activeZoneSetMergeFailed(5),
+        zoneMergeDataTooBig(6),
+        zoningObjectNumberTooBig(7),
+        zoneDbMergeFaildInBasic(8),
+        zoneDbMergeFaildInEnhanced(9),
+        other(10)
+        }
+    MAX-ACCESS accessible-for-notify
+    STATUS current
+    DESCRIPTION
+        "Indicates the reason of a Zone merge failure.
+
+         'zoneModeInconsistent'        - The zone mode is inconsistent.
+         'zonePolicyNotEqual'          - Zone Merge-Control setting or
+                                         Default-Zone doesn't match.
+         'hardZoneInconsistent'        - The Hard Zone Attribute is
+                                         inconsistent.
+         'dataNotEqualInRestrict'      - The Merge-Control setting is
+                                         Restrict and the peer zoning
+                                         database is not equal.
+         'activeZoneSetMergeFailed'    - The Active Zone Set merge failed.
+         'zoneMergeDataTooBig'         - The merged packet was
+                                         too large.
+         'zoningObjectNumberTooBig'    - The number of zoning objects exceeded
+                                         the limit.
+         'zoneDbMergeFaildInBasic'     - The database merge failed in Basic
+                                         mode.
+         'zoneDbMergeFaildInEnhanced'  - The database merge failed in Enhanced
+                                         mode.
+         'other'                       - Unknown reason."
+    ::= { hpnicfFcZsObjsForNotification 3 }
+
+END

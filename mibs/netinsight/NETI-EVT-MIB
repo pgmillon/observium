@@ -1,0 +1,890 @@
+NETI-EVT-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE, Unsigned32,
+    enterprises
+        FROM SNMPv2-SMI
+    DisplayString, DateAndTime, TEXTUAL-CONVENTION, RowPointer,
+    TruthValue
+        FROM SNMPv2-TC
+    SnmpAdminString
+        FROM SNMP-FRAMEWORK-MIB
+    OBJECT-GROUP, NOTIFICATION-GROUP
+        FROM SNMPv2-CONF;
+
+nevtMIB MODULE-IDENTITY
+    LAST-UPDATED    
+         "201503031600Z"
+    ORGANIZATION    
+        "Net Insight AB"
+    CONTACT-INFO
+        "Net Insight AB
+         Box 42093
+         SE-126 14 Stockholm
+         Sweden
+         Tel +46-8-685 0400
+         info@netinsight.se"
+    DESCRIPTION
+        "MIB containing event and alarm information.  The MIB contains
+         tables for events and alarms, and defined notifications for
+         events and alarms.
+
+         nevtEventTable.  Table with the last number of events.  The
+         event table contains the events that are sent as SNMP
+         notifications.  These events indicate change of alarms, or
+         change in other tables defined in other MIBs, that uses the
+         mechanism in this MIB to notify a table change.  If a
+         notification receiver misses notifications, it can retrieve
+         the lost notifications from this table.
+
+         nevtAlarmTable.  Table with all active alarms, and the last
+         historic alarms.  The alarm table holds all active alarms,
+         and possibly also a number of the last cleared alarms.
+
+         nevtActiveAlarmTable.  Table will all active (non-clear)
+         alarms.  The active alarm table holds only the active
+         alarms."
+
+    REVISION
+         "201503031600Z"
+    DESCRIPTION
+         "Added objects for holding purpose text of managed object;
+          nevtEventPurpose, nevtAlarmPurose and
+          nevtActiveAlarmPurpose.  The objects are added to
+          nevtEventTable, nevtAlarmTable and the nevtActiveAlarmTable
+          and to all event and alarm notification.  The
+          nevtTrapPurpose has been marked as obsoleted.
+          
+          Corrected spelling on descriptions.
+          
+          Removed the Conformance group.
+          
+          Removed dependency and import from NETI-COMMON-MIB."
+
+    REVISION
+         "201306031100Z"
+    DESCRIPTION
+         "This MIB replaces the NETI-EVENT-MIB.  This MIB has the same
+          objects as the NETI-EVENT-MIB, revision 201105031000Z, but
+          this MIB registers new descriptor for each of the objects.
+          This violates RFC2578, ch 3.6, item 1, where it is stated
+          that only one descriptor can be registered to an object.
+          However, item 2 states that it is allowed to assign
+          additional descriptors to an object, from which it follows
+          that any object can be referred to by different descriptors.
+          The NETI-EVENT-MIB contains registered descriptors that are
+          in conflict with descriptors in other standard MIBs.  This
+          conflict can cause problems in network management systems
+          that rely on that a descriptor uniquely identifies a single
+          object.  The least costly solution to this problem this was
+          determined to be to simply register new descriptors for all
+          objects.  All the objects in this MIB are binary compatible
+          with the descriptions in NETI-EVENT-MIB, meaning that any
+          network management system may choose to continue to use the
+          NETI-EVENT-MIB, or to use this NETI-EVT-MIB."
+    ::= { netiGeneric  1 }
+
+-- -------------------------------------------------------------
+-- Objects in the NETI-EVT-MIB
+-- -------------------------------------------------------------
+netinsight  OBJECT IDENTIFIER ::= { enterprises 2928 }
+netiGeneric OBJECT IDENTIFIER ::= { netinsight 2 }
+
+nevtObjects           OBJECT IDENTIFIER ::= { nevtMIB 1 }
+nevtNotifications     OBJECT IDENTIFIER ::= { nevtMIB 2 }
+nevtConformanceGroups OBJECT IDENTIFIER ::= { nevtMIB 3 }
+
+-- -------------------------------------------------------------
+-- Textual Conventions
+-- -------------------------------------------------------------
+
+NevtEventType ::= TEXTUAL-CONVENTION
+    STATUS  current
+    DESCRIPTION
+        "The type of event. 'created', 'modified' and 'deleted'
+         indicates status of a conceptual row in a table.  If the 
+         event represents an alarm, the type is 'none'." 
+    SYNTAX  INTEGER {
+                none(0),
+                created(1),
+                modified(2),
+                deleted(3) }
+
+NevtAlarmType ::= TEXTUAL-CONVENTION
+    STATUS  current
+    DESCRIPTION
+        "The alarm type as specified in
+         CCITT Rec. X.733(1992 E)|ISO/EIC 10164-4:1992 (E).
+         Alarm type 'unknown' may be set if the alarm type
+         can not be determined, or when an event is not caused
+         by an alarm."
+    SYNTAX  INTEGER {
+                unknown(0),
+                communication(1),
+                qualityOfService(2),
+                processingError(3),
+                equipment(4),
+                environmental(5) }
+
+NevtAlarmSeverity ::= TEXTUAL-CONVENTION
+    STATUS  current
+    DESCRIPTION
+        "The alarm severity as specified in
+         CCITT Rec. X.733(1992 E)|ISO/EIC 10164-4:1992 (E).
+         Alarm severity 'unknown' may be set if the alarm type
+         can not be determined, or when the event is not caused
+         by an alarm."
+    SYNTAX  INTEGER {
+                unknown(0),
+                indeterminate(1),
+                critical(2),
+                major(3),
+                minor(4),
+                warning(5),
+                cleared(6) }
+
+NevtAlarmCause ::= TEXTUAL-CONVENTION
+    STATUS  current
+    DESCRIPTION
+        "The alarm cause 1-57 as specified in
+         CCITT Rec. X.733(1992 E)|ISO/EIC 10164-4:1992 (E).
+         Alarm cause 'unknown' may be set if the cause
+         can not be determined, or if the event was not caused
+         by an alarm. (0 and 58 and above are proprietary)."
+    SYNTAX  INTEGER {
+                unknown(0),
+                adapterError(1),
+                applicationSubsystemFailure(2),
+                bandwidthReduced(3),
+                callEstablishmentError(4),
+                communicationsProtocolError(5),
+                communicationsSubsystemFailure(6),
+                configurationOrCustomizationError(7),
+                congestion(8),
+                corruptData(9),
+                cpuCyclesLimitExceeded(10),
+                datasetOrModemError(11),
+                degradedSignal(12),
+                dTEDCEInterfaceError(13),
+                enclosureDoorOpen(14),
+                equipmentMalfunction(15),
+                excessiveVibration(16),
+                fileError(17),
+                fireDetected(18),
+                floodDetected(19),
+                framingError(20),
+                heatingOrVentilationOrCoolingSystemProblem(21),
+                humidityUnacceptable(22),
+                inputOutputDeviceError(23),
+                inputDeviceError(24),
+                lANError(25),
+                leakDetected(26),
+                localNodeTransmissionError(27),
+                lossOfFrame(28),
+                lossOfSignal(29),
+                materialSupplyExhausted(30),
+                multiplexerProblem(31),
+                outOfMemory(32),
+                outputDeviceError(33),
+                performanceDegraded(34),
+                powerProblem(35),
+                pressureUnacceptable(36),
+                processorProblem(37),
+                pumpFailure(38),
+                queueSizeExceeded(39),
+                receiveFailure(40),
+                receiverFailure(41),
+                remoteNodeTransmissionError(42),
+                resourceAtOrNearingCapacity(43),
+                responseTimeExcessive(44),
+                retransmissionRateExcessive(45),
+                softwareError(46),
+                softwareProgramAbnormallyTerminated(47),
+                softwareProgramError(48),
+                storageCapacityProblem(49),
+                temperatureUnacceptable(50),
+                thresholdCrossed(51),
+                timingProblem(52),
+                toxicLeakDetected(53),
+                transmitFailure(54),
+                transmitterFailure(55),
+                underlyingResourceUnavailable(56),
+                versionMismatch(57),
+
+                phyLossOfSignal(58),           -- use lossOfSignal instead
+                phyLossOfFrame(59),            -- use lossOfFrame instead
+                phyAlarmIndicationSignal(60),  -- use alarmIndicationSignal
+                phyRemoteDefectIndication(61), -- use remoteDefectIndication instead
+                phySignalFailure(62),          -- currently not not used
+                phySignalDegraded(63),         -- use degradedSignal instead
+                testmodeEntered(64),
+                serviceUnavailable(65),
+                alarmIndicationSignal(66),
+                remoteDefectIndication(67),
+                
+                replaceableUnitMissing(68),    -- 62 in rfc3877
+                replaceableUnitProblem(69)     -- from rfc3877 
+                }
+
+
+-- -------------------------------------------------------------
+-- The Event objects
+-- -------------------------------------------------------------
+
+-- Some scalars to examine status of the event log.
+
+nevtSequenceCounter OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "The index of the latest sent event defined as 
+         notifications in this mib.  By examine his object,
+         the notification receiver can determine whether it has
+         missed any notifications.  The counter resets to zero 
+         at cold start, indicating that no events has been 
+         sent, and that the event table is empty.  The counter
+         will wrap and restart at value `1' when it passes its 
+         maximum value"
+    ::= { nevtObjects 1 }
+
+nevtLastChangedTime OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The time when an event was last changed, and a 
+         notification was sent."
+    ::= { nevtObjects 2 }
+
+
+-- The event table group contains a set of objects for
+-- getting the event list in the node. The event table 
+-- contains all notifications that has been sent from the
+-- node using this mechanism. Events could either be
+-- alarms or notifications on changes in configuration
+-- tables.
+
+nevtEventTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF NevtEventEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Table containing the most recent events.  The maximum 
+         size of the table depends on the implementation"
+    ::= { nevtObjects 3 }
+
+nevtEventEntry OBJECT-TYPE
+    SYNTAX      NevtEventEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "One entry in the table holds one event.  Events are
+         either created by the agent when a conceptual row 
+         has been changed in a table defined in another mib,
+         or when an alarm status is changed in the alarm table 
+         defined in this mib."
+    INDEX { nevtEventIndex }
+    ::= { nevtEventTable 1 }
+
+NevtEventEntry ::= 
+    SEQUENCE {
+        nevtEventIndex              Unsigned32,
+        nevtEventObject             RowPointer,
+        nevtEventObjectName         DisplayString,
+        nevtEventAlarmType          NevtAlarmType,
+        nevtEventType               NevtEventType,
+        nevtEventCause              NevtAlarmCause,
+        nevtEventSeverity           NevtAlarmSeverity,
+        nevtEventText               DisplayString,
+        nevtEventCreatedTime        DateAndTime,
+        nevtEventPurpose            SnmpAdminString }
+
+nevtEventIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Arbitrary index for an entry in the event table.
+         The eventIndex follows the nevtSequenceCounter
+         as such that the nevtSequenceCounter refers to
+         the last event in the table"
+    ::= { nevtEventEntry 1 }
+
+nevtEventObject OBJECT-TYPE
+    SYNTAX      RowPointer
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A pointer to the conceptual row of the object that caused
+         this event.  If the object is unavailable, the value is 
+         { 0 0 }."
+    ::= { nevtEventEntry 2 }
+
+nevtEventObjectName OBJECT-TYPE
+    SYNTAX      DisplayString 
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A text describing the object that caused the event in a for
+         humans more readable form.  If not set then this object
+         contains a zero-length string."
+    ::= { nevtEventEntry 3 }
+
+nevtEventAlarmType OBJECT-TYPE
+    SYNTAX      NevtAlarmType
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This is the event type as specified in NevtAlarmType."
+    ::= { nevtEventEntry 4 }
+
+nevtEventType OBJECT-TYPE
+    SYNTAX      NevtEventType
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This is the event type as specified in NevtEventType."
+    ::= { nevtEventEntry 5 }
+
+nevtEventCause OBJECT-TYPE
+    SYNTAX      NevtAlarmCause
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The alarm cause as specified in NevtAlarmCause."
+    ::= { nevtEventEntry 6 }
+
+nevtEventSeverity OBJECT-TYPE
+    SYNTAX      NevtAlarmSeverity
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The alarm severity as specified in NevtAlarmSeverity."
+    ::= { nevtEventEntry 7 }
+
+nevtEventText OBJECT-TYPE
+    SYNTAX      DisplayString 
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A text describing the event in a for humans more 
+         readable form."
+    ::= { nevtEventEntry 8 }
+
+nevtEventCreatedTime OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The time when the event was created."
+    ::= { nevtEventEntry 9 }
+
+nevtEventPurpose OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The purpose text inherited from the object to which the event
+         belongs.  The purpose is usually a user-supplied text
+         describing the object.  The purpose is assigned on the
+         object.  If an object does not have a purpose, then this is
+         the empty string."
+    ::= { nevtEventEntry 10 }
+
+
+
+-- The Alarm table contains all active and some cleared alarms 
+-- in the node.
+
+nevtAlarmTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF NevtAlarmEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Table containing alarms and their status.  The maximum
+         size of the table depends on the implementation."
+    ::= { nevtObjects 4 }
+
+nevtAlarmEntry OBJECT-TYPE
+    SYNTAX      NevtAlarmEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "One entry in the table holds one alarm.  The table contains
+         all active alarms, and depending on the implementation, it 
+         may contian none, some or several cleared alarms."
+    INDEX { nevtAlarmIndex }
+    ::= { nevtAlarmTable 1 }
+
+NevtAlarmEntry ::= 
+    SEQUENCE {
+        nevtAlarmIndex             Unsigned32,
+        nevtAlarmObject            RowPointer,
+        nevtAlarmObjectName        DisplayString,
+        nevtAlarmAlarmType         NevtAlarmType,
+        nevtAlarmCause             NevtAlarmCause,
+        nevtAlarmSeverity          NevtAlarmSeverity,
+        nevtAlarmText              DisplayString,
+        nevtAlarmLastChangedTime   DateAndTime,
+        nevtAlarmAcknowledged      TruthValue,
+        nevtAlarmCreatedTime       DateAndTime,
+        nevtAlarmPurpose           SnmpAdminString }
+
+nevtAlarmIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Arbitrary index for an entry in the alarm table."
+    ::= { nevtAlarmEntry 1 }
+
+nevtAlarmObject OBJECT-TYPE
+    SYNTAX      RowPointer
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A pointer to the conceptual row of the object that caused 
+         this alarm.  If the object is unavailable, the value is 
+         { 0 0 }."
+     ::= { nevtAlarmEntry 2 }
+
+nevtAlarmObjectName OBJECT-TYPE
+    SYNTAX      DisplayString 
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A text describing the object in a more readable form.
+         If not set then this object contains a zero-length string."
+    ::= { nevtAlarmEntry 3 }
+
+nevtAlarmAlarmType OBJECT-TYPE
+    SYNTAX      NevtAlarmType
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The alarm type as specified in NevtAlarmType."
+    ::= { nevtAlarmEntry 4 }
+
+nevtAlarmCause OBJECT-TYPE
+    SYNTAX      NevtAlarmCause
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The alarm cause as specified in NevtAlarmCause."
+    ::= { nevtAlarmEntry 5 }
+
+nevtAlarmSeverity OBJECT-TYPE
+    SYNTAX      NevtAlarmSeverity
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The alarm severity as specified in NevtAlarmSeverity."
+    ::= { nevtAlarmEntry 6 }
+
+nevtAlarmText OBJECT-TYPE
+    SYNTAX      DisplayString 
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A text describing the alarm in a more readable form."
+    ::= { nevtAlarmEntry 7 }
+
+nevtAlarmLastChangedTime OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The time when the alarm was changed, i.e. when the alarm was 
+         created, or nevtAlarmSeverity or nevtAlarmAcknowledged
+         was changed."
+    ::= { nevtAlarmEntry 8 }
+
+nevtAlarmAcknowledged OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The acknowledgement status of the alarm.  This is set to
+         `true' to indicate that the alarm is is acknowledged, and
+         set to `false' to clear the acknowledge."
+    ::= { nevtAlarmEntry 9 }
+
+nevtAlarmCreatedTime OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The time when the alarm was created."
+    ::= { nevtAlarmEntry 10 }
+
+nevtAlarmPurpose OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The purpose text inherited from the object to which the alarm
+         belongs.  The purpose is usually a user-supplied text
+         describing the object.  The purpose is assigned on the
+         object.  If an object does not have a purpose, then this is
+         the empty string."
+    ::= { nevtAlarmEntry 11 }
+
+
+-- The Alarm table contains all active alarms in the node.
+
+nevtActiveAlarmTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF EventActiveAlarmEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Table containing alarms and their status.  The maximum
+         size of the table depends on the implementation."
+    ::= { nevtObjects 6 }
+
+nevtActiveAlarmEntry OBJECT-TYPE
+    SYNTAX      EventActiveAlarmEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "One entry in the table holds one alarm.  The table contains
+         only active alarms."
+    INDEX { nevtActiveAlarmIndex }
+    ::= { nevtActiveAlarmTable 1 }
+
+EventActiveAlarmEntry ::= 
+    SEQUENCE {
+        nevtActiveAlarmIndex             Unsigned32,
+        nevtActiveAlarmObject            RowPointer,
+        nevtActiveAlarmObjectName        DisplayString,
+        nevtActiveAlarmAlarmType         NevtAlarmType,
+        nevtActiveAlarmCause             NevtAlarmCause,
+        nevtActiveAlarmSeverity          NevtAlarmSeverity,
+        nevtActiveAlarmText              DisplayString,
+        nevtActiveAlarmLastChangedTime   DateAndTime,
+        nevtActiveAlarmAcknowledged      TruthValue,
+        nevtActiveAlarmCreatedTime       DateAndTime,
+        nevtActiveAlarmPurpose           SnmpAdminString }
+
+nevtActiveAlarmIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Arbitrary index for an entry in the alarm table."
+    ::= { nevtActiveAlarmEntry 1 }
+
+nevtActiveAlarmObject OBJECT-TYPE
+    SYNTAX      RowPointer
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A pointer to the conceptual row of the object that caused 
+         this alarm.  If the object is unavailable, the value is 
+         { 0 0 }."
+     ::= { nevtActiveAlarmEntry 2 }
+
+nevtActiveAlarmObjectName OBJECT-TYPE
+    SYNTAX      DisplayString 
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A text describing the object in a more readable form.
+         If not set then this object contains a zero-length string."
+    ::= { nevtActiveAlarmEntry 3 }
+
+nevtActiveAlarmAlarmType OBJECT-TYPE
+    SYNTAX      NevtAlarmType
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The alarm type as specified in NevtAlarmType."
+    ::= { nevtActiveAlarmEntry 4 }
+
+nevtActiveAlarmCause OBJECT-TYPE
+    SYNTAX      NevtAlarmCause
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The alarm cause as specified in NevtAlarmCause."
+    ::= { nevtActiveAlarmEntry 5 }
+
+nevtActiveAlarmSeverity OBJECT-TYPE
+    SYNTAX      NevtAlarmSeverity
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The alarm severity as specified in NevtAlarmSeverity."
+    ::= { nevtActiveAlarmEntry 6 }
+
+nevtActiveAlarmText OBJECT-TYPE
+    SYNTAX      DisplayString 
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A text describing the alarm in a more readable form."
+    ::= { nevtActiveAlarmEntry 7 }
+
+nevtActiveAlarmLastChangedTime OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The time when the alarm was changed, i.e. when the alarm was 
+         created, or nevtActiveAlarmSeverity or nevtActiveAlarmAcknowledged
+         was changed."
+    ::= { nevtActiveAlarmEntry 8 }
+
+nevtActiveAlarmAcknowledged OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The acknowledgement status of the alarm. This is set to
+         'true' to indicate that the alarm is is acknowledged, and
+         set to 'false' to clear the acknowledge."
+    ::= { nevtActiveAlarmEntry 9 }
+
+nevtActiveAlarmCreatedTime OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The time when the alarm was created."
+    ::= { nevtActiveAlarmEntry 10 }
+
+nevtActiveAlarmPurpose OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The purpose text inherited from the object to which the alarm
+         belongs.  The purpose is usually a user-supplied text
+         describing the object.  The purpose is assigned on the
+         object.  If an object does not have a purpose, then this is
+         the empty string."
+    ::= { nevtActiveAlarmEntry 11 }
+
+
+
+-- -------------------------------------------------------------
+-- Group with alarm counters
+-- -------------------------------------------------------------
+-- The group contains counters per alarm severity. The counters
+-- holds the number of active alarms per severity.
+
+nevtAlarmCountersGroup OBJECT IDENTIFIER ::= { nevtObjects 5 }
+
+nevtCriticalCounter OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "The number of active alarms with the severity 'critical'."
+    ::= { nevtAlarmCountersGroup 1 }
+
+nevtMajorCounter OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "The number of active alarms with the severity 'major'."
+    ::= { nevtAlarmCountersGroup 2 }
+
+nevtMinorCounter OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "The number of active alarms with the severity 'minor'."
+    ::= { nevtAlarmCountersGroup 3 }
+
+nevtWarningCounter OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "The number of active alarms with the severity 'warning'."
+    ::= { nevtAlarmCountersGroup 4 }
+
+nevtIndeterminateCounter OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION 
+        "The number of active alarms with the severity 'indeterminate'."
+    ::= { nevtAlarmCountersGroup 5 }
+
+
+
+-- -------------------------------------------------------------
+-- Alarm related notifications
+-- -------------------------------------------------------------
+
+nevtNotificationObjectsGroup OBJECT IDENTIFIER ::= { nevtObjects 7 }
+
+nevtTrapPurpose OBJECT-TYPE
+    SYNTAX      SnmpAdminString
+    MAX-ACCESS  accessible-for-notify
+    STATUS      obsolete
+    DESCRIPTION
+        "Indicates the purpose of a managed object to where a trap
+         belongs.  This OID may be appended to traps in the
+         nevtNotifications group at the discretion of the SNMP
+         agent."
+    ::= { nevtNotificationObjectsGroup 1 }
+
+
+-- Notifications are sent when the state of an alarm is 
+-- changed. Each severity has its own trap since many
+-- SNMP managers organize severity of events based on the 
+-- trap identity.
+-- The management application should use alarmObjectName
+-- and alarmCause (or alarmObject if given) it it wishes
+-- to keep track of a certain fault state.
+-- The standard traps (cold start etc.) should be used
+-- to trigger re-reading the alarm list if the node crashes
+-- or the alarm list is reset for some reason.
+
+
+
+nevtAlarmCritical NOTIFICATION-TYPE
+    OBJECTS {
+        nevtEventIndex,
+        nevtEventObject,
+        nevtEventObjectName,
+        nevtEventAlarmType,
+        nevtEventCause,
+        nevtEventSeverity,
+        nevtEventText,
+        nevtEventCreatedTime,
+        nevtSequenceCounter,
+        nevtEventPurpose }
+    STATUS  current
+    DESCRIPTION
+        "Notification for an alarm with severity 'critical'."
+    ::= { nevtNotifications 1 }
+
+nevtAlarmMajor NOTIFICATION-TYPE
+    OBJECTS {   
+        nevtEventIndex,
+        nevtEventObject,
+        nevtEventObjectName,
+        nevtEventAlarmType,
+        nevtEventCause,
+        nevtEventSeverity,
+        nevtEventText,
+        nevtEventCreatedTime,
+        nevtSequenceCounter,
+        nevtEventPurpose }
+    STATUS  current
+    DESCRIPTION
+        "Notification for an alarm with severity 'major'."
+    ::= { nevtNotifications 2 }
+
+nevtAlarmMinor NOTIFICATION-TYPE
+    OBJECTS {   
+        nevtEventIndex,
+        nevtEventObject,
+        nevtEventObjectName,
+        nevtEventAlarmType,
+        nevtEventCause,
+        nevtEventSeverity,
+        nevtEventText,
+        nevtEventCreatedTime,
+        nevtSequenceCounter,
+        nevtEventPurpose }
+    STATUS  current
+    DESCRIPTION
+        "Notification for an alarm with severity 'minor'."
+    ::= { nevtNotifications 3 }
+
+nevtAlarmWarning NOTIFICATION-TYPE
+    OBJECTS {   
+        nevtEventIndex,
+        nevtEventObject,
+        nevtEventObjectName,
+        nevtEventAlarmType,
+        nevtEventCause,
+        nevtEventSeverity,
+        nevtEventText,
+        nevtEventCreatedTime,
+        nevtSequenceCounter,
+        nevtEventPurpose }
+    STATUS  current
+    DESCRIPTION
+        "Notification for an alarm with severity 'warning'."
+    ::= { nevtNotifications 4 }
+
+nevtAlarmIndeterminate NOTIFICATION-TYPE
+    OBJECTS {   
+        nevtEventIndex,
+        nevtEventObject,
+        nevtEventObjectName,
+        nevtEventAlarmType,
+        nevtEventCause,
+        nevtEventSeverity,
+        nevtEventText,
+        nevtEventCreatedTime,
+        nevtSequenceCounter,
+        nevtEventPurpose }
+        STATUS  current
+    DESCRIPTION
+        "Notification for an alarm with severity 'indeterminate'."
+    ::= { nevtNotifications 5 }
+
+nevtAlarmUnknown NOTIFICATION-TYPE
+    OBJECTS {   
+        nevtEventIndex,
+        nevtEventObject,
+        nevtEventObjectName,
+        nevtEventAlarmType,
+        nevtEventCause,
+        nevtEventSeverity,
+        nevtEventText,
+        nevtEventCreatedTime,
+        nevtSequenceCounter,
+        nevtEventPurpose }
+    STATUS  current
+    DESCRIPTION
+        "Notification for an alarm with unknown severity."
+    ::= { nevtNotifications 6 }
+
+nevtAlarmClear NOTIFICATION-TYPE
+    OBJECTS {   
+        nevtEventIndex,
+        nevtEventObject,
+        nevtEventObjectName,
+        nevtEventAlarmType,
+        nevtEventCause,
+        nevtEventSeverity,
+        nevtEventText,
+        nevtEventCreatedTime,
+        nevtSequenceCounter,
+        nevtEventPurpose }
+    STATUS  current
+    DESCRIPTION
+        "Notification for a cleared alarm."
+    ::= { nevtNotifications 7 }
+
+
+-- Notifications are sent when a configuration change has occurred
+-- in the node. The type of configuration can be 'create', 'modify'
+-- or 'delete', i.e. a conceptual row is created, modified or
+-- deleted in the a table referred to by 'nevtObject'.
+
+nevtGenericEvent NOTIFICATION-TYPE
+    OBJECTS {   
+        nevtEventObject,
+        nevtEventObjectName,
+        nevtEventType,
+        nevtEventText,
+        nevtEventCreatedTime,
+        nevtSequenceCounter,
+        nevtEventPurpose }
+    STATUS  current
+    DESCRIPTION
+        "Notification for a generic event."
+    ::= { nevtNotifications 8 }
+
+END

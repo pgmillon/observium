@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage web
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -111,7 +111,10 @@ See <a href="'.OBSERVIUM_URL.'/wiki/Category:Documentation" target="_blank">docu
     if (!isset($vars['device']) || empty($vars['device']) || $vars['page'] == 'syslog') { $list['device'] = TRUE; }
     if ($short || !isset($vars['priority']) || empty($vars['priority'])) { $list['priority'] = TRUE; }
 
-    $string = '<table class="table table-bordered table-striped table-hover table-condensed-more">' . PHP_EOL;
+
+    $string = generate_box_open($vars['header']);
+
+    $string .= '<table class="'.OBS_CLASS_TABLE_STRIPED_MORE.'">' . PHP_EOL;
     if (!$short)
     {
       $string .= '  <thead>' . PHP_EOL;
@@ -159,7 +162,7 @@ See <a href="'.OBSERVIUM_URL.'/wiki/Category:Documentation" target="_blank">docu
       {
         $string .= '    <td class="syslog" style="white-space: nowrap">';
         $timediff = $GLOBALS['config']['time']['now'] - strtotime($entry['timestamp']);
-        $string .= overlib_link('', formatUptime($timediff, "short-3"), format_timestamp($entry['timestamp']), NULL) . '</td>' . PHP_EOL;
+        $string .= generate_tooltip_link('', formatUptime($timediff, "short-3"), format_timestamp($entry['timestamp']), NULL) . '</td>' . PHP_EOL;
       } else {
         $string .= '    <td width="160">';
         $string .= format_timestamp($entry['timestamp']) . '</td>' . PHP_EOL;
@@ -193,6 +196,8 @@ See <a href="'.OBSERVIUM_URL.'/wiki/Category:Documentation" target="_blank">docu
 
     $string .= '  </tbody>' . PHP_EOL;
     $string .= '</table>' . PHP_EOL;
+
+    $string .= generate_box_close();
 
     // Print pagination header
     if ($pagination && !$short) { $string = pagination($vars, $count) . $string . pagination($vars, $count); }

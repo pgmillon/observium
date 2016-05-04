@@ -6,75 +6,109 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-foreach (array_keys($config['sensor_types']) as $sensor_type)
+$sensor_types = array_keys($config['sensor_types']);
+
+foreach ($sensor_types as $sensor_type)
 {
-  $sql  = "SELECT *, `sensors`.`sensor_id` AS `sensor_id`";
-  $sql .= " FROM  `sensors`";
-  $sql .= " LEFT JOIN  `sensors-state` ON  `sensors`.sensor_id =  `sensors-state`.sensor_id";
+  $sql  = "SELECT * FROM `sensors`";
+  $sql .= " LEFT JOIN `sensors-state` USING(`sensor_id`)";
   $sql .= " WHERE `sensor_class` = ? AND `device_id` = ? ORDER BY `sensor_type`, `sensor_descr`";
 
-  $sensors = dbFetchRows($sql, array($sensor_type, $device['device_id']));
+  // Cache all sensors
+  foreach (dbFetchRows($sql, array($sensor_type, $device['device_id'])) as $entry)
+  {
+    if (strlen($entry['measured_class']) && is_numeric($entry['measured_entity'])) // in_array($entry['sensor_class'], array('temperature', 'voltage', 'current', 'dbm')))
+    {
+      // Sensors bounded with measured class, mostly ports
+      // array index -> ['measured']['port']['345'][] = sensor array
+      $sensors_db['measured'][$entry['measured_class']][$entry['measured_entity']][] = $entry;
+    } else {
+      $sensors_db[$sensor_type][$entry['sensor_id']] = $entry;
+    }
+  }
+}
+//r($sensors_db['measured']);
+
+// Now print founded bundle (measured_class+sensor)
+if (isset($sensors_db['measured']))
+{
+  foreach ($sensors_db['measured'] as $measured_class => $measured_entity)
+  {
+
+?>
+
+  <div class="box box-solid">
+    <div class="box-header ">
+      <i class="oicon-node"></i> <h3 class="box-title"><?php echo(nicecase($measured_class)); ?> sensors</h3>
+    </div>
+    <div class="box-body no-padding">
+      <table class="table table-condensed table-striped">
+
+<?php
+
+    foreach ($measured_entity as $entity_id => $entry)
+    {
+      $entity      = get_entity_by_id_cache($measured_class, $entity_id);
+      $entity_name = entity_name($measured_class, $entity);
+      $entity_link = generate_entity_link($measured_class, $entity);
+      $entity_type = entity_type_translate_array($measured_class);
+
+      //echo('      <tr class="'.$port['row_class'].'">
+      //  <td class="state-marker"></td>
+      echo('      <tr>
+        <td colspan="6" class="entity"><i class="' . $entity_type['icon'] . '"></i> ' . $entity_link . '</td></tr>');
+      foreach ($entry as $sensor)
+      {
+        // Remove port name from sensor description
+        $sensor['sensor_descr'] = trim(str_ireplace($entity_name, '', $sensor['sensor_descr']));
+        if (empty($sensor['sensor_descr']))
+        {
+          // Some time sensor descriptions equals to entity name
+          $sensor['sensor_descr'] = nicecase($sensor['sensor_class']);
+        }
+
+        print_sensor_row($sensor, $vars);
+      }
+    }
+
+?>
+      </table>
+    </div>
+  </div>
+<?php
+
+  }
+  // End for print bounds, unset this array
+  unset($sensors_db['measured']);
+}
+
+foreach ($sensors_db as $sensor_type => $sensors)
+{
+  if ($sensor_type == 'measured') { continue; } // Just be on the safe side
 
   if (count($sensors))
   {
 ?>
 
-  <div class="widget widget-table">
-    <div class="widget-header">
+  <div class="box box-solid">
+    <div class="box-header ">
       <a href="<?php echo(generate_url(array('page' => 'device', 'device' => $device['device_id'], 'tab' => 'health', 'metric' => $sensor_type))); ?>">
-        <i class="<?php echo($config['sensor_types'][$sensor_type]['icon']); ?>"></i><h3><?php echo(nicecase($sensor_type)) ?></h3>
+        <i class="<?php echo($config['sensor_types'][$sensor_type]['icon']); ?>"></i><h3 class="box-title"><?php echo(nicecase($sensor_type)) ?></h3>
       </a>
     </div>
-    <div class="widget-content">
-
+    <div class="box-body no-padding">
 
 <?php
 
-    echo('<table class="table table-condensed-more table-striped table-bordered">');
+    echo('<table class="table table-condensed table-striped">');
     foreach ($sensors as $sensor)
     {
-
-      humanize_sensor($sensor);
-
-      // FIXME - make this "four graphs in popup" a function/include and "small graph" a function.
-      // FIXME - So now we need to clean this up and move it into a function. Isn't it just "print-graphrow"?
-      // FIXME - DUPLICATED IN health/sensors
-
-      $graph_colour = str_replace("#", "", $row_colour);
-
-      $graph_array           = array();
-      $graph_array['to']     = $config['time']['now'];
-      $graph_array['id']     = $sensor['sensor_id'];
-      $graph_array['type']   = "sensor_" . $sensor_type;
-      $graph_array['from']   = $config['time']['day'];
-      $graph_array['legend'] = "no";
-
-      $link_array = $graph_array;
-      $link_array['page'] = "graphs";
-      unset($link_array['height'], $link_array['width'], $link_array['legend']);
-      $link = generate_url($link_array);
-
-      $overlib_content = generate_overlib_content($graph_array);
-
-      $graph_array['width'] = 80; $graph_array['height'] = 20; $graph_array['bg'] = 'ffffff00'; # the 00 at the end makes the area transparent.
-      $graph_array['from'] = $config['time']['day'];
-//      $graph_array['style'][] = 'margin-top: -6px';
-
-      $sensor['sensor_descr'] = truncate($sensor['sensor_descr'], 50, '');
-      $sensor_minigraph = overlib_link($link, generate_graph_tag($graph_array), $overlib_content);
-
-      echo('
-      <tr class="'.$sensor['row_class'].'">
-        <td class="state-marker"></td>
-        <td><strong>'.overlib_link($link, htmlentities($sensor['sensor_descr']), $overlib_content).'</strong></td>
-        <td style="width: 90px; text-align: right;">'.$sensor_minigraph.'</td>
-        <td style="width: 80px; text-align: right;">'.overlib_link($link, '<span class="'.$sensor['state_class'].'">' . $sensor['human_value'] . $sensor['sensor_symbol'] . '</span>', $overlib_content).'</td>
-      </tr>'.PHP_EOL);
+      print_sensor_row($sensor, $vars);
     }
 
     echo("</table>");

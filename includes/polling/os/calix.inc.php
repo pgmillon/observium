@@ -7,12 +7,11 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-$hardware = rewrite_calix_hardware($poll_device['sysObjectID']);
-
+$hardware = rewrite_definition_hardware($device, $poll_device['sysObjectID']);
 if (strstr($hardware, 'E7'))
 {
   /**
@@ -44,7 +43,7 @@ if (strstr($hardware, 'E7'))
     E7-Calix-MIB::e7SystemDate.0 = STRING: 2013-12-07
    */
   $serial  = snmp_get($device, '.1.3.6.1.4.1.6321.1.2.2.2.1.7.10.0', '-Oqvn');     // e7SystemChassisSerialNumber.0
-  $version = trim(snmp_get($device, '.1.3.6.1.4.1.6321.1.2.2.2.1.6.1.1.7.1.1', '-Oqv'), '"'); // e7CardSoftwareVersion.1.1
+  $version = snmp_get($device, '.1.3.6.1.4.1.6321.1.2.2.2.1.6.1.1.7.1.1', '-Oqv'); // e7CardSoftwareVersion.1.1
 
   // Here definition override for ifDescr, because Calix switch ifDescr <> ifName since fw 2.2
   unset($config['os'][$device['os']]['ifname'], $version_parts);
@@ -55,17 +54,13 @@ if (strstr($hardware, 'E7'))
   }
   ///FIXME: $features
 }
-elseif (strstr($hardware, 'E5'))
+else if (strstr($hardware, 'E5'))
 {
   ///FIXME: $version, $features, $serial
 }
-elseif (strstr($hardware, 'C7'))
+else if (strstr($hardware, 'C7'))
 {
   ///FIXME: $version, $features, $serial
 }
-
-$serial  = trim($serial, '"');
-$version = trim($version, '"');
-//$features = str_replace('"','', $features);
 
 // EOF

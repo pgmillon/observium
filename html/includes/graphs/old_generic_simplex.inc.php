@@ -7,14 +7,14 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 // Draw generic bits graph
 // args: ds_in, ds_out, rrd_filename, bg, legend, from, to, width, height, inverse, percentile
 
-include_once($config['html_dir']."/includes/graphs/common.inc.php");
+include($config['html_dir']."/includes/graphs/common.inc.php");
 
 $unit_text = str_pad(truncate($unit_text,18,''),18);
 $line_text = str_pad(truncate($line_text,12,''),12);
@@ -36,7 +36,7 @@ if ($percentile)
   $rrd_options .= " VDEF:".$ds."_percentile=".$ds.",".$percentile.",PERCENT";
 }
 
-if($_GET['previous'] == "yes")
+if ($vars['previous'] == "yes")
 {
   if ($multiplier)
   {
@@ -94,7 +94,7 @@ if ($percentile)
   $rrd_options .= " LINE1:".$ds."_percentile#aa0000";
 }
 
-if($_GET['previous'] == "yes")
+if($vars['previous'] == "yes")
 {
   $rrd_options .= " LINE1.25:".$ds."X#666666:'Prev \\\\n'";
   $rrd_options .= " AREA:".$ds."X#99999966:";

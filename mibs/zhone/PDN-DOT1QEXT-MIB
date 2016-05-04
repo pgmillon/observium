@@ -1,0 +1,402 @@
+PDN-DOT1QEXT-MIB DEFINITIONS ::= BEGIN
+
+-------------------------------------------------------------------
+--	Copyright (C) 2002, Paradyne. All rights reserved.
+--
+--	This MIB is an extension to the standard DOT1Q MIB (rfc2674 q).
+-------------------------------------------------------------------
+
+IMPORTS
+	MODULE-IDENTITY, OBJECT-TYPE,
+	IpAddress, Integer32, Unsigned32
+	    FROM SNMPv2-SMI
+	MODULE-COMPLIANCE, OBJECT-GROUP
+	    FROM SNMPv2-CONF
+	TblCmd
+	    FROM PDN-TC
+	ifIndex
+            FROM IF-MIB
+        dot1qVlanStaticEntry
+	    FROM Q-BRIDGE-MIB
+	pdn-dot1q
+	    FROM PDN-HEADER-MIB;
+	
+pdnDot1qExt  MODULE-IDENTITY
+	    LAST-UPDATED "200507260000Z" -- July 26, 2005
+	    ORGANIZATION "Paradyne Corp MIB Working Group"
+	    CONTACT-INFO "Paradyne Networks, Inc.
+			  8545, 126th Ave. N.,
+			  Largo, FL 33779
+			  www.paradyne.com
+
+			  General Comments to:
+			    mibwg_team@paradyne.com
+
+			  Editors: Dragana Gough
+				   Jesus A. Pinto
+				   Dave Hammers" 
+
+	    DESCRIPTION 
+               "The Paradyne enterprise DOT1q extension MIB.
+                This MIB provides additional DOT1q configuration
+                objects not provided by rfc2674."
+
+	    REVISION "200507260000Z" -- July 26, 2005
+            DESCRIPTION "
+		o Added objects for VLAN stacking (Q in Q)
+		"
+
+	    REVISION "200311120000Z" -- Nov 19, 2003
+            DESCRIPTION "
+                o Added table that maps Bridge Ports (Dot1dBasePort)
+		  with Priorities (PIWG).
+		o Added a new object to clear the Bridge Forwarding Table."
+		  
+	    REVISION "200211300000Z"
+            DESCRIPTION "DG
+                Changed INTEGER to Integer32 in Uplink object SYNTAX
+		Added default values for uplink and nhr in case
+		SecureMode is disabled."
+
+
+	    ::= { pdn-dot1q 1 }
+
+pdnDot1qExtObjects  OBJECT IDENTIFIER ::= { pdnDot1qExt 1 }
+
+--
+-- START OF pdnDot1qExt mib definitions
+--
+
+pdnDot1qVlanStaticExtTable OBJECT-TYPE
+     SYNTAX	 SEQUENCE OF PdnDot1qVlanStaticExtEntry
+     MAX-ACCESS  not-accessible
+     STATUS  	 current
+     DESCRIPTION
+	"The Paradyne dot1qVlanStatic extension table.
+	 This table is used for configuring extensions 
+	 to static vlans."
+	::= { pdnDot1qExtObjects 1 }
+
+pdnDot1qVlanStaticExtEntry OBJECT-TYPE
+     SYNTAX	 PdnDot1qVlanStaticExtEntry
+     MAX-ACCESS  not-accessible
+     STATUS  	 current
+
+    DESCRIPTION
+	"An entry in the Paradyne dot1q extension  to 
+         Static Vlan Table"
+    AUGMENTS  { dot1qVlanStaticEntry }
+    ::= { pdnDot1qVlanStaticExtTable 1 }
+
+PdnDot1qVlanStaticExtEntry ::=
+     SEQUENCE {
+     pdnDot1qVlanStaticSecureModeStatus 	INTEGER, 
+     pdnDot1qVlanStaticProxyArpStatus		INTEGER, 
+     pdnDot1qVlanStaticUplink	        	Integer32, 
+     pdnDot1qVlanStaticDefaultNHR		IpAddress,
+     pdnDot1qVlanStaticOuterTag			Integer32,
+     pdnDot1qVlanStaticOuterDefaultPriority	Integer32,
+     pdnDot1qVlanStaticOuterEthertype		Integer32
+     }
+
+pdnDot1qVlanStaticSecureModeStatus OBJECT-TYPE
+     SYNTAX  	INTEGER {
+		  enable(1),
+		  disable(2)
+     }
+     MAX-ACCESS read-write
+     STATUS	current
+     DESCRIPTION
+         "This is objects configure secure mode status for the 
+          selected VLAN. The secure VLAN mode implies that the users
+	  on this VLAN cannot talk to users on a different VLAN. This
+	  setting also validates the configuration of the next three
+	  objects in this table. If the pdnDot1qVlanStaticSecureModeStatus
+	  is disabled non of the other three objects configurations
+	  apply."
+     ::= { pdnDot1qVlanStaticExtEntry 1 }
+
+pdnDot1qVlanStaticProxyArpStatus OBJECT-TYPE
+     SYNTAX  	INTEGER {
+		  enable(1),
+		  disable(2)
+     }
+     MAX-ACCESS read-write
+     STATUS	current
+     DESCRIPTION
+         "This objects enables/disabled proxy arp on secure VLAN. If the 
+	  VLAN is secure, it can optionally have Proxy ARP enabled.
+          This object is not valid unless pdnDot1qVlanStaticSecureModeStatus
+          is set to ENABLED.This object will be disabled(1) by default."
+     ::= { pdnDot1qVlanStaticExtEntry 2 }
+
+
+pdnDot1qVlanStaticUplink OBJECT-TYPE
+     SYNTAX  	Integer32
+     MAX-ACCESS read-write
+     STATUS	current
+     DESCRIPTION
+         "This is used to configure the port number of the port on 
+          which all frames belonging to secure VLAN are to be forwarded.
+          This object is not valid unless pdnDot1qVlanStaticSecureModeStatus
+          is set to ENABLED. If pdnDot1qVlanStaticSecureModeStatus is disabled
+	  this object will read 0 port."
+     ::= { pdnDot1qVlanStaticExtEntry 3 }
+
+
+pdnDot1qVlanStaticDefaultNHR OBJECT-TYPE
+     SYNTAX  	IpAddress
+     MAX-ACCESS read-write
+     STATUS	current
+     DESCRIPTION
+         "This object is used to configure Default Next Hop Router
+          Ip Address that would be used only if the Next Hop Router
+          cannot be learned (i.e from snooping messages).
+          This object is not valid unless pdnDot1qVlanStaticSecureModeStatus
+          is set to ENABLED. If pdnDot1qVlanStaticSecureModeStatus is disabled
+	  this object will read 0.0.0.0 address."
+     ::= { pdnDot1qVlanStaticExtEntry 4 }
+
+pdnDot1qVlanStaticOuterTag  OBJECT-TYPE
+    SYNTAX      Integer32 (0..4094)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+       "When VLAN stacking (Q in Q) is desired, this object contains the
+	value of the outer 802.1q VLAN outer tag.
+
+	A value of zero (0) indicates that VLAN stacking is not enabled.
+        "
+    DEFVAL      { 0 }
+    ::= { pdnDot1qVlanStaticExtEntry 5 }
+
+pdnDot1qVlanStaticOuterDefaultPriority  OBJECT-TYPE
+    SYNTAX      Integer32 (0..7)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+       "When VLAN stacking (Q in Q) is desired, this object contains the
+	default value of the priority bits in the 802.1q VLAN outer tag
+	for unknown unicast, broadcast and multicast packets.
+
+	For known unicast traffic, the inner VLAN tag priority is copied to
+	the outer tag priority.
+
+	If pdnDot1qVlanStaticOuterTag (above) is zero (0) this object is ignored.
+        "
+    DEFVAL      { 0 }
+    ::= { pdnDot1qVlanStaticExtEntry 6 }
+
+pdnDot1qVlanStaticOuterEthertype  OBJECT-TYPE
+    SYNTAX      Integer32 (0..65535)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+	"When VLAN stacking (Q in Q) is desired, this object contains the
+	 value of the ethertype in the 802.1q VLAN outer tag.
+
+	 If pdnDot1qVlanStaticOuterTag (above) is zero (0) this object is ignored.
+         "
+    DEFVAL      { 33024 } -- 0x8100 hexidecimal
+    ::= { pdnDot1qVlanStaticExtEntry 7 }
+
+
+--
+-- Start of pdnDot1BasePIWGTable
+--
+-- Read-Only table that defines the priorities on the Bridge Ports (BasePorts).
+--
+
+pdnDot1BasePortPIWGTable     OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PdnDot1BasePortPIWGEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "This table allows mapping of Bridge Ports and Priorities.
+
+		 In General, every bridge port has an associated physical port
+	         port (identified by its ifIndex). This relationship is defined
+		 in the Dot1dBasePortTable (RFC1493).
+
+		 In addition, each bridge port is associated with one priority
+		 (PIWG) from a range of valid priorities. This table defines 
+		 this relationship. 
+
+		 The range of priorities can vary from product to product.
+
+		 "
+    ::= { pdnDot1qExtObjects 2 }
+
+pdnDot1BasePortPIWGEntry     OBJECT-TYPE
+    SYNTAX      PdnDot1BasePortPIWGEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "The priority (PIWG) defined on a Bridge port."
+    INDEX       { ifIndex,
+                  pdnDot1BasePort }
+    ::= { pdnDot1BasePortPIWGTable 1 }
+
+PdnDot1BasePortPIWGEntry ::=
+    SEQUENCE {
+	pdnDot1BasePort		       Unsigned32,
+	pdnDot1BasePortPIWGId          Unsigned32,
+        pdnDot1BasePortPIWGCircuit     OBJECT IDENTIFIER
+    }
+
+pdnDot1BasePort OBJECT-TYPE
+    SYNTAX      Unsigned32(1..65535)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "This object specifies the bridge port associated
+                with this PIWG"
+    ::= { pdnDot1BasePortPIWGEntry 1 }
+
+
+pdnDot1BasePortPIWGId OBJECT-TYPE
+    SYNTAX      Unsigned32(1..8)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "This is the integer identifier of the priority (PIWG)"
+    ::= { pdnDot1BasePortPIWGEntry 2 }
+
+pdnDot1BasePortPIWGCircuit OBJECT-TYPE
+    SYNTAX      OBJECT IDENTIFIER
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "This is the object identifier of the priority (PIWG),
+		 
+		 The value of this object must be a valid identifier
+		 defined under the Paradyne Enterprise Definitions
+	         (pdn_Header.mib).
+		 "
+    ::= { pdnDot1BasePortPIWGEntry 3 }
+
+
+pdnDot1TpFdbClear OBJECT-TYPE
+    SYNTAX      TblCmd
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "This object is used to perform a clear on the 
+		 Bridge Forwarding Table (dot1dTpFdbTable).
+		 
+		 A set operation to this object with the value of 'clear (2)'
+		 will clear the entire Bridge Forwarding Table. 
+
+		 A get operation will always return the value of 'noCmd (1)'.
+		"
+
+     ::= { pdnDot1qExtObjects 3 }
+
+
+
+
+
+------------------------------------------
+-- Conformance information
+------------------------------------------
+
+pdnDot1qExtConformance OBJECT IDENTIFIER ::= { pdnDot1qExt 2 }
+pdnDot1qExtGroups      OBJECT IDENTIFIER ::= { pdnDot1qExtConformance 1 }
+pdnDot1qExtCompliances OBJECT IDENTIFIER ::= { pdnDot1qExtConformance 2 }
+
+pdnDot1qExtCompliance MODULE-COMPLIANCE
+     STATUS  current
+     DESCRIPTION
+         "Compliance statement for using this MIB for configuring
+          Dot1q Static Vlan table."
+       MODULE  -- this module
+         GROUP       pdnDot1qVlanExtGroup
+         DESCRIPTION
+             "Implementation of this group is required for systems
+              wishing to conform to this MIB for the purposes of
+              configuring Static Vlan table."
+
+         GROUP       pdnDot1BasePortPIWGGroup
+         DESCRIPTION
+             "Implementation of this group is optional."
+
+         GROUP       pdnDot1GeneralGroup
+         DESCRIPTION
+             "Implementation of this group is optional."
+
+         GROUP      pdnDot1dVlanStackingGroup
+         DESCRIPTION
+             "This group is only required for implementations that
+              require VLAN Stacking (Q in Q)."
+
+         OBJECT pdnDot1qVlanStaticSecureModeStatus
+         MIN-ACCESS read-only
+         DESCRIPTION
+             "The ability to set pdnDot1qVlanStaticSecureModeStatus is not required."
+
+         OBJECT  pdnDot1qVlanStaticProxyArpStatus   
+         MIN-ACCESS read-only
+         DESCRIPTION
+             "The ability to set pdnDot1qVlanStaticProxyArpStatus is not required."
+
+         OBJECT     pdnDot1qVlanStaticUplink
+         MIN-ACCESS read-only
+         DESCRIPTION
+             "The ability to set pdnDot1qVlanStaticUplink is not required."
+
+         OBJECT     pdnDot1qVlanStaticDefaultNHR
+         MIN-ACCESS read-only
+         DESCRIPTION
+             "The ability to set pdnDot1qVlanStaticDefaultNHR is not required."
+
+ ::= { pdnDot1qExtCompliances 1 }
+
+
+--
+-- Units of Conformance
+--
+
+pdnDot1qVlanExtGroup OBJECT-GROUP
+	OBJECTS {
+             pdnDot1qVlanStaticSecureModeStatus, 
+             pdnDot1qVlanStaticProxyArpStatus, 
+             pdnDot1qVlanStaticUplink, 
+             pdnDot1qVlanStaticDefaultNHR
+        }
+	STATUS  current -- Set as required for the group
+	DESCRIPTION 
+	   "A collection of configuration objects required 
+	    for configuring Static Vlan Table."
+
+	::= { pdnDot1qExtGroups 1 }
+
+pdnDot1BasePortPIWGGroup OBJECT-GROUP
+	OBJECTS {
+             pdnDot1BasePortPIWGId, 
+             pdnDot1BasePortPIWGCircuit
+        }
+	STATUS  current -- Set as required for the group
+	DESCRIPTION 
+	   "A collection of read-only objects to provide
+	    associations between bridge ports and priorities."
+
+	::= { pdnDot1qExtGroups 2 }
+
+pdnDot1GeneralGroup OBJECT-GROUP
+	OBJECTS {
+             pdnDot1TpFdbClear
+        }
+	STATUS  current -- Set as required for the group
+	DESCRIPTION 
+	   "This group is optional, but if suppported it 
+	    should be read-writtable."
+
+	::= { pdnDot1qExtGroups 3 }
+
+pdnDot1dVlanStackingGroup OBJECT-GROUP
+	OBJECTS {
+             pdnDot1qVlanStaticOuterTag,
+             pdnDot1qVlanStaticOuterDefaultPriority,
+             pdnDot1qVlanStaticOuterEthertype
+        }
+	STATUS  current
+	DESCRIPTION 
+	   "Provides the ability to configure VLAN
+            Stacking (Q in Q) parameters."
+	::= { pdnDot1qExtGroups 4 }
+
+END

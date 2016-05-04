@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -18,9 +18,9 @@ foreach ($wmi['disk']['logical'] as $disk)
 {
   echo(".");
 
-  $storage_name = $disk['DeviceID'] . "\\ Label:" . $disk['VolumeName'] . "  Serial Number " . strtolower($disk['VolumeSerialNumber']);
+  $storage_name = $disk['DeviceID'] . "\\\\ Label:" . $disk['VolumeName'] . "  Serial Number " . strtolower($disk['VolumeSerialNumber']);
   $storage_id = dbFetchCell("SELECT `storage_id` FROM `storage` WHERE `storage_descr`= ?", array($storage_name));
-  $rrd_filename = "storage-hrstorage-" . $storage_name .".rrd";
+  $rrd_filename = "storage-host-resources-mib-" . $storage_name .".rrd";
   $used = $disk['Size'] - $disk['FreeSpace'];
   $percent = round($used / $disk['Size'] * 100);
 

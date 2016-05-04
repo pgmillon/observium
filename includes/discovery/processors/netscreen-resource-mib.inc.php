@@ -7,11 +7,11 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-echo(" NETSCREEN-RESOURCE-MIB ");
+echo("NETSCREEN-RESOURCE-MIB ");
 
 if (dbFetchCell("SELECT COUNT(*) FROM `processors` WHERE `device_id` = ? AND `processor_type` != 'screenos'", array($device['device_id'])) == "0")
 {

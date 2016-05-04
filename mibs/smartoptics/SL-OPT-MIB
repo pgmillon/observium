@@ -1,0 +1,266 @@
+-- *****************************************************************
+-- smartoptics SiteLight Optical MIB
+--
+-- Jan 2002, Omri Viner
+--
+-- Copyright (c) 1999-2002 by SmartOptics AS
+-- All rights reserved.
+-- *****************************************************************
+
+SL-OPT-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+	MODULE-IDENTITY, OBJECT-TYPE,
+	NOTIFICATION-TYPE, IpAddress      	FROM SNMPv2-SMI
+	DisplayString, TruthValue, 
+	TimeStamp, RowStatus		  		FROM SNMPv2-TC
+	MODULE-COMPLIANCE, OBJECT-GROUP,
+	NOTIFICATION-GROUP                  FROM SNMPv2-CONF
+	InterfaceIndex		               	FROM IF-MIB
+	PerfCurrentCount, PerfIntervalCount,
+	PerfTotalCount                      FROM PerfHist-TC-MIB
+    sitelight			        		FROM SL-NE-MIB;
+
+slOpt MODULE-IDENTITY
+	LAST-UPDATED "0201140000Z"
+	ORGANIZATION "SmartOptics AS"
+	CONTACT-INFO
+        E-mail: d.lutz@smartoptics.com"
+	DESCRIPTION
+		"This MIB module describes the optical connections."
+	::= { sitelight 11 }
+
+--
+--	The Optical MIB consists of the following groups:
+--	Dynamic Optical Connection Table for 2.5Gb transponder
+--	Static Optical Connection Table for 10Gb transponder
+--	Optical Last Change
+--	Optical Traps
+--
+
+slOptConn			OBJECT IDENTIFIER ::= { slOpt 1 }
+-- slOptAps       	   OBJECT IDENTIFIER ::= { slOpt 2 } 
+slOptLastChange		OBJECT IDENTIFIER ::= { slOpt 6 }
+slOptTraps	 		OBJECT IDENTIFIER ::= { slOpt 7 }
+
+--
+-- The dynamic Transponding Connection Table
+-- This table defines the connections between the Transponding modules
+--
+
+optXpdConnConfigTable OBJECT-TYPE
+	SYNTAX  SEQUENCE OF OptXpdConnConfigEntry
+	MAX-ACCESS  		not-accessible
+	STATUS  			current 
+	DESCRIPTION
+		"The dynamic Transponding table. The table contains for each
+		transponding connection two entries, one for each direction.
+		The index to the table is the ifIndex of both interfaces
+		because in the case of one of the APS configuration we define
+		a one-to-many connection.
+		The ifType valued used for the index is: 196."
+	::= { slOptConn 1 }
+
+optXpdConnConfigEntry OBJECT-TYPE
+	SYNTAX  OptXpdConnConfigEntry
+	MAX-ACCESS  not-accessible
+	STATUS  current
+	DESCRIPTION
+		"An entry in the Transponding table."
+	INDEX   { optXpdConnConfigIngressIf, 
+			  optXpdConnConfigEgressIf }
+	::= { optXpdConnConfigTable 1 }
+
+OptXpdConnConfigEntry ::=
+	SEQUENCE {
+		optXpdConnConfigIngressIf			InterfaceIndex,  
+		optXpdConnConfigEgressIf			InterfaceIndex,    
+		optXpdConnConfigRateControlAdmin	INTEGER,
+		optXpdConnConfigRateControlOper		INTEGER,
+		optXpdConnConfigRowStatus			RowStatus,		
+		optXpdConnConfigLosPropagation		TruthValue,
+		optXpdConnSonetRate					TruthValue
+	}
+
+optXpdConnConfigIngressIf OBJECT-TYPE
+	SYNTAX  	InterfaceIndex
+	MAX-ACCESS  read-create
+	STATUS  	current
+	DESCRIPTION
+		"The ingress transponding interface."
+	::= { optXpdConnConfigEntry 1 }
+
+optXpdConnConfigEgressIf OBJECT-TYPE
+	SYNTAX  	InterfaceIndex
+	MAX-ACCESS  read-create
+	STATUS  	current
+	DESCRIPTION
+		"The egress transponding interface."
+	::= { optXpdConnConfigEntry 2 }
+
+optXpdConnConfigRateControlAdmin OBJECT-TYPE
+	SYNTAX  INTEGER
+	MAX-ACCESS  read-create
+	STATUS  	current
+	DESCRIPTION
+		"This variable ask the rate of the traffic used
+		by this interface. The value should be specified in Kbps
+		units.
+		The value of the optXpdConnConfigRateControlAdmin variable 
+		should contain  two information elements:
+
+		1. The retimer bit-rate.
+		2. The source of the rate (enum or explicit).
+
+		The second information element shall be taken from the right-most
+		bit of the object value. While the bit-rate will be represented by the
+		rest of the bits.
+
+		For example if the user configured an explicit bit rate R,
+		the value of the object will be 2xR.
+		If the user configured the same value by ENUM selection, 
+		the object value shall be 2xR + 1.
+
+		This means that the MCC should send the service card the object
+		value shifted >> 1 (devide by 2).
+		
+		The value 0 is used for rate control Bypass."
+    ::= { optXpdConnConfigEntry 3 }
+
+optXpdConnConfigRateControlOper OBJECT-TYPE
+	SYNTAX  INTEGER
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"This variable tells the rate of the traffic used
+		by this interface. 
+		The value should be specified in Kbps.
+		The value is translate by the agent to the rate supported 
+		by the hardware device units.
+		
+		The value 0 is returned for rate control Bypass."
+    ::= { optXpdConnConfigEntry 4 }
+
+optXpdConnConfigRowStatus 	OBJECT-TYPE
+	SYNTAX      	RowStatus
+	MAX-ACCESS  	read-create
+	STATUS      	current
+	DESCRIPTION
+		"This object is used to create and delete rows in 
+		the table."
+	::= { optXpdConnConfigEntry 5 }
+
+optXpdConnConfigLosPropagation 	OBJECT-TYPE
+	SYNTAX      	TruthValue
+	MAX-ACCESS  	read-create
+	STATUS      	current
+	DESCRIPTION
+		"This object is used to detrmine if the LOS propagation should be active."
+	::= { optXpdConnConfigEntry 6 }
+
+optXpdConnSonetRate 	OBJECT-TYPE
+	SYNTAX      	TruthValue
+	MAX-ACCESS  	read-create
+	STATUS      	current
+	DESCRIPTION
+		"In the case of implicit SONET rate, this variable should be TRUE.
+		If the case of explicit SONET rate, the user may select TRUE or FALSE.
+		In this case the default value is FALSE."
+	::= { optXpdConnConfigEntry 7 }
+
+--
+-- The static 10Gb Transponding Connection Table
+-- This table defines the parameters for the
+-- implicit transponding connection fo the 10G
+--
+
+optXpd10ConnConfigTable OBJECT-TYPE
+	SYNTAX  SEQUENCE OF OptXpd10ConnConfigEntry
+	MAX-ACCESS  		not-accessible
+	STATUS  			current 
+	DESCRIPTION
+		"The static 10Gb Transponding table. The table contains for each
+		transponding connection two entries, one for each direction.
+		The index to the table is the ifIndex the upper interface (port# 1).
+		The ifType valued used for the index is: 196."
+	::= { slOptConn 2 }
+
+optXpd10ConnConfigEntry OBJECT-TYPE
+	SYNTAX  OptXpd10ConnConfigEntry
+	MAX-ACCESS  not-accessible
+	STATUS  current
+	DESCRIPTION
+		"An entry in the 10Gb Transponding table."
+	INDEX   { optXpd10ConnConfigIngressIf }
+	::= { optXpd10ConnConfigTable 1 }
+
+OptXpd10ConnConfigEntry ::=
+	SEQUENCE {
+		optXpd10ConnConfigIngressIf				InterfaceIndex,  
+		optXpd10ConnConfigEgressIf				InterfaceIndex,    
+		optXpd10ConnConfigRateControlOper		INTEGER,
+		optXpd10ConnConfigLosPropagation		TruthValue
+	}
+
+optXpd10ConnConfigIngressIf OBJECT-TYPE
+	SYNTAX  	InterfaceIndex
+	MAX-ACCESS  read-create
+	STATUS  	current
+	DESCRIPTION
+		"The ingress transponding interface."
+	::= { optXpd10ConnConfigEntry 1 }
+
+optXpd10ConnConfigEgressIf OBJECT-TYPE
+	SYNTAX  	InterfaceIndex
+	MAX-ACCESS  read-create
+	STATUS  	current
+	DESCRIPTION
+		"The egress transponding interface."
+	::= { optXpd10ConnConfigEntry 2 }
+
+optXpd10ConnConfigRateControlOper OBJECT-TYPE
+	SYNTAX  INTEGER
+	MAX-ACCESS  read-only
+	STATUS  	current
+	DESCRIPTION
+		"This variable tells the rate of the traffic used
+		by this interface. 
+		The value should be specified in Kbps.
+		The value is translate by the agent to the rate supported 
+		by the hardware device units."
+    ::= { optXpd10ConnConfigEntry 3 }
+
+optXpd10ConnConfigLosPropagation 	OBJECT-TYPE
+	SYNTAX      	TruthValue
+	MAX-ACCESS  	read-create
+	STATUS      	current
+	DESCRIPTION
+		"This object is used to detrmine if the LOS propagation should be active."
+	::= { optXpd10ConnConfigEntry 4 }
+
+--
+-- The last change objects
+--
+
+optXpdConnConfigLastChange OBJECT-TYPE
+	SYNTAX  TimeStamp
+	MAX-ACCESS  read-only
+	STATUS  current
+	DESCRIPTION
+		"The value of MIB II's sysUpTime object at the
+		time the optXpdConnConfigTable was last changed."
+	::= { slOptLastChange 1 }
+
+
+--
+-- The traps
+--
+
+optXpdConnConfigTableChange NOTIFICATION-TYPE
+	STATUS  current
+	DESCRIPTION
+		"A optXpdConnConfigTableChange trap is sent when the
+		content of the xpdConnConfigTable is changed."
+	::= { slOptTraps 1 }
+
+END

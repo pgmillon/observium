@@ -7,12 +7,12 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 $mib = 'CISCO-ENTITY-QFP-MIB';
-echo(" $mib ");
+echo("$mib ");
 
 $mempool_array = snmpwalk_cache_multi_oid($device, "ceqfpMemoryResourceEntry", NULL, $mib, mib_dirs('cisco'));
 

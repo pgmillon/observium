@@ -8,22 +8,18 @@
  *
  * @package        observium
  * @subpackage     cli
- * @author         Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author         Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 chdir(dirname($argv[0]));
 $scriptname = basename($argv[0]);
 
-include("includes/defaults.inc.php");
-include("config.php");
-
-$options = getopt("dht");
+$options = getopt("dhpt");
 if (isset($options['d'])) { array_shift($argv); }
 
-include("includes/definitions.inc.php");
-include("includes/functions.inc.php");
+include("includes/sql-config.inc.php");
 include("includes/discovery/functions.inc.php");
 
 print_message("%g" . OBSERVIUM_PRODUCT . " " . OBSERVIUM_VERSION . "\n%WAdd Device(s)%n\n", 'color');
@@ -33,11 +29,19 @@ if (OBS_DEBUG) { print_versions(); }
 if (isset($options['h'])) { print_help($scriptname); exit; }
 
 $snmp_options = array();
+// Just test, do not add device
 if (isset($options['t']))
 {
   $snmp_options['test'] = TRUE;
   array_shift($argv);
 }
+// Add skip pingable checks if argument -p passed
+if (isset($options['p']))
+{
+  $snmp_options['ping_skip'] = 1;
+  array_shift($argv);
+}
+
 $added = 0;
 
 if (!empty($argv[1]))
@@ -253,6 +257,9 @@ EXAMPLE:
 ADD FROM FILE:
  To add multiple devices, create a file in which each line contains one device with or without options.
  Format for device options, the same as specified in USAGE.
+
+OPTIONS:
+ -p                                          Skip icmp echo checks, device added only by SNMP checks
 
 DEBUGGING OPTIONS:
  -d                                          Enable debugging output.

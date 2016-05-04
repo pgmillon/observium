@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -24,6 +24,8 @@ if (isset($graph_def['log_y'])  && $graph_def['log_y'] == TRUE)    { $log_y = TR
 if (isset($graph_def['no_mag']) && $graph_def['no_mag'] == TRUE)   { $mag_unit = "' '"; } else { $mag_unit = '%S'; }
 if (isset($graph_def['num_fmt']))   { $num_fmt   = $graph_def['num_fmt']; } else { $num_fmt = '6.1'; }
 if (isset($graph_def['nototal']))   { $nototal   = $graph_def['nototal']; } else { $nototal = TRUE; }
+if (!isset($graph_def['colours']))    { $graph_def['colours']   = "mixed"; }
+if (isset($graph_def['colour_offset']))   { $c_i   = $graph_def['colour_offset']; } else { $c_i = 0; }
 if (isset($graph_def['file']) && isset($graph_def['index'])) // Indexed graphs
 {
   // Index can be TRUE/FALSE (for TRUE used global $index or $vars with key 'id') or name of used key from $vars
@@ -42,14 +44,14 @@ if (isset($graph_def['file']) && isset($graph_def['index'])) // Indexed graphs
     $index = FALSE;
   }
 
-  if (is_numeric($index))
+  if (strlen($index))
   {
     // Rewrite RRD filename
     $graph_def['file'] = str_replace('-index.rrd', '-'.$index.'.rrd', $graph_def['file']);
   }
 }
 
-include_once($config['html_dir'] . '/includes/graphs/common.inc.php');
+include($config['html_dir'] . '/includes/graphs/common.inc.php');
 include_once($config['html_dir'] . '/includes/graphs/legend.inc.php');
 
 foreach ($graph_def['ds'] as $ds_name => $ds)
@@ -130,19 +132,19 @@ foreach ($graph_def['ds'] as $ds_name => $ds)
     {
       if ($i==0) /// FIXME what is $i ?
       {
-        $data['draw'] = "LINE$m[1]";  /// FIXME $ds['draw']
+        $ds['draw'] = "LINE$m[1]";
       } else {
         $ds['draw'] = "STACK";
       }
     }
 
-    $cmd_graph .= ' '.$ds['draw'].':'.$ds_name.'#'.$colour.':"'.$descr.'"'.$ds['stack'];
-
     if ($ds['line'] == TRUE)
     {
       $colour_line = darken_color($colour);
-      $cmd_graph .= ' LINE1.5:'.$ds_name.'#'.$colour_line;
+      $cmd_graph .= ' LINE1.5:'.$ds_name.'#'.$colour_line.':"'.$descr.'"';
+      $descr = ''; // Reset descr
     }
+    $cmd_graph .= ' '.$ds['draw'].':'.$ds_name.'#'.$colour.':"'.$descr.'"'.$ds['stack'];
 
     $ds_unit = (strlen($ds['unit']) ? $ds['unit'] : '');      // Unit text per DS
     if (isset($ds['num_fmt'])) { $num_fmt = $ds['num_fmt']; } // Numeric format per DS

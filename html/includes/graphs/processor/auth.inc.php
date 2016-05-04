@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -18,8 +18,8 @@ if (is_numeric($proc['device_id']) && ($auth || device_permitted($proc['device_i
   $device = device_by_id_cache($proc['device_id']);
   $rrd_filename  = get_rrd_path($device, "processor-" . $proc['processor_type'] . "-" . $proc['processor_index'] . ".rrd");
   $title  = generate_device_link($device);
-  $title .= " :: Processor :: " . htmlentities($proc['processor_descr']);
+  $title .= " :: Processor :: " . escape_html($proc['processor_descr']);
   $auth = TRUE;
 }
 
-?>
+// EOF

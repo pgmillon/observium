@@ -7,13 +7,15 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 if (!empty($agent_data['app']['asterisk']))
 {
-  $rrd_filename = "app-asterisk-".$app['app_id'].".rrd";
+  $app_id = discover_app($device, 'asterisk');
+
+  $rrd_filename = "app-asterisk-$app_id.rrd";
 
   $data = array(
     'activechan' => 0,

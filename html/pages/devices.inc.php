@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -30,141 +30,192 @@ $where .= implode('', $where_array);
 
 $page_title[] = "Devices";
 
+foreach ($config['device_types'] as $entry)
+{
+  $types[$entry['type']] = $entry;
+}
+
+// Generate array with form elements
+$form_items = array();
+foreach (array('os', 'hardware', 'version', 'features', 'type') as $entry)
+{
+  $query  = "SELECT `$entry` FROM `devices`";
+  if (isset($where_array[$entry]))
+  {
+    $tmp = $where_array[$entry];
+    unset($where_array[$entry]);
+    $query .= ' WHERE 1 ' . implode('', $where_array);
+    $where_array[$entry] = $tmp;
+  } else {
+    $query .= $where;
+  }
+  $query .= " AND `$entry` != '' $query_permitted GROUP BY `$entry` ORDER BY `$entry`";
+  foreach (dbFetchColumn($query) as $item)
+  {
+    if ($entry == 'os')
+    {
+      $name = $config['os'][$item]['text'];
+    }
+    else if ($entry == 'type' && isset($types[$item]))
+    {
+      $name = array('name' => $types[$item]['text'], 'icon' => $types[$item]['icon']);
+    } else {
+      $name = nicecase($item);
+    }
+    $form_items[$entry][$item] = $name;
+  }
+}
+
+asort($form_items['os']);
+
+foreach (get_locations() as $entry)
+{
+  if ($entry === '') { $entry = OBS_VAR_UNSET; }
+  $form_items['location'][$entry] = $entry;
+}
+
+foreach (get_type_groups('device') as $entry)
+{
+  $form_items['group'][$entry['group_id']] = $entry['group_name'];
+}
+
+$form_items['sort'] = array('hostname' => 'Hostname',
+                              'location' => 'Location',
+                              'os'       => 'Operating System',
+                              'version'  => 'Version',
+                              'features' => 'Featureset',
+                              'type'     => 'Device Type',
+                              'uptime'   => 'Uptime');
+
+$form = array('type'  => 'rows',
+              'space' => '10px',
+              'submit_by_key' => TRUE,
+              'url'   => generate_url($vars));
+// First row
+$form['row'][0]['hostname'] = array(
+                                'type'        => 'text',
+                                'name'        => 'Hostname',
+                                'value'       => $vars['hostname'],
+                                'width'       => '100%', //'180px',
+                                'placeholder' => TRUE);
+$form['row'][0]['location'] = array(
+                                'type'        => 'multiselect',
+                                'name'        => 'Select Locations',
+                                'width'       => '100%', //'180px',
+                                'encode'      => TRUE,
+                                'value'       => $vars['location'],
+                                'values'      => $form_items['location']);
+$form['row'][0]['os']       = array(
+                                'type'        => 'multiselect',
+                                'name'        => 'Select OS',
+                                'width'       => '100%', //'180px',
+                                'value'       => $vars['os'],
+                                'values'      => $form_items['os']);
+$form['row'][0]['hardware'] = array(
+                                'type'        => 'multiselect',
+                                'name'        => 'Select Hardware',
+                                'width'       => '100%', //'180px',
+                                'value'       => $vars['hardware'],
+                                'values'      => $form_items['hardware']);
+$form['row'][0]['group']    = array(
+                                'type'        => 'multiselect',
+                                'name'        => 'Select Groups',
+                                'width'       => '100%', //'180px',
+                                'value'       => $vars['group'],
+                                'values'      => $form_items['group']);
+// Select sort pull-rigth
+$form['row'][0]['sort']     = array(
+                                'type'        => 'select',
+                                'icon'        => 'oicon-sort-alphabet-column',
+                                'right'       => TRUE,
+                                'width'       => '100%', //'150px',
+                                'value'       => $vars['sort'],
+                                'values'      => $form_items['sort']);
+
+// Second row
+$form['row'][1]['sysname']  = array(
+                                'type'        => 'text',
+                                'name'        => 'sysName',
+                                'value'       => $vars['sysname'],
+                                'width'       => '100%', //'180px',
+                                'placeholder' => TRUE);
+$form['row'][1]['location_text'] = array(
+                                'type'        => 'text',
+                                'name'        => 'Location',
+                                'value'       => $vars['location_text'],
+                                'width'       => '100%', //'180px',
+                                'placeholder' => TRUE);
+$form['row'][1]['version']  = array(
+                                'type'        => 'multiselect',
+                                'name'        => 'Select OS Version',
+                                'width'       => '100%', //'180px',
+                                'value'       => $vars['version'],
+                                'values'      => $form_items['version']);
+$form['row'][1]['features'] = array(
+                                'type'        => 'multiselect',
+                                'name'        => 'Select Featureset',
+                                'width'       => '100%', //'180px',
+                                'value'       => $vars['features'],
+                                'values'      => $form_items['features']);
+$form['row'][1]['type']     = array(
+                                'type'        => 'multiselect',
+                                'name'        => 'Select Device Type',
+                                'width'       => '100%', //'180px',
+                                'value'       => $vars['type'],
+                                'values'      => $form_items['type']);
+// search button
+$form['row'][1]['search']   = array(
+                                'type'        => 'submit',
+                                //'name'        => 'Search',
+                                //'icon'        => 'icon-search',
+                                'right'       => TRUE,
+                                );
+
+?>
+<div class="row">
+<div class="col-xl-4 visible-xl">
+<?php
+
+$panel_form = array('type'          => 'rows',
+                    'title'         => 'Search Devices',
+                    'space'         => '10px',
+                    'submit_by_key' => TRUE,
+                    'url'           => generate_url($vars));
+
+$panel_form['row'][0]['hostname']      = $form['row'][0]['hostname'];
+$panel_form['row'][0]['sysname']       = $form['row'][1]['sysname'];
+
+$panel_form['row'][1]['location']      = $form['row'][0]['location'];
+$panel_form['row'][1]['location_text'] = $form['row'][1]['location_text'];
+
+$panel_form['row'][2]['os']            = $form['row'][0]['os'];
+$panel_form['row'][2]['version']       = $form['row'][1]['version'];
+
+$panel_form['row'][3]['hardware']      = $form['row'][0]['hardware'];
+$panel_form['row'][3]['features']      = $form['row'][1]['features'];
+
+$panel_form['row'][4]['group']         = $form['row'][0]['group'];
+$panel_form['row'][4]['type']          = $form['row'][1]['type'];
+
+$panel_form['row'][5]['sort']          = $form['row'][0]['sort'];
+$panel_form['row'][5]['search']        = $form['row'][1]['search'];
+
+print_form($panel_form);
+
+?>
+</div>
+
+<div class="col-xl-8">
+
+<?php
+
 if ($vars['searchbar'] != "hide")
 {
-  // Generate array with form elements
-  $search_items = array();
-  foreach (array('os', 'hardware', 'version', 'features', 'type') as $entry)
-  {
-    $query  = "SELECT `$entry` FROM `devices`";
-    if (isset($where_array[$entry]))
-    {
-      $tmp = $where_array[$entry];
-      unset($where_array[$entry]);
-      $query .= ' WHERE 1 ' . implode('', $where_array);
-      $where_array[$entry] = $tmp;
-    } else {
-      $query .= $where;
-    }
-    $query .= " AND `$entry` != '' $query_permitted GROUP BY `$entry` ORDER BY `$entry`";
-    foreach (dbFetchColumn($query) as $item)
-    {
-      if ($entry == 'os')
-      {
-        $name = $config['os'][$item]['text'];
-      } else {
-        $name = nicecase($item);
-      }
-      $search_items[$entry][$item] = $name;
-    }
-  }
-
-  foreach (get_locations() as $entry)
-  {
-    if ($entry === '') { $entry = OBS_VAR_UNSET; }
-    $search_items['location'][$entry] = $entry;
-  }
-
-  foreach (get_type_groups('device') as $entry)
-  {
-    $search_items['group'][$entry['group_id']] = $entry['group_name'];
-  }
-
-  $search_items['sort'] = array('hostname' => 'Hostname',
-                                'location' => 'Location',
-                                'os'       => 'Operating System',
-                                'uptime'   => 'Uptime');
-
-  $form = array('type'  => 'rows',
-                'space' => '10px',
-                //'brand' => NULL,
-                //'class' => 'well',
-                //'hr'    => FALSE,
-                'url'   => generate_url($vars));
-  // First row
-  $form['row'][0]['hostname'] = array(
-                                  'type'        => 'text',
-                                  'name'        => 'Hostname',
-                                  'value'       => $vars['hostname'],
-                                  'width'       => '180px',
-                                  'placeholder' => TRUE);
-  $form['row'][0]['location'] = array(
-                                  'type'        => 'multiselect',
-                                  'name'        => 'Select Locations',
-                                  'width'       => '180px',
-                                  'encode'      => TRUE,
-                                  'value'       => $vars['location'],
-                                  'values'      => $search_items['location']);
-  $form['row'][0]['os']       = array(
-                                  'type'        => 'multiselect',
-                                  'name'        => 'Select OS',
-                                  'width'       => '180px',
-                                  'value'       => $vars['os'],
-                                  'values'      => $search_items['os']);
-  $form['row'][0]['hardware'] = array(
-                                  'type'        => 'multiselect',
-                                  'name'        => 'Select Hardware',
-                                  'width'       => '180px',
-                                  'value'       => $vars['hardware'],
-                                  'values'      => $search_items['hardware']);
-  $form['row'][0]['group']    = array(
-                                  'type'        => 'multiselect',
-                                  'name'        => 'Select Groups',
-                                  'width'       => '180px',
-                                  'value'       => $vars['group'],
-                                  'values'      => $search_items['group']);
-  // Select sort pull-rigth
-  $form['row'][0]['sort']     = array(
-                                  'type'        => 'select',
-                                  'icon'        => 'oicon-sort-alphabet-column',
-                                  'right'       => TRUE,
-                                  'width'       => '150px',
-                                  'value'       => $vars['sort'],
-                                  'values'      => $search_items['sort']);
-
-  // Second row
-  $form['row'][1]['sysname']  = array(
-                                  'type'        => 'text',
-                                  'name'        => 'sysName',
-                                  'value'       => $vars['sysname'],
-                                  'width'       => '180px',
-                                  'placeholder' => TRUE);
-  $form['row'][1]['location_text'] = array(
-                                  'type'        => 'text',
-                                  'name'        => 'Location',
-                                  'value'       => $vars['location_text'],
-                                  'width'       => '180px',
-                                  'placeholder' => TRUE);
-  $form['row'][1]['version']  = array(
-                                  'type'        => 'multiselect',
-                                  'name'        => 'Select OS Version',
-                                  'width'       => '180px',
-                                  'value'       => $vars['version'],
-                                  'values'      => $search_items['version']);
-  $form['row'][1]['features'] = array(
-                                  'type'        => 'multiselect',
-                                  'name'        => 'Select Featureset',
-                                  'width'       => '180px',
-                                  'value'       => $vars['features'],
-                                  'values'      => $search_items['features']);
-  $form['row'][1]['type']     = array(
-                                  'type'        => 'multiselect',
-                                  'name'        => 'Select Device Type',
-                                  'width'       => '180px',
-                                  'value'       => $vars['type'],
-                                  'values'      => $search_items['type']);
-  // search button
-  $form['row'][1]['search']   = array(
-                                  'type'        => 'submit',
-                                  //'name'        => 'Search',
-                                  //'icon'        => 'icon-search',
-                                  'right'       => TRUE,
-                                  );
-
+  echo '<div class="hidden-xl">';
   print_form($form);
-
-  unset($form, $search_items);
+  echo '</div>';
 }
+unset($form, $panel_form, $form_items);
 
 // Build Devices navbar
 
@@ -173,6 +224,11 @@ $navbar = array('brand' => "Devices", 'class' => "navbar-narrow");
 $navbar['options']['basic']['text']  = 'Basic';
 $navbar['options']['detail']['text'] = 'Details';
 $navbar['options']['status']['text'] = 'Status';
+
+if (FALSE && $_SESSION['userlevel'] >= "10")
+{ // Hidden for now
+  $navbar['options']['perf']['text'] = 'Polling Performance';
+}
 $navbar['options']['graphs']['text'] = 'Graphs';
 
 foreach ($navbar['options'] as $option => $array)
@@ -214,16 +270,23 @@ foreach (array('graphs') as $type)
 {
   /// FIXME. Weird graph menu, they too long and not actual for all devices,
   /// but here also not posible use sql query from `device_graphs` because here not stored all graphs
-  /*
-  $query  = 'SELECT `graph` FROM `device_graphs`
-             LEFT JOIN `devices` ON `devices`.`device_id` = `device_graphs`.`device_id`';
-  $query .= $where . $query_permitted . ' AND `device_graphs`.`enabled` = 1 GROUP BY `graph`';
+  /// FIXME - We need to register all graphs in `device_graphs` :D
+
+  $vars_graphs = $vars;
+  unset($vars_graphs['graph']);
+  $where_graphs = build_devices_where_array($vars_graphs);
+
+  $where_graphs = ' WHERE 1 ' . implode('', $where_graphs);
+
+  $query  = 'SELECT `graph` FROM `device_graphs` LEFT JOIN `devices` USING (`device_id`)';
+  $query .= $where_graphs . $query_permitted . ' AND `device_graphs`.`enabled` = 1 GROUP BY `graph`';
+
   foreach (dbFetchColumn($query) as $option)
   {
     $data = $config['graph_types']['device'][$option];
-  */
+  /*
   foreach ($config['graph_types']['device'] as $option => $data)
-  {
+  { */
     if (!isset($data['descr'])) { $data['descr'] = nicecase($option);}
 
     if ($vars['format'] == $type && $vars['graph'] == $option)
@@ -236,21 +299,21 @@ foreach (array('graphs') as $type)
   }
 }
 
-  if ($vars['searchbar'] == "hide")
-  {
-    $navbar['options_right']['searchbar']     = array('text' => 'Show Search', 'url' => generate_url($vars, array('searchbar' => NULL)));
-  } else {
-    $navbar['options_right']['searchbar']     = array('text' => 'Hide Search' , 'url' => generate_url($vars, array('searchbar' => 'hide')));
-  }
+if ($vars['searchbar'] == "hide")
+{
+  $navbar['options_right']['searchbar']     = array('text' => 'Show Search', 'url' => generate_url($vars, array('searchbar' => NULL)));
+} else {
+  $navbar['options_right']['searchbar']     = array('text' => 'Hide Search' , 'url' => generate_url($vars, array('searchbar' => 'hide')));
+}
 
-  if ($vars['bare'] == "yes")
-  {
-    $navbar['options_right']['header']     = array('text' => 'Show Header', 'url' => generate_url($vars, array('bare' => NULL)));
-  } else {
-    $navbar['options_right']['header']     = array('text' => 'Hide Header', 'url' => generate_url($vars, array('bare' => 'yes')));
-  }
+if ($vars['bare'] == "yes")
+{
+  $navbar['options_right']['header']     = array('text' => 'Show Header', 'url' => generate_url($vars, array('bare' => NULL)));
+} else {
+  $navbar['options_right']['header']     = array('text' => 'Hide Header', 'url' => generate_url($vars, array('bare' => 'yes')));
+}
 
-  $navbar['options_right']['reset']        = array('text' => 'Reset', 'url' => generate_url(array('page' => 'devices', 'section' => $vars['section'], 'bare' => $vars['bare'])));
+$navbar['options_right']['reset']        = array('text' => 'Reset', 'url' => generate_url(array('page' => 'devices', 'section' => $vars['section'])));
 
 print_navbar($navbar);
 unset($navbar);
@@ -273,23 +336,14 @@ if ($vars['format'] == 'graphs')
   unset($search);
 }
 
-switch ($vars['sort'])
-{
-  case 'uptime':
-  case 'location':
-  case 'os':
-    $order = ' ORDER BY `'.$vars['sort'].'`';
-  default:
-    $order = ' ORDER BY `hostname`';
-    break;
-}
+$sort = build_devices_sort($vars);
 
 $query = "SELECT * FROM `devices` ";
 if ($config['geocoding']['enable'])
 {
   $query .= " LEFT JOIN `devices_locations` USING (`device_id`) ";
 }
-$query .= $where . $query_permitted . $order;
+$query .= $where . $query_permitted . $sort;
 
 list($format, $subformat) = explode("_", $vars['format'], 2);
 
@@ -309,5 +363,9 @@ if (count($devices))
   print_error("<h4>No devices found</h4>
                Please try adjusting your search parameters.");
 }
+
+echo '</div>';
+
+echo '</div>';
 
 // EOF

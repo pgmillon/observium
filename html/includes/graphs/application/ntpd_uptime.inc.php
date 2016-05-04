@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -15,8 +15,6 @@ include_once($config['html_dir']."/includes/graphs/common.inc.php");
 
 $scale_min       = 0;
 $ds              = "uptime";
-//$colour_area     = "CEFFCE";
-//$colour_line     = "008800";
 $colour_area     = "EEEEEE";
 $colour_line     = "36393D";
 $colour_area_max = "FFEE99";
@@ -34,7 +32,7 @@ include("includes/graphs/common.inc.php");
 $rrd_options   .= " DEF:uptime=".$rrd_filename.":uptime:AVERAGE";
 $rrd_options   .= " CDEF:cuptime=uptime,86400,/";
 
-if ($width<224)
+if ($width < 224)
 {
   $rrd_options .= " 'COMMENT:Days         Cur      Min     Max     Avg\\n'";
 } else {

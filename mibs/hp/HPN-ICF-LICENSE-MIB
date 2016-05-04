@@ -1,0 +1,844 @@
+-- =================================================================
+-- Copyright (c) 2010-2014 Hewlett-Packard Development Company, L.P.
+--
+-- Description: License management
+-- Reference:
+-- Version: V1.0
+-- History:
+--   V1.0 2013-09-18 Initial version by Song Hao and Deng Kai.
+-- =================================================================
+HPN-ICF-LICENSE-MIB DEFINITIONS ::= BEGIN
+IMPORTS
+    hpnicfCommon
+        FROM HPN-ICF-OID-MIB
+    OBJECT-TYPE, MODULE-IDENTITY, NOTIFICATION-TYPE, Unsigned32, TimeTicks
+        FROM SNMPv2-SMI
+    RowStatus, DateAndTime, TruthValue
+        FROM SNMPv2-TC
+    SnmpAdminString
+        FROM SNMP-FRAMEWORK-MIB
+    PhysicalIndex, PhysicalIndexOrZero
+        FROM ENTITY-MIB;
+
+hpnicfLicense MODULE-IDENTITY
+    LAST-UPDATED "201309181000Z"
+    ORGANIZATION
+        ""
+    CONTACT-INFO
+        ""
+    DESCRIPTION
+        "This MIB is used to manage license, including license key,
+        activation key and activation file."
+    REVISION "201309181000Z"
+    DESCRIPTION
+        "Initial version of this MIB module."
+    ::= { hpnicfCommon 145 }
+
+-- Defined the framework
+hpnicfLicenseScalarObjects OBJECT IDENTIFIER ::= { hpnicfLicense 1 }
+hpnicfLicenseTables OBJECT IDENTIFIER ::= { hpnicfLicense 2 }
+hpnicfLicenseNotifications OBJECT IDENTIFIER ::= { hpnicfLicense 3 }
+
+-- Begin of scalar objects
+hpnicfLicenseNotifyEnable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This object indicates whether the notifications of license should be
+        generated."
+    DEFVAL { true }
+    ::= { hpnicfLicenseScalarObjects 1 }
+
+hpnicfLicenseOpEntryMaxNum OBJECT-TYPE
+    SYNTAX      Unsigned32 (1..20)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This object indicates the maximum number of entries
+        that may be held in hpnicfLicenseOpEntry.
+
+        When the number of entries in hpnicfLicenseOpEntry reached the value
+        of this object, the oldest entry would be destroyed automatic after
+        executing a new operation."
+    DEFVAL { 10 }
+    ::= { hpnicfLicenseScalarObjects 2 }
+
+hpnicfLicenseNextFreeOpIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This object indicates the appropriate value for hpnicfLicenseOpIndex
+        that can be used to create an entry in hpnicfLicenseOpTable."
+    ::= { hpnicfLicenseScalarObjects 3 }
+-- End of scalar objects
+
+-- Begin of device information
+hpnicfLicenseDevInfoTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HpnicfLicenseDevInfoEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A table that displays device information which use to apply license."
+    ::= { hpnicfLicenseTables 1 }
+
+hpnicfLicenseDevInfoEntry OBJECT-TYPE
+    SYNTAX      HpnicfLicenseDevInfoEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A set of objects that displays device information of license."
+    INDEX
+        {
+            hpnicfLicensePhysicalIndex
+        }
+    ::= { hpnicfLicenseDevInfoTable 1 }
+
+HpnicfLicenseDevInfoEntry ::= SEQUENCE
+    {
+        hpnicfLicensePhysicalIndex       PhysicalIndex,
+        hpnicfLicenseSN                  SnmpAdminString,
+        hpnicfLicenseDeviceIDType        INTEGER,
+        hpnicfLicenseDeviceID            SnmpAdminString,
+        hpnicfLicenseHardwareInfo        SnmpAdminString,
+        hpnicfLicenseMaxNum              Unsigned32,
+        hpnicfLicenseUsedNum             Unsigned32,
+        hpnicfLicenseRecyclableNum       Unsigned32,
+        hpnicfLicenseInstallType         INTEGER,
+        hpnicfLicenseFileStoragePath     SnmpAdminString
+    }
+
+hpnicfLicensePhysicalIndex OBJECT-TYPE
+    SYNTAX      PhysicalIndex
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The entPhysicalIndex of the device.
+
+        The meaning of this object is associated with the management state
+        which from hpnicfLicenseInstallType.
+
+        Note that:
+        1) hpnicfLicenseInstallType is installInChassis.
+           This object represents the entPhysicalIndex of the local active MPU.
+
+        2) hpnicfLicenseInstallType is installInSlot.
+           This object represents the entPhysicalIndex of MPU boards.
+
+        3) hpnicfLicenseInstallType is installInCPU.
+           This object represents the entPhysicalIndex of the CPUs on an MPU board.
+        "
+    ::= { hpnicfLicenseDevInfoEntry 1 }
+
+hpnicfLicenseSN OBJECT-TYPE
+    SYNTAX      SnmpAdminString (SIZE(0..255))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The serial number of the device."
+    ::= { hpnicfLicenseDevInfoEntry 2 }
+
+hpnicfLicenseDeviceIDType   OBJECT-TYPE
+    SYNTAX      INTEGER {
+                  invalid(1),
+                  keyString(2),
+                  file(3)
+                }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The types of device ID.
+
+        invalid - The device ID is invalid.
+        keyString - The device ID is a string.
+        file - The device ID is a file."
+    ::= { hpnicfLicenseDevInfoEntry 3 }
+
+hpnicfLicenseDeviceID OBJECT-TYPE
+    SYNTAX      SnmpAdminString (SIZE(0..255))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A string represents the device ID.
+
+        For example:
+        Device ID: XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX
+
+        This object can not be read when hpnicfLicenseDeviceIDType is invalid,
+        and a file name with full path while hpnicfLicenseDeviceIDType is file.
+
+        For example:
+        Device ID: flash:/xxx.did"
+    ::= { hpnicfLicenseDevInfoEntry 4 }
+
+hpnicfLicenseHardwareInfo OBJECT-TYPE
+    SYNTAX      SnmpAdminString (SIZE(0..255))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The information of the device hardware."
+    ::= { hpnicfLicenseDevInfoEntry 5 }
+
+hpnicfLicenseMaxNum OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The max number of licenses that can be installed in device."
+    ::= { hpnicfLicenseDevInfoEntry 6 }
+
+hpnicfLicenseUsedNum OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The number of installed licenses."
+    ::= { hpnicfLicenseDevInfoEntry 7 }
+
+hpnicfLicenseRecyclableNum OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The number of recyclable storage for licenses."
+    ::= { hpnicfLicenseDevInfoEntry 8 }
+
+hpnicfLicenseInstallType OBJECT-TYPE
+    SYNTAX      INTEGER {
+                  invalid(1),
+                  installInChassis(2),
+                  installInSlot(3),
+                  installInCPU(4)
+                }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The state of license management.
+        This object determines the instance of
+        hpnicfLicensePhysicalIndex and hpnicfLicenseOpPhysicalIndex.
+
+        invalid - The state is invalid as driver fault.
+
+        installInChassis - License is chassis locked.
+
+        installInSlot - License is MPU locked.
+
+        installInCPU - License is CPU locked."
+    ::= { hpnicfLicenseDevInfoEntry 9 }
+
+hpnicfLicenseFileStoragePath   OBJECT-TYPE
+    SYNTAX      SnmpAdminString (SIZE(0..255))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The storage path of the installed license files."
+    ::= { hpnicfLicenseDevInfoEntry 10 }
+-- End of device information
+
+-- Begin of general information
+hpnicfLicenseGeneralTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HpnicfLicenseGeneralEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A table that displays general information of installed license."
+    ::= { hpnicfLicenseTables 2 }
+
+hpnicfLicenseGeneralEntry OBJECT-TYPE
+    SYNTAX      HpnicfLicenseGeneralEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A set of objects that displays general information of
+        installed license."
+    INDEX
+        {
+            hpnicfLicensePhysicalIndex,
+            hpnicfLicenseIndex
+        }
+    ::= { hpnicfLicenseGeneralTable 1 }
+
+HpnicfLicenseGeneralEntry ::= SEQUENCE
+    {
+        hpnicfLicenseIndex                Unsigned32,
+        hpnicfLicenseFeature              SnmpAdminString,
+        hpnicfLicenseProductDescr         OCTET STRING,
+        hpnicfLicenseFileDescr            SnmpAdminString,
+        hpnicfLicenseState                INTEGER,
+        hpnicfLicenseActivationFile       SnmpAdminString,
+        hpnicfLicenseActivationKey        SnmpAdminString,
+        hpnicfLicenseLicenseKey           SnmpAdminString,
+        hpnicfLicenseUninstActivationFile SnmpAdminString,
+        hpnicfLicenseUninstActivationKey  SnmpAdminString,
+        hpnicfLicenseType                 INTEGER,
+        hpnicfLicenseInstalledTime        DateAndTime,
+        hpnicfLicenseUninstalledTime      DateAndTime,
+        hpnicfLicenseDaysLeft             Unsigned32,
+        hpnicfLicenseValidityStart        DateAndTime,
+        hpnicfLicenseValidityEnd          DateAndTime,
+        hpnicfLicenseExpiredDays          Unsigned32,
+        hpnicfLicenseCount                Unsigned32
+    }
+
+hpnicfLicenseIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "ID that can be used to uniquely identify a license.
+        It may use a stable storage index."
+    ::= { hpnicfLicenseGeneralEntry 1 }
+
+hpnicfLicenseFeature OBJECT-TYPE
+    SYNTAX      SnmpAdminString (SIZE(0..1024))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The name of the licensed feature.
+
+        When there multiple features, this object will display with space
+        as delimiter."
+    ::= { hpnicfLicenseGeneralEntry 2 }
+
+hpnicfLicenseProductDescr OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(0..1024))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The product description in a license."
+    ::= { hpnicfLicenseGeneralEntry 3 }
+
+hpnicfLicenseFileDescr OBJECT-TYPE
+    SYNTAX      SnmpAdminString (SIZE(0..1024))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The file description in activation file."
+    ::= { hpnicfLicenseGeneralEntry 4 }
+
+hpnicfLicenseState OBJECT-TYPE
+    SYNTAX      INTEGER {
+                  invalid(1),
+                  inuse(2),
+                  usable(3),
+                  expired(4),
+                  uninstalled(5),
+                  unusable(6)
+                }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The state of an installed license.
+
+        invalid - The license is invalid and cannot be used.
+        inuse - The license is being used.
+        usable - The license is available for use.
+                 1. If multiple days-restricted licenses for one feature
+                    are installed, only one license is in 'inuse' state and
+                    the rest licenses are in 'usable' state.
+                 2. A date-restricted license is in this state if its
+                    start date is not reached.
+        expired - The license has expired.
+        uninstalled - The license has been uninstalled.
+        unusable - The license cannot be used."
+    ::= { hpnicfLicenseGeneralEntry 5 }
+
+hpnicfLicenseActivationFile OBJECT-TYPE
+    SYNTAX      SnmpAdminString (SIZE(0..255))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The name of an installed activation file, with device name and
+        file name.
+
+        For example:
+        flash:/license/210231A1V0A1290000012013032718261184345.ak
+        "
+    ::= { hpnicfLicenseGeneralEntry 6 }
+
+hpnicfLicenseActivationKey OBJECT-TYPE
+    SYNTAX      SnmpAdminString (SIZE(0..255))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The activation key that has been installed.
+
+        For example:
+        Activation Key: dyKT-x3vc-W@Ca-n4gn-Yo83-rVY3-C8:7-e3pg"
+    ::= { hpnicfLicenseGeneralEntry 7 }
+
+hpnicfLicenseLicenseKey OBJECT-TYPE
+    SYNTAX      SnmpAdminString (SIZE(0..255))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The license key that has been installed."
+    ::= { hpnicfLicenseGeneralEntry 8 }
+
+hpnicfLicenseUninstActivationFile OBJECT-TYPE
+    SYNTAX      SnmpAdminString (SIZE(0..255))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "If an activation file is uninstalled, the system creates an
+        uninstall file.  Use this file together with the SN and DID of the
+        transfer destination to register the license for the transfer
+        destination."
+    ::= { hpnicfLicenseGeneralEntry 9 }
+
+hpnicfLicenseUninstActivationKey OBJECT-TYPE
+    SYNTAX      SnmpAdminString (SIZE(0..255))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "If an activation key is uninstalled, the system creates an
+        uninstall key.  Use this key together with the SN and DID of the
+        transfer destination to register the license for the transfer
+        destination."
+    ::= { hpnicfLicenseGeneralEntry 10 }
+
+hpnicfLicenseType OBJECT-TYPE
+    SYNTAX      INTEGER {
+                  unknown(1),
+                  permanent(2),
+                  daysRestricted(3),
+                  trialDaysRestricted(4),
+                  dateRestricted(5),
+                  trialDateRestricted(6),
+                  countRestricted(7),
+                  trialCountRestricted(8)
+                }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "License type by validity period.
+
+        unknown - The system cannot obtain the license type.
+
+        permanent - Purchased license that never expires and is always valid.
+
+        daysRestricted - Purchased license that is valid for a period in days.
+        trialDaysRestricted - Free trial license that is valid for
+                              a period in days.
+
+        dateRestricted - Purchased license that is valid for an
+                         absolute date range.
+        trialDateRestricted - Free trial license that is valid for
+                              an absolute date range.
+
+        countRestricted - Purchased license that is valid for
+                          several useing times.
+        trialCountRestricted - Free trial license that is valid for
+                               several useing times.
+        "
+    ::= { hpnicfLicenseGeneralEntry 11 }
+
+hpnicfLicenseInstalledTime OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Time when the license was installed.
+
+        For example, it would be displayed as:
+        2013-9-20,13:30:15.0
+        "
+    ::= { hpnicfLicenseGeneralEntry 12 }
+
+hpnicfLicenseUninstalledTime OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The time when the license was uninstalled.
+
+        For example, it would be displayed as:
+        2013-9-26,15:12:20.0
+        "
+    ::= { hpnicfLicenseGeneralEntry 13 }
+
+hpnicfLicenseDaysLeft OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Remaining days of the license.
+        This object is available for a days-restricted license."
+    ::= { hpnicfLicenseGeneralEntry 14 }
+
+hpnicfLicenseValidityStart OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Start date for a date-restricted license.
+        This object is available for a date-restricted license.
+        But if the start date is not limited, this object is unavailable.
+
+        For example, it would be displayed as:
+        2013-9-26,15:12:20.0
+        "
+    ::= { hpnicfLicenseGeneralEntry 15 }
+
+hpnicfLicenseValidityEnd OBJECT-TYPE
+    SYNTAX      DateAndTime
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "End date for a date-restricted license.
+        This object is available for a date-restricted license.
+        But if the end date is not limited, this object is unavailable.
+
+        For example, it would be displayed as:
+        2014-9-26,15:12:20.0
+        "
+    ::= { hpnicfLicenseGeneralEntry 16 }
+
+hpnicfLicenseExpiredDays OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Passed days after a license has been expired."
+    ::= { hpnicfLicenseGeneralEntry 17 }
+
+hpnicfLicenseCount OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The effective number of license.
+        This object is available for a count-restricted license."
+    ::= { hpnicfLicenseGeneralEntry 18 }
+-- End of general information
+
+-- Begin of feature information
+hpnicfLicenseFeatureTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HpnicfLicenseFeatureEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A table that displays installed licenses for features."
+    ::= { hpnicfLicenseTables 3 }
+
+hpnicfLicenseFeatureEntry OBJECT-TYPE
+    SYNTAX      HpnicfLicenseFeatureEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A set of objects that displays installed licenses for features."
+    INDEX
+        {
+            hpnicfLicensePhysicalIndex,
+            IMPLIED hpnicfLicenseFeatureName
+        }
+    ::= { hpnicfLicenseFeatureTable 1 }
+
+HpnicfLicenseFeatureEntry ::= SEQUENCE
+    {
+        hpnicfLicenseFeatureName      SnmpAdminString,
+        hpnicfLicenseFeatureState     INTEGER
+    }
+
+hpnicfLicenseFeatureName OBJECT-TYPE
+    SYNTAX      SnmpAdminString (SIZE(1..31))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Feature that must be licensed before being used."
+    ::= { hpnicfLicenseFeatureEntry 1 }
+
+hpnicfLicenseFeatureState OBJECT-TYPE
+    SYNTAX      INTEGER {
+                  notLicensed(1),
+                  trialLicense(2),
+                  formalLicense(3)
+                }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "License type by purchasing state.
+
+        notLicensed - The feature is not licensed.
+        trialLicense - The feature is using trial license.
+        formalLicense - The feature is using purchased license."
+    ::= { hpnicfLicenseFeatureEntry 2 }
+-- End of feature information
+
+-- Begin of operation table
+hpnicfLicenseOpTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF HpnicfLicenseOpEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A table that used to install or uninstall license."
+    ::= { hpnicfLicenseTables 4 }
+
+hpnicfLicenseOpEntry OBJECT-TYPE
+    SYNTAX      HpnicfLicenseOpEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A set of objects used to install or uninstall license."
+    INDEX
+        {
+            hpnicfLicenseOpIndex
+        }
+    ::= { hpnicfLicenseOpTable 1 }
+
+HpnicfLicenseOpEntry ::= SEQUENCE
+    {
+        hpnicfLicenseOpIndex          Unsigned32,
+        hpnicfLicenseOpPhysicalIndex  PhysicalIndexOrZero,
+        hpnicfLicenseOpType           INTEGER,
+        hpnicfLicenseOpString         SnmpAdminString,
+        hpnicfLicenseOpNotifyEnable   TruthValue,
+        hpnicfLicenseOpRowStatus      RowStatus,
+        hpnicfLicenseOpState          INTEGER,
+        hpnicfLicenseOpFailedReason   SnmpAdminString,
+        hpnicfLicenseOpEndTime        TimeTicks
+    }
+
+hpnicfLicenseOpIndex OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "ID that can be used to uniquely identify an operation."
+    ::= { hpnicfLicenseOpEntry 1 }
+
+hpnicfLicenseOpPhysicalIndex OBJECT-TYPE
+    SYNTAX      PhysicalIndexOrZero
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "This object indicates that the entPhysicalIndex of the device
+        where the operation is being executed.
+
+        The meaning of this object is associated with the management state
+        from hpnicfLicenseInstallType.
+
+        Note that:
+        1) hpnicfLicenseInstallType is installInChassis.
+           This object represents the entPhysicalIndex of chassis local master.
+
+        2) hpnicfLicenseInstallType is installInSlot.
+           This object represents the entPhysicalIndex of MPU boards.
+
+        3) hpnicfLicenseInstallType is installInCPU.
+           This object represents the entPhysicalIndex of CPUs.
+
+        This object must be set and can not be set to zero when
+        executing an operation.
+        "
+    ::= { hpnicfLicenseOpEntry 2 }
+
+hpnicfLicenseOpType OBJECT-TYPE
+    SYNTAX      INTEGER {
+                  compress(1),
+                  delete(2),
+                  installActivationFile(3),
+                  installActivationKey(4),
+                  installLicenseKey(5),
+                  uninstallActivationFile(6),
+                  uninstallActivationKey(7),
+                  uninstallLicenseKey(8)
+                }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The type of this operation.
+
+        compress - Compress the license storage if the free license storage
+                   is not sufficient.
+        Note that:
+        1) After compressing, the expired licenses and uninstalled licenses
+           in the storage area will be cleared.
+        2) The DID changes each time the license storage is compressed.
+        3) Before performing a compression, make sure all activation files
+           generated based on the old DID have been installed.
+           They cannot be installed after the compression.
+
+        delete - Compress one license storage only.
+
+        installActivationFile   -  Install an activation file.
+
+        installActivationKey    -  Install an activation key.
+
+        installLicenseKey       -  Install a license key.
+
+        uninstallActivationFile -  Uninstall an activation file.
+
+        uninstallActivationKey  -  Uninstall an activation key.
+
+        uninstallLicenseKey     -  Uninstall a license key."
+    ::= { hpnicfLicenseOpEntry 3 }
+
+hpnicfLicenseOpString OBJECT-TYPE
+    SYNTAX      SnmpAdminString (SIZE(0..255))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "This object might be an activation file name, an activation key or
+        a license key that is to be installed, uninstalled or deleted.
+
+        The operation type is specified in hpnicfLicenseOpType.
+
+        For compressing, this object must not be bound when creating a row.
+
+        For deletion, this object could be an activation file, an activation
+        key or a license key.
+
+        For installActivationFile and uninstallActivationFile,
+        this object must be a name of an activation file, with full path.
+        Such as: flash:/license/210231A1V0A1290000012013032718261184345.ak
+
+        For installActivationKey and uninstallActivationKey,
+        this object must be an activation key.
+
+        For installLicenseKey and uninstallLicenseKey,
+        this object must be a license key."
+    ::= { hpnicfLicenseOpEntry 4 }
+
+hpnicfLicenseOpNotifyEnable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "This object indicates whether 'hpnicfLicenseOpCompletion' notifications
+        will be generated after this operation is completed.
+
+        Note that, this object is meaningless if the value of
+        'hpnicfLicenseNotifyEnable' is 'false'."
+    DEFVAL { false }
+    ::= { hpnicfLicenseOpEntry 5 }
+
+hpnicfLicenseOpRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The status of this conceptual row.
+
+        When an entry was in active status, values of any object in this entry
+        are forbidden to be changed."
+    ::= { hpnicfLicenseOpEntry 6 }
+
+hpnicfLicenseOpState OBJECT-TYPE
+    SYNTAX      INTEGER {
+                  opInProgress(1),
+                  opSuccessful(2),
+                  opFailed(3)
+                }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The state of this operation.
+
+        opInProgress - This operation is in progress.
+        opSuccessful - Successful to execute this operation.
+        opFailed - Failed to execute this operation,
+                   and 'hpnicfLicenseOpFailedReason' will indicate the detailed
+                   cause of the failure."
+    ::= { hpnicfLicenseOpEntry 7 }
+
+hpnicfLicenseOpFailedReason OBJECT-TYPE
+    SYNTAX      SnmpAdminString (SIZE(0..255))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This object indicates the detailed cause of the failure when this
+        operation failed."
+    ::= { hpnicfLicenseOpEntry 8 }
+
+hpnicfLicenseOpEndTime OBJECT-TYPE
+    SYNTAX      TimeTicks
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of sysUpTime when the operation is done."
+    ::= { hpnicfLicenseOpEntry 9 }
+-- End of operation table
+
+-- Begin of notifications
+hpnicfLicenseNotificationPrefix OBJECT IDENTIFIER ::= { hpnicfLicenseNotifications 0 }
+
+hpnicfLicenseOpCompletion NOTIFICATION-TYPE
+    OBJECTS
+        {
+            hpnicfLicenseOpIndex,
+            hpnicfLicenseOpPhysicalIndex,
+            hpnicfLicenseOpType,
+            hpnicfLicenseOpString,
+            hpnicfLicenseOpState,
+            hpnicfLicenseOpFailedReason
+        }
+    STATUS      current
+    DESCRIPTION
+        "This notification is generated when a license operation completed."
+    ::= { hpnicfLicenseNotificationPrefix 1 }
+
+hpnicfLicenseActivationFileLost NOTIFICATION-TYPE
+    OBJECTS
+        {
+            hpnicfLicensePhysicalIndex,
+            hpnicfLicenseActivationFile
+        }
+    STATUS      current
+    DESCRIPTION
+        "This notification is generated when the activation file
+        has been lost."
+    ::= { hpnicfLicenseNotificationPrefix 2 }
+
+hpnicfLicenseActivationFileRestored NOTIFICATION-TYPE
+    OBJECTS
+        {
+            hpnicfLicensePhysicalIndex,
+            hpnicfLicenseActivationFile
+        }
+    STATUS      current
+    DESCRIPTION
+        "This notification is generated when the activation file
+        restored successfully."
+    ::= { hpnicfLicenseNotificationPrefix 3 }
+
+hpnicfLicenseExpired NOTIFICATION-TYPE
+    OBJECTS
+        {
+            hpnicfLicenseFeatureName,
+            hpnicfLicenseFeatureState
+        }
+    STATUS      current
+    DESCRIPTION
+        "This notification is generated when the license expires."
+    ::= { hpnicfLicenseNotificationPrefix 4 }
+
+hpnicfLicenseExpireWarning NOTIFICATION-TYPE
+    OBJECTS
+        {
+            hpnicfLicenseFeatureName,
+            hpnicfLicenseFeatureState,
+            hpnicfLicenseBindValidityPeriodRemaining
+        }
+    STATUS      current
+    DESCRIPTION
+        "This notification is generated when is about to expire."
+    ::= { hpnicfLicenseNotificationPrefix 5 }
+-- End of notifications
+
+-- Begin of notification bindings
+hpnicfLicenseNotificationBindings OBJECT IDENTIFIER ::= { hpnicfLicenseNotifications 1 }
+
+hpnicfLicenseBindValidityPeriodRemaining OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "days"
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "This object indicates the remaining days before
+        the feature's license expires."
+    ::= { hpnicfLicenseNotificationBindings 1 }
+-- End of notification bindings
+
+END

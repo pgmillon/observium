@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -18,11 +18,11 @@ $aps = dbFetchRows("SELECT * FROM `accesspoints`  LEFT JOIN `accesspoints-state`
 if(count($aps))
 {
 
-  echo('<table class="table table-bordered table-rounded table-striped table-hover">');
+  echo('<table class="table   table-striped table-hover">');
 
   foreach ($aps as $ap)
   {
-    include('includes/print-accesspoint.inc.php');
+    include($config['html_dir'].'/includes/print-accesspoint.inc.php');
 
     $i++;
   }

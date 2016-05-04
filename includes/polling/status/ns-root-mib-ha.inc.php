@@ -7,17 +7,17 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-echo(" NS-ROOT-MIB HA ");
-
+// echo(" NS-ROOT-MIB HA ");
 
 // Collect HAMode & HAState
 
 $sysHighAvailabilityMode = snmp_get($device, 'sysHighAvailabilityMode.0', '-Ovq', 'NS-ROOT-MIB', mib_dirs('citrix'));
 $haCurState              = snmp_get($device, 'haCurState.0',              '-Ovq', 'NS-ROOT-MIB', mib_dirs('citrix'));
+$haPeerState             = snmp_get($device, 'haPeerState.0',              '-Ovq', 'NS-ROOT-MIB', mib_dirs('citrix'));
 
 if ($sysHighAvailabilityMode !== '' && $haCurState !== '')
 {
@@ -35,15 +35,31 @@ if ($sysHighAvailabilityMode !== '' && $haCurState !== '')
       {
         case "up":
         case "monitorOk":
-          $status_poll['status_event'] = 'up';
-          $status_poll['status_name']  = $sysHighAvailabilityMode.'/'.$haCurState;
-          $status_value = "1";
+          switch ($haPeerState)
+          {
+            case "primary":
+            case "secondary":
+              $status_poll['status_event'] = 'ok';
+              $status_poll['status_name']  = $sysHighAvailabilityMode.'/'.$haCurState.'/'.$haPeerState;
+              $status_value = "1";
+              break;
+            case "standalone":
+              $status_poll['status_event'] = 'alert';
+              $status_poll['status_name']  = $sysHighAvailabilityMode.'/'.$haCurState.'/'.$haPeerState;
+              $status_value = "-1";
+              break;
+            default:
+              $status_poll['status_event'] = 'alert';
+              $status_poll['status_name']  = $sysHighAvailabilityMode.'/'.$haCurState.'/'.$haPeerState;
+              $status_value = "-1";
+              break;
+          }
           break;
         case "init":
         case "dumb":
         case "disabled":
           $status_poll['status_event'] = 'warning';
-          $status_poll['status_name']  = $sysHighAvailabilityMode.'/'.$haCurState;
+          $status_poll['status_name']  = $sysHighAvailabilityMode.'/'.$haCurState.'/'.$haPeerState;
           $status_value = "0";
           break;
         case "alert":
@@ -54,13 +70,14 @@ if ($sysHighAvailabilityMode !== '' && $haCurState !== '')
         case "partialFailSsl":
         case "routemonitorFail":
           $status_poll['status_event'] = 'alert';
-          $status_poll['status_name']  = $sysHighAvailabilityMode.'/'.$haCurState;
+          $status_poll['status_name']  = $sysHighAvailabilityMode.'/'.$haCurState.'/'.$haPeerState;
           $status_value = "-1";
           break;
       }
+      break;
     default:
       $status_poll['status_event'] = 'warning';
-      $status_poll['status_name']  = $sysHighAvailabilityMode.'/'.$haCurState;
+      $status_poll['status_name']  = $sysHighAvailabilityMode.'/'.$haCurState.'/'.$haPeerState;
       $status_value = "0";
   }
 

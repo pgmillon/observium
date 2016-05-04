@@ -6,8 +6,8 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -69,7 +69,7 @@ if ($timestamp_min)
   // Print syslog
   print_syslogs($vars);
 } else {
-  print_warning('<h4>No syslog entries found!</h4>
+  print_warning('<h3>No syslog entries found!</h4>
 This device does not have any syslog entries.
 Check that the syslog daemon and Observium configuration options are set correctly, that this device is configured to send syslog to Observium and that there are no firewalls blocking the messages.
 

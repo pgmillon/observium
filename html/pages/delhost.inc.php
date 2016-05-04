@@ -6,16 +6,16 @@
  *
  * @package    observium
  * @subpackage webui
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
+// Global write permissions required.
 if ($_SESSION['userlevel'] < 10)
 {
-  include("includes/error-no-perm.inc.php");
-
-  exit;
+  print_error_permission();
+  return;
 }
 
 $page_title[] = "Delete devices";
@@ -33,91 +33,91 @@ if (is_numeric($vars['id']))
     //      </div>');
   } else {
     print_warning("Are you sure you want to delete device <strong>" . $device['hostname'] . "</strong>?");
-?>
-<br />
-<form name="form1" method="post" action="" class="form-horizontal" >
-  <input type="hidden" name="id" value="<?php echo $vars['id'] ?>" />
-  <input type="hidden" name="confirm" value="1" />
-  <!--<input type="submit" class="submit" name="Submit" value="Confirm host deletion" />-->
-  <button type="submit" class="btn btn-danger"><i class="icon-remove icon-white"></i> Delete Device</button>
-</form>
 
-<?php
+      $form = array('type'      => 'horizontal',
+                    'id'        => 'delete_host',
+                    //'space'     => '20px',
+                    'title'     => 'Delete device <strong>'. $device['hostname'] . '</strong>',
+                    'icon'      => 'oicon-server--minus',
+                    //'class'     => 'box box-solid',
+                    'url'       => 'delhost/'
+                    );
+
+      $form['row'][0]['id'] = array(
+                                      'type'        => 'hidden',
+                                      'value'       => $vars['id']);
+      $form['row'][4]['deleterrd'] = array(
+                                      'type'        => 'checkbox',
+                                      'name'        => 'Delete RRDs',
+                                      'value'       => (bool)$vars['deleterrd']);
+      $form['row'][5]['confirm'] = array(
+                                      'type'        => 'checkbox',
+                                      'name'        => 'Confirm Deletion',
+                                      'onchange'    => "javascript: toggleAttrib('disabled', 'delete');",
+                                      'value'       => 'confirm');
+      $form['row'][6]['delete']    = array(
+                                      'type'        => 'submit',
+                                      'name'        => 'Delete device',
+                                      'icon'        => 'icon-remove icon-white',
+                                      //'right'       => TRUE,
+                                      'class'       => 'btn-danger',
+                                      'disabled'    => TRUE);
+      print_form($form);
+      unset($form);
   }
 } else {
-?>
 
-<form name="form1" method="post" action="" class="form-horizontal" >
-
-  <script type="text/javascript">
-    function showWarning(checked) {
-      $('#warning').toggle();
-      if (checked) {
-        $('#deleteBtn').removeAttr('disabled');
-      } else {
-        $('#deleteBtn').attr('disabled', 'disabled');
-      }
+  foreach ($cache['devices']['hostname'] as $hostname => $device_id)
+  {
+    $form_devices[$device_id] = array('name' => $hostname);
+    if ($cache['devices']['id'][$device_id]['disabled'])
+    {
+      $form_devices[$device_id]['subtext'] = 'Disabled';
+      $form_devices[$device_id]['class']   = 'text-warning';
     }
-    function showWarningRRD(checked) {
-      if (checked) {
-        $('.alert').hide();
-      } else {
-        $('.alert').show();
-      }
+    else if (!$cache['devices']['id'][$device_id]['status'])
+    {
+      $form_devices[$device_id]['subtext'] = 'Down';
+      $form_devices[$device_id]['class']   = 'red';
     }
-  </script>
+  }
 
-  <fieldset>
-    <legend>Delete device</legend>
-<?php
+      $form = array('type'      => 'horizontal',
+                    'id'        => 'delete_host',
+                    //'space'     => '20px',
+                    'title'     => 'Delete device',
+                    'icon'      => 'oicon-server--minus',
+                    //'class'     => 'box box-solid',
+                    'url'       => 'delhost/'
+                    );
+
+      $form['row'][1]['id'] = array(
+                                      'type'        => 'select',
+                                      'name'        => 'Device',
+                                      'values'      => $form_devices);
+      $form['row'][4]['deleterrd'] = array(
+                                      'type'        => 'checkbox',
+                                      'name'        => 'Delete RRDs',
+                                      'onchange'    => "javascript: showDiv(this.checked);",
+                                      'value'       => 'confirm');
+      $form['row'][5]['confirm'] = array(
+                                      'type'        => 'checkbox',
+                                      'name'        => 'Confirm Deletion',
+                                      'onchange'    => "javascript: toggleAttrib('disabled', 'delete');",
+                                      'value'       => 'confirm');
+      $form['row'][6]['delete']    = array(
+                                      'type'        => 'submit',
+                                      'name'        => 'Delete device',
+                                      'icon'        => 'icon-remove icon-white',
+                                      //'right'       => TRUE,
+                                      'class'       => 'btn-danger',
+                                      'disabled'    => TRUE);
+
   print_warning("<h4>Warning!</h4>
       This will delete this device from Observium including all logging entries, but will not delete the RRDs.");
-?>
 
-    <div class="control-group">
-      <label class="control-label" for="id">Device</label>
-      <div class="controls">
-        <select class="selectpicker" name="id">
-<?php
-foreach (dbFetchRows("SELECT * FROM `devices` ORDER BY `disabled` DESC, `hostname`") as $data)
-{
-  $status = '';
-  if ($data['disabled'])
-  {
-    $status = ' [disabled]';
-  }
-  else if (!$data['status'])
-  {
-    $status = ' [down]';
-  }
-  echo("<option value='".$data['device_id']."'>".$data['hostname'].$status."</option>");
-}
-?>
-        </select>
-      </div>
-    </div>
-
-    <div class="control-group">
-      <label class="control-label">Delete RRDs</label>
-      <div class="controls">
-        <input type="checkbox" name="deleterrd" value="confirm" onchange="javascript: showWarningRRD(this.checked);">
-      </div>
-    </div>
-
-    <div class="control-group">
-      <label class="control-label" for="id">Confirm Deletion</label>
-      <div class="controls">
-        <input type="checkbox" name="confirm" value="confirm" onchange="javascript: showWarning(this.checked);">
-      </div>
-    </div>
-  </fieldset>
-
-  <div class="form-actions">
-    <button id="deleteBtn" type="submit" class="btn btn-danger" disabled="disabled"><i class="icon-remove icon-white"></i> Delete Device</button>
-  </div>
-
-</form>
-<?php
+      print_form($form);
+      unset($form, $form_devices);
 }
 
 // EOF

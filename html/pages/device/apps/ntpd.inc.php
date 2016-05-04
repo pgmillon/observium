@@ -6,15 +6,15 @@
  *
  * @package    observium
  * @subpackage applications
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 // Set variables
 $rrd_server      = get_rrd_path($device, "app-ntpd-server-".$app['app_id'].".rrd");
 $rrd_client      = get_rrd_path($device, "app-ntpd-client-".$app['app_id'].".rrd");
-$ntpd_type       = (file_exists($rrd_server) ? "server" : "client");
+$ntpd_type       = (is_file($rrd_server) ? "server" : "client");
 
 // Test if this is a server or client install and set app_sections accordingly
 if ($ntpd_type == "server")
@@ -36,3 +36,5 @@ $app_graphs['buffer'] = array('ntpd_buffer' => 'NTPD Server - Buffer');
 
 $app_graphs['packets'] = array('ntpd_bits' => 'NTPD Server - Packets Sent/Received',
                            'ntpd_packets' => 'NTPD Server - Packets Dropped/Ignored');
+
+// EOF

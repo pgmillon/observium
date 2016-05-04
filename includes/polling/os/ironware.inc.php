@@ -7,12 +7,16 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 $hardware = snmp_get($device, "sysObjectID.0", "-OQsv", "FOUNDRY-SN-AGENT-MIB:FOUNDRY-SN-ROOT-MIB", mib_dirs("foundry"));
-$hardware = rewrite_ironware_hardware($hardware);
+
+if (isset($rewrite_ironware_hardware[$poll_device['sysObjectID']]))
+{
+  $hardware = $rewrite_ironware_hardware[$poll_device['sysObjectID']];
+}
 
 $version = trim(snmp_get($device, "snAgImgVer.0", "-OQsv", "FOUNDRY-SN-AGENT-MIB:FOUNDRY-SN-ROOT-MIB", mib_dirs("foundry")), ' "');
 //$version = snmp_get($device, "snAgBuildVer.0", "-OQsv", "FOUNDRY-SN-AGENT-MIB:FOUNDRY-SN-ROOT-MIB", mib_dirs("foundry"));

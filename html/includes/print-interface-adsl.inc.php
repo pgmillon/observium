@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage webui
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -31,7 +31,7 @@ echo("<tr valign=top onmouseover=\"this.style.backgroundColor='$list_highlight';
 onclick=\"location.href='device/".$device['device_id']."/port/".$port['port_id']."/'\" style='cursor: pointer;'>
  <td valign=top width=350>");
 echo("        <span class=entity-title>
-              " . generate_port_link($port, $port['ifIndex'] . ". ".rewrite_ifname($port['label'])) . "
+              " . generate_port_link($port, $port['ifIndex'] . ". " . rewrite_ifname($port['port_label'])) . "
            </span><br /><span class=small>".$port['ifAlias']."</span>");
 
 if ($port['ifAlias']) { echo("<br />"); }
@@ -112,4 +112,4 @@ str_replace("#","", $row_colour)."'>", $port['graph_type']));
 
 echo("</td>");
 
-?>
+// EOF

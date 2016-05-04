@@ -7,13 +7,15 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 if (!empty($agent_data['app']['ntpd']))
 {
   $ntpd = $agent_data['app']['ntpd'];
+
+  $app_id = discover_app($device, 'ntpd');
 
   foreach (explode("\n",$ntpd) as $line)
   {
@@ -22,7 +24,7 @@ if (!empty($agent_data['app']['ntpd']))
   }
 
   $ntpd_type = (isset($ntpd_data['server']) ? "server" : "client");
-  $rrd_filename = "app-ntpd-".$ntpd_type."-".$app['app_id'].".rrd";
+  $rrd_filename = "app-ntpd-".$ntpd_type."-$app_id.rrd";
 
   if ($ntpd_type == "server")
   {

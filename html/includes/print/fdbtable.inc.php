@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage web
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -60,6 +60,29 @@ function print_fdbtable($vars)
     }
   }
 
+  if(isset($vars['sort']))
+  {
+    switch($vars['sort'])
+    {
+      case "vlan_id":
+        $sort = " ORDER BY `V`.`vlan_vlan`";
+        break;
+
+      case "vlan_name":
+        $sort = " ORDER BY `V`.`vlan_name`";
+        break;
+
+      case "port":
+        $sort = " ORDER BY `I`.`port_label`";
+        break;
+
+      case "mac":
+      default:
+        $sort = " ORDER BY `mac_address`";
+
+    }
+  }
+
   // Show FDB tables only for permitted ports
   $query_permitted = generate_query_permitted(array('port'), array('port_table' => 'I'));
 
@@ -69,7 +92,7 @@ function print_fdbtable($vars)
   $query .= $where . $query_permitted;
   $query_count = 'SELECT COUNT(*) ' . $query;
   $query =  'SELECT * ' . $query;
-  $query .= ' ORDER BY F.`mac_address`';
+  $query .= $sort;
   $query .= " LIMIT $start,$pagesize";
 
   // Query addresses
@@ -77,40 +100,44 @@ function print_fdbtable($vars)
   // Query address count
   if ($pagination) { $count = dbFetchCell($query_count, $param); }
 
-  $list = array('device' => FALSE);
+  $list = array('device' => FALSE, 'port' => FALSE);
   if (!isset($vars['device']) || empty($vars['device']) || $vars['page'] == 'search') { $list['device'] = TRUE; }
+  if (!isset($vars['port'])   || empty($vars['port'])   || $vars['page'] == 'search') { $list['port'] = TRUE; }
 
-  $string = '<table class="table table-bordered table-striped table-hover table-condensed">' . PHP_EOL;
+  $string = generate_box_open();
+
+  $string .= '<table class="table  table-striped table-hover table-condensed">' . PHP_EOL;
+
+  $cols = array(
+    'device'         => 'Device',
+    'mac'            => array('MAC Address', 'style="width: 160px;"'),
+    'status'         => array('Status', 'style="width: 100px;"'),
+    'port'           => 'Port',
+    'vlan_id'        => 'VLAN ID',
+    'vlan_name'      => 'VLAN NAME',
+  );
+
+  if (!$list['device'])  { unset($cols['device']); }
+  if (!$list['port'])    { unset($cols['port']); }
+
   if (!$short)
   {
-    $string .= '  <thead>' . PHP_EOL;
-    $string .= '    <tr>' . PHP_EOL;
-    $string .= '      <th>MAC Address</th>' . PHP_EOL;
-    if ($list['device']) { $string .= '      <th>Device</th>' . PHP_EOL; }
-    $string .= '      <th>Port</th>' . PHP_EOL;
-    $string .= '      <th>VLAN ID</th>' . PHP_EOL;
-    $string .= '      <th>VLAN Name</th>' . PHP_EOL;
-    $string .= '    </tr>' . PHP_EOL;
-    $string .= '  </thead>' . PHP_EOL;
+    $string .= get_table_header($cols, $vars); // Currently sorting is not available
   }
-  $string .= '  <tbody>' . PHP_EOL;
 
   foreach ($entries as $entry)
   {
     humanize_port($entry);
 
     $string .= '  <tr>' . PHP_EOL;
-    $string .= '    <td style="width: 160px;">' . generate_popup_link('mac', format_mac($entry['mac_address'])) . '</td>' . PHP_EOL;
     if ($list['device'])
     {
       $dev = device_by_id_cache($entry['device_id']);
       $string .= '    <td class="entity" style="white-space: nowrap;">' . generate_device_link($dev) . '</td>' . PHP_EOL;
     }
-    if ($entry['ifInErrors_delta'] > 0 || $entry['ifOutErrors_delta'] > 0)
-    {
-      $port_error = generate_port_link($entry, '<span class="label label-important">Errors</span>', 'port_errors');
-    }
-    $string .= '    <td class="entity">' . generate_port_link($entry, short_ifname($entry['label'])) . ' ' . $port_error . '</td>' . PHP_EOL;
+    $string .= '    <td>' . generate_popup_link('mac', format_mac($entry['mac_address'])) . '</td>' . PHP_EOL;
+    $string .= '    <td>' . $entry['fdb_status'] . '</td>' . PHP_EOL;
+    if ($list['port']) { $string .= '    <td class="entity">' . generate_port_link($entry, $entry['port_label_short']) . ' ' . $port_error . '</td>' . PHP_EOL; }
     $string .= '    <td>Vlan' . $entry['vlan_vlan'] . '</td>' . PHP_EOL;
     $string .= '    <td>' . $entry['vlan_name'] . '</td>' . PHP_EOL;
     $string .= '  </tr>' . PHP_EOL;
@@ -118,6 +145,8 @@ function print_fdbtable($vars)
 
   $string .= '  </tbody>' . PHP_EOL;
   $string .= '</table>';
+
+  $string .= generate_box_close();
 
   // Print pagination header
   if ($pagination) { $string = pagination($vars, $count) . $string . pagination($vars, $count); }

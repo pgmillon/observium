@@ -7,51 +7,35 @@
  *
  * @package    observium
  * @subpackage functions
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 // Observium Includes
 
-include($config['install_dir'] . "/includes/common.inc.php");
-include($config['install_dir'] . "/includes/rrdtool.inc.php");
-include($config['install_dir'] . "/includes/billing.inc.php");
-include($config['install_dir'] . "/includes/syslog.inc.php");
-include($config['install_dir'] . "/includes/rewrites.inc.php");
-include($config['install_dir'] . "/includes/snmp.inc.php");
-include($config['install_dir'] . "/includes/services.inc.php");
-include($config['install_dir'] . "/includes/dbFacile.php");
-include($config['install_dir'] . "/includes/entities.inc.php");
-include($config['install_dir'] . "/includes/wifi.inc.php");
-include($config['install_dir'] . "/includes/geolocation.inc.php");
+include_once($config['install_dir'] . "/includes/common.inc.php");
+include_once($config['install_dir'] . "/includes/rrdtool.inc.php");
+include_once($config['install_dir'] . "/includes/syslog.inc.php");
+include_once($config['install_dir'] . "/includes/rewrites.inc.php");
+include_once($config['install_dir'] . "/includes/templates.inc.php");
+include_once($config['install_dir'] . "/includes/snmp.inc.php");
+include_once($config['install_dir'] . "/includes/services.inc.php");
+include_once($config['install_dir'] . "/includes/entities.inc.php");
+include_once($config['install_dir'] . "/includes/wifi.inc.php");
+include_once($config['install_dir'] . "/includes/geolocation.inc.php");
 
-if (OBSERVIUM_EDITION != 'community')
-{
-  include($config['install_dir'] . "/includes/alerts.inc.php");
-  include($config['install_dir'] . "/includes/groups.inc.php");
-} else {
-  include($config['install_dir'] . "/includes/community.inc.php");
-}
+include_once($config['install_dir'] . "/includes/alerts.inc.php");
 
-// StatsD export class
-// This is not currently in SVN, do not enable it.
-if ($config['statsd']['enable'] && is_file($config['install_dir'] . "/includes/statsd.inc.php"))
+//if (OBSERVIUM_EDITION != 'community') // OBSERVIUM_EDITION - not defined here..
+//{
+foreach (array('groups', 'billing', // Not exist in community edition
+               'community',         // community edition specific
+               'custom',            // custom functions, i.e. short_hostname
+              ) as $entry)
 {
-  include($config['install_dir'] . "/includes/statsd.inc.php");
-}
-
-if (OBSERVIUM_EDITION != 'community' && $config['email']['enable'])
-{
-  // Use Pear::Mail and Pear::Mail_Mime for email alerts
-  include("Mail/Mail.php");
-  include("Mail/mime.php");
-}
-
-// Include file for custom functions, i.e. short_hostname
-if (is_file($config['install_dir'] . "/includes/custom.inc.php"))
-{
-  include($config['install_dir'] . "/includes/custom.inc.php");
+  $file = $config['install_dir'] . '/includes/' . $entry . '.inc.php';
+  if (is_file($file)) { include_once($file); }
 }
 
 // DOCME needs phpdoc block
@@ -147,13 +131,20 @@ function array_sort_by()
   return array_pop($args);
 }
 
-// DOCME needs phpdoc block
+/**
+ * Includes filename with global config variable
+ *
+ * @param string $filename Filename for include
+ * @return boolean Status of include
+ */
 // TESTME needs unit testing
 function include_wrapper($filename)
 {
   global $config;
 
-  include($filename);
+  $status = include($filename);
+
+  return (boolean)$status;
 }
 
 // Strip all non-alphanumeric characters from a string.
@@ -233,7 +224,6 @@ function get_device_os($device)
     if ($os)
     {
       // If OS detected by sysObjectId just return it
-      if ($os != $old_os) { print_warning("OS CHANGED: $old_os -> $os"); }
       return $os;
     }
 
@@ -258,7 +248,7 @@ function get_device_os($device)
 
       include($file);
 
-      if ($os && $os == $old_os) { return $old_os; } else { print_warning("OS CHANGED: $old_os -> $os"); }
+      if ($os && $os == $old_os) { return $old_os; } // else { print_warning("OS CHANGED: $old_os -> $os"); }
     }
 
     // Else full recheck 'os'!
@@ -321,20 +311,30 @@ function interface_errors($rrd_file, $period = '-1d') // Returns the last in/out
 // Rename a device
 // DOCME needs phpdoc block
 // TESTME needs unit testing
-function renamehost($id, $new, $source = 'console')
+function renamehost($id, $new, $source = 'console', $options = array())
 {
   global $config;
 
   // Test if new host exists in database
-  if (dbFetchCell('SELECT COUNT(device_id) FROM `devices` WHERE `hostname` = ?', array($new)) == 0)
+  if (dbFetchCell('SELECT COUNT(`device_id`) FROM `devices` WHERE `hostname` = ?', array($new)) == 0)
   {
-    $transport = strtolower(dbFetchCell("SELECT `transport` FROM `devices` WHERE `device_id` = ?", array($id)));
-    $try_a = !($transport == 'udp6' || $transport == 'tcp6'); // Use IPv6 only if transport 'udp6' or 'tcp6'
-    // Test DNS lookup.
-    if (gethostbyname6($new, $try_a))
+    $flags = OBS_DNS_ALL;
+    $transport = strtolower(dbFetchCell("SELECT `snmp_transport` FROM `devices` WHERE `device_id` = ?", array($id)));
+    if ($transport == 'udp6' || $transport == 'tcp6') // Exclude IPv4 if used transport 'udp6' or 'tcp6'
     {
+      $flags = $flags ^ OBS_DNS_A; // exclude A
+    }
+    // Test DNS lookup.
+    if (gethostbyname6($new, $flags))
+    {
+      $options['ping_skip'] = (isset($options['ping_skip']) && $options['ping_skip']) || get_entity_attrib('device', $id, 'ping_skip');
+      if ($options['ping_skip'])
+      {
+        // Skip ping checks
+        $flags = $flags | OBS_PING_SKIP;
+      }
       // Test reachability
-      if (isPingable($new, $try_a))
+      if (isPingable($new, $flags))
       {
         // Test directory mess in /rrd/
         if (!file_exists($config['rrd_dir'].'/'.$new))
@@ -349,7 +349,11 @@ function renamehost($id, $new, $source = 'console')
             print_error("NOT renamed. Error of renaming of RRD directory.");
             return FALSE;
           }
-          $return = dbUpdate(array('hostname' => $new), 'devices', 'device_id=?', array($id));
+          $return = dbUpdate(array('hostname' => $new), 'devices', '`device_id` = ?', array($id));
+          if ($options['ping_skip'])
+          {
+            set_entity_attrib('device', $id, 'ping_skip', 1);
+          }
           log_event("Device hostname changed: $host -> $new", $id, 'device', $id, 5); // severity 5, for logging user/console info
           return TRUE;
         } else {
@@ -400,14 +404,28 @@ function delete_device($id, $delete_rrd = FALSE)
       $ret .= implode(', ', $deleted_ports).PHP_EOL;
     }
 
+    // Remove entities from common tables
+    $deleted_entities = array();
+    foreach (get_device_entities($id) as $entity_type => $entity_ids)
+    {
+      foreach ($config['entity_tables'] as $table)
+      {
+        $where = '`entity_type` = ?' . generate_query_values($entity_ids, 'entity_id');
+        $table_status = dbDelete($table, $where, array($entity_type));
+        if ($table_status) { $deleted_entities[$entity_type] = 1; }
+      }
+    }
+    if (count($deleted_entities))
+    {
+      $ret .= ' * Deleted common entity entries linked to device: ';
+      $ret .= implode(', ', array_keys($deleted_entities)) . PHP_EOL;
+    }
+
+    $deleted_tables = array();
     $ret .= ' * Deleted device entries from tables: ';
     foreach ($config['device_tables'] as $table)
     {
       $where = '`device_id` = ?';
-      if ($table == 'entity_permissions')
-      {
-        $where = "`entity_type` = 'device' AND `entity_id` = ?";
-      }
       $table_status = dbDelete($table, $where, array($id));
       if ($table_status) { $deleted_tables[] = $table; }
     }
@@ -440,10 +458,23 @@ function delete_port($int_id, $delete_rrd = TRUE)
   $port = dbFetchRow("SELECT * FROM `ports` AS P, `devices` AS D WHERE P.`port_id` = ? AND D.`device_id` = P.`device_id`", array($int_id));
   $ret = "> Deleted interface from ".$port['hostname'].": id=$int_id (".$port['ifDescr'].")\n";
 
+  // Remove entities from common tables
+  $deleted_entities = array();
+  foreach ($config['entity_tables'] as $table)
+  {
+    $where = '`entity_type` = ?' . generate_query_values($int_id, 'entity_id');
+    $table_status = dbDelete($table, $where, array('port'));
+    if ($table_status) { $deleted_entities['port'] = 1; }
+  }
+  if (count($deleted_entities))
+  {
+    $ret .= ' * Deleted common entity entries linked to port.' . PHP_EOL;
+  }
+
   $port_tables = array('bill_ports', 'eigrp_ports', 'ipv4_addresses', 'ipv6_addresses',
-                       'ip_mac', 'juniAtmVp', 'mac_accounting', 'ospf_nb', 'ospf_ports',
+                       'ip_mac', 'juniAtmVp', 'mac_accounting', 'ospf_nbrs', 'ospf_ports',
                        'ports_adsl', 'ports_cbqos', 'ports_vlans', 'pseudowires', 'vlans_fdb',
-                       'ports');
+                       'neighbours', 'ports');
   foreach ($port_tables as $table)
   {
     $table_status = dbDelete($table, "`port_id` = ?", array($int_id));
@@ -452,8 +483,6 @@ function delete_port($int_id, $delete_rrd = TRUE)
 
   $table_status = dbDelete('ports_stack', "`port_id_high` = ?  OR `port_id_low` = ?",    array($int_id, $int_id));
   if ($table_status) { $deleted_tables[] = 'ports_stack'; }
-  $table_status = dbDelete('links',       "`local_port_id` = ? OR `remote_port_id` = ?", array($int_id, $int_id));
-  if ($table_status) { $deleted_tables[] = 'links'; }
   $table_status = dbDelete('entity_permissions', "`entity_type` = 'port' AND `entity_id` = ?", array($int_id));
   if ($table_status) { $deleted_tables[] = 'entity_permissions'; }
   $table_status = dbDelete('alert_table', "`entity_type` = 'port' AND `entity_id` = ?", array($int_id));
@@ -461,7 +490,7 @@ function delete_port($int_id, $delete_rrd = TRUE)
   $table_status = dbDelete('group_table', "`entity_type` = 'port' AND `entity_id` = ?", array($int_id));
   if ($table_status) { $deleted_tables[] = 'group_table'; }
 
-  $ret .= '> Deleted interface entries from tables: '.implode(', ', $deleted_tables).PHP_EOL;
+  $ret .= ' * Deleted interface entries from tables: '.implode(', ', $deleted_tables).PHP_EOL;
 
   if ($delete_rrd)
   {
@@ -475,7 +504,7 @@ function delete_port($int_id, $delete_rrd = TRUE)
         $deleted_rrds[] = $rrdfile;
       }
     }
-    $ret .= '> Deleted interface RRD files: ' . implode(', ', $deleted_rrds) . PHP_EOL;
+    $ret .= ' * Deleted interface RRD files: ' . implode(', ', $deleted_rrds) . PHP_EOL;
   }
 
   return $ret;
@@ -490,12 +519,14 @@ function delete_port($int_id, $delete_rrd = TRUE)
  * @param string|array $snmp_version SNMP version(s) (default: $config['snmp']['version'])
  * @param string $snmp_port SNMP port (default: 161)
  * @param string $snmp_transport SNMP transport (default: udp)
- * @param array $options Additional options can be passed ('break' - for break recursion, 'test' - for skip adding, only test device availability)
+ * @param array $options Additional options can be passed ('ping_skip' - for skip ping test and add device attrib for skip pings later
+ *                                                         'break' - for break recursion,
+ *                                                         'test'  - for skip adding, only test device availability)
  *
  * @return mixed Returns $device_id number if added, 0 (zero) if device not accessible with current auth and FALSE if device complete not accessible by network. When testing, returns -1 if the device is available.
  */
 // TESTME needs unit testing
-function add_device($hostname, $snmp_version = array(), $snmp_port = 161, $snmp_transport = 'udp', $options = array())
+function add_device($hostname, $snmp_version = array(), $snmp_port = 161, $snmp_transport = 'udp', $options = array(), $flags = OBS_DNS_ALL)
 {
   global $config;
 
@@ -512,14 +543,23 @@ function add_device($hostname, $snmp_version = array(), $snmp_port = 161, $snmp_
   if (dbFetchCell("SELECT COUNT(*) FROM `devices` WHERE `hostname` = ?", array($hostname)) == '0')
   {
     $snmp_transport = strtolower($snmp_transport);
-    $try_a = !($snmp_transport == 'udp6' || $snmp_transport == 'tcp6'); // Use IPv6 only if transport 'udp6' or 'tcp6'
+    if ($snmp_transport == 'udp6' || $snmp_transport == 'tcp6') // IPv6 used only if transport 'udp6' or 'tcp6'
+    {
+      $flags = $flags ^ OBS_DNS_A; // exclude A
+    }
     // Test DNS lookup.
-    $ip = gethostbyname6($hostname, $try_a);
+    $ip = gethostbyname6($hostname, $flags);
     if ($ip)
     {
       $ip_version = get_ip_version($ip);
+
       // Test reachability
-      if (isPingable($hostname, $try_a))
+      $options['ping_skip'] = isset($options['ping_skip']) && $options['ping_skip'];
+      if ($options['ping_skip'])
+      {
+        $flags = $flags | OBS_PING_SKIP;
+      }
+      if (isPingable($hostname, $flags))
       {
         // Test directory exists in /rrd/
         if (!$config['rrd_override'] && file_exists($config['rrd_dir'].'/'.$hostname))
@@ -592,6 +632,15 @@ function add_device($hostname, $snmp_version = array(), $snmp_port = 161, $snmp_
                   $device_id = -1;
                 } else {
                   $device_id = createHost($hostname, NULL, $snmp_version, $snmp_port, $snmp_transport, $snmp_v3);
+                  if ($options['ping_skip'])
+                  {
+                    set_entity_attrib('device', $device_id, 'ping_skip', 1);
+                    // Force pingable check
+                    if (isPingable($hostname, $flags ^ OBS_PING_SKIP))
+                    {
+                      print_warning("You passed option for skip device is pingable checks, but device available by ismp echo. Check device preferences.");
+                    }
+                  }
                 }
                 return $device_id;
               }
@@ -617,6 +666,15 @@ function add_device($hostname, $snmp_version = array(), $snmp_port = 161, $snmp_
                   $device_id = -1;
                 } else {
                   $device_id = createHost($hostname, $snmp_community, $snmp_version, $snmp_port, $snmp_transport);
+                  if ($options['ping_skip'])
+                  {
+                    set_entity_attrib('device', $device_id, 'ping_skip', 1);
+                    // Force pingable check
+                    if (isPingable($hostname, $flags ^ OBS_PING_SKIP))
+                    {
+                      print_warning("You passed option for skip device is pingable checks, but device available by ismp echo. Check device preferences.");
+                    }
+                  }
                 }
                 return $device_id;
               }
@@ -652,9 +710,14 @@ function add_device($hostname, $snmp_version = array(), $snmp_port = 161, $snmp_
   return $return;
 }
 
-// Check duplicated devices in DB by snmpEngineID and sysName
-// If found duplicate devices return TRUE, in other cases return FALSE
-// DOCME needs phpdoc block
+/**
+ * Check duplicated devices in DB by sysName, snmpEngineID and entPhysicalSerialNum (if possible)
+ *
+ * If found duplicate devices return TRUE, in other cases return FALSE
+ *
+ * @param array $device Device array which should be checked for duplicates
+ * @return bool TRUE if duplicates found
+ */
 // TESTME needs unit testing
 function check_device_duplicated($device)
 {
@@ -677,18 +740,52 @@ function check_device_duplicated($device)
     {
       if ($test['sysName'] === $sysName)
       {
-        // Retun TRUE if have same snmpEngineID && sysName in DB
-        print_error("Already got device with SNMP-read sysName ($sysName) and 'snmpEngineID' = $snmpEngineID (".$test['hostname'].").");
-        return TRUE;
+        // Last check (if possible) serial, for cluster devices sysName and snmpEngineID same
+        $test_entPhysical = dbFetchRow('SELECT * FROM `entPhysical` WHERE `device_id` = ? AND `entPhysicalSerialNum` != ? ORDER BY `entPhysicalClass` LIMIT 1', array($test['device_id'], ''));
+        if (isset($test_entPhysical['entPhysicalSerialNum']))
+        {
+          $serial = snmp_get($device, "entPhysicalSerialNum.".$test_entPhysical['entPhysicalIndex'], "-OQv", "ENTITY-MIB", mib_dirs());
+          if ($serial == $test_entPhysical['entPhysicalSerialNum'])
+          {
+            // This devices really same, with same sysName, snmpEngineID and entPhysicalSerialNum
+            print_error("Already got device with SNMP-read sysName ($sysName), 'snmpEngineID' = $snmpEngineID and 'entPhysicalSerialNum' = $serial (".$test['hostname'].").");
+            return TRUE;
+          }
+        } else {
+          // Return TRUE if have same snmpEngineID && sysName in DB
+          print_error("Already got device with SNMP-read sysName ($sysName) and 'snmpEngineID' = $snmpEngineID (".$test['hostname'].").");
+          return TRUE;
+        }
       }
     }
   } else {
     // If snmpEngineID empty, check only by sysName
-    if ($sysName !== FALSE && dbFetchCell('SELECT COUNT(*) FROM `devices` WHERE `disabled` = 0 AND `sysName` = ?', array($sysName)) > 0)
+    $test_devices = dbFetchRows('SELECT * FROM `devices` WHERE `disabled` = 0 AND `sysName` = ?', array($sysName));
+    if ($sysName !== FALSE && count($test_devices) > 0)
     {
-      // Retun TRUE if have same sysName in DB
-      print_error("Already got device with SNMP-read sysName ($sysName).");
-      return TRUE;
+      $has_serial = FALSE;
+      foreach ($test_devices as $test)
+      {
+        // Last check (if possible) serial, for cluster devices sysName and snmpEngineID same
+        $test_entPhysical = dbFetchRow('SELECT * FROM `entPhysical` WHERE `device_id` = ? AND `entPhysicalSerialNum` != ? ORDER BY `entPhysicalClass` LIMIT 1', array($test['device_id'], ''));
+        if (isset($test_entPhysical['entPhysicalSerialNum']))
+        {
+          $serial = snmp_get($device, "entPhysicalSerialNum.".$test_entPhysical['entPhysicalIndex'], "-OQv", "ENTITY-MIB", mib_dirs());
+          if ($serial == $test_entPhysical['entPhysicalSerialNum'])
+          {
+            // This devices really same, with same sysName, snmpEngineID and entPhysicalSerialNum
+            print_error("Already got device with SNMP-read sysName ($sysName) and 'entPhysicalSerialNum' = $serial (".$test['hostname'].").");
+            return TRUE;
+          }
+          $has_serial = TRUE;
+        }
+      }
+      if (!$has_entPhysical)
+      {
+        // Return TRUE if have same sysName in DB
+        print_error("Already got device with SNMP-read sysName ($sysName).");
+        return TRUE;
+      }
     }
   }
 
@@ -848,75 +945,97 @@ function detect_device_snmpauth($hostname, $snmp_port = 161, $snmp_transport = '
   return FALSE;
 }
 
-// DOCME needs phpdoc block
+/**
+ * Checks device availability by snmp query common oids
+ *
+ * @param array $device Device array
+ * @return float SNMP query runtime in milliseconds
+ */
 // TESTME needs unit testing
 function isSNMPable($device)
 {
-  global $config;
+  if (!isset($device['os'][0])) { $device['os'] = 'generic'; } // Set empty os to generic
 
-  $time_start = microtime(true);
-  $pos = snmp_get_multi($device, 'sysObjectID.0 sysUpTime.0', '-OQUst', 'SNMPv2-MIB', mib_dirs()); // sysObjectID and sysUpTime
-  $time_end = microtime(true);
-
-  if (is_array($pos[0]) && count($pos[0]))
+  if (isset($GLOBALS['config']['os'][$device['os']]['snmpable']) && $device['os'] != 'generic')
   {
-    $time_snmp = $time_end - $time_start;
-    $time_snmp *= 1000;
+    // Custom device checks by defined OIDs
+    $pos   = snmp_get_multi($device, $GLOBALS['config']['os'][$device['os']]['snmpable'], '-OQUst', 'SNMPv2-MIB', mib_dirs());
+    $count = count($pos);
+  } else {
+    // Normal checks by sysObjectID and sysUpTime
+    $pos   = snmp_get_multi($device, 'sysObjectID.0 sysUpTime.0', '-OQUst', 'SNMPv2-MIB', mib_dirs());
+    $count = count($pos[0]);
+  }
+
+  if ($GLOBALS['snmp_status'] && $count > 0)
+  {
     // SNMP response time in milliseconds.
-    /// Note, it's full SNMP get/response time (not only UDP request).
+    $time_snmp = $GLOBALS['exec_status']['runtime'] * 1000;
     $time_snmp = number_format($time_snmp, 2, '.', '');
     return $time_snmp;
   }
+  else if ($device['os'] == 'generic' && strpos($GLOBALS['exec_status']['stdout'], 'No Such Object') !== FALSE)
+  {
+    // Here specific logic for generic os
+    $pos = snmp_get_multi($device, $GLOBALS['config']['os'][$device['os']]['snmpable'], '-OQUst', 'SNMPv2-MIB', mib_dirs());
+    if ($GLOBALS['snmp_status'] && count($pos))
+    {
+      // SNMP response time in milliseconds.
+      $time_snmp = $GLOBALS['exec_status']['runtime'] * 1000;
+      $time_snmp = number_format($time_snmp, 2, '.', '');
+      return $time_snmp;
+    }
+  }
+
   return 0;
 }
 
 /**
+ * Checks device availability by icmp echo response
+ * If flag OBS_PING_SKIP passed, pings skipped and returns 0.001 (1ms)
  *
- * It's fully BOOLEAN safe function.
- *
+ * @param string $hostname Device hostname or IP address
+ * @param int Flags. Supported OBS_DNS_A, OBS_DNS_AAAA and OBS_PING_SKIP
+ * @return float Average response time for used retries count (default retries is 3)
  */
-// DOCME needs phpdoc block
-function isPingable($hostname, $try_a = TRUE)
+function isPingable($hostname, $flags = OBS_DNS_ALL)
 {
   global $config;
 
+  $ping_debug = isset($config['ping']['debug']) && $config['ping']['debug'];
+  $try_a      = is_flag_set(OBS_DNS_A, $flags);
+
+  if (is_flag_set(OBS_PING_SKIP, $flags))
+  {
+    return 0.001; // Ping is skipped, just return 1ms
+  }
+
   $timeout = (isset($config['ping']['timeout']) ? (int)$config['ping']['timeout'] : 500);
-  if ($timeout < 50)
-  {
-    $timeout = 50;
-  }
-  else if ($timeout > 2000)
-  {
-    $timeout = 2000;
-  }
+  if ($timeout < 50) { $timeout = 50; }
+  else if ($timeout > 2000) { $timeout = 2000; }
+
   $retries = (isset($config['ping']['retries']) ? (int)$config['ping']['retries'] : 3);
-  if ($retries < 1)
-  {
-    $retries = 1;
-  }
-  else if ($retries > 10)
-  {
-    $retries = 10;
-  }
+  if      ($retries < 1)  { $retries = 3; }
+  else if ($retries > 10) { $retries = 10; }
+
   $sleep = floor(1000000 / $retries); // interval between retries, max 1 sec
 
-  $ping_debug = isset($config['ping']['debug']) && $config['ping']['debug'];
-
-  if (Net_IPv4::validateIP($hostname))
+  if ($ip_version = get_ip_version($hostname))
   {
-    if (!$try_a)
+    // Ping by IP
+    if ($ip_version === 6)
     {
-      logfile('debug.log', __FUNCTION__ . "() | DEVICE: $hostname | Passed IPv4 address but device use IPv6 transport");
-      print_debug('Into function ' . __FUNCTION__ . '() passed IPv4 address ('.$hostname.'but device use IPv6 transport');
-      return 0;
+      $cmd = $config['fping6'] . " -t $timeout -c 1 -q $hostname 2>&1";
+    } else {
+      if (!$try_a)
+      {
+        if ($ping_debug) { logfile('debug.log', __FUNCTION__ . "() | DEVICE: $hostname | Passed IPv4 address but device use IPv6 transport"); }
+        print_debug('Into function ' . __FUNCTION__ . '() passed IPv4 address ('.$hostname.'but device use IPv6 transport');
+        return 0;
+      }
+      // Forced check for actual IPv4 address
+      $cmd = $config['fping'] . " -t $timeout -c 1 -q $hostname 2>&1";
     }
-    // Forced check for actual IPv4 address
-    $cmd = $config['fping'] . " -t $timeout -c 1 -q $hostname 2>&1";
-  }
-  else if (Net_IPv6::checkIPv6($hostname))
-  {
-    // Forced check for actual IPv6 address
-    $cmd = $config['fping6'] . " -t $timeout -c 1 -q $hostname 2>&1";
   } else {
     // First try IPv4
     $ip = ($try_a ? gethostbyname($hostname) : FALSE); // Do not check IPv4 if transport IPv6
@@ -924,14 +1043,14 @@ function isPingable($hostname, $try_a = TRUE)
     {
       $cmd = $config['fping'] . " -t $timeout -c 1 -q $ip 2>&1";
     } else {
-      $ip = gethostbyname6($hostname, FALSE);
+      $ip = gethostbyname6($hostname, OBS_DNS_AAAA);
       // Second try IPv6
       if ($ip)
       {
         $cmd = $config['fping6'] . " -t $timeout -c 1 -q $ip 2>&1";
       } else {
         // No DNS records
-        logfile('debug.log', __FUNCTION__ . "() | DEVICE: $hostname | NO DNS record found");
+        if ($ping_debug) { logfile('debug.log', __FUNCTION__ . "() | DEVICE: $hostname | NO DNS record found"); }
         return 0;
       }
     }
@@ -945,7 +1064,7 @@ function isPingable($hostname, $try_a = TRUE)
       // normal $output = '8.8.8.8 : xmt/rcv/%loss = 1/1/0%, min/avg/max = 1.21/1.21/1.21'
       $tmp = explode('/', $output);
       $ping = $tmp[7];
-      if (!$ping) { $ping = 0.01; } // Protection from zero (exclude false status)
+      if (!$ping) { $ping = 0.001; } // Protection from zero (exclude false status)
     } else {
       $ping = 0;
     }
@@ -1061,16 +1180,9 @@ function createHost($hostname, $snmp_community = NULL, $snmp_version, $snmp_port
 // DOCME needs phpdoc block
 // TESTME needs unit testing
 // MOVEME to includes/common.inc.php
-function isDomainResolves($hostname)
+function isDomainResolves($hostname, $flags = OBS_DNS_ALL)
 {
-  return (TRUE && gethostbyname6($hostname));
-}
-
-// DOCME needs phpdoc block
-// TESTME needs unit testing
-function hoststatus($id)
-{
-  return dbFetchCell("SELECT `status` FROM `devices` WHERE `device_id` = ?", array($id));
+  return (TRUE && gethostbyname6($hostname, $flags));
 }
 
 // Returns IP version for string or FALSE if string not an IP
@@ -1183,7 +1295,7 @@ function hex2ip($ip_hex)
     $ip = str_replace(':', '', $ip);
     $len = strlen($ip);
   }
-  
+
   if (!ctype_xdigit($ip))
   {
     return $ip_hex;
@@ -1284,6 +1396,37 @@ function ipv62snmp($ipv6)
 
 // DOCME needs phpdoc block
 // TESTME needs unit testing
+function parse_bgpmib_v2_peer_index($idx, $mib='BGP4V2-MIB') {
+  # The $mib argument is to handle different INDEX structures
+  # from different vendors.  Since the RFC is not yet published,
+  # the 'BGP4V2-MIB' type is not yet implemented.
+  $peerAf = NULL;
+  $peerIp = NULL;
+  if ($mib == 'ARISTA-BGP4V2-MIB') {
+    $oids = explode('.', $idx);
+    # 1. aristaBgp4V2PeerInstance.  None of the code here handles multiple
+    # instances, so we just ignore it.
+    array_shift($oids);
+    # 2. aristaBgp4V2PeerRemoteAddrType.
+    $peerAf = array_shift($oids);
+    # 3. length of the IP address
+    $ipLen = array_shift($oids);
+    # 4. IP address
+    $ipOids = array_slice($oids, 0, $ipLen);
+    # Note that there may be more oids in $oids, but we
+    # ignore them (e.g., so that this function can be
+    # used inside the aristaBgp4V2PrefixGaugesTable)
+    if ($peerAf == 1 and $ipLen == 4) {
+      $peerIp = implode(".", $ipOids);
+    } elseif ($peerAf == 2 and $ipLen == 16) {
+      $peerIp = snmp2ipv6(implode(".", $ipOids));
+    }
+  }
+  return array('peerRemoteAddrFamily' => $peerAf, 'peerRemoteAddr' => $peerIp);
+}
+
+// DOCME needs phpdoc block
+// TESTME needs unit testing
 // MOVEME to includes/common.inc.php
 function get_astext($asn)
 {
@@ -1342,7 +1485,7 @@ function log_event($text, $device = NULL, $type = NULL, $reference = NULL, $seve
       {
         $text .= ' (by cron)';
       } else {
-        $text .= ' (by console)';
+        $text .= ' (by console, user '  . $_SERVER['USER'] . ')';
       }
     }
   }
@@ -1429,29 +1572,97 @@ function hex2str($hex)
 {
   $string='';
 
-  for ($i = 0; $i < strlen($hex)-1; $i+=2)
+  $hex = str_replace(' ', '', $hex);
+  for ($i = 0; $i < strlen($hex) - 1; $i += 2)
   {
-    $string .= chr(hexdec($hex[$i].$hex[$i+1]));
+    $hex_chr = $hex[$i].$hex[$i+1];
+    //if ($hex_chr == '00') { break; } // 00 is EOL
+
+    $string .= chr(hexdec($hex_chr));
   }
 
   return $string;
 }
 
 /**
- * Convert an SNMP hex string to regular string
+ * Converting hex/dec coded ascii char to UTF-8 char
  *
- * @param string $string
+ * Used together with snmp_fix_string()
+ *
+ * @param string $hex
  * @return string
  */
-// MOVEME to includes/snmp.inc.php
-function snmp_hexstring($string)
+function convert_ord_char($ord)
 {
-  if (isHexString($string))
+  if (is_array($ord))
   {
-    return hex2str(str_replace(' ', '', str_replace(' 00', '', $string)));
-  } else {
-    return $string;
+    $ord = array_shift($ord);
   }
+  if (preg_match('/^(?:<|x)([0-9a-f]+)>?$/i', $ord, $match))
+  {
+    $ord = hexdec($match[1]);
+  }
+  else if (is_numeric($ord))
+  {
+    $ord = intval($ord);
+  }
+  else if (preg_match('/^[\p{L}]+$/u', $ord))
+  {
+    // Unicode chars
+    return $ord;
+  } else {
+    // Non-printable chars
+    $ord = ord($ord);
+  }
+
+  $no_bytes = 0;
+  $byte = array();
+
+  if ($ord < 128)
+  {
+    return chr($ord);
+  }
+  else if ($ord < 2048)
+  {
+    $no_bytes = 2;
+  }
+  else if ($ord < 65536)
+  {
+    $no_bytes = 3;
+  }
+  else if ($ord < 1114112)
+  {
+    $no_bytes = 4;
+  } else {
+    return;
+  }
+  switch($no_bytes)
+  {
+    case 2:
+      $prefix = array(31, 192);
+      break;
+    case 3:
+      $prefix = array(15, 224);
+      break;
+    case 4:
+      $prefix = array(7, 240);
+      break;
+  }
+
+  for ($i = 0; $i < $no_bytes; $i++)
+  {
+    $byte[$no_bytes - $i - 1] = (($ord & (63 * pow(2, 6 * $i))) / pow(2, 6 * $i)) & 63 | 128;
+  }
+
+  $byte[0] = ($byte[0] & $prefix[0]) | $prefix[1];
+
+  $ret = '';
+  for ($i = 0; $i < $no_bytes; $i++)
+  {
+    $ret .= chr($byte[$i]);
+  }
+
+  return $ret;
 }
 
 // Check if the supplied string is a hex string
@@ -1508,6 +1719,28 @@ function is_port_valid($port, $device)
   }
 
   $if = ($config['os'][$device['os']]['ifname'] ? $port['ifName'] : $port['ifDescr']);
+
+  if ($valid && !isset($port['ifType']))
+  {
+    /* Some devices (ie D-Link) report ports without any usefull info, example:
+    [74] => Array
+        (
+            [ifName] => po22
+            [ifInMulticastPkts] => 0
+            [ifInBroadcastPkts] => 0
+            [ifOutMulticastPkts] => 0
+            [ifOutBroadcastPkts] => 0
+            [ifLinkUpDownTrapEnable] => enabled
+            [ifHighSpeed] => 0
+            [ifPromiscuousMode] => false
+            [ifConnectorPresent] => false
+            [ifAlias] => po22
+            [ifCounterDiscontinuityTime] => 0:0:00:00.00
+        )
+    */
+    $valid = FALSE;
+    print_debug("ignored (by empty ifType).");
+  }
 
   if ($valid && is_array($config['bad_if']))
   {
@@ -1660,6 +1893,73 @@ function c2f($celsius)
   else                      { return $celsius; }
 }
 
+function get_defined_settings()
+{
+  include($GLOBALS['config']['install_dir'] . "/config.php");
+
+  return $config;
+}
+
+function get_default_settings()
+{
+  include($GLOBALS['config']['install_dir'] . "/includes/defaults.inc.php");
+
+  return $config;
+}
+
+// Load configuration from SQL into supplied variable (pass by reference!)
+function load_sqlconfig(&$config)
+{
+  $config_defined = get_defined_settings(); // defined in config.php
+
+  // Override some whitelisted definitions from config.php
+  foreach ($config_defined as $key => $definition)
+  {
+    if (in_array($key, $config['definitions_whitelist']) && version_compare(PHP_VERSION, '5.3.0') >= 0 &&
+        is_array($definition) && is_array($config[$key]))
+    {
+      $config[$key] = array_replace_recursive($config[$key], $definition);
+    }
+  }
+
+  foreach (dbFetchRows("SELECT * FROM `config`") as $item)
+  {
+    // Convert boo|bee|baa config value into $config['boo']['bee']['baa']
+    $tree = explode('|', $item['config_key']);
+
+    //if (array_key_exists($tree[0], $config_defined)) { continue; } // This complete skip option if first level key defined in $config
+
+    // Unfortunately, I don't know of a better way to do this...
+    // Perhaps using array_map() ? Unclear... hacky. :[
+    switch (count($tree))
+    {
+      case 1:
+        //if (isset($config_defined[$tree[0]])) { continue; } // Note, false for null values
+        if (array_key_exists($tree[0], $config_defined)) { continue; }
+        $config[$tree[0]] = unserialize($item['config_value']);
+        break;
+      case 2:
+        if (isset($config_defined[$tree[0]][$tree[1]])) { continue; } // Note, false for null values
+        $config[$tree[0]][$tree[1]] = unserialize($item['config_value']);
+        break;
+      case 3:
+        if (isset($config_defined[$tree[0]][$tree[1]][$tree[2]])) { continue; } // Note, false for null values
+        $config[$tree[0]][$tree[1]][$tree[2]] = unserialize($item['config_value']);
+        break;
+      case 4:
+        if (isset($config_defined[$tree[0]][$tree[1]][$tree[2]][$tree[3]])) { continue; } // Note, false for null values
+        $config[$tree[0]][$tree[1]][$tree[2]][$tree[3]] = unserialize($item['config_value']);
+        break;
+      case 5:
+        if (isset($config_defined[$tree[0]][$tree[1]][$tree[2]][$tree[3]][$tree[4]])) { continue; } // Note, false for null values
+        $config[$tree[0]][$tree[1]][$tree[2]][$tree[3]][$tree[4]] = unserialize($item['config_value']);
+        break;
+      default:
+        print_error("Too many array levels for SQL configuration parser!");
+    }
+  }
+}
+
 // Convert SI scales to scalar scale. Example return:
 // si_to_scale('milli');    // return 0.001
 // si_to_scale('femto', 8); // return 1.0E-23
@@ -1703,12 +2003,11 @@ function si_to_scale($si = 'units', $precision = NULL)
   return $scale;
 }
 
-
 /**
  * Compare variables considering epsilon for float numbers
  * returns: 0 - variables same, 1 - $a greater than $b, -1 - $a less than $b
  *
- * @param mixed $a Fist compare number
+ * @param mixed $a First compare number
  * @param mixed $b Second compare number
  * @param float $epsilon
  * @return integer $compare
@@ -1716,7 +2015,7 @@ function si_to_scale($si = 'units', $precision = NULL)
 // MOVEME to includes/common.inc.php
 function float_cmp($a, $b, $epsilon = NULL)
 {
-  $epsilon = (is_numeric($epsilon) ? (float)$epsilon : 0.00001); // Default epsilon for float compare
+  $epsilon = (is_numeric($epsilon) ? abs((float)$epsilon) : 0.00001); // Default epsilon for float compare
   $compare = FALSE;
   $both    = 0;
   // Convert to float if possible
@@ -1726,13 +2025,30 @@ function float_cmp($a, $b, $epsilon = NULL)
   if ($both === 2)
   {
     // Compare numeric variables as float numbers
-    if (abs(($a - $b) / $b) < $epsilon)
+    // Based on compare logic from http://floating-point-gui.de/errors/comparison/
+    if ($a === $b)
     {
-      $compare = 0;  // Float numbers same
+      $compare = 0; // Variables same
+      $test = 0;
+    } else {
+      $diff = abs($a - $b);
+      //$pow_epsilon = pow($epsilon, 2);
+      if ($a == 0 || $b == 0)
+      {
+        // Around zero
+        $test    = $diff;
+        $epsilon = pow($epsilon, 2);
+        if ($test < $epsilon) { $compare = 0; }
+      } else {
+        // Note, still exist issue with numbers around zero (ie: -0.00000001, 0.00000002)
+        $test = $diff / min(abs($a) + abs($b), PHP_INT_MAX);
+        if ($test < $epsilon) { $compare = 0; }
+      }
     }
+
     if (OBS_DEBUG > 1)
     {
-      print_debug('Compare float numbers: "'.$a.'" with "'.$b.'", epsilon: "'.$epsilon.'", comparision: "'.abs(($a - $b) / $b).' < '.$epsilon.'", numbers: '.($compare === 0 ? 'SAME' : 'DIFFERENT'));
+      print_message('Compare float numbers: "'.$a.'" with "'.$b.'", epsilon: "'.$epsilon.'", comparision: "'.$test.' < '.$epsilon.'", numbers: '.($compare === 0 ? 'SAME' : 'DIFFERENT'));
     }
   } else {
     // All other compare as usual
@@ -1806,6 +2122,159 @@ function array_merge_indexed()
   }
 
   return $array;
+}
+
+// DOCME needs phpdoc block
+// TESTME needs unit testing
+function print_cli_heading($contents, $level = 2)
+{
+  if (OBS_QUIET) { return; }
+
+//  $tl = html_entity_decode('&#x2554;', ENT_NOQUOTES, 'UTF-8'); // top left corner
+//  $tr = html_entity_decode('&#x2557;', ENT_NOQUOTES, 'UTF-8'); // top right corner
+//  $bl = html_entity_decode('&#x255a;', ENT_NOQUOTES, 'UTF-8'); // bottom left corner
+//  $br = html_entity_decode('&#x255d;', ENT_NOQUOTES, 'UTF-8'); // bottom right corner
+//  $v = html_entity_decode('&#x2551;', ENT_NOQUOTES, 'UTF-8');  // vertical wall
+//  $h = html_entity_decode('&#x2550;', ENT_NOQUOTES, 'UTF-8');  // horizontal wall
+
+//  print_message($tl . str_repeat($h, strlen($contents)+2)  . $tr . "\n" .
+//                $v  . ' '.$contents.' '   . $v  . "\n" .
+//                $bl . str_repeat($h, strlen($contents)+2)  . $br . "\n", 'color');
+
+  $level_colours = array('0' => '%W', '1' => '%g', '2' => '%c' , '3' => '%p');
+
+  //print_message(str_repeat("  ", $level). $level_colours[$level]."#####  %W". $contents ."%n\n", 'color');
+  print_message($level_colours[$level]."#####  %W". $contents .$level_colours[$level]."  #####%n\n", 'color');
+}
+
+// DOCME needs phpdoc block
+// TESTME needs unit testing
+function print_cli_data($field, $data, $level = 2)
+{
+  if (OBS_QUIET) { return; }
+
+  $level_colours = array('0' => '%W', '1' => '%g', '2' => '%c' , '3' => '%p');
+
+  //print_cli(str_repeat("  ", $level) . $level_colours[$level]."  o %W".str_pad($field, 20). "%n ");
+  print_cli($level_colours[$level]." o %W".str_pad($field, 20). "%n "); // strlen == 24
+
+  $field_len = 0;
+  $max_len = 110;
+
+  $lines = explode("\n", $data);
+
+  foreach ($lines as $line)
+  {
+    $len = strlen($line) + 24;
+    if ($len > $max_len)
+    {
+      $len = $field_len;
+      $data = explode(" ", $line);
+      foreach ($data as $datum)
+      {
+        $len = $len + strlen($datum);
+        if ($len > $max_len)
+        {
+          $len = strlen($datum);
+          //$datum = "\n". str_repeat(" ", 26+($level * 2)). $datum;
+          $datum = "\n". str_repeat(" ", 24). $datum;
+        } else {
+          $datum .= ' ';
+        }
+        print_cli($datum);
+      }
+    } else {
+      $datum = str_repeat(" ", $field_len). $line;
+      print_cli($datum);
+    }
+    $field_len = 24;
+    print_cli(PHP_EOL);
+  }
+}
+
+// DOCME needs phpdoc block
+// TESTME needs unit testing
+function print_cli_data_field($field, $level = 2)
+{
+  if (OBS_QUIET) { return; }
+
+  $level_colours = array('0' => '%W', '1' => '%g', '2' => '%c' , '3' => '%p');
+
+  // print_cli(str_repeat("  ", $level) . $level_colours[$level]."  o %W".str_pad($field, 20). "%n ");
+  print_cli($level_colours[$level]." o %W".str_pad($field, 20). "%n ");
+}
+
+// DOCME needs phpdoc block
+// TESTME needs unit testing
+function print_cli_table($table_rows, $table_header = array(), $descr = NULL)
+{
+  if (!is_array($table_rows)) { print_error("print_cli_table() argument $table_rows should be an array. Please report this error to developers."); return; }
+  if (OBS_QUIET) { return; }
+
+  if (!cli_is_piped() || OBS_DEBUG)
+  {
+    $count_rows   = count($table_rows);
+    if ($count_rows == 0) { return; }
+
+    if (strlen($descr))
+    {
+      print_cli_data($descr, '', 3);
+    }
+
+    $table = new \cli\Table();
+    $count_header = count($table_header);
+    if ($count_header)
+    {
+      $table->setHeaders($table_header);
+    }
+    $table->setRows($table_rows);
+    $table->display();
+    echo(PHP_EOL);
+  } else {
+    print_cli_data("Notice", "Table output suppressed due to piped output.".PHP_EOL);
+  }
+}
+
+// DOCME needs phpdoc block
+function print_cli_banner()
+{
+  if (OBS_QUIET) { return; }
+
+  print_message("%W
+  ___   _                              _
+ / _ \ | |__   ___   ___  _ __ __   __(_) _   _  _ __ ___
+| | | || '_ \ / __| / _ \| '__|\ \ / /| || | | || '_ ` _ \
+| |_| || |_) |\__ \|  __/| |    \ V / | || |_| || | | | | |
+ \___/ |_.__/ |___/ \___||_|     \_/  |_| \__,_||_| |_| |_|%c
+".
+  str_pad(OBSERVIUM_PRODUCT_LONG." ".OBSERVIUM_VERSION, 59, " ", STR_PAD_LEFT)."\n".
+  str_pad("http://www.observium.org" , 59, " ", STR_PAD_LEFT)."%N\n", 'color');
+
+}
+
+// TESTME needs unit testing
+/**
+ * Creates a list of php files available in the html/pages/front directory, to show in a
+ * dropdown on the web configuration page.
+ *
+ * @return array List of front page files available
+ */
+function config_get_front_page_files()
+{
+  global $config;
+
+  $frontpages = array();
+
+  foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($config['html_dir'] . '/pages/front')) as $file)
+  {
+    $filename = $file->getFileName();
+    if ($filename[0] != '.')
+    {
+      $frontpages["pages/front/$filename"] = nicecase(basename($filename,'.php'));
+    }
+  }
+
+  return $frontpages;
 }
 
 // EOF

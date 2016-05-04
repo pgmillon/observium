@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -21,9 +21,9 @@ if (is_numeric($vars['id']))
     $rrd_filename  = get_rrd_path($device, "toner-" . $toner['toner_index'] . ".rrd");
 
     $title  = generate_device_link($device);
-    $title .= " :: Toner :: " . htmlentities($toner['toner_descr']);
+    $title .= " :: Toner :: " . escape_html($toner['toner_descr']);
     $auth = TRUE;
   }
 }
 
-?>
+// EOF

@@ -1,7 +1,8 @@
 <?php
 
 include(dirname(__FILE__) . '/../includes/defaults.inc.php');
-include(dirname(__FILE__) . '/../config.php');
+//include(dirname(__FILE__) . '/../config.php'); // Do not include user editable config here
+//include(dirname(__FILE__) . '/data/test_definitions.inc.php'); // Fake definitions for testing
 include(dirname(__FILE__) . '/../includes/definitions.inc.php');
 include(dirname(__FILE__) . '/../includes/functions.inc.php');
 
@@ -84,6 +85,8 @@ class IncludesSnmpTest extends PHPUnit_Framework_TestCase
       array('  20,4',          20.4),
       array('4,200000067', 4.200000067),
       array('" -002.4336 dBm: Normal "', -2.4336),
+      array('"66.1 C (151.0 F)"', 66.1),
+      array('"36 C/96 F"', 36),
     );
   }
 }

@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -15,14 +15,14 @@
 #NS-ROOT-MIB::nsCPUname."cpu0" = STRING: "cpu0"
 #NS-ROOT-MIB::nsCPUusage."cpu0" = Gauge32: 0
 
-echo(" NS-ROOT-MIB ");
+echo("NS-ROOT-MIB ");
 
-echo(" Caching OIDs:");
+//echo(" Caching OIDs:");
 
 if (!is_array($nsaarray))
 {
   $nsarray = array();
-  echo(" nsCPUTable ");
+  //echo(" nsCPUTable ");
   $nsarray = snmpwalk_cache_multi_oid($device, "nsCPUTable", $nsarray, "NS-ROOT-MIB", mib_dirs('citrix'));
 }
 

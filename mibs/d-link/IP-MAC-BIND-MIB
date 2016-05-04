@@ -1,8 +1,8 @@
 -- -----------------------------------------------------------------------------
 -- MIB NAME : IP-MAC Binding Common mib
 -- FILE NAME: IPMacBind.mib
--- DATE     : 2010/04/26
--- VERSION  : 2.12
+-- DATE     : 2012/10/26
+-- VERSION  : 2.18
 -- PURPOSE  : To construct the MIB structure of IP-MAC Binding
 --            for proprietary enterprise
 -- -----------------------------------------------------------------------------
@@ -13,6 +13,36 @@
 --  [New Object]
 --  [Modification]
 -- Notes: (Requested by who and which project)
+--
+-- Version 2.18, 2012/10/26, Randy Xie
+-- [New Object]
+-- Add swIpMacBindingAutoRecoverTime, swIpMacBindingPortLimitRateValue and swIpMacBindingPortLimitRateAction to limit rate dhcp packet to CPU function.
+-- Request by Randy Xie for support "IP DHCP Snooping Limit Rate"
+--
+-- Version 2.17, 2012/06/25, Randy Xie
+-- [Modification]
+-- Modify the value length of objects swIpMacBindingUploadDownloadUsername, swIpMacBindingUploadDownloadPassword and 
+-- swIpMacBindingUploadDownloadFileName.
+--
+-- Version 2.16, 2012/06/20, Randy Xie
+-- [Modification]
+-- Modify the value length of objects swIpMacBindingAutosaveFileName and swIpMacBindingUploadDownloadFileName.
+--
+-- Version 2.15, 2012/05/11, Randy Xie
+-- [New Object]
+-- Add swIpMacBindingAutosaveState and swIpMacBindingAutosaveFileName to support autosave function.
+-- Add swIpMacBindingUploadDownloadTable to support upload/down function.
+-- Request by Randy Xie for support "Saving IMPB DHCPv4 Snooping binding entries"
+--
+-- Version 2.14, 2012/02/24, Shawn Chen
+-- [New Object]
+-- Add swIpMacBindingPortNDInspection to support DAD filtering function.
+-- SNR-20111007-001(IMPBv6.1 (DAD snooping and filtering))
+--
+-- Version 2.13, 2011/08/11, Randy Xie
+-- [New Object]
+-- Add swIpMacBindingRoamingState to support 
+-- SNR-20110810-001(configurable roaming)
 --
 -- Version 2.12, 2010/04/26, Shawn Chen
 -- [New Object]
@@ -112,6 +142,7 @@ IP-MAC-BIND-MIB DEFINITIONS ::= BEGIN
                                         FROM SNMPv2-SMI
         MacAddress, RowStatus, DateAndTime           FROM SNMPv2-TC
         DisplayString                   FROM RFC1213-MIB
+        InetAddressType, InetAddress    FROM INET-ADDRESS-MIB
     	SnmpAdminString					FROM SNMP-FRAMEWORK-MIB
         dlink-common-mgmt				FROM DLINK-ID-REC-MIB        
         Ipv6Address	                    FROM IPV6-TC;
@@ -119,7 +150,7 @@ IP-MAC-BIND-MIB DEFINITIONS ::= BEGIN
 		VlanId					::= INTEGER (1..4094)
 
     swIpMacBindMIB MODULE-IDENTITY
-	    LAST-UPDATED "1004260000Z"
+	    LAST-UPDATED "1210260000Z"
 	    ORGANIZATION "D-Link Corp."
 	    CONTACT-INFO
 	        "http://support.dlink.com"
@@ -284,6 +315,74 @@ IP-MAC-BIND-MIB DEFINITIONS ::= BEGIN
 			DESCRIPTION
 				"Used to clear all the entries learned by ND snooping."
 			::= { swIpMacBindingCtrl 10 }
+			
+		swIpMacBindingRoamingState  OBJECT-TYPE
+    		SYNTAX  INTEGER {
+                	enabled(1),
+                	disabled(2)
+            	}
+		MAX-ACCESS  read-write
+		STATUS      current
+		DESCRIPTION
+			"This object indicates the global state of IMPB roaming.
+			
+			When IMPB roaming is enabled, the dynamic authenticated MAC address 
+			which learned through DHCP/ND snooping on specific port can change to 
+			another port if it detects (1) a new DHCP process belong to same IP 
+			and MAC address or (2) a new DAD process belong to same IP and MAC.
+			
+			When disable the IMPB roaming, the DHCP or ND entry cannot be roaming"
+		::= { swIpMacBindingCtrl 11 }
+		
+		swIpMacBindingAutosaveState  OBJECT-TYPE
+    		SYNTAX  INTEGER {
+                	enabled(1),
+                	disabled(2)
+            	}
+		MAX-ACCESS  read-write
+		STATUS      current
+		DESCRIPTION
+			"This object indicates the global state of the DHCPv4 Snooping binding entries autosave.
+			By default, the autosave state of the DHCPv4 Snooping binding entries is enabled.
+			
+			When the autosave state is enabled, the device will back up the DHCPv4 Snooping binding 
+			entries in the specified backup path every 60 minutes and read the back up database after 
+			the switch reboot.The DHCP Snooping will rebuild the binding entry base on the back up database file.
+			You must not change the back up database file, otherwise it will lead to rebuild failed.
+			
+			Note£ºThis feature only supports on the device that supports of external memory (e.g. SD card)"
+		::= { swIpMacBindingCtrl 12 }
+		
+		swIpMacBindingAutosaveFileName OBJECT-TYPE
+			SYNTAX  DisplayString  (SIZE (1..64))
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+        	"The path name specifies the path of the file to be auto saving.
+			By default, the filename is ¡°dhcpsnp.cfg¡±."
+    	::= { swIpMacBindingCtrl 13 }
+		
+		swIpMacBindingSaveActivity  OBJECT-TYPE
+    		SYNTAX  INTEGER {
+                	none(1),
+                	start(2)
+            	}
+		MAX-ACCESS  read-write
+		STATUS      current
+		DESCRIPTION
+			"When this object is set to start(2), the device will begin saving DHCPv4 snooping bindind entries immediately."
+		::= { swIpMacBindingCtrl 14 }
+		
+		swIpMacBindingAutoRecoverTime  OBJECT-TYPE
+		SYNTAX  INTEGER 
+		MAX-ACCESS  read-write
+		STATUS      current
+		DESCRIPTION
+			"Automatically recover port from shutdown state when the auto recover timer timeout.
+			Note:
+			The max entry range is (60..1000000)seconds.
+			The value -1 means infinite to shutdown and never recover the port shutdown state."
+		::= { swIpMacBindingCtrl 15 }
 		
 -- -----------------------------------------------------------------------------
 -- swIpMacBindingPortMgmt       OBJECT IDENTIFIER ::= { swIpMacBindMIB 3 }
@@ -376,7 +475,13 @@ IP-MAC-BIND-MIB DEFINITIONS ::= BEGIN
 			swIpMacBindingPortIPInspection
 				INTEGER,
 			swIpMacBindingPortIPProtocol
-				INTEGER
+				INTEGER,
+			swIpMacBindingPortNDInspection
+				INTEGER,
+			swIpMacBindingPortLimitRateValue
+				INTEGER,
+			swIpMacBindingPortLimitRateAction
+				INTEGER    
        }
 
 	swIpMacBindingPortIndex OBJECT-TYPE
@@ -659,6 +764,45 @@ IP-MAC-BIND-MIB DEFINITIONS ::= BEGIN
 		DEFVAL {all}
 		::= { swIpMacBindingPortEntry 18 }
 
+	swIpMacBindingPortNDInspection  OBJECT-TYPE
+		SYNTAX	INTEGER{
+			enabled(1),
+			disabled(2)
+		}
+		MAX-ACCESS  read-write
+		STATUS      current
+		DESCRIPTION
+			"This object used to set ND inspection state on the specified port.
+			When ND inspection is enabled on the port, the legal ND packets will be forward, while the illegal packets will be dropped.
+			"
+		DEFVAL {disabled}
+		::= { swIpMacBindingPortEntry 19 }
+		
+	
+	swIpMacBindingPortLimitRateValue  OBJECT-TYPE
+		SYNTAX	INTEGER
+		MAX-ACCESS  read-write
+		STATUS      current
+		DESCRIPTION
+			"This object is the threshold at which the specified limit rate will turn on.
+			Note:
+			The max entry range is (1..2048)pps.
+			The value -1 means not limit the dhcp packet to cpu."
+		::= { swIpMacBindingPortEntry 20 }
+
+	swIpMacBindingPortLimitRateAction  OBJECT-TYPE
+		SYNTAX	INTEGER{
+			drop(1),
+			shutdown(2)
+		}
+		MAX-ACCESS  read-write
+		STATUS      current
+		DESCRIPTION
+			"There are two actions to take for limit rate, drop and shutdown
+			 drop:discards dhcp packets that exceed the limit rate value
+			 shutdown:shutdown the port when the dhcp packet rate value specified for limit rate is reached."
+		::= { swIpMacBindingPortEntry 21 }
+	
 -- -----------------------------------------------------------------------------
 -- swIpMacBindingMgmt          OBJECT IDENTIFIER ::= { swIpMacBindMIB 4 }
 -- -----------------------------------------------------------------------------
@@ -1225,6 +1369,154 @@ IP-MAC-BIND-MIB DEFINITIONS ::= BEGIN
 		DESCRIPTION
             	    "Specifies the status (inactive or active) of this entry."
    		::= { swIpMacBindingNDSnoopEntry 5 }
+		
+-- -----------------------------------------------------------------------------
+-- swIpMacBindingUploadDownloadTable   OBJECT IDENTIFIER ::= { swIpMacBindingMgmt 7 }
+-- -----------------------------------------------------------------------------
+    swIpMacBindingUploadDownloadTable OBJECT-TYPE
+        SYNTAX  SEQUENCE OF SwIpMacBindingUploadDownloadEntry
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+            "This table indicates information about the DHCPv4 snooping binding entry upload or download parameters."
+        ::= { swIpMacBindingMgmt 7 }
+
+    swIpMacBindingUploadDownloadEntry OBJECT-TYPE
+        SYNTAX  SwIpMacBindingUploadDownloadEntry
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+            "A list with the DHCPv4 snooping binding entry upload or download parameters.It's contains the Protocol type,
+            IP address type, IP address, Username, Password, TCP port number, Filename, and action of this entry"
+        INDEX   {swIpMacBindingUploadDownloadProtocol }
+        ::= { swIpMacBindingUploadDownloadTable 1 }
+
+    SwIpMacBindingUploadDownloadEntry ::=
+        SEQUENCE {
+            swIpMacBindingUploadDownloadProtocol
+                INTEGER,
+            swIpMacBindingUploadDownloadServerIPAddressType
+                InetAddressType,
+            swIpMacBindingUploadDownloadServerIPAddress
+                InetAddress,
+            swIpMacBindingUploadDownloadUsername
+                DisplayString,
+            swIpMacBindingUploadDownloadPassword
+                DisplayString,
+            swIpMacBindingUploadDownloadTcpPort
+                INTEGER,
+            swIpMacBindingUploadDownloadFileName
+                DisplayString,                
+            swIpMacBindingUploadDownloadAction
+                INTEGER
+        }
+
+    swIpMacBindingUploadDownloadProtocol OBJECT-TYPE
+        SYNTAX INTEGER {
+                    tftp(1),
+                    ftp(2)
+                }
+        MAX-ACCESS  read-only
+        STATUS  current
+        DESCRIPTION
+        	"This object provides the user with a choice of uploading or downloading the selected protocol type.
+            
+            tftp(1)  selecting the TFTP protocol to upload or download the DHCPv4 snooping database.
+            ftp(2)   selecting the FTP protocol to upload or download the DHCPv4 snooping database.
+            "
+    	::= { swIpMacBindingUploadDownloadEntry 1 }
+
+    swIpMacBindingUploadDownloadServerIPAddressType OBJECT-TYPE
+        SYNTAX  InetAddressType
+        MAX-ACCESS  read-create
+        STATUS  current
+        DESCRIPTION
+        	"A value that represents a type of Internet address.
+             unknown(0)  An unknown address type. This value MUST
+                  be used if the value of the corresponding
+                  InetAddress object is a zero-length string.
+                  It may also be used to indicate an IP address
+                  which is not in one of the formats defined
+                  below.
+
+             ipv4(1)  An IPv4 address as defined by the
+                      InetAddressIPv4 textual convention.
+
+             ipv6(2)   An IPv6 address as defined by the
+                       InetAddressIPv6 textual convention.
+
+             dns(16)   A DNS domain name as defined by the
+                       InetAddressDNS textual convention.
+        	"
+    	::= { swIpMacBindingUploadDownloadEntry 2 }
+
+    swIpMacBindingUploadDownloadServerIPAddress OBJECT-TYPE
+        SYNTAX  InetAddress
+        MAX-ACCESS  read-create
+        STATUS  current
+        DESCRIPTION
+        	"Denotes a generic Internet address.
+
+         An InetAddress value is always interpreted within the context
+         of an InetAddressType value.  Every usage of the InetAddress
+         textual convention is required to specify the InetAddressType
+         object that provides the context.  It is suggested that the
+         InetAddressType object be logically registered before the
+         object(s) that use the InetAddress textual convention, if
+         they appear in the same logical row.
+
+         The value of an InetAddress object must always be
+         consistent with the value of the associated InetAddressType
+         object.  Attempts to set an InetAddress object to a value
+         inconsistent with the associated InetAddressType
+         must fail with an inconsistentValue error.
+         "
+    	::= { swIpMacBindingUploadDownloadEntry 3 }
+
+    swIpMacBindingUploadDownloadUsername OBJECT-TYPE
+        SYNTAX  DisplayString  (SIZE (0..64))
+        MAX-ACCESS  read-create
+        STATUS  current
+        DESCRIPTION
+        	"The username and password to be authenticated by the FTP server.
+            This value MUST be corresponding with Password object, and only use to FTP protocol."
+    	::= { swIpMacBindingUploadDownloadEntry 4 }
+
+    swIpMacBindingUploadDownloadPassword OBJECT-TYPE
+        SYNTAX  DisplayString  (SIZE (0..64))
+        MAX-ACCESS  read-create
+        STATUS  current
+        DESCRIPTION
+        	"The username and password to be authenticated by the FTP server.
+            This value MUST be corresponding with Username object, and only use to FTP protocol."
+    	::= { swIpMacBindingUploadDownloadEntry 5 }
+
+	swIpMacBindingUploadDownloadTcpPort OBJECT-TYPE
+		SYNTAX		INTEGER(1..65535)
+		MAX-ACCESS	read-create
+		STATUS		current
+		DESCRIPTION
+			"This object indicates the FTP connecting port number."
+		::= { swIpMacBindingUploadDownloadEntry 6 }
+
+    swIpMacBindingUploadDownloadFileName OBJECT-TYPE
+        SYNTAX  DisplayString  (SIZE (0..64))
+        MAX-ACCESS  read-create
+        STATUS  current
+        DESCRIPTION
+        	"The name of the file to be downloaded from or uploaded to the TFTP or FTP server."
+    	::= { swIpMacBindingUploadDownloadEntry 7 }
+
+    swIpMacBindingUploadDownloadAction OBJECT-TYPE
+        SYNTAX INTEGER {
+                    upload(1),
+                    download(2)
+                }
+        MAX-ACCESS  read-create
+        STATUS  current
+        DESCRIPTION
+        	"This object provides the user with a choice of uploading or downloading the selected file."
+    	::= { swIpMacBindingUploadDownloadEntry 10 }
    			
 -- -----------------------------------------------------------------------------
 -- swIpMacBindingNotify        OBJECT IDENTIFIER ::= { swIpMacBindMIB 5 }
@@ -1268,6 +1560,24 @@ IP-MAC-BIND-MIB DEFINITIONS ::= BEGIN
             		"When the IP-MAC Binding trap is enabled, if there's a new MAC that violates the pre-defined
             		IPv6 IP-MAC Binding configuration, a trap will be sent out."
         	::= { swIpMacBindingNotifyPrefix 4 }
+
+	swIpMacBindingShutdownTrap NOTIFICATION-TYPE
+    	OBJECTS  { 	  swIpMacBindingPortIndex
+                 }
+        STATUS  current
+        	DESCRIPTION
+            		"When the rate limiting is shutdown mode and the DHCP rate excludes 
+					the limiting, a trap will be sent out."
+        	::= { swIpMacBindingNotifyPrefix 5 }
+	
+	swIpMacBindingRecoveryTrap NOTIFICATION-TYPE
+    	OBJECTS  { 	  swIpMacBindingPortIndex
+                 }
+        STATUS  current
+        	DESCRIPTION
+            		"When the port is shutdown by DHCP rate limiting and the auto-recovery 
+					timer is timeout, a trap will be sent out."
+        	::= { swIpMacBindingNotifyPrefix 6 }
         	
 	swIpMacBindingNotificationBidings   OBJECT IDENTIFIER ::= { swIpMacBindingNotify 2 }
 

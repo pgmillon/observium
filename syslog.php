@@ -8,15 +8,15 @@
  *
  * @package    observium
  * @subpackage syslog
- * @author     Adam Armstrong <adama@memetic.org>
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @author     Adam Armstrong <adama@observium.org>
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
-include_once("includes/defaults.inc.php");
-include_once("config.php");
-include_once("includes/definitions.inc.php");
-include($config['install_dir'] . "/includes/functions.inc.php");
+chdir(dirname($argv[0]));
+$scriptname = basename($argv[0]);
+
+include_once("includes/sql-config.inc.php");
 
 // Disable sql profiling, this is a background process without any way to display it
 $config['profile_sql'] = FALSE;

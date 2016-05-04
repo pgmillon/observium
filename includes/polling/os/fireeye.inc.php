@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage poller
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -31,5 +31,5 @@ $hardware = substr($hardware, 1, -1);
 
 $serial = snmp_get($device, "feSerialNumber.0", "-Osqv", "FE-FIREEYE-MIB");
 $serial = substr($serial, 1, -1);
- 
+
 // EOF

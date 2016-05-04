@@ -1,0 +1,446 @@
+PDN-SECURITY-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+	IpAddress
+		FROM RFC1155-SMI
+	OBJECT-TYPE
+		FROM RFC-1212
+	pdn-security
+		FROM PDN-HEADER-MIB
+    	RowStatus
+		FROM SNMPv2-TC;
+
+-- ===============================================================
+--
+--  Device Security, 10/04/95
+--
+--  NOTE: This group is in addition to the community name and 
+--        provides an additional level of security not provided
+--        by the community name in version 1 of the SNMP standard.
+--
+-- ===============================================================
+-- 
+-- 11/18/98 - Rob Steinberger (ras@eng.paradyne.com)
+--
+-- Reversed Rajesh's change from att-security to pdn-security
+-- in that it breaks attDCE.mib.
+--
+-- 11/09/98 - Rajesh Gowda
+-- 1. Added devSecurityTelnetSourceValidation scalar object
+-- 2. Added newSecurityMgrSubnetMask objects into newSecurityMgrTable
+--    Changed the description of newSecurityMgrIpAddress
+-- 3. att-security group name has been changed to pdn-security
+-- 4. More enumerations added to object newSecurityMgrAccess.
+--
+-- ===============================================================
+-- 
+-- 03/03/2000 - Rajesh Gowda (rgowda@nj.paradyne.com)
+--
+-- 1. Added devSecurityFtpSourceValidation scalar object
+-- 2. Added table object securityMgrTable which deprecates
+--    newSecurityMgrTable for the following reasons
+--    a. Index for the table is changed
+--    b. Manager access object is broken down to 3 objects
+--
+-- ===============================================================
+-- 
+-- 01/07/02 - Dragana Gough
+--
+-- 1. Added devSecurityTrapMgrTable
+--
+-- 01/11/02 - Dragana Gough
+--
+-- 2. Removed devSecurityTrapMgrTable and added object in securityMgrTable to
+--   signal that traps are to be sent to specified ip address
+-- 
+-- ===============================================================
+-- 
+-- 05/21/02 - Jesus Pinto (pinto@paradyne.com)
+--
+-- 1. Changed STATUS on newSecurityMgrTable to deprecated
+-- 2. Changed ACCESS on securityMgrIpAddress and 
+--    securityMgrSubnetMask to be read-only. 
+-- 
+-- ===============================================================
+-- 
+-- 08/22/02 - Jesus Pinto (pinto@paradyne.com)
+--
+-- 1.  deprecated securityMgrTrapAccess. Developers should
+--     use pdn_TrapMgr.mib for trap mgr configuration.
+--
+
+devSecurityMgrValidation OBJECT-TYPE
+    SYNTAX INTEGER {
+        disable (1),
+        enable  (2)
+    }
+    ACCESS read-write
+    STATUS mandatory
+    DESCRIPTION
+        "This object is used to either enable or disable
+        SNMP IP validation. When enabled the first check on any
+        incoming PDU is based on the IP address of the datagram.
+        If the IP address is configured in the 
+        devSecurityMgrTable then the community name is checked.
+        If the community name is correct then the lowest access level
+        between the the Table and the community name is taken."
+    ::= { pdn-security 1 }
+
+
+
+devSecurityMgrMaxNumber OBJECT-TYPE
+    SYNTAX INTEGER
+    ACCESS read-only
+    STATUS mandatory
+    DESCRIPTION
+        "Maximum number of managers allowed in the devSecurityMgrTable."
+    ::= { pdn-security 2 }
+
+devSecurityMgrCurrentNumber OBJECT-TYPE
+    SYNTAX INTEGER
+    ACCESS read-only
+    STATUS mandatory
+    DESCRIPTION
+        "Current number of managers in the devSecurityMgrTable."
+    ::= { pdn-security 3 }
+
+--
+--  Deprecated:  10/7/96
+--        The devSecurityMgrTable has been replaced with the
+--        newSecurityMgrTable at the end of this file.
+--
+
+devSecurityMgrTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF DevSecurityMgrEntry
+    ACCESS not-accessible
+    STATUS deprecated
+    DESCRIPTION
+        "A list of the security manager entries.
+        In order to add a new Security Manager the devSecurityMgrIpAddress 
+        object must be created first by setting it to a valid IP Address."
+    ::= { pdn-security 4 }
+
+devSecurityMgrEntry OBJECT-TYPE
+    SYNTAX DevSecurityMgrEntry
+    ACCESS not-accessible
+    STATUS deprecated
+    DESCRIPTION
+        "The SNMP IP Address configuration items."
+    INDEX { devSecurityMgrIpAddress }
+    ::= { devSecurityMgrTable 1 }
+
+DevSecurityMgrEntry ::=
+    SEQUENCE {
+        devSecurityMgrIpAddress
+            IpAddress,
+        devSecurityMgrAccess
+            INTEGER
+    }
+
+devSecurityMgrIpAddress OBJECT-TYPE
+    SYNTAX IpAddress
+    ACCESS read-write
+    STATUS deprecated
+    DESCRIPTION
+        "This is used to specify the IP address that identifies the
+        SNMP manager(s) that are authorized to send SNMP messages.
+
+        An existing Security Manager may be deleted by setting the 
+        devSecurityMgrIpAddress object to 0.0.0.0 or by setting the 
+        devSecurityMgrIpAddress object to a new IP Address.
+        A new Security Manager may be added by setting
+        the devSecurityMgrIpAddress object of 0.0.0.0 to the new address 
+        as long as there is still room for another Security Manager.
+
+        When ever a new Security Manager is added or an existing 
+        Security Manager's IP Address is modified, 
+        the devSecurityMgrAccess object is set to the default value 
+        of read (1)."
+    ::= { devSecurityMgrEntry 1 }
+
+devSecurityMgrAccess OBJECT-TYPE
+    SYNTAX INTEGER {
+        read      (1),
+        readWrite (2)
+    }
+    ACCESS read-write
+    STATUS deprecated
+    DESCRIPTION
+        "This field is used to specify the access allowed for an authorized 
+        NMS when Manager Validation is performed. 
+        If the IP address for the NMS sending an SNMP message is on the list 
+        of allowed managers, this option along with the Community Name access 
+        determine the type of access allowed for the that manager. 
+
+        When ever a new Security Manager is added or an existing 
+        Security Manager's IP Address is modified, the devSecurityMgrAccess 
+        object is set to the default value of read (1).
+        If the index for this object is not in the existing table and if there
+        is room in the table then the index will be used to create a new 
+        Security Manager and will be given the requested access level."
+    ::= { devSecurityMgrEntry 2 }
+
+-- ===============================================================
+--
+--  New Device Security, Version 1.0.0, 8/30/96
+--       Updated by Prakash Easwar.
+--
+-- History :
+-- 8/30/96
+--      1. The access permission of devSecurityMgrIpAddress has been 
+--              changed from read-write to read-only.  Also the Description
+--              of this object is modified.
+--      2. the devSecurityMgrAccess has been updated to include 
+--              noAccess.
+--      3. The description of the devSecurityMgrEntry object has been 
+--              modified.
+--
+-- 5/21/02
+--      1. This table has been deprecated.
+--
+
+newSecurityMgrTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF NewSecurityMgrEntry
+    ACCESS not-accessible
+    STATUS deprecated
+    DESCRIPTION
+        "A list of the security manager entries. If an entry is not found
+         in this table, it is added to the table."
+    ::= { pdn-security 5 }
+
+newSecurityMgrEntry OBJECT-TYPE
+    SYNTAX NewSecurityMgrEntry
+    ACCESS not-accessible
+    STATUS deprecated
+    DESCRIPTION
+        "The SNMP IP Address configuration items."
+    INDEX { newSecurityMgrIpAddress }
+    ::= { newSecurityMgrTable 1 }
+
+NewSecurityMgrEntry ::=
+    SEQUENCE {
+        newSecurityMgrIpAddress
+            IpAddress,
+        newSecurityMgrAccess
+            INTEGER,
+        newSecurityMgrSubnetMask
+            IpAddress
+    }
+
+newSecurityMgrIpAddress OBJECT-TYPE
+    SYNTAX IpAddress
+    ACCESS read-write
+    STATUS deprecated
+    DESCRIPTION
+        "This is used to specify the IP address that identifies the
+        SNMP manager(s) that are authorized to send SNMP messages.
+        This object is the binary AND of SNMP or telnet source IP
+        address and its subnet mask if the subnet mask is available.
+        Subnet mask is assumed to be 255.255.255.255 when not available"
+    ::= { newSecurityMgrEntry 1 }
+
+
+newSecurityMgrAccess OBJECT-TYPE
+    SYNTAX INTEGER {
+        read      (1),
+        readWrite (2),
+        noAccess  (3),
+        telnetNoAccess  (4),
+        telnetRead      (5),
+        telnetReadWrite (6)
+    }
+    ACCESS read-write
+    STATUS deprecated
+    DESCRIPTION
+        "This field is used to specify the access allowed for an authorized 
+        NMS when Manager Validation is performed. 
+        If the IP address for the NMS sending an SNMP message is on the list 
+        of allowed managers, this option along with the Community Name access 
+        determine the type of access allowed for the that manager. 
+
+        When ever a new Security Manager is added or an existing 
+        Security Manager's IP Address is modified, the newSecurityMgrAccess 
+        object is set to the default value of read (1).
+        If the index for this object is not in the existing table and if there
+        is room in the table then the index will be used to create a new 
+        Security Manager and will be given the requested access level.
+                  In addition changing an existing access permission to noAccess
+                  invalidates the corresponding row of this table. It is upto
+                  the implementation to decide whether to actually remove this
+                  entry from the table or not.
+
+        read (1)            ==&gt; no telnet access and snmp read only access 
+        readWrite (2)       ==&gt; no telnet access and snmp read-write access
+        noAccess (3)        ==&gt; no telnet access and no snmp read-write access
+        telnetNoAccess (4)  ==&gt; telnet access and no snmp access
+        telnetRead (5)      ==&gt; telnet access and snmp read only access
+        telnetReadWrite (6) ==&gt; telnet access and snmp read-write access."
+    ::= { newSecurityMgrEntry 2 }
+
+newSecurityMgrSubnetMask OBJECT-TYPE
+    SYNTAX IpAddress
+    ACCESS read-write
+    STATUS deprecated
+    DESCRIPTION
+        "This object is used to specify the subnet mask "
+    ::= { newSecurityMgrEntry 3 }
+
+
+devSecurityTelnetSourceValidation OBJECT-TYPE
+    SYNTAX INTEGER {
+        disable (1),
+        enable  (2)
+    }
+    ACCESS read-write
+    STATUS mandatory
+    DESCRIPTION
+        "This object is used to either enable or disable
+        telnet source address screening "
+    ::= { pdn-security 6 }
+
+devSecurityFtpSourceValidation OBJECT-TYPE
+    SYNTAX INTEGER {
+        disable (1),
+        enable  (2)
+    }
+    ACCESS read-write
+    STATUS mandatory
+    DESCRIPTION
+        "This object is used to either enable or disable
+        ftp source address screening "
+    ::= { pdn-security 7 }
+
+-- ===============================================================
+--
+--  securityMgrTable
+--       Updated by Jesus Pinto 05-21-2002
+--
+--
+-- History :
+--	1. Changed securityMgrIpAddress and  
+--		securityMgrSubnetMask to be read-only.
+--
+-- ===============================================================
+securityMgrTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF SecurityMgrEntry
+    ACCESS not-accessible
+    STATUS mandatory
+    DESCRIPTION
+        "A list of the security manager entries. If an entry is not found
+        in this table, it is added to the table."
+    ::= { pdn-security 8 }
+
+securityMgrEntry OBJECT-TYPE
+    SYNTAX SecurityMgrEntry
+    ACCESS not-accessible
+    STATUS mandatory
+    DESCRIPTION
+        "The device access security configuration items."
+    INDEX { securityMgrIpAddress, securityMgrSubnetMask}
+    ::= { securityMgrTable 1 }
+
+SecurityMgrEntry ::=
+    SEQUENCE {
+        securityMgrIpAddress
+            IpAddress,
+        securityMgrSubnetMask
+            IpAddress,
+        securityMgrSnmpAccess
+            INTEGER,
+        securityMgrTelnetAccess
+            INTEGER,
+        securityMgrFtpAccess
+            INTEGER,
+        securityMgrTrapAccess
+	    INTEGER,
+        securityMgrRowStatus
+            RowStatus
+    }
+
+securityMgrIpAddress OBJECT-TYPE
+    SYNTAX IpAddress
+    ACCESS read-only
+    STATUS mandatory
+    DESCRIPTION
+        "This is used to specify the IP address that identifies the
+        SNMP manager(s) that are authorized to send SNMP messages."
+    ::= { securityMgrEntry 1 }
+
+securityMgrSubnetMask OBJECT-TYPE
+    SYNTAX IpAddress
+    ACCESS read-only
+    STATUS mandatory
+    DESCRIPTION
+        "This object is used to specify the subnet mask "
+    ::= { securityMgrEntry 2 }
+
+securityMgrSnmpAccess OBJECT-TYPE
+    SYNTAX INTEGER {
+        readOnly  (1),
+        readWrite (2),
+        noAccess (3)
+    }
+    ACCESS read-write
+    STATUS mandatory
+    DESCRIPTION
+        "This is used to specify the snmp access to the device."
+    ::= { securityMgrEntry 3 }
+
+securityMgrTelnetAccess OBJECT-TYPE
+    SYNTAX INTEGER {
+        disable (1),
+        enable  (2)
+    }
+    ACCESS read-write
+    STATUS mandatory
+    DESCRIPTION
+        "This is used to specify the telnet access to the device."
+    ::= { securityMgrEntry 4 }
+
+securityMgrFtpAccess OBJECT-TYPE
+    SYNTAX INTEGER {
+        disable (1),
+        enable  (2)
+    }
+    ACCESS read-write
+    STATUS mandatory
+    DESCRIPTION
+        "This is used to specify the ftp access to the device."
+    ::= { securityMgrEntry 5 }
+
+securityMgrTrapAccess OBJECT-TYPE
+    SYNTAX INTEGER {
+        trapAccess  (1),
+        noTrapAccess (2)
+    }
+    ACCESS read-write
+    STATUS deprecated
+    DESCRIPTION
+        "This is used to specify the trap access to the device.
+	 NOTE: the pdnDevTrapMgrTable should be used instead."
+    ::= { securityMgrEntry 6 }
+
+securityMgrRowStatus OBJECT-TYPE
+    SYNTAX RowStatus
+    ACCESS read-write
+    STATUS mandatory
+    DESCRIPTION
+        "The status of this table entry."
+    ::= { securityMgrEntry 7 }
+
+devSecuritySNMPMgrAccess OBJECT-TYPE
+    SYNTAX INTEGER {
+        disable (1),
+        enable  (2)
+    }
+    ACCESS read-write
+    STATUS mandatory
+    DESCRIPTION
+        "This object is used to either enable or disable
+        SNMP access to the system. When disabled the first check on any
+        incoming PDU is based on the UPD type of the datagram.
+        If it is an SNMP manager trying to access SNMP agent on the system
+	the access will be denied."
+    ::= { pdn-security 9 }
+
+END

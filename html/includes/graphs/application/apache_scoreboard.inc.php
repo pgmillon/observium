@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage graphs
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -17,16 +17,16 @@ include_once($config['html_dir']."/includes/graphs/common.inc.php");
 
 $rrd_filename = get_rrd_path($device, "app-apache-".$app['app_id'].".rrd");
 
-$array = array('sb_reading' => array('descr' => 'Reading', 'colour' => '750F7DFF'),
-               'sb_writing' => array('descr' => 'Writing', 'colour' => '00FF00FF'),
-               'sb_wait' => array('descr' => 'Waiting', 'colour' => '4444FFFF'),
-               'sb_start' => array('descr' => 'Starting', 'colour' => '157419FF'),
-               'sb_keepalive' => array('descr' => 'Keepalive', 'colour' => 'FF0000FF'),
-               'sb_dns' => array('descr' => 'DNS', 'colour' => '6DC8FEFF'),
-               'sb_closing' => array('descr' => 'Closing', 'colour' => 'FFAB00FF'),
-               'sb_logging' => array('descr' => 'Logging', 'colour' => 'FFFF00FF'),
-               'sb_graceful' => array('descr' => 'Graceful', 'colour' => 'FF5576FF'),
-               'sb_idle' => array('descr' => 'Idle', 'colour' => 'FF4105FF'),
+$array = array('sb_reading' => array('descr' => 'Reading'),
+               'sb_writing' => array('descr' => 'Writing'),
+               'sb_wait' => array('descr' => 'Waiting'),
+               'sb_start' => array('descr' => 'Starting'),
+               'sb_keepalive' => array('descr' => 'Keepalive'),
+               'sb_dns' => array('descr' => 'DNS'),
+               'sb_closing' => array('descr' => 'Closing'),
+               'sb_logging' => array('descr' => 'Logging'),
+               'sb_graceful' => array('descr' => 'Graceful'),
+               'sb_idle' => array('descr' => 'Idle'),
 );
 
 $i = 0;
@@ -42,7 +42,7 @@ if (is_file($rrd_filename))
   }
 } else { echo("file missing: $file");  }
 
-$colours   = "mixed";
+$colours   = "mixed-10c";
 $nototal   = 1;
 $unit_text = "Workers";
 

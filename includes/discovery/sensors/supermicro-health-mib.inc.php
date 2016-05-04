@@ -7,7 +7,7 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
@@ -55,7 +55,7 @@ foreach ($cache['supermicro'] as $index => $sensor_data)
   $limits = array('limit_high' => (is_numeric($sensor_data['smHealthMonitorHighLimit']) ? $sensor_data['smHealthMonitorHighLimit'] * $scale : NULL),
                   'limit_low'  => (is_numeric($sensor_data['smHealthMonitorLowLimit'])  ? $sensor_data['smHealthMonitorLowLimit']  * $scale : NULL));
 
-  if ($monitor)
+  if ($monitor & $descr != '')
   {
     discover_sensor($valid['sensor'], $sensortype, $device, $oid, $index, $mibtype, $descr, $scale, $value, $limits);
   }

@@ -7,12 +7,12 @@
  *
  * @package    observium
  * @subpackage discovery
- * @copyright  (C) 2006-2015 Adam Armstrong
+ * @copyright  (C) 2006-2013 Adam Armstrong, (C) 2013-2016 Observium Limited
  *
  */
 
 $mib = 'AIRESPACE-SWITCHING-MIB';
-echo(" $mib ");
+echo("$mib ");
 
 //AIRESPACE-SWITCHING-MIB::agentCurrentCPUUtilization.0 = 0
 $usage = snmp_get($device, 'agentCurrentCPUUtilization.0', '-OQUvs', $mib);
